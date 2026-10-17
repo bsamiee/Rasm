@@ -127,5 +127,5 @@ transform:
     FOUND: {replace: {source: $PRESENT, replace: '(?s)^.*$', by: ' is not None'}}
     MISSED: {replace: {source: $ABSENT, replace: '(?s)^.*$', by: ' is None'}}
 fix: $SEARCH$ARGS$FOUND$MISSED$KEPT
-message: '`$CALL` reads one match or the presence of a match through every match, `search`, `match`, or `fullmatch` stop at the first'
-note: '`findall` and `finditer` scan the whole string, the single-match functions return the first `Match` or `None`'
+message: '`$CALL` scans for every match to read one match or test for a match'
+note: 'Call `search`, `match`, or `fullmatch`, each returning the first `Match` or `None`'

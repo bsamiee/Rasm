@@ -7,22 +7,60 @@ utils:
         kind: call_expression
         any:
             - pattern: $V.iter_mut().find($F)
+            - pattern: $V.iter().find($F)
             - pattern: $V.iter().position($F)
+            - pattern: $V.iter().rposition($F)
             - pattern: $V.iter_mut().position($F)
+    absence-test:
+        any:
+            - kind: unary_expression
+              pattern: '!$V.iter().any($F)'
+              has: {stopBy: end, kind: binary_expression, has: {field: operator, regex: '^==$'}}
+            - kind: call_expression
+              any:
+                - pattern: $V.iter().all($F)
+                  has: {stopBy: end, kind: binary_expression, has: {field: operator, regex: '^!=$'}}
+                - all:
+                    - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^is_none$'}}, {has: {field: value, matches: lookup}}]}
+    sorted-lookup:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^binary_search(_by(_key)?)?$'}}, {has: {field: value, pattern: $V}}]}
     append:
         kind: call_expression
         all:
             - pattern: $V.push($PAIR)
             - has: {field: arguments, has: {nthChild: 1, kind: tuple_expression}}
+    sorted-insert:
+        kind: call_expression
+        all:
+            - pattern: $V.insert($AT, $PAIR)
+            - has: {field: arguments, has: {nthChild: 2, kind: tuple_expression}}
+    appends:
+        any:
+            - matches: append
+            - has: {stopBy: end, matches: append}
 rule:
     any:
         - kind: if_expression
           all:
             - has: {field: condition, kind: let_condition, has: {field: value, matches: lookup}}
-            - has: {field: alternative, kind: else_clause, has: {kind: block, has: {stopBy: end, matches: append}}}
+            - has: {field: alternative, kind: else_clause, has: {kind: block, matches: appends}}
+        - kind: if_expression
+          all:
+            - has: {field: condition, matches: absence-test}
+            - has: {field: consequence, matches: appends}
+        - kind: let_declaration
+          all:
+            - has: {field: value, matches: lookup}
+            - has: {field: alternative, matches: appends}
         - kind: match_expression
           all:
             - has: {field: value, matches: lookup}
-            - has: {field: body, has: {kind: match_arm, all: [{has: {field: pattern, regex: '^None$'}}, {has: {field: value, any: [{matches: append}, {has: {stopBy: end, matches: append}}]}}]}}
-message: '`$V` finds a pair by key and pushes a new pair when absent'
-note: 'Hold `indexmap::IndexMap<K, V>` and call `insert(<key>, <value>)`, or `entry(<key>)` to update a present value, the map keeps one entry per key in insertion order and looks keys up by hash'
+            - has: {field: body, has: {kind: match_arm, all: [{has: {field: pattern, regex: '^None$'}}, {has: {field: value, matches: appends}}]}}
+        - kind: match_expression
+          all:
+            - has: {field: value, matches: sorted-lookup}
+            - has: {field: body, has: {kind: match_arm, all: [{has: {field: pattern, regex: '^Err\('}}, {has: {field: value, any: [{matches: sorted-insert}, {has: {stopBy: end, matches: sorted-insert}}]}}]}}
+message: '`$V` finds a pair by key and inserts a new pair when absent'
+note: 'Hold `indexmap::IndexMap<K, V>` and call `insert(<key>, <value>)` or `entry(<key>)` to update a present value, or hold `std::collections::BTreeMap<K, V>` for pairs sorted by key'

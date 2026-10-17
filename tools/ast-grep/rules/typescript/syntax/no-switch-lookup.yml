@@ -66,4 +66,4 @@ rule:
           precedes: {matches: returning-if}
           not: {follows: {matches: returning-if}}
 message: '`$KEY` selects one returned value per literal case'
-note: 'Index a record keyed by the literals and validate the key at the boundary with `Schema.Literals(Struct.keys(<record>))`, each case holds one value'
+note: 'Index a record keyed by the literals and validate the key at the boundary with `Schema.Literals(Struct.keys(<record>))`'

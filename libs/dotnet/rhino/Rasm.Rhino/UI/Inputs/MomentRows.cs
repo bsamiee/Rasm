@@ -85,7 +85,7 @@ public static class MomentRows {
         let site = new CallbackSite(scope.Sink, typeof(DateTimePicker), nameof(DateTimePicker.ValueChanged))
         let pattern = LocalDateTimePattern.Create("G", RowText.Culture)
         let merged = fun((Option<TValue> held, LocalDateTime wall) =>
-            Admission.Validated<TValue, LocalDateTime>(held.Map(value => part switch {
+            ValidationResults.Validated<TValue, LocalDateTime>(held.Map(value => part switch {
                 DateTimePickerMode.Date => wall.Date.At(value.ToValue().TimeOfDay),
                 DateTimePickerMode.Time => value.ToValue().Date.At(wall.TimeOfDay),
                 DateTimePickerMode.DateTime => wall,

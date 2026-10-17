@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-variant-name-table
+language: rust
+severity: error
+utils:
+    variant:
+        kind: scoped_identifier
+        has: {field: path, kind: identifier, pattern: $E}
+    name:
+        kind: string_literal
+        regex: '^"[A-Za-z][\w-]*( [\w-]+)*"$'
+    named-pair:
+        kind: tuple_expression
+        all:
+            - not: {has: {nthChild: 3}}
+            - any:
+                - all: [{has: {nthChild: 1, matches: name}}, {has: {nthChild: 2, matches: variant}}]
+                - all: [{has: {nthChild: 1, matches: variant}}, {has: {nthChild: 2, matches: name}}]
+rule:
+    kind: array_expression
+    pattern: $TABLE
+    all:
+        - has: {nthChild: 1, matches: named-pair}
+        - has: {nthChild: 2}
+        - not: {has: {pattern: $_, not: {matches: named-pair}}}
+        - not: {has: {kind: tuple_expression, has: {kind: scoped_identifier, pattern: $V}, precedes: {stopBy: end, kind: tuple_expression, has: {kind: scoped_identifier, pattern: $V}}}}
+        - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: enum_item, has: {field: name, pattern: $E}}}
+message: '`$TABLE` pairs each variant of `$E` with its name by hand'
+note: 'Derive `strum::EnumString` for name to variant and `strum::IntoStaticStr` for variant to name with `#[strum(serialize = "<name>")]` per variant, iterate `<enum>::iter()` through `strum::IntoEnumIterator` for every variant, and delete the table'

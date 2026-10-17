@@ -20,4 +20,4 @@ rule:
             - has: {kind: lifetime, pattern: $L, matches: own-lifetime}
             - has: {kind: generic_type, regex: '^(\w+::)*Captures<', pattern: $L}
 message: 'Returned `impl Trait` restates its capture of `$L`'
-note: 'Drop the bound, a returned `impl Trait` in edition 2024 captures every in-scope generic and lifetime. Write `+ use<..>` for a narrower capture set. An outlives bound changing which hidden types compile stays as written'
+note: 'Delete the bound and write `+ use<..>` for a narrower capture set, keeping an outlives bound that changes which hidden types compile'

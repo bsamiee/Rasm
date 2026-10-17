@@ -92,6 +92,9 @@ Transitive pinning restores every transitive package with a `PackageVersion` ite
 |  [07]   | `NoWarn`               | Suppresses a restore code for the one reference                                          |
 |  [08]   | `Condition`            | Adds the reference under a condition, pack maps a `TargetFramework` condition alone      |
 
+- Analyzer and generator package references, and a `ProjectReference` with `OutputItemType="Analyzer"`, take `PrivateAssets="all"`
+- Default `PrivateAssets` withholds `analyzers` assets and passes the package to every referencing project
+
 | [INDEX] | [ASSET_CLASS]         | [PACKAGE_FOLDER]             | [MEANING]                                                           |
 | :-----: | :-------------------- | :--------------------------- | :------------------------------------------------------------------ |
 |  [01]   | `compile`             | `ref/<tfm>/` or `lib/<tfm>/` | Assemblies the compiler references                                  |

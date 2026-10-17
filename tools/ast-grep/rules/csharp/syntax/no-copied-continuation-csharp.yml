@@ -109,4 +109,4 @@ rule:
             - inside: {stopBy: {matches: owner}, matches: after-rest-call}
             - inside: {stopBy: {matches: owner}, matches: before-rest-call}
 message: '`$NAME` appends `$REST` to each branch and walks it again per branch, the work doubles per branch level'
-note: 'Walk each branch alone and join the branches to one shared continuation, so the remaining work is processed once'
+note: 'Walk each branch alone and join the branch results in one shared continuation that runs the remaining work once'

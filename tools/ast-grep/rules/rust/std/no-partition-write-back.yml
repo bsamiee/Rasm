@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-partition-write-back
+language: rust
+severity: error
+utils:
+    write-back:
+        kind: expression_statement
+        has: {kind: assignment_expression, any: [{pattern: '*$V = $KEPT'}, {pattern: '$V = $KEPT'}]}
+rule:
+    kind: let_declaration
+    all:
+        - any:
+            - pattern: 'let ($TAKEN, $KEPT): ($TYPE, $_) = $V.drain(..).partition($P);'
+            - all:
+                - pattern: 'let ($TAKEN, $KEPT) = $V.drain(..).partition($P);'
+                - has: {field: pattern, pattern: $UNTYPED}
+        - precedes: {matches: write-back}
+transform:
+    INFERRED: {replace: {source: $UNTYPED, replace: '^[\s\S]+$', by: 'Vec<_>'}}
+fix:
+    template: 'let $TAKEN: $TYPE$INFERRED = $V.extract_if(.., $P).collect();'
+    expandEnd: {matches: write-back}
+message: '`$V` drains into a partition and takes its kept half back'
+note: 'Call `<vec>.extract_if(.., <predicate>).collect()` with a predicate that takes `&mut T`'

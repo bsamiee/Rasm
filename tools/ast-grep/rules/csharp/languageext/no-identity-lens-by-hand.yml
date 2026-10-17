@@ -82,13 +82,13 @@ rule:
                     any:
                         - has: {field: name, regex: '^Get$'}
                         - all: [{nthChild: 1}, {not: {matches: named}}]
-                    has: {nthChild: {position: 1, reverse: true}, matches: csharp-identity-function}
+                    has: {nthChild: {position: 1, reverse: true}, matches: languageext-identity-function}
                 - has:
                     kind: argument
                     any:
                         - has: {field: name, regex: '^Set$'}
                         - all: [{nthChild: 2}, {not: {matches: named}}]
                     has: {nthChild: {position: 1, reverse: true}, matches: replacing-setter}
-message: '`Lens<$TYPE, $TYPE>.New` builds the identity lens by hand, call `Lens.identity<$TYPE>()`'
-note: '`Lens.identity` reads the whole value and replaces it whole, the lens a get returning its argument and a set returning the new value states'
+message: '`Lens<$TYPE, $TYPE>.New` builds the identity lens by hand'
+note: Call `Lens.identity<$TYPE>()`, which reads the whole value and replaces it whole
 fix: Lens.identity<$TYPE>()

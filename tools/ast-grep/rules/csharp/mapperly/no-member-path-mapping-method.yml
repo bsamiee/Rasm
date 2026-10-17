@@ -2,6 +2,7 @@
 id: no-member-path-mapping-method
 language: csharp
 severity: error
+files: ['libs/dotnet/rhino/Rasm.Rhino/**']
 utils:
     path:
         any:
@@ -56,7 +57,7 @@ utils:
 rule:
     kind: method_declaration
     all:
-        - matches: csharp-mapping-method
+        - matches: mapperly-mapping-method
         - not: {has: {kind: modifier, regex: '^partial$'}}
         - not:
             has:

@@ -12,7 +12,7 @@ public readonly partial struct MotionSpan : System.Numerics.IMinMaxValue<MotionS
     public static MotionSpan MinValue { get; } = new(Duration.Epsilon);
     public static MotionSpan MaxValue { get; } = new(Duration.FromMilliseconds(int.MaxValue));
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Duration value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref Duration value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -20,7 +20,7 @@ public readonly partial struct DampingRatio : System.Numerics.IMinMaxValue<Dampi
     public static DampingRatio MinValue { get; } = new(1d);
     public static DampingRatio MaxValue { get; } = new(double.Sqrt(double.MaxValue));
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -28,7 +28,7 @@ public readonly partial struct VisibleChange : System.Numerics.IMinMaxValue<Visi
     public static VisibleChange MinValue { get; } = new(double.BitIncrement(0d));
     public static VisibleChange MaxValue { get; } = new(1d);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [SmartEnum]

@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-redundant-conversion-tsx
+language: tsx
+severity: error
+utils:
+    declares:
+        matches: typescript-function-boundary
+        has: {field: parameters, has: {kind: 'required_parameter, optional_parameter', has: {field: pattern, pattern: $X}}}
+    string-parameter:
+        kind: identifier
+        pattern: $X
+        inside:
+            stopBy: {matches: declares}
+            matches: declares
+            has: {field: parameters, has: {kind: required_parameter, all: [{has: {field: pattern, pattern: $X}}, {has: {field: type, has: {kind: predefined_type, regex: '^string$'}}}]}}
+rule:
+    kind: template_string
+    pattern: $CONVERSION
+    all:
+        - not: {has: {kind: 'string_fragment, escape_sequence'}}
+        - has: {kind: template_substitution, has: {matches: string-parameter}}
+        - not: {has: {kind: template_substitution, nthChild: 2}}
+fix: $X
+message: '`$CONVERSION` converts parameter `$X` to the type its annotation declares'
+note: 'Read the parameter directly, a template holding one string substitution returns the string unchanged'

@@ -207,4 +207,4 @@ transform:
     DIRECT: {rewrite: {source: $CALL, rewriters: [attribute, computed-write, computed]}}
 fix: $DIRECT
 message: '`$CALL` reaches a public member through reflection'
-note: 'Use the member on its instance or type, or on the instance''s `__implementation__` where pythonnet returns an interface, pythonnet binds every public member of a returned object''s runtime type and of each imported type and returns out and ref parameters in a tuple after the result'
+note: 'Read the member on its instance or type, or on the instance''s `__implementation__` where pythonnet returns an interface. Pythonnet binds every public member of a returned object''s runtime type and of each imported type, and returns out and ref parameters in a tuple after the result'

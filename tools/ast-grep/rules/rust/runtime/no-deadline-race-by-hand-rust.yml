@@ -1,0 +1,81 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-deadline-race-by-hand-rust
+language: rust
+severity: error
+utils:
+    deadline-call:
+        kind: call_expression
+        has: {field: function, regex: '^((::)?tokio::)?(time::)?sleep(_until)?$|^((::)?futures_timer::)?Delay::new$|^((::)?(async_io|smol)::)?Timer::(after|at)$', pattern: $SLEEP}
+    timer-token:
+        kind: identifier
+        any:
+            - regex: '^sleep(_until)?$'
+              pattern: $SLEEP
+              not: {follows: {regex: '^\.$'}}
+            - regex: '^new$'
+              follows: {regex: '^::$', follows: {regex: '^Delay$', pattern: $SLEEP}}
+            - regex: '^(after|at)$'
+              follows: {regex: '^::$', follows: {regex: '^Timer$', pattern: $SLEEP}}
+    deadline-base:
+        any:
+            - matches: deadline-call
+            - kind: call_expression
+              all:
+                - has: {field: function, regex: '^((::)?(std::)?boxed::)?Box::pin$'}
+                - has: {field: arguments, has: {nthChild: 1, matches: deadline-call}}
+            - kind: call_expression
+              has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^boxed$'}}, {has: {field: value, matches: deadline-call}}]}
+            - kind: macro_invocation
+              all:
+                - has: {field: macro, regex: '^((::)?(std|core)::pin::)?pin$'}
+                - has: {kind: token_tree, has: {matches: timer-token, precedes: {kind: token_tree, regex: '^\('}}}
+    deadline-future:
+        any:
+            - matches: deadline-base
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^fuse$'}}, {has: {field: value, matches: deadline-base}}]}
+                - has: {field: arguments, regex: '^\(\s*\)$'}
+    deadline-binding:
+        kind: identifier
+        pattern: $BOUND
+        inside:
+            kind: function_item
+            stopBy: {kind: function_item}
+            has: {stopBy: end, kind: let_declaration, all: [{has: {field: pattern, pattern: $BOUND}}, {has: {field: value, matches: deadline-future}}]}
+    deadline-operand:
+        any:
+            - matches: deadline-future
+            - matches: deadline-binding
+            - kind: reference_expression
+              has: {field: value, matches: deadline-binding}
+            - kind: call_expression
+              has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^as_mut$'}}, {has: {field: value, matches: deadline-binding}}]}
+    select-function:
+        any:
+            - regex: '^((::)?futures(_util)?::)?future::select$'
+            - regex: '^select$'
+              inside: {kind: source_file, stopBy: end, has: {kind: use_declaration, regex: 'futures(_util)?::future::(select\b|\{[^}]*\bselect\b)'}}
+rule:
+    any:
+        - matches: rust-two-arm-select
+          all:
+            - has: {field: macro, pattern: $RACE}
+            - has: {regex: '^!$', pattern: $$BANG}
+            - has:
+                kind: token_tree
+                all:
+                    - any:
+                        - has: {matches: timer-token, precedes: {kind: token_tree, regex: '^\(', precedes: &arm-end {stopBy: {not: {kind: 'line_comment, block_comment'}}, regex: '^=>$'}}}
+                        - has: {matches: timer-token, precedes: {kind: token_tree, regex: '^\(', precedes: &fused {regex: '^\.$', precedes: {regex: '^fuse$', precedes: {kind: token_tree, regex: '^\(\s*\)$', precedes: *arm-end}}}}}
+                        - has: {matches: deadline-binding, precedes: *arm-end}
+                        - has: {matches: deadline-binding, precedes: *fused}
+                    - not: {has: {kind: identifier, regex: '^cancelled(_owned)?$', follows: {regex: '^\.$'}}}
+                    - not: {has: {stopBy: end, kind: identifier, regex: '^reset$'}}
+        - kind: call_expression
+          all:
+            - has: {field: function, pattern: $RACE, matches: select-function}
+            - has: {field: arguments, all: [{has: {nthChild: 2}}, {not: {has: {nthChild: 3}}}]}
+            - has: {field: arguments, has: {matches: deadline-operand}}
+message: '`$RACE$BANG` races one future against `$SLEEP` by hand'
+note: 'Await `tokio::time::timeout(<duration>, <future>)` or `timeout_at(<deadline>, <future>)`, `Err(Elapsed)` at the deadline with the future dropped'

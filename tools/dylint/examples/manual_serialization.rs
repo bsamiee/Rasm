@@ -29,4 +29,4 @@ fn rendered(port: &Port) -> ContentBlock { ContentBlock::text(port.number.to_str
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-fn main() { black_box((tried, bound, defaulted, pretty, direct, rendered)); }
+fn main() { black_box(&(tried, bound, defaulted, pretty, direct, rendered)); }

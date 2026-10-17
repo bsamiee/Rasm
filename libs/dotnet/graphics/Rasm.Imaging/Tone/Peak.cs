@@ -16,7 +16,7 @@ public readonly partial struct KneeOffset : IMinMaxValue<KneeOffset> {
     public static KneeOffset MaxValue { get; } = new(2f);
     public static KneeOffset Bt2390 => MinValue;
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 public sealed record PeakMapping(Nits TargetPeak, AxisFraction Black, KneeOffset Knee) : IStateRecord<PeakMapping, PeakParameter> {

@@ -63,7 +63,7 @@ public static class Naming {
 
     extension<TCounter>(TCounter counter) where TCounter : IObjectFactory<TCounter, int, ValidationError>, IConvertible<int> {
         public Option<TCounter> Next() =>
-            counter.ToValue() is var held and < int.MaxValue ? Admission.Validated<TCounter, int>(held + 1).ToOption() : None;
+            counter.ToValue() is var held and < int.MaxValue ? ValidationResults.Validated<TCounter, int>(held + 1).ToOption() : None;
     }
 
     public static string Compose(NamePart stem, OutputName name, Option<OutputVersion> version) =>

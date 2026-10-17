@@ -18,7 +18,7 @@ public readonly partial struct TileSize : System.Numerics.IMinMaxValue<TileSize>
 
     public static TileSize Clamped(float width) => new(float.Clamp(width, MinValue._value, MaxValue._value));
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 public readonly record struct TileFlow(int Columns, SizeF Cell) {

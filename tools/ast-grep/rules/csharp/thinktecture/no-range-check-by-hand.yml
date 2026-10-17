@@ -1,0 +1,291 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-range-check-by-hand
+language: csharp
+severity: error
+utils:
+    operand:
+        not: {kind: 'integer_literal, real_literal, prefix_unary_expression'}
+    numeric-type:
+        any:
+            - kind: predefined_type
+              regex: '^(byte|sbyte|short|ushort|int|uint|long|ulong|nint|nuint|float|double|decimal)$'
+            - matches: {csharp-type-name: {name: {regex: '^(S?Byte|U?Int(16|32|64|128|Ptr)|Half|Single|Double|Decimal)$'}}}
+    type-limit:
+        kind: member_access_expression
+        all:
+            - has: {field: name, regex: '^(MinValue|MaxValue)$'}
+            - has: {field: expression, matches: numeric-type}
+    lower:
+        kind: binary_expression
+        not: {has: {matches: type-limit}}
+        any:
+            - all:
+                - has: {field: operator, regex: '^>=?$'}
+                - has: {field: left, matches: operand, pattern: $VALUE}
+            - all:
+                - has: {field: operator, regex: '^<=?$'}
+                - has: {field: right, matches: operand, pattern: $VALUE}
+    upper:
+        kind: binary_expression
+        not: {has: {matches: type-limit}}
+        any:
+            - all:
+                - has: {field: operator, regex: '^<=?$'}
+                - has: {field: left, matches: operand, pattern: $VALUE}
+            - all:
+                - has: {field: operator, regex: '^>=?$'}
+                - has: {field: right, matches: operand, pattern: $VALUE}
+    lower-term:
+        any:
+            - matches: lower
+            - kind: parenthesized_expression
+              has: {matches: lower}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^(&&|&|\|\||\|)$'}
+                - has: {field: right, matches: lower-term}
+    upper-term:
+        any:
+            - matches: upper
+            - kind: parenthesized_expression
+              has: {matches: upper}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^(&&|&|\|\||\|)$'}
+                - has: {field: right, matches: upper-term}
+    bound-pair:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^(&&|&|\|\||\|)$'}
+            - any:
+                - all:
+                    - has: {field: left, matches: lower-term}
+                    - has: {field: right, matches: upper-term}
+                - all:
+                    - has: {field: left, matches: upper-term}
+                    - has: {field: right, matches: lower-term}
+    const-name:
+        kind: identifier
+        pattern: $BOUND
+        inside:
+            stopBy: end
+            kind: compilation_unit
+            has:
+                stopBy: end
+                kind: field_declaration
+                all:
+                    - has: {kind: modifier, regex: '^const$'}
+                    - has: {kind: variable_declaration, all: [{has: {field: type, matches: numeric-type}}, {has: {kind: variable_declarator, has: {field: name, pattern: $BOUND}}}]}
+    limit-bound:
+        any:
+            - matches: const-name
+            - kind: member_access_expression
+              has: {field: name, matches: const-name}
+            - kind: member_access_expression
+              all:
+                - has: {field: name, regex: '^(MinValue|MaxValue)$'}
+                - not: {matches: type-limit}
+            - kind: parenthesized_expression
+              has: {stopBy: end, matches: limit-bound}
+    limit-leading:
+        any:
+            - matches: limit-bound
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^(&&|\|\|)$'}
+                - has: {field: left, matches: limit-leading}
+            - kind: conditional_expression
+              has: {field: condition, matches: limit-leading}
+    one-bound:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^[<>]=?$'}
+            - any:
+                - all:
+                    - has: {field: left, matches: operand, not: {matches: limit-bound}}
+                    - has: {field: right, matches: limit-bound}
+                - all:
+                    - has: {field: left, matches: limit-bound}
+                    - has: {field: right, matches: operand, not: {matches: limit-bound}}
+    condition-chain:
+        kind: binary_expression, parenthesized_expression, prefix_unary_expression
+    error-value:
+        any:
+            - kind: invocation_expression
+              any:
+                - has: {field: function, regex: '^((IO\s*\.\s*)?[Ff]ail|FinFail)(\s*<.+>)?$'}
+                - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Error$'}, member: {regex: '^New$'}}}}
+            - kind: object_creation_expression
+              any:
+                - has: {field: type, matches: {csharp-type-name: {name: {regex: '^(Expected|Exceptional|ValidationError)$'}}}}
+                - has: {field: type, pattern: $ERROR_TYPE, inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, matches: languageext-error-record, has: {field: name, pattern: $ERROR_TYPE}}}}
+    rejection:
+        any:
+            - matches: error-value
+            - kind: 'object_creation_expression, implicit_object_creation_expression'
+              matches: {languageext-result-target: {type: {matches: {csharp-type-name: {name: {regex: '^(Fin|Validation)$'}}}}}}
+    failing:
+        any:
+            - kind: invocation_expression
+              has: {field: function, regex: '(^|\.)\s*[Ff]ail(\s*<.+>)?$'}
+            - has: {stopBy: end, kind: invocation_expression, has: {field: function, regex: '(^|\.)\s*[Ff]ail(\s*<.+>)?$'}}
+    rejecting-call:
+        kind: invocation_expression
+        any:
+            - has:
+                field: function
+                any:
+                    - kind: member_access_expression
+                      has: {field: name, regex: '^Unless$'}
+                    - matches: {csharp-type-name: {name: {regex: '^guard$'}}}
+                    - kind: identifier, generic_name
+                      regex: '^Unless(\s*<.+>)?$'
+            - all:
+                - has: {field: function, matches: {csharp-type-name: {name: {regex: '^(when|unless)$'}}}}
+                - has: {field: arguments, has: {kind: argument, nthChild: 2, has: {matches: failing}}}
+    rejecting-site:
+        inside:
+            stopBy: {not: {matches: condition-chain}}
+            any:
+                - kind: argument
+                  nthChild: 1
+                  inside: {kind: argument_list, inside: {matches: rejecting-call}}
+                - kind: arrow_expression_clause, return_statement
+                  inside:
+                    stopBy: end
+                    kind: method_declaration, local_function_statement
+                    all:
+                        - has: {field: name, pattern: $RELAY}
+                        - inside:
+                            stopBy: end
+                            kind: compilation_unit
+                            has:
+                                stopBy: end
+                                kind: invocation_expression
+                                all:
+                                    - has: {field: function, pattern: $RELAY}
+                                    - inside:
+                                        stopBy: end
+                                        kind: argument
+                                        nthChild: 1
+                                        inside: {kind: argument_list, inside: {matches: rejecting-call}}
+                - kind: conditional_expression
+                  has: {field: condition, stopBy: end, pattern: $CHECK}
+                  any:
+                    - has: {field: consequence, matches: rejection}
+                    - has: {field: alternative, matches: rejection}
+    count-bound:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^-$'}
+            - has: {field: right, regex: '^1$'}
+    runtime-bound:
+        kind: member_access_expression
+        all:
+            - not: {pattern: $VALUE}
+            - has: {field: expression, kind: identifier, pattern: $BOUNDS}
+            - inside:
+                stopBy: end
+                any:
+                    - kind: method_declaration, local_function_statement, lambda_expression, constructor_declaration
+                      has: {field: parameters, any: [{kind: implicit_parameter, pattern: $BOUNDS}, {has: {kind: parameter, has: {field: name, pattern: $BOUNDS}}}]}
+                    - kind: query_expression
+                      has: {kind: from_clause, has: {field: name, pattern: $BOUNDS}}
+    count-leading:
+        any:
+            - matches: count-bound
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^(&&|\|\|)$'}
+                - has: {field: left, matches: count-leading}
+            - kind: conditional_expression
+              has: {field: condition, matches: count-leading}
+    count-pattern:
+        kind: relational_pattern
+        has: {matches: count-leading}
+    range-pattern:
+        not: {has: {kind: relational_pattern, has: {any: [{matches: type-limit}, {kind: conditional_expression, has: {field: condition, matches: type-limit}}]}}}
+        any:
+            - kind: and_pattern
+              all:
+                - has: {kind: relational_pattern, regex: '^>'}
+                - has: {kind: relational_pattern, regex: '^<=', not: {matches: count-pattern}}
+            - kind: or_pattern
+              all:
+                - has: {kind: relational_pattern, regex: '^<'}
+                - has: {kind: relational_pattern, regex: '^>\s*[^=]', not: {matches: count-pattern}}
+    index-upper:
+        any:
+            - kind: binary_expression
+              any:
+                - all: [{has: {field: operator, regex: '^<$'}}, {has: {field: left, pattern: $VALUE}}]
+                - all: [{has: {field: operator, regex: '^>$'}}, {has: {field: right, pattern: $VALUE}}]
+                - all: [{has: {field: operator, regex: '^<=$'}}, {has: {field: left, pattern: $VALUE}}, {has: {field: right, matches: count-bound}}]
+                - all: [{has: {field: operator, regex: '^>=$'}}, {has: {field: right, pattern: $VALUE}}, {has: {field: left, matches: count-bound}}]
+            - kind: parenthesized_expression
+              has: {matches: index-upper}
+    index-upper-violation:
+        any:
+            - kind: binary_expression
+              any:
+                - all: [{has: {field: operator, regex: '^>=$'}}, {has: {field: left, pattern: $VALUE}}]
+                - all: [{has: {field: operator, regex: '^<=$'}}, {has: {field: right, pattern: $VALUE}}]
+                - all: [{has: {field: operator, regex: '^>$'}}, {has: {field: left, pattern: $VALUE}}, {has: {field: right, matches: count-bound}}]
+                - all: [{has: {field: operator, regex: '^<$'}}, {has: {field: right, pattern: $VALUE}}, {has: {field: left, matches: count-bound}}]
+            - kind: parenthesized_expression
+              has: {matches: index-upper-violation}
+    parse-chain:
+        inside:
+            stopBy: {not: {matches: condition-chain}}
+            has: {stopBy: end, kind: invocation_expression, has: {field: function, kind: member_access_expression, has: {field: name, regex: '^TryParse$'}}}
+rule:
+    any:
+        - kind: binary_expression
+          pattern: $CHECK
+          all:
+            - matches: bound-pair
+            - matches: rejecting-site
+            - not:
+                any:
+                    - all:
+                        - has: {field: operator, regex: '^&&?$'}
+                        - has: {stopBy: {not: {matches: condition-chain}}, matches: index-upper}
+                    - all:
+                        - has: {field: operator, regex: '^\|\|?$'}
+                        - has: {stopBy: {not: {matches: condition-chain}}, matches: index-upper-violation}
+        - kind: is_pattern_expression
+          pattern: $CHECK
+          all:
+            - has:
+                field: pattern
+                any:
+                    - matches: range-pattern
+                    - has: {stopBy: end, matches: range-pattern}
+            - any:
+                - matches: rejecting-site
+                - has: {field: pattern, has: {stopBy: end, kind: conditional_expression, any: [{has: {field: consequence, matches: rejection}}, {has: {field: alternative, matches: rejection}}]}}
+        - kind: binary_expression
+          pattern: $CHECK
+          all:
+            - matches: one-bound
+            - matches: rejecting-site
+            - not: {inside: {stopBy: {not: {matches: condition-chain}}, matches: bound-pair}}
+        - kind: is_pattern_expression
+          pattern: $CHECK
+          all:
+            - has: {field: pattern, kind: relational_pattern, has: {matches: limit-leading}}
+            - any:
+                - matches: rejecting-site
+                - has: {field: pattern, has: {stopBy: end, kind: conditional_expression, any: [{has: {field: consequence, matches: rejection}}, {has: {field: alternative, matches: rejection}}]}}
+    not:
+        any:
+            - has: {stopBy: end, matches: runtime-bound}
+            - matches: parse-chain
+            - inside:
+                stopBy: end
+                kind: method_declaration
+                has: {field: name, regex: '^Unless\w*$'}
+                inside: {kind: declaration_list, inside: {matches: languageext-error-record}}
+            - inside: {stopBy: end, matches: thinktecture-validation-hook}
+message: '`$CHECK` checks a numeric range by hand'
+note: 'Validate through a value type implementing `IMinMaxValue<TSelf>` whose hook assigns `ValidationResults.OutsideRange(value, MinValue, MaxValue)`, and saturate a relative change into the type''s bounds before `<type>.Validated`'

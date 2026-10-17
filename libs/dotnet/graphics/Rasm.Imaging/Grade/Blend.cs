@@ -311,9 +311,9 @@ file readonly struct LayerAction(Memory2D<Vector4> rows, Memory2D<Vector4> layer
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Blend {
-    public static PixelPass Mixed(PixelPass stage, BlendingMode mode, AxisFraction mix, Seq<Mask> masks) =>
+    public static Option<PixelPass> Mixed(PixelPass stage, BlendingMode mode, AxisFraction mix, Seq<Mask> masks) =>
         mix == AxisFraction.MinValue
-            ? new PixelPass.Color(static _ => { })
+            ? None
             : mode == BlendingMode.Mix && mix == AxisFraction.MaxValue && masks.IsEmpty
             ? stage
             : stage.Switch<Blending, PixelPass>(

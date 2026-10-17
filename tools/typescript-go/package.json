@@ -1,0 +1,15 @@
+{
+    "name": "@rasm/typescript-go",
+    "private": true,
+    "description": "Type-aware checks through the typescript-go API, run over every tsconfig.json project by root target lint:typescript-go",
+    "type": "module",
+    "dependencies": {
+        "@effect/platform-node": "catalog:",
+        "effect": "catalog:",
+        "typescript": "catalog:"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:"
+    },
+    "nx": { "targets": { "test": { "options": { "args": [ "--passWithNoTests" ] }, "inputs": [ "...", { "externalDependencies": [ "typescript", "@effect/tsgo" ] } ] } } }
+}

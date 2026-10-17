@@ -35,7 +35,7 @@ utils:
         kind: block
         all:
             - has: {matches: write-statement}
-            - not: {has: {pattern: $_, matches: rust-statement-slot, not: {any: [{matches: write-statement}, {matches: exit-statement}, {matches: effect-free-let}]}}}
+            - not: {has: {pattern: $_, matches: rust-statement, not: {any: [{matches: write-statement}, {matches: exit-statement}, {matches: effect-free-let}, {kind: expression_statement, has: {nthChild: 1, matches: index-step}}]}}}
     guarded-write:
         kind: expression_statement
         has:
@@ -50,8 +50,8 @@ utils:
     return-block:
         kind: block
         all:
-            - has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, kind: expression_statement, has: {nthChild: 1, matches: valued-return}}
-            - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
+            - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, kind: expression_statement, has: {nthChild: 1, matches: valued-return}}
+            - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
     guarded-return:
         kind: expression_statement
         has:
@@ -68,13 +68,13 @@ utils:
                 - matches: write-block
                 - all:
                     - has: {matches: guarded-write}
-                    - not: {has: {pattern: $_, matches: rust-statement-slot, not: {any: [{matches: guarded-write}, {matches: effect-free-let}]}}}
+                    - not: {has: {pattern: $_, matches: rust-statement, not: {any: [{matches: guarded-write}, {matches: effect-free-let}]}}}
     searching-body:
         kind: block
         all:
             - not: {has: {stopBy: end, kind: await_expression}}
             - has: {matches: guarded-return}
-            - not: {has: {pattern: $_, matches: rust-statement-slot, not: {any: [{matches: guarded-return}, {matches: effect-free-let}]}}}
+            - not: {has: {pattern: $_, matches: rust-statement, not: {any: [{matches: guarded-return}, {matches: effect-free-let}]}}}
     plain-next:
         kind: call_expression
         all:
@@ -93,9 +93,21 @@ utils:
                 all:
                     - has: {kind: mutable_specifier}
                     - has: {field: pattern, kind: identifier, pattern: $STATE}
+    index-step:
+        any:
+            - kind: compound_assignment_expr
+              all: [{has: {field: left, pattern: $INDEX}}, {has: {field: right, regex: '^1(_?usize)?$'}}]
+            - kind: assignment_expression
+              all:
+                - has: {field: left, pattern: $INDEX}
+                - has: {field: right, any: [{pattern: $INDEX + 1}, {kind: call_expression, has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $INDEX}}, {has: {field: field, regex: '^(saturating|checked|strict|wrapping)_add$'}}]}}]}
     iterating-while:
         kind: while_expression
-        has: {field: condition, kind: let_condition, has: {field: value, matches: plain-next}}
+        any:
+            - has: {field: condition, kind: let_condition, has: {field: value, matches: plain-next}}
+            - all:
+                - has: {field: condition, kind: let_condition, has: {field: value, kind: call_expression, all: [{has: {field: function, kind: field_expression, has: {field: field, regex: '^get$'}}}, {has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $INDEX}, not: {has: {nthChild: 2}}}}]}}
+                - has: {field: body, has: {stopBy: end, matches: index-step}}
 rule:
     any:
         - kind: for_expression
@@ -115,7 +127,7 @@ rule:
             - has:
                 field: body
                 has:
-                    nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}
+                    nthChild: {position: 1, ofRule: {matches: rust-statement}}
                     any:
                         - kind: match_expression
                           has: {field: value, matches: plain-next}

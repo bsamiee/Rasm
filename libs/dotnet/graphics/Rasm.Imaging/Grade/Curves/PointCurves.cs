@@ -16,7 +16,7 @@ public readonly partial struct CurveCoordinate : IMinMaxValue<CurveCoordinate> {
     public static CurveCoordinate MinValue { get; } = new(CurveAxis.Items.Min(static axis => axis.Extent.Low));
     public static CurveCoordinate MaxValue { get; } = new(CurveAxis.Items.Max(static axis => axis.Extent.High));
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [SmartEnum]

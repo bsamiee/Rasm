@@ -48,5 +48,5 @@ rule:
                             all:
                                 - has: {field: key, regex: '^(uses|"uses"|''uses'')$'}
                                 - has: {field: value, regex: '^["'']?actions/github-script@'}
-message: '`$KEY` source holds a `${{ }}` expression GitHub substitutes as text before parsing, a step `env` entry read as a variable removes it'
+message: '`$KEY` source holds a `${{ }}` expression GitHub substitutes as text before the shell or script parses it'
 note: 'Set `env: {<NAME>: ''${{ <expression> }}''}` on the step and read `"$<NAME>"` in a bash `run`, `$env:<NAME>` in a pwsh `run`, or `process.env.<NAME>` in `script`'

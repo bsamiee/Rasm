@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-try-block-by-hand
+language: rust
+severity: error
+utils:
+    try-closure:
+        kind: closure_expression
+        all:
+            - not: {regex: '^static\b'}
+            - has: {field: parameters, regex: '^\|\s*\|$'}
+            - has: {field: body, has: {stopBy: {kind: closure_expression}, kind: try_expression}}
+            - not: {has: {field: body, has: {stopBy: {kind: closure_expression}, kind: return_expression}}}
+    wrapped-value:
+        kind: call_expression
+        has: {field: function, kind: identifier, regex: '^(Some|Ok)$'}
+rule:
+    any:
+        - kind: call_expression
+          all:
+            - has: {field: arguments, not: {has: {pattern: $_}}}
+            - has: {field: function, kind: parenthesized_expression, has: {matches: try-closure}}
+        - kind: let_declaration
+          all:
+            - has: {field: pattern, kind: identifier, pattern: $CLOSURE}
+            - has: {field: value, matches: try-closure}
+            - precedes: {any: [{pattern: $CLOSURE()}, {has: {stopBy: end, pattern: $CLOSURE()}}]}
+            - not: {precedes: {stopBy: end, all: [{has: {stopBy: end, kind: identifier, pattern: $CLOSURE}}, {follows: {stopBy: end, has: {stopBy: end, pattern: $CLOSURE()}}}]}}
+            - not: {precedes: {has: {stopBy: end, kind: identifier, pattern: $CLOSURE, not: {inside: {kind: call_expression, field: function}}}}}
+        - kind: block
+          all:
+            - has: {kind: label, pattern: $LABEL}
+            - has: {nthChild: {position: 1, reverse: true}, matches: wrapped-value}
+            - has:
+                stopBy: {kind: closure_expression}
+                kind: break_expression
+                all:
+                    - has: {kind: label, pattern: $LABEL}
+                    - has: {any: [{kind: identifier, regex: '^None$'}, {kind: call_expression, has: {field: function, kind: identifier, regex: '^Err$'}}]}
+message: 'Closure called once or labeled block stands in for a `try` block'
+note: 'Write `try { <statements>; <value> }` (`#![feature(try_blocks)]`), or `async move { <statements>; Ok(<value>) }` for an `async` closure'

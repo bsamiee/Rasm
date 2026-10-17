@@ -16,7 +16,6 @@ utils:
     guard:
         kind: if_expression
         all:
-            - not: {matches: rust-commented}
             - not: {has: {field: alternative, pattern: $_}}
             - has: {field: consequence, matches: early-return}
     plain-condition:
@@ -100,7 +99,6 @@ utils:
     mapping-match:
         kind: match_expression
         all:
-            - not: {matches: rust-commented}
             - not: {matches: rust-const-context}
             - has: {field: value, pattern: $R, matches: subject}
             - has: {field: body, matches: two-arms}
@@ -112,10 +110,9 @@ utils:
             - has:
                 kind: if_expression
                 all:
-                    - not: {matches: rust-commented}
                     - not: {has: {field: alternative, pattern: $_}}
                     - has: {field: condition, kind: let_condition, all: [{has: {field: pattern, matches: err-binding}}, {has: {field: value, pattern: $R, matches: subject}}]}
-                    - has: {field: consequence, kind: block, all: [{has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, any: [{matches: returned-error}, {kind: expression_statement, has: {matches: returned-error}}]}}, {not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}}]}
+                    - has: {field: consequence, kind: block, all: [{has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, any: [{matches: returned-error}, {kind: expression_statement, has: {matches: returned-error}}]}}, {not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}}]}
 rule:
     all:
         - any:
@@ -177,7 +174,6 @@ rule:
                         - has: {matches: value-early}
                         - precedes: {matches: tail, pattern: $LAST, not: {regex: '\n'}}
                         - has: {kind: if_expression, has: {field: condition, not: {regex: '\n'}, pattern: $COND}}
-        - not: {has: {stopBy: end, any: [{matches: rust-binary-header-read}, {matches: rust-calendar-rule}, {matches: rust-html-tag-scan}, {matches: rust-markdown-fence-scan}, {matches: rust-obj-face}, {matches: rust-stl-text}]}}
 transform:
     THEN_COMPOUND_WRAPPED: {replace: {source: $THEN_COMPOUND, replace: '^([\s\S]+)$', by: '($1)'}}
     UNLESS_PRIMARY_WRAPPED: {replace: {source: $UNLESS_PRIMARY, replace: '^([\s\S]+)$', by: '(!$1)'}}
@@ -202,5 +198,5 @@ transform:
 fix:
     template: '$THEN_PRIMARY$THEN_COMPOUND_WRAPPED$UNLESS_PRIMARY_WRAPPED$UNLESS_COMPOUND_WRAPPED$THEN_OPEN$X$THEN_CLOSE$IF_OPEN$COND$IF_THEN$VALUE$IF_ELSE$LAST$IF_CLOSE$R$MAP_OPEN$OKV$MAP_MID$A$MAP_CLOSE$MAP_ERR_OPEN$RET_OPEN$ERRV$MAP_ERR_MID$RET_MID$B$RET$MAP_ERR_CLOSE$RET_CLOSE$STATEMENT_END$TAIL_BREAK$GUARD_TAIL'
     expandEnd: {matches: tail}
-message: '`if` or `match` leaves through an early `return` or restates each result case where one expression selects the result'
-note: 'Write `<condition>.then(|| <value>)` where the arms are `Some(<value>)` and `None`, `(!<condition>).then(|| <value>)` where they are `None` and `Some(<value>)`, `if <condition> { <value> } else { <tail> }` as the tail otherwise, `<result>.map_err(|<error>| <mapped>)?` where an arm returns a mapped `Err`, and `<result>.map(|<value>| ..).map_err(|<error>| ..)` where arms rewrap `Ok` and `Err`. Clippy `redundant_closure` reduces `|e| <Variant>(e)` to `<Variant>`. A guard holding a comment, a multi-line arm, a valueless `return`, a closure body holding the guard and tail alone, and a borrowed or converted (`.into()`) error stay as written'
+message: '`if` or `match` selects a result through an early `return` or by restating each case'
+note: 'Write `<condition>.then(|| <value>)` for arms `Some(<value>)` and `None`, `(!<condition>).then(|| <value>)` for `None` and `Some(<value>)`, `if <condition> { <value> } else { <tail> }` as the tail otherwise, `<result>.map_err(|<error>| <mapped>)?` for an arm returning a mapped `Err`, and `<result>.map(..).map_err(..)` for arms rewrapping `Ok` and `Err`'

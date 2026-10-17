@@ -21,7 +21,7 @@ public readonly partial struct PlotAspect : IMinMaxValue<PlotAspect> {
     public static PlotAspect MaxValue { get; } = new(float.MaxValue);
     public static PlotAspect Proportional { get; } = new(0.4f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 public sealed record ScopeFrames(PixelFrame Frame, Gamut Gamut, Transfer Encoding, Option<float> MaxCode, Option<ClipLevels> Clipping, Option<(PixelFrame Frame, Gamut Gamut)> Scene);
@@ -527,15 +527,16 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
         };
 
     private static Option<LevelsParameter> Nearer(ScopeViewState state, RectangleF plot, float x, Levels pair) =>
-        toSeq(toSeq(LevelsParameter.Items).OrderBy(handle => MathF.Abs(LevelX(state, plot, Level(handle, pair)) - x))).Head;
+        Optional(LevelsParameter.Items.MinBy(handle => MathF.Abs(LevelX(state, plot, Level(handle, pair)) - x)));
 
     private static Fin<Levels> Shifted(LevelsParameter handle, Levels pair, float level) =>
         handle.Switch(
             (Pair: pair, Level: level),
             black: static held =>
-                from black in SignedMagnitude.Validated(held.Level)
-                from white in Exposure.Validated(float.Log2(Level(LevelsParameter.White, held.Pair) - held.Level))
-                select new Levels(black, white),
+                (SignedMagnitude.Validated(held.Level).ToValidation(), Exposure.Validated(float.Log2(Level(LevelsParameter.White, held.Pair) - held.Level)).ToValidation())
+                    .Apply(static (black, white) => new Levels(black, white))
+                    .As()
+                    .ToFin(),
             white: static held =>
                 Exposure.Validated(float.Log2(held.Level - held.Pair.Black)).Map(white => held.Pair with { White = white }));
 
@@ -858,5 +859,5 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
 
     private static int Peak(ReadOnlyMemory<int> counts) => MemoryMarshal.ToEnumerable(counts).Max();
 
-    private static Fin<AxisRange> Reaching(float high) => Admission.Admitted(AxisRange.Validate(0f, high, out AxisRange range), range);
+    private static Fin<AxisRange> Reaching(float high) => ValidationResults.ToFin(AxisRange.Validate(0f, high, out AxisRange range), range);
 }

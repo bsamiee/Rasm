@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-call-target
+language: xml
+severity: error
+files: ['**/*.{csproj,props,targets}']
+rule:
+    any:
+        - matches: {msbuild-element: {name: {regex: '^CallTarget$', pattern: _TASK}}}
+        - all:
+            - matches: {msbuild-element: {name: {regex: '^MSBuild$', pattern: _TASK}}}
+            - matches: {msbuild-metadata: {name: {regex: '^Projects$'}, value: {regex: '^["'']\s*\$\((MSBuildProjectFullPath|MSBuildProjectFile|MSBuildThisFileFullPath)\)\s*["'']$'}}}
+            - not: {matches: {msbuild-metadata: {name: {regex: '^(Properties|RemoveProperties)$'}, value: {regex: '[^"''\s]'}}}}
+message: '`$TASK` runs a target of its own project, whose properties and items stay hidden until the calling target finishes'
+note: Name the target in `DependsOnTargets`

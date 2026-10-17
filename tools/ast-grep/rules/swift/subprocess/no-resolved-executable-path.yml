@@ -22,4 +22,4 @@ rule:
                     - has: {field: name, has: {field: bound_identifier, pattern: $RESOLVED}}
                     - has: {stopBy: end, kind: call_expression, pattern: '$_.resolveExecutablePath(in: $ENVIRONMENT)'}
 message: '`$PATH` runs a path that `resolveExecutablePath(in:)` found under the environment the child receives'
-note: 'Run `Executable.name(_:)` with that environment, Subprocess searches the same `PATH` at spawn and reports a missing executable as `SubprocessError.Code.executableNotFound`'
+note: 'Run `Executable.name(_:)` with that environment, and match `SubprocessError.Code.executableNotFound` for a missing executable'

@@ -36,5 +36,5 @@ rule:
                 kind: block
                 inside: {kind: class_definition, has: {field: superclasses, has: {matches: enum-base}}}
                 not: {has: {any: [{matches: unpacking-init}, {kind: decorated_definition, has: {matches: unpacking-init}}]}}
-message: 'Member `$MEMBER` holds values of mixed kinds in one tuple read by position, `__init__(self, <a>, <b>)` unpacks it into one attribute per element'
-note: '`Enum` passes a tuple value to `__init__` as separate arguments, and the tuple holds no attribute name a template could emit'
+message: 'Enum member `$MEMBER` holds values of mixed kinds in one tuple read by position'
+note: 'Unpack the tuple into one attribute per element through `__init__(self, <a>, <b>)`, `Enum` passing a tuple value to `__init__` as separate arguments'

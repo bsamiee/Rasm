@@ -225,7 +225,7 @@ internal static class JobMapper {
         (Fraction(region.Left), Fraction(region.Top), Fraction(region.Right), Fraction(region.Bottom))
             .Apply(static (left, top, right, bottom) => (Left: left, Top: top, Right: right, Bottom: bottom))
             .As()
-            .Bind(static edges => Admission.Admitted(RenderRegion.Validate(edges.Left, edges.Top, edges.Right, edges.Bottom, out RenderRegion? held), held).ToValidation());
+            .Bind(static edges => ValidationResults.ToFin(RenderRegion.Validate(edges.Left, edges.Top, edges.Right, edges.Bottom, out RenderRegion? held), held).ToValidation());
 
     private static Validation<Error, SunWindow> Window(QueueJob.Study study) =>
         study.Switch(

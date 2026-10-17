@@ -12,7 +12,7 @@ Covers LanguageExt types and their operations, from result types and their conve
 - [02]-[STREAMS](references/streams.md): Stream API from sources to pipes, with the buffer policies and their forking order
 - [03]-[API](references/api.md): Public types and members by scope, with the notes each scope needs
 
-Result, effect, and collection types come from `LanguageExt.Core`, the runtimes with their `ConsoleIO` and `FileIO` traits from `LanguageExt.Sys`, and `Source`, `Conduit`, and the pipes from `LanguageExt.Streaming`. Examples assume `using static LanguageExt.Prelude`, which binds constructors and module functions as unqualified names (`Some`, `None`, `Seq`, `toSeq`, `Range`, `parseInt`, `Pure`, `guard`, `use`, `atomic`, `memo`).
+Result, effect, and collection types come from `LanguageExt.Core`, the runtimes with their `ConsoleIO` and `FileIO` traits from `LanguageExt.Sys`, and `Source`, `Conduit`, and the pipes from `LanguageExt.Streaming`. Static global using of `LanguageExt.Prelude` in `Directory.Build.targets` binds constructors and module functions as unqualified names (`Some`, `None`, `Seq`, `toSeq`, `Range`, `parseInt`, `Pure`, `guard`, `use`, `atomic`, `memo`). Declarations take a name no `Prelude` member holds (`unit`, `None`, `identity`).
 
 ## [01]-[RESULT_TYPES]
 
@@ -33,8 +33,10 @@ Each type exposes `Match` with one function per case:
 - `Option<A>` holds a flag and an inner value, exposes the flag as `IsSome` and `IsNone`, and ignores the inner value in the `None` state
 - `Option<A>` and `Fin<A>` are closed, a `Match` over their cases is total
 - Implicit conversion from `A` maps `null` to `None`, `Optional(x)` does the same for nullable input, `Some(x)` wraps the value as given
+- `ToNullable()` turns a value-element `Option` into `A?`, and `ValueUnsafe()` from `LanguageExt.UnsafeValueAccess` turns a reference element into `A?` at the host boundary
 - `Option<A>` defines `operator true`, `left || right` evaluates the right operand only when the left is `None`, `left | right` evaluates both
 - `IfNone(A)` takes a value, `IfNone(Func<A>)` takes a computation that runs only on `None`, both return `A`
+- `Match` returning one case unchanged is `IfNone`, `IfFail`, `IfLeft`, or `IfRight`
 - `Prelude` forms `match(option, Some, None)`, `ifNone(option, Func<A>)`, and `ifNone(option, A)` compile unqualified and qualified
 - Values in the `None` slot of `match` are CS0201
 - `Fin` has no module form, `match(fin, Succ:, Fail:)` and `ifFail(fin, f)` resolve to the `Eff` overloads (CS0411, CS0029)
@@ -58,7 +60,7 @@ internal static class Conversions {
 
 - `ToOption` on a `Fin` drops the failure reason
 - `Validation` becomes `Fin` at the end of input validation
-- `Fin` from the static extension member `Validated` over a value type's generated `Validate` becomes `Validation` before it combines with independent validations
+- `Fin` from `X.Validated` becomes `Validation` before it combines with independent validations
 - `Try`, `IO`, and `Eff` return `Fin` when run
 
 ## [02]-[OPERATIONS]
@@ -115,10 +117,11 @@ internal static class Classify {
 ```
 
 - `IsType<E>` tests and `Filter<E>` selects the `E` leaves of a `ManyErrors`, returning the one leaf, a `ManyErrors` of the leaves, or `Errors.None`
+- Type patterns on an `Error` miss those leaves, `IsExpected` and `IsExceptional` test the error case
 - `Count` returns the number of leaves, `Head` the first leaf, `Errors.None` holds no leaf and is its own `Head`
 - `Filter<E>().Head is E <case>` binds the first `E` leaf to read its fields, `Errors.None` fails the pattern
 - `HasCode` and `Catch(int)` select a LanguageExt code (`ErrorCodes.ValidationFailed`, `ErrorCodes.ParseError`), `IsType<E>` a package's typed failure
-- A record parameter named `Inner` collides with `Expected.Inner` (CS8866), a cause parameter takes another name
+- Record parameters named `Inner` collide with `Expected.Inner` (CS8866), a cause parameter takes another name
 - `IsType`, `HasCode`, `HasException`, `Is`, and `Catch` do not descend into `Inner`, only the typed record that wraps a cause stays classifiable
 - `Error` implements `Monoid<Error>`, a custom failure type implements `Monoid<F>` before `Validation<F, A>` accumulates it
 - `&` on operands with one success type collects the successes into `Seq<A>` and accumulates the failures
@@ -131,7 +134,7 @@ internal static class Recovery {
     public static Fin<Quantity> ByValue(Fin<Quantity> quantity) => quantity.Catch(Errors.TimedOut, static _ => Zero).As();
     public static IO<string> Read(string path) =>
         IO.lift(() => File.ReadAllText(path)).Catch(static error => error.HasException<FileNotFoundException>(), error => IO.fail<string>(Error.New($"{path} was not found", error)));
-    public static IO<Item> Cached(IO<Item> load, Item cached) => load.Catch(static error => error.IsType<NotFound>(), _ => IO.pure(cached));
+    public static IO<Item> Cached(IO<Item> load, Item cached) => (load | @catch(static error => error.IsType<NotFound>(), _ => IO.pure(cached))).As();
     public static IO<Item> Fallback(IO<Item> primary, IO<Item> secondary) => primary | secondary;
     public static Fin<Quantity> Rebound(Fin<Quantity> quantity) => quantity.BindFail(static error => error.HasCode(ErrorCodes.ValidationFailed) ? Zero : error);
     public static Fin<Quantity> WithContext(Fin<Quantity> quantity) => quantity.MapFail(static error => new Rejected("quantity", error));
@@ -142,29 +145,31 @@ internal static class Recovery {
 ```
 
 - Code and error-value overloads of `Catch` are extensions that return `K<F, A>`, `.As()` restores the concrete type
+- `Catch(<handler>)`, `CatchIO`, and `@catch(<handler>)` recover from every error, and a predicate that accepts every error restates them
 - `IO<A>` declares the predicate overload as an instance method that returns `IO<A>`
+- `IO` values that failed at construction run the predicate overload's handler for every error, `io | @catch(<predicate>, <handler>)` tests the predicate
 - `Catch` receives the failure of every step in its receiver, a `Catch` on the throwing call recovers that call alone
 - `|` uses the right alternative when the left fails
 - `BindFail` lets the recovery return either case, `MapFail` changes only the error, `BiMap` maps both sides, `IfFail` returns a plain value
 
 In a LINQ query, `guard` raises an `Error` when its flag is false:
-- `when` runs its alternative when the flag is true, `unless` when the flag is false
+- `when` runs its alternative when the flag is true, `unless` when the flag is false, and a branch pairing a unit effect with another effect is `when(<condition>, <effect>).As()` or `unless`
 - Alternative is a failed `Fin<Unit>` or `IO<Unit>`
 - `guard<Error>` names the type argument, an `Expected` subclass argument selects the generic overload `guard<E>(bool, E)`
 
 ```csharp
 internal static class Guards {
-    public static Fin<int> Bounded(int value) =>
+    public static Fin<int> Even(int value) =>
         from v in Pure(value).ToFin()
-        from _ in guard(v >= 0, OutOfRange(v))
-        from __ in when(v > 1_000, Reject(OutOfRange(v)))
+        from _ in guard(v % 2 == 0, Odd(v))
+        from __ in when(v == 0, Reject(Error.New("value is zero")))
         select v;
     public static IO<int> Metered(IO<int> read) =>
         from v in read
-        from _ in unless(v <= 1_000, IO.fail<Unit>(OutOfRange(v)))
+        from _ in unless(v % 2 == 0, IO.fail<Unit>(Odd(v)))
         select v;
 
-    private static Error OutOfRange(int value) => Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"quantity {value} lies outside [0, 1000]"));
+    private static Error Odd(int value) => Error.New(string.Create(CultureInfo.InvariantCulture, $"{value} is odd"));
     private static Fin<Unit> Reject(Error error) => error;
 }
 ```
@@ -173,16 +178,15 @@ internal static class Guards {
 
 `IO.lift` reads the return type of its thunk to select an overload:
 - `Func<A>` defers the value, `Func<Fin<A>>` converts a `Fail` to an `IO` failure
-- Type argument in `IO.lift<Fin<A>>` keeps the `Fin` as the value
 - `IO.lift(Fin<A>)` lifts an evaluated result, as does `IO.lift(Next)` over a `Fin<A> Next()` method group
 - `Fin<A>` has no `ToIO`
 - Bound `Fin` values lift through `.Bind(IO.lift)`, `.Bind(fin => IO.lift(() => fin))`, or `from x in IO.lift(fin)`, each typed `IO<A>`
+- Branches lift once, one `IO.lift` over the conditional or `Switch` with arms returning a `Fin` or value
 
 ```csharp
 internal static class Construction {
     public static IO<int> Plain => IO.lift(static () => 1);
     public static IO<int> Folded => IO.lift(static () => Quantity.Validated(2).Map(static q => (int)q));
-    public static IO<bool> Carried => IO.lift<Fin<int>>(static () => Pure(3)).Map(static fin => fin.IsSucc);
     public static IO<int> TokenAware => IO.liftAsync(static env => Remote.FetchAsync(6, env.Token));
 }
 ```
@@ -198,6 +202,7 @@ internal static class Construction {
 - `use(Func<A>, Action<A>)` names the release step and runs it on every exit
 - `Bracket(Use:, Fin:)` runs `Fin` after `Use` on both paths
 - `Finally` attaches an effect that runs after a deferred receiver on both paths, an `IO.fail` receiver returns itself without it
+- `Bracket()` with no arguments releases every `use` inside its receiver and sits on the expression that starts at the scope's first `use`
 
 ```csharp
 internal static class Resources {
@@ -240,7 +245,7 @@ internal static class Concurrency {
 - `Monad.recur<M, A, B>` loops a state `A` with `Next.Loop<A, B>` and finishes with `Next.Done<A, B>` holding a `B`
 - `Monad.recur` works with every host operation and returns `K<IO, B>` that `.As()` narrows
 - `Monad.recur` checks the state before it advances, an already-finished initial state returns unchanged
-- `RepeatUntil` polls one effect until its value satisfies the predicate, `RepeatWhile` polls while it does
+- `RepeatUntil` polls one effect until its value satisfies the predicate, `RepeatWhile` polls while it does, and a constant predicate is `Repeat` or `Retry` over the same schedule
 
 ```csharp
 internal static class Recursion {
@@ -379,6 +384,7 @@ Collection types, their purpose, and their construction:
 - `Iterable<A>` does not memoize and reruns its source on each enumeration
 - `AsIterableNE` returns `Option<IterableNE<A>>`, `None` for an empty source
 - `Range(from, count)` takes a count, `Range(1, 3)` yields `1, 2, 3`
+- `Range<A>` implements `Foldable`, folds, searches, counts, and aggregates read it without `toSeq`
 - Declared type of a hash set is `LanguageExt.HashSet<A>`, the simple name collides with the BCL type
 
 `Fold` folds left to right with a seed and `FoldBack` right to left:
@@ -418,6 +424,7 @@ Forms the compiler rejects:
 `Lens<A, B>.New` takes a getter and a curried setter:
 - `Get` reads the focus, `Set` writes a value and `Update` applies a function to it, both return a new `A`
 - `lens(outer, inner)` composes lenses into one that focuses on a value in a nested record
+- `Lens.identity<A>()` focuses on the whole value
 
 ```csharp
 internal static class Lenses {
@@ -433,10 +440,13 @@ internal static class Lenses {
 ```
 
 `Atom<A>` manages one value with compare-and-swap:
+- `Atom`, `AtomHashMap`, and `Ref` order their own writes, and a lock guards a plain field
 - `Swap` returns the new value and reruns its function on conflict, `SwapMaybe` keeps the state on `None` and returns the current value
+- Next states derive from the transition argument, a `Value` read before a separate `Swap` races each write
 - `AtomHashMap<K, V>` updates in place, `TryAdd` ignores a present key
 - `SwapKey(key, Func<V, V>)` updates a present key, `SwapKey(key, Func<Option<V>, Option<V>>)` inserts, updates, and removes
 - `Find` reads, `FindOrAdd` adds a missing value or returns the existing one in one atomic step
+- Computed values enter `FindOrAdd` through its `Func<V>` overload to run on a miss alone
 - `Ref<A>` updates run inside `atomic(Func<R>)`, which returns the function result from the transaction
 - `swap` reads the transactional value
 - `commute` applies its function inside the transaction and again at the commit point against the last committed value

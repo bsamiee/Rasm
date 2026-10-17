@@ -41,4 +41,4 @@ transform:
     GROUPED: {replace: {source: $Q, replace: '^([\s\S]+)$', by: 'if !($1) '}}
 fix: $NEGATED$STRIPPED$GROUPED$BLOCK$UNFIXED
 message: '`if $COND` holds an empty branch beside its `else`'
-note: 'State the acting case as the condition (`if !<cond> { <else> }`), a `let` condition takes `let <pattern> = <value> else { <else> };` where the `else` diverges and `!matches!(<value>, <pattern>)` otherwise, an `else if` chain opens with its first acting test, and a branch holding a comment keeps the comment''s fact in a name or the condition, an empty branch inverts the test the reader sees'
+note: 'Write the acting case as the condition (`if !<cond> { <else> }`), with `let <pattern> = <value> else { <else> };` for a `let` condition whose `else` diverges and `!matches!(<value>, <pattern>)` for another `let` condition'

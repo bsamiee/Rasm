@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-type-test
+language: csharp
+arguments: [subject, type]
+utils:
+    type-node:
+        kind: 'identifier, qualified_name, generic_name, member_access_expression, alias_qualified_name'
+        matches: type
+    type-pattern:
+        any:
+            - kind: constant_pattern
+              has: {matches: type-node}
+            - kind: 'declaration_pattern, recursive_pattern'
+              has: {field: type, matches: type-node}
+            - kind: 'or_pattern, and_pattern, negated_pattern, parenthesized_pattern'
+              has: {matches: type-pattern}
+    runtime-type:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^GetType$'}}, {has: {field: expression, matches: subject}}]}
+            - has: {field: arguments, not: {has: {kind: argument}}}
+    type-of:
+        kind: typeof_expression
+        has: {field: type, matches: type-node}
+    lone-argument:
+        kind: argument_list
+        not: {has: {kind: argument, nthChild: 2}}
+    type-call:
+        kind: invocation_expression
+        has: {field: function, kind: member_access_expression, has: {field: expression, matches: type-of}}
+    cast-test:
+        kind: as_expression
+        all:
+            - has: {field: left, matches: subject}
+            - has: {field: right, matches: type-node}
+rule:
+    any:
+        - kind: binary_expression
+          all:
+            - has: {field: operator, regex: '^(==|!=)$'}
+            - any:
+                - all: [{has: {field: left, matches: runtime-type}}, {has: {field: right, matches: type-of}}]
+                - all: [{has: {field: left, matches: type-of}}, {has: {field: right, matches: runtime-type}}]
+                - all: [{has: {kind: parenthesized_expression, has: {matches: cast-test}}}, {has: {kind: null_literal}}]
+        - kind: invocation_expression
+          any:
+            - all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Equals|IsAssignableTo)$'}}, {has: {field: expression, matches: runtime-type}}]}
+                - has: {field: arguments, matches: lone-argument, has: {kind: argument, has: {matches: type-of}}}
+            - all:
+                - matches: type-call
+                - has: {field: function, has: {field: name, regex: '^(Equals|IsAssignableFrom)$'}}
+                - has: {field: arguments, matches: lone-argument, has: {kind: argument, has: {matches: runtime-type}}}
+            - all:
+                - matches: type-call
+                - has: {field: function, has: {field: name, regex: '^IsInstanceOfType$'}}
+                - has: {field: arguments, matches: lone-argument, has: {kind: argument, has: {matches: subject}}}
+        - kind: is_expression
+          all:
+            - has: {field: left, matches: subject}
+            - has: {field: right, matches: type-node}
+        - kind: is_pattern_expression
+          all:
+            - has: {field: expression, matches: subject}
+            - has: {field: pattern, matches: type-pattern}
+        - kind: is_pattern_expression
+          all:
+            - has: {field: expression, matches: cast-test}
+            - has: {field: pattern, regex: '^(not\s+null|\{\s*\})$'}

@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-small-builder
+language: rust
+severity: error
+rule:
+    any:
+        - kind: struct_item
+          all:
+            - has: {field: name, pattern: $NAME}
+            - has: {field: body, kind: field_declaration_list, not: {has: {kind: field_declaration, nthChild: {position: 3, ofRule: {kind: field_declaration}}}}}
+            - matches: {rust-attributed: {attribute: {matches: {rust-derive: {trait: {regex: '^(Builder|TypedBuilder)$'}}}, pattern: $DERIVE}}}
+        - kind: function_item
+          all:
+            - has: {field: name, pattern: $NAME}
+            - not: {has: {field: parameters, has: {kind: parameter, nthChild: {position: 3, ofRule: {kind: parameter}}}}}
+            - matches: {rust-attributed: {attribute: {kind: attribute_item, regex: '^#\[\s*((::)?bon\s*::\s*)?builder\b', pattern: $DERIVE}}}
+labels:
+    NAME: {style: primary, message: 'Takes at most two members'}
+    DERIVE: {style: secondary, message: 'Generates a builder'}
+message: '`$NAME` generates a builder for at most two members'
+note: 'Construct the value with a struct literal or a call, `..Default::default()` for the optional field, or one `new(<required>)`, and delete the builder attribute'

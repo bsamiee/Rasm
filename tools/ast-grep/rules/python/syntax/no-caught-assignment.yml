@@ -69,4 +69,4 @@ rule:
         - has: {field: body, matches: write-block}
         - has: {matches: swallowing-handler}
 message: '`$WRITE` catches its own error to test whether its target accepts the value'
-note: 'Represent admissible values at construction and capture native setter failures as typed errors at the host boundary. Preserve every failure instead of discarding it or testing each write with a preflight read'
+note: 'Validate values at construction, capture native setter failures as typed errors at the host boundary, and keep every failure'

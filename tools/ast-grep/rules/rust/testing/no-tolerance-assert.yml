@@ -10,6 +10,22 @@ utils:
     abs-call:
         regex: '^\.$'
         precedes: {regex: '^abs$', precedes: {kind: token_tree, regex: '^\(\s*\)$'}}
+    absolute-difference:
+        kind: call_expression
+        any:
+            - all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^abs$'}}, {has: {field: value, kind: parenthesized_expression, has: {kind: binary_expression, has: {field: operator, regex: '^-$'}}}}]}
+                - has: {field: arguments, not: {has: {pattern: $_}}}
+            - all:
+                - has: {field: function, regex: '^f(32|64)::abs$'}
+                - has: {field: arguments, has: {nthChild: 1, kind: binary_expression, has: {field: operator, regex: '^-$'}}}
+    relayed-difference:
+        kind: identifier
+        pattern: $GAP
+        inside:
+            kind: function_item
+            stopBy: {kind: function_item}
+            has: {stopBy: {kind: function_item}, kind: let_declaration, all: [{has: {field: pattern, pattern: $GAP}}, {has: {field: value, matches: absolute-difference}}]}
 rule:
     kind: macro_invocation
     pattern: $ASSERT
@@ -21,5 +37,7 @@ rule:
                 - has: {nthChild: 1, matches: difference, precedes: {matches: abs-call, precedes: {stopBy: end, regex: '^<=?$'}}}
                 - has: {matches: difference, follows: {regex: '^abs$', follows: {regex: '^::$', follows: {regex: '^f(32|64)$'}}}, precedes: {regex: '^<=?$'}}
                 - has: {matches: difference, follows: {regex: '^>=?$'}, precedes: {matches: abs-call}}
+                - has: {nthChild: 1, matches: relayed-difference, precedes: {regex: '^<=?$'}}
+                - has: {matches: relayed-difference, follows: {regex: '^>=?$'}}
 message: '`$ASSERT` compares a float difference to a tolerance by hand'
-note: 'Write `approx::assert_abs_diff_eq!(<a>, <b>, epsilon = <eps>)` or `approx::assert_relative_eq!(<a>, <b>, max_relative = <tolerance>)`, the approx macros print both values on failure. A strict `<` becomes the `<=` approx applies. A message argument has no slot in the approx macros'
+note: 'Write `approx::assert_abs_diff_eq!(<a>, <b>, epsilon = <eps>)` or `approx::assert_relative_eq!(<a>, <b>, max_relative = <tolerance>)` without the message argument, both macros testing the tolerance with `<=`'

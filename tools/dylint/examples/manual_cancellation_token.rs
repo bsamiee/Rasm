@@ -39,6 +39,8 @@ impl Worker {
 
     fn pause(&self, resume: bool) { self.paused.store(!resume, Ordering::Release); }
 
+    fn hold(&self) { self.paused.store(true, Ordering::Release); }
+
     fn idle(&self) -> u32 {
         let mut spins = 0_u32;
         while !self.paused.load(Ordering::Acquire) && spins < 8 {
@@ -76,7 +78,7 @@ fn gated(gate: &Gate) {
     }
 }
 
-fn shared() -> u32 {
+fn shared() -> thread::Result<u32> {
     let stop = Arc::new(AtomicBool::new(false));
     let flag = Arc::clone(&stop);
     let worker = thread::spawn(move || {
@@ -88,19 +90,7 @@ fn shared() -> u32 {
         steps
     });
     stop.store(true, Ordering::Release);
-    worker.join().unwrap_or_default()
-}
-
-fn scoped() {
-    let done = AtomicBool::new(false);
-    thread::scope(|scope| {
-        scope.spawn(|| {
-            while !done.load(Ordering::Acquire) {
-                hint::spin_loop();
-            }
-        });
-        done.store(true, Ordering::Release);
-    });
+    worker.join()
 }
 
 fn watched(flag: &AtomicBool) { flag.store(false, Ordering::Release); }
@@ -128,35 +118,18 @@ async fn polled() -> u32 {
     steps
 }
 
-async fn deferred() -> u32 {
-    let stop = AtomicBool::new(false);
-    stop.store(true, Ordering::Release);
-    let count = || {
-        let mut steps = 0_u32;
-        while !stop.load(Ordering::Acquire) && steps < 8 {
-            steps = steps.saturating_add(1);
-        }
-        steps
-    };
-    count()
-}
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 fn main() {
     let (worker, pair, gate) = (Worker::default(), Pair::default(), Gate::default());
     worker.halt();
     worker.pause(true);
+    worker.hold();
     worker.arm();
     spun(&pair);
     released(&pair);
     gated(&gate);
-    scoped();
     handed();
     watched(&AtomicBool::new(true));
-    black_box((
-        [worker.run(), worker.idle(), shared(), counted(&gate), futures::executor::block_on(polled()), futures::executor::block_on(deferred())],
-        worker.armed(),
-        pair.left.load(Ordering::Acquire),
-    ));
+    black_box(&([worker.run(), worker.idle(), counted(&gate), futures::executor::block_on(polled())], shared(), worker.armed(), pair.left.load(Ordering::Acquire)));
 }

@@ -2,15 +2,33 @@
 id: no-carriage-return-progress
 language: rust
 severity: error
+utils:
+    leading-return:
+        kind: string_literal
+        regex: '^b?"(\\r|\\x0[dD]|\\u\{0*[dD]\})([^\\"]|\\[^n])'
+    lone-return:
+        any:
+            - kind: string_literal
+              regex: '^b?"(\\r|\\x0[dD]|\\u\{0*[dD]\})"$'
+            - kind: char_literal
+              regex: '^b?''(\\r|\\x0[dD]|\\u\{0*[dD]\})''$'
+    trailing-return:
+        kind: string_literal
+        regex: '([^\\]|^b?")(\\\\)*(\\r|\\x0[dD]|\\u\{0*[dD]\})"$'
 rule:
-    kind: macro_invocation
     pattern: $REDRAW
-    all:
-        - matches: {rust-std-macro: {name: {regex: '^(e?print(ln)?|write(ln)?)$'}}}
-        - any:
-            - has: {kind: token_tree, has: {kind: string_literal, regex: '^"\\r([^\\"]|\\[^n])'}}
-            - all:
-                - has: {field: macro, regex: '(^|::)(e?print|write)$'}
-                - has: {kind: token_tree, has: {kind: string_literal, regex: '([^\\]|^")(\\\\)*\\r"$'}}
+    any:
+        - kind: macro_invocation
+          all:
+            - matches: {rust-std-macro: {name: {regex: '^(e?print(ln)?|write(ln)?|format(_args)?)$'}}}
+            - any:
+                - has: {kind: token_tree, has: {any: [{matches: leading-return}, {matches: lone-return}]}}
+                - all:
+                    - has: {field: macro, regex: '(^|::)(e?print|write)$'}
+                    - has: {kind: token_tree, has: {matches: trailing-return}}
+        - kind: call_expression
+          all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^write(_all)?$'}}
+            - has: {field: arguments, has: {nthChild: 1, any: [{matches: leading-return}, {matches: lone-return}, {matches: trailing-return}]}}
 message: '`$REDRAW` redraws a progress line with a carriage return'
-note: 'Drive an `indicatif::ProgressBar` through `inc`, `set_position`, `set_message`, and `finish_with_message`, or install `tracing_indicatif::IndicatifLayer` and call `IndicatifSpanExt::pb_inc` on the span doing the work, the bar redraws at a bounded rate, hides on a non-terminal, and keeps log lines above it. A trailing `\r` before the newline `writeln!` or `println!` adds ends a CRLF line and stays as written'
+note: 'Drive an `indicatif::ProgressBar` through `inc`, `set_position`, `set_message`, and `finish_with_message`, or install `tracing_indicatif::IndicatifLayer` and call `IndicatifSpanExt::pb_inc` on the span doing the work'

@@ -27,6 +27,6 @@ rule:
                 stopBy: {matches: boundary}
                 not: {inside: {matches: control, stopBy: {matches: function}}}
 message: Control flow reaches a fourth nesting level
-note: Rebuild nested decisions or loops with a match, comprehension or pipeline over their inputs
+note: 'Rebuild nested decisions or loops as a `switch` or a stream pipeline over their inputs'
 labels:
     SCOPE: {style: primary}

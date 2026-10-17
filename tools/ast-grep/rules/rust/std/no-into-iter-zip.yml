@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-into-iter-zip
+language: rust
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - pattern: $A.into_iter().zip($B)
+constraints:
+    A: {kind: 'identifier, field_expression, self'}
+fix: iter::zip($A, $B)
+message: '`$A` converts into an iterator only to zip `$B` onto it'
+note: 'Call `iter::zip(<a>, <b>)` with `use core::iter;` in the file'

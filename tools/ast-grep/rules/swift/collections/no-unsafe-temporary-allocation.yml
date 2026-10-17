@@ -11,4 +11,4 @@ rule:
             - {kind: simple_identifier, regex: '^withUnsafeTemporaryAllocation$'}
             - {kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^withUnsafeTemporaryAllocation$'}}}
 message: '`$CALL` hands its closure an unsafe pointer to the temporary buffer'
-note: '`withTemporaryAllocation(of:capacity:)` hands the closure an `inout OutputSpan<T>` and `withTemporaryAllocation(byteCount:alignment:)` an `inout OutputRawSpan`, each bounds-checked and initialized by `append`, the closure body moves from pointer writes to span appends'
+note: 'Call `withTemporaryAllocation(of:capacity:)` for an `inout OutputSpan<T>` or `withTemporaryAllocation(byteCount:alignment:)` for an `inout OutputRawSpan`, bounds-checked and initialized by `append`, and move the closure body from pointer writes to span appends'

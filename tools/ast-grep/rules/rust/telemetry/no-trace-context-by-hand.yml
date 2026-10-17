@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-trace-context-by-hand
+language: rust
+severity: error
+utils:
+    constructed:
+        kind: call_expression
+        has: {field: function, kind: scoped_identifier, regex: '(^|::)\w*Propagator::(new|default)$'}
+    propagator:
+        any:
+            - matches: constructed
+            - kind: reference_expression
+              has: {field: value, matches: propagator}
+            - kind: identifier
+              pattern: $LOCAL
+              inside:
+                kind: function_item
+                stopBy: end
+                has:
+                    stopBy: end
+                    kind: let_declaration
+                    all:
+                        - has: {field: pattern, pattern: $LOCAL}
+                        - any:
+                            - has: {field: value, matches: constructed}
+                            - has: {field: type, regex: '(^|::)\w*Propagator$'}
+    local-propagator:
+        kind: call_expression
+        any:
+            - all:
+                - has: {field: function, kind: field_expression, has: {field: field, regex: '^(inject|inject_context|extract|extract_with_context|fields)$'}}
+                - has: {field: function, has: {field: value, pattern: $SITE, matches: propagator}}
+            - all:
+                - has: {field: function, kind: scoped_identifier, regex: '(^|::)(TextMapPropagator::)?(inject|inject_context|extract|extract_with_context|fields)$'}
+                - has: {field: arguments, has: {nthChild: 1, pattern: $SITE, matches: propagator}}
+    header-name:
+        kind: 'string_literal, raw_string_literal'
+        pattern: $SITE
+        not: {matches: rust-macro-argument}
+        any:
+            - regex: '^b?(r#*)?"(?i:traceparent|tracestate)"#*$'
+            - regex: '^(r#*)?"00-\{[^{}]*\}-\{[^{}]*\}-(\{[^{}]*\}|0[01])"#*$'
+rule:
+    kind: 'call_expression, string_literal, raw_string_literal'
+    not: {matches: rust-test-scope}
+    any:
+        - matches: local-propagator
+        - matches: header-name
+message: '`$SITE` propagates trace context by hand'
+note: 'Install `opentelemetry_sdk::propagation::TraceContextPropagator` once with `opentelemetry::global::set_text_map_propagator` where the providers are set, and inject and extract through `global::get_text_map_propagator` with `opentelemetry_http::HeaderInjector` and `HeaderExtractor`'

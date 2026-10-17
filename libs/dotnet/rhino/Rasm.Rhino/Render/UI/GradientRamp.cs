@@ -158,17 +158,17 @@ public sealed class GradientRamp(IPlugInSink sink, string caption, GradientRampS
     private static Option<RampPosition> Located(double raw) => RampPosition.Validated(raw).ToOption();
 
     private static Fin<(Ramp Ramp, int Index, RampStop Stop)> Added(GradientRampState.Editor editor, Ramp ramp, RampPosition at) =>
-        from stop in Admission.Admitted(RampStop.Validate(at, ramp.Tabulate(editor.Gamut).Sample(at), out RampStop item), item)
+        from stop in ValidationResults.ToFin(RampStop.Validate(at, ramp.Tabulate(editor.Gamut).Sample(at), out RampStop item), item)
         from added in Inserted(ramp, stop)
         select (added.Ramp, added.Index, stop);
 
     private static Fin<(Ramp Ramp, int Index)> Inserted(Ramp ramp, RampStop stop) {
         int at = ramp.Stops.Filter(held => held.Position <= stop.Position).Count;
-        return Admission.Admitted(Ramp.Validate(ramp.Stops.Take(at).Add(stop).Concat(ramp.Stops.Skip(at)), ramp.Interpolation, out Ramp? added), added).Map(held => (held, at));
+        return ValidationResults.ToFin(Ramp.Validate(ramp.Stops.Take(at).Add(stop).Concat(ramp.Stops.Skip(at)), ramp.Interpolation, out Ramp? added), added).Map(held => (held, at));
     }
 
     private static Fin<(GradientRampState.Editor Editor, Ramp Remaining)> Dropped(GradientRampState.Editor editor, Ramp ramp, int index) =>
-        Admission.Admitted(Ramp.Validate(ramp.Stops.Take(index).Concat(ramp.Stops.Skip(index + 1)), ramp.Interpolation, out Ramp? rest), rest)
+        ValidationResults.ToFin(Ramp.Validate(ramp.Stops.Take(index).Concat(ramp.Stops.Skip(index + 1)), ramp.Interpolation, out Ramp? rest), rest)
             .Map(remaining => (editor with { Shown = remaining, Selected = int.Max(index - 1, 0) }, remaining));
 
     private static Option<Transition<GradientRampState, Ramp>> Stepping(GradientRampState.Editor editor, Ramp ramp, int index, double steps) =>

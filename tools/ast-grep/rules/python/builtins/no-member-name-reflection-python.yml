@@ -77,4 +77,4 @@ transform:
     INVOKED_LAMBDA: {replace: {source: $INVOKED, replace: '^[rRuU]?["''](\w+)["'']$', by: 'lambda owner: owner.$1()'}}
 fix: $READ_LAMBDA$INVOKED_LAMBDA$KEPT
 message: '`$ACCESS` reaches a member by a name string'
-note: 'Use the member on its owner, a lambda for a deferred read or call, or a nested `def` for a deferred assignment, type checkers read a member reached by name as `Any` while a `vars` or `__dict__` read returns the stored descriptor of one namespace and stays'
+note: 'Read the member on its owner, a lambda for a deferred read or call, or a nested `def` for a deferred assignment, type checkers reading a member reached by name as `Any`. A `vars` or `__dict__` read of one namespace''s stored descriptor stays'

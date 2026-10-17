@@ -5,19 +5,33 @@ severity: error
 utils:
     delimiter:
         kind: 'char_literal, string_literal'
-        regex: '^[''"](,|\\t)[''"]$'
+        regex: '^[''"](,|;|\||\\t)[''"]$'
     line-source:
-        regex: '\.lines\(\)'
+        regex: '\.lines\(\)|(^|::)lines\(|\.split(_terminator)?\(\s*[''"]\\n[''"]\s*\)'
+    line-receiver:
+        any:
+            - kind: identifier
+              pattern: $LINE
+            - kind: try_expression
+              has: {kind: identifier, pattern: $LINE}
+            - kind: call_expression
+              has: {field: function, kind: field_expression, all: [{has: {field: value, kind: identifier, pattern: $LINE}}, {has: {field: field, regex: '^(trim|trim_end|trim_start|trim_end_matches|as_str|unwrap|expect)$'}}]}
     line-split:
         kind: call_expression
         all:
-            - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^split(_terminator)?$'}}, {has: {field: value, kind: identifier, pattern: $LINE}}]}
-            - has: {field: arguments, all: [{has: {nthChild: 1, matches: delimiter}}, {not: {has: {nthChild: 2}}}]}
+            - any:
+                - all:
+                    - has: {field: function, kind: field_expression, has: {field: field, regex: '^(r?split|split_terminator)$'}}
+                    - has: {field: arguments, all: [{has: {nthChild: 1, matches: delimiter}}, {not: {has: {nthChild: 2}}}]}
+                - all:
+                    - has: {field: function, kind: field_expression, has: {field: field, regex: '^r?splitn$'}}
+                    - has: {field: arguments, all: [{has: {nthChild: 2, matches: delimiter}}, {not: {has: {nthChild: 3}}}]}
+            - has: {field: function, has: {field: value, matches: line-receiver}}
             - inside:
                 stopBy: {kind: 'function_item, closure_expression, for_expression'}
                 any:
                     - kind: for_expression
-                      all: [{has: {field: pattern, pattern: $LINE}}, {has: {field: value, matches: line-source}}]
+                      all: [{has: {field: pattern, any: [{pattern: $LINE}, {has: {stopBy: end, kind: identifier, pattern: $LINE}}]}}, {has: {field: value, matches: line-source}}]
                     - kind: closure_expression
                       all:
                         - has: {field: parameters, has: {stopBy: end, kind: identifier, pattern: $LINE}}
@@ -27,21 +41,38 @@ utils:
             kind: function_item
             stopBy: {kind: 'function_item, closure_expression'}
             has: {field: parameters, has: {kind: parameter, has: {field: type, regex: '\bFormatter\b'}}}
+    printing:
+        matches: {rust-std-macro: {name: {regex: '^(write|writeln|print|println|eprint|eprintln|format)$'}}}
     record-write:
         kind: macro_invocation
         all:
             - any:
                 - all:
                     - matches: {rust-std-macro: {name: {regex: '^(writeln|println|eprintln)$'}}}
-                    - has: {kind: token_tree, has: {kind: string_literal, regex: '^"(\{[^{}]*\}(,|\\t)){2,}\{[^{}]*\}(\\r)?(\\n)?"$'}}
+                    - has: {kind: token_tree, has: {kind: string_literal, regex: '^"(\{[^{}]*\}(,|;|\\t)){2,}\{[^{}]*\}(\\r)?(\\n)?"$'}}
                 - all:
                     - matches: {rust-std-macro: {name: {regex: '^(write|print|eprint|format)$'}}}
-                    - has: {kind: token_tree, has: {kind: string_literal, regex: '^"(\{[^{}]*\}(,|\\t)){2,}\{[^{}]*\}(\\r)?\\n"$'}}
+                    - has: {kind: token_tree, has: {kind: string_literal, regex: '^"(\{[^{}]*\}(,|;|\\t)){2,}\{[^{}]*\}(\\r)?\\n"$'}}
+                - all:
+                    - matches: printing
+                    - has: {kind: token_tree, has: {stopBy: end, kind: identifier, regex: '^join$', follows: {regex: '^\.$'}, precedes: {kind: token_tree, regex: '^\(\s*"(,|;|\\t)"\s*\)$'}}}
             - not: {matches: formatter-parameter}
+    record-join:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^join$'}}
+            - has: {field: arguments, all: [{has: {nthChild: 1, kind: string_literal, regex: '^"(,|;|\\t)"$'}}, {not: {has: {nthChild: 2}}}]}
+            - any:
+                - inside: {kind: macro_invocation, stopBy: {kind: 'function_item, closure_expression'}, matches: printing}
+                - inside:
+                    kind: function_item
+                    stopBy: {kind: function_item}
+                    has: {stopBy: end, kind: call_expression, all: [{has: {field: function, kind: field_expression, has: {field: field, regex: '^join$'}}}, {has: {field: arguments, has: {nthChild: 1, kind: string_literal, regex: '^"(\\r)?\\n"$'}}}]}
 rule:
     pattern: $SITE
     any:
         - matches: line-split
         - matches: record-write
-message: '`$SITE` reads or writes comma or tab separated records by hand'
-note: 'Decode rows with `csv::ReaderBuilder::new().delimiter(<byte>).has_headers(<bool>).from_reader(<reader>).deserialize::<<Row>>()` and write them with `csv::Writer::serialize`, csv quotes fields holding the delimiter, a quote, or a line break, and reports the record and field of a decode failure'
+        - matches: record-join
+message: '`$SITE` reads or writes delimited records by hand'
+note: 'Decode rows with `csv::ReaderBuilder::new().delimiter(<byte>).has_headers(<bool>).from_reader(<reader>).deserialize::<<Row>>()` and write them with `csv::Writer::serialize`'

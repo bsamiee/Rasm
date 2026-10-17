@@ -4,18 +4,32 @@ language: rust
 severity: error
 utils:
     currency-name:
-        regex: '(?i)(^|_)currency(_code)?$'
+        regex: '(?i)(^|_)(currency(_(code|iso))?|ccy|iso_4217)$'
     text:
         any:
-            - {kind: type_identifier, regex: '^String$'}
+            - {kind: type_identifier, regex: '^(String|SmolStr|CompactString|ArrayString)$'}
             - {kind: reference_type, has: {field: type, kind: primitive_type, regex: '^str$'}}
+            - {kind: array_type, has: {field: element, kind: primitive_type, regex: '^(u8|char)$'}}
+            - kind: generic_type
+              has: {field: type_arguments, has: {any: [{kind: primitive_type, regex: '^str$'}, {matches: text}]}}
+    text-type:
+        any: [{matches: text}, {kind: reference_type, has: {field: type, matches: text}}]
 rule:
-    kind: 'field_declaration, parameter, let_declaration'
     pattern: $DECLARATION
-    all:
-        - any: [{has: {field: name, matches: currency-name}}, {has: {field: pattern, kind: identifier, matches: currency-name}}]
-        - has: {field: type, any: [{matches: text}, {kind: generic_type, has: {field: type_arguments, has: {matches: text}}}]}
-        - not: {inside: {kind: parameters, inside: {matches: rust-fixed-signature}}}
-        - not: {matches: rust-text-decoder}
+    any:
+        - kind: 'field_declaration, parameter, let_declaration, const_item, static_item'
+          all:
+            - any: [{has: {field: name, matches: currency-name}}, {has: {field: pattern, kind: identifier, matches: currency-name}}]
+            - has: {field: type, matches: text-type}
+            - not: {inside: {kind: parameters, inside: {matches: rust-trait-or-extern-function}}}
+            - not: {matches: rust-text-decoder}
+        - kind: identifier
+          matches: currency-name
+          inside:
+            kind: function_item
+            field: name
+            all:
+                - has: {field: return_type, matches: text-type}
+                - not: {matches: rust-trait-or-extern-function}
 message: '`$DECLARATION` holds an ISO 4217 currency code as text'
-note: 'Type the code as `iso_currency::Currency`, `Currency::from_code`, `FromStr`, and the serde impls validate it once at the boundary. `exponent`, `name`, and `symbol` read currency data. Serde writes the same three-letter code on the wire'
+note: 'Type the code as `iso_currency::Currency`, validated at the boundary through `Currency::from_code`, `FromStr`, or its serde impls'

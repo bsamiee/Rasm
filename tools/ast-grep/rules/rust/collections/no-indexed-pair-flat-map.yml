@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-indexed-pair-flat-map
+language: rust
+severity: error
+rule:
+    kind: call_expression
+    any:
+        - pattern: $X.iter().enumerate().flat_map(|($I, $A)| $X.iter().skip($STEP).map(move |$B| $PAIR))
+        - pattern: $X.iter().enumerate().flat_map(move |($I, $A)| $X.iter().skip($STEP).map(move |$B| $PAIR))
+        - pattern: $X.iter().enumerate().flat_map(|($I, $A)| $X.iter().take($I).map(move |$B| $PAIR))
+        - pattern: $X.iter().enumerate().flat_map(move |($I, $A)| $X.iter().take($I).map(move |$B| $PAIR))
+constraints:
+    STEP: {regex: '^(\w+ \+ 1|\w+\.(strict|checked|saturating|wrapping)_add\(1\)\??|1 \+ \w+)$'}
+    PAIR: {kind: tuple_expression}
+message: '`$X` pairs each element with every element before or after it through an indexed `flat_map`'
+note: 'Call `Itertools::array_combinations::<2>()` (`use itertools::Itertools as _;`) to yield each pair once in index order as `[earlier, later]`'

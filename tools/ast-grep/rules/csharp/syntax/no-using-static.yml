@@ -6,5 +6,5 @@ rule:
     kind: using_directive
     pattern: $DIRECTIVE
     has: {regex: '^static$'}
-message: '`$DIRECTIVE` hides the owning type name at every use'
-note: Qualify each call with its owning type, the MSBuild global using supplies `LanguageExt.Prelude`
+message: '`$DIRECTIVE` imports static members without their owning type'
+note: 'Qualify each member with its owning type, `LanguageExt.Prelude` alone enters unqualified through the `Using Include="LanguageExt.Prelude" Static="true"` item in `Directory.Build.targets`'

@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-formatted-sql
+language: rust
+severity: error
+utils:
+    sql-text:
+        kind: 'string_literal, raw_string_literal'
+        any:
+            - regex: |-
+                (?x)^r?\#*"\s*(
+                    SELECT\s|INSERT\s+(OR\s+\w+\s+)?INTO\s|REPLACE\s+INTO\s|UPDATE\s+\S+\s+SET\s|DELETE\s+FROM\s|WITH\s+(RECURSIVE\s+)?\S+\s+AS\s
+                    |CREATE\s+(UNIQUE\s+)?(TABLE|INDEX|VIEW)\s|ALTER\s+TABLE\s|DROP\s+(TABLE|INDEX|VIEW)\s|PRAGMA\s
+                    |select\s[^"]*\bfrom\s|insert\s+(or\s+\w+\s+)?into\s|update\s+\S+\s+set\s|delete\s+from\s|with\s+(recursive\s+)?\S+\s+as\s*\(
+                )
+            - regex: '\b(WHERE|AND|OR|SET|VALUES|IN|LIKE|HAVING)\b[^"]*''\{[^{}]*\}'''
+    sql-head:
+        any:
+            - matches: sql-text
+            - kind: call_expression
+              any:
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(to_owned|to_string|into)$'}}, {has: {field: value, matches: sql-text}}]}
+                - all: [{has: {field: function, regex: '^((::)?(std|alloc)::)?(string::)?String::from$'}}, {has: {field: arguments, has: {nthChild: 1, matches: sql-text}}}]
+rule:
+    pattern: $SQL
+    any:
+        - kind: macro_invocation
+          all:
+            - matches: {rust-std-macro: {name: {regex: '^(format|format_args|write|writeln)$'}}}
+            - has: {kind: token_tree, has: {all: [{matches: sql-text}, {regex: '(^|[^{])\{[A-Za-z0-9_:}]'}]}}
+        - kind: binary_expression
+          all:
+            - has: {field: operator, regex: '^\+$'}
+            - has: {field: left, matches: sql-head}
+        - kind: compound_assignment_expr
+          all:
+            - has: {field: operator, regex: '^\+=$'}
+            - has: {field: right, matches: sql-text}
+        - kind: call_expression
+          any:
+            - all:
+                - has: {field: function, kind: field_expression, has: {field: field, regex: '^push_str$'}}
+                - has: {field: arguments, has: {nthChild: 1, matches: sql-text}}
+            - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(concat|join)$'}}, {has: {field: value, kind: array_expression, has: {nthChild: 1, matches: sql-text}}}]}
+            - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^replacen?$'}}, {has: {field: value, matches: sql-text}}]}
+message: '`$SQL` joins values into SQL text'
+note: 'Bind each value through `sqlx::query!` or `sqlx::query_as!` for a fixed statement, `sea_query::Query` or `sea_query::Table` for a statement of varying shape, and `sqlx::QueryBuilder` for value lists'

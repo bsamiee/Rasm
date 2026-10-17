@@ -24,9 +24,11 @@ rule:
             stopBy: {matches: boundary}
             inside:
                 matches: control
+                pattern: $OUTER
                 stopBy: {matches: boundary}
                 not: {inside: {matches: control, stopBy: {matches: function}}}
-message: Control flow reaches a fourth nesting level
-note: Rebuild nested decisions or loops with a match, comprehension or pipeline over their inputs
 labels:
-    SCOPE: {style: primary}
+    SCOPE: {style: primary, message: 'Fourth nesting level'}
+    OUTER: {style: secondary, message: 'First nesting level'}
+message: Control flow reaches a fourth nesting level
+note: 'Rebuild the nested decisions or loops as one switch expression, query expression, or pipeline over their inputs'

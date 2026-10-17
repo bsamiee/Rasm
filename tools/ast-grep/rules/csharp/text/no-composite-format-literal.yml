@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-composite-format-literal
+language: csharp
+severity: error
+utils:
+    composite-text:
+        kind: 'string_literal, verbatim_string_literal, raw_string_literal'
+        regex: '(?:^|[^{])(?:\{\{)*\{\d'
+    relayed-text:
+        kind: identifier
+        pattern: $RELAY
+        any:
+            - matches: {csharp-block-local: {declarator: {has: {matches: composite-text}}}}
+            - inside:
+                stopBy: end
+                kind: compilation_unit
+                has:
+                    stopBy: end
+                    kind: field_declaration
+                    all:
+                        - has: {kind: modifier, regex: '^const$'}
+                        - has: {kind: variable_declaration, has: {kind: variable_declarator, all: [{has: {field: name, pattern: $RELAY}}, {has: {matches: composite-text}}]}}
+    format-argument:
+        kind: argument
+        not: {has: {field: name, pattern: $_}}
+        has: {nthChild: {position: 1, reverse: true}, pattern: $FORMAT, any: [{matches: composite-text}, {matches: relayed-text}]}
+    format-call:
+        has:
+            field: function
+            any:
+                - kind: member_access_expression
+                  all: [{has: {field: expression, regex: '^((global::)?System\.)?([sS]tring)$'}}, {has: {field: name, regex: '^Format$'}}]
+                - kind: member_access_expression
+                  has: {field: name, regex: '^AppendFormat$'}
+    writer-call:
+        all:
+            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Write|WriteLine|Print|TraceInformation|TraceWarning|TraceError)$'}}
+            - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, matches: format-argument}}, {has: {kind: argument, nthChild: 2}}]}
+rule:
+    kind: invocation_expression
+    pattern: $CALL
+    any:
+        - all:
+            - matches: format-call
+            - has:
+                field: arguments
+                any:
+                    - has: {kind: argument, nthChild: 1, matches: format-argument}
+                    - has: {kind: argument, nthChild: 2, matches: format-argument}
+        - matches: writer-call
+message: '`$CALL` fills the constant composite format `$FORMAT` by position'
+note: 'Interpolate the arguments into the literal (`$"..."`, `Append($"...")`, `WriteLine($"...")`), through `string.Create(<provider>, $"...")` or `Append(<provider>, $"...")` when a format provider applies'
+labels:
+    FORMAT:
+        style: secondary
+        message: composite format text

@@ -23,7 +23,7 @@ public readonly partial struct Azimuth : System.Numerics.IMinMaxValue<Azimuth> {
     public static Azimuth MinValue { get; } = new(-Math.PI);
     public static Azimuth MaxValue { get; } = new(Math.PI);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Horizon", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -31,7 +31,7 @@ public readonly partial struct Elevation : System.Numerics.IMinMaxValue<Elevatio
     public static Elevation MinValue { get; } = new(-Math.PI / 2d);
     public static Elevation MaxValue { get; } = new(Math.PI / 2d);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -40,7 +40,7 @@ public readonly partial struct RadiusMultiple : System.Numerics.IMinMaxValue<Rad
     public static RadiusMultiple MaxValue { get; } = new(double.MaxValue);
     public static RadiusMultiple Default { get; } = new(2.5);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -48,7 +48,7 @@ public readonly partial struct AngularDiameter : System.Numerics.IMinMaxValue<An
     public static AngularDiameter MinValue { get; } = new(0d);
     public static AngularDiameter MaxValue { get; } = new(Math.PI / 2d);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(AllowDefaultStructs = true, DefaultInstancePropertyName = "AtKey", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -56,7 +56,7 @@ public readonly partial struct LightStops : System.Numerics.IMinMaxValue<LightSt
     public static LightStops MinValue { get; } = new(-double.MaxValue);
     public static LightStops MaxValue { get; } = new(double.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -64,7 +64,7 @@ public readonly partial struct TargetRadius : System.Numerics.IMinMaxValue<Targe
     public static TargetRadius MinValue { get; } = new(double.BitIncrement(0d));
     public static TargetRadius MaxValue { get; } = new(double.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -72,7 +72,7 @@ public readonly partial struct KeySoftness : System.Numerics.IMinMaxValue<KeySof
     public static KeySoftness MinValue { get; } = new(0d);
     public static KeySoftness MaxValue { get; } = new(double.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -80,7 +80,7 @@ public readonly partial struct ColorSaturation : System.Numerics.IMinMaxValue<Co
     public static ColorSaturation MinValue { get; } = new(0d);
     public static ColorSaturation MaxValue { get; } = new(1d);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [SmartEnum<string>(KeyMemberName = "Name", SkipIParsable = true, SwitchMethods = SwitchMapMethodsGeneration.None)]
@@ -175,7 +175,7 @@ public sealed record MatchedLook(
          Elevation.Validated(elevation),
          AngularDiameter.Validated(size),
          LightStops.Validated(stops),
-         Admission.Admitted(ColorFilter.Validate(
+         ValidationResults.ToFin(ColorFilter.Validate(
              Tint.Red * (1d + (Saturation * (color.R - 1d))),
              Tint.Green * (1d + (Saturation * (color.G - 1d))),
              Tint.Blue * (1d + (Saturation * (color.B - 1d))), out ColorFilter? filter), filter))

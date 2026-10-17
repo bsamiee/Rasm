@@ -23,7 +23,7 @@ public readonly partial struct PixelDimension : IPresented<PixelDimension, int> 
     public static Presentation<int> Presentation { get; } = new() { Form = NumberForm.Field };
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
-        validationError = Admission.Refusal(value, MinValue._value, MaxValue._value);
+        validationError = ValidationResults.OutsideRange(value, MinValue._value, MaxValue._value);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -32,7 +32,7 @@ public readonly partial struct Gamma : System.Numerics.IMinMaxValue<Gamma> {
     public static Gamma MaxValue { get; } = new(5f);
     public static Gamma Default { get; } = new(2.2f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [SmartEnum<string>]

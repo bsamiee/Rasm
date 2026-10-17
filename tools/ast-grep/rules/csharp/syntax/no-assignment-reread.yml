@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-assignment-reread
+language: csharp
+severity: error
+utils:
+    assignment:
+        any:
+            - kind: assignment_expression
+              has: {field: operator, regex: '^=$'}
+            - kind: parenthesized_expression
+              has: {matches: assignment}
+    target-assignment:
+        any:
+            - kind: assignment_expression
+              all: [{has: {field: left, pattern: $TARGET}}, {has: {field: operator, regex: '^=$'}}]
+            - kind: parenthesized_expression
+              has: {matches: target-assignment}
+rule:
+    pattern: $VALUE
+    any:
+        - kind: invocation_expression
+          all:
+            - has: {field: function, matches: {csharp-type-name: {name: {regex: '^ignore$'}}}}
+            - has: {field: arguments, has: {kind: argument, has: {matches: assignment}}}
+        - kind: binary_expression
+          all:
+            - has: {field: operator, regex: '^(==|!=)$'}
+            - any:
+                - all: [{has: {field: left, matches: target-assignment}}, {has: {field: right, pattern: $TARGET}}]
+                - all: [{has: {field: right, matches: target-assignment}}, {has: {field: left, pattern: $TARGET}}]
+message: '`$VALUE` reads the value of an assignment'
+note: 'Write the assignment alone as a statement, its target holds the value for each later read'

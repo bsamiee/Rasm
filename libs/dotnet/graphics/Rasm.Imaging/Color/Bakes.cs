@@ -15,7 +15,7 @@ public readonly partial struct AllocationStop : IMinMaxValue<AllocationStop> {
     public static AllocationStop MaxValue { get; } = new(16f);
     public static AllocationStop Default { get; } = new(-10f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -24,7 +24,7 @@ public readonly partial struct AllocationSpan : IMinMaxValue<AllocationSpan> {
     public static AllocationSpan MaxValue { get; } = new(40f);
     public static AllocationSpan Default { get; } = new(20f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]

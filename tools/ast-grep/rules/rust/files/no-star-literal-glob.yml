@@ -2,9 +2,25 @@
 id: no-star-literal-glob
 language: rust
 severity: error
+utils:
+    star-cut:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^(strip_prefix|strip_suffix|starts_with|ends_with|split|splitn|rsplit|split_once|rsplit_once|contains|find|replace|trim_start_matches|trim_end_matches)$'}}
+            - any:
+                - all:
+                    - has: {field: function, has: {field: value, regex: '(?i)(^|[^a-z0-9])(pat|pattern|glob|wildcard|mask|spec|include|exclude)s?(\.as_str\(\)|\.as_ref\(\))?$'}}
+                    - has:
+                        field: arguments
+                        has:
+                            nthChild: 1
+                            any:
+                                - {kind: string_literal, regex: '\*', not: {regex: '\.\*'}}
+                                - {kind: char_literal, regex: '^''\*''$'}
+                - has: {field: arguments, has: {nthChild: 1, kind: string_literal, regex: '^"(\*\.[^"]*|\*\*/[^"]*)"$'}}
 rule:
     kind: call_expression
     pattern: $CALL
-    matches: rust-star-literal-glob
+    matches: star-cut
 message: '`$CALL` matches a glob pattern by cutting it at `*` by hand'
-note: 'Compile the pattern once at its owner with `globset::Glob::new(<pattern>)?.compile_matcher()` and test paths with `is_match`, or add each `Glob` to one `globset::GlobSetBuilder` and `build()` it, globset matches `*`, `**`, `?`, classes, and `{a,b}` alternation that a hand split drops'
+note: 'Compile the pattern once with `globset::Glob::new(<pattern>)?.compile_matcher()` and test paths with `is_match`, or add each `Glob` to one `globset::GlobSetBuilder` and `build()` it'

@@ -18,4 +18,4 @@ rule:
                 - matches: static-final
                 - kind: static_initializer, enum_constant, constant_declaration
 message: '`$METHOD` compiles its constant regex on every evaluation'
-note: 'Compile the regex once into a `static final Pattern` and use its `matcher`, `asPredicate`, or `splitAsStream`; a regex with no metacharacter is `String.replace`'
+note: 'Compile the regex once into a `static final Pattern` and use its `matcher`, `asPredicate`, or `splitAsStream`, or call `String.replace` for a regex with no metacharacter'

@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-discarded-conditional
+language: csharp
+severity: error
+utils:
+    branching:
+        any:
+            - kind: 'conditional_expression, switch_expression'
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^(&&|\|\|)$'}
+                - has: {field: right, any: [{kind: &effect 'invocation_expression, assignment_expression, await_expression'}, {has: {stopBy: end, kind: *effect}}]}
+            - kind: parenthesized_expression
+              has: {matches: branching}
+    statement-position:
+        any:
+            - inside: {kind: expression_statement}
+            - inside: {kind: lambda_expression, field: body}
+rule:
+    pattern: $VALUE
+    any:
+        - kind: assignment_expression
+          all:
+            - has: {field: left, regex: '^_$'}
+            - has: {field: operator, regex: '^=$'}
+            - has: {field: right, matches: branching}
+            - matches: statement-position
+        - kind: invocation_expression
+          all:
+            - has: {field: function, matches: {csharp-type-name: {name: {regex: '^ignore$'}}}}
+            - has: {field: arguments, has: {kind: argument, has: {matches: branching}}}
+            - matches: statement-position
+message: '`$VALUE` discards the value of a branch chosen for its effect'
+note: 'Write an `if` or `switch` statement whose arms run the effects, a branch producing a value keeps a consumer of that value'

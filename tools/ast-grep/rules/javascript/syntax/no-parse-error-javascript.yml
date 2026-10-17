@@ -14,4 +14,4 @@ rule:
 labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
 message: Grammar failed to parse the span
-note: Use a form the grammar parses, every other rule skips constructs inside a parse error
+note: 'Write a form the grammar parses, every other rule skips constructs inside a parse error'

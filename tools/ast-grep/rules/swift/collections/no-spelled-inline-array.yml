@@ -26,4 +26,4 @@ transform:
     SUGARED: {rewrite: {source: $T, rewriters: [sugar]}}
 fix: '[$N of $SUGARED]'
 message: '`$SPELLED` spells out the inline array type'
-note: '`[<count> of <element>]` names `InlineArray<<count>, <element>>` in type and constructor position'
+note: 'Write `[<count> of <element>]` in type and constructor position'

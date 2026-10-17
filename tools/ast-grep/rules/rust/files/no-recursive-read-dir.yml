@@ -3,51 +3,65 @@ id: no-recursive-read-dir
 language: rust
 severity: error
 utils:
-    read-dir:
-        kind: call_expression
-        any:
-            - has: {field: function, regex: '^(((::)?(std|tokio|async_std)::)?fs::|(::)?fs_err::(tokio::)?)read_dir$'}
-            - all:
-                - has: {field: function, kind: field_expression, has: {field: field, regex: '^(read_dir|fs_err_read_dir)$'}}
-                - has: {field: arguments, not: {has: {pattern: $_}}}
-    entry-iteration:
-        any:
-            - kind: for_expression
-              has: {field: value, any: [{matches: read-dir}, {has: {stopBy: end, matches: read-dir}}]}
-            - kind: while_expression
-              has: {field: condition, has: {stopBy: end, kind: field_identifier, regex: '^next_entry$'}}
-            - kind: closure_expression
-              inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: field_expression, has: {field: value, any: [{matches: read-dir}, {has: {stopBy: end, matches: read-dir}}]}}}}
+    owner:
+        kind: function_item
+        has: {field: name, pattern: $NAME}
     self-call:
         kind: call_expression
-        all:
-            - has:
-                field: function
-                any:
-                    - {kind: identifier, pattern: $NAME}
-                    - kind: scoped_identifier
-                      all: [{has: {field: path, regex: '^Self$'}}, {has: {field: name, pattern: $NAME}}]
-                    - kind: field_expression
-                      all: [{has: {field: value, kind: self}}, {has: {field: field, pattern: $NAME}}]
-            - inside: {stopBy: {kind: function_item}, matches: entry-iteration}
-            - inside: {stopBy: {kind: function_item}, kind: function_item, has: {field: name, pattern: $NAME}}
+        has:
+            field: function
+            any:
+                - {kind: identifier, pattern: $NAME}
+                - kind: scoped_identifier
+                  all: [{has: {field: path, regex: '^Self$'}}, {has: {field: name, pattern: $NAME}}]
+                - kind: field_expression
+                  all: [{has: {field: value, kind: self}}, {has: {field: field, pattern: $NAME}}]
+    worklist-pop:
+        kind: call_expression
+        has: {field: function, kind: field_expression, all: [{has: {field: value, kind: identifier, pattern: $QUEUE}}, {has: {field: field, regex: '^(pop|pop_front|pop_back)$'}}]}
     worklist-push:
         kind: call_expression
         all:
-            - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(push|push_back|push_front)$'}}, {has: {field: value, kind: identifier, pattern: $NAME}}]}
-            - inside: {stopBy: {kind: function_item}, matches: entry-iteration}
-            - inside:
-                stopBy: {kind: function_item}
-                kind: while_expression
-                has:
-                    field: condition
-                    kind: let_condition
-                    has: {field: value, kind: call_expression, has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $NAME}}, {has: {field: field, regex: '^(pop|pop_front|pop_back)$'}}]}}
+            - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(push|push_back|push_front|extend)$'}}, {has: {field: value, kind: identifier, pattern: $QUEUE}}]}
+            - inside: {stopBy: {kind: function_item}, matches: owner, has: {field: body, has: {stopBy: end, matches: worklist-pop}}}
+    descent:
+        any:
+            - matches: self-call
+            - matches: worklist-push
 rule:
     kind: call_expression
-    pattern: $CALL
-    any:
-        - matches: self-call
-        - matches: worklist-push
-message: '`$CALL` walks a directory tree by hand, recursing through `$NAME` into each `read_dir` entry'
-note: 'Iterate `ignore::WalkBuilder::new(<root>).standard_filters(false).build()`, the walk yields the root and every entry beneath it as `Result<ignore::DirEntry, ignore::Error>`. `max_depth`, `follow_links`, `sort_by_file_name`, and `build_parallel` cover the cases a hand walk codes. `standard_filters(true)` adds `.gitignore` and hidden-file rules'
+    pattern: $READ
+    all:
+        - any:
+            - has: {field: function, regex: '^((((::)?(std|tokio|async_std)::)?fs::|(::)?fs_err::(tokio::)?)read_dir|read_dir)$'}
+            - all:
+                - has: {field: function, kind: field_expression, has: {field: field, regex: '^read_dir$'}}
+                - has: {field: arguments, not: {has: {pattern: $_}}}
+        - inside: {stopBy: {kind: function_item}, matches: owner}
+        - any:
+            - inside:
+                kind: for_expression
+                field: value
+                stopBy: {kind: 'block, function_item, closure_expression'}
+                has: {field: body, has: {stopBy: {kind: function_item}, matches: descent, pattern: $STEP}}
+            - inside:
+                kind: call_expression
+                stopBy: {kind: 'block, function_item'}
+                has: {field: arguments, has: {kind: closure_expression, has: {field: body, any: [{matches: descent, pattern: $STEP}, {has: {stopBy: {kind: function_item}, matches: descent, pattern: $STEP}}]}}}
+            - inside:
+                kind: arguments
+                stopBy: {kind: 'block, function_item, closure_expression'}
+                inside: {matches: worklist-push, pattern: $STEP}
+            - inside:
+                kind: let_declaration
+                stopBy: {kind: 'block, function_item, closure_expression'}
+                has: {field: pattern, kind: identifier, pattern: $ENTRIES}
+                precedes:
+                    stopBy: end
+                    kind: expression_statement
+                    has: {kind: while_expression, all: [{has: {field: condition, has: {stopBy: end, pattern: $ENTRIES}}}, {has: {field: body, has: {stopBy: {kind: function_item}, matches: descent, pattern: $STEP}}}]}
+labels:
+    READ: {style: primary, message: 'Lists one directory level'}
+    STEP: {style: secondary, message: 'Descends into each entry'}
+message: '`$READ` walks a directory tree by hand from each entry'
+note: 'Iterate `ignore::WalkBuilder::new(<root>).standard_filters(false).build()`, with `max_depth`, `follow_links`, `sort_by_file_name`, or `build_parallel` for the cases the walk codes, and `standard_filters(true)` for `.gitignore` and hidden-file rules'

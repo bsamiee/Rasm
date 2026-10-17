@@ -68,4 +68,4 @@ rule:
                         - not: {has: {pattern: $_, not: {any: [{matches: enum-member}, {matches: marker-statement}]}}}
                     inside: {kind: class_definition, has: {field: superclasses, has: {matches: enum-base}}}
 message: '`$NAME` is a sentinel standing for absence by identity'
-note: 'Use `<T> | None` for the value, `None` is the one absence value every caller and type checker reads'
+note: 'Use `<T> | None` with `None` for absence'

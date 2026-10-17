@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: languageext-result-target
+language: csharp
+arguments: [type]
+utils:
+    typed-owner:
+        any:
+            - kind: method_declaration
+              has: {field: returns, matches: type}
+            - kind: 'local_function_statement, property_declaration, lambda_expression'
+              has: {field: type, matches: type}
+rule:
+    inside:
+        stopBy: {not: {kind: 'conditional_expression, switch_expression_arm, switch_expression, parenthesized_expression'}}
+        any:
+            - kind: arrow_expression_clause
+              inside: {matches: typed-owner}
+            - kind: lambda_expression
+              matches: typed-owner
+            - kind: return_statement
+              inside:
+                stopBy: {kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, accessor_declaration'}
+                matches: typed-owner
+            - kind: variable_declarator
+              inside: {kind: variable_declaration, has: {field: type, matches: type}}

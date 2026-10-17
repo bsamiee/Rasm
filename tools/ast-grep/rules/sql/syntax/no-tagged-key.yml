@@ -31,4 +31,4 @@ rule:
 transform:
     TAG: {replace: {source: $LITERAL, replace: '^''([^:]+):.*$', by: '$1'}}
 message: '`$EXPRESSION` spells the tag `$TAG` inside a key string'
-note: 'Store the tag in a foreign key column referencing a lookup table and compare it with `=`, a form foreign keys and indexes read'
+note: 'Store the tag in a foreign key column referencing a lookup table and compare it with `=`'

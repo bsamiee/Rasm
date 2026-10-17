@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-literal-size-windows
+language: rust
+severity: error
+utils:
+    adjacent-order:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^(<|<=|>|>=)$'}
+            - any:
+                - all: [{has: {field: left, pattern: '$W[0]'}}, {has: {field: right, pattern: '$W[1]'}}]
+                - all: [{has: {field: left, pattern: '$W[1]'}}, {has: {field: right, pattern: '$W[0]'}}]
+    order-check:
+        kind: call_expression
+        all:
+            - pattern: '$_S.windows(2).all(|$W| $_BODY)'
+            - has: {field: arguments, has: {kind: closure_expression, has: {field: body, matches: adjacent-order}}}
+rule:
+    kind: call_expression
+    all:
+        - pattern: $S.windows($N)
+        - has: {field: arguments, has: {kind: integer_literal}}
+        - not: {inside: {kind: field_expression, field: value, inside: {kind: call_expression, field: function, matches: order-check}}}
+        - not: {pattern: '$R.collect::<Vec<$_>>().windows($N)'}
+fix: '$S.array_windows::<$N>()'
+message: '`$S.windows($N)` slides a literal-size window as a runtime slice'
+note: 'Call `<slice>.array_windows::<N>()` and destructure each `&[T; N]` window (`|[left, right]|`)'

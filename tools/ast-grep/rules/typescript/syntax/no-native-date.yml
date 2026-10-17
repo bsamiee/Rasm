@@ -7,4 +7,4 @@ rule:
     pattern: $DATE
     has: {field: function, regex: '^((globalThis|window|self)\.)?Date\.(parse|UTC)$', matches: typescript-global-reference}
 message: '`$DATE` accepts invalid input with no failure case'
-note: '`DateTime.make(input)` returns `Option.none()` for invalid input, native `Date.parse` and `Date.UTC` return `NaN` as a value'
+note: 'Call `DateTime.make(<input>)` for `Option.none()` on invalid input, where `Date.parse` and `Date.UTC` return `NaN` as a value'

@@ -102,6 +102,14 @@ macro_rules! getter {
     };
 }
 
+macro_rules! stepped {
+    () => {
+        fn forward(value: u32) -> u32 { value.strict_add(2) }
+
+        fn onward(value: u32) -> u32 { value.strict_add(2) }
+    };
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 impl Route {
@@ -208,6 +216,8 @@ mod hexadecimal {
     pub(super) fn read(text: &str) -> u32 { parse(text) }
 }
 
+stepped!();
+
 fn total(values: &[u32]) -> u32 { values.iter().sum() }
 
 fn sum(numbers: &[u32]) -> u32 { numbers.iter().sum() }
@@ -219,6 +229,18 @@ fn rendered<T: Display + Debug>(value: &T) -> String { value.to_string() }
 async fn first(value: u32) -> u32 { value.strict_add(1) }
 
 async fn second(value: u32) -> u32 { value.strict_add(1) }
+
+const fn shared() -> u32 { 1 }
+
+const fn support() -> u32 { 1 }
+
+async fn ready() -> u32 { 1 }
+
+async fn settled() -> u32 { 1 }
+
+fn shown_or_empty(value: Option<&str>) -> &str { value.unwrap_or("") }
+
+fn shown_or_missing(value: Option<&str>) -> &str { value.unwrap_or("n/a") }
 
 impl Hooks for Route {}
 
@@ -248,14 +270,16 @@ async fn main() {
     square.extend([1_u8]);
     circle.extend([2_u8]);
     let (small, large) = (Labeled { name: "small", value: 1_u8 }, Labeled { name: "large", value: 2_u16 });
-    black_box((
+    black_box(&(
         [Square { side: 2.0 }.doubled(), Circle { radius: 1.0 }.doubled()],
         [Square { side: 3.0 }.to_string(), Circle { radius: 2.0 }.to_string()],
         ([user.name(), team.name(), &user.email].concat(), team.size, route.path(), route.url_path(), catalog.names(), catalog.labels()),
         [fixed.lower(), fixed.upper(), spread.lower(), spread.upper(), counter.current(), counter.latest()],
         [decimal::read("10"), hexadecimal::read("a"), decimal::parse("7"), hexadecimal::parse("b"), total(&[1, 2]), sum(&[3])],
         (shown(&1), rendered(&2), first(3).await, second(4).await, route.enter(), route.exit(), catalog.enter()),
-        [fixed.weight(), spread.weight(), counter.weight()],
+        [fixed.weight(), spread.weight(), counter.weight(), shared(), support(), ready().await, settled().await],
+        [shown_or_empty(None), shown_or_missing(None)],
+        [forward(1), onward(2)],
         (-Box::new(square), -Box::new(circle), small.to_string(), large.to_string(), small.value, large.value),
     ));
 }

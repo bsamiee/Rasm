@@ -1,16 +1,23 @@
-using System.Globalization;
+using System.Numerics;
 using BitMiracle.LibTiff.Classic;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Quantization;
 
 namespace Rasm.Imaging.Files;
 
+// --- [MODELS] --------------------------------------------------------------------------
+[ValueObject<int>]
+internal readonly partial struct DngSide : IMinMaxValue<DngSide> {
+    public static DngSide MinValue { get; } = new(22);
+    public static DngSide MaxValue { get; } = new(64000);
+
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class DngWriter {
     private const Photometric LinearRaw = (Photometric)34892;
     private const short D65 = 21;
-    private const int Narrowest = 22;
-    private const int Widest = 64000;
     private static readonly byte[] Version = [1, 4, 0, 0];
     private static readonly float[] Neutral = [1f, 1f, 1f];
     private static readonly Seq<TiffFieldInfo> Optics = [
@@ -19,9 +26,8 @@ internal static class DngWriter {
     ];
 
     internal static Validation<Error, Unit> Bounded(PixelExtent size) =>
-        size.Width is >= Narrowest and <= Widest && size.Height is >= Narrowest and <= Widest
-            ? unit
-            : Error.New(string.Create(CultureInfo.InvariantCulture, $"frame {size} lies outside the [{Narrowest}, {Widest}] DNG extent LibRaw reads"));
+        (DngSide.Validated(size.Width).ToValidation(), DngSide.Validated(size.Height).ToValidation()).Apply(static (_, _) => unit).As()
+            .MapFail(error => Error.New($"frame {size} lies outside the DNG extent LibRaw reads", error));
 
     internal static IO<Unit> Write(StillFormat.Dng dng, FileMetadata metadata, FileStream stream) =>
         StillWriter.Scanlines(

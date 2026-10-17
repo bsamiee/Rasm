@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-statements-as-unit
+language: csharp
+severity: error
+utils:
+    unit-call:
+        kind: invocation_expression
+        any:
+            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Iter|IfSome|IfSucc)$'}}
+            - has: {field: function, matches: {csharp-type-name: {name: {regex: '^(iter|ignore)$'}}}}
+            - matches: invoked-action
+    unit-value:
+        any:
+            - kind: 'identifier, member_access_expression'
+              matches: {csharp-type-name: {name: {regex: '^unit$'}}}
+            - matches: {csharp-owner-member: {type: {regex: '^Unit$'}, member: {regex: '^Default$'}}}
+    unit-term:
+        any:
+            - matches: unit-call
+            - matches: unit-value
+            - matches: unit-sum
+            - kind: parenthesized_expression
+              has: {matches: unit-term}
+    text:
+        kind: 'string_literal, interpolated_string_expression, verbatim_string_literal, raw_string_literal'
+    unit-sum:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^\+$'}
+            - any:
+                - all: [{has: {field: left, matches: unit-term}}, {has: {field: right, matches: unit-term}}]
+                - all:
+                    - any: [{has: {field: left, matches: unit-call}}, {has: {field: right, matches: unit-call}}]
+                    - not: {has: {matches: text}}
+    invoked-action:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: invocation_expression, has: {field: function, matches: {csharp-type-name: {name: {regex: '^fun$'}}}}}
+            - has: {field: arguments, not: {has: {kind: argument}}}
+    unit-sequence:
+        all:
+            - any:
+                - matches: unit-sum
+                - kind: assignment_expression
+                  all:
+                    - has: {field: operator, regex: '^\+=$'}
+                    - has: {field: right, matches: unit-term}
+                - kind: invocation_expression
+                  has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Return(\s*<.+>)?$'}}, {has: {field: expression, matches: unit-term}}]}
+                - kind: tuple_expression
+                  all:
+                    - has: {kind: argument, nthChild: 1, has: {matches: unit-term}}
+                    - has: {kind: argument, nthChild: 2, has: {matches: unit-term}}
+            - has: {stopBy: end, matches: unit-call}
+    outer-sum:
+        any:
+            - inside: {kind: binary_expression, matches: unit-sum}
+            - inside: {kind: parenthesized_expression, inside: {kind: binary_expression, matches: unit-sum}}
+rule:
+    pattern: $VALUE
+    any:
+        - matches: unit-sequence
+          not: {matches: outer-sum}
+        - matches: invoked-action
+          not: {inside: {stopBy: end, matches: unit-sequence}}
+message: '`$VALUE` spells statements as a `Unit` value'
+note: Write the effects as statements of a block body, `IO.lift(<action>)` lifts a block to `IO<Unit>` and a statement calls an `Action` directly

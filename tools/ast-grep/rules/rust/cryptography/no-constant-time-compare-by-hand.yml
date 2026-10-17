@@ -1,0 +1,116 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-constant-time-compare-by-hand
+language: rust
+severity: error
+utils:
+    xor:
+        any:
+            - kind: binary_expression
+              has: {field: operator, regex: '^\^$'}
+            - kind: parenthesized_expression
+              has: {kind: binary_expression, has: {field: operator, regex: '^\^$'}}
+    zero:
+        kind: integer_literal
+        regex: '^0(_?[ui](8|16|32|64|128|size))?$'
+    or-of-xor:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^\|$'}
+            - any:
+                - all: [{has: {field: left, pattern: $ACC}}, {has: {field: right, matches: xor}}]
+                - all: [{has: {field: right, pattern: $ACC}}, {has: {field: left, matches: xor}}]
+    or-of-item:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^\|$'}
+            - any:
+                - all: [{has: {field: left, pattern: $ACC}}, {has: {field: right, pattern: $ITEM}}]
+                - all: [{has: {field: right, pattern: $ACC}}, {has: {field: left, pattern: $ITEM}}]
+    xor-map:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^map$'}}
+            - has: {field: arguments, has: {nthChild: 1, kind: closure_expression, has: {field: body, any: [{matches: xor}, {kind: block, has: {matches: xor}}]}}}
+    fold-call:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^fold$'}}
+            - has: {field: arguments, has: {nthChild: 1, matches: zero}}
+    xor-or-fold:
+        any:
+            - matches: fold-call
+              has:
+                field: arguments
+                has:
+                    nthChild: 2
+                    kind: closure_expression
+                    all:
+                        - has: {field: parameters, has: {nthChild: 1, kind: identifier, pattern: $ACC}}
+                        - has: {field: parameters, has: {nthChild: 2, kind: tuple_pattern}}
+                        - has: {field: body, any: [{matches: or-of-xor}, {kind: block, has: {matches: or-of-xor}}]}
+            - matches: fold-call
+              all:
+                - has: {field: function, has: {field: value, matches: xor-map}}
+                - has:
+                    field: arguments
+                    has:
+                        nthChild: 2
+                        kind: closure_expression
+                        all:
+                            - has: {field: parameters, has: {nthChild: 1, kind: identifier, pattern: $ACC}}
+                            - has: {field: parameters, has: {nthChild: 2, kind: identifier, pattern: $ITEM}}
+                            - has: {field: body, any: [{matches: or-of-item}, {kind: block, has: {matches: or-of-item}}]}
+            - matches: fold-call
+              all:
+                - has: {field: function, has: {field: value, matches: xor-map}}
+                - has: {field: arguments, has: {nthChild: 2, matches: bit-or-path}}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^reduce$'}}, {has: {field: value, matches: xor-map}}]}
+                - has:
+                    field: arguments
+                    has:
+                        nthChild: 1
+                        any:
+                            - matches: bit-or-path
+                            - kind: closure_expression
+                              all:
+                                - has: {field: parameters, has: {nthChild: 1, kind: identifier, pattern: $ACC}}
+                                - has: {field: parameters, has: {nthChild: 2, kind: identifier, pattern: $ITEM}}
+                                - has: {field: body, any: [{matches: or-of-item}, {kind: block, has: {matches: or-of-item}}]}
+            - kind: compound_assignment_expr
+              all:
+                - has: {field: operator, regex: '^\|=$'}
+                - has: {field: right, matches: xor}
+                - matches: loop-statement
+            - kind: assignment_expression
+              all:
+                - has: {field: left, pattern: $ACC}
+                - has: {field: right, matches: or-of-xor}
+                - matches: loop-statement
+    bit-or-path:
+        kind: scoped_identifier
+        regex: '^((::)?(std|core)::)?(ops::)?BitOr::bitor$|^(u8|u16|u32|u64|u128|usize)::bitor$'
+    for-each-body:
+        inside:
+            kind: closure_expression
+            field: body
+            inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, regex: '^for_each$'}}}}
+    loop-statement:
+        any:
+            - matches: for-each-body
+            - inside:
+                kind: expression_statement
+                inside:
+                    kind: block
+                    all:
+                        - any:
+                            - inside: {kind: 'for_expression, while_expression, loop_expression', field: body}
+                            - matches: for-each-body
+                        - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
+rule:
+    kind: 'call_expression, compound_assignment_expr, assignment_expression'
+    pattern: $COMPARE
+    matches: xor-or-fold
+message: '`$COMPARE` compares two byte sequences by OR-ing their XOR by hand'
+note: 'Call `aws_lc_rs::constant_time::verify_slices_are_equal(<a>, <b>)`, it returns `Err` for unequal lengths that `zip` truncates'

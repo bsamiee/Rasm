@@ -2,6 +2,7 @@
 id: no-throwing-mapper-conversion
 language: csharp
 severity: error
+files: ['libs/dotnet/rhino/Rasm.Rhino/**']
 utils:
     source-root:
         any:
@@ -83,7 +84,7 @@ utils:
             kind: method_declaration
             all:
                 - has: {field: parameters, has: {kind: parameter, nthChild: 1, has: {field: name, pattern: $SOURCE}}}
-                - matches: csharp-mapping-method
+                - matches: mapperly-mapping-method
     key-parameter:
         inside:
             stopBy: end
@@ -141,7 +142,7 @@ rule:
                 - matches:
                     csharp-file-method-call:
                         declaration:
-                            not: {matches: csharp-mapping-method}
+                            not: {matches: mapperly-mapping-method}
                             has:
                                 stopBy: end
                                 any:

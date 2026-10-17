@@ -27,5 +27,5 @@ rule:
           any:
             - inside: {kind: property_declaration, field: value}
             - inside: {kind: 'assignment, control_transfer_statement', field: result}
-message: 'Conditional expression nests a conditional'
-note: 'Select with one `if` expression per test, a `switch` expression over the combined subjects (`switch (<a>, <b>)`), or a `where` clause on the case, a nested conditional hides the test combination that selects each value'
+message: '`if`, `switch`, or ternary value nests another conditional'
+note: 'Select with one `if` expression per test, a `switch` expression over the combined subjects (`switch (<a>, <b>)`), or a `where` clause on the case'

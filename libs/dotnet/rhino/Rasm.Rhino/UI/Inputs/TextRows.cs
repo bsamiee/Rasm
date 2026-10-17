@@ -20,7 +20,7 @@ public readonly partial struct TextLines : System.Numerics.IMinMaxValue<TextLine
     public static TextLines MaxValue { get; } = new(int.MaxValue);
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
-        validationError = Admission.Refusal(value, MinValue._value, MaxValue._value);
+        validationError = ValidationResults.OutsideRange(value, MinValue._value, MaxValue._value);
 }
 
 [Union]

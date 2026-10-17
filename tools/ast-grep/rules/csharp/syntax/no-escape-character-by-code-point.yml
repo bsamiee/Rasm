@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-escape-character-by-code-point
+language: csharp
+severity: error
+utils:
+    escape-code:
+        kind: integer_literal
+        regex: '^(27|0[xX]0*1[bB])$'
+rule:
+    pattern: $CODE
+    any:
+        - kind: escape_sequence
+          regex: '^\\(u001[bB]|U0000001[bB]|x0{0,2}1[bB])$'
+        - kind: cast_expression
+          all:
+            - has: {field: type, regex: '^(char|(global::)?(System\.)?Char)$'}
+            - has: {field: value, matches: escape-code}
+        - kind: invocation_expression
+          all:
+            - has: {field: function, regex: '^((global::)?(System\.)?(Char|char)\.ConvertFromUtf32|(global::)?(System\.)?Convert\.ToChar)$'}
+            - has: {field: arguments, all: [{has: {kind: argument, has: {matches: escape-code}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
+transform:
+    CAST: {replace: {source: $CODE, replace: '(?s)^(\(.*|.*Convert\.ToChar\(.*)$', by: '''\e'''}}
+    STRING: {replace: {source: $CAST, replace: '(?s)^.*ConvertFromUtf32\(.*$', by: '"\e"'}}
+    SEQUENCE: {replace: {source: $STRING, replace: '^\\[uUx].*$', by: '\e'}}
+fix: $SEQUENCE
+message: '`$CODE` spells the escape character by its code point'
+note: 'Write the escape character as `\e`, `''\e''` for a `char` and `"\e"` for a `string`'

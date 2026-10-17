@@ -14,5 +14,5 @@ transform:
     AW: {replace: {source: $AOR, replace: '^([\s\S]+)$', by: '($1)'}}
     BW: {replace: {source: $BOR, replace: '^([\s\S]+)$', by: '($1)'}}
 fix: 'if $A$AW && $B$BW $X else $E'
-message: 'Nested `if` repeats the outer `else` block'
-note: 'Join the conditions in one let chain, `if <outer> && <inner> { <body> } else { <fallback> }` (edition 2024), the fallback runs when either condition fails. Clippy `collapsible_if` reports the form without `else` alone'
+message: 'Nested `if $B$BOR` repeats the outer `else` block'
+note: 'Join the conditions in one chain, `if <outer> && <inner> { <body> } else { <fallback> }`'

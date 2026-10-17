@@ -33,4 +33,4 @@ fix:
     template: ''
     expandStart: {regex: '^;$'}
 message: 'String after `$NAME` is a docstring Python never attaches'
-note: 'Names and annotated types state what an assignment or type alias holds'
+note: 'Delete the string and state its fact in the name or annotated type'

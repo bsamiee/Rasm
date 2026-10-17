@@ -2,6 +2,7 @@
 id: no-forwarding-user-mapping
 language: csharp
 severity: error
+files: ['libs/dotnet/rhino/Rasm.Rhino/**']
 utils:
     selected:
         kind: method_declaration
@@ -54,7 +55,7 @@ rule:
                   has: {kind: return_statement, nthChild: 1, has: {matches: forward}}
                   not: {has: {nthChild: 2}}
         - not: {has: {kind: modifier, regex: '^partial$'}}
-        - matches: csharp-mapping-method
+        - matches: mapperly-mapping-method
 constraints:
     OWNER: {regex: '^(global::)?(@?[A-Z]\w*(<.+>)?\.)*@?[A-Z]\w*(<.+>)?$'}
 message: 'Mapping method `$NAME` passes `$SOURCE` to `$CALLEE` unchanged'

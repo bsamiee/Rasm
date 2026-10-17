@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-func-equivalent-delegate
+language: csharp
+severity: error
+rule:
+    kind: delegate_declaration
+    all:
+        - has: {field: name, pattern: $NAME}
+        - not:
+            any:
+                - has: {kind: attribute_list}
+                - has: {field: type, kind: ref_type}
+                - has: {field: type, kind: pointer_type}
+                - has:
+                    field: parameters
+                    has:
+                        kind: parameter
+                        any:
+                            - has: {kind: modifier, regex: '^(ref|out|in|params|scoped|this)$'}
+                            - has: {kind: attribute_list}
+                            - has: {field: type, kind: 'pointer_type, function_pointer_type'}
+                            - regex: '='
+                - has: {field: parameters, has: {regex: '^params$'}}
+                - has: {field: parameters, has: {kind: parameter, nthChild: 17}}
+                - all:
+                    - has: {field: type, regex: '^void$'}
+                    - has:
+                        field: parameters
+                        all:
+                            - has: {kind: parameter, nthChild: 1, has: {field: type, matches: {csharp-type-name: {name: {regex: '^(object|Object)$'}}}}}
+                            - has: {kind: parameter, nthChild: 2, has: {field: type, matches: {csharp-type-name: {name: {regex: 'EventArgs$'}}}}}
+                            - not: {has: {kind: parameter, nthChild: 3}}
+                - has:
+                    field: parameters
+                    has:
+                        kind: parameter
+                        all:
+                            - has: {field: type, pattern: $REPEATED}
+                            - follows: {stopBy: end, kind: parameter, has: {field: type, pattern: $REPEATED}}
+                - inside:
+                    kind: compilation_unit
+                    stopBy: end
+                    has:
+                        stopBy: end
+                        kind: invocation_expression
+                        has:
+                            field: function
+                            kind: member_access_expression
+                            has:
+                                field: name
+                                kind: generic_name
+                                all:
+                                    - has: {kind: identifier, regex: '^(Add|Find|Supports|Create|CreateShared)$'}
+                                    - has: {kind: type_argument_list, has: {kind: identifier, pattern: $NAME}, not: {has: {nthChild: 2}}}
+                - all:
+                    - has: {field: parameters, has: {kind: parameter, nthChild: 4}}
+                    - inside:
+                        kind: compilation_unit
+                        stopBy: end
+                        has:
+                            stopBy: end
+                            kind: declaration_list
+                            has:
+                                kind: &member 'method_declaration, field_declaration, property_declaration'
+                                has: {stopBy: end, kind: identifier, pattern: $NAME}
+                                follows:
+                                    stopBy: end
+                                    kind: *member
+                                    has: {stopBy: end, kind: identifier, pattern: $NAME}
+                                    follows: {stopBy: end, kind: *member, has: {stopBy: end, kind: identifier, pattern: $NAME}}
+message: Delegate `$NAME` restates a `Func` or `Action` signature
+note: 'Type each use as the `Func` or `Action` of the same signature, a delegate stays where its parameter names tell same-typed parameters apart, a type registry (`Add<T>`, `Find<T>`) keys on it, or three members repeat its signature of four or more parameters'

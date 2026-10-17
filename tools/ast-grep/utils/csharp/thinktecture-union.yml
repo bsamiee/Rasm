@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: thinktecture-union
+language: csharp
+arguments: [name]
+utils:
+    union-attribute:
+        matches: {csharp-type-name: {name: {regex: '^Union(Attribute)?$'}}}
+rule:
+    kind: record_declaration, class_declaration
+    all:
+        - has: {field: name, matches: name}
+        - has:
+            kind: attribute_list
+            has:
+                kind: attribute
+                has: {field: name, matches: union-attribute}

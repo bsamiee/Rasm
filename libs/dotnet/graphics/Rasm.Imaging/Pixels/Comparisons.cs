@@ -15,7 +15,7 @@ public readonly partial struct BarLevel : IMinMaxValue<BarLevel> {
     public static BarLevel NrmseAdvisory { get; } = new(0.05d);
     public static BarLevel NrmseRefuse { get; } = new(0.10d);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [SmartEnum<int>]

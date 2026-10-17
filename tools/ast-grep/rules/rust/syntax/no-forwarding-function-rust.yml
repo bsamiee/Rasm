@@ -27,8 +27,8 @@ utils:
     forwarding-body:
         kind: block
         all:
-            - has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, matches: forwarding-statement}
-            - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
+            - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, matches: forwarding-statement}
+            - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
     parameter-name:
         kind: parameter
         has: {field: pattern, kind: identifier, pattern: $X}
@@ -39,27 +39,7 @@ utils:
                 - not: {kind: 'identifier, line_comment, block_comment'}
             - kind: identifier
               pattern: $X
-              not: {inside: {kind: function_item, stopBy: &owner {kind: function_item}, has: {field: parameters, has: {matches: parameter-name}}}}
-            - kind: identifier
-              pattern: $X
-              precedes: {stopBy: {kind: identifier}, kind: identifier, pattern: $Y}
-              not:
-                inside:
-                    kind: function_item
-                    stopBy: *owner
-                    has:
-                        field: parameters
-                        has:
-                            matches: parameter-name
-                            precedes: {stopBy: {kind: 'parameter, self_parameter'}, kind: parameter, has: {field: pattern, pattern: $Y}}
-    misplaced-leading-argument:
-        kind: identifier
-        nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment'}}}
-        pattern: $X
-        not:
-            any:
-                - inside: {kind: function_item, stopBy: *owner, has: {field: parameters, has: {matches: parameter-name, nthChild: {position: 1, ofRule: {kind: parameter}}}}}
-                - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: field_expression, has: {field: value, kind: identifier}}}}
+              not: {inside: {kind: function_item, stopBy: {kind: function_item}, has: {field: parameters, has: {matches: parameter-name}}}}
     unforwarded-parameter:
         not: {kind: self_parameter}
         any:
@@ -82,11 +62,10 @@ rule:
             - has: {field: body, has: {stopBy: end, kind: await_expression}}
         - not: {has: {field: parameters, has: {kind: parameter, has: {field: pattern, pattern: $F}}}}
         - not: {has: {field: body, has: {stopBy: end, pattern: $ARGS, has: {pattern: $_, matches: unforwarded-argument}}}}
-        - not: {has: {field: body, has: {stopBy: end, pattern: $ARGS, has: {matches: misplaced-leading-argument}}}}
         - not: {has: {field: parameters, has: {pattern: $_, matches: unforwarded-parameter}}}
         - not: {inside: {kind: impl_item, stopBy: end, has: {field: type, any: [{pattern: $F}, {has: {field: type, pattern: $F}}]}}}
         - not: {inside: {kind: declaration_list, inside: {kind: trait_item}}}
-        - not: {matches: rust-fixed-signature}
+        - not: {matches: rust-trait-or-extern-function}
         - not: {matches: {rust-attributed: {attribute: {not: {matches: plain-attribute}}}}}
-message: 'Function forwards its parameters unchanged to `$F`'
-note: 'Call `<callee>` at each call site, and give the callee the visibility the forwarder exposed, Clippy `pub_use` rejects a re-export'
+message: '`$NAME` forwards its parameters unchanged to `$F`'
+note: 'Call the callee at each call site, give it the visibility of the forwarding function, and delete the forwarding function'

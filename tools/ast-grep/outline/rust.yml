@@ -39,6 +39,25 @@ signature: $NAME!
 isExported: false
 
 ---
+id: rust-member-macro-invocation
+language: rust
+role: member
+parentRuleIds: [rust-impl, rust-trait]
+symbolType: event
+rule:
+    kind: macro_invocation
+    inside: {kind: declaration_list}
+    pattern: $INVOCATION
+transform:
+    FIRST: {replace: {source: $INVOCATION, replace: '^(?s)[\w:]+!\s*[(\[{]\s*([A-Za-z_]\w*).*$', by: '$1'}}
+    NAME: {replace: {source: $FIRST, replace: '^(?s)(?:[\w:]*::)?(\w+)!.*$', by: '$1!'}}
+    LINE: {replace: {source: $INVOCATION, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '\s*;$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isPublic: false
+
+---
 id: rust-associated-type
 language: rust
 role: member

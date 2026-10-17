@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-utf8-encoded-literal
+language: csharp
+severity: error
+utils:
+    encoding-owner:
+        regex: '^((global::)?System\.)?(Text\.)?Encoding$'
+    utf8-encoding:
+        any:
+            - kind: member_access_expression
+              all: [{has: {field: expression, matches: encoding-owner}}, {has: {field: name, regex: '^UTF8$'}}]
+            - kind: object_creation_expression
+              has: {field: type, regex: '^((global::)?System\.)?(Text\.)?UTF8Encoding$'}
+            - kind: parenthesized_expression
+              has: {matches: utf8-encoding}
+    ascii-encoding:
+        kind: member_access_expression
+        all: [{has: {field: expression, matches: encoding-owner}}, {has: {field: name, regex: '^(ASCII|Latin1)$'}}]
+    text:
+        kind: 'string_literal, verbatim_string_literal, raw_string_literal'
+        not: {regex: '\\[uU][dD][89a-fA-F]|\\[uU]0000[dD][89a-fA-F]|\\x[dD][89a-fA-F]'}
+    ascii-text:
+        matches: text
+        regex: '^[\x00-\x7F]*$'
+        not: {regex: '\\[uUx]'}
+rule:
+    kind: invocation_expression
+    pattern: $CALL
+    all:
+        - has:
+            field: function
+            kind: member_access_expression
+            all:
+                - has: {field: name, regex: '^(GetBytes|GetByteCount)$', pattern: $METHOD}
+                - has: {field: expression, any: [{matches: utf8-encoding}, {matches: ascii-encoding}]}
+        - has:
+            field: arguments
+            all:
+                - has: {kind: argument, nthChild: 1, not: {has: {field: name, pattern: $_}}, has: {matches: text, pattern: $TEXT}}
+                - not: {has: {kind: argument, nthChild: 2}}
+        - any:
+            - has: {field: function, has: {field: expression, matches: utf8-encoding}}
+            - has: {field: arguments, has: {kind: argument, has: {matches: ascii-text}}}
+transform:
+    READ:
+        replace: {source: $METHOD, replace: '^GetBytes$', by: 'ToArray()'}
+    MEMBER:
+        replace: {source: $READ, replace: '^GetByteCount$', by: Length}
+fix: $TEXTu8.$MEMBER
+message: '`$CALL` encodes the constant string `$TEXT` at run time'
+note: 'Write the bytes as a `"<text>"u8` literal, `.ToArray()` where an array is required and `.Length` for the count'

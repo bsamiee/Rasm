@@ -47,14 +47,16 @@ Framework negotiation fails between `.NETFramework` and `.NETCoreApp`, `SkipGetT
 
 ## [03]-[HOST_SUPPLIED_REFERENCE]
 
-`HintPath` comes from a property with a default, `Reference` items derive from one item list, and a target before `ResolveAssemblyReferences` turns a missing installation into one error.
+`HintPath` comes from a property the environment or a `-p:` switch supplies, `Reference` items derive from one item list, and a target before `ResolveAssemblyReferences` turns a missing or unnamed installation into one error.
 
 `Directory.Build.props` holds:
 
 ```xml
 <PropertyGroup>
     <HostAppPath Condition="'$(HostAppPath)' == '' and '$(HOST_APP_PATH)' != ''">$(HOST_APP_PATH)</HostAppPath>
-    <HostAppPath Condition="'$(HostAppPath)' == ''">/Applications/Host.app</HostAppPath>
+</PropertyGroup>
+
+<PropertyGroup Condition="'$(HostAppPath)' != ''">
     <_HostAppDir>$([MSBuild]::NormalizeDirectory('$(HostAppPath)'))</_HostAppDir>
     <HostAssemblyDir>$(_HostAppDir)Contents/Resources/</HostAssemblyDir>
 </PropertyGroup>

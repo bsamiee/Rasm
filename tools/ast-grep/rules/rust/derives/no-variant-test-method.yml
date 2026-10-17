@@ -3,24 +3,47 @@ id: no-variant-test-method
 language: rust
 severity: error
 utils:
+    variant-pattern:
+        regex: '^\w+::\w+\s*(\(\s*(\.\.|_)\s*\)|\{\s*\.\.\s*\})?$'
+    self-value:
+        regex: '^(\*|&)?\s*self$'
+    test-arm:
+        kind: match_arm
+        all: [{has: {field: pattern, kind: match_pattern, matches: variant-pattern}}, {has: {field: value, kind: boolean_literal, pattern: $FIRST}}]
+    fallback-arm:
+        kind: match_arm
+        all: [{has: {field: pattern, kind: match_pattern, regex: '^_$'}}, {has: {field: value, kind: boolean_literal, not: {pattern: $FIRST}}}]
     variant-test:
-        kind: macro_invocation
-        all:
-            - matches: {rust-std-macro: {name: {regex: '^matches$'}}}
-            - has: {kind: token_tree, regex: '^\(\s*\*?\s*self\s*,\s*\w+::\w+\s*(\(\s*(\.\.|_)\s*\)|\{\s*\.\.\s*\})?\s*,?\s*\)$'}
+        any:
+            - kind: macro_invocation
+              all:
+                - matches: {rust-std-macro: {name: {regex: '^matches$'}}}
+                - has: {kind: token_tree, regex: '^\(\s*\*?\s*self\s*,\s*\w+::\w+\s*(\(\s*(\.\.|_)\s*\)|\{\s*\.\.\s*\})?\s*,?\s*\)$'}
+            - kind: match_expression
+              all:
+                - has: {field: value, matches: self-value}
+                - has: {field: body, all: [{has: {kind: match_arm, nthChild: {position: 1, ofRule: {kind: match_arm}}, matches: test-arm}}, {has: {kind: match_arm, nthChild: {position: 2, ofRule: {kind: match_arm}}, matches: fallback-arm}}, {not: {has: {kind: match_arm, nthChild: {position: 3, ofRule: {kind: match_arm}}}}}]}
+            - kind: if_expression
+              all:
+                - has: {field: condition, kind: let_condition, all: [{has: {field: pattern, matches: variant-pattern}}, {has: {field: value, matches: self-value}}]}
+                - has: {field: consequence, regex: '^\{\s*(true|false)\s*\}$', pattern: $FIRST}
+                - has: {field: alternative, kind: else_clause, has: {kind: block, regex: '^\{\s*(true|false)\s*\}$', not: {pattern: $FIRST}}}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^==$'}
+                - any:
+                    - all: [{has: {field: left, matches: self-value}}, {has: {field: right, regex: '^&?\s*\w+::\w+$'}}]
+                    - all: [{has: {field: right, matches: self-value}}, {has: {field: left, regex: '^&?\s*\w+::\w+$'}}]
     test-body:
-        kind: block
-        all:
-            - has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, any: [{matches: variant-test}, {kind: expression_statement, has: {matches: variant-test}}]}
-            - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
+        matches: {rust-single-statement: {first: {any: [{matches: variant-test}, {kind: expression_statement, has: {matches: variant-test}}]}}}
 rule:
     kind: function_item
     all:
         - has: {field: name, pattern: $NAME}
-        - has: {field: parameters, regex: '^\(\s*&\s*self\s*\)$'}
+        - has: {field: parameters, regex: '^\(\s*&?\s*self\s*\)$'}
         - has: {field: return_type, regex: '^bool$'}
         - has: {field: body, matches: test-body}
         - inside: {kind: declaration_list, inside: {kind: impl_item, all: [{not: {has: {field: trait, pattern: $_}}}, {has: {field: type, kind: type_identifier, pattern: $T}}]}}
         - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: enum_item, has: {field: name, pattern: $T}}}
-message: '`$NAME` tests one variant of `$T` through `matches!`'
-note: 'Derive `derive_more::IsVariant` on `<enum>` and call the generated `is_<variant>()` (the variant name in snake case) at each site, the derive states one test per variant from the declaration'
+message: '`$NAME` tests one variant of `$T` by hand'
+note: 'Derive `derive_more::IsVariant` on the enum, call the generated `is_<variant>()` at each use, and delete the method'

@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-geometry-format-text
+language: rust
+utils:
+    parsed:
+        any:
+            - inside: {field: value, kind: field_expression, has: {field: field, regex: '^parse$'}}
+            - inside:
+                kind: arguments
+                inside: {kind: call_expression, has: {field: function, regex: '(^|::|\.)(from_str|from_slice|from_reader|from_wkt|try_from_wkt_str|parse)$'}}
+    geojson-type:
+        kind: string_literal
+        regex: '^"(Feature|FeatureCollection|GeometryCollection|Point|MultiPoint|LineString|MultiLineString|Polygon|MultiPolygon)"$'
+    geojson:
+        any:
+            - matches: geojson-type
+              follows: {regex: '^:$', follows: {kind: string_literal, regex: '^"type"$'}}
+            - matches: geojson-type
+              inside: {kind: arguments, all: [{has: {nthChild: 1, kind: string_literal, regex: '^"type"$'}}, {not: {has: {nthChild: 3}}}]}
+            - regex: '\\?"type\\?"\s*:\s*\\?"(Feature|FeatureCollection|GeometryCollection|Point|MultiPoint|LineString|MultiLineString|Polygon|MultiPolygon)\\?"'
+    wkt:
+        regex: '^r?#*"(SRID=[^;"]*;)?(POINT|LINESTRING|POLYGON|MULTIPOINT|MULTILINESTRING|MULTIPOLYGON|GEOMETRYCOLLECTION|TRIANGLE|TIN|POLYHEDRALSURFACE)( ?(Z|M|ZM))? ?(\(|EMPTY\b)'
+    svg-move:
+        kind: string_literal
+        regex: '^"(\s*|.*\bd=\\")[Mm] ?\{[^{}]*\}[ ,]\s*\{[^{}]*\}'
+    svg:
+        any:
+            - matches: svg-move
+            - regex: '^"\s*[LlCcQqSsTt] ?\{[^{}]*\}[ ,]\s*\{[^{}]*\}'
+              inside: {kind: function_item, stopBy: {kind: function_item}, has: {stopBy: end, matches: svg-move}}
+    printing:
+        matches: {rust-std-macro: {name: {regex: '^(write|writeln|format|format_args|print|println|eprint|eprintln)$'}}}
+    stl:
+        regex: '^b?"\s*(facet normal|outer loop|endfacet|endloop|endsolid)\b'
+        not: {inside: {stopBy: {kind: 'function_item, closure_expression'}, matches: printing}}
+    obj:
+        any:
+            - regex: '^"f "$'
+              inside: {kind: function_item, stopBy: {kind: function_item}, has: {stopBy: end, kind: string_literal, regex: '^"v "$'}}
+            - regex: '^"f"$'
+              inside: {kind: function_item, stopBy: {kind: function_item}, has: {stopBy: end, kind: string_literal, regex: '^"v[nt]"$'}}
+    ply:
+        regex: '^b?"\s*(ply(\\r)?\\n|end_header|element vertex\b|format (ascii|binary_little_endian|binary_big_endian) 1\.0)'
+rule:
+    kind: 'string_literal, raw_string_literal'
+    all:
+        - any:
+            - matches: geojson
+            - matches: wkt
+            - matches: svg
+            - matches: stl
+            - matches: obj
+            - matches: ply
+        - not: {matches: parsed}
+        - not: {matches: rust-test-scope}

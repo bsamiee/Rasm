@@ -23,7 +23,7 @@ public readonly partial struct PassCount : System.Numerics.IMinMaxValue<PassCoun
     public static PassCount MinValue { get; } = new(0);
     public static PassCount MaxValue { get; } = new(int.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 public sealed record RealtimeTarget(PixelExtent Extent, bool ForCapture, RenderWindow Window);

@@ -47,4 +47,4 @@ rule:
                 - has: {kind: lambda_literal, matches: test-closure}
                 - has: {kind: value_arguments, has: {kind: value_argument, not: {has: {kind: value_argument_label}}, has: {field: value, matches: test-closure}}}
 message: '`$FILTER` walks indices to test the element at each one'
-note: '`<collection>.indices(where: <element test>)` returns the passing indices as a `RangeSet`, `<collection>[<range set>]` reads their elements, and `removeSubranges` and `moveSubranges` take it whole. Consumers of the index array move to the `RangeSet` or its `ranges`'
+note: 'Call `<collection>.indices(where: <element test>)` for a `RangeSet` of passing indices, read their elements through `<collection>[<range set>]`, pass it whole to `removeSubranges` and `moveSubranges`, and move consumers of the index array to the `RangeSet` or its `ranges`'

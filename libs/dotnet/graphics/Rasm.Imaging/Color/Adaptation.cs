@@ -14,7 +14,7 @@ public readonly partial struct ColorTemperature : IMinMaxValue<ColorTemperature>
     public static ColorTemperature Flame { get; } = new(2000d);
     public static UnitsNet.UnitInfo Unit { get; } = UnitsNet.Quantity.GetUnitInfo(TemperatureUnit.Kelvin);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -23,7 +23,7 @@ public readonly partial struct Tint : IMinMaxValue<Tint> {
     public static Tint MaxValue { get; } = new(0.05d);
     public static Tint ViewDefault { get; } = new(0.003333d);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [SmartEnum]

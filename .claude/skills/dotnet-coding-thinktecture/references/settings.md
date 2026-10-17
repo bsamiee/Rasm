@@ -32,7 +32,7 @@ Attribute settings of value objects, smart enums, ad hoc unions, and regular uni
 | :-----: | :--------------------------------- | :--------------------- | :------------------------------------------------------------------------- |
 |  [01]   | `KeyMember*` settings              | `Key`, public property | `KeyMemberName`, `KeyMemberAccessModifier`, `KeyMemberKind`                |
 |  [02]   | `SkipI*` interface settings        | `false`                | Drop `IComparable`, `IParsable` (with `ISpanParsable`), or `ISpanParsable` |
-|  [03]   | `SkipIFormattable`, `SkipToString` | `false`                | Drop `IFormattable`, keep a hand-written `ToString`                        |
+|  [03]   | `SkipIFormattable`, `SkipToString` | `false`                | Drop `IFormattable` or the generated `ToString`                            |
 |  [04]   | Operator settings                  | `Default`              | `ComparisonOperators`, `EqualityComparisonOperators`, must match (105)     |
 |  [05]   | `ConversionToKeyMemberType`        | `Implicit`             | `ConversionOperatorsGeneration.None` removes it                            |
 |  [06]   | `ConversionFromKeyMemberType`      | `Explicit`             | `None` removes it                                                          |

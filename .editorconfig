@@ -120,6 +120,8 @@ dotnet_diagnostic.MA0038.severity = none                                      # 
 dotnet_diagnostic.MA0041.severity = none                                      # Deprecated static-property checker; CA1822 owns the policy
 dotnet_diagnostic.MA0048.severity = none                                      # Files group a concern's types, one type per file splits a concern
 dotnet_diagnostic.MA0051.severity = none                                      # Length caps force extracted helpers, one operation stays in one body
+dotnet_diagnostic.MA0136.severity = none                                      # .gitattributes checks out every file with eol=lf, raw strings hold LF
+dotnet_diagnostic.CA2249.severity = none                                      # no-index-sentinel-comparison owns string IndexOf tests, < 0 and is forms included
 dotnet_diagnostic.CA1021.severity = error                                     # Off under latest-all: no out parameters
 dotnet_diagnostic.CA1045.severity = error                                     # Off under latest-all: no ref parameters
 dotnet_diagnostic.CA1062.severity = none                                      # Nullable annotations state null contract, guards are junk validation
@@ -255,3 +257,5 @@ dotnet_diagnostic.EPC29.severity = none                                       # 
 dotnet_diagnostic.VSTHRD111.severity = none                                   # xUnit1030 at error forbids ConfigureAwait(false) in tests
 dotnet_diagnostic.CA1515.severity = none                                      # xUnit requires public test classes
 
+[tools/roslyn/**/*.cs]
+dotnet_diagnostic.RS2008.severity = none                                      # Analyzers publish no package, release tracking files record no release

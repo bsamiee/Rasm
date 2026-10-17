@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-wildcard-in-task-parameter
+language: xml
+severity: error
+files: ['**/*.{csproj,props,targets}']
+rule:
+    pattern: _TASK
+    all:
+        - matches: {msbuild-element: {name: {pattern: _NAME, regex: '^(Copy|Move|Unzip|Delete|Touch)$'}}}
+        - matches: {msbuild-metadata: {name: {regex: '^(SourceFiles|Files)$'}, value: {kind: AttValue, pattern: _GLOB, regex: '[*?]'}}}
+rewriters:
+    - id: pass-item
+      rule:
+        kind: AttValue
+        inside:
+            kind: Attribute
+            has: {kind: Name, regex: '^(SourceFiles|Files)$'}
+            inside: {matches: msbuild-tag, has: {kind: Name, pattern: _NAME}, inside: {pattern: _TASK}}
+      transform:
+        ITEM: {replace: {source: $NAME, replace: '^(.*)$', by: '_${1}Files'}}
+      fix: '"@($ITEM)"'
+    - id: tree-destination
+      rule:
+        kind: Attribute
+        all:
+            - has: {kind: Name, regex: '^DestinationFolder$'}
+            - has: {kind: AttValue, pattern: _FOLDER}
+            - inside:
+                matches: msbuild-tag
+                all:
+                    - has: {kind: Name, pattern: _NAME, regex: '^(Copy|Move)$'}
+                    - inside: {pattern: _TASK}
+                    - has: {kind: Attribute, all: [{has: {kind: Name, regex: '^SourceFiles$'}}, {has: {kind: AttValue, regex: '\*\*'}}]}
+      transform:
+        ITEM: {replace: {source: $NAME, replace: '^(.*)$', by: '_${1}Files'}}
+        DIRECTORY: {replace: {source: $FOLDER, replace: '(?s)^["'']?(.*?)[\\/]?["'']?$', by: '$1'}}
+      fix: 'DestinationFiles="@($ITEM->''$DIRECTORY/%(RecursiveDir)%(Filename)%(Extension)'')"'
+transform:
+    GLOB_TEXT: {replace: {source: $GLOB, replace: '^["'']|["'']$', by: ''}}
+    ITEM: {replace: {source: $NAME, replace: '^(.*)$', by: '_${1}Files'}}
+    REWRITTEN: rewrite($TASK, rewriters=[pass-item, tree-destination])
+fix: |-
+    <ItemGroup>
+        <$ITEM Remove="@($ITEM)" />
+        <$ITEM Include=$GLOB />
+    </ItemGroup>
+    $REWRITTEN
+message: '`$NAME` reads the wildcard in `$GLOB_TEXT` as a literal file name'
+note: Declare the wildcard in an item `Include` and pass `@(<item>)`

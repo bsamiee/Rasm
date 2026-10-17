@@ -240,7 +240,8 @@ public static class EventKind {
     public static readonly HostEvent<LicenseStateChangedEventArgs> LicenseStateChanged =
         Subscriptions.Host<LicenseStateChangedEventArgs>(typeof(RhinoApp), static h => RhinoApp.LicenseStateChanged += h, static h => RhinoApp.LicenseStateChanged -= h);
     public static readonly HostEvent<EventArgs> RhinoAppInitialized = Subscriptions.Host<EventHandler, EventArgs>(typeof(RhinoApp), static h => RhinoApp.Initialized += h, static h => RhinoApp.Initialized -= h, static handler => handler.Invoke, nameof(RhinoApp.Initialized));
-    public static readonly HostEvent<EventArgs> RhinoAppClosing = Subscriptions.Host<EventHandler, EventArgs>(typeof(RhinoApp), static h => RhinoApp.Closing += h, static h => RhinoApp.Closing -= h, static handler => handler.Invoke, nameof(RhinoApp.Closing));
+    public static readonly HostEvent<EventArgs> RhinoAppClosing = new(typeof(RhinoApp), nameof(RhinoApp.Closing), static (deliver, site, retain) =>
+        Subscriptions.Attach<EventHandler>(static h => RhinoApp.Closing += h, static h => RhinoApp.Closing -= h, (_, args) => Callbacks.Run(IO.pure(args).Bind(deliver), site), retain));
     public static readonly HostEvent<EventArgs> AppSettingsChanged = Subscriptions.Host<EventHandler, EventArgs>(typeof(RhinoApp), static h => RhinoApp.AppSettingsChanged += h, static h => RhinoApp.AppSettingsChanged -= h, static handler => handler.Invoke);
     public static readonly HostEvent<EventArgs> RendererChanged = Subscriptions.Host<EventHandler, EventArgs>(typeof(RhinoApp), static h => RhinoApp.RendererChanged += h, static h => RhinoApp.RendererChanged -= h, static handler => handler.Invoke);
     public static readonly HostEvent<EventArgs> RdkNewDocument = Subscriptions.Host<EventHandler, EventArgs>(typeof(RhinoApp), static h => RhinoApp.RdkNewDocument += h, static h => RhinoApp.RdkNewDocument -= h, static handler => handler.Invoke);

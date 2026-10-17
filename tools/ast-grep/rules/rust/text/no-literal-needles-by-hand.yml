@@ -1,0 +1,119 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-literal-needles-by-hand
+language: rust
+severity: error
+utils:
+    text-type:
+        regex: '^&?(''\w+\s+)?(mut\s+)?((std::)?(borrow::)?Cow<.*\bstr>|(std::string::)?String|str)$'
+    text-call:
+        kind: call_expression
+        has: {field: function, kind: field_expression, has: {field: field, regex: '^(as_str|trim|trim_start|trim_end|to_lowercase|to_uppercase|to_ascii_lowercase|to_ascii_uppercase|to_string_lossy|to_string)$'}}
+    text:
+        any:
+            - matches: text-call
+            - kind: string_literal
+            - matches: {rust-std-macro: {name: {regex: '^format$'}}}
+    text-receiver:
+        any:
+            - matches: text-call
+            - kind: identifier
+              pattern: $TEXT
+              inside:
+                kind: 'function_item, closure_expression'
+                stopBy: end
+                any:
+                    - has: {field: parameters, has: {kind: parameter, all: [{has: {field: pattern, pattern: $TEXT}}, {has: {field: type, matches: text-type}}]}}
+                    - has:
+                        stopBy: {kind: 'function_item, closure_expression'}
+                        kind: let_declaration
+                        all:
+                            - has: {field: pattern, pattern: $TEXT}
+                            - any: [{has: {field: type, matches: text-type}}, {has: {field: value, matches: text}}]
+    needle:
+        any:
+            - kind: identifier
+            - kind: unary_expression
+              regex: '^\*'
+              has: {kind: identifier}
+    probe:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^contains$'}}, {has: {field: value, matches: text-receiver}}]}
+            - has: {field: arguments, has: {nthChild: 1, matches: needle}, not: {has: {nthChild: 2}}}
+    literal-needles:
+        kind: array_expression
+        all:
+            - has: {nthChild: 3}
+            - not: {has: {pattern: $_, not: {kind: string_literal}}}
+    needle-list:
+        any:
+            - matches: literal-needles
+            - kind: reference_expression
+              has: {field: value, matches: literal-needles}
+            - kind: identifier
+              regex: '^[A-Z][A-Z0-9_]*$'
+              pattern: $NEEDLES
+              inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: 'const_item, static_item', all: [{has: {field: name, pattern: $NEEDLES}}, {has: {field: value, any: [{matches: literal-needles}, {kind: reference_expression, has: {field: value, matches: literal-needles}}]}}]}}
+    constant-text:
+        any:
+            - kind: 'string_literal, raw_string_literal'
+            - kind: identifier
+              regex: '^[A-Z][A-Z0-9_]*$'
+    literal-replace:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^replace$'}}
+            - has: {field: arguments, all: [{has: {nthChild: 1, any: [{kind: char_literal}, {matches: constant-text}]}}, {has: {nthChild: 2, matches: constant-text}}], not: {has: {nthChild: 3}}}
+    replaced-text:
+        any:
+            - matches: literal-replace
+            - kind: identifier
+              pattern: $PASS
+              inside:
+                kind: function_item
+                stopBy: {kind: function_item}
+                has: {stopBy: {kind: function_item}, kind: let_declaration, all: [{has: {field: pattern, pattern: $PASS}}, {has: {field: value, matches: literal-replace}}]}
+    char-run:
+        matches: literal-replace
+        all:
+            - has: {field: arguments, all: [{has: {nthChild: 1, kind: char_literal}}, {has: {nthChild: 2, pattern: $TO}}]}
+            - has: {field: function, has: {field: value, any: [{not: {matches: literal-replace}}, {matches: char-run}]}}
+    escaped-replace:
+        any: [{matches: rust-entity-escape}, {matches: rust-html-tag-scan}, {matches: rust-template-replace}]
+    replace-chain:
+        matches: literal-replace
+        all:
+            - has: {field: function, has: {field: value, matches: replaced-text}}
+            - not: {inside: {kind: field_expression, has: {field: field, regex: '^replace$'}, inside: {matches: literal-replace}}}
+            - not: {matches: char-run}
+            - not: {any: [{matches: escaped-replace}, {has: {stopBy: end, matches: escaped-replace}}]}
+rule:
+    kind: 'call_expression, binary_expression'
+    pattern: $SCAN
+    any:
+        - matches: replace-chain
+        - kind: call_expression
+          all:
+            - has:
+                field: function
+                kind: field_expression
+                all:
+                    - has: {field: field, regex: '^(any|all|find|position|filter)$'}
+                    - has: {field: value, kind: call_expression, has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(iter|into_iter)$'}}, {has: {field: value, matches: needle-list}}]}}
+            - has:
+                field: arguments
+                has:
+                    nthChild: 1
+                    kind: closure_expression
+                    has: {field: body, any: [{matches: probe}, {kind: unary_expression, regex: '^!', has: {matches: probe}}]}
+        - kind: binary_expression
+          any:
+            - pattern: $RECEIVER.contains($A) || $RECEIVER.contains($B) || $RECEIVER.contains($C)
+            - pattern: '!$RECEIVER.contains($A) && !$RECEIVER.contains($B) && !$RECEIVER.contains($C)'
+          has: {field: right, has: {stopBy: end, kind: field_expression, has: {field: value, matches: text-receiver}}}
+constraints:
+    A: {kind: string_literal}
+    B: {kind: string_literal}
+    C: {kind: string_literal}
+message: '`$SCAN` passes over the text once per literal needle'
+note: 'Build `aho_corasick::AhoCorasick::new([<needles>])?` once and call `is_match(<text>)` or `find(<text>)` in place of three or more literal scans, or `replace_all(<text>, &[<replacements>])` in place of two or more literal replaces'

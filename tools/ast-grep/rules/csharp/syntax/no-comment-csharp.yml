@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-comment-csharp
+language: csharp
+severity: error
+rule:
+    kind: comment
+    pattern: $COMMENT
+    not: {regex: '^// --- \[[A-Z][A-Z0-9_]*\]( -+)?\s*$'}
+transform:
+    TEXT: {replace: {source: $COMMENT, replace: '\s+$', by: ''}}
+message: '`$TEXT` comments code outside a section divider'
+note: 'Delete the comment (XML doc comments, suppression comments, and commented-out code included) and state its fact in a name or a type, `// --- [<SECTION>] ---` and `// --- [<FAMILY>]` dividers stay'

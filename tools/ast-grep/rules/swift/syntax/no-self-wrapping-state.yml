@@ -44,5 +44,5 @@ rule:
         kind: source_file
         stopBy: end
         has: {stopBy: end, matches: {swift-recursive-case: {case: {pattern: $CASE}}}}
-message: '`$STATE` is nested inside `.$CASE` on every pass of a loop that stops once it stops changing, so it never stops changing'
-note: 'Map each pass into a finite lattice, join or union the parts (`union`, `formUnion`, the set of roots) or wrap only a value holding no earlier wrap, so the loop reaches its fixpoint'
+message: 'Each pass nests `$STATE` inside `.$CASE`, so the loop waiting for `$STATE` to stop changing never ends'
+note: 'Map each pass into a finite lattice, joining the parts (`union`, `formUnion`, the set of roots) or wrapping only a value holding no earlier wrap'

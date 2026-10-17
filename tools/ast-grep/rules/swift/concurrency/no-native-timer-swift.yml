@@ -25,4 +25,4 @@ rule:
                 - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, regex: '^\.schedule$'}}
                 - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 1, has: {field: name, regex: '^after$'}}}}
 message: '`$NAME` waits on a dispatch, run loop, or thread timer outside Swift concurrency'
-note: '`Task.sleep(for:)` or `clock.sleep(until:)` in a task replaces a one-shot timer or blocking sleep, a loop sleeping `until:` a deadline it advances by the interval replaces a repeating timer without drift, `TimelineView` replaces a view clock, and task cancellation replaces `cancel()` and `invalidate()`'
+note: 'Call `Task.sleep(for:)` or `clock.sleep(until:)` in a task for a one-shot timer or blocking sleep, loop sleeping `until:` a deadline advanced by the interval for a repeating timer, use `TimelineView` for a view clock, and cancel the task in place of `cancel()` and `invalidate()`'

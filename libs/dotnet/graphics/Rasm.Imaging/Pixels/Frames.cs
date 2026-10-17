@@ -26,7 +26,7 @@ public readonly partial struct PixelExtent {
             : bound.Height < Height ? new((int)((((long)Width * bound.Height) + Height - 1) / Height), bound.Height) : this;
 
     public static Fin<PixelExtent> Validated(int width, int height) =>
-        Admission.Admitted(Validate(width, height, out PixelExtent extent), extent);
+        ValidationResults.ToFin(Validate(width, height, out PixelExtent extent), extent);
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int width, ref int height) =>
         validationError = width >= 1 && height >= 1 && width <= System.Array.MaxLength / 4 / height ? null
@@ -36,10 +36,10 @@ public readonly partial struct PixelExtent {
 public sealed class PixelFrame {
     private readonly float[] block;
 
-    public PixelFrame(Point origin, PixelExtent size, PixelExtent extent, Action<float[]> fill) {
+    public PixelFrame(Point origin, PixelExtent size, PixelExtent extent) =>
         (Origin, Size, Extent, block) = (origin, size, extent, GC.AllocateUninitializedArray<float>(4 * size.Width * size.Height, pinned: true));
-        fill(block);
-    }
+
+    public PixelFrame(Point origin, PixelExtent size, PixelExtent extent, Action<float[]> fill) : this(origin, size, extent) => fill(block);
 
     public Point Origin { get; }
     public PixelExtent Size { get; }

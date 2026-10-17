@@ -83,4 +83,4 @@ rule:
                     - has: {field: consequence, matches: variant-value}
         - not: {inside: {kind: else_clause, inside: {kind: if_expression, any: [{matches: constant-test}, {matches: text-test}]}}}
 message: '`if` chain tests `$VALUE` branch by branch'
-note: 'Write one `match` over the value with an arm per constant or pattern (`match <value> { <pattern> => .., <pattern> => .. }`), a `let` chain link becomes an arm guard (`<pattern> if <test> =>`), the compiler then checks the arms for overlap and exhaustiveness. The `string_tag` dylint owns a chain over text literals outside a decoder, and the `owned_catch_all` dylint names each variant a catch-all arm over a repository enum covers'
+note: 'Write one `match` over the value with an arm per constant or pattern, and turn a `let` chain link into an arm guard (`<pattern> if <test> =>`)'

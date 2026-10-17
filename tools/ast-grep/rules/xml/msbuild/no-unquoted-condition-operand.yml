@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-unquoted-condition-operand
+language: xml
+severity: error
+files: ['**/*.{csproj,props,targets}']
+rule:
+    kind: Attribute
+    pattern: _CONDITION
+    has: {kind: Name, regex: '^Condition$'}
+    regex: |-
+        (?x)
+        (?: ^Condition\s*=\s*["']\s* | [\s(] )
+        (?: [$@%]\([A-Za-z_][\w.]*\) | [\w./:-]+ )
+        \s*(?:==|!=)
+        | (?:==|!=)\s*
+        (?: [$@%]\([A-Za-z_][\w.]*\) | [\w./:-]+ )
+        (?: \s | \) | ["']$ )
+        | &quot;[^&'"]*&quot;\s*(?:==|!=) | (?:==|!=)\s*&quot;
+        | ^Condition\s*=\s*'[^']*"
+transform:
+    DELIMITED: {replace: {source: $CONDITION, replace: '(?s)^(Condition\s*=\s*)["''](.*)["'']$', by: '${1}@@${2}@@'}}
+    QUOTED: {replace: {source: $DELIMITED, replace: '"([^"]*)"', by: '''$1'''}}
+    UNESCAPED: {replace: {source: $QUOTED, replace: '&quot;([^&''"]*)&quot;', by: '''$1'''}}
+    LEFT:
+        replace:
+            source: $UNESCAPED
+            replace: |-
+                (?x)
+                ( ^Condition\s*=\s*@@\s* | [\s(] )
+                ( [$@%]\([A-Za-z_][\w.]*\) | [\w./:-]+ )
+                ( \s*(?:==|!=) )
+            by: '$1''$2''$3'
+    RIGHT:
+        replace:
+            source: $LEFT
+            replace: |-
+                (?x)
+                ( (?:==|!=)\s* )
+                ( [$@%]\([A-Za-z_][\w.]*\) | [\w./:-]+ )
+                ( \s | \) | @@$ )
+            by: '$1''$2''$3'
+    FIXED: {replace: {source: $RIGHT, replace: '@@', by: '"'}}
+fix: $FIXED
+message: '`$CONDITION` compares an operand outside single quotes'
+labels:
+    CONDITION: {style: primary, message: 'Condition with an unquoted operand'}
+note: 'Quote both operands, `Condition="''$(<Property>)'' == ''<value>''"`'

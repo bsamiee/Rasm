@@ -12,4 +12,4 @@ rule:
                 - has: {field: pattern, pattern: $$_P, regex: '^_$'}
                 - has: {field: value, has: {field: path, kind: generic_type}}
 message: '`let` reads `$PATH` to force its compile-time evaluation'
-note: 'Write the assertion in place as an inline `const { assert!(<condition>, "<invariant>") };` and delete the unit associated constant, the block evaluates once per instantiation with the generic parameters in scope'
+note: 'Write the assertion in place as `const { assert!(<condition>, "<invariant>") };` and delete the unit associated constant'

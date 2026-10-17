@@ -250,5 +250,5 @@ transform:
     OPEN: {replace: {source: $CONTEXT, replace: '(?s).+', by: '('}}
     CLOSE: {replace: {source: $CONTEXT, replace: '(?s).+', by: ')'}}
 fix: $OPEN$RESULT$CLOSE$KEPT
-message: Boolean read as a number hides its choice, use a conditional expression
-note: 'Rewrite stays manual where an operand is not a literal or boolean, the subscript is an assignment or deletion target, or the span holds a comment or multiline string'
+message: '`$USE` reads a boolean as a number'
+note: 'Write a conditional expression (`<a> if <test> else <b>`). The fix skips operands that are neither a literal nor a boolean, assignment and deletion targets, and spans holding a comment or multiline string'

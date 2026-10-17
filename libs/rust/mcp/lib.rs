@@ -1,6 +1,6 @@
-#![feature(associated_type_defaults, derive_from, error_reporter, impl_restriction, iterator_try_collect, lock_value_accessors, nonpoison_mutex, sync_nonpoison, trait_alias)]
+#![feature(associated_type_defaults, error_reporter, impl_restriction, iterator_try_collect, lock_value_accessors, nonpoison_mutex, sync_nonpoison, trait_alias)]
 
-use core::{error::Error, fmt::Display, from::From, future::ready, mem::discriminant, net::SocketAddr, pin::pin, str::Utf8Error, time::Duration};
+use core::{error::Error, fmt::Display, future::ready, mem::discriminant, net::SocketAddr, pin::pin, str::Utf8Error, time::Duration};
 use std::{
     backtrace::Backtrace,
     borrow::Cow,
@@ -31,8 +31,8 @@ use rmcp::{
     },
     model::{
         CallToolRequest, CallToolRequestParams, CallToolResponse, CallToolResult, CancelTaskParams, CancelTaskRequest, ClientRequest, CompleteRequest, CompleteRequestParams, CompleteResult,
-        ContentBlock, CustomRequest, CustomResult, ElicitRequest, ElicitRequestParams, ElicitResult, ElicitationAction, ElicitationSchema, ErrorCode, GetPromptRequest, GetPromptRequestParams,
-        GetPromptResponse, GetTaskParams, GetTaskRequest, GetTaskResult, Implementation, InputRequest, InputRequiredResult, InputResponses, JsonObject, ListPromptsRequest, ListPromptsResult,
+        ContentBlock, CustomRequest, CustomResult, ElicitRequest, ElicitRequestParams, ElicitationAction, ElicitationSchema, ErrorCode, GetPromptRequest, GetPromptRequestParams, GetPromptResponse,
+        GetTaskParams, GetTaskRequest, GetTaskResult, Implementation, InputRequest, InputRequiredResult, InputResponses, JsonObject, ListPromptsRequest, ListPromptsResult,
         ListResourceTemplatesRequest, ListResourceTemplatesResult, ListResourcesRequest, ListResourcesResult, ListToolsRequest, ListToolsResult, MetaObject, PaginatedRequestParams,
         ProgressNotificationParam, PromptListChangedNotification, ProtocolVersion, ReadResourceRequest, ReadResourceRequestParams, ReadResourceResponse, ReadResourceResult, Request, Resource,
         ResourceContents, ResourceListChangedNotification, ResourceTemplate, ResourceUpdatedNotification, ResourceUpdatedNotificationParam, ResourcesCapability, ServerCapabilities, ServerConfig,
@@ -42,7 +42,7 @@ use rmcp::{
     service::{DEFAULT_SUBSCRIPTION_CHANNEL_CAPACITY, NotificationContext, RequestContext, SubscriptionContext},
     transport::{StreamableHttpServerConfig, StreamableHttpService, common::http_header::HEADER_SESSION_ID, streamable_http_server::session::local::LocalSessionManager},
 };
-use serde::{Deserialize as _, Serialize, de::DeserializeOwned};
+use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use serde_urlencoded::{Deserializer, de};
 #[cfg(unix)]
@@ -176,7 +176,7 @@ impl Host for Claude {
     }
 }
 
-#[derive(Debug, From)]
+#[derive(Debug, derive_more::From)]
 pub struct Failure<E>(pub E);
 
 impl<E> IntoCallToolResult for Failure<E>
@@ -358,7 +358,7 @@ pub enum Unanswered {
     Malformed {
         data: Value,
         #[serde(skip)]
-        source: serde_json::Error,
+        source: serde_path_to_error::Error<serde_json::Error>,
     },
     #[error("the requested form has no object schema, the tool cannot ask this question")]
     Unaskable {
@@ -522,10 +522,10 @@ impl Elicitation {
                 let Some(answer) = answered.await.map_err(|oneshot::error::RecvError { .. }| Unanswered::Abandoned)?.remove(&key) else { continue };
                 break answer;
             };
-            ElicitResult::deserialize(&answer).map_err(|source| Unanswered::Malformed { data: answer, source })?
+            serde_path_to_error::deserialize(&answer).map_err(|source| Unanswered::Malformed { data: answer, source })?
         };
         match (result.action, result.content) {
-            (ElicitationAction::Accept, Some(content)) => T::deserialize(&content).map_err(|source| Unanswered::Malformed { data: content, source }),
+            (ElicitationAction::Accept, Some(content)) => serde_path_to_error::deserialize(&content).map_err(|source| Unanswered::Malformed { data: content, source }),
             (ElicitationAction::Accept, None) => Err(Unanswered::Empty),
             (ElicitationAction::Decline, _) => Err(Unanswered::Declined),
             (_, _) => Err(Unanswered::Dismissed),
@@ -644,7 +644,8 @@ where A: App
                 self.changes.prompts.load_full().get_prompt(PromptContext::new(&self.app, get.params.name, get.params.arguments, context)).await.map(ServerResult::from),
             ClientRequest::ListPromptsRequest(list) => paged!(ListPromptsResult, self.changes.prompts.load().list_all(), list.params, name),
             ClientRequest::ListResourcesRequest(list) => {
-                let rows = future::join_all(self.changes.resources.load_full().lists.iter().map(|lister| lister(self.app.clone()))).await.into_iter().try_collect::<Vec<_>>()?.concat();
+                let listed = future::join_all(self.changes.resources.load_full().lists.iter().map(|lister| lister(self.app.clone()))).await.into_iter().collect::<validated::Validated<Vec<_>, _>>();
+                let rows = listed.ok().map_err(|errors| serde_json::to_value(&errors).map_or_else(internal, |data| ErrorData { data: Some(data), ..errors.first().clone() }))?.concat();
                 paged!(ListResourcesResult, rows, list.params, uri)
             }
             ClientRequest::ListResourceTemplatesRequest(list) => paged!(ListResourceTemplatesResult, self.changes.resources.load().templates.clone(), list.params, uri_template),
@@ -752,7 +753,7 @@ where E: Endpoint
             ErrorCode::RESOURCE_NOT_FOUND if version.is_some_and(|version| !version.has_initialize()) => ErrorData { code: ErrorCode::INVALID_PARAMS, ..error },
             _ => error,
         });
-        let elapsed = started.elapsed().as_secs_f64();
+        let elapsed = started.elapsed();
         let (error_type, failure) = match (&result, cancelled.is_cancelled()) {
             (Ok(_) | Err(_), true) => (Some(Cow::Borrowed("cancelled")), None),
             (Ok(ServerResult::CallToolResult(CallToolResult { is_error: Some(true), .. })), false) => (Some(Cow::Borrowed("tool_error")), None),
@@ -761,16 +762,16 @@ where E: Endpoint
         };
         span.record(ERROR_TYPE, error_type.as_deref());
         if let Some(error) = failure {
-            tracing::warn!(parent: span.record(RPC_RESPONSE_STATUS_CODE, error_type.as_deref()), elapsed, { EXCEPTION_MESSAGE } = %error.message, "request failed");
+            tracing::warn!(parent: span.record(RPC_RESPONSE_STATUS_CODE, error_type.as_deref()), elapsed = elapsed.as_secs_f64(), { EXCEPTION_MESSAGE } = %error.message, "request failed");
         } else {
-            tracing::info!(parent: &span, elapsed, "request completed");
+            tracing::info!(parent: &span, elapsed = elapsed.as_secs_f64(), "request completed");
         }
         let attributes = [
             Some(KeyValue::new("mcp.method.name", method)),
             target.filter(|&(_, _, metered)| metered).map(|(key, name, _)| KeyValue::new(key, name)),
             error_type.map(|kind| KeyValue::new(ERROR_TYPE, kind)),
         ];
-        DURATION.record(elapsed, &attributes.into_iter().flatten().collect::<Vec<_>>());
+        DURATION.record(elapsed.as_secs_f64(), &attributes.into_iter().flatten().collect::<Vec<_>>());
         result
     }
 

@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-cfg-if-macro
+language: rust
+severity: error
+rule:
+    kind: macro_invocation
+    has: {field: macro, regex: '^((::)?cfg_if::)?cfg_if$', pattern: $MACRO}
+message: '`$MACRO!` selects declarations by `cfg` predicate through a crate macro'
+note: 'Write `cfg_select! { <predicate> => { <items> } _ => { <items> } }` from `core`'

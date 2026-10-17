@@ -46,4 +46,4 @@ rule:
                     matches: typescript-function-boundary
                     has: {stopBy: end, matches: offer-call}
 message: 'Callback feeds `$QUEUE` outside the effect that built it'
-note: '`Stream.callback((queue) => <registration>)` builds its queue and runs `<registration>` in the stream `Scope`, one release closes both'
+note: 'Call `Stream.callback((queue) => <registration>)` to build the queue and run `<registration>` in the stream `Scope`, one release closing both'

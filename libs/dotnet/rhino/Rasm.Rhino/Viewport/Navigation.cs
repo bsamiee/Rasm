@@ -10,7 +10,7 @@ public readonly partial struct FramingMargin : System.Numerics.IMinMaxValue<Fram
     public static FramingMargin MinValue { get; } = new(0d);
     public static FramingMargin MaxValue { get; } = new(double.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -18,7 +18,7 @@ public readonly partial struct Magnification : System.Numerics.IMinMaxValue<Magn
     public static Magnification MinValue { get; } = new(double.BitIncrement(0d));
     public static Magnification MaxValue { get; } = new(double.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -26,7 +26,7 @@ public readonly partial struct LensLength : System.Numerics.IMinMaxValue<LensLen
     public static LensLength MinValue { get; } = new(double.BitIncrement(0d));
     public static LensLength MaxValue { get; } = new(double.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -34,7 +34,7 @@ public readonly partial struct TargetDistance : System.Numerics.IMinMaxValue<Tar
     public static TargetDistance MinValue { get; } = new(double.BitIncrement(0d));
     public static TargetDistance MaxValue { get; } = new(double.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [SmartEnum]

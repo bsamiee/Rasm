@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-nested-bind
+language: csharp
+severity: error
+utils:
+    step:
+        any:
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Bind|Map|Select|SelectMany|Filter|Where)(\s*<.+>)?$'}}
+                - has: {field: arguments, has: {stopBy: end, kind: identifier, pattern: $VALUE}}
+            - kind: query_expression
+              has: {stopBy: end, kind: identifier, pattern: $VALUE}
+            - kind: parenthesized_expression
+              has: {matches: step}
+    step-return:
+        kind: block
+        all:
+            - has: {kind: return_statement, nthChild: {position: 1, reverse: true}, has: {matches: step}}
+            - not: {has: {pattern: $_, not: {kind: 'local_declaration_statement, return_statement, comment'}}}
+rule:
+    kind: invocation_expression
+    all:
+        - has: {field: function, kind: member_access_expression, has: {field: name, pattern: $BIND}}
+        - matches: {languageext-bind-callback: {value: {pattern: $VALUE}, body: {any: [{matches: step}, {matches: step-return}]}}}
+message: '`$BIND` callback nests a step that reads the callback value `$VALUE`'
+note: Write a query with one `from` per step, its first `from` binding the callback value

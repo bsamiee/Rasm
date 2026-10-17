@@ -69,7 +69,7 @@ utils:
         all:
             - has: {field: pattern, kind: declaration_pattern, has: {field: name, pattern: $TEXT}}
             - has: {field: expression, matches: message-text}
-    element-error:
+    exception-element:
         kind: lambda_expression, anonymous_method_expression
         all:
             - has:
@@ -86,7 +86,7 @@ utils:
                     kind: argument_list
                     inside:
                         kind: invocation_expression
-                        has: {field: function, kind: member_access_expression, has: {field: expression, kind: member_access_expression, has: {field: name, regex: '^(Inner|Exception)$'}}}
+                        has: {field: function, kind: member_access_expression, has: {field: expression, kind: member_access_expression, has: {field: name, regex: '^Exception$'}}}
     text-pattern:
         any:
             - kind: constant_pattern
@@ -164,7 +164,7 @@ rule:
             stopBy: end
             any:
                 - matches: catch-variable
-                - matches: element-error
-                - matches: {csharp-error-owner: {name: {pattern: $ERROR}, type: {matches: {csharp-type-name: {name: {regex: '^(Error|\w*Exception)$'}}}}}}
+                - matches: exception-element
+                - matches: {languageext-error-binding: {name: {pattern: $ERROR}, type: {matches: {csharp-type-name: {name: {regex: '^(Error|\w*Exception)$'}}}}}}
 message: Error or exception `$ERROR` is classified by its message text
 note: Use `HasCode`, `IsType<E>`, `Is`, `HasException<E>`, or an exception type pattern, message text couples the branch to prose

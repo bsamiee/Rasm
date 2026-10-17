@@ -125,7 +125,7 @@ internal static class KeyConversions<TValue, TRaw>
     where TRaw : notnull, ISpanParsable<TRaw> {
     [Merit(Merit.Direct)]
     [Explanation("Reads the value from its key.")]
-    public static void Inbound(TRaw source, out TValue target) => target = Admission.Validated<TValue, TRaw>(source).ThrowIfFail();
+    public static void Inbound(TRaw source, out TValue target) => target = ValidationResults.Validated<TValue, TRaw>(source).ThrowIfFail();
 
     [Merit(Merit.Direct)]
     [Explanation("Writes the value's key.")]
@@ -221,7 +221,7 @@ public static class DataTypes {
     public static Func<DefinedGrasshopperPlugin, IO<Unit>> Integer<TValue, TKey>(Guid parameterId, string name, IIcon icon, Func<TValue, string> describe)
         where TValue : IObjectFactory<TValue, TKey, ValidationError>, IConvertible<TKey>
         where TKey : struct, System.Numerics.IBinaryInteger<TKey> =>
-        Numeric(parameterId, name, icon, describe, Admission.Validated<TValue, TKey>, static value => value.ToValue());
+        Numeric(parameterId, name, icon, describe, ValidationResults.Validated<TValue, TKey>, static value => value.ToValue());
 
     public static Func<DefinedGrasshopperPlugin, IO<Unit>> Keyed<TValue, TRaw>(Guid parameterId, string name, IIcon icon, Func<TValue, string> describe)
         where TValue : IObjectFactory<TValue, TRaw, ValidationError>, IConvertible<TRaw>

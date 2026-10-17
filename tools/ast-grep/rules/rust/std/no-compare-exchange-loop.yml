@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-compare-exchange-loop
+language: rust
+severity: error
+utils:
+    exchange:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $A}}, {has: {field: field, regex: '^compare_exchange(_weak)?$'}}]}
+            - has: {field: arguments, has: {nthChild: 1, pattern: $CUR}}
+    failure:
+        kind: tuple_struct_pattern
+        all:
+            - has: {field: type, regex: '^Err$'}
+            - has: {nthChild: 2, kind: identifier, pattern: $X}
+            - not: {has: {nthChild: 3}}
+    reload:
+        kind: assignment_expression
+        all:
+            - has: {field: left, pattern: $CUR}
+            - has: {field: right, pattern: $X}
+    reload-block:
+        kind: block
+        all:
+            - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, kind: expression_statement, has: {matches: reload}}
+            - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
+    retry:
+        kind: match_arm
+        all:
+            - has: {field: pattern, has: {matches: failure}}
+            - has: {field: value, any: [{matches: reload}, {matches: reload-block}]}
+    success:
+        kind: tuple_struct_pattern
+        all:
+            - has: {field: type, regex: '^Ok$'}
+            - any: [{regex: '^Ok\s*\(\s*_\s*\)$'}, {all: [{has: {nthChild: 2, kind: identifier, pattern: $DONE}}, {not: {has: {nthChild: 3}}}]}]
+    done:
+        kind: match_arm
+        all:
+            - has: {field: pattern, has: {matches: success}}
+            - has: {field: value, kind: break_expression, not: {has: {pattern: $_, not: {any: [{kind: label}, {pattern: $DONE}]}}}}
+    retry-match:
+        kind: match_expression
+        all:
+            - has: {field: value, matches: exchange}
+            - has:
+                field: body
+                all:
+                    - has: {kind: match_arm, matches: done}
+                    - has: {kind: match_arm, matches: retry}
+                    - not: {has: {nthChild: 3}}
+rule:
+    any:
+        - kind: loop_expression
+          has:
+            field: body
+            kind: block
+            all:
+                - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, any: [{matches: retry-match}, {kind: expression_statement, has: {nthChild: 1, matches: retry-match}}]}
+                - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
+        - kind: while_expression
+          all:
+            - has: {field: condition, kind: let_condition, all: [{has: {field: value, matches: exchange}}, {has: {field: pattern, matches: failure}}]}
+            - has: {field: body, matches: reload-block}
+message: '`$A` retries `compare_exchange` in a loop by hand'
+note: 'Call `<atomic>.update(<set ordering>, <fetch ordering>, |<current>| <next>)`, or `try_update` when the closure refuses with `None`'

@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-collected-existence-test
+language: python
+severity: error
+utils:
+    materialized:
+        any:
+            - kind: 'list_comprehension, set_comprehension, dictionary_comprehension'
+            - kind: call
+              all:
+                - has: {field: function, regex: '^(list|tuple|set|frozenset|dict|sorted)$'}
+                - has: {field: arguments, all: [{has: {nthChild: 1, any: [{kind: generator_expression}, {kind: call, has: {field: function, regex: '^(filter|map|itertools\.filterfalse|filterfalse)$'}}]}}, {not: {has: {nthChild: 2}}}]}
+    count:
+        kind: call
+        any:
+            - all:
+                - has: {field: function, regex: '^len$'}
+                - has: {field: arguments, all: [{has: {nthChild: 1, matches: materialized}}, {not: {has: {nthChild: 2}}}]}
+            - all:
+                - has: {field: function, regex: '^sum$'}
+                - has: {field: arguments, kind: generator_expression, has: {field: body, regex: '^(1|True)$'}}
+    zero:
+        kind: integer
+        regex: '^0$'
+    one:
+        kind: integer
+        regex: '^1$'
+rule:
+    pattern: $TEST
+    any:
+        - kind: comparison_operator
+          all:
+            - not: {has: {nthChild: 3}}
+            - any:
+                - all: [{has: {nthChild: 1, matches: count}}, {has: {nthChild: 2, matches: zero}}, {has: {field: operators, regex: '^(>|!=|==|<=)$'}}]
+                - all: [{has: {nthChild: 1, matches: count}}, {has: {nthChild: 2, matches: one}}, {has: {field: operators, regex: '^(>=|<)$'}}]
+                - all: [{has: {nthChild: 2, matches: count}}, {has: {nthChild: 1, matches: zero}}, {has: {field: operators, regex: '^(<|!=|==|>=)$'}}]
+                - all: [{has: {nthChild: 2, matches: count}}, {has: {nthChild: 1, matches: one}}, {has: {field: operators, regex: '^(<=|>)$'}}]
+        - matches: materialized
+          any:
+            - inside: {kind: 'if_statement, elif_clause, while_statement', field: condition}
+            - inside: {kind: not_operator, field: argument}
+            - inside: {kind: argument_list, inside: {kind: call, has: {field: function, regex: '^bool$'}}}
+        - kind: comparison_operator
+          all:
+            - has: {field: operators, regex: '^(not\s+)?in$'}
+            - has: {nthChild: 2, matches: materialized}
+            - not: {matches: python-invariant-index-test}
+message: '`$TEST` builds every match to learn whether one exists'
+note: 'Use `any(<test> for <item> in <source>)`, or `any(<value> == <needle> for ...)` for membership, to stop at the first match without building a collection'

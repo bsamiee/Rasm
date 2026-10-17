@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-set-and-undefine-target-framework
+language: xml
+severity: error
+files: ['**/*.{csproj,props,targets}']
+rule:
+    pattern: _REFERENCE
+    all:
+        - matches: {msbuild-element: {name: {regex: '^ProjectReference$'}}}
+        - matches: {msbuild-metadata: {name: {regex: '^(Include|Update)$'}, value: {pattern: _PROJECT}}}
+        - matches: {msbuild-metadata: {name: {regex: '^SetTargetFramework$'}, value: {regex: '(^|[\s;"''])TargetFramework\s*='}}}
+        - matches:
+            msbuild-metadata:
+                name: {regex: '^(UndefineProperties|GlobalPropertiesToRemove)$'}
+                value: {regex: '(^|[\s;"''])TargetFramework([\s;"'']|$)'}
+    not:
+        has:
+            kind: content
+            has:
+                matches: {msbuild-element: {name: {regex: '^(SetTargetFramework|UndefineProperties|GlobalPropertiesToRemove)$'}}}
+                has:
+                    matches: msbuild-tag
+                    has: {kind: Attribute, has: {kind: Name, regex: '^Condition$'}}
+rewriters:
+    - id: remove-set
+      rule:
+        any:
+            - kind: Attribute
+              has: {kind: Name, regex: '^SetTargetFramework$'}
+              inside: {matches: msbuild-tag, inside: {pattern: _REFERENCE}}
+            - matches: {msbuild-element: {name: {regex: '^SetTargetFramework$'}}}
+              inside: {kind: content, inside: {pattern: _REFERENCE}}
+      fix: ''
+transform:
+    PROJECT_TEXT: {replace: {source: $PROJECT, replace: '^["'']|["'']$', by: ''}}
+    STRIPPED: rewrite($REFERENCE, rewriters=[remove-set])
+fix: $STRIPPED
+message: '`ProjectReference` to `$PROJECT_TEXT` sets `TargetFramework` and undefines it'
+note: Delete `SetTargetFramework`

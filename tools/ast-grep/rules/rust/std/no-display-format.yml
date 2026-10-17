@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-display-format
+language: rust
+severity: error
+utils:
+    display-format:
+        kind: macro_invocation
+        all:
+            - matches: {rust-std-macro: {name: {regex: '^format$'}}}
+            - has:
+                kind: token_tree
+                any:
+                    - regex: '^\(\s*"\{\}"\s*,\s*[\s\S]+?\s*,?\s*\)$'
+                      not: {regex: '^\(\s*"\{\}"\s*,\s*[A-Za-z_]\w*\s*=[^=]'}
+                    - regex: '^\(\s*"\{[A-Za-z_]\w*\}"\s*,?\s*\)$'
+    owning-copy:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(to_owned|to_string|into_owned|clone)$'}}, {has: {field: value, matches: display-format}}]}
+            - has: {field: arguments, not: {has: {pattern: $_}}}
+rule:
+    pattern: $SITE
+    any:
+        - matches: owning-copy
+        - matches: display-format
+          not: {inside: {kind: field_expression, field: value, inside: {matches: owning-copy}}}
+message: '`$SITE` renders one `Display` value with no surrounding text'
+note: 'Call `<value>.to_string()`, or `<value>.to_owned()` on `&str` and `String`, and delete a copy of the formatted `String` (`to_owned`, `to_string`, `clone`) with the macro'

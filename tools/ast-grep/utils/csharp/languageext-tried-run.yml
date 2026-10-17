@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: languageext-tried-run
+language: csharp
+arguments: [effect]
+utils:
+    bare-call:
+        has: {field: arguments, not: {has: {kind: argument}}}
+    tried:
+        any:
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Try$'}}, {has: {field: expression, matches: effect}}]}
+                - matches: bare-call
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: tried}}]}
+                - matches: bare-call
+            - kind: parenthesized_expression
+              has: {matches: tried}
+rule:
+    any:
+        - kind: member_access_expression
+          all:
+            - has: {field: name, regex: '^runFin$'}
+            - has: {field: expression, matches: tried}
+        - kind: invocation_expression
+          all:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Run$'}}, {has: {field: expression, matches: tried}}]}
+            - matches: bare-call

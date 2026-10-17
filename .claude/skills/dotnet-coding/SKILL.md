@@ -16,14 +16,6 @@ Covers the decisions of writing C# under the workspace standards (TOTALITY, FLOW
 - [06]-[STATE](references/state.md): Worked flows for state passed through `State` and `StateT`, with the generators and the loop forms
 - [07]-[STREAMS](references/streams.md): Observable model and agent model, with per-item failure, backpressure, and entity processes
 - [08]-[EVENT_SOURCING](references/event-sourcing.md): Event history as the source of truth, from storage to the command and query sides
-- [09]-[REFACTORING](references/refactoring.md): Corrections no ast-grep rule enforces, rejected shapes with required forms
-
-Examples assume `using static LanguageExt.Prelude`, which supplies `Some`, `None`, `Seq`, `toSeq`, `Range`, `parseInt`, `guard`, `use`, `par`, `curry`, `compose`, and `fun` as unqualified names:
-- `Seq<A>` is the default collection in domain code
-- `Option<A>`, `Fin<A>`, `Validation<Error, A>`, and `IO<A>` are the result and effect types
-- NodaTime `Instant`, `LocalDate`, and `Duration` are the time types, the clock enters as one `TimeProvider` argument
-- `Duration` names `NodaTime.Duration`, `LanguageExt.Duration` spells the library's delay type
-- Value objects, smart enums, and unions come from the Thinktecture generator
 
 ## [01]-[FUNCTIONS]
 
@@ -38,7 +30,9 @@ Function signatures are contracts, input types describe every value the function
 |  [05]   | Combine inputs              | `(int, int) -> int`                   | `Func<int, int, int>`                     |
 |  [06]   | Accept a function           | `(string, (IDbConnection -> R)) -> R` | `Func<string, Func<IDbConnection, R>, R>` |
 
-- Use `Func` and `Action` when only the signature matters, and a custom delegate when its name conveys domain intent that `Func<T, bool>` does not
+- Use `Func` and `Action` for delegate values
+- Declared delegates stay for `ref`, `out`, `in`, `params`, and pointer parameters, names telling same-typed parameters apart, or a type registry key
+- Extension members sit in one `extension(<receiver>)` block per receiver with its type parameters, constraints, and `ref` or `in` in place of `this`
 - Multi-argument method groups defeat generic type inference, a partially applied function is a `Func` field, property, or factory
 - `fun` gives an inline lambda its delegate type
 - Signatures leave semantic detail unstated (`Where` and `TakeWhile` share one), names state it
@@ -54,6 +48,7 @@ Functions honor their signature when each declared input produces a declared out
 - `void` stays on an imperative API that returns nothing
 - `fun` converts an `Action` into a `Func<Unit>`, and an `Action` overload delegates to the `Func<T>` implementation through it
 - `Unit` does not make an effectful function pure
+- Statements stay statements in a block body in place of `Unit` arithmetic or a discard ternary spelling them as a value
 - Nullable reference types stay enabled, `?` appears only where an external representation requires it
 - `Optional` converts a nullable value to `Option<A>` at the parse boundary
 
@@ -159,7 +154,7 @@ internal static class Report {
 
 ### [02.3]-[RECURSION]
 
-Recursive functions need a base case that returns the final value, a recursive case that calls the same function with values closer to that condition, and a returned value on every path. C# does not optimize tail calls, the depth bound selects the form:
+Recursive functions need a base case that returns the final value, a recursive case that calls the same function with values closer to that condition, and a returned value on every path. C# does not optimize tail calls, the depth bound and successor sharing select the form:
 
 | [INDEX] | [APPROACH]                | [USE_WHEN]                                                   | [COST]                                   |
 | :-----: | :------------------------ | :----------------------------------------------------------- | :--------------------------------------- |
@@ -167,6 +162,9 @@ Recursive functions need a base case that returns the final value, a recursive c
 |  [02]   | `Trampoline<A>`           | Pure transition, unbounded depth                             | Every step is a deferred call            |
 |  [03]   | `Monad.recur`             | Effectful transition, only the final value needed            | Intermediate states are lost             |
 |  [04]   | `LanguageExt.List.unfold` | Intermediate states are meaningful and compose as a `Seq<A>` | Each `unfold` call reruns the transition |
+|  [05]   | QuikGraph traversal       | Shared or cyclic successors (dependencies, references)       | Graph built before the walk              |
+
+QuikGraph `DepthFirstSearchAlgorithm` and `BreadthFirstSearchAlgorithm` visit each vertex of an `AdjacencyGraph<V, E>` once. Recursive unions with children no other parent holds keep the union fold.
 
 ## [03]-[IMMUTABILITY]
 
@@ -228,7 +226,7 @@ Every function returns an explicit result type, and one type serves one concern:
 |  [06]   | `IO<A>`                | Side effects with a failure channel             |
 |  [07]   | `Eff<RT, A>`           | Effects that read a capability                  |
 
-Input boundary selects the result type, domain functions preserve it, and conversion between types happens at one named boundary through the method named for the target (`ToFin`, `ToValidation`, `ToOption`, `ToSeq`). `Match`, `Run`, `RunSafe`, `IfNone`, and `IfFail` are host operations. Values of `A` and `Error` lift into `Fin<A>` and `Validation<Error, A>` by implicit conversion, `Pure(x)` and `Fail<Error>(e)` make the lift explicit when the branches of a conditional differ in type. An empty `Seq<A>` is a result and not absence, `Option<Seq<A>>` exists only where the consumer responds differently to no collection and to an empty one. A producer that maps an operational failure to `None` hides the failure from the consumer.
+Input boundary selects the result type, domain functions preserve it, and conversion between types happens at one named boundary through the method named for the target (`ToFin`, `ToValidation`, `ToOption`, `ToSeq`). `Match`, `Run`, `RunSafe`, `IfNone`, and `IfFail` are host operations. Values of `A` and `Error` lift into `Fin<A>` and `Validation<Error, A>` by implicit conversion, `Pure(x)` and `Fail<Error>(e)` make the lift explicit where no target type fixes the result (a `var` local, an inferred type argument), and a `Unit` or `Error` in a position that fixes `Fin` or `Validation` converts alone. An empty `Seq<A>` is a result and not absence, `Option<Seq<A>>` exists only where the consumer responds differently to no collection and to an empty one. A producer that maps an operational failure to `None` hides the failure from the consumer.
 
 ### [04.1]-[COMPOSITION]
 
@@ -245,7 +243,9 @@ Give each step a function and select the operator by the step's signature and by
 
 - Errors from one traversed element hold the element index
 - Values stay in one abstraction through the pipeline, an unwrap followed by a rewrap duplicates effect handling
-- Nested `Bind` calls become a query
+- Nested `Bind` calls with an inner step reading the callback value become a query
+- Inner steps reading nothing bound move up to the outer chain
+- Final `from` clauses that `select` returns unchanged become `select <value>` over the earlier steps
 - Nested contexts (`IO<Option<A>>`) stay nested, the consumer matches the inner `Option` once and no chain binds through it with a transformer
 - Stacks that appear throughout a workflow become a dedicated type
 
@@ -265,13 +265,13 @@ Workflow runs in domain order (normalize, validate, transition), `Fin` handles t
 
 ### [04.2]-[ERRORS]
 
-Expected failures are data in the return type, and exceptions are reserved for developer defects that violate a precondition, configuration failures during initialization, and exception-based third-party calls that a boundary converts with `IO.lift` or `Try.lift` around the throwing call alone. A package declares an error type only when a consumer branches on it or reads its fields, failures of one shape become one record carrying the subject as fields, and a failure nobody branches on is `Error.New` at its raise site. Findings a check collects into a report without failing are a data union, one case per finding kind rendering its message. Records extend `Expected` with code 0 and an interpolated message, LanguageExt compares nonzero codes across every package, so a package code enum collides:
+Expected failures are data in the return type, and exceptions are reserved for developer defects that violate a precondition, configuration failures during initialization, and exception-based third-party calls that a boundary converts with `IO.lift` or `Try.lift` around the throwing call alone. A package declares an error type only when a consumer branches on it or reads its fields, failures of one shape become one record holding the subject as required fields, a fact some failures lack makes a second record, and a failure nobody branches on is `Error.New` at its raise site. Findings a check collects into a report without failing are a data union, one case per finding kind rendering its message. Records extend `Expected` with code 0 and an interpolated message. Records hold fields and `Unless` factories returning `Fin` (`flag ? unit : new <Record>(…)`, `Optional(value).ToFin(new <Record>(…))`) alone, a limit or other operation sits in the class raising the error:
 
 ```csharp
 public sealed record NotFound(string Kind, string Key) : Expected($"no {Kind} matches {Key}", 0);
 ```
 
-`Validate` is the generated hook and the one construction path, no value type declares a `From` factory of its own. Every value type validates with Thinktecture's own `ValidationError`, no package declares a validation error, so generic code constrained on `IObjectFactory<T, TRaw, ValidationError>` accepts value types from every package. A raw value crosses into its value type `X` through the static extension member `X.Validated(raw)` answering `Fin<X>`, a method group in `Bind` and `Traverse`, and the failure holds the hook's message under `ErrorCodes.ValidationFailed`; every consumer receives a validated value and none re-validates. Consumers classify an error by type with `IsType<E>` and `Filter<E>`, a validation failure with `HasCode(ErrorCodes.ValidationFailed)`, and a captured exception with `HasException<E>`. LanguageExt's `Errors.Cancelled`, `Errors.TimedOut`, `Errors.Closed`, and `Errors.ParseError` stand for those failures. A thrown exception stays the `Exceptional` the lift captured, and a boundary wraps it only to add a subject it lacks (a path), through `Catch` on its `HasException<E>` into an error that keeps the exception as its cause. `Validation<Error, A>` holds violated business rules and accumulates through `+` into `ManyErrors`, `IO<A>` holds technical work and captures a thrown exception as `Exceptional`. The host separates them in one `Match`, `Expected` or `ManyErrors` renders the business errors and `Exceptional` logs the detail and renders a generic failure.
+Consumers classify an error by type with `IsType<E>` and `Filter<E>`, a validation failure with `HasCode(ErrorCodes.ValidationFailed)`, and a captured exception with `HasException<E>`. LanguageExt's `Errors.Cancelled`, `Errors.TimedOut`, `Errors.Closed`, and `Errors.ParseError` stand for those failures. A thrown exception stays the `Exceptional` the lift captured, and a boundary wraps it only to add a subject it lacks (a path), through `Catch` on its `HasException<E>` into an error that keeps the exception as its cause. `Validation<Error, A>` holds violated business rules and accumulates, `IO<A>` holds technical work and captures a thrown exception as `Exceptional`. The host separates them in one `Match`, `IsExceptional` logs the detail and renders a generic failure, and every other error renders its business message.
 
 Use `Skill(dotnet-coding-thinktecture)` for value type validation.
 
@@ -298,18 +298,18 @@ internal abstract partial record Identity {
 
 ### [04.4]-[ANTI_PATTERNS]
 
-| [INDEX] | [WRONG_FORM]                                                              | [CORRECT_FORM]                                |
-| :-----: | :------------------------------------------------------------------------ | :-------------------------------------------- |
-|  [01]   | `Match` in the middle of a pipeline unwraps a value the next step relifts | `Bind` the next step                          |
-|  [02]   | `IfNone` with an arbitrary default hides absence                          | `ToFin` with an `Error`                       |
-|  [03]   | Matching on message text couples the consumer to prose                    | `IsType<E>` or `Filter<E>`                    |
-|  [04]   | `OptionT<IO, A>` or a match per step over an `Option` inside an effect    | `IO<Option<A>>` matched once by its consumer  |
-|  [05]   | `Fin` nested inside an effect duplicates the failure channel              | `Expected` on the `IO` error channel          |
-|  [06]   | `Run` inside the domain performs the effect before the host runs it       | Keep the `IO` and `Bind` the next step        |
-|  [07]   | `Some` as a null guard                                                    | `Optional` at the null boundary               |
-|  [08]   | Separate result and error fields, or `default` on failure                 | One result type with mutually exclusive cases |
-|  [09]   | Flag with fields that are meaningful for one flag value                   | One union case per valid state                |
-|  [10]   | Union case that extends a sibling case                                    | Sibling cases with their own data             |
+| [INDEX] | [WRONG_FORM]                                                              | [CORRECT_FORM]                                              |
+| :-----: | :------------------------------------------------------------------------ | :---------------------------------------------------------- |
+|  [01]   | `Match` in the middle of a pipeline unwraps a value the next step relifts | `Bind` the next step                                        |
+|  [02]   | `IfNone` with an arbitrary default hides absence                          | `ToFin` with an `Error`                                     |
+|  [03]   | Matching on message text couples the consumer to prose                    | `IsType<E>` or `Filter<E>`                                  |
+|  [04]   | `OptionT<IO, A>` or a match per step over an `Option` inside an effect    | `IO<Option<A>>` matched once by its consumer                |
+|  [05]   | `Fin`, `Either<Error, A>`, `Validation`, or `Try` inside an effect        | `Expected` on `IO`, `ValidationT<Error, IO, A>` accumulates |
+|  [06]   | `Run` inside the domain performs the effect before the host runs it       | Keep the `IO` and `Bind` the next step                      |
+|  [07]   | `Some` as a null guard                                                    | `Optional` at the null boundary                             |
+|  [08]   | Separate result and error fields, or `default` on failure                 | One result type with mutually exclusive cases               |
+|  [09]   | Flag with fields that are meaningful for one flag value                   | One union case per valid state                              |
+|  [10]   | Union case that extends a sibling case                                    | Sibling cases with their own data                           |
 
 ## [05]-[EFFECTS]
 
@@ -349,7 +349,7 @@ Host reads the date once from its `TimeProvider` argument (`time.ToZonedClock().
 ### [05.2]-[POLICIES]
 
 Failure policies are distinct operations:
-- Fallback runs a lower-priority effect after the preferred one fails, `primary | secondary`, or `Catch(predicate, f)` for one classified error
+- Fallback runs a lower-priority effect after the preferred one fails, `primary | secondary`, or `primary | @catch(predicate, f)` for one classified error
 - Retry reruns a transient failure on a schedule, `Retry(Schedule.exponential(delay) | Schedule.recurs(3))`
 - Recovery maps a final error to a value at the host, `IfFail` on the `Fin<A>`
 

@@ -26,7 +26,7 @@ public readonly partial struct FrameZoom : IMinMaxValue<FrameZoom> {
     public static FrameZoom MaxValue { get; } = new(float.MaxValue);
     public static FrameZoom Actual { get; } = new(1f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -35,7 +35,7 @@ public readonly partial struct OverlayOpacity : IMinMaxValue<OverlayOpacity> {
     public static OverlayOpacity MaxValue { get; } = new(1f);
     public static OverlayOpacity Half { get; } = new(0.5f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ComplexValueObject]

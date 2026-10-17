@@ -48,6 +48,6 @@ rule:
                     not: {has: {stopBy: end, pattern: $FIRST}}
                     inside: {kind: if_statement, stopBy: {not: {kind: if_statement}}, has: {stopBy: end, pattern: $FIRST}}
 message: '`$SECOND` runs a second clock beside `TimelineView` in one view'
-note: 'Pass `context.date` of the one `TimelineView` down to every text and subview it renders, clocks in `if` or `switch` arms that never render together stay apart'
+note: 'Pass `context.date` of the one `TimelineView` down to every text and subview it renders'
 labels:
     SECOND: {style: primary}

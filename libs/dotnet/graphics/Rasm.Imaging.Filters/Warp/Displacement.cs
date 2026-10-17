@@ -20,7 +20,7 @@ public readonly partial struct TwirlAngle : IMinMaxValue<TwirlAngle> {
     public static TwirlAngle MinValue { get; } = new(-2f * float.Tau);
     public static TwirlAngle MaxValue { get; } = new(2f * float.Tau);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -29,7 +29,7 @@ public readonly partial struct FalloffPower : IMinMaxValue<FalloffPower> {
     public static FalloffPower MaxValue { get; } = new(8f);
     public static FalloffPower Linear { get; } = new(1f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<int>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Uniform", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -37,7 +37,7 @@ public readonly partial struct ArmCount : IMinMaxValue<ArmCount> {
     public static ArmCount MinValue => Uniform;
     public static ArmCount MaxValue { get; } = new(16);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -46,7 +46,7 @@ public readonly partial struct WaveCount : IMinMaxValue<WaveCount> {
     public static WaveCount MaxValue { get; } = new(64);
     public static WaveCount Standard { get; } = new(5);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -54,7 +54,7 @@ public readonly partial struct DropSize : IMinMaxValue<DropSize> {
     public static DropSize MinValue { get; } = new(0.01f);
     public static DropSize MaxValue { get; } = new(0.5f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [SmartEnum<string>]
@@ -461,7 +461,7 @@ public sealed record Refraction(
 
     private unsafe Fin<Unit> Kernel(Func<Vector2, Vector4> lanes, PassContext context, PixelFrame frame, IProgress<int> progress) {
         (PixelExtent extent, (double X, double Y) half) = (context.Extent, FramePosition.Center.Point(context.Extent));
-        (PixelFrame field, PixelFrame refracted) = (new(frame.Origin, frame.Size, frame.Extent, static _ => { }), frame.Copy());
+        (PixelFrame field, PixelFrame refracted) = (new(frame.Origin, frame.Size, frame.Extent), frame.Copy());
         return (from painted in new PixelPass.Pointwise((row, column, line) => {
             for (int x = 0; x < row.Length; x++) row[x] = new Vector4(extent.ShortSide, extent.ShortSide, 1f, 1f) * lanes(new Vector2(
                 (float)(((double)column + x + 0.5d - half.X) / extent.ShortSide), (float)(((double)extent.Height - line - 0.5d - half.Y) / extent.ShortSide)));

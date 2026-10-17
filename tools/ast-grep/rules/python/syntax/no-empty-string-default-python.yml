@@ -110,4 +110,4 @@ rule:
                     - has: {field: arguments, has: {nthChild: 2, pattern: $NAME}}
                 - has: {field: arguments, has: {nthChild: 1, pattern: $NAME}}
 message: '`$NAME` defaults to an empty string standing for absence'
-note: 'Use `str | None` with `None` for absence and an `is None` test, an empty string is a valid `str` and states no absence'
+note: 'Use `str | None` with `None` for absence and an `is None` test'

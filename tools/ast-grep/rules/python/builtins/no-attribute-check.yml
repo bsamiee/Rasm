@@ -114,4 +114,4 @@ rule:
                 - inside: {kind: argument_list, inside: {kind: call, has: {field: function, regex: '^filter$'}}, has: {kind: lambda, has: {field: body, matches: name-comparison}}}
             - has: {field: function, matches: getmembers-callee}
 message: '`$CHECK` tests an object for an attribute by name'
-note: 'Use `isinstance` or a class pattern narrowing to the declaring type before each attribute read, a name test hides declaring types from type checkers while a `vars` or `__dict__` test answers which namespace declares the member and stays, as does a test for Blender''s `COMPAT_ENGINES`, a panel class attribute no type declares'
+note: 'Narrow to the declaring type with `isinstance` or a class pattern before each attribute read, a name test hiding declaring types from type checkers. A `vars` or `__dict__` test answering which namespace declares the member stays'

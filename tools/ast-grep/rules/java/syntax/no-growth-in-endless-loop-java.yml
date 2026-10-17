@@ -79,5 +79,5 @@ rule:
             - all:
                 - not: {inside: {stopBy: end, matches: function, has: {stopBy: end, matches: declared}}}
                 - not: {inside: {kind: program, stopBy: end, has: {stopBy: end, matches: drain}}}
-message: '`$GROWN` grows each pass of a loop with no exit, nothing removes from it'
+message: '`$GROWN` grows each pass of a loop with no exit and no removal'
 note: 'Bound the collection, drain it per pass, or build it inside the loop body so each pass starts empty'

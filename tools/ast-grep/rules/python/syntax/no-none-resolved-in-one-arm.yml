@@ -68,5 +68,5 @@ rule:
                 any:
                     - matches: conditional-arm
                     - matches: statement-arm
-message: '`$X` resolves None to `$D` in one arm and reaches the other arm as None'
-note: 'Use `<name> = <default> if <value> is None else <value>` before the branch, every arm reads `<name>`'
+message: '`$X` resolves `None` to `$D` in one arm and reaches the other arm as `None`'
+note: 'Bind `<name> = <default> if <value> is None else <value>` before the branch and read `<name>` in every arm'

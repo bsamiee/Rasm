@@ -51,7 +51,7 @@ public readonly partial struct CopyCount : System.Numerics.IMinMaxValue<CopyCoun
     public static CopyCount MinValue { get; } = new(1);
     public static CopyCount MaxValue { get; } = new(int.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

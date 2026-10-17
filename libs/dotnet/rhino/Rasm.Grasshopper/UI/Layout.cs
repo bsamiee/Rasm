@@ -23,7 +23,7 @@ public readonly partial struct CanvasLength : System.Numerics.IMinMaxValue<Canva
     public static CanvasLength MinValue { get; } = new(0f);
     public static CanvasLength MaxValue { get; } = new(float.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ComplexValueObject]

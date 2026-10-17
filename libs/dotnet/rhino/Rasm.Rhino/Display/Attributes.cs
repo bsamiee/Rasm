@@ -11,7 +11,7 @@ public readonly partial struct ObjectEffectAmount : System.Numerics.IMinMaxValue
     public static ObjectEffectAmount MaxValue { get; } = new(1f);
 
     // --- [FACTORY]
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -21,7 +21,7 @@ public readonly partial struct DiagonalHatchWidth : System.Numerics.IMinMaxValue
     public static DiagonalHatchWidth MaxValue { get; } = new(float.MaxValue);
 
     // --- [FACTORY]
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 public sealed record ObjectEffects(Color FadeColor, ObjectEffectAmount FadeAmount, ObjectEffectAmount DitherTransparency, ObjectEffectAmount HatchStrength, DiagonalHatchWidth HatchWidth) {

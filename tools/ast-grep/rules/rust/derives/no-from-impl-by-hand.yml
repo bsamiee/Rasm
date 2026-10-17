@@ -1,0 +1,119 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-from-impl-by-hand
+language: rust
+severity: error
+utils:
+    target-name:
+        any: [{regex: '^Self$'}, {pattern: $B}]
+    local-enum:
+        inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: enum_item, has: {field: name, pattern: $B}}}
+    single-argument:
+        all: [{has: {nthChild: 1, kind: identifier, pattern: $P}}, {not: {has: {nthChild: 2}}}]
+    single-field:
+        all:
+            - has: {nthChild: 1, any: [{kind: shorthand_field_initializer, pattern: $P}, {kind: field_initializer, has: {field: value, kind: identifier, pattern: $P}}]}
+            - not: {has: {nthChild: 2}}
+    constructor:
+        kind: function_item
+        all:
+            - has: {field: parameters, all: [{has: {nthChild: 1, kind: parameter, has: {field: pattern, kind: identifier, pattern: $Q}}}, {not: {has: {nthChild: 2}}}]}
+            - has:
+                field: body
+                all:
+                    - has:
+                        nthChild: {position: 1, ofRule: {matches: rust-statement}}
+                        any:
+                            - kind: call_expression
+                              all: [{has: {field: function, kind: identifier, matches: target-name}}, {has: {field: arguments, all: [{has: {nthChild: 1, kind: identifier, pattern: $Q}}, {not: {has: {nthChild: 2}}}]}}]
+                            - kind: struct_expression
+                              all:
+                                - has: {field: name, matches: target-name}
+                                - has: {field: body, all: [{has: {nthChild: 1, any: [{kind: shorthand_field_initializer, pattern: $Q}, {kind: field_initializer, has: {field: value, kind: identifier, pattern: $Q}}]}}, {not: {has: {nthChild: 2}}}]}
+                    - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
+    wrapping:
+        any:
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: identifier, matches: target-name}
+                - has: {field: arguments, matches: single-argument}
+            - kind: struct_expression
+              all:
+                - has: {field: name, kind: 'type_identifier, identifier', matches: target-name}
+                - has: {field: body, matches: single-field}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: scoped_identifier, has: {field: path, matches: target-name}}
+                - has: {field: arguments, matches: single-argument}
+                - matches: local-enum
+            - kind: struct_expression
+              all:
+                - has: {field: name, kind: scoped_type_identifier, has: {field: path, matches: target-name}}
+                - has: {field: body, matches: single-field}
+                - matches: local-enum
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: scoped_identifier, all: [{has: {field: path, matches: target-name}}, {has: {field: name, pattern: $NEW}}]}
+                - has: {field: arguments, matches: single-argument}
+                - inside:
+                    kind: source_file
+                    stopBy: end
+                    has:
+                        stopBy: end
+                        kind: impl_item
+                        all:
+                            - not: {has: {field: trait, pattern: $_}}
+                            - has: {field: type, any: [{kind: generic_type, has: {field: type, pattern: $B}}, {pattern: $B}]}
+                            - has: {field: body, has: {matches: constructor, has: {field: name, pattern: $NEW}}}
+            - kind: field_expression
+              all:
+                - pattern: $P.0
+                - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: struct_item, has: {field: name, pattern: $A}}}
+    result:
+        any:
+            - matches: wrapping
+            - kind: 'return_expression, expression_statement'
+              has: {nthChild: 1, matches: result}
+    body-statement:
+        nthChild: {position: 1, ofRule: {matches: rust-statement}}
+    second-statement:
+        nthChild: {position: 2, ofRule: {matches: rust-statement}}
+    from-method:
+        kind: function_item
+        all:
+            - has: {field: name, regex: '^from$'}
+            - has:
+                field: parameters
+                all:
+                    - not: {has: {nthChild: 2}}
+                    - has:
+                        nthChild: 1
+                        kind: parameter
+                        has:
+                            field: pattern
+                            any:
+                                - {kind: identifier, pattern: $P}
+                                - kind: tuple_struct_pattern
+                                  all: [{has: {field: type, pattern: $A}}, {has: {nthChild: 2, kind: identifier, pattern: $D}}, {not: {has: {nthChild: 3}}}]
+            - has:
+                field: body
+                any:
+                    - all:
+                        - has: {matches: body-statement, any: [{matches: result}, {kind: identifier, pattern: $D}], pattern: $BODY}
+                        - not: {has: {matches: second-statement}}
+                    - all:
+                        - has: {matches: body-statement, kind: let_declaration, all: [{has: {field: pattern, kind: identifier, pattern: $L}}, {has: {field: value, matches: wrapping}}], pattern: $BODY}
+                        - has: {matches: second-statement, kind: identifier, pattern: $L}
+                        - not: {has: {nthChild: {position: 3, ofRule: {matches: rust-statement}}}}
+rule:
+    kind: impl_item
+    all:
+        - has: {field: trait, kind: generic_type, pattern: $TRAIT, all: [{has: {field: type, regex: '^((::)?(std|core)::)?(convert::)?From$'}}, {has: {field: type_arguments, has: {nthChild: 1, pattern: $A}}}]}
+        - has: {field: type, any: [{kind: generic_type, has: {field: type, pattern: $B}}, {pattern: $B}]}
+        - has: {field: body, has: {matches: from-method}}
+        - not: {has: {field: body, has: {kind: function_item, nthChild: {position: 2, ofRule: {kind: function_item}}}}}
+        - not: {inside: {kind: source_file, stopBy: end, has: {stopBy: end, matches: {rust-error-type: {name: {pattern: $B}}}}}}
+labels:
+    TRAIT: {style: primary, message: 'Implemented by hand'}
+    BODY: {style: secondary, message: 'Converts the argument unchanged'}
+message: '`From<$A>` for `$B` restates a conversion a derive generates'
+note: 'Derive `derive_more::From` on the target type (`#[from]` on the variant of an enum) or `derive_more::Into` on the newtype `.0` reads, and delete the impl'

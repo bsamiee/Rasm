@@ -54,8 +54,12 @@ rule:
         - matches: declaration-shape
         - precedes:
             stopBy: end
+            pattern: $AGAIN
             all:
                 - matches: declaration-shape
                 - follows: {stopBy: *run, matches: rust-cfg-attribute, not: {pattern: $CFG}}
+labels:
+    NAME: {style: primary, message: 'Declared under one `cfg`'}
+    AGAIN: {style: secondary, message: 'Same declaration under another `cfg`'}
 message: '`$NAME` is declared under `$CFG` and again under another `cfg`'
-note: 'Declare the name once and select the differing part with `cfg_select!`, as `let <name> = cfg_select! { <predicate> => <value>, _ => <value> };` for a binding or a `const` value and as one `cfg_select!` over the differing statements of a body. One `impl` holds gated members. Declarations with differing signatures stay as written'
+note: 'Declare the item once and select the differing part with `cfg_select!`: `let <name> = cfg_select! { <predicate> => <value>, _ => <value> };` for a value, one `cfg_select!` over the differing statements of a body, and one `impl` holding gated members'

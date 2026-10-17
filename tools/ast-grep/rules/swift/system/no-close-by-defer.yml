@@ -26,4 +26,4 @@ rule:
                 - not: {has: {stopBy: {kind: 'function_declaration, lambda_literal'}, kind: await_expression}}
                 - has: {stopBy: end, matches: descriptor-binding}
 message: '`$SITE` closes `$DESCRIPTOR` from a `defer` around a synchronous body'
-note: 'Run the body through `<descriptor>.closeAfter { ... }`, it closes the descriptor on both paths and throws a close failure that `try?` discards'
+note: 'Run the body through `<descriptor>.closeAfter { ... }` to close the descriptor on both paths and throw a close failure `try?` discards'

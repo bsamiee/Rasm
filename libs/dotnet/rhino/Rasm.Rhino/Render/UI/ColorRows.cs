@@ -158,7 +158,7 @@ public static class ColorRows {
     private static Fin<TRecord> Revised<TRecord, TValue>(Lens<TRecord, TValue> lens, TRecord record, Func<Seq<Swatch>, Seq<Swatch>> change)
         where TRecord : notnull
         where TValue : IObjectFactory<TValue, Seq<Swatch>, ValidationError>, IConvertible<Seq<Swatch>> =>
-        Admission.Validated<TValue, Seq<Swatch>>(change(lens.Get(record).ToValue())).Map(next => lens.Set(next, record));
+        ValidationResults.Validated<TValue, Seq<Swatch>>(change(lens.Get(record).ToValue())).Map(next => lens.Set(next, record));
 
     private static IO<Unit> Added<TRecord>(Strip<TRecord> strip) where TRecord : notnull =>
         from held in strip.State.ValueIO
@@ -486,11 +486,11 @@ public static class ColorRows {
         return stops.Zip(toSeq(light))
             .Traverse(static pair => (
                 from position in RampPosition.Validated(pair.First.Position)
-                from stop in Admission.Admitted(RampStop.Validate(position, pair.Second, out RampStop item), item)
+                from stop in ValidationResults.ToFin(RampStop.Validate(position, pair.Second, out RampStop item), item)
                 select stop).ToValidation())
             .As()
             .ToFin()
-            .Bind(static held => Admission.Admitted(Ramp.Validate(held, RampInterpolation.Linear, out Ramp? ramp), ramp));
+            .Bind(static held => ValidationResults.ToFin(Ramp.Validate(held, RampInterpolation.Linear, out Ramp? ramp), ramp));
     }
 
     public static ColorGradient GradientOf(ColorGradient held, Ramp ramp) {
@@ -539,14 +539,14 @@ public static class ColorRows {
         stop.SwapIO(held => held with { Selected = at }).Map(unit);
 
     private static Fin<TRecord> Interpolated<TRecord>(Lens<TRecord, Ramp> lens, RampInterpolation interpolation, TRecord record) where TRecord : notnull =>
-        Admission.Admitted(Ramp.Validate(lens.Get(record).Stops, interpolation, out Ramp? ramp), ramp).Map(held => lens.Set(held, record));
+        ValidationResults.ToFin(Ramp.Validate(lens.Get(record).Stops, interpolation, out Ramp? ramp), ramp).Map(held => lens.Set(held, record));
 
     private static Fin<TRecord> Recolored<TRecord>(Lens<TRecord, Ramp> lens, Option<int> selected, Vector4 color, TRecord record) where TRecord : notnull =>
         from at in selected.ToFin(new Refused(nameof(GradientRamp.Selected), Refused.Absent))
         let ramp = lens.Get(record)
         from current in Conversions.Within(at, ramp.Stops.Count, nameof(Ramp.Stops)).Map(_ => ramp.Stops[at])
-        from item in Admission.Admitted(RampStop.Validate(current.Position, color, out RampStop next), next)
-        from written in Admission.Admitted(Ramp.Validate(ramp.Stops.Map((kept, index) => index == at ? item : kept), ramp.Interpolation, out Ramp? replaced), replaced)
+        from item in ValidationResults.ToFin(RampStop.Validate(current.Position, color, out RampStop next), next)
+        from written in ValidationResults.ToFin(Ramp.Validate(ramp.Stops.Map((kept, index) => index == at ? item : kept), ramp.Interpolation, out Ramp? replaced), replaced)
         select lens.Set(written, record);
 
     private static IO<Unit> Stopped(IO<(Option<Ramp> Ramp, Option<int> Selected)> stop, Well well, NumberField<RampPosition, double> position) =>

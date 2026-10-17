@@ -9,8 +9,11 @@ utils:
             - any:
                 - pattern: (**self).$M($$$ARGS)
                 - pattern: (*self).$M($$$ARGS)
+                - pattern: self.as_ref().$M($$$ARGS)
+                - pattern: self.deref().$M($$$ARGS)
                 - pattern: $T::$M($$$ARGS)
-            - has: {field: arguments, not: {has: {pattern: $_, not: {kind: 'identifier, self'}}}}
+                - pattern: <$T as $_>::$M($$$ARGS)
+            - has: {field: arguments, not: {has: {pattern: $_, not: {any: [{kind: 'identifier, self'}, {regex: '^(&\s*(mut\s+)?)?\**\s*self$'}]}}}}
     forwarding-statement:
         any:
             - matches: forwarded-call
@@ -23,8 +26,8 @@ utils:
             - has:
                 field: body
                 all:
-                    - has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, matches: forwarding-statement}
-                    - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
+                    - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, matches: forwarding-statement}
+                    - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
     pointer:
         any:
             - kind: reference_type
@@ -41,4 +44,4 @@ rule:
         - has: {field: type, matches: pointer, pattern: $POINTER}
         - has: {field: body, all: [{has: {kind: function_item}}, {not: {has: {kind: function_item, not: {matches: forwarder}}}}]}
 message: '`impl $TR for $POINTER` forwards every method to the pointee'
-note: 'Put `#[auto_impl::auto_impl(&, &mut, Box, Arc, Rc)]` (pointer kinds the impls cover) on the trait and delete each forwarding impl, auto_impl generates an impl for every listed pointer from the trait declaration'
+note: 'Put `#[auto_impl::auto_impl(<pointer kinds>)]` (`&`, `&mut`, `Box`, `Arc`, `Rc`) on the trait and delete each forwarding impl'

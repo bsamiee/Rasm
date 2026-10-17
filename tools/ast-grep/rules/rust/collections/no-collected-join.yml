@@ -14,8 +14,15 @@ rule:
         - all: [{pattern: '$I.intersperse(Cow::from($S)).collect::<String>()'}, {matches: literal-separator}]
         - all: [{pattern: '$I.intersperse(Cow::Borrowed($S)).collect::<String>()'}, {matches: literal-separator}]
         - pattern: $I.map(ToString::to_string).collect::<Vec<$_>>().join($S)
+        - all: [{pattern: '$I.intersperse($S).collect::<String>()'}, {matches: literal-separator}]
         - pattern: $I.map(String::from).collect::<Vec<$_>>().join($S)
+        - pattern: $I.map(str::to_owned).collect::<Vec<$_>>().join($S)
+        - pattern: $I.map(str::to_string).collect::<Vec<$_>>().join($S)
+        - pattern: $I.map(ToOwned::to_owned).collect::<Vec<$_>>().join($S)
+        - pattern: $I.map(String::as_str).collect::<Vec<$_>>().join($S)
         - pattern: '$I.map(|$X| $X.to_string()).collect::<Vec<$_>>().join($S)'
+        - pattern: '$I.map(|$X| $X.to_owned()).collect::<Vec<$_>>().join($S)'
+        - pattern: '$I.map(|$X| $X.as_str()).collect::<Vec<$_>>().join($S)'
         - pattern: '$J.map(|$P| format!($$$A)).collect::<Vec<$_>>().join($T)'
 constraints:
     S: {not: {regex: '^""$'}}
@@ -28,5 +35,5 @@ transform:
     FBODY: {replace: {source: $P, replace: '^[\s\S]+$', by: ', sink| sink(&format_args!('}}
     FCLOSE: {replace: {source: $J, replace: '^[\s\S]+$', by: '))).to_string()'}}
 fix: '$I$OPEN$S$CLOSE$J$FOPEN$T$FPARAM$P$FBODY$$$A$FCLOSE'
-message: 'Items become `String`s only to be joined through an intermediate collection'
-note: 'Call `Itertools::join(<iterator>, <separator>)` (`use itertools::Itertools as _`), it writes each `Display` item into one `String` with no owned separator per gap or `Vec` between. A `format!` map becomes `<iterator>.format_with(<separator>, |<item>, sink| sink(&format_args!(..))).to_string()`, which builds no `String` per item. Clippy `unnecessary_join` owns the empty separator'
+message: '`$I$J` joins items through `intersperse` or an intermediate `Vec`'
+note: 'Call `Itertools::join(<iterator>, <separator>)` (`use itertools::Itertools as _;`), or `<iterator>.format_with(<separator>, |<item>, sink| sink(&format_args!(..))).to_string()` for a `format!` map'

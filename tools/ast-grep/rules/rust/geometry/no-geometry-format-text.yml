@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-geometry-format-text
+language: rust
+severity: error
+rule:
+    kind: 'string_literal, raw_string_literal'
+    pattern: $TEXT
+    all:
+        - matches: rust-geometry-format-text
+        - not: {inside: {kind: source_file, stopBy: end, regex: '^[(\[]'}}
+message: '`$TEXT` spells geometry interchange text by hand'
+note: 'Write the shape through its format crate: `geojson` types or `geozero::ToJson` for GeoJSON, `geozero::ToWkt` for WKT, `kurbo::BezPath::to_svg` for SVG path data, `stl_io::read_stl` for STL, `tobj::load_obj` for OBJ, and `ply_rs_bw` for PLY'

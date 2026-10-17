@@ -19,4 +19,4 @@ rule:
                 - has: {nthChild: 1, has: {stopBy: end, matches: writer-write, pattern: $WRITE}}
                 - has: {nthChild: 2, has: {stopBy: end, matches: writer-finish}}
 message: '`$WRITE` writes one fixed value to standard input and closes it'
-note: 'Pass the value as `input: .string(_:)`, `.array(_:)`, or `.data(_:)` on the run, Subprocess writes it and closes standard input while the body reads output'
+note: 'Pass the value as `input: .string(_:)`, `.array(_:)`, or `.data(_:)` on the run for Subprocess to write and close standard input'

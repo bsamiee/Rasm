@@ -20,7 +20,7 @@ use tokio::{
     io::{AsyncBufReadExt as _, BufReader},
     process::Command,
 };
-use tokio_stream::wrappers::SplitStream;
+use tokio_stream::wrappers::{SplitStream, errors::BroadcastStreamRecvError};
 use tokio_util::{sync::CancellationToken, task::AbortOnDropHandle};
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -128,8 +128,9 @@ impl Endpoint for Bridge {
             loop {
                 tokio::select! {
                     biased;
-                    Some(update) = updates.next() => if let Ok(update) = update && update.progress_token == handle.progress_token {
-                        progress.report(update.progress, update.total, update.message);
+                    Some(update) = updates.next() => match update {
+                        Ok(update) if update.progress_token == handle.progress_token => progress.report(update.progress, update.total, update.message),
+                        Ok(_) | Err(BroadcastStreamRecvError::Lagged(_)) => {}
                     },
                     received = &mut handle.rx => break received.map_err(|_closed| ServiceError::TransportClosed).flatten().map_err(fault),
                     () = cancelled.cancelled() => break handle.cancel(None).await.map_err(fault).and(Err(fault(ServiceError::Cancelled { reason: None }))),

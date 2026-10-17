@@ -67,5 +67,5 @@ rule:
             - has: {field: consequence, matches: exits}
             - not: {has: {field: alternative, pattern: $_}}
             - precedes: {stopBy: end, matches: reads}
-message: '`$SITE` tests `$PATH` before an operation that raises on its absence, one `try` around the operation maps its `OSError` to the absent value'
-note: 'An existence test races the operation and repeats its check, a `try` statement replaces an expression or a branch with its absent value, which no template states'
+message: '`$SITE` tests `$PATH` before an operation that raises on its absence, racing the operation'
+note: 'Wrap the operation in one `try` that maps its `OSError` to the absent value'

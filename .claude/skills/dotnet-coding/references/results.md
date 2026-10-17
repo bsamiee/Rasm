@@ -39,7 +39,7 @@ internal static class Contacts {
 }
 ```
 
-Each failure carries its validation hook's message under `ErrorCodes.ValidationFailed`. Every invalid input reports its error, the tuple `Apply` takes 2 to 10 independent operands with one uncurried function, and the input boundary returns the `Validation<Error, Contact>`. When a later check consumes an earlier validated value or must not run after a failure, a query binds the steps and the first failure stops the rest, at the cost of the failures from checks that never ran.
+Every invalid input reports its error, the tuple `Apply` takes 2 to 10 independent operands with one uncurried function, and the input boundary returns the `Validation<Error, Contact>`. When a later check consumes an earlier validated value or must not run after a failure, a query binds the steps and the first failure stops the rest, at the cost of the failures from checks that never ran.
 
 Collections of validators of shape `T -> Validation<Error, T>` fold into one validator, and the traversal selects the behavior:
 

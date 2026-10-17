@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-machine-path-literal-xml
+language: xml
+severity: error
+files: ['**/*.{csproj,props,targets}']
+utils:
+    path-name:
+        kind: Name
+        regex: '^(Include|Exclude|Remove|Update|Project|Inputs|Outputs|([A-Za-z_][A-Za-z0-9_]*)?(Path|Paths|Dir|Dirs|Directory|Directories|Folder|Folders|Root|Roots|Manifest|File|Files))$'
+rule:
+    pattern: _PATH
+    any:
+        - kind: AttValue
+          inside: {kind: Attribute, has: {matches: path-name}}
+        - kind: CharData
+          inside: {kind: content, inside: {matches: {msbuild-element: {name: {matches: path-name}}}}}
+    regex: '^["'']?([A-Za-z]:[\\/]|~[\\/]|/[A-Za-z0-9_.-]|\\\\[A-Za-z0-9_.-])'
+message: '`$PATH` names a location by its absolute path on one machine'
+note: 'Compose the path, `$([MSBuild]::NormalizePath(''$(<Directory>)'', ''<segment>''))`'

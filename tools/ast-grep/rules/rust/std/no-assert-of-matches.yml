@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-assert-of-matches
+language: rust
+severity: error
+rule:
+    kind: macro_invocation
+    all:
+        - matches: {rust-std-macro: {name: {regex: '^(debug_)?assert$'}}}
+        - has: {field: macro, pattern: $MACRO}
+        - matches: rust-test-scope
+        - any:
+            - all:
+                - has: {kind: token_tree, regex: '^\(\s*((::)?(std|core)::)?matches\s*!'}
+                - any:
+                    - pattern: $MACRO!($$$PATH matches!($$$SHAPE))
+                    - pattern: $MACRO!($$$PATH matches!($$$SHAPE), $$$MESSAGE)
+            - all:
+                - has: {kind: token_tree, regex: '^\(\s*[A-Za-z_][\w:]*(\s*(\.\s*[A-Za-z_]\w*|\([^()]*\)|\[[^\[\]]*\]))*\s*\.\s*is_(some|none)\s*\(\s*\)\s*(,[\s\S]*)?\)$'}
+                - any:
+                    - pattern: $MACRO!($$$SOME.is_some())
+                    - pattern: $MACRO!($$$SOME.is_some(), $$$MESSAGE)
+                    - pattern: $MACRO!($$$NONE.is_none())
+                    - pattern: $MACRO!($$$NONE.is_none(), $$$MESSAGE)
+transform:
+    TARGET: {replace: {source: $MACRO, replace: '^(?:(?:::)?(?:std|core|alloc)::)?(debug_)?assert$', by: 'core::${1}assert_matches'}}
+    SHAPE_LINE: {replace: {source: $$$SHAPE, replace: '\s*\n\s*', by: ' '}}
+    SOME_SHAPE: {replace: {source: $$$SOME, replace: '^([\s\S]+)$', by: '${1}, Some(_)'}}
+    NONE_SHAPE: {replace: {source: $$$NONE, replace: '^([\s\S]+)$', by: '${1}, None'}}
+    SEPARATOR: {replace: {source: $$$MESSAGE, replace: '^[\s\S]+$', by: ', '}}
+    MESSAGE_LINE: {replace: {source: $$$MESSAGE, replace: '\s*\n\s*', by: ' '}}
+fix: $TARGET!($SHAPE_LINE$SOME_SHAPE$NONE_SHAPE$SEPARATOR$MESSAGE_LINE)
+message: '`$MACRO!` asserts a pattern through a boolean and prints no value on failure'
+note: 'Write `core::assert_matches!(<value>, <pattern>[ if <guard>][, <message>])` or `core::debug_assert_matches!`, with `Some(_)` for `is_some()` and `None` for `is_none()`'

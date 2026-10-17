@@ -10,7 +10,7 @@ utils:
                 - all:
                     - has: {field: function, matches: {csharp-type-name: {name: {regex: '^@catch$'}}}}
                     - inside: {kind: binary_expression, field: right, has: {field: operator, regex: '^\|$'}}
-            - has: {field: arguments, has: {kind: argument, nthChild: {position: 2, ofRule: {kind: argument}}, has: {matches: csharp-release-handler}}}
+            - has: {field: arguments, has: {kind: argument, nthChild: {position: 2, ofRule: {kind: argument}}, has: {matches: languageext-release-handler}}}
             - not: {matches: {csharp-owner-body: {type: {regex: '^DisposalOps$'}, member: {regex: '^OnFailure$'}}}}
     catch-all:
         kind: invocation_expression

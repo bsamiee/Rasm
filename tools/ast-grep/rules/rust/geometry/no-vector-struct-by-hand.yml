@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-vector-struct-by-hand
+language: rust
+severity: error
+utils:
+    float:
+        kind: primitive_type
+        regex: '^f(32|64)$'
+    component-type:
+        any:
+            - matches: float
+            - kind: type_identifier
+              pattern: $T
+              inside: {kind: struct_item, stopBy: {kind: struct_item}, has: {field: type_parameters, has: {kind: type_parameter, has: {field: name, pattern: $T}}}}
+    component:
+        kind: field_declaration
+        all:
+            - has: {field: name, regex: '^[xyzw]$'}
+            - has: {field: type, matches: component-type}
+    named-fields:
+        kind: field_declaration_list
+        all:
+            - has: {kind: field_declaration, has: {field: name, regex: '^x$'}}
+            - has: {kind: field_declaration, has: {field: name, regex: '^y$'}}
+            - not: {has: {kind: field_declaration, not: {matches: component}}}
+    positional-fields:
+        kind: ordered_field_declaration_list
+        all:
+            - has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment, attribute_item, visibility_modifier'}}}, matches: float}
+            - not: {has: {nthChild: {position: 5, ofRule: {not: {kind: 'line_comment, block_comment, attribute_item, visibility_modifier'}}}}}
+            - not: {has: {nthChild: {position: 1, ofRule: {not: {kind: 'line_comment, block_comment, attribute_item, visibility_modifier'}}}, not: {matches: float}}}
+            - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment, attribute_item, visibility_modifier'}}}, not: {matches: float}}}
+            - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: 'line_comment, block_comment, attribute_item, visibility_modifier'}}}, not: {matches: float}}}
+            - not: {has: {nthChild: {position: 4, ofRule: {not: {kind: 'line_comment, block_comment, attribute_item, visibility_modifier'}}}, not: {matches: float}}}
+rule:
+    kind: struct_item
+    all:
+        - has: {field: name, pattern: $NAME}
+        - any:
+            - has: {field: body, matches: named-fields}
+            - all:
+                - has: {field: name, regex: '(?i)^(point|vec|vector|coord|position|direction|normal|velocity)[234]?d?[fi]?$'}
+                - has: {field: body, matches: positional-fields}
+        - not: {matches: rust-serde-record}
+message: '`$NAME` declares a vector type by hand'
+note: 'Use the vector type of the crate the module uses: `glam` `Vec2`/`Vec3`/`DVec3` in graphics code, `nalgebra` `Vector3<f64>`/`Point3<f64>` in geometry, `geo-types` `Coord`/`Point` in geospatial code, or `kurbo` `Point`/`Vec2` for 2D curves'

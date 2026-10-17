@@ -32,4 +32,4 @@ rule:
                 - has: {stopBy: end, kind: function_type, all: [{has: {field: trait, regex: '^(Fn|FnMut|FnOnce)$'}}, {has: {field: return_type, pattern: $FUT}}]}
                 - not: {has: {stopBy: end, kind: type_identifier, pattern: $FUT, not: {matches: exempt-site}}}
 message: '`$FUT` names the future a closure bound returns'
-note: 'Bound the closure as `AsyncFn(<arguments>) -> <output>` (`AsyncFnMut`, `AsyncFnOnce`) and drop the future parameter. A future with another bound (`Send`, `''static`) stays as written'
+note: 'Bound the closure as `AsyncFn(<arguments>) -> <output>` (`AsyncFnMut`, `AsyncFnOnce`) and delete the future type parameter'

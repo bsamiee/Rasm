@@ -31,7 +31,7 @@ rule:
     kind: invocation_expression
     pattern: $SCAN
     all:
-        - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(First|FirstOrDefault|Single|SingleOrDefault|Last|LastOrDefault|Any|Where|Find|Exists|Filter)$'}}, {has: {field: expression, matches: csharp-smart-enum-items, has: {field: expression, pattern: $TYPE}}}]}
+        - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(First|FirstOrDefault|Single|SingleOrDefault|Last|LastOrDefault|Any|Where|Find|Exists|Filter)$'}}, {has: {field: expression, matches: thinktecture-smart-enum-items, has: {field: expression, pattern: $TYPE}}}]}
         - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, has: {matches: key-predicate}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
 message: '`$SCAN` scans every `$TYPE` item for the one holding a key'
 note: 'Read the item through the generated `Get(key)`, or `TryGet(key, out item)` where the key can miss, a lookup through the key comparer the smart enum declares'

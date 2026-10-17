@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-hex-color-parse
+language: rust
+severity: error
+utils:
+    sixteen:
+        kind: integer_literal
+        regex: '^(16|0x10|0o20|0b0*10000)(_?u32)?$'
+    hex-read:
+        kind: call_expression
+        any:
+            - all:
+                - has: {field: function, regex: '::from_str_radix$'}
+                - has: {field: arguments, has: {nthChild: 2, matches: sixteen}}
+                - has: {field: arguments, has: {nthChild: 1, any: [{pattern: $HEX}, {has: {stopBy: end, pattern: $HEX}}]}}
+            - all:
+                - has: {field: function, regex: '^((::)?hex::decode(_to_slice)?|(\w+::)*FromHex::from_hex|<[^>]+>::from_hex)$'}
+                - has: {field: arguments, has: {nthChild: 1, any: [{pattern: $HEX}, {has: {stopBy: end, pattern: $HEX}}]}}
+            - all:
+                - has: {field: function, kind: field_expression, has: {field: field, regex: '^to_digit$'}}
+                - has: {field: arguments, has: {nthChild: 1, matches: sixteen}}
+                - inside: {kind: function_item, stopBy: {kind: function_item}, has: {stopBy: {kind: function_item}, kind: call_expression, has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(chars|bytes)$'}}, {has: {field: value, pattern: $HEX}}]}}}
+    sliced-hex-read:
+        kind: call_expression
+        all:
+            - has: {field: function, regex: '::from_str_radix$'}
+            - has: {field: arguments, has: {nthChild: 2, matches: sixteen}}
+            - has: {field: arguments, has: {nthChild: 1, has: {stopBy: end, kind: range_expression, regex: '^1\s*\.\.'}}}
+    hash-argument:
+        has: {field: arguments, has: {nthChild: 1, regex: '^(''#''|"#"|b''#'')$'}, not: {has: {nthChild: 2}}}
+rule:
+    kind: call_expression
+    pattern: $STRIP
+    any:
+        - all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^(strip_prefix|trim_start_matches)$'}}
+            - matches: hash-argument
+            - inside:
+                kind: 'let_declaration, let_condition'
+                stopBy: {kind: 'let_declaration, let_condition, block, function_item'}
+                has: {field: pattern, any: [{kind: identifier, pattern: $HEX}, {has: {stopBy: end, kind: identifier, pattern: $HEX, not: {regex: '^(Some|Ok)$'}}}]}
+            - inside:
+                kind: function_item
+                stopBy: {kind: function_item}
+                has: {field: body, has: {stopBy: {kind: function_item}, matches: hex-read}}
+        - all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^starts_with$'}}
+            - matches: hash-argument
+            - inside:
+                kind: function_item
+                stopBy: {kind: function_item}
+                has: {field: body, has: {stopBy: {kind: function_item}, matches: sliced-hex-read}}
+message: '`$STRIP` tests a hex color for `#` and decodes its digits by hand'
+note: 'Call `color::parse_color(<text>)?` for a `color::DynamicColor`, and `.to_alpha_color::<color::Srgb>().to_rgba8()` where channels are needed'

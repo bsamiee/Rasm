@@ -20,19 +20,40 @@ utils:
     char-arm:
         kind: match_arm
         has: {field: pattern, has: {stopBy: end, kind: char_literal}}
+    scrutinee:
+        any:
+            - {kind: identifier, pattern: $CHAR}
+            - {kind: unary_expression, regex: '^\*', has: {kind: identifier, pattern: $CHAR}}
+    char-test:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^(==|!=)$'}
+            - has: {kind: char_literal}
+            - any: [{has: {field: left, matches: scrutinee}}, {has: {field: right, matches: scrutinee}}]
+    char-branch:
+        any:
+            - kind: match_expression
+              all:
+                - has: {field: value, matches: scrutinee}
+                - has: {field: body, has: {matches: char-arm}}
+            - kind: if_expression
+              all:
+                - has: {field: condition, any: [{matches: char-test}, {has: {stopBy: end, matches: char-test}}]}
+                - has: {field: alternative, has: {kind: if_expression, has: {field: condition, any: [{matches: char-test}, {has: {stopBy: end, matches: char-test}}]}}}
+    index-read:
+        kind: index_expression
+        pattern: '$S[$I]'
+    index-step:
+        kind: compound_assignment_expr
+        all:
+            - has: {field: operator, regex: '^\+=$'}
+            - has: {field: left, pattern: $I}
 rule:
     any:
         - kind: while_expression
           all:
             - has: {field: condition, kind: let_condition, has: {field: value, matches: pull}}
-            - has:
-                field: body
-                has:
-                    stopBy: {kind: 'closure_expression, function_item'}
-                    kind: match_expression
-                    all:
-                        - has: {field: value, any: [{kind: identifier, pattern: $CHAR}, {kind: unary_expression, regex: '^\*', has: {kind: identifier, pattern: $CHAR}}]}
-                        - has: {field: body, has: {matches: char-arm}}
+            - has: {field: body, has: {stopBy: {kind: 'closure_expression, function_item'}, matches: char-branch}}
             - has: {field: condition, has: {field: pattern, has: {stopBy: end, kind: identifier, pattern: $CHAR}}}
             - has: {field: body, has: {stopBy: {kind: 'closure_expression, function_item'}, matches: advance}}
         - kind: loop_expression
@@ -45,5 +66,17 @@ rule:
                     - has: {field: value, matches: pull}
                     - has: {field: body, has: {matches: char-arm}}
                     - has: {field: body, has: {stopBy: {kind: 'closure_expression, function_item'}, matches: advance}}
-message: 'Loop pulls characters from `$IT` and branches on each literal by hand'
-note: 'Write the grammar as `winnow` parsers (`winnow::token::{any, one_of, take_while, take_until}`, `winnow::combinator::{alt, delimited, repeat}`) run through `Parser::parse` over a `&str` stream, or as `chumsky` parsers where errors recover and accumulate. A loop advancing the iterator inside its arms restates the parser stream'
+        - kind: while_expression
+          all:
+            - has: {field: condition, kind: binary_expression, any: [{pattern: $I < $S.len()}, {pattern: $S.len() > $I}]}
+            - has:
+                field: body
+                has:
+                    stopBy: {kind: 'closure_expression, function_item'}
+                    kind: match_expression
+                    all:
+                        - has: {field: value, any: [{matches: index-read}, {kind: unary_expression, has: {matches: index-read}}]}
+                        - has: {field: body, has: {matches: char-arm}}
+            - has: {field: body, has: {stopBy: {kind: 'closure_expression, function_item'}, matches: index-step}}
+message: 'Loop pulls characters from `$IT$S` and branches on each literal by hand'
+note: 'Write the grammar as `winnow` parsers (`winnow::token::{any, one_of, take_while, take_until}`, `winnow::combinator::{alt, delimited, repeat}`) run through `Parser::parse` over a `&str` stream, or as `chumsky` parsers where errors recover and accumulate'

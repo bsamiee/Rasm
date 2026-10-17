@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-symbol-set-contains
+language: rust
+severity: error
+rule:
+    kind: call_expression
+    pattern: $SET.contains(&$N)
+constraints:
+    SET:
+        kind: array_expression
+        regex: '^\[\s*((sym|kw)::\w+\s*,\s*)+(sym|kw)::\w+\s*,?\s*\]$'
+transform:
+    INNER:
+        replace:
+            source: $SET
+            replace: '^\[\s*|\s*,?\s*\]$'
+            by: ''
+    ARMS:
+        replace:
+            source: $INNER
+            replace: '\s*,\s*'
+            by: ' | '
+fix: matches!($N, $ARMS)
+message: '`$SET` builds an array of `Symbol` constants to test `$N` against it'
+note: 'Match the value against the constants as an or-pattern in a `match` arm, a let-chain binding (`name @ (sym::a | sym::b)`), or `matches!`'

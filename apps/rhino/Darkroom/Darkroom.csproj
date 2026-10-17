@@ -24,6 +24,6 @@
     </ItemGroup>
 
     <ItemGroup Label="Workspace Sources">
-        <Compile Include="../../../libs/dotnet/Admission.cs" />
+        <Compile Include="../../../libs/dotnet/ValidationResults.cs" />
     </ItemGroup>
 </Project>

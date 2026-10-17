@@ -69,7 +69,7 @@ public static class HostDialogs {
         from modelUnit in IO.lift(() => doc.ModelUnits)
         from chosen in Ranged(doc, title, range, editable, display.Precision,
             value => Quantities.As(value.ToValue(), modelUnit),
-            number => Admission.Validated<TValue, Length>(Quantities.From(number, modelUnit)))
+            number => ValidationResults.Validated<TValue, Length>(Quantities.From(number, modelUnit)))
         select chosen;
 
     public static IO<(TValue Min, TValue Max)> ShowRangeDialog<TValue, TKey>(RhinoDoc doc, LocalizeStringPair title, NumericDomain<TValue, TKey> domain, (TValue Min, TValue Max) range, (bool Min, bool Max) editable)
@@ -84,7 +84,7 @@ public static class HostDialogs {
     public static IO<T> ShowEditBox<T>(LocalizeStringPair title, LocalizeStringPair message, Option<T> initial)
         where T : IObjectFactory<T, string, ValidationError>, IConvertible<string> =>
         IO.lift(() => Accepted(Dialogs.ShowEditBox(title.Local, message.Local, Conversions.Unset(initial.Map(static held => held.ToValue())), multiline: true, out string text), text)
-            .Bind(Admission.Validated<T, string>));
+            .Bind(ValidationResults.Validated<T, string>));
 
     public static IO<PlotWeight> ShowPrintWidths(LocalizeStringPair title, LocalizeStringPair message, Option<PlotWeight> selected) =>
         IO.lift(() => Conversions.Present(selected.Match(

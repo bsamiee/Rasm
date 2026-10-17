@@ -61,4 +61,4 @@ transform:
     CLOSE: {replace: {source: $GROUPED, replace: '(?s)^.+$', by: ')'}}
 fix: $OPEN$BODY$BREAK$CLOSE
 message: '`$CALL` asserts a type the checker cannot infer'
-note: 'Use a value typed where it is produced, or a `TypeIs` function that narrows it, a cast overrides the checker with no runtime check'
+note: 'Type the value where it is produced, or narrow it with a `TypeIs` function'

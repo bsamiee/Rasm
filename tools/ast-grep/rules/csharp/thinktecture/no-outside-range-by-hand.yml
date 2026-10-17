@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-outside-range-by-hand
+language: csharp
+severity: error
+utils:
+    key-read:
+        any:
+            - kind: identifier
+              pattern: $KEY
+            - kind: member_access_expression
+              has: {field: expression, kind: identifier, pattern: $KEY}
+    bound-comparison:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^(<|<=|>|>=)$'}
+            - any: [{has: {field: left, matches: key-read}}, {has: {field: right, matches: key-read}}]
+    range-test:
+        any:
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^(\|\||&&)$'}
+                - has: {field: left, any: [{matches: bound-comparison}, {kind: parenthesized_expression, has: {matches: bound-comparison}}]}
+                - has: {field: right, any: [{matches: bound-comparison}, {kind: parenthesized_expression, has: {matches: bound-comparison}}]}
+            - kind: is_pattern_expression
+              all:
+                - has: {field: expression, matches: key-read}
+                - has: {field: pattern, kind: 'or_pattern, and_pattern, negated_pattern, parenthesized_pattern', has: {stopBy: end, kind: relational_pattern, nthChild: 1}}
+                - has: {field: pattern, has: {stopBy: end, kind: relational_pattern, nthChild: 2}}
+            - kind: 'parenthesized_expression, prefix_unary_expression'
+              has: {matches: range-test}
+    error-creation:
+        any:
+            - kind: object_creation_expression
+              has: {field: type, matches: {csharp-type-name: {name: {regex: '^ValidationError$'}}}}
+            - kind: implicit_object_creation_expression
+    error-write:
+        kind: assignment_expression
+        has: {field: right, matches: error-creation}
+    key-parameter:
+        kind: identifier
+        pattern: $KEY
+        inside:
+            stopBy: end
+            matches: thinktecture-validation-hook
+            has: {field: parameters, has: {kind: parameter, not: {nthChild: 1}, has: {field: name, pattern: $KEY}}}
+rule:
+    all:
+        - any:
+            - kind: conditional_expression
+              all:
+                - has: {field: condition, has: {stopBy: end, matches: key-parameter}}
+                - has: {field: condition, matches: range-test}
+                - any:
+                    - all: [{has: {field: consequence, kind: null_literal}}, {has: {field: alternative, matches: error-creation}}]
+                    - all: [{has: {field: consequence, matches: error-creation}}, {has: {field: alternative, kind: null_literal}}]
+            - kind: if_statement
+              all:
+                - has: {field: condition, has: {stopBy: end, matches: key-parameter}}
+                - has: {field: condition, matches: range-test}
+                - has: {field: consequence, any: [{has: {stopBy: end, matches: error-write}}, {kind: expression_statement, has: {matches: error-write}}]}
+        - inside: {stopBy: end, matches: thinktecture-validation-hook}
+message: '`ValidateFactoryArguments` tests `$KEY` against both bounds by hand'
+note: Assign `validationError = ValidationResults.OutsideRange($KEY, MinValue, MaxValue)` with the bounds as `IMinMaxValue<TSelf>` members, `MinValue._value` and `MaxValue._value` for a class value object, which states the bounds in its message

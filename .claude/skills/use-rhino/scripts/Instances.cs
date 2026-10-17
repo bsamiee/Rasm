@@ -6,6 +6,18 @@
 #:property PublishAot=false
 #:property TargetFramework=$(RepoTargetFramework)
 
+using System.Collections;
+using System.Collections.ObjectModel;
+using System.Globalization;
+using System.Runtime.CompilerServices;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Grasshopper;
+using ModelContextProtocol.Client;
+using ModelContextProtocol.Protocol;
+using Rhino;
+using Rhino.PlugIns;
+
 namespace Rasm.Skills.UseRhino;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -91,8 +103,8 @@ internal static class Program {
     };
 
     private static async Task<int> RunAsync() {
-        Console.WriteLine(await IO.lift(static () => new HttpClient())
-            .Bracket(Use: static http => Router().Bind(router => List(http, router)), Fin: static http => IO.lift(http.Dispose))
+        Console.WriteLine(await (from http in use(static () => new HttpClient()) from router in Router() from listed in List(http, router) select listed)
+            .Bracket()
             .Catch(Unanswered, static error => IO.pure($"Rhino: unknown, {error.Message}"))
             .RunAsync(CancellationToken.None).ConfigureAwait(false));
         return 0;

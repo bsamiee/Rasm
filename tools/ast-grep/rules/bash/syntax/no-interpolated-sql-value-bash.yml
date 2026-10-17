@@ -24,5 +24,5 @@ rule:
             - regex: '^(?:[^'']*''[^'']*'')*[^'']*''[^'']*\$(\{|\(|[A-Za-z_])'
             - not: {regex: '^\s*(\.param\s|(?i:set\s+variable\s))'}
             - inside: {kind: heredoc_redirect, inside: {kind: redirected_statement, has: {field: body, matches: sql-cli}}}
-message: '`$CLI` splices a shell expansion into a quoted SQL literal, a bound parameter holds it'
-note: 'Keep the statement constant and bind each value as a CLI parameter (`.param set`, `SET VARIABLE`, `psql -v`), the database then reads each value typed and unquoted'
+message: '`$CLI` receives a shell expansion spliced into a quoted SQL literal'
+note: 'Keep the statement constant and bind each value as a CLI parameter (`.param set`, `SET VARIABLE`, `psql -v`) the database reads typed and unquoted'

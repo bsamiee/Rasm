@@ -65,5 +65,5 @@ rule:
         - has: {field: name, pattern: $NAME}
         - has: {field: body, has: {stopBy: {matches: method}, matches: recursion}}
         - has: {field: body, has: {stopBy: {matches: method}, matches: consumed}}
-message: '`$NAME` appends `$NEXT` to every branch and recurses on each, the shared tail is processed once per branch'
-note: 'Recurse on each branch alone and continue with `$NEXT` once at a join point after the branches'
+message: '`$NAME` appends `$NEXT` to every branch and recurses on each, processing the shared tail once per branch'
+note: 'Recurse on each branch alone and continue with the tail once at a join point after the branches'

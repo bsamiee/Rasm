@@ -1,15 +1,22 @@
 <Project>
     <PropertyGroup Label="Central Package Management">
         <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-        <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+        <CentralPackageTransitivePinningEnabled Condition="'$(ProjectRole)' != 'analyzers'">true</CentralPackageTransitivePinningEnabled>
         <CentralPackageVersionOverrideEnabled>false</CentralPackageVersionOverrideEnabled>
     </PropertyGroup>
 
     <ItemGroup Label="Analyzers">
         <GlobalPackageReference Include="ErrorProne.NET.CoreAnalyzers"                    Version="0.9.0-beta.4" />                      <!-- Roslyn analyzers for correctness and performance defects -->
         <GlobalPackageReference Include="Meziantou.Analyzer"                              Version="3.0.303" />                           <!-- Roslyn analyzers enforcing C# design, usage, security, and performance rules -->
+        <GlobalPackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers"       Version="5.6.0" />                             <!-- Roslyn analyzer rejecting symbols the BannedSymbols files list -->
         <GlobalPackageReference Include="Microsoft.VisualStudio.Threading.Analyzers"      Version="18.12.1" />                           <!-- Roslyn analyzers flagging async deadlocks and threading hazards -->
         <GlobalPackageReference Include="Roslynator.Analyzers"                            Version="5.0.1" />                             <!-- C# code quality analyzers, refactorings, and code fixes -->
+    </ItemGroup>
+
+    <ItemGroup Label="Analyzer Authoring">
+        <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers"                        Version="5.9.0" />                             <!-- Correctness analyzers for code using Roslyn APIs -->
+        <PackageVersion Include="Microsoft.CodeAnalysis.CSharp"                           Version="5.9.0" />                             <!-- Roslyn C# compiler with syntax and semantic analysis APIs -->
+        <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces"                Version="5.9.0" />                             <!-- C# workspace layer for code analysis and refactoring -->
     </ItemGroup>
 
     <ItemGroup Label="Rhino">
@@ -826,11 +833,8 @@
         <PackageVersion Include="MicroCom.Runtime"                                        Version="0.11.6" />                            <!-- Runtime for IDL-generated cross-platform COM interop -->
         <PackageVersion Include="Microsoft.Bcl.Memory"                                    Version="11.0.0-rc.2.26504.105" />             <!-- Base64Url, Index, and Range types for .NET Framework and .NET Standard targets -->
         <PackageVersion Include="Microsoft.Build.Framework"                               Version="18.11.0" />                           <!-- MSBuild task, logger, and event interfaces -->
-        <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers"                        Version="5.9.0" />                             <!-- Correctness analyzers for code using Roslyn APIs -->
         <PackageVersion Include="Microsoft.CodeAnalysis.Common"                           Version="5.9.0" />                             <!-- Roslyn compiler platform shared syntax and semantic APIs -->
-        <PackageVersion Include="Microsoft.CodeAnalysis.CSharp"                           Version="5.9.0" />                             <!-- Roslyn C# compiler with syntax and semantic analysis APIs -->
         <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Scripting"                 Version="5.9.0" />                             <!-- C# script execution over Roslyn, the UVtools.Core request raised to Roslyn 5.9.0 -->
-        <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces"                Version="5.9.0" />                             <!-- C# workspace layer for code analysis and refactoring -->
         <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.Common"                Version="5.9.0" />                             <!-- Roslyn workspace, solution, and project model APIs -->
         <PackageVersion Include="Microsoft.CodeAnalysis.Workspaces.MSBuild"               Version="5.9.0" />                             <!-- MSBuild project and solution loading into Roslyn workspaces -->
         <PackageVersion Include="Microsoft.Data.Analysis"                                 Version="0.24.0-preview.26457.2" />            <!-- DataFrame structures for tabular data exploration -->

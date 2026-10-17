@@ -16,7 +16,7 @@ public readonly partial struct SuperellipseExponent : IMinMaxValue<SuperellipseE
     public static SuperellipseExponent MaxValue { get; } = new(8f);
     public static SuperellipseExponent Ellipse { get; } = new(2f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -25,7 +25,7 @@ public readonly partial struct SideCount : IMinMaxValue<SideCount> {
     public static SideCount MaxValue { get; } = new(32);
     public static SideCount Five { get; } = new(5);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -33,7 +33,7 @@ public readonly partial struct SubdivisionDepth : IMinMaxValue<SubdivisionDepth>
     public static SubdivisionDepth MinValue { get; } = new(1);
     public static SubdivisionDepth MaxValue { get; } = new(5);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<int>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -42,7 +42,7 @@ public readonly partial struct BranchCount : IMinMaxValue<BranchCount> {
     public static BranchCount MaxValue { get; } = new(7);
     public static BranchCount Standard { get; } = new(3);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -51,7 +51,7 @@ public readonly partial struct ForkSpread : IMinMaxValue<ForkSpread> {
     public static ForkSpread MaxValue { get; } = new(float.Pi / 3f);
     public static ForkSpread Standard { get; } = new(0.5f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 internal readonly record struct FieldSample(EFloat Distance, EFloat Width);

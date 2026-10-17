@@ -359,6 +359,11 @@
                 "cache": true,
                 "inputs": [ "{workspaceRoot}/.editorconfig", "{workspaceRoot}/**/.{gitignore,ignore}", "{workspaceRoot}/pnpm-workspace.yaml", "{workspaceRoot}/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,jsonc,css,graphql,html,vue,svelte,astro,svg,grit}", { "externalDependencies": [] }, { "runtime": "biome --version" } ]
             },
+            "lint:typescript-go": {
+                "command": "node tools/typescript-go/main.ts",
+                "cache": true,
+                "inputs": [ "typescript", "{workspaceRoot}/**/*.{ts,tsx,json}", { "externalDependencies": [ "typescript", "@effect/tsgo", "effect", "@effect/platform-node" ] } ]
+            },
             "lint:ruff": {
                 "executor": "nx:run-commands",
                 "cache": true,

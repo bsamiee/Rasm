@@ -1,8 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: csharp-disposal-boundary
-language: csharp
-rule:
-    kind: method_declaration
-    all:
-        - has: {field: name, regex: '^Dispose$'}
-        - has: {field: returns, regex: '^void$'}

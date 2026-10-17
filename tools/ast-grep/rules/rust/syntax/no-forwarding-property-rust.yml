@@ -27,7 +27,7 @@ utils:
                 - has: {field: arguments, not: {has: {pattern: $_}}}
     sole:
         kind: block
-        not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
+        not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
     reachable-visibility:
         kind: visibility_modifier
         any:
@@ -67,7 +67,7 @@ rule:
     all:
         - has: {field: name, pattern: $NAME}
         - matches: inherent-method
-        - not: {matches: rust-fixed-signature}
+        - not: {matches: rust-trait-or-extern-function}
         - any:
             - all:
                 - has: {field: parameters, has: {kind: self_parameter, not: {has: {kind: mutable_specifier}}}, not: {has: {kind: parameter}}}
@@ -81,8 +81,8 @@ rule:
                 - has:
                     field: body
                     all:
-                        - has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, matches: assigned-parameter}
-                        - has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}, kind: self}
-                        - not: {has: {nthChild: {position: 3, ofRule: {matches: rust-statement-slot}}}}
+                        - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, matches: assigned-parameter}
+                        - has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}, kind: self}
+                        - not: {has: {nthChild: {position: 3, ofRule: {matches: rust-statement}}}}
 message: 'Method `$NAME` reads or writes field `$F` of `$TYPE` unchanged'
-note: 'Read `<value>.<field>` or assign it at each use, and build the value with a struct literal or `..<base>` update, a method that copies a field unchanged adds a name and no check'
+note: 'Read or assign the field at each use and build the value with a struct literal or `..<base>` update'

@@ -58,7 +58,7 @@ class Kind(Flag):
     METADATA = r"^# /// [a-zA-Z0-9-]+$(?:\n#(?: .*)?$)*?\n# ///$"
     HEADING = r"^(?P<level>#{1,6}) (?P<t>.+)$"
     TABLE = r"^(?P<row>\|(?: *(?P<t>(?:\\\||[^|\n])*?) *\|)+ *$)(?:\n(?&row))*"
-    ENTRY = r"^(?P<bullet> *(?:[-*+]|\d+\.) )(?:(?P<chain>\[[^\]]*\](?:-\[[^\]]*\])*)(?:\((?P<path>[^)]*)\):|:?) )?(?P<t>.+)$(?:\n(?!(?&bullet)) +(?P<t>\S.*)$)*"
+    LIST_ITEM = r"^(?P<bullet> *(?:[-*+]|\d+\.) )(?:(?P<chain>\[[^\]]*\](?:-\[[^\]]*\])*)(?:\((?P<path>[^)]*)\):|:?) )?(?P<t>.+)$(?:\n(?!(?&bullet)) +(?P<t>\S.*)$)*"
     LABEL = r"^\[[A-Z_]+\](?::(?: (?P<t>.+))?)?$"
     DIVIDER = r"^(?P<head>[ \t]*(?&sign) --- )(?P<tok>\[[^\]]+\]).*?(?P<fill> -+)?$"
     DIRECTIVE = r"^[ \t]*(?&sign) (?:@?[a-z][a-z0-9-]*(?::|-(?:ignore|disable|enable|expect-error|nocheck)\b| (?:disable|enable)\b)|noqa\b).*$"
@@ -80,7 +80,7 @@ class Kind(Flag):
 
 
 TEXT = reduce(or_, (k for k in Kind if "t" in k.rx.groupindex))
-MARKDOWN = Kind.FRONTMATTER | Kind.FENCE | Kind.HEADING | Kind.TABLE | Kind.ENTRY | Kind.LABEL | Kind.PARAGRAPH
+MARKDOWN = Kind.FRONTMATTER | Kind.FENCE | Kind.HEADING | Kind.TABLE | Kind.LIST_ITEM | Kind.LABEL | Kind.PARAGRAPH
 SOURCE = Kind.METADATA | Kind.DIVIDER | Kind.DIRECTIVE | Kind.COMMENT | Kind.PREAMBLE | Kind.CODE
 
 
@@ -285,7 +285,7 @@ def emoji(s: str) -> str:
 
 
 def leader(block: Block) -> Block:
-    """Entry leader as `[NN]` and `[UPPER_SNAKE]` tokens joined by `-` and followed by `: `, a link card left to its own rule."""
+    """List item leader as `[NN]` and `[UPPER_SNAKE]` tokens joined by `-` and followed by `: `, a link card left to its own rule."""
     if (m := parts(block.kind, block.head.text))["chain"] is None or m["path"] is not None:
         return block
     tokens = "-".join(map(token, regex.findall(r"\[[^\]]*\]", m["chain"])))
@@ -293,25 +293,25 @@ def leader(block: Block) -> Block:
 
 
 def cards(blocks: list[Block]) -> list[Block]:
-    """Number every link card among its sibling entries from 01, its token from the path stem."""
+    """Number every link card among its sibling list items from 01, its token from the path stem."""
 
-    def renumber(entries: list[Block]) -> list[Block]:
-        matches = [parts(b.kind, b.head.text) for b in entries]
+    def renumber(items: list[Block]) -> list[Block]:
+        matches = [parts(b.kind, b.head.text) for b in items]
         counts = accumulate(int(m["path"] is not None) for m in matches)
-        return [b.retext(f"{m['bullet']}[{n:02}]-{token(Path(m['path']).stem)}({m['path']}): {m['t']}") if m["path"] is not None else b for b, m, n in zip(entries, matches, counts, strict=True)]
+        return [b.retext(f"{m['bullet']}[{n:02}]-{token(Path(m['path']).stem)}({m['path']}): {m['t']}") if m["path"] is not None else b for b, m, n in zip(items, matches, counts, strict=True)]
 
-    return [b for entry, run in groupby(blocks, key=lambda b: b.kind is Kind.ENTRY) for b in (renumber(list(run)) if entry else run)]
+    return [b for listed, run in groupby(blocks, key=lambda b: b.kind is Kind.LIST_ITEM) for b in (renumber(list(run)) if listed else run)]
 
 
 def labels(blocks: list[Block]) -> list[Block]:
     """`[TOKEN]` alone with its colon when a list or table follows."""
     solid = [b for b in blocks if b.kind is not Kind.BLANK]
-    opens = {a for a, b in pairwise(solid) if a.kind is Kind.LABEL and a.text.endswith("]") and b.kind in Kind.ENTRY | Kind.TABLE}
+    opens = {a for a, b in pairwise(solid) if a.kind is Kind.LABEL and a.text.endswith("]") and b.kind in Kind.LIST_ITEM | Kind.TABLE}
     return [b.retext(f"{b.text}:") if b in opens else b for b in blocks]
 
 
 def wrap(block: Block) -> Block:
-    """Paragraph or entry as one logical line, its lines joined by one space."""
+    """Paragraph or list item as one logical line, its lines joined by one space."""
     return replace(block, lines=(replace(block.head, text=" ".join((block.head.text, *(line.text.strip() for line in block.lines[1:])))),))
 
 
@@ -380,10 +380,10 @@ def headings(blocks: list[Block]) -> list[Block]:
 
 
 def gap(a: Block, b: Block, blanks: int) -> int:
-    """Blank lines between adjacent non-blank blocks: one after a heading, one around a table, none after `:` before an entry, at most one elsewhere."""
+    """Blank lines between adjacent non-blank blocks: one after a heading, one around a table, none after `:` before a list item, at most one elsewhere."""
     if a.kind is Kind.HEADING or Kind.TABLE in a.kind | b.kind:
         return 1
-    if a.text.endswith(":") and b.kind is Kind.ENTRY:
+    if a.text.endswith(":") and b.kind is Kind.LIST_ITEM:
         return 0
     return min(blanks, 1)
 
@@ -518,23 +518,23 @@ RULES: tuple[Fix | Report, ...] = (
     Fix(TEXT | Kind.BLANK, lift_block(lambda b: b.rewrite(line.text.rstrip(" \t") for line in b.lines))),
     Fix(TEXT & MARKDOWN, lift_text(opaque(lambda s: regex.sub(r"(?<!\w)(\*\*|__|\*|_)(?=\S)(.+?)(?<=\S)\1(?!\w)", r"\2", s)))),
     Fix(TEXT, lift_text(opaque(emoji))),
-    Fix(Kind.ENTRY, lift_block(leader)),
-    Fix(Kind.ENTRY, lift_sequence(cards)),
+    Fix(Kind.LIST_ITEM, lift_block(leader)),
+    Fix(Kind.LIST_ITEM, lift_sequence(cards)),
     Fix(Kind.TABLE, lift_block(header)),
     Fix(Kind.DIVIDER, lift_block(divider)),
     Fix(Kind.DIVIDER, lift_sequence(unlabeled)),
     Fix(Kind.HEADING, lift_sequence(headings)),
     Fix(Kind.LABEL, lift_sequence(labels)),
-    Fix(Kind.PARAGRAPH | Kind.ENTRY, lift_block(wrap)),
-    Fix(Kind.ENTRY | Kind.TABLE | Kind.COMMENT, lift_text(lambda s: regex.sub(r"(?<=[^\s.,;!?])[.,;!?]+$", "", s))),
+    Fix(Kind.PARAGRAPH | Kind.LIST_ITEM, lift_block(wrap)),
+    Fix(Kind.LIST_ITEM | Kind.TABLE | Kind.COMMENT, lift_text(lambda s: regex.sub(r"(?<=[^\s.,;!?])[.,;!?]+$", "", s))),
     Fix(Kind.TABLE, lift_block(render)),
     Fix(MARKDOWN, lift_sequence(spacing)),
     Report(Kind.HEADING, "`{}` is not the one `[TOKEN]` H1", h1s),
     Report(TEXT, "Text opens with an article", opening_matches(r"(?i)(?:a|an|the)\s+\S")),
-    Report(Kind.ENTRY | Kind.TABLE | Kind.COMMENT, "Text opens with a lowercase letter", opening_matches(r"\p{Ll}")),
+    Report(Kind.LIST_ITEM | Kind.TABLE | Kind.COMMENT, "Text opens with a lowercase letter", opening_matches(r"\p{Ll}")),
     Report(TEXT & MARKDOWN, "`{}` resolves to no file", dead),
     Report(TEXT, "Text counts visible items with `{}`", counted(regex.findall(r"(?<=^\| *\[\d+\] *\| Enumeration .*)`([^`]+)`", WORD_MAP, regex.MULTILINE))),
-    Report(Kind.ENTRY, "Entry prose runs past column 150", wide(spoken)),
+    Report(Kind.LIST_ITEM, "List item runs past column 150", wide(spoken)),
     Report(Kind.TABLE, "Table runs past column 150", wide(str)),
     Report(Kind.DIVIDER, "Divider `{}` repeats an earlier full divider", repeats),
     Report(Kind.DIVIDER, "Sub divider `{}` precedes the first full divider", orphans),

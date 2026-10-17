@@ -4,14 +4,34 @@ language: rust
 severity: error
 rule:
     kind: binary_expression
-    all:
-        - has: {field: operator, regex: '^!=$'}
-        - any:
-            - pattern: ($A > $Y) != ($B > $Y)
-            - pattern: ($A >= $Y) != ($B >= $Y)
-            - pattern: ($A < $Y) != ($B < $Y)
-            - pattern: ($A <= $Y) != ($B <= $Y)
+    any:
+        - all:
+            - has: {field: operator, regex: '^(!=|\^)$'}
+            - any:
+                - pattern: ($A > $Y) != ($B > $Y)
+                - pattern: ($A >= $Y) != ($B >= $Y)
+                - pattern: ($A < $Y) != ($B < $Y)
+                - pattern: ($A <= $Y) != ($B <= $Y)
+                - pattern: ($Y > $A) != ($Y > $B)
+                - pattern: ($Y >= $A) != ($Y >= $B)
+                - pattern: ($Y < $A) != ($Y < $B)
+                - pattern: ($Y <= $A) != ($Y <= $B)
+                - pattern: ($A > $Y) ^ ($B > $Y)
+                - pattern: ($A >= $Y) ^ ($B >= $Y)
+                - pattern: ($A < $Y) ^ ($B < $Y)
+                - pattern: ($A <= $Y) ^ ($B <= $Y)
+                - pattern: ($Y > $A) ^ ($Y > $B)
+                - pattern: ($Y >= $A) ^ ($Y >= $B)
+                - pattern: ($Y < $A) ^ ($Y < $B)
+                - pattern: ($Y <= $A) ^ ($Y <= $B)
+        - all:
+            - has: {field: operator, regex: '^\|\|$'}
+            - any:
+                - pattern: ($A <= $Y && $B > $Y) || ($B <= $Y && $A > $Y)
+                - pattern: ($A < $Y && $B >= $Y) || ($B < $Y && $A >= $Y)
+                - pattern: ($A > $Y && $B <= $Y) || ($B > $Y && $A <= $Y)
+                - pattern: ($A >= $Y && $B < $Y) || ($B >= $Y && $A < $Y)
 constraints:
     Y: {not: {kind: 'integer_literal, float_literal, unary_expression'}}
-message: '`$A` and `$B` straddle `$Y` in a hand-written ray-casting crossing test'
+message: 'Ray-casting crossing test checks by hand whether `$A` and `$B` straddle `$Y`'
 note: 'Build a `geo::Polygon` and call `geo::Contains::contains(&polygon, &point)`, or `geo::Intersects::intersects` when a boundary point counts as inside'

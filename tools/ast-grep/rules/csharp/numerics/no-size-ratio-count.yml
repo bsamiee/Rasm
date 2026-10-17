@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-size-ratio-count
+language: csharp
+severity: error
+utils:
+    size:
+        any:
+            - kind: sizeof_expression
+            - kind: invocation_expression
+              has: {field: function, matches: {csharp-owner-member: {type: {regex: '^(Unsafe|Marshal)$'}, member: {regex: '^SizeOf$'}}}}
+            - kind: member_access_expression
+              all:
+                - has: {field: expression, matches: {csharp-type-name: {name: {regex: '^(IntPtr|UIntPtr|nint|nuint)$'}}}}
+                - has: {field: name, regex: '^Size$'}
+            - kind: 'parenthesized_expression, cast_expression, checked_expression'
+              has: {matches: size}
+            - kind: identifier
+              matches: {csharp-block-local: {declarator: {has: {not: {kind: identifier}, matches: size}}}}
+rule:
+    kind: binary_expression
+    pattern: $RATIO
+    all:
+        - has: {field: operator, regex: '^/$'}
+        - has: {field: left, matches: size}
+        - has: {field: right, matches: size}
+message: '`$RATIO` counts elements as a ratio of type sizes'
+note: 'Read the count the type declares (`Vector128<T>.Count`, `Vector<T>.Count`) , the length of a `MemoryMarshal.Cast` span, or the lane count a layout fixes (`4` for `Vector4`), a size ratio holds only while the layout has no padding'

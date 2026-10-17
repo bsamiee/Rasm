@@ -17,7 +17,7 @@ public readonly partial struct DetailStrength : IMinMaxValue<DetailStrength> {
     public static DetailStrength MinValue { get; } = new(1f);
     public static DetailStrength MaxValue { get; } = new(2.2f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 public sealed record Sharpen(Steepness Sharpness) : IStateRecord<Sharpen, SharpenParameter>, IPixelStage<Sharpen> {

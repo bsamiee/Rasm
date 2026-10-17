@@ -63,7 +63,8 @@ Declaration rules the analyzer enforces:
 - `[IgnoreMember]` removes a member from equality, the factories, and every other generated member
 - Complex form accepts one member or none, and with one member it receives no key-derived members
 - `ValidationError` is the default error, its message is the text that reaches `ValidationException`, `FormatException`, the JSON converters, and model state
-- `[ValidationError<T>]` switches the hook parameter, the second `TryCreate` overload, and `Validate` to a type implementing `IValidationError<T>`, a distinct type splits generic code constrained on the factory interfaces
+- `[ValidationError<T>]` switches the hook parameter, the second `TryCreate` overload, and `Validate` to a type implementing `IValidationError<T>`
+- Distinct error types split generic code constrained on the factory interfaces
 - Generator sets its own null-key and unknown-key messages, the hook's message states the violated rule
 
 ### [01.1]-[GENERATED_API]
@@ -88,7 +89,7 @@ Declaration rules the analyzer enforces:
 `ValidateFactoryArguments` is `static partial void` with `ref TError? validationError` first and the key or each member by `ref` in declaration order:
 - Hook rejects by assigning the error and returning, and normalizes by assigning the `ref` parameter
 - Compiler erases an absent hook
-- Every entry point runs the hook: `Create`, `TryCreate`, `Validate`, the conversion from the key, and `Parse`
+- Every entry point runs the hook: `Create`, `TryCreate`, `Validate`, the conversion from the key, `Parse`, and `TryParse`
 - JSON converters, the MessagePack formatter, and model binding run the hook
 - Hook reports the first violated rule over one value, independent rules over many inputs accumulate at the input boundary
 - `ValidateConstructorArguments(ref TKey value)` exists beside it and rejects by throwing alone
@@ -403,12 +404,15 @@ internal sealed partial class TextOrCount {
 
 Internal static class `ValidationResults` converts `ValidationError` to `Fin` through C# 14 static extension blocks with an interface receiver:
 - Every failure is an `Expected` under `ErrorCodes.ValidationFailed` holding the validation message
-- `OutsideRange(value, low, high)` returns a hook's `ValidationError?` for a key outside the inclusive range, formatted invariantly
+- Range rules sit in a value type implementing `IMinMaxValue<TSelf>`, its hook assigns `OutsideRange(value, MinValue, MaxValue)`
+- Relative changes saturate into `MinValue` and `MaxValue` before `X.Validated`
 - `OutsideRange` keys implement `IComparable<TKey>` and `IFormattable`
 - Class value objects with a value-type key convert implicitly to `TKey?` alone, a class passes `MinValue._value` and `MaxValue._value`
 - `X.Validated(raw)` answers `Fin<X>`, a method group in `Bind` and `Traverse`, for a type with one `IObjectFactory` and for a string-keyed smart enum
+- Consumers cross through `Validated` alone, a `Validate` or `TryCreate` call outside a hook, an object factory, or `ValidationResults` is RASM1102
+- Value types declare no `From` factory
 - Types with an extra `[ObjectFactory<T>]` implement more than one `IObjectFactory` and fail `X.Validated` with `CS0411`
-- `T.Validated` through a type parameter is `CS0704`, generic code and types with an extra factory call `ValidationResults.Validated<T, TRaw>(raw)`
+- `T.Validated` through a type parameter is `CS0704`, generic code and types with an extra factory call `ValidationResults.Validated<T, TKey>(raw)`
 - `ValidationResults.ToFin(T.Validate(..., out T? item), item)` converts a complex value object's `Validate`
 
 ```csharp
@@ -500,23 +504,28 @@ Simple value objects and keyed smart enums cross every boundary as their key, co
 
 ## [09]-[ANTI_PATTERNS]
 
-| [INDEX] | [WRONG_FORM]                                                        | [CORRECT_FORM]                                                   |
-| :-----: | :------------------------------------------------------------------ | :--------------------------------------------------------------- |
-|  [01]   | `throw` inside the hook, which skips `TryCreate` and the frameworks | Assign `validationError` and `return`                            |
-|  [02]   | Hooks that trim into a local and never assign `value`               | `value = trimmed`                                                |
-|  [03]   | `value.Trim().ToUpper()` in a hook depends on the current culture   | `value.Trim().ToUpperInvariant()`                                |
-|  [04]   | `[ValueObject<string>]` without comparer attributes                 | Both `[KeyMemberEqualityComparer]` and `[KeyMemberComparer]`     |
-|  [05]   | `TrimOrNullify(maxLength)` as a length rule in a hook               | Reject the over-long input, a cut merges distinct inputs         |
-|  [06]   | `HasConversion` with a lambda that calls `Create`                   | `HasThinktectureValueConverter()` or the converter registration  |
-|  [07]   | Host converter factory for a complex value object                   | `Json` referenced by the declaring project, or an object factory |
-|  [08]   | Native `switch` with `_ =>` over a smart enum or union              | Generated `Switch` or `Map`                                      |
-|  [09]   | Lambdas without `static` in a `Switch` arm                          | State overload with a `static` lambda                            |
-|  [10]   | `SwitchPartially` where every case matters                          | Exhaustive `Switch`                                              |
-|  [11]   | `default(TUnion)` or `new TUnion()` on a struct union               | Member values, or `MapToFirstMember` with a stateless first case |
-|  [12]   | Stateless markers as classes                                        | `readonly record struct`                                         |
-|  [13]   | `string` failure case beside a `string` success value               | One distinct type per case                                       |
-|  [14]   | Hand-written serializers for an ad hoc union                        | `[ObjectFactory<string>]` with `ToValue` and `Validate`          |
-|  [15]   | `new List<T>()` as an empty `IReadOnlyList<T>` at the BCL boundary  | `Thinktecture.Empty.Collection<T>()`                             |
-|  [16]   | `Fin<T>` or `Validation<Error, T>` adapters that call `Create`      | `X.Validated(raw)` over `Validate`, which never throws           |
-|  [17]   | A package validation error type under `[ValidationError<T>]`        | The default `ValidationError` with the violated rule as message  |
-|  [18]   | `Error.New(ErrorCodes.ValidationFailed, error.Message)` by hand     | `ValidationResults.ToFin` over the `Validate` result             |
+| [INDEX] | [WRONG_FORM]                                                         | [CORRECT_FORM]                                                    |
+| :-----: | :------------------------------------------------------------------- | :---------------------------------------------------------------- |
+|  [01]   | `throw`, `Create`, `Parse`, `Get`, or a key cast inside the hook     | Assign `validationError` and `return`, a nested `Validate` result |
+|  [02]   | Hooks that trim into a local and never assign `value`                | `value = trimmed`                                                 |
+|  [03]   | `value.Trim().ToUpper()` in a hook depends on the current culture    | `value.Trim().ToUpperInvariant()`                                 |
+|  [04]   | `[ValueObject<string>]` without comparer attributes                  | Both `[KeyMemberEqualityComparer]` and `[KeyMemberComparer]`      |
+|  [05]   | `TrimOrNullify(maxLength)`, `Substring`, `Take`, or ranges in a hook | Reject the over-long input, a cut merges distinct inputs          |
+|  [06]   | `HasConversion` with a lambda that calls `Create`                    | `HasThinktectureValueConverter()` or the converter registration   |
+|  [07]   | Host converter factory for a complex value object                    | `Json` referenced by the declaring project, or an object factory  |
+|  [08]   | Catch-all `switch` arm over a smart enum, union, `Key`, or `Value`   | Generated `Switch` or `Map`                                       |
+|  [09]   | Lambdas without `static` in a `Switch` arm                           | State overload with a `static` lambda                             |
+|  [10]   | `SwitchPartially` where every case matters                           | Exhaustive `Switch`                                               |
+|  [11]   | `default(TUnion)` or `new TUnion()` on a struct union                | Member values, or `MapToFirstMember` with a stateless first case  |
+|  [12]   | Stateless markers as classes                                         | `readonly record struct`                                          |
+|  [13]   | `string` failure case beside a `string` success value                | One distinct type per case                                        |
+|  [14]   | Hand-written serializers for an ad hoc union                         | `[ObjectFactory<string>]` with `ToValue` and `Validate`           |
+|  [15]   | `new List<T>()` as an empty `IReadOnlyList<T>` at the BCL boundary   | `Thinktecture.Empty.Collection<T>()`                              |
+|  [16]   | `Fin<T>` or `Validation<Error, T>` adapters that call `Create`       | `X.Validated(raw)` over `Validate`, which never throws            |
+|  [17]   | Package validation error type under `[ValidationError<T>]`           | Default `ValidationError` with the violated rule as message       |
+|  [18]   | `Error.New(ErrorCodes.ValidationFailed, error.Message)` by hand      | `X.Validated(raw)`, `ValidationResults.ToFin` for complex forms   |
+|  [19]   | `Items` scanned for the item with a matching `Key`                   | `Get(key)`, or `TryGet(key, out item)` where the key can miss     |
+|  [20]   | `switch` or `Equals` over text keys selecting one of a closed set    | `[SmartEnum<string>]` item per key, `TryGet` reads, `Key` writes  |
+|  [21]   | Smart enum or union `ToString` override, or one returning case text  | `Key`, or the consumer's own text through `Map`                   |
+|  [22]   | Union with `Switch` arms writing only host members from case fields  | `Set(Action<T> Write)` case, arm `IO.lift(() => set.Write(t))`    |
+|  [23]   | Stateless union cases selecting static presets of a host type        | Preset type itself, each caller passing its preset                |

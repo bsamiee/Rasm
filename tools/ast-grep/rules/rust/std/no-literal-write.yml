@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-literal-write
+language: rust
+severity: error
+utils:
+    formatter-parameter:
+        inside:
+            kind: function_item
+            stopBy: {kind: 'function_item, closure_expression'}
+            has:
+                field: parameters
+                has: {kind: parameter, all: [{has: {field: pattern, pattern: $F}}, {has: {field: type, regex: '\bFormatter\b'}}]}
+rule:
+    kind: macro_invocation
+    all:
+        - matches: {rust-std-macro: {name: {regex: '^write(ln)?$'}}}
+        - has: {field: macro, pattern: $MACRO}
+        - has:
+            kind: token_tree
+            all:
+                - has: {nthChild: 1, kind: identifier, pattern: $F}
+                - any:
+                    - regex: '^\(\s*[A-Za-z_]\w*\s*,\s*"[^"{}\\]*(\\[^{}][^"{}\\]*)*"\s*,?\s*\)$'
+                      has: {kind: string_literal, pattern: $TEXT}
+                    - regex: '^\(\s*[A-Za-z_]\w*\s*,?\s*\)$'
+                      inside: {kind: macro_invocation, has: {field: macro, regex: 'writeln$'}}
+        - matches: formatter-parameter
+        - not: {inside: {stopBy: end, any: [{matches: rust-field-display}, {matches: rust-variant-name-match}]}}
+transform:
+    LINE: {replace: {source: $MACRO, replace: '^(?:(?:::)?(?:std|core|alloc)::)?write(ln)?$', by: '$1'}}
+    NEWLINE: {replace: {source: $LINE, replace: '^ln$', by: '\n'}}
+    BODY: {replace: {source: $TEXT, replace: '^"([\s\S]*)"$', by: '$1'}}
+fix: '$F.write_str("$BODY$NEWLINE")'
+message: '`$MACRO!` formats a literal with no arguments into `$F`'
+note: 'Call `<formatter>.write_str("<text>")`, with `"\n"` appended for `writeln!`'

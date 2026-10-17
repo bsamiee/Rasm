@@ -204,7 +204,7 @@ public readonly partial struct ZoneAdjustment : IPresented<ZoneAdjustment, float
     public static ZoneAdjustment Neutral { get; } = new(1f);
     public static Presentation<float> Presentation { get; } = new() { Origin = (float)Neutral, Step = 0.01f, Decimals = 3 };
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -214,7 +214,7 @@ public readonly partial struct PivotAdjustment : IPresented<PivotAdjustment, flo
     public static PivotAdjustment Neutral { get; } = new(1f);
     public static Presentation<float> Presentation { get; } = new() { Origin = (float)Neutral, Step = 0.01f, Decimals = 3 };
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -229,7 +229,7 @@ public readonly partial struct ZoneWidth : IPresented<ZoneWidth, float> {
         },
     };
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -239,7 +239,7 @@ public readonly partial struct ZoneContrast : IPresented<ZoneContrast, float> {
     public static ZoneContrast Neutral { get; } = new(1f);
     public static Presentation<float> Presentation { get; } = new() { Origin = (float)Neutral, Step = 0.01f, Decimals = 3 };
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 public sealed record Zone<TAdjustment>(TAdjustment Master, TAdjustment Red, TAdjustment Green, TAdjustment Blue, Exposure Start, ZoneWidth Width)
@@ -251,7 +251,7 @@ public sealed record Zone<TAdjustment>(TAdjustment Master, TAdjustment Red, TAdj
             Exposure.Create(span.Start),
             ZoneWidth.Create(span.Width));
 
-    private static TAdjustment Adjusted(float value) => Admission.Validated<TAdjustment, float>(value).ThrowIfFail();
+    private static TAdjustment Adjusted(float value) => ValidationResults.Validated<TAdjustment, float>(value).ThrowIfFail();
 }
 
 public sealed record ToneZones(

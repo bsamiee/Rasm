@@ -40,8 +40,8 @@ utils:
     display-body:
         kind: block
         all:
-            - has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, any: [{matches: field-write}, {matches: field-forward}, {matches: variant-match}, {kind: expression_statement, has: {nthChild: 1, any: [{matches: field-write}, {matches: field-forward}, {matches: variant-match}]}}]}
-            - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
+            - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, any: [{matches: field-write}, {matches: field-forward}, {matches: variant-match}, {kind: expression_statement, has: {nthChild: 1, any: [{matches: field-write}, {matches: field-forward}, {matches: variant-match}]}}]}
+            - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
     error-type:
         matches: {rust-error-type: {name: {pattern: $T}}}
 rule:

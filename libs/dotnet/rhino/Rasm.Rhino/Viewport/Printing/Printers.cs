@@ -18,7 +18,7 @@ public readonly partial struct Dpi : System.Numerics.IMinMaxValue<Dpi> {
     public static Dpi MaxValue { get; } = new(double.MaxValue);
     public static Dpi PrintDefault { get; } = new(300d);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

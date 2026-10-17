@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-bool-in-tuple
+language: rust
+severity: error
+utils:
+    flag-tuple:
+        kind: tuple_type
+        pattern: $TUPLE
+        any:
+            - all:
+                - has: {kind: primitive_type, regex: '^bool$'}
+                - has: {pattern: $_, not: {kind: primitive_type, regex: '^bool$'}}
+            - all:
+                - has: {nthChild: 1, matches: option}
+                - has: {nthChild: 2, matches: option, has: {field: type_arguments, has: {nthChild: 1, regex: '^(String|&(''\w+\s+)?str|Box<dyn [\s\S]*Error[\s\S]*>|[\w:]*Error)$'}}}
+                - not: {has: {nthChild: 3}}
+    option:
+        kind: generic_type
+        has: {field: type, regex: '^((std|core)::option::)?Option$'}
+rule:
+    any:
+        - kind: 'function_item, function_signature_item'
+          all:
+            - has: {field: name, pattern: $NAME}
+            - has: {field: return_type, any: [{matches: flag-tuple}, {has: {stopBy: end, matches: flag-tuple}}]}
+            - not: {matches: rust-trait-or-extern-function}
+        - kind: field_declaration
+          all:
+            - has: {field: name, pattern: $NAME}
+            - has: {field: type, any: [{matches: flag-tuple}, {has: {stopBy: end, matches: flag-tuple}}]}
+labels:
+    NAME: {style: primary, message: 'Declares the tuple'}
+    TUPLE: {style: secondary, message: 'Tuple holding the outcome'}
+message: '`$NAME` holds an outcome as an unnamed `bool` or an error option beside a value in `$TUPLE`'
+note: 'Return `Result<<value>, <error>>` for a value option beside an error option, `Result`, `Option`, or an enum with a variant per outcome for a `bool` stating an outcome, and a struct with a named field for a `bool` stating an attribute of the value'

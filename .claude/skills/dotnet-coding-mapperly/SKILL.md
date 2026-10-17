@@ -34,7 +34,7 @@ Adapters that reference both representations own the mapper, and the domain refe
 |  [08]   | Persistence query to read model                   | Expression projection       | Materialize before domain construction or effects     |
 
 Mappings that can reject input are not plain `TSource -> TTarget` functions:
-- Validation owns the rejection, `X.Validated` returns it under `ErrorCodes.ValidationFailed`
+- Validation owns the rejection through `X.Validated`
 - Mapper maps the successful value inside its existing context, a nested context (`IO<Option<A>>`) at its innermost value
 
 ```csharp
@@ -128,7 +128,7 @@ Reference handling materializes an external graph that requires cycles or shared
 ## [04]-[DOMAIN_TYPE_INTEGRATION]
 
 Generated domain types cross the mapper only through their declared conversions:
-- Inbound through the static extension member `X.Validated(raw)` over the generated `Validate`, answering `Fin<T>`, with no `From` factory on the type
+- Inbound through `X.Validated(raw)`
 - Outbound through the key member or `ToValue()`, a declared `[ObjectFactory<T>]` included
 - `ToString()` defines no outbound representation
 - `Create`, `Parse`, an accessible constructor, a static conversion method, and an explicit operator turn expected rejection into an exception
@@ -456,16 +456,18 @@ void SetReference<TSource, TTarget>(TSource source, TTarget target)
 
 ## [11]-[ANTI_PATTERNS]
 
-| [INDEX] | [WRONG_FORM]                                                         | [CORRECT_FORM]                                                    |
-| :-----: | :------------------------------------------------------------------- | :---------------------------------------------------------------- |
-|  [01]   | Mapper conversion that calls `Create` or `Parse` on a domain type    | `X.Validated` over the generated `Validate`                       |
-|  [02]   | `MapDerivedType` or a partial `Switch` over a closed union           | Generated exhaustive `Switch`, one mapper call per arm            |
-|  [03]   | `EnabledConversions` on a mapper naming the one added bit            | Whole allowlist, the value replaces and never merges              |
-|  [04]   | Mapper method that returns `Fin<T>` or unwraps one                   | Mapper over the success value, `Map` keeps the context            |
-|  [05]   | `ToString()` as the wire contract of a value object                  | Key member, or `ToValue` of an `[ObjectFactory<T>]`               |
-|  [06]   | Validation or effects inside a query projection                      | Project, materialize, then validate and construct                 |
-|  [07]   | Existing-target mapping over a value the caller published            | New-instance mapping, or a target that never escapes              |
-|  [08]   | Private `[UserMapping]` repeated in every mapper that needs it       | One `internal static class` behind `[UseStaticMapper(typeof(T))]` |
-|  [09]   | Mapper-built `Option`, `Either`, `Validation`, `Try`, `IO`, or `Eff` | Value passed through, cases selected in boundary code             |
-|  [10]   | Unsafe accessor over a private constructor or hidden member          | Declared factory of the constrained type                          |
-|  [11]   | Object factory that resolves services                                | Pure factory over its parameters                                  |
+| [INDEX] | [WRONG_FORM]                                                        | [CORRECT_FORM]                                                    |
+| :-----: | :------------------------------------------------------------------ | :---------------------------------------------------------------- |
+|  [01]   | Mapper conversion that calls `Create` or `Parse` on a domain type   | `X.Validated` over the generated `Validate`                       |
+|  [02]   | `MapDerivedType` or a partial `Switch` over a closed union          | Generated exhaustive `Switch`, one mapper call per arm            |
+|  [03]   | `EnabledConversions` on a mapper naming the one added bit           | Whole allowlist, the value replaces and never merges              |
+|  [04]   | Mapper method that builds or unwraps a LanguageExt result or effect | Mapper over the success value, `Map` keeps the context            |
+|  [05]   | `ToString()` as the wire contract of a value object                 | Key member, or `ToValue` of an `[ObjectFactory<T>]`               |
+|  [06]   | Validation or effects inside a query projection                     | Project, materialize, then validate and construct                 |
+|  [07]   | Existing-target mapping over a value the caller published           | New-instance mapping, or a target that never escapes              |
+|  [08]   | Private `[UserMapping]` repeated in every mapper that needs it      | One `internal static class` behind `[UseStaticMapper(typeof(T))]` |
+|  [09]   | Unsafe accessor over a private constructor or hidden member         | Declared factory of the constrained type                          |
+|  [10]   | Object factory that resolves services                               | Pure factory over its parameters                                  |
+|  [11]   | Mapping method forwarding its source unchanged to another method    | `Use = nameof(@<owner>.<member>)` or a `[UseStaticMapper]` owner  |
+|  [12]   | Assignments or an initializer copying source members one by one     | `partial` mapping, or existing-target `Update` for a host value   |
+|  [13]   | User mapping returning a source member path                         | `[MapProperty]` naming source path and target member              |

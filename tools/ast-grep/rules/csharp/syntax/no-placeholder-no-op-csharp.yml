@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-placeholder-no-op-csharp
+language: csharp
+severity: error
+utils:
+    empty-block:
+        kind: block
+        not: {has: {pattern: $_, not: {kind: comment}}}
+    smart-enum:
+        kind: class_declaration
+        has: {kind: attribute_list, has: {kind: attribute, has: {field: name, matches: {csharp-type-name: {name: {regex: '^SmartEnum(Attribute)?$'}}}}}}
+    case-arm:
+        inside:
+            kind: argument
+            inside:
+                kind: argument_list
+                any:
+                    - inside: {kind: invocation_expression, has: {field: function, regex: '(^|\.)\s*(Switch|Match)(\s*<.+>)?$'}}
+                    - inside:
+                        kind: 'object_creation_expression, implicit_object_creation_expression'
+                        inside:
+                            kind: variable_declarator
+                            inside: {kind: variable_declaration, inside: {kind: field_declaration, inside: {kind: declaration_list, inside: {matches: smart-enum}}}}
+    completed-task:
+        any:
+            - kind: default_expression
+            - matches: {csharp-owner-member: {type: {regex: '^(ValueTask|Task)$'}, member: {regex: '^CompletedTask$'}}}
+            - kind: object_creation_expression
+              all:
+                - has: {field: type, matches: {csharp-type-name: {name: {regex: '^ValueTask$'}}}}
+                - not: {has: {field: arguments, has: {kind: argument}}}
+            - kind: implicit_object_creation_expression
+              not: {has: {kind: argument_list, has: {kind: argument}}}
+    completed-body:
+        any:
+            - matches: empty-block
+            - kind: arrow_expression_clause
+              has: {matches: completed-task}
+            - kind: block
+              all:
+                - has: {kind: return_statement, nthChild: {position: 1, ofRule: {not: {kind: comment}}}, has: {matches: completed-task}}
+                - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+rule:
+    any:
+        - kind: lambda_expression, anonymous_method_expression
+          pattern: $PLACEHOLDER
+          all:
+            - has: {matches: empty-block}
+            - not: {matches: case-arm}
+        - kind: method_declaration
+          all:
+            - has: {field: name, regex: '^Dispose$', pattern: $PLACEHOLDER}
+            - has: {field: body, matches: empty-block}
+        - kind: method_declaration
+          all:
+            - has: {field: name, regex: '^DisposeAsync$', pattern: $PLACEHOLDER}
+            - has: {field: body, matches: completed-body}
+message: '`$PLACEHOLDER` stands in for an absent callback or resource'
+note: Hold absence as `Option<Action>` or `Option<IDisposable>` the consumer matches, and acquire a resource in the `use` or `Bracket` scope of the arm that owns it, a `Switch` or `Match` arm and a smart enum item that does nothing for its case stay

@@ -15,7 +15,7 @@ public readonly partial struct FieldOfView : IPresented<FieldOfView, float> {
     public static FieldOfView SixthTurn { get; } = new(float.Pi / 3f);
     public static Presentation<float> Presentation { get; } = new() { Unit = Quantity.GetUnitInfo(AngleUnit.Radian) };
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
@@ -26,7 +26,7 @@ public readonly partial struct SweepAngle : IPresented<SweepAngle, float> {
     public static SweepAngle HalfTurn { get; } = new(float.Pi);
     public static Presentation<float> Presentation { get; } = new() { Unit = Quantity.GetUnitInfo(AngleUnit.Radian) };
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None,
@@ -39,7 +39,7 @@ public readonly partial struct SignedAngle : IPresented<SignedAngle, float> {
     public static SignedAngle Up { get; } = new(float.Pi / 2f);
     public static Presentation<float> Presentation { get; } = new() { Unit = Quantity.GetUnitInfo(AngleUnit.Radian), Origin = (float)Neutral };
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None,
@@ -49,7 +49,7 @@ public readonly partial struct Elevation : IPresented<Elevation, float> {
     public static Elevation MaxValue { get; } = new(float.Pi / 2f);
     public static Presentation<float> Presentation { get; } = new() { Unit = Quantity.GetUnitInfo(AngleUnit.Radian), Origin = (float)Neutral };
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None,
@@ -58,7 +58,7 @@ public readonly partial struct CylinderHeight : IMinMaxValue<CylinderHeight> {
     public static CylinderHeight MinValue { get; } = new(-float.MaxValue);
     public static CylinderHeight MaxValue { get; } = new(float.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None,
@@ -68,7 +68,7 @@ public readonly partial struct FullTurnRadius : IMinMaxValue<FullTurnRadius> {
     public static FullTurnRadius MaxValue { get; } = new(float.MaxValue);
     public static FullTurnRadius Standard { get; } = new(2f * 10.5f / 12f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ComplexValueObject]
@@ -231,7 +231,7 @@ public readonly partial struct LensDistance : IMinMaxValue<LensDistance> {
     public static LensDistance MinValue { get; } = new(float.BitIncrement(0f));
     public static LensDistance MaxValue { get; } = new(float.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ComplexValueObject]

@@ -249,7 +249,7 @@ Each `LanguageExt.Deriving` interface lifts one `LanguageExt.Traits` conformance
 
 - `Error.New(string, Exception)` takes an argument typed as `Exception`, cast a derived or generic exception before the call
 - Derived or generic exception arguments convert implicitly to `Error` and make the call ambiguous with `Error.New(string, Error)`
-- `Error.HasCode` with an `ErrorCodes` member and `Error.Is` classify an `Errors` value, a match on the message text breaks when the text changes
+- `Error.HasCode` with an `ErrorCodes` member and `Error.Is` classify an `Errors` value
 
 ### [02.4]-[FALLIBLE]
 

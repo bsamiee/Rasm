@@ -39,4 +39,4 @@ transform:
     REST: {replace: {source: $READ, replace: '^(\$0|\\)', by: ''}}
 fix: $X?$REST
 message: '`$SITE` reads one member of an optional through `flatMap`'
-note: 'Chain the read with `?.` on the optional, `<optional>?.<member>` yields `nil` for a `nil` optional or a `nil` member as the `flatMap` does'
+note: 'Read `<optional>?.<member>`, yielding `nil` for a `nil` optional or member as `flatMap` does'

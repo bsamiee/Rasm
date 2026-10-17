@@ -64,4 +64,4 @@ rule:
                 - not: {has: {kind: type_annotation}}
             - has: {field: value, matches: empty-string}
 message: '`$SHAPE` yields an empty string standing for absence'
-note: 'Declare or return an Optional and test `nil`, the empty string stays a value'
+note: 'Declare or return an `Optional` and test `nil`, keeping the empty string a value'

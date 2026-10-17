@@ -10,7 +10,15 @@ const SHARED: usize = 2;
 
 static BANNER: &str = "ports";
 
+const DEPTH: usize = 2;
+
+const WIDTH: usize = 4;
+
 // --- [MODELS] --------------------------------------------------------------------------
+
+struct Grid {
+    cells: [u8; WIDTH],
+}
 
 mod geometry {
     pub(crate) struct Square {
@@ -112,6 +120,20 @@ fn sided(side: usize) -> usize { geometry::Square::new(side).side() }
 
 fn halved(width: usize) -> usize { width.strict_div(2) }
 
+fn padded() -> usize { [1_u8; DEPTH + 1].len() }
+
+fn gridded(grid: &Grid) -> usize { grid.cells.len().strict_add(WIDTH) }
+
+const fn seed() -> u8 { 3 }
+
+fn opened() -> u8 { 1 }
+
+fn closed() -> u8 { 0 }
+
+const SEED: u8 = seed();
+
+const STEPS: [fn() -> u8; 2] = [opened, closed];
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 #[tokio::main]
@@ -120,4 +142,5 @@ async fn main() {
     let window = Window { width: 3 };
     black_box(&(parsed("a1b2"), started(3), first(" x "), second(" y "), titled(), direct("z"), measuring("w"), window.clamped(), window.squared()));
     black_box(&(built(5).width, relayed("e"), visible("v"), outer("o"), sided(4), Report { ports: 6 }, widened(2), narrowed(8)));
+    black_box(&(padded(), gridded(&Grid { cells: [0; 4] }), SEED, STEPS));
 }

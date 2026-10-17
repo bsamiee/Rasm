@@ -130,4 +130,4 @@ transform:
     MUTABLECALL: {rewrite: {source: $MUTABLEBODY, rewriters: [mutable-unwrapped-base, mutable-base]}}
 fix: $CALL$MUTABLECALL
 message: 'Closure hands `$TARGET` to a call as a pointer the call converts to on its own'
-note: 'Pass `<target>` directly, a `String`, `[Element]`, or `&value` argument converts to its parameter''s pointer type for the call'
+note: 'Pass `<target>` directly, a `String`, `[Element]`, or `&<value>` argument converting to the parameter''s pointer type'

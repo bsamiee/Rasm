@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-logging-in-conversion
+language: rust
+severity: error
+rule:
+    all:
+        - any:
+            - kind: macro_invocation
+              has: {field: macro, pattern: $LOG, regex: '^(::)?((tracing|log)::)?((trace|debug|info|warn|error)(_span)?|event|span|log)$'}
+            - kind: attribute_item
+              has: {kind: attribute, has: {stopBy: end, pattern: $LOG, regex: '^(::)?(tracing::)?instrument$'}}
+        - inside:
+            stopBy: end
+            kind: impl_item
+            has:
+                field: trait
+                pattern: $TRAIT
+                regex: '(?s)^((::)?(std|core|alloc)::)?((convert|str|fmt|borrow|ops|cmp|hash|clone|default)::)?(From|Into|TryFrom|TryInto|FromStr|AsRef|AsMut|Borrow|BorrowMut|Deref|DerefMut|Display|Debug|LowerHex|UpperHex|Octal|Binary|LowerExp|UpperExp|Pointer|PartialEq|Eq|PartialOrd|Ord|Hash|Clone|Default)(<.*)?$'
+        - not:
+            inside:
+                kind: source_file
+                stopBy: end
+                has:
+                    stopBy: end
+                    any:
+                        - kind: macro_definition
+                          has: {field: name, pattern: $LOG}
+                        - kind: use_declaration
+                          regex: '^use\s+(crate|self|super)\b'
+                          has: {stopBy: end, kind: identifier, pattern: $LOG}
+message: '`$LOG` emits telemetry inside an `impl $TRAIT`'
+note: 'Return the trait method result alone and log at the calling boundary'

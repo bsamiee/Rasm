@@ -7,6 +7,7 @@
     <PropertyGroup Label="Project Classification">
         <_RepoRelativeDir>/$([MSBuild]::MakeRelative('$(MSBuildThisFileDirectory)', '$(MSBuildProjectDirectory)').Replace('\', '/'))/</_RepoRelativeDir>
         <ProjectRole Condition="$(_RepoRelativeDir.StartsWith('/tests/'))">tests</ProjectRole>
+        <ProjectRole Condition="$(_RepoRelativeDir.StartsWith('/tools/roslyn/'))">analyzers</ProjectRole>
         <RhinoHost Condition="$(_RepoRelativeDir.Contains('/rhino/'))">true</RhinoHost>
         <AssemblyName Condition="'$(RhinoPlugIn)' != ''">$(RhinoPlugIn).$(MSBuildProjectName)</AssemblyName>
     </PropertyGroup>
@@ -35,6 +36,14 @@
         <NuGetAudit>false</NuGetAudit>
     </PropertyGroup>
 
+    <PropertyGroup Label="Roslyn Components" Condition="'$(ProjectRole)' == 'analyzers'">
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <LangVersion>14.0</LangVersion>
+        <IsRoslynComponent>true</IsRoslynComponent>
+        <EnforceExtendedAnalyzerRules>true</EnforceExtendedAnalyzerRules>
+        <ProduceReferenceAssembly>true</ProduceReferenceAssembly>
+    </PropertyGroup>
+
     <PropertyGroup Label="Mapperly">
         <MapperlyEnumMappingStrategy>ByName</MapperlyEnumMappingStrategy>
         <MapperlyAutoUserMappings>false</MapperlyAutoUserMappings>
@@ -47,7 +56,7 @@
         <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
     </PropertyGroup>
 
-    <ItemGroup Label="Workspace Language">
+    <ItemGroup Label="Workspace Language" Condition="'$(ProjectRole)' != 'analyzers'">
         <PackageReference Include="LanguageExt.Core" />
         <PackageReference Include="Thinktecture.Runtime.Extensions" />
     </ItemGroup>

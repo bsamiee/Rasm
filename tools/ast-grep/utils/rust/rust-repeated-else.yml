@@ -2,19 +2,17 @@
 id: rust-repeated-else
 language: rust
 arguments: [outer, inner, then, fallback]
-utils:
 rule:
     kind: if_expression
     all:
-        - not: {matches: rust-commented}
         - has: {field: condition, matches: outer}
         - has: {field: alternative, kind: else_clause, has: {kind: block, pattern: $ELSE, matches: fallback}}
         - has:
             field: consequence
             all:
-                - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
+                - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
                 - has:
-                    nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}
+                    nthChild: {position: 1, ofRule: {matches: rust-statement}}
                     any:
                         - kind: if_expression
                           all:

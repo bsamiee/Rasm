@@ -53,17 +53,18 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 - Editors and bare ty and mypy runs check host folders at the root version
 - Each ast-grep rule reporting a form below one Python release carries `metadata: {python-below: '<major>.<minor>'}`
 - Root scans turn off each such rule the `mise.toml` version reaches and run it over marked folders whose `requires-python` sits below it
-- Modules a host supplies at run time with no typings package type as Any through ty `replace-imports-with-any` `<root>.**` rows and mypy `ignore_missing_imports`
+- Host-supplied modules with no typings package type as Any through ty `replace-imports-with-any` `<root>.**` rows and mypy `ignore_missing_imports`
 - PEP 723 scripts read ty settings from their block alone, a block's `[tool.ty.rules]` opens with root `[tool.ty] rules` entries
 - `mypy` overrides name a PEP 723 script by its unqualified module
 - `refurb` parses options through mypy, a command naming no path checks `[tool.mypy] files`
 - `refurb`'s own entry runs mypy in fine-grained mode with no cache, each run analyzing every imported package cold
 - `python -m tools.refurb` takes refurb's arguments and type-checks each `.py` source from its text under `preserve_asts`
+- Stock `refurb` suppresses a visitor `RecursionError` and passes an incomplete traversal, the driver raises it
 - `lint:refurb` takes the arguments `typecheck:mypy` takes per runtime split, each run reading the cache mypy wrote at its version
 - Cache-affecting mypy options (`allow_redefinition` among them) match between both runs, a differing value invalidates every cached module
-- Forms Ruff and refurb both report stay on in the checker reporting more receivers, the other takes a `disable` or `ignore` row naming it
-- `[tool.refurb] enable_all` loads every check a release adds, a check whose rewrite another checker rejects takes a `disable` row naming the reason
-- `[tool.refurb] load` imports every `tools/refurb/` module, a check module holds one `RASM` `Error` subclass and one `check`, `__main__` guards its run
+- `[tool.refurb] enable_all` loads every check a release adds
+- `[tool.refurb] load` imports every `tools/refurb/` module, `__main__` guards its run
+- Check modules hold one `RASM` `Error` subclass and one `check`
 - Match arms implement domain cases, checker suggestions supply no missing-case behavior
 - Calls through a union of bound methods with differing signatures fail mypy and ty, each `match` arm calls its own typed method
 - `deptry` reads every dependency group as development, `lint:deptry` scans the host and wheel roots that import `[project] dependencies` alone
@@ -91,7 +92,7 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 
 - Correct logic, derivation, and native API use before investigating published typing providers
 - Retain native runtime types when provider declarations are incomplete
-- Diagnostics a typing provider's wrong or missing declaration causes take a rule-specific ignore on their line, or one file-top directive for repeats
+- Diagnostics a typing provider's wrong or missing declaration causes take a rule-specific ignore per line, or one file-top directive for repeats
 - Root configuration holds no local exceptions
 - Checker policies conflicting with program semantics are corrected at their owner
 - Successful resolution, build, or import changes no dependency's published interpreter support

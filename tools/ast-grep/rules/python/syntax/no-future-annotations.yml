@@ -7,4 +7,4 @@ rule:
     pattern: $IMPORT
     has: {kind: 'aliased_import, dotted_name', regex: '^annotations\b'}
 message: '`$IMPORT` stores annotations as strings'
-note: 'Use annotations without the `annotations` future import, Python 3.14 and later defer annotation evaluation by default and an earlier target quotes each forward reference the import deferred'
+note: 'Delete the import, Python 3.14 defers annotation evaluation by default, and quote each forward reference on an earlier target'

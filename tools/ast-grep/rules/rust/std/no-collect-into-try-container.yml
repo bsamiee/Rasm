@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-collect-into-try-container
+language: rust
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - any:
+            - pattern: $R.collect::<Result<$C, _>>()
+            - pattern: $R.collect::<Option<$C>>()
+        - not: {inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: use_declaration, regex: '\bItertools\b'}}}
+constraints:
+    R: {not: {kind: 'identifier, self, field_expression'}}
+fix: $R.try_collect::<$C>()
+message: '`collect` names the `Result` or `Option` wrapper around `$C` by hand'
+note: 'Call `<iterator>.try_collect::<<container>>()` (`#![feature(iterator_try_collect)]`)'

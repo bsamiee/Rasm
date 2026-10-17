@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-markdown-fence-scan
+language: rust
+severity: error
+utils:
+    fence:
+        kind: string_literal
+        regex: '^b?"(```|~~~)[^"]*"$'
+    fence-scan:
+        any:
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, has: {field: field, regex: '^(starts_with|ends_with|strip_prefix|strip_suffix|trim_start_matches|trim_end_matches|trim_matches|contains|find|rfind|split|split_once|rsplit_once|splitn|match_indices)$'}}
+                - has: {field: arguments, has: {matches: fence}}
+            - kind: call_expression
+              all:
+                - has: {field: function, regex: '^((::)?regex::)?(bytes::)?(Regex|RegexBuilder|RegexSet)::new$'}
+                - has: {field: arguments, has: {nthChild: 1, kind: 'string_literal, raw_string_literal', regex: '```|~~~|`\{3[,}]|~\{3[,}]'}}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^(==|!=)$'}
+                - any: [{has: {field: left, matches: fence}}, {has: {field: right, matches: fence}}]
+            - kind: string_literal
+              matches: fence
+              inside: {kind: match_pattern, stopBy: end}
+rule:
+    kind: 'call_expression, binary_expression, string_literal'
+    pattern: $SCAN
+    matches: fence-scan
+message: '`$SCAN` finds Markdown code fences by line text'
+note: 'Parse with `comrak::parse_document(&comrak::Arena::new(), <text>, &comrak::Options::default())` and read `info` and `literal` of each `comrak::nodes::NodeValue::CodeBlock` node'

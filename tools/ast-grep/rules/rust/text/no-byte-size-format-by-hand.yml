@@ -2,9 +2,41 @@
 id: no-byte-size-format-by-hand
 language: rust
 severity: error
+utils:
+    unit-name:
+        kind: string_literal
+        regex: '^"\s?([KMGTPE]i?B|kB)"$'
+    kibi:
+        kind: 'integer_literal, float_literal'
+        regex: '^1_*0_*2_*4(\.0*)?(_?[iu](8|16|32|64|128|size)|_?f(32|64))?$'
+    mebi:
+        kind: 'integer_literal, float_literal'
+        regex: '^(1_*0_*4_*8_*5_*7_*6|1_*0_*7_*3_*7_*4_*1_*8_*2_*4)(\.0*)?(_?[iu](8|16|32|64|128|size)|_?f(32|64))?$'
+    scaled-division:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^/=?$'}
+            - any:
+                - has: {field: right, matches: mebi}
+                - all:
+                    - has: {field: right, matches: kibi}
+                    - has: {field: left, kind: binary_expression, all: [{has: {field: operator, regex: '^/$'}}, {has: {field: right, matches: kibi}}]}
 rule:
-    kind: 'string_literal, raw_string_literal'
+    kind: 'string_literal, raw_string_literal, array_expression, binary_expression'
     pattern: $FORMAT
-    regex: '(^|[^{])\{[^{}]*\}\s?([KMGTPE]i?B|kB)\b'
+    any:
+        - kind: 'string_literal, raw_string_literal'
+          regex: '(^|[^{])\{[^{}]*\}\s?([KMGTPE]i?B|kB)\b'
+          not: {matches: rust-macro-argument}
+        - kind: string_literal
+          matches: unit-name
+          not: {any: [{matches: rust-macro-argument}, {inside: {kind: array_expression}}]}
+        - kind: array_expression
+          all:
+            - has: {nthChild: 2, matches: unit-name}
+            - has: {nthChild: 3, matches: unit-name}
+        - all:
+            - matches: scaled-division
+            - not: {inside: {matches: scaled-division}}
 message: '`$FORMAT` formats a byte count with a unit picked by hand'
-note: 'Format `bytesize::ByteSize::b(<bytes>)`, `ByteSize` picks the IEC unit and rounds to one decimal on display. `.display().si()` selects decimal units. A hand unit fixes one scale and divides by `1024.0` at each site'
+note: 'Format `bytesize::ByteSize::b(<bytes>)` for IEC units and `.display().si()` for decimal units, and read a scaled count through `as_kib`, `as_mib`, `as_gib`'

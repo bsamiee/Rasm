@@ -21,6 +21,7 @@ public sealed class DarkroomPlugIn() : DefinedPlugIn(new PlugInDefinition {
     LoadTime = PlugInLoadTime.AtStartup,
     Settings = QueueSettingRows.Default.Rows + HistorySettingRows.Default.Rows + ComparisonSettingRows.Default.Rows + TileLimitRows.Default.Rows,
     History = HistorySettingRows.Default.Limits,
+    Clock = TimeProvider.System,
     Commands = [
         static sink => new PanelCommand(sink, new Guid(0xd19b5cfb, 0x5262, 0x4f60, 0x86, 0xeb, 0xdd, 0x8e, 0x34, 0x98, 0x8d, 0xed), DarkroomPanel.Row) {
             Toolbar = Some((Option<Guid>.None, new Guid(0xd0a817a1, 0xdea9, 0x4e03, 0x89, 0xe3, 0x0d, 0x63, 0xd9, 0x9b, 0x5e, 0x51))),

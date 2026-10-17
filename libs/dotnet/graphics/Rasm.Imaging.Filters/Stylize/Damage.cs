@@ -72,7 +72,7 @@ public sealed record FilmDamage(
         Option<PixelPass> composite = shown is [] ? None : Some<PixelPass>(Composite(shown, extent));
         return (state.WeaveX, state.WeaveY) == (ShortSideLength.Neutral, ShortSideLength.Neutral) ? composite : Weave(state, extent, clock, (uint)marks.Count) switch {
             var map => Some<PixelPass>(new PixelPass.Frame((frame, progress) =>
-                composite.Map(pass => pass.Run(frame, new Progress<int>())).IfNone(Fin.Succ(unit)).Bind(_ => map.Apply(frame, progress)))),
+                composite.Map(pass => pass.Run(frame, new Progress<int>())).IfNone(unit).Bind(_ => map.Apply(frame, progress)))),
         };
 
         uint Shot(uint term, uint index) => CoordinateHash.Branch(CoordinateHash.Field(NoiseStream.FilmDamage, state.Seed, term), index);

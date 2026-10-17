@@ -37,11 +37,13 @@ utils:
         any:
             - kind: switch_expression
               all:
+                - has: {nthChild: 1, pattern: $SUBJECT}
                 - has: {kind: switch_expression_arm, pattern: $FIRST, has: {nthChild: 1, matches: text-pattern}}
                 - has: {kind: switch_expression_arm, not: {pattern: $FIRST}, has: {nthChild: 1, matches: constant-pattern}}
                 - not: {has: {nthChild: 1, matches: name-subject}}
             - kind: switch_statement
               all:
+                - has: {field: value, pattern: $SUBJECT}
                 - has:
                     field: body
                     all:
@@ -71,13 +73,20 @@ utils:
     key-scan:
         kind: invocation_expression
         all:
-            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(First|FirstOrDefault|Single|SingleOrDefault|Last|LastOrDefault|Find|FindIndex|Where|Any|Filter|Exists)$'}}
-            - not: {has: {field: function, has: {field: expression, matches: csharp-smart-enum-items}}}
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(First|FirstOrDefault|Single|SingleOrDefault|Last|LastOrDefault|Find|FindIndex|Where|Any|Filter|Exists)$'}}, {has: {field: expression, pattern: $SUBJECT}}]}
+            - not: {has: {field: function, has: {field: expression, matches: thinktecture-smart-enum-items}}}
             - has: {field: arguments, has: {kind: argument, has: {kind: lambda_expression, has: {field: body, matches: text-key-comparison}}}}
 rule:
     kind: switch_expression, switch_statement, invocation_expression
     any:
         - matches: text-switch
         - matches: key-scan
-message: Text keys select among a closed set by hand in place of a keyed lookup
+    not:
+        inside:
+            stopBy: end
+            kind: method_declaration
+            all:
+                - has: {field: name, regex: '^Validate$'}
+                - inside: {stopBy: end, kind: 'class_declaration, struct_declaration, record_declaration', has: {kind: attribute_list, has: {kind: attribute, has: {field: name, regex: '^ObjectFactory'}}}}
+message: '`$SUBJECT` selects among a closed set by text key by hand'
 note: Declare a `[SmartEnum<string>]` with one item per key holding its case, read through the generated `TryGet` or `Validate`, and write through `Key`

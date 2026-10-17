@@ -14,7 +14,7 @@ utils:
             - inside:
                 kind: constructor_initializer
                 has: {regex: '^base$'}
-                inside: {kind: constructor_declaration, inside: {kind: declaration_list, inside: {matches: csharp-error-record}}}
+                inside: {kind: constructor_declaration, inside: {kind: declaration_list, inside: {matches: languageext-error-record}}}
             - inside:
                 kind: object_creation_expression
                 has: {field: type, matches: message-base}

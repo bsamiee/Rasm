@@ -22,7 +22,7 @@ public readonly partial struct TargetBlack : IMinMaxValue<TargetBlack> {
     public static TargetBlack MaxValue { get; } = new(0.15f);
     public static TargetBlack Default { get; } = new(0.000152f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true,
@@ -33,7 +33,7 @@ public readonly partial struct ShoulderStrength : IMinMaxValue<ShoulderStrength>
     public static ShoulderStrength MaxValue { get; } = new(16f);
     public static ShoulderStrength Default { get; } = new(2f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true,
@@ -44,7 +44,7 @@ public readonly partial struct ShoulderLength : IMinMaxValue<ShoulderLength> {
     public static ShoulderLength MaxValue { get; } = new(1f);
     public static ShoulderLength Default { get; } = new(0.5f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true,
@@ -55,7 +55,7 @@ public readonly partial struct CurveGamma : IMinMaxValue<CurveGamma> {
     public static CurveGamma MaxValue { get; } = new(10f);
     public static CurveGamma Linear { get; } = new(1f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true,
@@ -66,7 +66,7 @@ public readonly partial struct DragoBias : IMinMaxValue<DragoBias> {
     public static DragoBias MaxValue { get; } = new(1f);
     public static DragoBias Default { get; } = new(0.85f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true,
@@ -76,7 +76,7 @@ public readonly partial struct ReceptorIntensity : IMinMaxValue<ReceptorIntensit
     public static ReceptorIntensity MinValue { get; } = new(-float.Log(float.MaxValue));
     public static ReceptorIntensity MaxValue { get; } = new(float.Log(float.MaxValue));
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true,
@@ -87,7 +87,7 @@ public readonly partial struct ShoulderCoefficient : IMinMaxValue<ShoulderCoeffi
     public static ShoulderCoefficient MaxValue { get; } = new(0.5f);
     public static ShoulderCoefficient Published { get; } = new(0.15f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true,
@@ -98,7 +98,7 @@ public readonly partial struct LinearCoefficient : IMinMaxValue<LinearCoefficien
     public static LinearCoefficient MaxValue { get; } = new(0.6f);
     public static LinearCoefficient Published { get; } = new(0.5f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true,
@@ -109,7 +109,7 @@ public readonly partial struct LinearAngle : IMinMaxValue<LinearAngle> {
     public static LinearAngle MaxValue { get; } = new(0.3f);
     public static LinearAngle Published { get; } = new(0.1f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true,
@@ -120,7 +120,7 @@ public readonly partial struct ToeCoefficient : IMinMaxValue<ToeCoefficient> {
     public static ToeCoefficient MaxValue { get; } = new(0.9f);
     public static ToeCoefficient Published { get; } = new(0.2f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true,
@@ -131,7 +131,7 @@ public readonly partial struct ToeNumerator : IMinMaxValue<ToeNumerator> {
     public static ToeNumerator MaxValue { get; } = new(float.BitDecrement((float)LinearAngle.MinValue * (float)ToeDenominator.MinValue));
     public static ToeNumerator Published { get; } = new(0.02f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true,
@@ -142,7 +142,7 @@ public readonly partial struct ToeDenominator : IMinMaxValue<ToeDenominator> {
     public static ToeDenominator MaxValue { get; } = new(0.6f);
     public static ToeDenominator Published { get; } = new(0.3f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true,
@@ -154,7 +154,7 @@ public readonly partial struct HableWhite : IPresented<HableWhite, float> {
     public static HableWhite Published { get; } = new(float.Log2(11.2f));
     public static Presentation<float> Presentation => Exposure.Presentation;
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true,
@@ -164,7 +164,7 @@ public readonly partial struct PrimaryInset : IMinMaxValue<PrimaryInset> {
     public static PrimaryInset MinValue => Neutral;
     public static PrimaryInset MaxValue { get; } = new(0.99f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true,
@@ -184,7 +184,7 @@ public readonly partial struct PrimaryRotation : IMinMaxValue<PrimaryRotation> {
     internal static double Angle(RgbConfiguration rgb, Chromaticity primary) =>
         Math.Atan2(primary.Y - rgb.WhitePoint.Chromaticity.Y, primary.X - rgb.WhitePoint.Chromaticity.X);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 public sealed record CurveApplication(
@@ -369,7 +369,7 @@ public static class ToneCurves {
         white.Match(
             Some: manual => formed(float.Exp2(manual.ToValue())),
             None: () => Measured(context, (_, samples) =>
-                Admission.Validated<TWhite, float>((float)double.Log2(samples.FrameWhite)).MapFail(error => Error.New(string.Create(CultureInfo.InvariantCulture, $"frame white {samples.FrameWhite} falls outside the scene white range"), error)).Map(measured => formed(float.Exp2(measured.ToValue())))));
+                ValidationResults.Validated<TWhite, float>((float)double.Log2(samples.FrameWhite)).MapFail(error => Error.New(string.Create(CultureInfo.InvariantCulture, $"frame white {samples.FrameWhite} falls outside the scene white range"), error)).Map(measured => formed(float.Exp2(measured.ToValue())))));
 
     private static PixelPass.Frame Measured(PassContext context, Func<PixelFrame, LuminanceSamples, Fin<PixelPass>> formed) =>
         new((frame, progress) =>

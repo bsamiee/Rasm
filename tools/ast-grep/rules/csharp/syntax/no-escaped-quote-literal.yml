@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-escaped-quote-literal
+language: csharp
+severity: error
+utils:
+    quote-escape:
+        kind: escape_sequence
+        regex: '^\\("|u0022|U00000022|x0{0,2}22)$'
+    text-escape:
+        any:
+            - matches: quote-escape
+            - {kind: escape_sequence, regex: '^\\(\\|u005[cC]|U0000005[cC]|x0{0,2}5[cC])$'}
+rule:
+    pattern: $LITERAL
+    any:
+        - kind: 'string_literal, interpolated_string_expression'
+          all:
+            - not: {has: {kind: interpolation_start, regex: '@'}}
+            - has: {kind: 'string_literal_content, string_content, interpolation'}
+            - has: {stopBy: {kind: interpolation}, matches: quote-escape}
+            - not: {has: {stopBy: {kind: interpolation}, kind: escape_sequence, not: {matches: text-escape}}}
+        - kind: verbatim_string_literal
+          all:
+            - regex: '^@"[^\n]*""[^\n]*"$'
+            - regex: '^@"[^\n]*[^"\n][^\n]*"$'
+        - kind: interpolated_string_expression
+          all:
+            - has: {kind: interpolation_start, regex: '@'}
+            - has: {kind: string_content, regex: '""'}
+            - not: {regex: '\n'}
+message: '`$LITERAL` escapes quotes a raw string literal holds as written'
+note: 'Write the text as a raw string literal (`"""<text>"""` on one line, the text between `"""` lines when it starts or ends with a quote, `$$"""` when it holds braces), a text holding a line break keeps `\n` where a multi-line raw literal holds the source file''s line ending'

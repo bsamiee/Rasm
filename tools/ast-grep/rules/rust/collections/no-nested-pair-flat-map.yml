@@ -7,14 +7,31 @@ rule:
     any:
         - pattern: $X.flat_map(|$A| $Y.map(move |$B| ($A, $B)))
         - pattern: $X.flat_map(|$A| $Y.map(|$B| ($A, $B)))
-    not: {has: {field: arguments, has: {kind: closure_expression, has: {field: body, has: {field: function, has: {field: value, has: {stopBy: end, kind: identifier, pattern: $A}}}}}}}
+        - pattern: $X.flat_map(|$A| $Y.map(move |$B| ($A.clone(), $B)))
+        - pattern: $X.flat_map(|$A| $Y.map(|$B| ($A.clone(), $B)))
+        - pattern: $X.flat_map(|$A| repeat($A).zip($Y))
+        - pattern: $X.flat_map(|$A| iter::repeat($A).zip($Y))
+        - pattern: $X.flat_map(|$A| std::iter::repeat($A).zip($Y))
+        - pattern: $X.flat_map(|$A| core::iter::repeat($A).zip($Y))
+    not:
+        has:
+            field: arguments
+            has:
+                kind: closure_expression
+                has:
+                    field: body
+                    any:
+                        - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^map$'}}, {has: {field: value, has: {stopBy: end, kind: identifier, pattern: $A}}}]}
+                        - all:
+                            - has: {field: function, kind: field_expression, has: {field: field, regex: '^zip$'}}
+                            - has: {field: arguments, has: {stopBy: end, kind: identifier, pattern: $A}}
 constraints:
     Y:
         any:
-            - regex: '^[\w.&*]+\.(iter|keys|values)\(\)(\.(copied|cloned)\(\))?$'
+            - regex: '^[\w.&*]+(\.(clone|as_slice|as_ref)\(\))?\.(iter|into_iter|keys|values|chars|bytes)\(\)(\.(copied|cloned)\(\))?$'
             - regex: '^\(\s*[\w.]+\s*\.\.=?\s*[\w.]+(\(\))?\s*\)$'
 transform:
     OTHER: {replace: {source: $Y, replace: '^\(\s*([\s\S]*?)\s*\)$', by: '$1'}}
 fix: $X.cartesian_product($OTHER)
 message: '`$X` pairs each element with every element of `$Y` through a nested `flat_map`'
-note: 'Call `Itertools::cartesian_product(<other>)` (`use itertools::Itertools as _;`), the adapter yields identical `(<outer>, <inner>)` pairs in order and clones each outer element per pair'
+note: 'Call `Itertools::cartesian_product(<other>)` (`use itertools::Itertools as _;`) when the outer element type implements `Clone`'

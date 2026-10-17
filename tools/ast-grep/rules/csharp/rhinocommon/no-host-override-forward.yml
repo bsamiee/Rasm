@@ -232,4 +232,4 @@ rule:
                     - has: {kind: expression_statement, has: {matches: forward}}
                     - not: {has: {pattern: $_, not: {any: [{kind: comment}, {kind: expression_statement, has: {any: [{matches: forward}, {kind: invocation_expression, matches: base-default}]}}]}}}
 message: '`$NAME` overrides a host virtual by forwarding to a member its library class holds'
-note: Use an application override of `<member>` on the host subclass with the constructor argument, field, or hook-record member holding it deleted, a forward restates host overrides and hides the host default
+note: Use an application override of `<member>` on the host subclass, deleting the constructor argument, field, or hook-record member that held it, and the host default stays the base member

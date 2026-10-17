@@ -7,4 +7,4 @@ rule:
     regex: '^(NSLock|NSRecursiveLock|OSAllocatedUnfairLock|os_unfair_lock(_s|_t)?|pthread_mutex_t|OS_SPINLOCK_INIT)$'
     pattern: $LOCK
 message: '`$LOCK` guards state through a lock type that `Mutex` replaces'
-note: 'Store the guarded state in `Mutex<State>` from `Synchronization` and read or write it inside `withLock`, one `withLock` scope covering an operation that acquired a recursive lock twice. The Foundation, POSIX, and `os_unfair_lock` locks sit apart from the state they protect, and `OSAllocatedUnfairLock` keeps its state behind a heap-allocated copyable handle where `Mutex` stores it inline'
+note: 'Store the guarded state in `Mutex<State>` from `Synchronization` and read or write it inside `withLock`, one `withLock` scope covering an operation that acquired a recursive lock twice'

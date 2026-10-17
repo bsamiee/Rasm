@@ -7,4 +7,4 @@ rule:
     has: {nthChild: 1, regex: '^(Observation\.)?withObservationTracking$'}
     not: {has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: name, regex: '^options$'}}}}}
 message: '`withObservationTracking` reports one change through an `onChange` callback that must register again for the next'
-note: 'Iterate `for await <value> in Observations { <model>.<property> }`, which yields each transactional change until the task ends, or call `withContinuousObservation(options:)` for a synchronous handler that stays registered'
+note: 'Iterate `for await <value> in Observations { <model>.<property> }` for each transactional change until the task ends, or call `withContinuousObservation(options:)` for a synchronous handler that stays registered'

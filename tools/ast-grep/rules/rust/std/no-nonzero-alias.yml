@@ -1,0 +1,85 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-nonzero-alias
+language: rust
+severity: error
+utils:
+    alias:
+        regex: '^NonZero(U(8|16|32|64|128)|I(8|16|32|64|128)|Usize|Isize)$'
+    num-module:
+        regex: '^((::)?(std|core)::)?num$'
+    imported:
+        kind: identifier
+        not: {inside: {kind: use_as_clause, stopBy: {kind: use_declaration}}}
+        inside: {kind: use_declaration, stopBy: end}
+    imported-alias:
+        matches: imported
+        regex: '^NonZero(U(8|16|32|64|128)|I(8|16|32|64|128)|Usize|Isize)$'
+    imported-generic:
+        matches: imported
+        regex: '^NonZero$'
+    num-import:
+        kind: use_declaration
+        any:
+            - has: {stopBy: end, matches: imported-alias}
+            - has: {stopBy: end, matches: imported-generic}
+            - has: {field: argument, kind: use_wildcard, has: {kind: scoped_identifier, matches: num-module}}
+    in-scope:
+        inside:
+            kind: 'source_file, declaration_list, block'
+            stopBy: {kind: mod_item}
+            has: {kind: use_declaration, matches: num-import}
+    generic-in-scope:
+        inside:
+            kind: 'source_file, declaration_list, block'
+            stopBy: {kind: mod_item}
+            has: {kind: use_declaration, has: {stopBy: end, matches: imported-generic}}
+    earlier-alias:
+        any:
+            - follows: {stopBy: end, matches: imported-alias}
+            - inside: {kind: use_declaration, stopBy: end, follows: {stopBy: end, kind: use_declaration, has: {stopBy: end, matches: imported-alias}}}
+    kept-leaf:
+        all:
+            - not: {matches: earlier-alias}
+            - not: {matches: generic-in-scope}
+rule:
+    any:
+        - kind: identifier
+          matches: imported-alias
+          pattern: $ALIAS
+          any:
+            - all: [{matches: kept-leaf}, {pattern: $LEAF}]
+            - inside: {kind: use_list}
+        - kind: use_declaration
+          all:
+            - has: {field: argument, kind: scoped_identifier, all: [{has: {field: path, matches: num-module}}, {has: {field: name, matches: alias, pattern: $ALIAS}}]}
+            - has: {field: argument, has: {field: name, not: {matches: kept-leaf}}}
+        - kind: type_identifier
+          matches: alias
+          all:
+            - pattern: $ALIAS
+            - pattern: $TYPE
+            - any:
+                - inside: {kind: scoped_type_identifier, field: name, has: {field: path, matches: num-module}}
+                - all: [{not: {inside: {kind: scoped_type_identifier, field: name}}}, {matches: in-scope}]
+        - kind: identifier
+          matches: alias
+          all:
+            - pattern: $ALIAS
+            - pattern: $PATH
+            - not: {inside: {kind: use_declaration, stopBy: end}}
+            - any:
+                - inside: {kind: scoped_identifier, field: name, has: {field: path, matches: num-module}, inside: {kind: scoped_identifier, field: path}}
+                - all: [{inside: {kind: scoped_identifier, field: path}}, {matches: in-scope}]
+transform:
+    LEAF_OUT: {replace: {source: $LEAF, replace: '^.+$', by: 'NonZero'}}
+    TYPE_SUFFIX: {replace: {source: $TYPE, replace: '^NonZero(\w+)$', by: '$1'}}
+    TYPE_PRIMITIVE: {convert: {source: $TYPE_SUFFIX, toCase: lowerCase}}
+    TYPE_OUT: {replace: {source: $TYPE_PRIMITIVE, replace: '^(.+)$', by: 'NonZero<$1>'}}
+    PATH_SUFFIX: {replace: {source: $PATH, replace: '^NonZero(\w+)$', by: '$1'}}
+    PATH_PRIMITIVE: {convert: {source: $PATH_SUFFIX, toCase: lowerCase}}
+    PATH_OUT: {replace: {source: $PATH_PRIMITIVE, replace: '^(.+)$', by: 'NonZero::<$1>'}}
+fix:
+    template: $LEAF_OUT$TYPE_OUT$PATH_OUT
+    expandEnd: {regex: '^,$', inside: {kind: use_list}}
+message: '`$ALIAS` names a `NonZero` integer through a type alias'
+note: 'Write `NonZero<<primitive>>` in types, `NonZero::<<primitive>>` in paths, and one `NonZero` in the imports'

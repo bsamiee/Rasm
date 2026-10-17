@@ -2,12 +2,23 @@
 id: no-try-statement
 language: csharp
 severity: error
+utils:
+    release-boundary:
+        kind: method_declaration
+        any:
+            - all: [{has: {field: name, regex: '^Dispose$'}}, {has: {field: returns, regex: '^void$'}}]
+            - all: [{has: {field: name, regex: '^DisposeAsync$'}}, {has: {field: returns, regex: '^((global::)?System\.Threading\.Tasks\.)?ValueTask$'}}]
 rule:
     kind: try_statement
+    any:
+        - has: {field: body, has: {nthChild: 1, pattern: $FIRST}}
+        - has: {field: body, not: {has: {nthChild: 1}}}
     not:
         all:
             - has: {kind: finally_clause}
             - not: {has: {kind: catch_clause}}
-            - inside: {stopBy: {kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression'}, matches: csharp-disposal-boundary}
-message: '`try` statement handles an exception inline'
-note: Capture the throwing call with `Try.lift` or `IO.lift` at its boundary and release through `use` or `Bracket`. A native `Dispose` boundary uses `try`/`finally` to release its owned fields and base even when release throws
+            - inside: {stopBy: {kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression'}, matches: release-boundary}
+transform:
+    LEAD: {replace: {source: $FIRST, replace: '(?s)\s*\n.*$', by: ''}}
+message: '`try` around `$LEAD` handles exceptions inline'
+note: 'Capture the throwing call with `Try.lift` or `IO.lift` at its boundary and release through `use` or `Bracket`, a `Dispose` or `DisposeAsync` body releasing owned fields and its base keeps a catch-free `try`/`finally`'

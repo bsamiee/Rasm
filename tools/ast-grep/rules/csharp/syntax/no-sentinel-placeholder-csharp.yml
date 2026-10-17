@@ -243,7 +243,7 @@ utils:
                         kind: declaration_list
                         inside:
                             matches:
-                                csharp-file-union:
+                                thinktecture-union:
                                     name: {pattern: $_UNION}
 rule:
     any:

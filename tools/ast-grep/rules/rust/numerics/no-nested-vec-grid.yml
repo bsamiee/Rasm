@@ -4,17 +4,36 @@ language: rust
 severity: error
 utils:
     filled-row:
-        kind: macro_invocation
-        all:
-            - has: {field: macro, regex: '^vec$'}
-            - has: {kind: token_tree, has: {regex: '^;$'}}
+        any:
+            - kind: macro_invocation
+              all:
+                - has: {field: macro, regex: '^((::)?(std|alloc)::)?vec$'}
+                - has: {kind: token_tree, has: {regex: '^;$'}}
+            - kind: call_expression
+              all:
+                - any:
+                    - pattern: ($_).map($_).collect()
+                    - pattern: ($_).map($_).collect::<$_>()
+                - has: {stopBy: end, kind: range_expression}
+    row-closure:
+        kind: closure_expression
+        has: {field: body, any: [{matches: filled-row}, {kind: block, has: {matches: filled-row}, not: {has: {nthChild: 2}}}]}
+    repeated-row:
+        kind: call_expression
+        any:
+            - all:
+                - has: {field: function, regex: '(^|::)repeat_with$'}
+                - has: {field: arguments, has: {nthChild: 1, matches: row-closure}}
+            - all:
+                - has: {field: function, regex: '(^|::)repeat(_n)?$'}
+                - has: {field: arguments, has: {nthChild: 1, matches: filled-row}}
 rule:
     kind: 'macro_invocation, call_expression'
     pattern: $GRID
     any:
         - kind: macro_invocation
           all:
-            - has: {field: macro, regex: '^vec$'}
+            - has: {field: macro, regex: '^((::)?(std|alloc)::)?vec$'}
             - has:
                 kind: token_tree
                 all:
@@ -32,6 +51,12 @@ rule:
                 pattern: $ROW
                 all:
                     - has: {field: parameters, regex: '^\|\s*_\w*\s*\|$'}
-                    - has: {field: body, matches: filled-row}
+                    - matches: row-closure
+        - kind: call_expression
+          all:
+            - any:
+                - pattern: $ROWS.collect()
+                - pattern: $ROWS.collect::<$TYPE>()
+            - has: {field: function, has: {field: value, has: {stopBy: end, matches: repeated-row}}}
 message: '`$GRID` builds a rectangular grid as a vector of row vectors'
-note: 'Allocate the 2D type the catalog owns: ndarray `Array2::zeros((rows, cols))` or `Array2::from_elem((rows, cols), value)`, nalgebra `DMatrix::zeros(rows, cols)`, or faer `Mat::zeros(rows, cols)`. One allocation holds every row at one length and indexes as `grid[[row, col]]`'
+note: 'Allocate a 2D type: `ndarray::Array2::zeros((<rows>, <cols>))` or `Array2::from_elem((<rows>, <cols>), <value>)` indexed as `grid[[<row>, <col>]]`, `nalgebra::DMatrix::zeros(<rows>, <cols>)`, or `faer::Mat::zeros(<rows>, <cols>)`'

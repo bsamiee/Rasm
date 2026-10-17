@@ -14,7 +14,7 @@ public readonly partial struct Distortion : IPresented<Distortion, float> {
     public static Distortion MaxValue { get; } = new(1f);
     public static Presentation<float> Presentation { get; } = new() { Origin = (float)Neutral };
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [SmartEnum<string>]

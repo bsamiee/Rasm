@@ -27,7 +27,7 @@ public sealed record DictionaryOwner(IO<ArchivableDictionary> Read, Func<Func<Ar
              select edited).RunIO);
 }
 
-public sealed record RecordUpgrade<T>(string Name, Func<ArchivableDictionary, Fin<T>> Read);
+public sealed record RecordUpgrade<T>(Func<ArchivableDictionary, Fin<T>> Read, Option<string> Earlier = default);
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public abstract partial record StoredRecord<T> {
@@ -169,7 +169,7 @@ public static class ArchivableDictionaries {
         IO.lift(() => Refused.UnlessFound(owner.UserDictionary, nameof(CommonObject.UserDictionary)));
 
     public static IO<Unit> Replace(DictionaryOwner owner, ArchivableDictionary source) =>
-        owner.Edit(target => Fin.Succ(ignore(target.ReplaceContentsWith(source.Clone()))));
+        owner.Edit(target => ignore(target.ReplaceContentsWith(source.Clone())));
 
     // --- [RECORDS]
     public static IO<Option<T>> Read<T>(DictionaryOwner owner, DictionaryCodec<T> codec) =>
@@ -188,7 +188,7 @@ public static class ArchivableDictionaries {
         select written;
 
     public static IO<Unit> Remove<T>(DictionaryOwner owner, DictionaryCodec<T> codec) =>
-        owner.Edit(target => Fin.Succ((Seq(codec.Name) + Earlier(codec).ToSeq()).Iter(name => ignore(target.Remove(name)))));
+        owner.Edit(target => (Seq(codec.Name) + Earlier(codec).ToSeq()).Iter(name => ignore(target.Remove(name))));
 
     public static IO<Unit> Rewrite(RhinoDoc doc) =>
         from pending in IO.lift(() => Rewrites(doc).ToHashMap())
@@ -203,7 +203,7 @@ public static class ArchivableDictionaries {
         select (record, found.Current.Match(Some: held => held.Version < codec.Version, None: () => found.Earlier.IsSome));
 
     private static Option<string> Earlier<T>(DictionaryCodec<T> codec) =>
-        codec.Upgrade.Map(static upgrade => upgrade.Name).Filter(name => !string.Equals(name, codec.Name, StringComparison.Ordinal));
+        codec.Upgrade.Bind(static upgrade => upgrade.Earlier);
 
     private static IO<Unit> Rewritten<T>(DictionaryOwner owner, DictionaryCodec<T> codec) =>
         from source in owner.Read

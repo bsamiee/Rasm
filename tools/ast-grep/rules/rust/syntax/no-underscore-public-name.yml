@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-underscore-public-name
+language: rust
+severity: error
+rule:
+    kind: 'function_item, function_signature_item, struct_item, enum_item, union_item, trait_item, const_item, static_item, type_item, mod_item, field_declaration'
+    all:
+        - has: {kind: visibility_modifier, regex: '^pub$'}
+        - has: {field: name, regex: '^_\w', pattern: $NAME}
+message: '`$NAME` marks a public item private by a leading underscore'
+note: 'Narrow the item to `pub(crate)` or `pub(super)` and drop the underscore when the crate alone reads it, else name it for the API it belongs to'

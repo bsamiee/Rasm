@@ -1,0 +1,202 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-rows-by-hand
+language: csharp
+severity: error
+files: ['**/rhino/**']
+utils:
+    member:
+        kind: method_declaration, local_function_statement, lambda_expression, constructor_declaration, accessor_declaration, operator_declaration
+    element:
+        any:
+            - kind: predefined_type
+              regex: '^string$'
+            - kind: identifier
+              pattern: $ELEMENT
+              inside:
+                stopBy: end
+                kind: compilation_unit
+                has:
+                    stopBy: end
+                    kind: class_declaration, record_declaration
+                    has: {field: name, pattern: $ELEMENT}
+                    not: {has: {regex: '^struct$'}}
+            - kind: qualified_name
+              has: {field: name, matches: element}
+            - kind: nullable_type
+              has: {field: type, matches: element}
+    sequence-type:
+        any:
+            - kind: array_type
+              has: {field: type, matches: element}
+            - kind: generic_name
+              all:
+                - has: {kind: identifier, regex: '^(IEnumerable|IReadOnlyList|IReadOnlyCollection|IList|ICollection|List|Seq|Lst|Arr|Iterable)$'}
+                - has: {kind: type_argument_list, has: {matches: element}, not: {has: {nthChild: 2}}}
+            - kind: nullable_type
+              has: {field: type, matches: sequence-type}
+    declaration:
+        any:
+            - kind: parameter
+              all:
+                - has: {field: type, matches: sequence-type}
+                - has: {field: name, pattern: $DECLARED}
+            - kind: variable_declaration
+              all:
+                - has: {field: type, matches: sequence-type}
+                - has: {kind: variable_declarator, has: {field: name, pattern: $DECLARED}}
+    out-array:
+        inside:
+            stopBy: end
+            matches: member
+            has: {stopBy: end, kind: argument, regex: '^(\w+\s*:\s*)?out\s', has: {nthChild: {position: 1, reverse: true}, any: [{kind: declaration_expression, has: {field: name, pattern: $DECLARED}}, {kind: identifier, pattern: $DECLARED}]}}
+    reference-items:
+        any:
+            - kind: identifier
+              pattern: $DECLARED
+              not: {matches: out-array}
+              inside:
+                stopBy: end
+                kind: method_declaration, local_function_statement, lambda_expression, constructor_declaration, accessor_declaration, operator_declaration
+                has: {stopBy: end, matches: declaration}
+            - kind: parenthesized_expression
+              has: {matches: reference-items}
+    option:
+        any:
+            - kind: invocation_expression
+              has: {field: function, matches: {csharp-type-name: {name: {regex: '^(Optional|Some)$'}}}}
+            - kind: identifier
+              pattern: $OPTION
+              inside:
+                stopBy: end
+                kind: method_declaration, local_function_statement, lambda_expression, constructor_declaration, accessor_declaration, operator_declaration
+                has:
+                    stopBy: end
+                    any:
+                        - kind: parameter
+                          all: [{has: {field: type, matches: {csharp-type-name: {name: {regex: '^Option$'}}}}}, {has: {field: name, pattern: $OPTION}}]
+                        - kind: variable_declaration
+                          all: [{has: {field: type, matches: {csharp-type-name: {name: {regex: '^Option$'}}}}}, {has: {kind: variable_declarator, has: {field: name, pattern: $OPTION}}}]
+    to-seq:
+        matches: {csharp-type-name: {name: {regex: '^toSeq$'}}}
+    empty:
+        any:
+            - kind: collection_expression
+              not: {has: {kind: expression_element}}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^(Enumerable|Array)$'}, member: {regex: '^Empty$'}}}}
+                - has: {field: arguments, not: {has: {kind: argument}}}
+    items:
+        any:
+            - kind: invocation_expression
+              all:
+                - has: {field: function, matches: to-seq}
+                - has: {field: arguments, not: {has: {kind: argument, nthChild: 2}}}
+                - has: {field: arguments, has: {kind: argument, has: {kind: binary_expression, all: [{has: {field: operator, regex: '^\?\?$'}}, {has: {field: right, matches: empty}}, {has: {field: left, pattern: $ITEMS}}]}}}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, matches: to-seq}
+                - has: {field: arguments, not: {has: {kind: argument, nthChild: 2}}}
+                - has: {field: arguments, has: {kind: argument, not: {has: {field: name, pattern: $_}}, has: {pattern: $ITEMS}}}
+            - pattern: $ITEMS
+              not: {matches: option}
+    slot-lambda:
+        kind: lambda_expression
+        all:
+            - has:
+                field: parameters
+                any:
+                    - kind: implicit_parameter
+                      pattern: $SLOT
+                    - kind: parameter_list
+                      all:
+                        - has: {kind: parameter, has: {field: name, pattern: $SLOT}}
+                        - not: {has: {kind: parameter, nthChild: 2}}
+            - not: {has: {field: type, pattern: $_}}
+    slot-lift:
+        kind: argument
+        any:
+            - has: {matches: {csharp-type-name: {name: {regex: '^Optional$'}}}}
+            - has:
+                matches: slot-lambda
+                has:
+                    field: body
+                    kind: invocation_expression
+                    all:
+                        - has: {field: function, matches: {csharp-type-name: {name: {regex: '^Optional$'}}}}
+                        - has: {field: arguments, has: {kind: argument, nthChild: 1, pattern: $SLOT}, not: {has: {kind: argument, nthChild: 2}}}
+    null-test:
+        any:
+            - kind: is_pattern_expression
+              all:
+                - has: {field: expression, pattern: $SLOT}
+                - has: {field: pattern, any: [{regex: '^not\s+null$'}, {regex: '^\{\s*\}$'}]}
+            - kind: is_expression
+              all:
+                - has: {field: left, pattern: $SLOT}
+                - has: {field: right, matches: {csharp-type-name: {name: {regex: '^(object|Object)$'}}}}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^!=$'}
+                - any:
+                    - all: [{has: {field: left, pattern: $SLOT}}, {has: {field: right, kind: null_literal}}]
+                    - all: [{has: {field: left, kind: null_literal}}, {has: {field: right, pattern: $SLOT}}]
+            - kind: prefix_unary_expression
+              all:
+                - regex: '^!'
+                - has: {kind: parenthesized_expression, has: {kind: is_pattern_expression, all: [{has: {field: expression, pattern: $SLOT}}, {has: {field: pattern, regex: '^null$'}}]}}
+            - kind: parenthesized_expression
+              has: {matches: null-test}
+    receiver:
+        any:
+            - kind: member_access_expression
+              has: {field: expression, matches: items}
+            - kind: conditional_access_expression
+              has: {field: condition, matches: items}
+    slot-read:
+        kind: invocation_expression
+        any:
+            - all:
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Somes$'}}
+                - has: {field: arguments, not: {has: {kind: argument}}}
+                - has:
+                    field: function
+                    has:
+                        field: expression
+                        kind: invocation_expression
+                        all:
+                            - has: {field: function, any: [{kind: member_access_expression, has: {field: name, regex: '^Map$'}}, {kind: conditional_access_expression, has: {kind: member_binding_expression, has: {field: name, regex: '^Map$'}}}]}
+                            - has: {field: arguments, all: [{has: {matches: slot-lift}}, {not: {has: {kind: argument, nthChild: 2}}}]}
+                            - has: {field: function, matches: receiver}
+            - all:
+                - has: {field: function, any: [{kind: member_access_expression, has: {field: name, regex: '^Choose$'}}, {kind: conditional_access_expression, has: {kind: member_binding_expression, has: {field: name, regex: '^Choose$'}}}]}
+                - has: {field: arguments, all: [{has: {matches: slot-lift}}, {not: {has: {kind: argument, nthChild: 2}}}]}
+                - has: {field: function, matches: receiver}
+            - all:
+                - has: {field: function, any: [{kind: member_access_expression, has: {field: name, regex: '^(Filter|Where)$'}}, {kind: conditional_access_expression, has: {kind: member_binding_expression, has: {field: name, regex: '^(Filter|Where)$'}}}]}
+                - has:
+                    field: arguments
+                    all:
+                        - not: {has: {kind: argument, nthChild: 2}}
+                        - has: {kind: argument, has: {matches: slot-lambda, has: {field: body, matches: null-test}}}
+                - has: {field: function, matches: receiver}
+rule:
+    kind: invocation_expression
+    pattern: $READ
+    all:
+        - any:
+            - all:
+                - has: {field: arguments, not: {has: {kind: argument}}}
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Strict$'}}, {has: {field: expression, matches: slot-read}}]}
+            - all:
+                - matches: slot-read
+                - not: {inside: {kind: member_access_expression, field: expression, has: {field: name, regex: '^Strict$'}, inside: {kind: invocation_expression, field: function, has: {field: arguments, not: {has: {kind: argument}}}}}}
+        - not: {has: {stopBy: end, kind: comment}}
+        - not: {inside: {stopBy: end, kind: ERROR}}
+        - not: {has: {stopBy: end, kind: ERROR}}
+        - not: {matches: {csharp-owner-body: {type: {regex: '^Conversions$'}, member: {regex: '^Rows$'}}}}
+constraints:
+    ITEMS: {matches: reference-items}
+fix: Conversions.Rows($ITEMS)
+message: '`$ITEMS` drops null rows by hand'
+note: 'Use `Conversions.Rows(<items>)`, which reads a null sequence as empty and drops each null row'

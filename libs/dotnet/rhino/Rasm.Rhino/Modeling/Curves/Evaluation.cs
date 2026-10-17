@@ -8,7 +8,7 @@ public readonly partial struct ArcLength : System.Numerics.IMinMaxValue<ArcLengt
     public static ArcLength MinValue { get; } = new(0d);
     public static ArcLength MaxValue { get; } = new(double.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Start", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -16,7 +16,7 @@ public readonly partial struct NormalizedLength : System.Numerics.IMinMaxValue<N
     public static NormalizedLength MinValue { get; } = new(0d);
     public static NormalizedLength MaxValue { get; } = new(1d);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -24,7 +24,7 @@ public readonly partial struct DerivativeCount : System.Numerics.IMinMaxValue<De
     public static DerivativeCount MinValue { get; } = new(0);
     public static DerivativeCount MaxValue { get; } = new(int.MaxValue - 1);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -32,7 +32,7 @@ public readonly partial struct SearchDistance : System.Numerics.IMinMaxValue<Sea
     public static SearchDistance MinValue { get; } = new(double.BitIncrement(0d));
     public static SearchDistance MaxValue { get; } = new(double.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [Union<double, ArcLength, NormalizedLength>(T1Name = "CurveParameter", T2Name = "LengthParameter", T3Name = "NormalizedLengthParameter", MapMethods = SwitchMapMethodsGeneration.None)]

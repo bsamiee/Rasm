@@ -22,4 +22,4 @@ rule:
         - not: {has: {kind: string_fragment, pattern: $NAME}}
 fix: "'$NAME'"
 message: '`Effect.fn($SPAN)` names the span of `$NAME` with another name'
-note: 'Name the span after its binding, `const <name> = Effect.fn(''<name>'')(...)`, traces and stack frames then identify its function'
+note: 'Name the span after its binding, `const <name> = Effect.fn(''<name>'')(...)`, for traces and stack frames to identify its function'

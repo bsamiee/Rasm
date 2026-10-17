@@ -53,4 +53,4 @@ fix:
     template: $OPTIONED$KEPT
     expandEnd: {matches: fork-step, stopBy: end}
 message: '`$FORK$KEPT` starts its fiber interruptible until its `Effect.uninterruptible` step runs'
-note: '`{ uninterruptible: true }` on `Effect.forkIn(<scope>, <options>)`, `forkChild`, `forkScoped`, `forkDetach`, or `runFork` starts the fiber uninterruptible'
+note: 'Pass `{ uninterruptible: true }` to `Effect.forkIn(<scope>, <options>)`, `forkChild`, `forkScoped`, `forkDetach`, or `runFork` to start the fiber uninterruptible'

@@ -41,14 +41,14 @@ public static class OptionType {
         where TRaw : struct, System.Numerics.IFloatingPointIeee754<TRaw> =>
         Held(() => new OptionDouble(double.CreateChecked(initial.ToValue()), double.CreateChecked(TValue.MinValue.ToValue()), double.CreateChecked(TValue.MaxValue.ToValue())),
             holder => getter.AddOptionDouble(name, ref holder), nameof(GetBaseClass.AddOptionDouble),
-            static holder => Admission.Validated<TValue, TRaw>(TRaw.CreateChecked(holder.CurrentValue)), retain);
+            static holder => ValidationResults.Validated<TValue, TRaw>(TRaw.CreateChecked(holder.CurrentValue)), retain);
 
     public static IO<AddedOption<TValue>> Integer<TValue, TRaw>(GetBaseClass getter, LocalizeStringPair name, IPlugInSink _, TValue initial, Action<IDisposable> retain)
         where TValue : IObjectFactory<TValue, TRaw, ValidationError>, IConvertible<TRaw>, System.Numerics.IMinMaxValue<TValue>
         where TRaw : struct, System.Numerics.IBinaryInteger<TRaw> =>
         Held(() => new OptionInteger(int.CreateChecked(initial.ToValue()), int.CreateSaturating(TValue.MinValue.ToValue()), int.CreateSaturating(TValue.MaxValue.ToValue())),
             holder => getter.AddOptionInteger(name, ref holder), nameof(GetBaseClass.AddOptionInteger),
-            static holder => Admission.Validated<TValue, TRaw>(TRaw.CreateChecked(holder.CurrentValue)), retain);
+            static holder => ValidationResults.Validated<TValue, TRaw>(TRaw.CreateChecked(holder.CurrentValue)), retain);
 
     public static OptionAdder<int> Integer(Option<int> lower, Option<int> upper) =>
         (getter, name, _, initial, retain) => Held(() => (lower.Case, upper.Case) switch {
@@ -64,13 +64,13 @@ public static class OptionType {
         where TValue : IObjectFactory<TValue, Length, ValidationError>, IConvertible<Length>, System.Numerics.IMinMaxValue<TValue> =>
         (getter, name, _, initial, retain) => Held(() => new OptionDouble(Quantities.As(initial.ToValue(), spaceUnit), Quantities.As(TValue.MinValue.ToValue(), spaceUnit), Quantities.As(TValue.MaxValue.ToValue(), spaceUnit)),
             holder => getter.AddOptionDouble(name, ref holder), nameof(GetBaseClass.AddOptionDouble),
-            holder => Admission.Validated<TValue, Length>(Quantities.From(holder.CurrentValue, spaceUnit)), retain);
+            holder => ValidationResults.Validated<TValue, Length>(Quantities.From(holder.CurrentValue, spaceUnit)), retain);
 
     public static OptionAdder<TValue> Text<TValue>(bool allowEmptyString)
         where TValue : IObjectFactory<TValue, string, ValidationError>, IConvertible<string> =>
         (getter, name, _, initial, retain) => Held(() => new OptionString(initial.ToValue(), allowEmptyString),
             holder => getter.AddOptionString(name, ref holder), nameof(GetBaseClass.AddOptionString),
-            static holder => Admission.Validated<TValue, string>(holder.CurrentValue), retain);
+            static holder => ValidationResults.Validated<TValue, string>(holder.CurrentValue), retain);
 
     public static OptionAdder<TItem> List<TItem>(Seq<TItem> items, Func<TItem, string> caption) where TItem : notnull =>
         (getter, name, plugIn, initial, _) =>

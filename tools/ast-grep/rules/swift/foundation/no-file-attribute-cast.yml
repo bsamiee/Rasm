@@ -12,4 +12,4 @@ rule:
             kind: 'function_declaration, init_declaration, computed_property'
             has: {stopBy: end, kind: simple_identifier, regex: '^attributesOfItem$'}
 message: '`$SITE` casts a `FileAttributeKey` value a typed field holds'
-note: 'Read `FilePath.stat(followTargetSymlink:)` (`type`, `inode`, `size`, `permissions`, `linkCount`, `userID`, `groupID`, `deviceID`, `st_mtim`, `st_birthtim`) or `URL.resourceValues(forKeys:)` (`isDirectory`, `contentModificationDate`, `creationDate`, `fileSize`), each value arrives typed and no cast can fail'
+note: 'Read `FilePath.stat(followTargetSymlink:)` (`type`, `inode`, `size`, `permissions`, `linkCount`, `userID`, `groupID`, `deviceID`, `st_mtim`, `st_birthtim`) or `URL.resourceValues(forKeys:)` (`isDirectory`, `contentModificationDate`, `creationDate`, `fileSize`)'

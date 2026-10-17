@@ -202,11 +202,10 @@ public static class NativeControls {
         IO.lift(() => {
             NSView native = handler.ContainerControl;
             NSControlSize size = SizeOf(handler.Widget);
-            _ = native switch {
-                NSControl control => control.ControlSize = size,
-                NSProgressIndicator progress => progress.ControlSize = size,
-                _ => size,
-            };
+            if (native is NSControl control)
+                control.ControlSize = size;
+            else if (native is NSProgressIndicator progress)
+                progress.ControlSize = size;
             if (handler.Widget is ProgressBar)
                 handler.Widget.Height = (int)Math.Ceiling(handler.GetAlignmentSizeForSize(native.FittingSize).Height);
             _ = grid.Caption(handler.Widget).Iter(caption => native.AccessibilityLabel = caption);

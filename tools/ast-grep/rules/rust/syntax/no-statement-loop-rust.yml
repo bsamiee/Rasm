@@ -20,32 +20,33 @@ utils:
     valued-break:
         kind: break_expression
         has: {pattern: $STATE, not: {kind: label}}
-    replaced-loop:
-        any:
-            - matches: rust-binary-header-read
-            - matches: rust-byte-hash-constant
-            - matches: rust-constant-time-compare
-            - matches: rust-entity-escape
-            - matches: rust-hex-by-byte
-            - matches: rust-hex-pair-parse
-            - matches: rust-html-tag-scan
-            - matches: rust-json-pointer-escape
-            - matches: rust-markdown-fence-scan
-            - matches: rust-obj-face
-            - matches: rust-simpson-weight
-            - matches: rust-squared-deviation-sum
-            - matches: rust-stl-text
-            - matches: rust-template-replace
+    pushing-fold:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^(fold|try_fold)$'}}
+            - has: {field: arguments, has: {nthChild: 1, matches: rust-default-value}}
+            - has:
+                field: arguments
+                has:
+                    nthChild: 2
+                    kind: closure_expression
+                    all:
+                        - has: {field: parameters, has: {nthChild: 1, regex: '^mut\s+\w+$', has: {kind: identifier, pattern: $STATE}}}
+                        - has: {field: body, kind: block, all: [{has: {kind: expression_statement, has: {nthChild: 1, matches: element-write}}}, {has: {nthChild: {position: 1, reverse: true, ofRule: {matches: rust-statement}}, any: [{pattern: $STATE}, {pattern: Ok($STATE)}, {pattern: Some($STATE)}]}}]}
+    element-write:
+        kind: call_expression
+        has: {field: function, kind: field_expression, all: [{has: {field: value, kind: identifier, pattern: $STATE}}, {has: {field: field, regex: '^(push|push_back|push_front|insert)$'}}]}
 rule:
-    matches: rust-statement-loop
-    has:
-        field: body
-        has:
-            stopBy: {kind: 'loop_expression, while_expression, for_expression, closure_expression'}
-            any:
-                - matches: state-write
-                - matches: valued-return
-                - matches: valued-break
-    not: {has: {stopBy: end, matches: replaced-loop}}
-message: 'Loop iterates by statement to produce `$STATE`'
-note: 'Bind the result to one adapter chain, `.map(<f>).collect()` builds a collection, `.filter(<test>)` keeps elements, `.sum()` or `.fold(<initial>, <f>)` accumulates, `.max()`, `.min()`, or `.reduce(<f>)` selects an extreme with `None` for no items, `.any(<test>)`, `.all(<test>)`, `.find(<test>)`, `.position(<test>)`, or `.find_map(<f>)` stops at the first match, and a fallible traversal over independent elements collects into `validated::Validated` to keep every error'
+    any:
+        - matches: rust-statement-loop
+          has:
+            field: body
+            has:
+                stopBy: {kind: 'loop_expression, while_expression, for_expression, closure_expression'}
+                any:
+                    - matches: state-write
+                    - matches: valued-return
+                    - matches: valued-break
+        - matches: pushing-fold
+message: 'Loop or `fold` produces `$STATE` statement by statement'
+note: 'Build the value with one adapter chain: `.map(<f>).collect()` builds, `.filter(<test>)` keeps, `.sum()` or `.fold(<initial>, <f>)` accumulates, `.max()`, `.min()`, or `.reduce(<f>)` selects an extreme, `.any`, `.all`, `.find`, `.position`, or `.find_map` stops at the first match, and a fallible traversal over independent elements collects into `validated::Validated`'

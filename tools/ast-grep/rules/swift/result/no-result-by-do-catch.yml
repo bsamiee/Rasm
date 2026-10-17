@@ -253,4 +253,4 @@ transform:
     FIXED: {rewrite: {source: $DO, rewriters: [result-point-free, result-case, result-typed-throws, result-identity, result-map-error-closure]}}
 fix: $FIXED
 message: '`do` builds a Result by statements with `.failure` returned, assigned, or passed on from `catch` in place of one `Result` initializer'
-note: 'Use `Result { <throwing statements> }` (`await Result` when the body awaits) with `.mapError(<case or classifier>)` for a classifying `catch`, `throws(<Failure>)` for one returning the error unchanged, `.flatMap` for statements past the `catch`, and `.flatMapError` for a recovering `catch`, the `Result` initializer states the same cases in one expression'
+note: 'Write `Result { <throwing statements> }` (`await Result` when the body awaits) with `.mapError(<case or classifier>)` for a classifying `catch`, `throws(<Failure>)` for one returning the error unchanged, `.flatMap` for statements past the `catch`, and `.flatMapError` for a recovering `catch`'

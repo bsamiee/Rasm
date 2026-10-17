@@ -27,8 +27,8 @@ utils:
     flat:
         matches: comparison
         all:
-            - has: {kind: field_expression, all: [{has: {field: field, regex: '^(min_?[xyz]|[xyz]_?min)$', pattern: $LO}}, {has: {field: value, pattern: $A}}]}
-            - has: {kind: field_expression, all: [{has: {field: field, regex: '^(max_?[xyz]|[xyz]_?max)$', pattern: $HI}}, {has: {field: value, pattern: $B, not: {pattern: $A}}}]}
+            - has: {kind: field_expression, all: [{has: {field: field, regex: '^(min_?[xyz]|[xyz]_?min|left|top)$', pattern: $LO}}, {has: {field: value, pattern: $A}}]}
+            - has: {kind: field_expression, all: [{has: {field: field, regex: '^(max_?[xyz]|[xyz]_?max|right|bottom)$', pattern: $HI}}, {has: {field: value, pattern: $B, not: {pattern: $A}}}]}
     flat-mirror:
         matches: comparison
         all:
@@ -39,16 +39,31 @@ utils:
         has: {field: operator, regex: '^(&&|\|\|)$'}
     extent-comparison:
         matches: comparison
-        has: {kind: field_expression, regex: '\.(mins?|maxs?)\.\w+$|\.(min_?[xyz]|[xyz]_?min|max_?[xyz]|[xyz]_?max)$'}
+        has: {kind: field_expression, regex: '\.(mins?|maxs?)\.\w+$|\.(min_?[xyz]|[xyz]_?min|max_?[xyz]|[xyz]_?max|left|right|top|bottom)$'}
+    low-extent:
+        kind: field_expression
+        regex: '\.mins?\.\w+$|\.(min_?[xyz]|[xyz]_?min|left|top)$'
+    high-extent:
+        kind: field_expression
+        regex: '\.maxs?\.\w+$|\.(max_?[xyz]|[xyz]_?max|right|bottom)$'
+    interval:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^(<|<=)$'}
+            - has: {field: left, kind: call_expression, all: [{has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^max$'}}, {has: {field: value, matches: low-extent, pattern: $A}}]}}, {has: {field: arguments, has: {nthChild: 1, matches: low-extent, pattern: $B}}}]}
+            - has: {field: right, kind: call_expression, all: [{has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^min$'}}, {has: {field: value, matches: high-extent}}]}}, {has: {field: arguments, has: {nthChild: 1, matches: high-extent}}}]}
 rule:
-    matches: joined
-    not: {inside: {matches: joined, has: {field: right, matches: extent-comparison}}}
+    kind: binary_expression
     any:
-        - all:
-            - has: {field: right, matches: nested}
-            - has: {field: left, any: [{matches: nested-mirror}, {matches: joined, has: {field: right, matches: nested-mirror}}]}
-        - all:
-            - has: {field: right, matches: flat}
-            - has: {field: left, any: [{matches: flat-mirror}, {matches: joined, has: {field: right, matches: flat-mirror}}]}
-message: '`$A` and `$B` test box overlap by comparing their extents by hand'
-note: 'Hold the boxes as `parry3d_f64::bounding_volume::Aabb` and call `intersects` from `parry3d_f64::bounding_volume::BoundingVolume`, as `rstar::AABB` with `intersects` from `rstar::Envelope`, or as `geo::Rect` with `geo::Intersects::intersects`'
+        - matches: joined
+          not: {inside: {matches: joined, has: {field: right, matches: extent-comparison}}}
+          any:
+            - all:
+                - has: {field: right, matches: nested}
+                - has: {field: left, any: [{matches: nested-mirror}, {matches: joined, has: {field: right, matches: nested-mirror}}]}
+            - all:
+                - has: {field: right, matches: flat}
+                - has: {field: left, any: [{matches: flat-mirror}, {matches: joined, has: {field: right, matches: flat-mirror}}]}
+        - matches: interval
+message: 'Expression compares extents of boxes `$A` and `$B` by hand to test overlap'
+note: 'Hold the boxes as `parry3d_f64::bounding_volume::Aabb` with `BoundingVolume::intersects`, `rstar::AABB` with `Envelope::intersects`, or `geo::Rect` with `geo::Intersects::intersects`'

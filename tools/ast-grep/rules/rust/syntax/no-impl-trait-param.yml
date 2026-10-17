@@ -4,6 +4,7 @@ language: rust
 severity: error
 rule:
     kind: abstract_type
+    pattern: $PARAM
     all:
         - not: {inside: {kind: abstract_type, stopBy: {kind: parameter}}}
         - inside:
@@ -18,5 +19,5 @@ rule:
                         - any: [{not: {has: {kind: visibility_modifier, regex: '^pub$'}}}, {matches: rust-test-scope}]
                         - not: {inside: {kind: declaration_list, inside: {kind: impl_item, has: {field: trait, regex: '\S'}}}}
                         - not: {inside: {kind: declaration_list, inside: {kind: trait_item, has: {kind: visibility_modifier}}}}
-message: '`impl Trait` parameter leaves its type unnamed'
-note: 'Name the type as a generic parameter bounded in the `where` clause (`fn f<I>(items: I) where I: Iterator<Item = u8>`). Clippy `impl_trait_in_params` reports `pub` functions, `pub` inherent methods, and methods of a trait carrying a visibility, a trait impl follows its trait'
+message: '`$PARAM` declares an anonymous type parameter'
+note: 'Name the type as a generic parameter bounded in the `where` clause (`fn f<I>(items: I) where I: Iterator<Item = u8>`)'

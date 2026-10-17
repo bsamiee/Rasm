@@ -70,7 +70,7 @@ public sealed record SolveUnits(Tolerances Tolerances, double UnitsPerMetre) {
                     : Refused.UnlessFound(RhinoDoc.ActiveDoc, nameof(RhinoDoc.ActiveDoc)).Map(static document => document.ModelRelativeTolerance))
                 .Map(relative => (Absolute: absolute, Relative: Math.Clamp(relative, 1e-12, 1e6), Angle: angle.Radians, UnitsPerMetre: unitsPerMetre));
         })
-        from tolerances in IO.lift(() => Admission.Admitted(Tolerances.Validate(native.Absolute, native.Relative, native.Angle, Intersection.MeshIntersectionsTolerancesCoefficient, out Tolerances? value), value))
+        from tolerances in IO.lift(() => ValidationResults.ToFin(Tolerances.Validate(native.Absolute, native.Relative, native.Angle, Intersection.MeshIntersectionsTolerancesCoefficient, out Tolerances? value), value))
         select new SolveUnits(tolerances, native.UnitsPerMetre);
 
     // --- [LENGTHS]

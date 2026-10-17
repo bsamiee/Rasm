@@ -20,6 +20,7 @@ rule:
         has:
             field: name
             regex: '^(Fold(Back)?(While|Until)?M?|Fold(Back)?Maybe|FoldMap(Back)?(While|Until)?|Exists|ForAll|Contains|Find(All)?(Back)?|Iter|ForM|Sum|Product|Min|Max|Average|At|Partition|IsEmpty|Count|Head|Last|ToLst|ToArr|ToIterable)(\s*<.+>)?$'
+        inside: {kind: invocation_expression, field: function}
     any:
         - all:
             - has: {field: function, matches: {csharp-type-name: {name: {regex: '^toSeq$'}}}}
@@ -28,6 +29,6 @@ rule:
         - all:
             - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^ToSeq$'}}, {has: {field: expression, matches: range, pattern: $RANGE}}]}
             - not: {has: {field: arguments, has: {kind: argument}}}
-message: '`$RANGE` converts to a `Seq` before a `Foldable` member the range answers itself, call the member on `$RANGE`'
-note: '`Range<A>` is `K<Range, A>` under `Foldable<Range>`, so every fold, search, count, and aggregate member reads it directly'
+message: '`$RANGE` converts to a `Seq` before a `Foldable` member the range answers itself'
+note: Call the member on `$RANGE`, `Range<A>` implements `Foldable<Range>` and every fold, search, count, and aggregate reads it directly
 fix: $RANGE

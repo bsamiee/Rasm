@@ -8,16 +8,21 @@ utils:
     empty-literal:
         kind: string_literal
         not: {has: {kind: 'string_content, escape_sequence'}}
-    empty-text:
+    blank-literal:
         any:
             - matches: empty-literal
+            - kind: string_literal
+              regex: '(?i)^"\s*(unknown|n/?a|none|null|nil|undefined|missing|unset|empty|invalid|placeholder|tbd|todo|-+|\?+|\(none\)|<\w*>)\s*"$'
+    empty-text:
+        any:
+            - matches: blank-literal
             - kind: call_expression
               all:
                 - has: {field: function, kind: scoped_identifier, matches: empty-path}
                 - has: {field: arguments, not: {has: {pattern: $_}}}
             - kind: call_expression
               all:
-                - has: {field: function, kind: field_expression, all: [{has: {field: value, matches: empty-literal}}, {has: {field: field, regex: '^(into|to_owned|to_string)$'}}]}
+                - has: {field: function, kind: field_expression, all: [{has: {field: value, matches: blank-literal}}, {has: {field: field, regex: '^(into|to_owned|to_string)$'}}]}
                 - has: {field: arguments, not: {has: {pattern: $_}}}
             - {kind: scoped_identifier, matches: empty-path}
     bound:
@@ -42,19 +47,21 @@ utils:
             - matches: empty-text
             - matches: bound
             - matches: aliased
+            - kind: reference_expression
+              has: {field: value, any: [{matches: empty-text}, {matches: bound}, {matches: aliased}]}
     text-path:
         regex: '^((std|alloc)::\w+::)?(String|OsString)::(new|default)$'
     absent-sentinel:
         pattern: $SENTINEL
         any:
-            - matches: empty-literal
+            - matches: blank-literal
             - kind: call_expression
               all:
                 - has: {field: function, kind: scoped_identifier, matches: text-path}
                 - has: {field: arguments, not: {has: {pattern: $_}}}
             - kind: call_expression
               all:
-                - has: {field: function, kind: field_expression, all: [{has: {field: value, matches: empty-literal}}, {has: {field: field, regex: '^(into|to_owned|to_string)$'}}]}
+                - has: {field: function, kind: field_expression, all: [{has: {field: value, matches: blank-literal}}, {has: {field: field, regex: '^(into|to_owned|to_string)$'}}]}
                 - has: {field: arguments, not: {has: {pattern: $_}}}
             - matches: bound
             - matches: aliased
@@ -67,21 +74,21 @@ utils:
         any:
             - matches: absent-sentinel
             - kind: block
-              has: {nthChild: {position: 1, reverse: true, ofRule: {matches: rust-statement-slot}}, any: [{matches: absent-sentinel}, {kind: return_expression, has: {matches: absent-sentinel}}]}
+              has: {nthChild: {position: 1, reverse: true, ofRule: {matches: rust-statement}}, any: [{matches: absent-sentinel}, {kind: return_expression, has: {matches: absent-sentinel}}]}
     substitute:
         kind: field_expression
         all:
             - has: {field: field, regex: '^(unwrap_or|unwrap_or_else|map_or|map_or_else)$'}
-            - not: {has: {field: value, any: [{matches: rust-dropped-error}, {kind: call_expression, has: {field: function, regex: '(::|\.)try_(from|into)$'}}]}}
+            - not: {has: {field: value, any: [{matches: rust-dropped-error}, {matches: rust-result-call}]}}
     defaulted:
         kind: field_expression
         all:
             - has: {field: field, regex: '^(unwrap_or_default|map_or_default)$'}
-            - not: {has: {field: value, matches: rust-dropped-error}}
+            - not: {has: {field: value, any: [{matches: rust-dropped-error}, {matches: rust-result-call}]}}
     default-map:
         kind: call_expression
         all:
-            - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(map_or|map_or_else)$'}}, {not: {has: {field: value, matches: rust-dropped-error}}}]}
+            - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(map_or|map_or_else)$'}}, {not: {has: {field: value, any: [{matches: rust-dropped-error}, {matches: rust-result-call}]}}}]}
             - has: {field: arguments, has: {nthChild: 1, matches: rust-default-value}}
     binding:
         kind: let_declaration
@@ -93,7 +100,11 @@ utils:
             - has: {pattern: $NAME}
             - has: {pattern: $SENTINEL}
     retested:
-        inside: {matches: binding, stopBy: {kind: block}, inside: {kind: block, has: {stopBy: {kind: 'function_item, closure_expression'}, matches: retested-sentinel}}}
+        inside: {kind: let_declaration, stopBy: {kind: block}, all: [{matches: binding}, {matches: retest-after}]}
+    retest-after:
+        precedes:
+            stopBy: {kind: let_declaration, has: {field: pattern, pattern: $NAME}}
+            any: [{matches: retested-sentinel}, {has: {stopBy: {kind: 'function_item, closure_expression'}, matches: retested-sentinel}}]
     text-option:
         kind: generic_type
         all:
@@ -158,7 +169,7 @@ rule:
           all:
             - any: [{has: {field: function, matches: defaulted}}, {matches: default-map}]
             - any:
-                - matches: rust-retested-default
+                - matches: rust-default-compared-binding
                 - has: {field: function, all: [{has: {field: field, regex: '^unwrap_or_default$'}}, {has: {field: value, matches: text-option-value}}]}
         - kind: match_arm
           all:
@@ -172,12 +183,12 @@ rule:
         - kind: let_declaration
           all:
             - has: {field: pattern, kind: tuple_struct_pattern, has: {field: type, regex: '^Some$'}}
-            - has: {field: alternative, kind: block, has: {nthChild: {position: 1, reverse: true, ofRule: {matches: rust-statement-slot}}, kind: return_expression, has: {matches: absent-sentinel}}}
+            - has: {field: alternative, kind: block, has: {nthChild: {position: 1, reverse: true, ofRule: {matches: rust-statement}}, kind: return_expression, has: {matches: absent-sentinel}}}
         - kind: let_declaration
           all:
             - has: {field: pattern, kind: identifier, pattern: $NAME}
             - has: {field: value, any: [{matches: bound}, {matches: aliased}], pattern: $SENTINEL}
-            - inside: {kind: block, has: {stopBy: {kind: 'function_item, closure_expression'}, matches: retested-sentinel}}
+            - matches: retest-after
         - kind: 'const_item, static_item'
           all:
             - has: {field: name, regex: '(?i)^(unset|none|null|missing|absent|invalid|unknown|undefined|sentinel|no_\w+|not_\w+)$'}
@@ -187,4 +198,4 @@ rule:
             - has: {field: function, kind: field_expression, has: {field: field, regex: '^fold$'}}
             - has: {field: arguments, all: [{has: {nthChild: 1, matches: bound}}, {has: {nthChild: 2, matches: extreme-step}}, {not: {has: {nthChild: 3}}}]}
 message: '`$SITE` collapses absence or failure into a sentinel value'
-note: 'Keep the `Option` or `Result` and match it where a consumer acts on absence, a sentinel (`""`, `-1`, `MAX`, `NAN`, an empty buffer, `Default`) is a valid value of its type and states no absence. A `fold` seeded with a bound returns the bound for no items where `.reduce(f64::max)` (floats) or `Iterator::max` and `min` (`Ord` items) return `None`. Clippy rewrites `unwrap_or(String::new())` into `unwrap_or_default()` and keeps the sentinel. `no-map-then-default` owns a `map_or` default fallback no later test reads, and `no-try-default-rust` owns a `Result` dropped through `.ok()` or `let Ok(..) else`. `try_from(<n>).unwrap_or(<T>::MAX)` saturates a conversion and stays as written'
+note: 'Keep the `Option` or `Result` and match it where a consumer acts on absence, and select an extreme with `.reduce(f64::max)` or `Iterator::max` and `min` in place of a `fold` seeded with a bound'

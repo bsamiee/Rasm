@@ -18,7 +18,7 @@ public readonly partial struct FilmSpan : IMinMaxValue<FilmSpan> {
     public static FilmSpan MinValue { get; } = new(float.BitIncrement(0f));
     public static FilmSpan MaxValue { get; } = new(64f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, ConstructorAccessModifier = AccessModifier.Internal,
@@ -28,7 +28,7 @@ public readonly partial struct CurveFraction : IMinMaxValue<CurveFraction> {
     public static CurveFraction MinValue { get; } = new(float.BitIncrement(0f));
     public static CurveFraction MaxValue { get; } = new(float.BitDecrement(1f));
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, ConstructorAccessModifier = AccessModifier.Internal,
@@ -38,7 +38,7 @@ public readonly partial struct Density : IMinMaxValue<Density> {
     public static Density MinValue { get; } = new(float.BitIncrement(0f));
     public static Density MaxValue { get; } = new(149f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, ConstructorAccessModifier = AccessModifier.Internal,
@@ -48,7 +48,7 @@ public readonly partial struct HueRotation : IMinMaxValue<HueRotation> {
     public static HueRotation MinValue { get; } = new(float.BitIncrement(-float.Pi / 6f));
     public static HueRotation MaxValue { get; } = new(float.BitDecrement(float.Pi / 6f));
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, ConstructorAccessModifier = AccessModifier.Internal,
@@ -60,7 +60,7 @@ public readonly partial struct BlackOffset : IMinMaxValue<BlackOffset> {
 
     public double Fraction => _value / 1000d;
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 public sealed record FilmState(

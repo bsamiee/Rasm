@@ -3,7 +3,7 @@ id: no-discriminant-match
 language: rust
 severity: error
 utils:
-    variant-value:
+    self-variant:
         any:
             - kind: call_expression
               all:
@@ -11,32 +11,51 @@ utils:
                 - has: {field: arguments, all: [{has: {nthChild: 1, kind: scoped_identifier, has: {field: path, any: [{regex: '^Self$'}, {pattern: $T}]}}}, {not: {has: {nthChild: 2}}}]}
             - kind: block
               all:
-                - has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, matches: variant-value}
-                - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
-    literal-arm:
+                - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, matches: self-variant}
+                - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
+    named-variant:
+        any:
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: identifier, regex: '^(Ok|Some)$'}
+                - has: {field: arguments, all: [{has: {nthChild: 1, kind: scoped_identifier, has: {field: path, kind: identifier, not: {regex: '^Self$'}, pattern: $T}}}, {not: {has: {nthChild: 2}}}]}
+            - kind: block
+              all:
+                - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, matches: named-variant}
+                - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
+    discriminant-pattern:
+        kind: match_pattern
+        any:
+            - regex: '^(-?\d\w*|b''(\\.|[^''\\])'')$'
+            - has: {field: condition, kind: binary_expression, all: [{has: {field: operator, regex: '^==$'}}, {has: {field: right, kind: type_cast_expression, has: {field: value, kind: scoped_identifier}}}]}
+    self-arm:
         kind: match_arm
-        all:
-            - has: {field: pattern, kind: match_pattern, regex: '^-?\d\w*$'}
-            - has: {field: value, matches: variant-value}
+        all: [{has: {field: pattern, matches: discriminant-pattern}}, {has: {field: value, matches: self-variant}}]
+    named-arm:
+        kind: match_arm
+        all: [{has: {field: pattern, matches: discriminant-pattern}}, {has: {field: value, matches: named-variant}}]
     fallback-arm:
         kind: match_arm
         all:
             - has: {field: pattern, kind: match_pattern, regex: '^(_|[a-z_]\w*)$'}
-            - has: {field: value, regex: '^\{?\s*(Err\s*\(|None\b)'}
+            - has: {field: value, regex: '^\{?\s*(return\s+)?(Err\s*\(|None\b)'}
+    decode-arms:
+        all:
+            - has: {kind: match_arm, nthChild: {position: 1, reverse: true, ofRule: {kind: match_arm}}, matches: fallback-arm}
+            - not: {has: {kind: match_arm, has: {field: value, pattern: $SAME}, precedes: {stopBy: end, kind: match_arm, not: {matches: fallback-arm}, has: {field: value, pattern: $SAME}}}}
 rule:
     kind: match_expression
     all:
-        - inside:
-            kind: function_item
-            stopBy: {kind: 'function_item, closure_expression'}
-            inside: {kind: declaration_list, inside: {kind: impl_item, has: {field: type, kind: type_identifier, pattern: $T}}}
+        - inside: {kind: function_item, stopBy: {kind: 'function_item, closure_expression'}}
+        - any:
+            - all:
+                - inside:
+                    kind: function_item
+                    stopBy: {kind: 'function_item, closure_expression'}
+                    inside: {kind: declaration_list, inside: {kind: impl_item, has: {field: type, kind: type_identifier, pattern: $T}}}
+                - has: {field: body, all: [{has: {matches: self-arm}}, {not: {has: {kind: match_arm, not: {any: [{matches: self-arm}, {matches: fallback-arm}]}}}}]}
+            - has: {field: body, all: [{has: {matches: named-arm}}, {not: {has: {kind: match_arm, not: {any: [{matches: named-arm}, {matches: fallback-arm}]}}}}]}
+        - has: {field: body, matches: decode-arms}
         - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: enum_item, has: {field: name, pattern: $T}}}
-        - has:
-            field: body
-            all:
-                - has: {kind: match_arm, nthChild: {position: 1, reverse: true, ofRule: {kind: match_arm}}, matches: fallback-arm}
-                - has: {kind: match_arm, matches: literal-arm}
-                - not: {has: {kind: match_arm, not: {any: [{matches: literal-arm}, {matches: fallback-arm}]}}}
-                - not: {has: {matches: literal-arm, has: {field: value, pattern: $SAME}, precedes: {stopBy: end, matches: literal-arm, has: {field: value, pattern: $SAME}}}}
 message: '`$T` decodes an integer through a literal arm per variant'
-note: 'Give the enum variants the arm literals as discriminants under `#[repr(<int>)]` and derive `derive_more::TryFrom` with `#[try_from(repr)]` for a `TryFrom` impl or `strum::FromRepr` for `from_repr` returning `Option`, the discriminants state the table the arms repeat.'
+note: 'Give the enum variants the arm literals as discriminants under `#[repr(<int>)]`, and derive `derive_more::TryFrom` with `#[try_from(repr)]` for `TryFrom` or `strum::FromRepr` for `from_repr` returning `Option`'

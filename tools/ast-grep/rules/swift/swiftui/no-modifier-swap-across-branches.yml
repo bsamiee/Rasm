@@ -83,4 +83,4 @@ transform:
     MERGED: {rewrite: {source: $BRANCH, rewriters: [string-argument, member-argument, number-argument]}}
 fix: $MERGED
 message: '`$VIEW` takes other arguments or modifiers per branch and resets its state at every condition change'
-note: 'Keep one `<view>` and pass the branch condition as a modifier or argument value (`.tint`, `.disabled`, `.opacity`, a ternary argument), each per-branch view holds its own identity'
+note: 'Keep one `<view>` and pass the branch condition as a modifier or argument value (`.tint`, `.disabled`, `.opacity`, a ternary argument)'

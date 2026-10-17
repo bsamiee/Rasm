@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-matched-select-output
+language: rust
+severity: error
+utils:
+    select:
+        kind: macro_invocation
+        has: {field: macro, regex: '^(::)?((tokio|futures)::)?select(_biased)?$', pattern: $SELECT}
+    branching:
+        any:
+            - kind: match_expression
+              has: {field: value, kind: identifier, pattern: $OUTPUT}
+            - kind: if_expression
+              has: {field: condition, kind: let_condition, has: {field: value, kind: identifier, pattern: $OUTPUT}}
+    branching-statement:
+        any:
+            - matches: branching
+            - kind: expression_statement
+              has: {matches: branching}
+    reading:
+        any:
+            - pattern: $OUTPUT
+            - has: {stopBy: end, kind: identifier, pattern: $OUTPUT}
+rule:
+    any:
+        - kind: let_declaration
+          all:
+            - has: {field: pattern, kind: identifier, pattern: $OUTPUT}
+            - has: {field: value, matches: select}
+            - not: {has: {field: alternative, pattern: $_}}
+            - precedes: {stopBy: end, matches: branching-statement}
+            - not: {precedes: {stopBy: end, precedes: {stopBy: end, matches: branching-statement}, matches: reading}}
+            - not: {precedes: {stopBy: end, follows: {stopBy: end, matches: branching-statement}, matches: reading}}
+        - kind: match_expression
+          has: {field: value, matches: select}
+message: '`$SELECT!` hands its branch result to a `match` or `if let` that runs the branch work'
+note: 'Move each arm body into the handler of the `select!` branch that produces it and delete the intermediate value'

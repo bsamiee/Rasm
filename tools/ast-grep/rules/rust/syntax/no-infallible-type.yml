@@ -11,4 +11,4 @@ rule:
           regex: '^((::)?(std|core)::)?convert::Infallible$'
 fix: '!'
 message: '`Infallible` names the never type through its alias'
-note: 'Write `!`, `core::convert::Infallible` is the alias `pub type Infallible = !;`. Drop the `Infallible` import the last use leaves unused'
+note: 'Write `!` and delete the `Infallible` import the last use leaves unused'

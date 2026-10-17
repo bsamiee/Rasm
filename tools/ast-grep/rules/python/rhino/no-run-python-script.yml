@@ -12,5 +12,5 @@ rule:
             - inside: {matches: python-docstring-or-comment}
             - inside: {kind: comparison_operator, stopBy: {not: {kind: 'tuple, list, set'}}}
             - inside: {kind: case_pattern, stopBy: end}
-message: '`$MACRO` runs Python on IronPython 2 through `_-RunPythonScript`, `_-ScriptEditor _Run` runs it on the shared CPython'
-note: 'Use `_-ScriptEditor _Run "<file>"`, or `_-ScriptEditor _Run (<source>)` with `#! python3` as the first source line, RhinoCode resolves inline source by its `#!` line alone'
+message: '`$MACRO` runs Python on IronPython 2 through `_-RunPythonScript`'
+note: 'Run it on the shared CPython through `_-ScriptEditor _Run "<file>"`, or `_-ScriptEditor _Run (<source>)` with `#! python3` as the first source line, RhinoCode resolving inline source by its `#!` line alone'

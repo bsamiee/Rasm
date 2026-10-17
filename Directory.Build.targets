@@ -2,11 +2,11 @@
     <PropertyGroup Label="Test Coverage" Condition="'$(IsTestingPlatformApplication)' == 'true'">
         <IsTestProject>true</IsTestProject>
         <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
-        <_TestResultsDirectory>$([MSBuild]::NormalizeDirectory('$(ArtifactsPath)', 'coverage', '$(MSBuildProjectName)'))</_TestResultsDirectory>
-        <TestingPlatformCommandLineArguments>--coverlet --coverlet-output-format cobertura --results-directory "$(_TestResultsDirectory)"</TestingPlatformCommandLineArguments>
+        <_TestResultsDirectory>$([MSBuild]::NormalizeDirectory('$(ArtifactsPath)', 'test', '$(ArtifactsProjectName)'))</_TestResultsDirectory>
+        <TestingPlatformCommandLineArguments>$(TestingPlatformCommandLineArguments) --coverlet --coverlet-output-format cobertura</TestingPlatformCommandLineArguments>
     </PropertyGroup>
 
-    <ItemGroup Label="Project Usings">
+    <ItemGroup Label="Project Usings" Condition="'$(ProjectRole)' != 'analyzers'">
         <Using Include="System.Collections.Frozen;System.Collections.Immutable" />
         <Using Include="Thinktecture" />
         <Using Include="LanguageExt;LanguageExt.Common;LanguageExt.Traits;LanguageExt.UnsafeValueAccess" />
@@ -20,6 +20,17 @@
         <Using Include="Xunit" Condition="'@(PackageReference->WithMetadataValue('Identity', 'xunit.v3.mtp-v2'))' != '' or '@(PackageReference->WithMetadataValue('Identity', 'xunit.v3.assert'))' != ''" />
         <Using Include="CsCheck" Condition="'@(PackageReference->WithMetadataValue('Identity', 'CsCheck'))' != ''" />
         <Using Include="Grasshopper2.Types.Numeric;Grasshopper2.UI" Condition="'@(PackageReference->WithMetadataValue('Identity', 'Grasshopper2'))' != ''" />
+    </ItemGroup>
+
+    <ItemGroup Label="Banned Symbols">
+        <AdditionalFiles Include="$(MSBuildThisFileDirectory)tools/roslyn/BannedSymbols.txt" />
+        <AdditionalFiles Include="$(MSBuildThisFileDirectory)tools/roslyn/BannedSymbols.Library.txt" Condition="$(_RepoRelativeDir.StartsWith('/libs/'))" />
+    </ItemGroup>
+
+    <ItemGroup Label="Roslyn Components" Condition="'$(ProjectRole)' != 'analyzers'">
+        <_RoslynComponent Include="$(MSBuildThisFileDirectory)tools/roslyn/*/*.csproj" />
+        <ProjectReference Include="@(_RoslynComponent)" Exclude="@(ProjectReference)" ReferenceOutputAssembly="false" />
+        <ProjectReference Update="@(_RoslynComponent)" OutputItemType="Analyzer" UndefineProperties="RhinoPlugIn;ArtifactsPivots" />
     </ItemGroup>
 
     <ItemGroup Label="Rhino Host" Condition="'$(RhinoHost)' != ''">

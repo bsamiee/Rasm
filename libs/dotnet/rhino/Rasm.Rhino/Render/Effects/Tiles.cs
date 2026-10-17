@@ -32,7 +32,7 @@ public readonly partial struct TileBatch : System.Numerics.IMinMaxValue<TileBatc
     public static TileBatch MaxValue { get; } = new(8);
     public static TileBatch Default { get; } = new(2);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<int>(AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -43,7 +43,7 @@ public readonly partial struct TileBudget : System.Numerics.IMinMaxValue<TileBud
 
     public Duration Span => Duration.FromMilliseconds(_value);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<int>(AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -52,7 +52,7 @@ public readonly partial struct TileCapacity : System.Numerics.IMinMaxValue<TileC
     public static TileCapacity MaxValue { get; } = new(4096);
     public static TileCapacity Default { get; } = new(256);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 public sealed record TileLimits(TileBatch Batch, TileBudget Budget, TileCapacity Capacity) {

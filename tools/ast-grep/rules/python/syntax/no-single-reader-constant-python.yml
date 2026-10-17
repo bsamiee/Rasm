@@ -100,7 +100,7 @@ rule:
                     all:
                         - has: {stopBy: end, matches: reference, not: {matches: scoped}}
                         - has: {stopBy: end, matches: later-reference}
-message: 'Module-level constant `$NAME` has one reader, and the value belongs inside it'
-note: 'Use the value inside its one reader, as a local where its name states a fact and inline otherwise, module level holds entry points and their return types. Each site takes a manual rewrite, a fix replaces the matched assignment alone and reaches no reader'
+message: 'Module-level constant `$NAME` has one reader'
+note: 'Bind the value inside its one reader by hand, as a local where its name states a fact and inline otherwise'
 labels:
     READER: {style: secondary, message: Only reader}

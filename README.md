@@ -30,7 +30,9 @@ Rasm/
 │   ├── bridge/               # rasm-mcp-bridge binary serving a stdio MCP server over Streamable HTTP
 │   ├── dylint/               # Rust lints reading types and resolved paths Clippy lacks
 │   ├── nx/                   # Nx plugin inferring a project from each project file
-│   └── refurb/               # Python checks reading mypy types Ruff lacks
+│   ├── refurb/               # Python checks reading mypy types Ruff lacks
+│   ├── roslyn/               # C# analyzers and code fixes reading symbols and types installed analyzers lack, BannedSymbols*.txt bans
+│   └── typescript-go/        # TypeScript checks reading typescript-go API types Biome and Effect diagnostics lack
 ├── plugins/                  # Agent harness marketplace, one directory per plugin
 ├── mise.toml                 # Tool binaries and process environment
 ├── global.json               # .NET SDK versions
@@ -113,7 +115,7 @@ flowchart LR
 - Project `cloudflare.config.ts` adds the Cloudflare Build Output under `.cloudflare/output` to inferred Vite `build` outputs
 - Tools one host supplies join a project's target, root targets hold commands no project owns
 - Inputs name the files a tool reads and its version as `runtime`, outputs name the files it writes
-- Caches and outputs sit under root `.cache/` and `.artifacts/`, each tool relocated through one setting every run reads, or its guidance file states why not
+- Caches and outputs sit under root `.cache/` and `.artifacts/`, each tool moved by one setting every run reads, or its guidance file states why not
 - Caches shared with projects outside the repository sit where Parametric Forge or the tool's default puts them
 - Logs sit flat in `.artifacts/logs/` as one `<producer>.log` per launchd label or tool name, each moved there through its producer's setting
 
@@ -145,9 +147,10 @@ flowchart LR
 ## [05]-[QUALITY]
 
 - Failing checks are fixed in the code or the rule, severity stays as configured
+- Mistakes no check reports become checks, held to the standards of the code they check
 - .NET: compiler, analyzers, BuildCheck, and `dotnet format` at zero findings
 - Python: Ruff, ty, mypy, refurb, and deptry at zero findings
-- TypeScript: Biome and `tsc` with `@effect/tsgo` at zero findings
+- TypeScript: Biome, `tsc` with `@effect/tsgo`, and typescript-go checks at zero findings
 - Rust: Clippy, rustfmt, Dylint, and cargo-modules at zero findings
 - Swift: compiler, swift-format, and SwiftLint at zero findings
 - Java: google-java-format and PMD at zero findings

@@ -16,5 +16,5 @@ rule:
                         - has: {field: name, regex: '^nanoseconds$'}
                         - has: {field: value, pattern: $N}
 message: '`$SLEEP(nanoseconds: $N)` counts a `UInt64` of nanoseconds in place of a `Duration`'
-note: 'Sleep for a `Duration` through `Task.sleep(for:)`, which waits on `ContinuousClock` and counts time the system sleeps'
+note: 'Sleep for a `Duration` through `Task.sleep(for:)` on `ContinuousClock`, counting time the system sleeps'
 fix: '$SLEEP(for: .nanoseconds($N))'

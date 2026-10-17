@@ -32,8 +32,9 @@ utils:
                 - has: {field: name, pattern: $NAME}
     swap:
         kind: invocation_expression
+        pattern: $WRITE
         all:
-            - matches: csharp-atom-mutation
+            - matches: languageext-atom-mutation
             - any:
                 - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, matches: receiver}}, {has: {field: name, pattern: $SWAP}}]}
                 - all:
@@ -92,5 +93,7 @@ rule:
                 kind: argument
                 inside: {kind: 'tuple_expression, argument_list'}
                 precedes: {stopBy: end, has: {stopBy: {matches: callback}, matches: swap}}
+labels:
+    WRITE: {style: secondary, message: 'Writes the cell the earlier read observed'}
 message: '`$CELL.$READER` is read before a separate `$SWAP` of `$CELL`'
-note: Use one transition from the prior value, `Swap` returning the state before and after or a keyed `FindOrAdd`, `TryAdd`, or `SwapKey`, a separate read races each write
+note: Compute the next state from the transition argument of one `Swap`, which returns the value it set, or call `FindOrAdd`, `TryAdd`, or `SwapKey` on a keyed cell, a separate read races each write

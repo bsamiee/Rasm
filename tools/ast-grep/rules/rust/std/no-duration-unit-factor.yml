@@ -1,0 +1,117 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-duration-unit-factor
+language: rust
+severity: error
+utils:
+    variable:
+        any:
+            - kind: 'identifier, field_identifier, self'
+            - has: {stopBy: end, kind: 'identifier, field_identifier, self'}
+    operand:
+        all:
+            - not: {kind: 'integer_literal, float_literal'}
+            - matches: variable
+            - any:
+                - kind: parenthesized_expression
+                  has: {nthChild: 1, pattern: $ARG}
+                - pattern: $ARG
+                  not: {kind: parenthesized_expression}
+    product:
+        kind: binary_expression
+        has: {field: operator, regex: '^\*$'}
+    mul-call:
+        kind: call_expression
+        has: {field: function, kind: field_expression, has: {field: field, regex: '^(saturating|strict|wrapping|unchecked)_mul$'}}
+    scaled:
+        any: [{matches: product}, {matches: mul-call}]
+    scaled-constructor:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: scoped_identifier, all: [{has: {field: path, regex: '(^|::)Duration$', pattern: $PATH}}, {has: {field: name, regex: '^from_(secs|millis|micros|nanos)$'}}]}
+            - has: {field: arguments, not: {has: {nthChild: 2}}}
+            - any:
+                - all:
+                    - has: {field: function, has: {field: name, regex: '^from_secs$'}}
+                    - has:
+                        field: arguments
+                        has:
+                            nthChild: 1
+                            matches: scaled
+                            any:
+                                - all: [{has: {field: right, kind: integer_literal, regex: &secs '^(6_*0|3_*6_*0_*0)(_?u64)?$', pattern: $SECS}}, {has: {field: left, matches: operand}}]
+                                - all: [{has: {field: left, kind: integer_literal, regex: *secs, pattern: $SECS}}, {has: {field: right, matches: operand}}]
+                                - all: [{matches: mul-call}, {has: {field: arguments, has: {nthChild: 1, kind: integer_literal, regex: *secs, pattern: $SECS}}}, {has: {field: function, has: {field: value, matches: operand}}}]
+                - all:
+                    - has: {field: function, has: {field: name, regex: '^from_millis$'}}
+                    - has:
+                        field: arguments
+                        has:
+                            nthChild: 1
+                            matches: scaled
+                            any:
+                                - all: [{has: {field: right, kind: integer_literal, regex: &millis '^(1_*0_*0_*0|6_*0_*0_*0_*0|3_*6_*0_*0_*0_*0_*0)(_?u64)?$', pattern: $MILLIS}}, {has: {field: left, matches: operand}}]
+                                - all: [{has: {field: left, kind: integer_literal, regex: *millis, pattern: $MILLIS}}, {has: {field: right, matches: operand}}]
+                                - all: [{matches: mul-call}, {has: {field: arguments, has: {nthChild: 1, kind: integer_literal, regex: *millis, pattern: $MILLIS}}}, {has: {field: function, has: {field: value, matches: operand}}}]
+                - all:
+                    - has: {field: function, has: {field: name, regex: '^from_micros$'}}
+                    - has:
+                        field: arguments
+                        has:
+                            nthChild: 1
+                            matches: scaled
+                            any:
+                                - all: [{has: {field: right, kind: integer_literal, regex: &micros '^(1_*0_*0_*0|1_*0_*0_*0_*0_*0_*0|6_*0_*0_*0_*0_*0_*0_*0|3_*6_*0_*0_*0_*0_*0_*0_*0_*0)(_?u64)?$', pattern: $MICROS}}, {has: {field: left, matches: operand}}]
+                                - all: [{has: {field: left, kind: integer_literal, regex: *micros, pattern: $MICROS}}, {has: {field: right, matches: operand}}]
+                                - all: [{matches: mul-call}, {has: {field: arguments, has: {nthChild: 1, kind: integer_literal, regex: *micros, pattern: $MICROS}}}, {has: {field: function, has: {field: value, matches: operand}}}]
+                - all:
+                    - has: {field: function, has: {field: name, regex: '^from_nanos$'}}
+                    - has:
+                        field: arguments
+                        has:
+                            nthChild: 1
+                            matches: scaled
+                            any:
+                                - all: [{has: {field: right, kind: integer_literal, regex: &nanos '^(1_*0_*0_*0|1_*0_*0_*0_*0_*0_*0|1_*0_*0_*0_*0_*0_*0_*0_*0_*0|6_*0_*0_*0_*0_*0_*0_*0_*0_*0_*0_*0|3_*6_*0_*0_*0_*0_*0_*0_*0_*0_*0_*0_*0_*0)(_?u64)?$', pattern: $NANOS}}, {has: {field: left, matches: operand}}]
+                                - all: [{has: {field: left, kind: integer_literal, regex: *nanos, pattern: $NANOS}}, {has: {field: right, matches: operand}}]
+                                - all: [{matches: mul-call}, {has: {field: arguments, has: {nthChild: 1, kind: integer_literal, regex: *nanos, pattern: $NANOS}}}, {has: {field: function, has: {field: value, matches: operand}}}]
+    scaled-seconds:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^\*$'}
+            - any:
+                - pattern: $D.$READ() * $THOUSAND
+                - pattern: $THOUSAND * $D.$READ()
+rule:
+    kind: 'call_expression, binary_expression'
+    pattern: $FACTOR
+    any:
+        - matches: scaled-constructor
+        - matches: scaled-seconds
+constraints:
+    READ: {regex: '^as_secs_f(32|64)$'}
+    THOUSAND: {regex: '^(1_?000(\.0*)?|1(\.0*)?e3)(_?f(32|64))?$'}
+transform:
+    HEAD: {replace: {source: $PATH, replace: '^([\s\S]+)$', by: '$1::'}}
+    SECS_N: replace($SECS, replace='_|u64$', by='')
+    SECS_A: replace($SECS_N, replace='^60$', by='from_mins')
+    SECS_C: replace($SECS_A, replace='^3600$', by='from_hours')
+    MILLIS_N: replace($MILLIS, replace='_|u64$', by='')
+    MILLIS_A: replace($MILLIS_N, replace='^1000$', by='from_secs')
+    MILLIS_B: replace($MILLIS_A, replace='^60000$', by='from_mins')
+    MILLIS_C: replace($MILLIS_B, replace='^3600000$', by='from_hours')
+    MICROS_N: replace($MICROS, replace='_|u64$', by='')
+    MICROS_A: replace($MICROS_N, replace='^1000$', by='from_millis')
+    MICROS_B: replace($MICROS_A, replace='^1000000$', by='from_secs')
+    MICROS_D: replace($MICROS_B, replace='^60000000$', by='from_mins')
+    MICROS_C: replace($MICROS_D, replace='^3600000000$', by='from_hours')
+    NANOS_N: replace($NANOS, replace='_|u64$', by='')
+    NANOS_A: replace($NANOS_N, replace='^1000$', by='from_micros')
+    NANOS_B: replace($NANOS_A, replace='^1000000$', by='from_millis')
+    NANOS_D: replace($NANOS_B, replace='^1000000000$', by='from_secs')
+    NANOS_E: replace($NANOS_D, replace='^60000000000$', by='from_mins')
+    NANOS_C: replace($NANOS_E, replace='^3600000000000$', by='from_hours')
+    ARGUMENT: {replace: {source: $ARG, replace: '^([\s\S]+)$', by: '($1)'}}
+    MILLIS_READ: {replace: {source: $READ, replace: '^as_secs_(f32|f64)$', by: '.as_millis_$1()'}}
+fix: $HEAD$SECS_C$MILLIS_C$MICROS_C$NANOS_C$ARGUMENT$D$MILLIS_READ
+message: '`$FACTOR` converts a duration unit by a literal factor'
+note: 'Call the constructor of the count''s own unit (`Duration::from_mins`, `from_hours`, `from_secs`, `from_millis`, `from_micros`), and read milliseconds through `as_millis_f64()` or `as_millis_f32()` (`#![feature(duration_millis_float)]`)'

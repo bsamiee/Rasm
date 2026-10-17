@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-result-read
+language: rust
+rule:
+    kind: identifier
+    any:
+        - inside: {kind: 'let_declaration, parameter, closure_parameters', field: pattern}
+        - inside: {kind: field_expression, field: value, inside: {kind: call_expression, has: {field: function, has: {field: field, regex: '^(is_ok|is_err)$'}}}}
+        - inside:
+            kind: field_expression
+            field: value
+            has: {field: field, regex: '^as_(ref|mut|deref|deref_mut)$'}
+            inside:
+                kind: call_expression
+                has: {field: arguments, not: {has: {pattern: $_}}}
+                inside: {kind: field_expression, field: value, has: {field: field, regex: '^ok$'}}

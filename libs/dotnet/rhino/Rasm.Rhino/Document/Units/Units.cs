@@ -32,7 +32,7 @@ public sealed partial class Tolerances {
             (double absolute, double relative, double angle) = modelUnits
                 ? (doc.ModelAbsoluteTolerance, doc.ModelRelativeTolerance, doc.ModelAngleToleranceRadians)
                 : (doc.PageAbsoluteTolerance, doc.PageRelativeTolerance, doc.PageAngleToleranceRadians);
-            return Admission.Admitted(Validate(absolute, relative, angle, Intersection.MeshIntersectionsTolerancesCoefficient, out Tolerances? value), value);
+            return ValidationResults.ToFin(Validate(absolute, relative, angle, Intersection.MeshIntersectionsTolerancesCoefficient, out Tolerances? value), value);
         });
 
     public IO<Unit> Write(RhinoDoc doc, bool modelUnits, CallbackSite site) =>
@@ -63,7 +63,7 @@ public sealed partial class DistanceDisplay {
             (DistanceDisplayMode mode, int precision) = modelUnits
                 ? (doc.ModelDistanceDisplayMode, doc.ModelDistanceDisplayPrecision)
                 : (doc.PageDistanceDisplayMode, doc.PageDistanceDisplayPrecision);
-            return Admission.Admitted(Validate(modelUnits, mode, precision, out DistanceDisplay? value), value);
+            return ValidationResults.ToFin(Validate(modelUnits, mode, precision, out DistanceDisplay? value), value);
         });
 
     public IO<Unit> Write(RhinoDoc doc, CallbackSite site) =>

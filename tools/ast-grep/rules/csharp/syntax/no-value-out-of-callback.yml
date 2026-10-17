@@ -28,7 +28,7 @@ utils:
                                 - has: {nthChild: 2, kind: 'object_creation_expression, array_creation_expression', has: {field: type, matches: collection-type}}
     cell:
         any:
-            - matches: csharp-atom-cell
+            - matches: languageext-atom-cell
             - matches: collection-local
     mutation:
         any:
@@ -37,7 +37,7 @@ utils:
             - kind: invocation_expression
               all:
                 - has: {field: function, matches: {csharp-type-name: {name: {regex: '^(swap|commute)$'}}}}
-                - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {pattern: $CELL, matches: csharp-atom-cell}}}
+                - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {pattern: $CELL, matches: languageext-atom-cell}}}
             - kind: assignment_expression
               has: {field: left, kind: element_access_expression, has: {field: expression, pattern: $CELL, matches: collection-local}}
     combinator:
@@ -103,7 +103,7 @@ utils:
         precedes: {stopBy: end, matches: later-read}
     transition:
         kind: 'lambda_expression, anonymous_method_expression'
-        inside: {kind: argument, inside: {kind: argument_list, inside: {matches: csharp-atom-transition}}}
+        inside: {kind: argument, inside: {kind: argument_list, inside: {matches: languageext-atom-transition}}}
     captured-write:
         not: {inside: {stopBy: end, matches: transition}}
         any:

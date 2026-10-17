@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-split-borrow-pair
+language: rust
+severity: error
+utils:
+    element-call:
+        kind: field_expression
+        has: {field: field, regex: '^(get_mut|first_mut|last_mut)$'}
+    element-site:
+        any:
+            - nthChild: 1
+              inside: {kind: index_expression, not: {has: {nthChild: 2, kind: range_expression}}}
+            - inside: {kind: field_expression, field: value, matches: element-call, inside: {kind: call_expression, field: function}}
+    looped:
+        kind: 'for_expression, while_expression, loop_expression, closure_expression'
+    head-element:
+        kind: identifier
+        pattern: $HEAD
+        matches: element-site
+    tail-element:
+        kind: identifier
+        pattern: $TAIL
+        matches: element-site
+rule:
+    kind: let_declaration
+    all:
+        - pattern: 'let ($HEAD, $TAIL) = $V.split_at_mut($AT);'
+        - precedes: {stopBy: end, has: {stopBy: end, matches: head-element}}
+        - precedes: {stopBy: end, has: {stopBy: end, matches: tail-element}}
+        - not: {precedes: {stopBy: end, has: {stopBy: end, kind: identifier, pattern: $HEAD, not: {matches: element-site}}}}
+        - not: {precedes: {stopBy: end, has: {stopBy: end, kind: identifier, pattern: $TAIL, not: {matches: element-site}}}}
+        - not: {precedes: {stopBy: end, has: {stopBy: end, matches: looped, has: {stopBy: end, kind: identifier, any: [{pattern: $HEAD}, {pattern: $TAIL}]}}}}
+message: '`$V.split_at_mut($AT)` splits the slice to borrow one element from each half'
+note: 'Write `let [<a>, <b>] = <slice>.get_disjoint_mut([<i>, <j>])?` with each half index rewritten as an index into the slice'

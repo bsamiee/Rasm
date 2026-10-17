@@ -28,6 +28,6 @@
     </ItemGroup>
 
     <ItemGroup Label="Workspace Sources">
-        <Compile Include="../../Admission.cs" />
+        <Compile Include="../../ValidationResults.cs" />
     </ItemGroup>
 </Project>

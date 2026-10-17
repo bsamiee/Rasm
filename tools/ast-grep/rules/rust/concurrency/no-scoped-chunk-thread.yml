@@ -4,21 +4,19 @@ language: rust
 severity: error
 utils:
     chunking:
-        regex: '\.(r?chunks(_exact)?(_mut)?)\s*\('
+        regex: '\.(r?chunks(_exact)?(_mut)?|step_by)\s*\('
     scope-call:
         kind: call_expression
-        has: {field: function, regex: '^((::)?std::)?(thread::)?scope$'}
-rule:
-    kind: call_expression
-    all:
-        - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^spawn$'}}, {has: {field: value, kind: identifier, pattern: $S}}]}
-        - inside:
+        has: {field: function, regex: '^((::)?(std|crossbeam(_utils)?|rayon)::)?(thread::)?(scope|in_place_scope)$'}
+    scope-handle:
+        inside:
             kind: closure_expression
             stopBy: end
             all:
-                - has: {field: parameters, has: {kind: identifier, pattern: $S}}
+                - has: {field: parameters, has: {stopBy: end, kind: identifier, pattern: $S}}
                 - inside: {kind: arguments, inside: {matches: scope-call}}
-        - any:
+    per-chunk:
+        any:
             - inside:
                 kind: for_expression
                 stopBy: {kind: 'function_item, closure_expression'}
@@ -27,5 +25,22 @@ rule:
                 kind: closure_expression
                 stopBy: {kind: function_item}
                 inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: field_expression, has: {field: value, matches: chunking, pattern: $CHUNKS}}}}
-message: '`$S.spawn` starts one scoped thread per chunk of `$CHUNKS`'
-note: 'Call rayon `<slice>.par_chunks(<n>)` (`par_chunks_mut`, `par_chunks_exact`) with `.for_each(<work>)` or `.map(<work>).collect()`, rayon splits disjoint chunks across its global thread pool and joins them in input order without one thread per chunk'
+rule:
+    kind: call_expression
+    pattern: $SPAWN
+    all:
+        - any:
+            - all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^spawn$'}}, {has: {field: value, kind: identifier, pattern: $S}}]}
+                - matches: scope-handle
+            - all:
+                - has: {field: function, kind: field_expression, has: {field: field, regex: '^spawn_scoped$'}}
+                - has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $S}}
+                - matches: scope-handle
+            - has: {field: function, regex: '^((::)?std::)?(thread::)?spawn$|^((::)?tokio::)?(task::)?spawn_blocking$'}
+        - matches: per-chunk
+message: '`$SPAWN` starts one thread per chunk of `$CHUNKS`'
+labels:
+    SPAWN: {style: primary, message: 'Spawns one thread per chunk'}
+    CHUNKS: {style: secondary, message: 'Splits the work into chunks'}
+note: 'Call `rayon` `<slice>.par_chunks(<n>)` (`par_chunks_mut`, `par_chunks_exact`) with `.for_each(<work>)` or `.map(<work>).collect()`'

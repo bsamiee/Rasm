@@ -38,7 +38,7 @@ public readonly partial struct RetryCount : System.Numerics.IMinMaxValue<RetryCo
 
     public Option<RetryCount> Spent => _value > MinValue._value ? new RetryCount(_value - 1) : None;
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<int>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Off", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -51,7 +51,7 @@ public readonly partial struct RetryDelay : System.Numerics.IMinMaxValue<RetryDe
 
     public Duration Span => Duration.FromSeconds(_value);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ComplexValueObject]
@@ -75,7 +75,7 @@ public sealed partial class FrameSpan {
             .Apply(static (from, until) => (From: from, Until: until))
             .As()
             .ToFin()
-            .Bind(static span => Admission.Admitted(Validate(span.From, span.Until, out FrameSpan? spanned), spanned));
+            .Bind(static span => ValidationResults.ToFin(Validate(span.From, span.Until, out FrameSpan? spanned), spanned));
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref SequenceNumber first, ref SequenceNumber last) =>
         validationError = first <= last && (long)(int)last - (int)first + 1 <= int.MaxValue ? null : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"frame span {first} to {last} is reversed or longer than {int.MaxValue} frames"));
@@ -119,7 +119,7 @@ public sealed record QueueEntry<TPath>(
     public Fin<Option<SunMoment>> Moment(SequenceNumber frame) =>
         Sun.Traverse(window => window.Frames switch {
             var moments => moments.At((int)frame).ToFin(Error.New(string.Create(CultureInfo.InvariantCulture, $"Frame {frame} lies past the {moments.Count} moments of the sun study")))
-                .Bind(Admission.Validated<SunMoment, LocalDateTime>),
+                .Bind(ValidationResults.Validated<SunMoment, LocalDateTime>),
         }).As();
 
     public QueueEntry<TPlaced> Placed<TPlaced>(Seq<QueueOutput<TPlaced>> outputs) => new(Override, Source, Frames, Extent, Overscan, Region, Sun, Destination, outputs);
@@ -200,7 +200,7 @@ public sealed record QueueSettingRows(
         (reader.Current(Retries), reader.Current(Delay), reader.Current(SampleEstimate),
          reader.Current(KeepAwake), reader.Current(ShutDownAfterSuccess), reader.Current(HeartbeatInterval), reader.Current(HeartbeatMisses))
             .Apply(static (retries, delay, sampled, awake, shutdown, interval, misses) =>
-                Admission.Admitted(QueueHeartbeat.Validate(interval, misses, out QueueHeartbeat? heartbeat), heartbeat)
+                ValidationResults.ToFin(QueueHeartbeat.Validate(interval, misses, out QueueHeartbeat? heartbeat), heartbeat)
                     .Map(held => new QueueSettings(retries, delay, sampled, awake, shutdown, held)))
             .As().Bind(IO.lift);
 

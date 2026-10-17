@@ -64,5 +64,5 @@ rule:
                 - has: {field: operator, regex: '^=$'}
                 - has: {field: target, has: {pattern: $ACC}}
                 - inside: {stopBy: {matches: scope}, kind: 'for_statement, while_statement, repeat_while_statement'}
-message: '`$ACC` is copied whole on every pass to add elements, quadratic in the input'
-note: 'Append in place, `reduce(into:)` with `append(_:)` or `append(contentsOf:)` or `+=` on the loop''s own buffer, or derive every element in one `map`, `flatMap`, or `compactMap`'
+message: 'Each pass copies `$ACC` whole to add elements, quadratic in the input'
+note: 'Append in place through `reduce(into:)` with `append(_:)` or `append(contentsOf:)` or `+=` on the loop''s own buffer, or derive every element in one `map`, `flatMap`, or `compactMap`'

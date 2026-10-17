@@ -28,5 +28,5 @@ rule:
                     - pattern: '$R.filter($P => $B)'
                     - pattern: '$MODULE.filter($R, ($P) => $B)'
                     - pattern: '$MODULE.filter($R, $P => $B)'
-message: '`$R` is filtered twice by one predicate, once negated'
-note: 'Call `Array.partition(<source>, Filter.fromPredicate(<predicate>))` of `effect` once, it returns `[passes, fails]` from one pass that states the predicate once. Halves under different branches or functions stay'
+message: 'Two `filter` calls test `$R` with one predicate, once negated'
+note: 'Call `effect` `Array.partition(<source>, Filter.fromPredicate(<predicate>))` once for `[passes, fails]` in one pass'

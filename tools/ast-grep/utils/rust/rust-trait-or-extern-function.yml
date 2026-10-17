@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-trait-or-extern-function
+language: rust
+rule:
+    kind: 'function_item, function_signature_item'
+    any:
+        - inside: {kind: declaration_list, inside: {kind: 'impl_item, foreign_mod_item', any: [{kind: foreign_mod_item}, {has: {field: trait, pattern: $_}}]}}
+        - has: {kind: function_modifiers, has: {kind: extern_modifier}}
+        - matches: {rust-attributed: {attribute: {regex: '^#\[\s*(unsafe\s*\(\s*)?(no_mangle|export_name)\b'}}}

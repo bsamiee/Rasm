@@ -10,4 +10,4 @@ rule:
         inside: {kind: property_declaration, has: {kind: value_binding_pattern, has: {field: mutability, regex: '^let$'}}}
 fix: ''
 message: '`@ObservationIgnored` marks a `let` the `@Observable` macro never tracks'
-note: 'Delete the attribute, `@Observable` tracks stored `var` properties alone and expands nothing for a `let`'
+note: 'Delete the attribute'

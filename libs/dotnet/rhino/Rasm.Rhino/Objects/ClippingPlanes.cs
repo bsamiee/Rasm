@@ -14,7 +14,7 @@ public readonly partial struct ClipDepth : System.Numerics.IMinMaxValue<ClipDept
     public static ClipDepth MinValue { get; } = new(0d);
     public static ClipDepth MaxValue { get; } = new(double.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 public sealed record ClipParticipation(Seq<Guid> ObjectIds, Seq<int> LayerIndices, bool IsExclusionList);

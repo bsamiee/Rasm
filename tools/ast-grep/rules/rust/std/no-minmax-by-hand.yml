@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-minmax-by-hand
+language: rust
+severity: error
+rule:
+    kind: if_expression
+    all:
+        - any:
+            - pattern: 'if $A <= $B { ($A, $B) } else { ($B, $A) }'
+            - pattern: 'if $A < $B { ($A, $B) } else { ($B, $A) }'
+            - pattern: 'if $A >= $B { ($B, $A) } else { ($A, $B) }'
+            - pattern: 'if $A > $B { ($B, $A) } else { ($A, $B) }'
+message: '`if` orders `$A` and `$B` into a pair by hand'
+note: 'Call `cmp::minmax(<a>, <b>)` (`#![feature(cmp_minmax)]`, `T: Ord`) and read the `[min, max]` array at each consumer of the tuple, `minmax_by_key` for a keyed comparison, or `minmax_by(<a>, <b>, f64::total_cmp)` for floats'

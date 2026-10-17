@@ -102,5 +102,5 @@ rule:
           all:
             - has: {kind: where_clause, has: {matches: exists-check}}
             - has: {kind: statements, has: {matches: operation, stopBy: end}}
-message: '`$SITE` checks that `$SUBJECT` exists or is executable before an operation that reports a missing file itself, and races the filesystem'
-note: 'Run the operation unconditionally inside the function that maps a missing file to `.success(nil)` and every other error to `.failure`, a spawn reports a missing executable as `SubprocessError.Code.executableNotFound`'
+message: '`$SITE` tests that `$SUBJECT` exists or is executable before an operation that reports a missing file itself'
+note: 'Run the operation unconditionally inside the function that maps a missing file to `.success(nil)` and every other error to `.failure`, and match `SubprocessError.Code.executableNotFound` for a spawn'

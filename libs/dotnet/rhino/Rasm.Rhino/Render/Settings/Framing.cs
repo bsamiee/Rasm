@@ -22,7 +22,7 @@ public readonly partial struct FrameFraction : IPresented<FrameFraction, double>
     public static FrameFraction TitleArea { get; } = new(0.8d);
     public static Presentation<double> Presentation { get; } = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction) };
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 public sealed record SafeFrameState(
@@ -195,7 +195,7 @@ public readonly partial struct Overscan : System.Numerics.IMinMaxValue<Overscan>
     public static Overscan MinValue { get; } = new(0d);
     public static Overscan MaxValue { get; } = new(double.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

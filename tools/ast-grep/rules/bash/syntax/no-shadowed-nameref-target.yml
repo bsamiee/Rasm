@@ -32,4 +32,4 @@ rule:
                 - has: {field: body, has: {stopBy: end, matches: positional-nameref}}
                 - inside: {kind: program, stopBy: end, has: {stopBy: end, matches: call}}
 message: 'Local `$LOCAL` of `$FUNCTION` captures the nameref a caller aims at its own `$LOCAL`'
-note: 'Name the locals of a function holding a nameref so no caller passes them, `local -n _<function>_out=$1` beside `local _<function>_<name>`, bash resolves the nameref through dynamic scope to the innermost variable of that name'
+note: 'Prefix the locals of a function holding a nameref with the function name (`local -n _<function>_out=$1` beside `local _<function>_<name>`), bash resolves a nameref through dynamic scope to the innermost variable of that name'

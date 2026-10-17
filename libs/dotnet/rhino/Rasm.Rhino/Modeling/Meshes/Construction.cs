@@ -10,7 +10,7 @@ public readonly partial struct PlaneFaceCount : System.Numerics.IMinMaxValue<Pla
     public static PlaneFaceCount MaxValue { get; } = new(int.MaxValue);
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
-        validationError = Admission.Refusal(value, MinValue._value, MaxValue._value);
+        validationError = ValidationResults.OutsideRange(value, MinValue._value, MaxValue._value);
 }
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -19,7 +19,7 @@ public readonly partial struct SphereFaceCount : System.Numerics.IMinMaxValue<Sp
     public static SphereFaceCount MaxValue { get; } = new(int.MaxValue);
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
-        validationError = Admission.Refusal(value, MinValue._value, MaxValue._value);
+        validationError = ValidationResults.OutsideRange(value, MinValue._value, MaxValue._value);
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -27,7 +27,7 @@ public readonly partial struct MeshRadius : System.Numerics.IMinMaxValue<MeshRad
     public static MeshRadius MinValue { get; } = new(double.BitIncrement(0d));
     public static MeshRadius MaxValue { get; } = new(double.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -36,7 +36,7 @@ public readonly partial struct IsosurfaceResolution : System.Numerics.IMinMaxVal
     public static IsosurfaceResolution MaxValue { get; } = new(int.MaxValue);
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
-        validationError = Admission.Refusal(value, MinValue._value, MaxValue._value);
+        validationError = ValidationResults.OutsideRange(value, MinValue._value, MaxValue._value);
 }
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -45,7 +45,7 @@ public readonly partial struct RefinementLevel : System.Numerics.IMinMaxValue<Re
     public static RefinementLevel MaxValue { get; } = new(int.MaxValue);
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
-        validationError = Admission.Refusal(value, MinValue._value, MaxValue._value);
+        validationError = ValidationResults.OutsideRange(value, MinValue._value, MaxValue._value);
 }
 
 [Union<Brep, FaceSelection>(T2Name = "Mesh", SkipToString = true, MapMethods = SwitchMapMethodsGeneration.None)]

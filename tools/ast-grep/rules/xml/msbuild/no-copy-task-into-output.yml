@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-copy-task-into-output
+language: xml
+severity: error
+files: ['**/*.{csproj,props,targets}']
+rule:
+    all:
+        - matches: {msbuild-element: {name: {regex: '^(Copy|Move)$', pattern: _TASK}}}
+        - matches: {msbuild-metadata: {name: {regex: '^Destination(Folder|Files)$'}, value: {regex: '\$\((OutDir|OutputPath|TargetDir|BaseOutputPath|PublishDir)\)', pattern: _DESTINATION}}}
+transform:
+    DESTINATION_TEXT: {replace: {source: $DESTINATION, replace: '^["'']|["'']$', by: ''}}
+message: '`$TASK` writes into `$DESTINATION_TEXT`, an output no referencing project receives'
+note: Declare a `None` or `Content` item with `CopyToOutputDirectory` or `CopyToPublishDirectory`

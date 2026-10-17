@@ -162,10 +162,11 @@ OK in `Directory.Packages.props`:
 
 ### [02.4]-[AP-07]-[ERROR]-[ARTIFACTSPATH_IN_A_PROJECT_FILE]
 
-- SMELL: `ArtifactsPath`, `UseArtifactsOutput`, `ArtifactsProjectName`, or `BaseIntermediateOutputPath` in a project file
+- SMELL: `ArtifactsPath`, `UseArtifactsOutput`, `ArtifactsProjectName`, `BaseIntermediateOutputPath`, or `MSBuildProjectExtensionsPath` in a project file
 - WHY:
     - SDK reads them before the project body, `ArtifactsPath` and `UseArtifactsOutput` fail `NETSDK1199`
     - `BaseIntermediateOutputPath` warns `MSB3539` after restore used the default
+    - `MSBuildProjectExtensionsPath` fails `MSB3540`, the top import read the default and the bottom import reads the body value
     - `ArtifactsProjectName` reaches `bin/` and `publish/` while `obj/` keeps the project name
 - RULE: `ArtifactsPivots` and output name properties stay project-level
 
@@ -208,10 +209,11 @@ GOOD in a `netstandard2.0` analyzer project:
 
 ### [02.6]-[AP-09]-[STYLE]-[NOWARN_IN_A_PROJECT_FILE]
 
-- SMELL: `NoWarn` with a compiler or analyzer code in a project, or `NoWarn` assigned without `$(NoWarn);`
+- SMELL: `NoWarn` or `WarningsNotAsErrors` in a project, `NoWarn` metadata on a project item, or `NoWarn` assigned without `$(NoWarn);`
 - WHY:
     - Assignments without `$(NoWarn);` drop SDK defaults `1701;1702`
 - RULE:
+    - Fix the code each diagnostic reports, a code no fix at the cause clears takes a `Directory.Build.props` row
     - Every `NoWarn` assignment starts with `$(NoWarn);`
 
 BAD in `MyProject.csproj`:
@@ -443,8 +445,7 @@ GOOD:
 
 ### [04.2]-[AP-19]-[ERROR]-[CALLTARGET_FOR_A_DEPENDENCY]
 
-- SMELL: `<CallTarget Targets="Compute" />` followed by a task reading a value the called target sets
-- WHY: Values a `CallTarget` target creates reach the caller after it finishes, the next task reads empty
+- SMELL: `<CallTarget Targets="Compute" />`, or an `MSBuild` call on `$(MSBuildProjectFullPath)` without `Properties`, followed by a task reading a value the called target sets
 - RULE: Name the dependency in `DependsOnTargets`
 
 BAD:
@@ -466,11 +467,9 @@ GOOD:
 
 ### [04.3]-[AP-20]-[ERROR]-[COPY_TASK_FOR_AN_OUTPUT_ITEM]
 
-- SMELL: `Copy` placing a content file in `$(OutDir)`, or a target named `AfterBuild` or `BeforeBuild` in a `.csproj` or `.props` file
-- WHY:
-    - SDK imports follow the project body and replace a same-named target, `AfterBuild` in a `.csproj` or `.props` file never runs
-    - `Copy` in a custom target reaches the project's own output, a referencing project and `dotnet publish` receive nothing
-- RULE: Output files are `None` or `Content` items with `CopyToOutputDirectory`, a custom step attaches with `AfterTargets`
+- SMELL: `Copy` or `Move` into `$(OutDir)`, `$(OutputPath)`, `$(TargetDir)`, `$(BaseOutputPath)`, or `$(PublishDir)`, or a target taking an SDK `Before` or `After` target name in a `.csproj` or `.props` file
+- WHY: `Copy` in a custom target reaches the project's own output, a referencing project and `dotnet publish` receive nothing
+- RULE: Output files are `None` or `Content` items with `CopyToOutputDirectory` or `CopyToPublishDirectory`, a custom step attaches with `AfterTargets`
 
 BAD:
 
@@ -488,9 +487,11 @@ GOOD:
 
 ### [04.4]-[AP-21]-[ERROR]-[WRITELINESTOFILE_WITHOUT_OVERWRITE]
 
-- SMELL: `WriteLinesToFile` without `Overwrite="true"`
+- SMELL: `WriteLinesToFile` without `Overwrite="true"` and `WriteOnlyWhenDifferent="true"`
 - WHY: The task appends, the file grows by one copy of `Lines` per build
-- RULE: Set `Overwrite="true"` and `WriteOnlyWhenDifferent="true"`, the timestamp then holds for the next incremental check
+- RULE:
+    - Set `Overwrite="true"` and `WriteOnlyWhenDifferent="true"`, the timestamp then holds for the next incremental check
+    - Appends after a same-target task writing the file, and targets with `Outputs`, are OK
 
 BAD:
 
@@ -576,7 +577,6 @@ GOOD:
     - `Exec` running `mkdir`, `copy`, `del`, `xcopy`, `touch`, or `echo text > file`
     - `Exec` with `ConsoleToMSBuild` running `sed` or `powershell -c` for a string or path value
 - WHY:
-    - `Exec` runs `cmd.exe` on Windows and `sh` elsewhere
     - Built-in tasks run everywhere, log each file, and report errors in one format
     - Property functions compute a value at evaluation without a process
 - RULE:
@@ -584,15 +584,15 @@ GOOD:
     - Replace a path operation with a path function taking `$(MSBuildThisFileDirectory)` first
     - Relative arguments resolve against the working directory of the build process
 
-| [INDEX] | [COMMAND]             | [TASK]             |
-| :-----: | :-------------------- | :----------------- |
-|  [01]   | `mkdir`               | `MakeDir`          |
-|  [02]   | `copy`, `cp`, `xcopy` | `Copy`             |
-|  [03]   | `del`, `rm`           | `Delete`           |
-|  [04]   | `rmdir`, `rd`         | `RemoveDir`        |
-|  [05]   | `move`, `mv`          | `Move`             |
-|  [06]   | `echo text > file`    | `WriteLinesToFile` |
-|  [07]   | `touch`               | `Touch`            |
+| [INDEX] | [COMMAND]                         | [TASK]             |
+| :-----: | :-------------------------------- | :----------------- |
+|  [01]   | `mkdir`, `md`                     | `MakeDir`          |
+|  [02]   | `copy`, `cp`, `xcopy`, `robocopy` | `Copy`             |
+|  [03]   | `del`, `erase`, `rm`              | `Delete`           |
+|  [04]   | `rmdir`, `rd`                     | `RemoveDir`        |
+|  [05]   | `move`, `mv`                      | `Move`             |
+|  [06]   | `echo text > file`                | `WriteLinesToFile` |
+|  [07]   | `touch`                           | `Touch`            |
 
 BAD:
 
@@ -634,7 +634,7 @@ GOOD:
 
 ### [05.5]-[AP-27]-[ERROR]-[EXEC_BUILDS_A_PROJECT]
 
-- SMELL: `<Exec Command="dotnet build ..." />`, `dotnet pack`, `dotnet publish`, or `msbuild` inside a target
+- SMELL: `<Exec Command="dotnet build ..." />`, `dotnet msbuild`, `pack`, `publish`, `restore`, `test`, `run`, or `msbuild` inside a target
 - WHY: The command starts a build process the engine cannot schedule or log, global properties reach it by hand, `-check` reports `BC0302`
 - RULE: Order a project through `ProjectReference` with `ReferenceOutputAssembly="false"`, call a target through the `MSBuild` task
 
@@ -658,12 +658,13 @@ Repeated evaluations of one project outside restore share the output paths.
 
 ### [06.1]-[AP-28]-[ERROR]-[DUPLICATE_PROJECT_INSTANCE_WITH_SHARED_OUTPUT_PATH]
 
-- SMELL: An `<MSBuild>` call with a `Properties` value the target project's output path lacks (`_IsPublishing=true`)
+- SMELL: An `<MSBuild>` call's `Properties` or an item's `AdditionalProperties` with a value the target project's output path lacks (`_IsPublishing=true`)
 - WHY:
     - One instance exists per project path and global property set, the call creates `(project, {_IsPublishing=true})` beside `(project, {})`
     - Both run every target against one `bin/` and `obj/`, `CoreCompile` runs twice
     - `-check` reports `BC0102` for the copies and `BC0202` for the `_IsPublishing` read, a parallel build can report `MSB3026`
 - RULE:
+    - Pass `ArtifactsPivots` beside a property the build needs, `Configuration`, `TargetFramework`, and `RuntimeIdentifier` already pivot the output path
     - Run `Publish` in the same instance through `DependsOnTargets`
     - Condition the target on `'$(_IsPublishing)' == ''`, no condition fails `dotnet publish` with `MSB4006`, a `!= 'true'` read reports `BC0201`
     - Leave `_IsPublishing` to the SDK, a build under `_IsPublishing=true` with `PublishRuntimeIdentifier` set moves to that runtime's output path

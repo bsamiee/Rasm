@@ -112,6 +112,7 @@ rule:
     all:
         - has: {field: arguments, all: [{has: {matches: effect-handler}}, {not: {has: {kind: argument, nthChild: {position: 3, ofRule: {kind: argument}}}}}]}
         - has: {field: arguments, has: {kind: argument, any: [{has: {field: name, regex: '^Predicate$'}}, {all: [{nthChild: {position: 1, ofRule: {kind: argument}}}, {not: {has: {field: name, pattern: $_}}}]}], has: {nthChild: {position: 1, reverse: true}, pattern: $PREDICATE}}}
+        - not: {has: {field: arguments, has: {kind: argument, matches: {csharp-constant-lambda: {value: {regex: '^true$'}}}}}}
         - has: {field: arguments, has: {kind: argument, any: [{has: {field: name, regex: '^Fail$'}}, {all: [{nthChild: {position: 2, ofRule: {kind: argument}}}, {not: {has: {field: name, pattern: $_}}}]}], has: {nthChild: {position: 1, reverse: true}, pattern: $HANDLER}}}
         - has:
             field: function

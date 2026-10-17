@@ -18,4 +18,4 @@ rule:
                 - has: {kind: call_suffix, has: {kind: lambda_literal, has: {kind: statements, has: {nthChild: 1, kind: if_statement, pattern: $CHECK}, not: {has: {nthChild: 2}}}}}
         - precedes: {kind: if_statement, pattern: $CHECK}
 message: 'Observation handler repeats `$CHECK` after registering in place of asking for the initial value'
-note: 'Pass `options: [.initial]` to `observe(_:options:changeHandler:)` and delete the statement after it, the handler then runs once with the current value before the first change'
+note: 'Pass `options: [.initial]` to `observe(_:options:changeHandler:)` to run the handler once with the current value, and delete the statement after it'

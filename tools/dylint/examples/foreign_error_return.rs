@@ -119,7 +119,7 @@ pub fn from_str_radix(text: &str) -> Result<u16, ParseIntError> { u16::from_str_
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 #[tokio::main]
-async fn main() {
+pub async fn main() {
     let text = "8080";
     black_box(&(
         Disk.reopen(),

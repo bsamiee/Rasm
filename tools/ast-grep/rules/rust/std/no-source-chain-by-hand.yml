@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-source-chain-by-hand
+language: rust
+severity: error
+utils:
+    source-step:
+        any:
+            - kind: closure_expression
+              all:
+                - has: {field: parameters, has: {any: [{kind: identifier, pattern: $X}, {kind: reference_pattern, has: {kind: identifier, pattern: $X}}]}}
+                - has: {field: body, any: [{pattern: $X.source()}, {pattern: (*$X).source()}, {pattern: 'Error::source($X)'}, {pattern: 'Error::source(*$X)'}]}
+            - kind: scoped_identifier
+              regex: '^((::)?(std|core)::error::)?Error::source$'
+    successors:
+        kind: call_expression
+        all:
+            - has: {field: function, regex: '^((::)?(std|core)::)?(iter::)?successors$'}
+            - has: {field: arguments, all: [{has: {nthChild: 1, pattern: Some($E)}}, {has: {nthChild: 2, matches: source-step}}, {not: {has: {nthChild: 3}}}]}
+    cursor-loop:
+        kind: while_expression
+        pattern: $LOOP
+        all:
+            - has: {field: condition, kind: let_condition, all: [{has: {field: pattern, kind: tuple_struct_pattern, all: [{has: {field: type, regex: '^Some$'}}, {has: {nthChild: 2, kind: identifier, pattern: $CAUSE}}]}}, {has: {field: value, kind: identifier, pattern: $CURRENT}}]}
+            - has:
+                field: body
+                has:
+                    stopBy: {kind: closure_expression}
+                    kind: assignment_expression
+                    all:
+                        - has: {field: left, pattern: $CURRENT}
+                        - has: {field: right, pattern: $CAUSE.source()}
+rule:
+    kind: 'call_expression, while_expression'
+    any:
+        - matches: successors
+        - matches: cursor-loop
+transform:
+    RECEIVER: {replace: {source: $E, replace: '^([&*][\s\S]*|[\s\S]*\sas\s[\s\S]*)$', by: '($1)'}}
+    SOURCES: {replace: {source: $E, replace: '^[\s\S]+$', by: '.sources()'}}
+fix: $RECEIVER$SOURCES$LOOP
+message: '`$E$CURRENT` walks its error source chain by hand'
+note: 'Iterate `<error>.sources()` (`#![feature(error_iter)]`) in place of the cursor, and render the chain with `Report::new(<error>).pretty(true)` (`#![feature(error_reporter)]`)'

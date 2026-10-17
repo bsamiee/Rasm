@@ -1,0 +1,116 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-vector-math-by-hand
+language: rust
+severity: error
+utils:
+    cross-term:
+        kind: 'binary_expression, call_expression'
+        any:
+            - pattern: $A.$X * $B.$Y - $B.$X * $A.$Y
+            - pattern: $A.$X * $B.$Y - $A.$Y * $B.$X
+            - pattern: $B.$Y * $A.$X - $B.$X * $A.$Y
+            - pattern: $B.$Y * $A.$X - $A.$Y * $B.$X
+            - pattern: $A.$X.mul_add($B.$Y, -($A.$Y * $B.$X))
+            - pattern: $A.$X.mul_add($B.$Y, -($B.$X * $A.$Y))
+            - pattern: {context: 'fn f() { $A[$X] * $B[$Y] - $A[$Y] * $B[$X] }', selector: binary_expression}
+            - pattern: {context: 'fn f() { $A[$X] * $B[$Y] - $B[$X] * $A[$Y] }', selector: binary_expression}
+            - pattern: {context: 'fn f() { $A[$X].mul_add($B[$Y], -($A[$Y] * $B[$X])) }', selector: call_expression}
+        not: {any: [{pattern: $_.$X * $_.$X - $_}, {pattern: {context: 'fn f() { $_[$X] * $_[$X] - $_ }', selector: binary_expression}}]}
+    paired:
+        inside:
+            kind: function_item
+            stopBy: {kind: function_item}
+            all:
+                - has:
+                    stopBy: end
+                    kind: 'let_declaration, parameter'
+                    has:
+                        field: pattern
+                        any:
+                            - pattern: {context: 'let [$AX, $AY] = v;', selector: slice_pattern}
+                            - pattern: {context: 'let ($AX, $AY) = v;', selector: tuple_pattern}
+                - has:
+                    stopBy: end
+                    kind: 'let_declaration, parameter'
+                    has:
+                        field: pattern
+                        any:
+                            - pattern: {context: 'let [$BX, $BY] = v;', selector: slice_pattern}
+                            - pattern: {context: 'let ($BX, $BY) = v;', selector: tuple_pattern}
+    local-cross-term:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^-$'}
+            - any:
+                - pattern: $AX * $BY - $BX * $AY
+                - pattern: $AX * $BY - $AY * $BX
+                - pattern: $BY * $AX - $BX * $AY
+                - pattern: $BY * $AX - $AY * $BX
+            - matches: paired
+    cross-sum:
+        kind: call_expression
+        all:
+            - any:
+                - pattern: $I.map($F).sum()
+                - pattern: $I.map($F).sum::<$T>()
+            - has: {stopBy: end, kind: closure_expression, pattern: $F, has: {field: body, matches: cross-term}}
+    partial:
+        inside:
+            kind: binary_expression
+            field: left
+            all:
+                - has: {field: operator, regex: '^\+$'}
+                - has:
+                    field: right
+                    any:
+                        - pattern: $A.$_ * $B.$_
+                        - pattern: {context: 'fn f() { $A[$_] * $B[$_] }', selector: binary_expression}
+                        - pattern: $A.$_.powi(2)
+                        - pattern: ($A.$_ - $B.$_).powi(2)
+    dot:
+        kind: 'binary_expression, call_expression'
+        any:
+            - pattern: $A.$P * $B.$P + $A.$Q * $B.$Q + $A.$R * $B.$R + $A.$S * $B.$S
+            - pattern: $A.$P * $B.$P + $A.$Q * $B.$Q + $A.$R * $B.$R
+              not: {matches: partial}
+            - pattern: $A.$P * $B.$P + $A.$Q * $B.$Q
+              not: {matches: partial}
+            - pattern: {context: 'fn f() { $A[$P] * $B[$P] + $A[$Q] * $B[$Q] + $A[$R] * $B[$R] }', selector: binary_expression}
+              not: {matches: partial}
+            - pattern: {context: 'fn f() { $A[$P] * $B[$P] + $A[$Q] * $B[$Q] }', selector: binary_expression}
+              not: {matches: partial}
+            - pattern: $A.$P.mul_add($B.$P, $A.$Q.mul_add($B.$Q, $A.$R * $B.$R))
+            - pattern: $A.$P.mul_add($B.$P, $A.$Q * $B.$Q)
+              not: {inside: {kind: arguments}}
+            - pattern: $A.$P.powi(2) + $A.$Q.powi(2) + $A.$R.powi(2)
+            - pattern: $A.$P.powi(2) + $A.$Q.powi(2)
+              not: {matches: partial}
+            - pattern: ($A.$P - $B.$P).powi(2) + ($A.$Q - $B.$Q).powi(2) + ($A.$R - $B.$R).powi(2)
+            - pattern: ($A.$P - $B.$P).powi(2) + ($A.$Q - $B.$Q).powi(2)
+              not: {matches: partial}
+            - pattern: $A.$P.hypot($A.$Q)
+            - pattern: ($A.$P - $B.$P).hypot($A.$Q - $B.$Q)
+            - pattern: f64::hypot($A.$P, $A.$Q)
+            - pattern: f32::hypot($A.$P, $A.$Q)
+rule:
+    kind: 'binary_expression, call_expression'
+    pattern: $SITE
+    any:
+        - matches: cross-sum
+        - matches: cross-term
+          not: {inside: {stopBy: end, matches: cross-sum}}
+        - matches: local-cross-term
+        - matches: dot
+constraints:
+    X: {regex: '^(x|y|z|0|1|2)$'}
+    Y: {regex: '^(x|y|z|0|1|2)$'}
+    P: {regex: '^(x|0)$'}
+    Q: {regex: '^(y|1)$'}
+    R: {regex: '^(z|2)$'}
+    S: {regex: '^(w|3)$'}
+    AX: {regex: '(x|0)$'}
+    BX: {regex: '(x|0)$'}
+    AY: {regex: '(y|1)$'}
+    BY: {regex: '(y|1)$'}
+message: '`$SITE` computes vector components by hand'
+note: 'Hold the components in a vector type and call its method: `glam::DVec2`/`DVec3` (`dot`, `perp_dot`, `cross`, `length_squared`, `length`, `distance`), `nalgebra::Vector3<f64>` (`dot`, `cross`, `norm`), or `kurbo::Vec2` (`dot`, `cross`, `hypot`), and `geo::Area::signed_area` for a polygon area summing cross terms'

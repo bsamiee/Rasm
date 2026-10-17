@@ -7,5 +7,5 @@ rule:
     all:
         - matches: python-invariant-index-test
         - has: {nthChild: 2, pattern: $INDEX}
-message: '`$INDEX` is rebuilt for every item of the loop around it, its source does not change between items'
-note: 'Build the set or mapping once before the loop and test each item against that value. A collection built inside the loop costs its whole source per item, so n items over a source of m cost n * m'
+message: 'Loop rebuilds `$INDEX` for every item from a source that does not change between items'
+note: 'Build the set or mapping once before the loop and test each item against it'

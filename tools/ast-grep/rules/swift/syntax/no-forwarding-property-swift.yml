@@ -76,4 +76,4 @@ rule:
                 - has: {kind: computed_getter, has: {matches: getter}}
         - not: {has: {field: computed_value, has: {kind: 'computed_setter, computed_modify', not: {matches: forwarding-setter}}}}
 message: 'Property `$NAME` forwards `$READ` unchanged'
-note: 'Read `<owner>.<member>` or call `<owner>.<function>()` at each use and move a conformance the property satisfies to the forwarded type, a property that returns another member unchanged adds a name and no fact'
+note: 'Read `<owner>.<member>` or call `<owner>.<function>()` at each use and move a conformance the property satisfies to the forwarded type'

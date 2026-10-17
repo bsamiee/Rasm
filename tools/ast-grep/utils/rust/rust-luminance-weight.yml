@@ -1,6 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: rust-luminance-weight
-language: rust
-rule:
-    kind: float_literal
-    regex: '^0\.(2126|715_?2|0722)(_?f(32|64))?$'

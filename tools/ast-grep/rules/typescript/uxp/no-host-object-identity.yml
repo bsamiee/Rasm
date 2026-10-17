@@ -45,4 +45,4 @@ rule:
             - has: {field: function, regex: '(^(Array\.contains|Object\.is|Equal\.equals|Match\.(when|not|is))|\.(includes|indexOf|lastIndexOf|has))$'}
             - has: {field: arguments, has: {matches: enumerator}}
 message: '`$COMPARISON` compares InDesign objects by identity or by rendered text'
-note: 'Compare through `equals` (`<enumerator>.equals(<value>)`), and search or dedupe a list through it; each read returns a new object, and enumerators of different enumerations share names'
+note: 'Compare through `<enumerator>.equals(<value>)` and search or dedupe a list through `equals`, each read returning a new object and enumerators of different enumerations sharing names'

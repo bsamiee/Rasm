@@ -237,7 +237,7 @@ public readonly partial struct RampPosition : IMinMaxValue<RampPosition> {
     public static RampPosition MinValue { get; } = new(0d);
     public static RampPosition MaxValue { get; } = new(1d);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ComplexValueObject]
@@ -379,7 +379,7 @@ public readonly partial struct Swatch : IMinMaxValue<Swatch> {
             var code => new(((int)code.X << 16) | ((int)code.Y << 8) | (int)code.Z),
         };
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 public sealed record ParameterText(string Caption, string Help);
@@ -425,7 +425,7 @@ public sealed record Presentation<TKey> where TKey : struct, INumber<TKey> {
 
 public sealed class NumericDomain<TValue, TKey> where TValue : notnull where TKey : struct, INumber<TKey> {
     public NumericDomain(Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key, (TKey Low, TKey High) bounds, Presentation<TKey> presentation) =>
-        (Create, Key, Bounds, Presentation) = (raw => Admission.Admitted(Admission.Refusal(raw, bounds.Low, bounds.High), raw).Bind(create), key, bounds, presentation);
+        (Create, Key, Bounds, Presentation) = (raw => ValidationResults.ToFin(ValidationResults.OutsideRange(raw, bounds.Low, bounds.High), raw).Bind(create), key, bounds, presentation);
 
     public Func<TKey, Fin<TValue>> Create { get; }
     public Func<TValue, TKey> Key { get; }
@@ -555,7 +555,7 @@ public readonly partial struct AxisFraction : IPresented<AxisFraction, float> {
     public static AxisFraction Half { get; } = new(0.5f);
     public static Presentation<float> Presentation { get; } = new() { Unit = Quantity.GetUnitInfo(RatioUnit.DecimalFraction) };
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -564,7 +564,7 @@ public readonly partial struct PositiveFraction : IPresented<PositiveFraction, f
     public static PositiveFraction MaxValue { get; } = new(1f);
     public static Presentation<float> Presentation => AxisFraction.Presentation;
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Zero", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -573,7 +573,7 @@ public readonly partial struct ProperFraction : IPresented<ProperFraction, float
     public static ProperFraction MaxValue { get; } = new(float.BitDecrement(1f));
     public static Presentation<float> Presentation => AxisFraction.Presentation;
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Zero", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -582,7 +582,7 @@ public readonly partial struct Magnitude : IMinMaxValue<Magnitude> {
     public static Magnitude MaxValue { get; } = new(float.MaxValue);
     public static Magnitude Unit { get; } = new(1f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -591,7 +591,7 @@ public readonly partial struct PositiveMagnitude : IMinMaxValue<PositiveMagnitud
     public static PositiveMagnitude MaxValue { get; } = new(float.MaxValue);
     public static PositiveMagnitude Unit { get; } = new(1f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -599,7 +599,7 @@ public readonly partial struct PrimaryScale : IMinMaxValue<PrimaryScale> {
     public static PrimaryScale MinValue { get; } = new(1f);
     public static PrimaryScale MaxValue { get; } = new(float.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Zero", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -607,7 +607,7 @@ public readonly partial struct Steepness : IMinMaxValue<Steepness> {
     public static Steepness MinValue => Zero;
     public static Steepness MaxValue { get; } = new(10f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -615,7 +615,7 @@ public readonly partial struct PositiveCount : IMinMaxValue<PositiveCount> {
     public static PositiveCount MinValue { get; } = new(1);
     public static PositiveCount MaxValue { get; } = new(int.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Zero", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -624,7 +624,7 @@ public readonly partial struct SignedMagnitude : IMinMaxValue<SignedMagnitude> {
     public static SignedMagnitude MaxValue { get; } = new(float.MaxValue);
     public static SignedMagnitude Unit { get; } = new(1f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -633,7 +633,7 @@ public readonly partial struct SignedFraction : IPresented<SignedFraction, float
     public static SignedFraction MaxValue { get; } = new(1f);
     public static Presentation<float> Presentation { get; } = new() { Origin = (float)Neutral };
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -644,7 +644,7 @@ public readonly partial struct ShortSideOffset : IPresented<ShortSideOffset, flo
 
     public double Pixels(PixelExtent extent) => (double)_value * extent.ShortSide;
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -655,7 +655,7 @@ public readonly partial struct ShortSideLength : IPresented<ShortSideLength, flo
 
     public double Pixels(PixelExtent extent) => (double)_value * extent.ShortSide;
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -666,7 +666,7 @@ public readonly partial struct ShortSideExtent : IPresented<ShortSideExtent, flo
 
     public double Pixels(PixelExtent extent) => (double)_value * extent.ShortSide;
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -678,7 +678,7 @@ public readonly partial struct FrameAxis : IPresented<FrameAxis, float> {
     public static FrameAxis End { get; } = new(1f);
     public static Presentation<float> Presentation { get; } = AxisFraction.Presentation with { Soft = (0f, 1f) };
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 public sealed record FramePosition(FrameAxis X, FrameAxis Y) : IStateRecord<FramePosition, FramePositionParameter> {
@@ -780,7 +780,7 @@ public static class NumericDomain {
     public static NumericDomain<TValue, TKey> Bounded<TValue, TKey>(Presentation<TKey> presentation)
         where TValue : IObjectFactory<TValue, TKey, ValidationError>, IConvertible<TKey>, IMinMaxValue<TValue>
         where TKey : struct, INumber<TKey> =>
-        new(Admission.Validated<TValue, TKey>, static value => value.ToValue(), (TValue.MinValue.ToValue(), TValue.MaxValue.ToValue()), presentation);
+        new(ValidationResults.Validated<TValue, TKey>, static value => value.ToValue(), (TValue.MinValue.ToValue(), TValue.MaxValue.ToValue()), presentation);
 
     public static NumericDomain<Length, TKey> Metres<TKey>((TKey Low, TKey High) bounds, Presentation<TKey> presentation) where TKey : struct, INumber<TKey> =>
         new(static raw => Length.FromMeters(double.CreateChecked(raw)), static length => TKey.CreateChecked(length.Meters.ToDouble()), bounds, presentation with { Unit = Quantity.GetUnitInfo(LengthUnit.Meter) });

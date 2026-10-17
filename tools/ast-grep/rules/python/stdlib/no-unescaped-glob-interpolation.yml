@@ -79,5 +79,5 @@ rewriters:
 transform:
     ESCAPED: {rewrite: {source: $FIXABLE, rewriters: [escape]}}
 fix: $ESCAPED$KEPT
-message: 'Glob pattern interpolates `$VALUE` unescaped, `glob.escape(<value>)` keeps its characters literal'
-note: 'Glob and `fnmatch` read `*`, `?`, and `[` in an interpolated name as pattern syntax, the fix covers f-strings with plain interpolations in a module importing `glob`'
+message: 'Glob pattern interpolates `$VALUE` unescaped, reading its `*`, `?`, and `[` as pattern syntax'
+note: 'Wrap the value in `glob.escape(<value>)`, the fix covering f-strings with plain interpolations in a module importing `glob`'

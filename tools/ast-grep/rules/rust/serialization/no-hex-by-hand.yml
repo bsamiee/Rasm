@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-hex-by-hand
+language: rust
+severity: error
+utils:
+    byte-format:
+        kind: macro_invocation
+        all:
+            - matches: {rust-std-macro: {name: {regex: '^(format|write|writeln)$'}}}
+            - has: {kind: token_tree, has: {kind: string_literal, regex: '^"\{\w*:(0>2|02)[xX]\}"$'}}
+            - inside:
+                stopBy: {kind: 'function_item, closure_expression, for_expression'}
+                any:
+                    - kind: for_expression
+                    - kind: closure_expression
+                      inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, regex: '^(map|fold|for_each|try_fold|try_for_each|flat_map|filter_map|scan)$'}}}}
+    pair-step:
+        regex: '\.(step_by|chunks|chunks_exact)\(\s*2\s*\)'
+    iteration:
+        any:
+            - kind: for_expression
+            - kind: closure_expression
+              inside: {kind: arguments, inside: {kind: call_expression}}
+    pair-parse:
+        kind: call_expression
+        all:
+            - has: {field: function, regex: '^((::)?(std|core)::)?u8::from_str_radix$'}
+            - has: {field: arguments, all: [{has: {nthChild: 2, regex: '^16$'}}, {not: {has: {nthChild: 3}}}]}
+            - any:
+                - all:
+                    - has: {field: arguments, has: {nthChild: 1, has: {stopBy: end, kind: range_expression, regex: '\+\s*2$'}}}
+                    - inside: {stopBy: {kind: 'function_item, closure_expression, for_expression'}, matches: iteration}
+                - inside:
+                    stopBy: {kind: 'function_item, closure_expression, for_expression'}
+                    any:
+                        - kind: for_expression
+                          has: {field: value, matches: pair-step}
+                        - kind: closure_expression
+                          inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: field_expression, has: {field: value, matches: pair-step}}}}
+    nibble:
+        regex: '>>\s*4\b|&\s*(0x0?[fF]|15)\b'
+    nibble-lookup:
+        kind: index_expression
+        all:
+            - has: {nthChild: 1, any: [{kind: string_literal, regex: '^b?"(0123456789abcdef|0123456789ABCDEF)"$'}, {kind: identifier, regex: '^[A-Z_]*HEX[A-Z_]*$'}]}
+            - has: {nthChild: 2, has: {stopBy: end, matches: nibble}}
+    digit-encode:
+        kind: call_expression
+        all:
+            - has: {field: function, regex: '^((::)?(std|core)::)?(char::)?from_digit$'}
+            - has: {field: arguments, all: [{has: {nthChild: 1, matches: nibble}}, {has: {nthChild: 2, regex: '^16$'}}]}
+    digit-decode:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^to_digit$'}}
+            - has: {field: arguments, has: {nthChild: 1, regex: '^16$'}}
+            - inside:
+                stopBy: {kind: 'function_item, closure_expression, for_expression'}
+                matches: iteration
+                has: {stopBy: end, regex: '<<\s*4\b|\*\s*16\b', kind: binary_expression}
+rule:
+    kind: 'macro_invocation, call_expression, index_expression'
+    pattern: $SITE
+    any:
+        - matches: byte-format
+        - matches: pair-parse
+        - matches: nibble-lookup
+        - matches: digit-encode
+        - matches: digit-decode
+message: '`$SITE` encodes or decodes hex text one byte at a time'
+note: 'Encode the buffer with `data_encoding::HEXLOWER.encode(<bytes>)` or `HEXUPPER.encode(<bytes>)`, and decode text with `data_encoding::HEXLOWER_PERMISSIVE.decode(<text>.as_bytes())`'

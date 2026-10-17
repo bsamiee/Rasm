@@ -175,6 +175,6 @@ rule:
                             - has: {field: parameters, has: {kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $SPAWNER}}}
                         - inside: {kind: arguments, has: {nthChild: 1, matches: spawner-service}}
 message: '`$STREAM` reads process output with no decision on `exitCode`'
-note: 'Read `exitCode` beside `stdout` and `stderr` from the handle `spawner.spawn` returns and fail a non-zero exit with `stderr` as its reason. Output streams handed on without a `yield*` leave the exit decision to their consumer'
+note: 'Read `exitCode` beside `stdout` and `stderr` from the handle `spawner.spawn` returns and fail a non-zero exit with `stderr` as its reason'
 labels:
     STREAM: {style: primary}

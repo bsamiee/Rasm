@@ -64,7 +64,7 @@ utils:
 rule:
     kind: invocation_expression
     all:
-        - matches: csharp-atom-transition
+        - matches: languageext-atom-transition
         - has: {field: function, pattern: $SWAP}
         - has:
             field: arguments

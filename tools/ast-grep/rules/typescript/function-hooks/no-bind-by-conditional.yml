@@ -129,5 +129,5 @@ transform:
 fix:
     template: '$RETURN$AWAIT$MAP$BIND_EXPRESSION$BIND_STATEMENT($R, $ASYNC_EXPRESSION$ASYNC_STATEMENT($PARAMETER) => $MAPPED$BOUND$BODY$TAIL$CASE_TAIL)$END'
     expandEnd: {stopBy: end, pattern: $_LAST, inside: {kind: statement_block}, nthChild: {position: 1, reverse: true}}
-message: '`$R` returns its fault and continues with its value through a `kind` test written by hand, `bind` or `map` states both'
-note: '`bind(<result>, (<value>) => <continuation>)` skips the continuation on a fault, and `map(<result>, (<value>) => <ok value>)` replaces a continuation returning `ok(<ok value>)`'
+message: '`$R` returns its fault and continues with its value through a `kind` test written by hand'
+note: 'Call `bind(<result>, (<value>) => <continuation>)` to skip the continuation on a fault, or `map(<result>, (<value>) => <ok value>)` for a continuation returning `ok(<ok value>)`'

@@ -5,5 +5,5 @@ severity: error
 rule:
     kind: inheritance_specifier
     regex: '^(SwiftUI\.)?PreviewProvider$'
-message: '`PreviewProvider` conformance declares a type whose `previews` property holds the preview'
+message: '`PreviewProvider` conformance declares a type to hold a preview in its `previews` property'
 note: 'Write `#Preview("<name>") { <view> }` at file scope, one macro per preview'

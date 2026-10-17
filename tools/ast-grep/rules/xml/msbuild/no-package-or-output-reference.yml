@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-package-or-output-reference
+language: xml
+severity: error
+files: ['**/*.{csproj,props,targets}']
+rule:
+    all:
+        - matches: {msbuild-element: {name: {regex: '^Reference$'}}}
+        - matches:
+            msbuild-metadata:
+                name: {regex: '^(Include|HintPath)$'}
+                value: {regex: '(^["'']?|[\\/])packages[\\/]|[\\/](bin|obj)[\\/]([^\\/"'';]+[\\/])?((?i:debug|release)|\$\()', pattern: _PATH}
+        - not: {matches: {msbuild-metadata: {name: {regex: '^Private$'}, value: {regex: '(?i)^["'']?\s*false\s*["'']?$'}}}}
+transform:
+    PATH_TEXT: {replace: {source: $PATH, replace: '^["'']|["'']$', by: ''}}
+message: '`Reference` resolves `$PATH_TEXT` from a package folder or a project output that no restore or build order produces'
+note: Reference a package through `PackageReference` and a project through `ProjectReference`

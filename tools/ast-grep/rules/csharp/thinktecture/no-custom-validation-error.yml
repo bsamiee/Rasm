@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-custom-validation-error
+language: csharp
+severity: error
+utils:
+    validation-code:
+        kind: member_access_expression
+        matches: {csharp-owner-member: {type: {regex: '^ErrorCodes$'}, member: {regex: '^ValidationFailed$'}}}
+rule:
+    any:
+        - kind: generic_name
+          pattern: $FORM
+          regex: '^IsType\s*<\s*((global::)?Thinktecture\.)?ValidationError\s*>$'
+          inside: {kind: member_access_expression, field: name}
+        - kind: record_declaration
+          all:
+            - has: {field: name, pattern: $FORM}
+            - matches: languageext-error-record
+            - has: {kind: base_list, has: {stopBy: end, kind: argument, has: {matches: validation-code}}}
+message: '`$FORM` declares or tests a validation error other than Thinktecture''s `ValidationError`'
+note: Assign `new ValidationError("<violated rule>")` or `ValidationResults.OutsideRange(value, MinValue, MaxValue)` in the hook, convert through `<type>.Validated(<raw>)`, and test a failure with `HasCode(ErrorCodes.ValidationFailed)`

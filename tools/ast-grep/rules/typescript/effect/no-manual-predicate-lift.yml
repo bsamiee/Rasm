@@ -167,4 +167,4 @@ transform:
     TESTED: rewrite($KEPT, rewriters=[option-test, result-test])
 fix: $LIFTED$TESTED$TERNARY
 message: '`$V` enters `$M` through a predicate branch written by hand'
-note: '`Option.liftPredicate(value, predicate)` or `Result.liftPredicate(value, predicate, orFailWith)` lifts a plain value, and `Effect.filterOrFail(effect, predicate, orFailWith)` filters the value an effect yields'
+note: 'Call `Option.liftPredicate(<value>, <predicate>)` or `Result.liftPredicate(<value>, <predicate>, <orFailWith>)` to lift a plain value, and `Effect.filterOrFail(<effect>, <predicate>, <orFailWith>)` to filter the value an effect yields'

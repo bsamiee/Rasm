@@ -234,8 +234,6 @@ fn rejected(texts: &[&str]) -> Result<u16, PlanError> { audited(texts).is_empty(
 
 fn tagged<E>(outcome: Result<u16, E>) -> Result<u16, Tagged<E>> { outcome.map_err(Tagged) }
 
-fn kept(text: &str) -> Result<u16, Code> { text.trim().parse().map_err(|_error: ParseIntError| Code::Invalid) }
-
 fn defaulted(port: Option<u16>) -> Result<u16, PortError> { port.ok_or_else(|| String::from("port is missing")).or_else(|_text| typed("8080")) }
 
 fn described(outcome: Result<u16, PortError>) -> Result<String, PortError> { outcome.map(|port| port.to_string()) }
@@ -275,6 +273,8 @@ fn loaded(path: &str) -> Result<String, LoadError> { fs_err::read_to_string(path
 
 fn reported(path: &str) -> anyhow::Result<String> { Ok(fs_err::read_to_string(path)?) }
 
+fn relayed(outcome: &anyhow::Result<String>) -> bool { outcome.is_ok() }
+
 fn contexted(text: &str) -> Result<u16, ReportError> { text.parse::<u16>().context("port").map_err(ReportError::Project) }
 
 const fn projected(report: anyhow::Error) -> ReportError { ReportError::Project(report) }
@@ -312,12 +312,29 @@ fn dispatched(name: &str, method: &str) -> Result<u16, ErrorData> { if method ==
 
 fn extracted(name: Option<&str>) -> Result<&str, ErrorData> { name.ok_or_else(|| ErrorData::internal_error("no port name reaches the extractor", None)) }
 
+fn numbered(text: &str) -> Result<u16, i32> { text.parse().map_err(|_error: ParseIntError| -1) }
+
+fn documented(text: &str) -> Result<u16, serde_json::Value> { text.parse().map_err(|error: ParseIntError| serde_json::Value::String(error.to_string())) }
+
+fn messages(text: &str) -> Result<u16, Vec<String>> { text.parse().map_err(|error: ParseIntError| vec![error.to_string()]) }
+
+fn paired(text: &str) -> Result<u16, (u16, String)> { text.parse().map_err(|error: ParseIntError| (1, error.to_string())) }
+
+#[derive(Debug, thiserror::Error)]
+enum WrappedError {
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
+
+fn wrapped(text: &str) -> Result<u16, WrappedError> { Ok(text.parse::<u16>().map_err(anyhow::Error::from)?) }
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let text = "8080";
     let source: &dyn Source = &Port;
+    black_box(&(numbered(text), documented(text), messages(text), paired(text), wrapped(text)));
     let ports = [
         spelled(text)?,
         borrowed(text)?,
@@ -338,7 +355,6 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         returned(text.to_owned())?,
         routed(text).map_or_else(|failure| failure.0, |reply| reply.0),
         tagged(text.parse::<u16>())?,
-        kept(text).unwrap_or_default(),
         defaulted(Some(8080))?,
         described(typed(text))?.parse()?,
         synced(3).map(|_offset| 8080)?,
@@ -352,7 +368,7 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         Pending { outcome: text.parse().map_err(drop) }.outcome.unwrap_or_default(),
     ];
     let survey = surveyed(&[text]);
-    black_box((
+    black_box(&(
         [planned(&[text]).map_or(0, |found| found.len()), audited(&[text]).len(), survey.ports.len(), survey.failures.len()],
         header(vec![1, 2, 3, 4]).map_or(0, |bytes| bytes.len()),
         rejected(&[text])?,
@@ -360,11 +376,12 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
     let files = [
         loaded("port")?,
         reported("port").map_err(projected)?,
+        relayed(&reported("port")).to_string(),
         contexted(text)?.to_string(),
         text.parse::<u16>().err().map(rendered).unwrap_or_default(),
         text.parse::<u16>().err().map(explained).unwrap_or_default(),
     ];
-    black_box((
+    black_box(&(
         narrowed(text)
             .map_or_else(|error| matches!(error, RenderError::Format(_) | RenderError::Narrow(_) | RenderError::Abandoned(_) | RenderError::Parse(_) | RenderError::Never(_)), |port| port > 0),
         answered(oneshot::channel().1).await.unwrap_or_default(),

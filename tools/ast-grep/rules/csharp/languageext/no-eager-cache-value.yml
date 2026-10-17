@@ -3,11 +3,24 @@ id: no-eager-cache-value
 language: csharp
 severity: error
 utils:
+    computation:
+        kind: 'invocation_expression, object_creation_expression, implicit_object_creation_expression, array_creation_expression, collection_expression, with_expression, await_expression, query_expression, interpolated_string_expression'
+    relayed:
+        kind: identifier
+        pattern: $LOCAL
+        all:
+            - matches: {csharp-block-local: {declarator: {has: {nthChild: 2, matches: computation}}}}
+            - inside:
+                stopBy: end
+                kind: block
+                has: {kind: local_declaration_statement, has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, pattern: $LOCAL}}}}
+                not: {has: {stopBy: end, kind: identifier, pattern: $LOCAL, not: {any: [{inside: {kind: variable_declarator, field: name}}, {inside: {kind: argument, inside: {kind: argument_list, inside: {kind: invocation_expression, pattern: $CALL}}}}]}}}
     computed:
         kind: argument
-        has: {kind: 'invocation_expression, object_creation_expression, implicit_object_creation_expression, array_creation_expression, with_expression, await_expression', pattern: $VALUE}
+        has: {pattern: $VALUE, any: [{matches: computation}, {matches: relayed}]}
 rule:
     kind: invocation_expression
+    pattern: $CALL
     all:
         - has: {field: function, kind: member_access_expression, all: [{has: {field: name, pattern: $METHOD}}, {has: {field: expression, pattern: $MAP}}]}
         - any:
@@ -20,4 +33,4 @@ rule:
                 - has: {field: arguments, all: [{has: {kind: argument, nthChild: 3}}, {not: {has: {kind: argument, nthChild: 4}}}]}
                 - has: {field: arguments, has: {matches: computed, any: [{has: {field: name, regex: '^None$'}}, {nthChild: 3, not: {has: {field: name, kind: identifier}}}]}}
 message: '`$MAP.$METHOD` computes `$VALUE` on every call, a hit discards it'
-note: 'Pass the factory overload, `static () => <value>` as the added value of `FindOrAdd` or the `None` of `AddOrUpdate`, a `Func<Option<V>>` for `FindOrMaybeAdd`, so the value is computed on a miss alone'
+note: 'Pass the factory overload, `static () => <value>` as the added value of `FindOrAdd` or the `None` of `AddOrUpdate` and a `Func<Option<V>>` for `FindOrMaybeAdd`, each computes the value on a miss alone'

@@ -65,13 +65,13 @@ utils:
         matches:
             csharp-file-method-call:
                 declaration:
-                    not: {matches: csharp-validation-hook}
+                    not: {matches: thinktecture-validation-hook}
                     has: {stopBy: end, matches: cut}
 rule:
     kind: invocation_expression, element_access_expression
     pattern: $CUT
     all:
-        - inside: {stopBy: end, matches: csharp-validation-hook}
+        - inside: {stopBy: end, matches: thinktecture-validation-hook}
         - any:
             - matches: cut
             - matches: relay

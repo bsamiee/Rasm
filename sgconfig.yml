@@ -25,6 +25,28 @@ customLanguages:
         expandoChar: µ
         outlineRules: tools/ast-grep/outline/swift.yml
 languageInjections:
+    - hostLanguage: rust
+      rule:
+        kind: token_tree
+        pattern: $CONTENT
+        regex: '^[(\[]'
+        any:
+            - inside: {kind: macro_invocation}
+            - follows: {regex: '^!$', follows: {kind: identifier}}
+        not: {matches: test-scope}
+      utils:
+        test-attribute:
+            kind: attribute_item
+            any:
+                - regex: '^#\[\s*cfg\s*\(.*\b(test|doctest)\b'
+                  not: {regex: '^#\[\s*cfg\s*\(\s*not\s*\(\s*test\b'}
+                - regex: '^#\[\s*(\w+::)*\w*(test|bench|quickcheck|proptest)\w*\s*(\(|\]|$)'
+        test-scope:
+            inside:
+                stopBy: end
+                kind: 'mod_item, function_item, impl_item, const_item, static_item'
+                follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: attribute_item, matches: test-attribute}
+      injected: rust
     - hostLanguage: tsx
       rule:
         kind: string_fragment

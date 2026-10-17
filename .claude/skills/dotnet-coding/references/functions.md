@@ -8,7 +8,9 @@ Combinators apply or join functions. `Pipe` applies one function to a whole valu
 
 ```csharp
 internal static class Piping {
-    public static TOut Pipe<TIn, TOut>(this TIn value, Func<TIn, TOut> transform) => transform(value);
+    extension<TIn>(TIn value) {
+        public TOut Pipe<TOut>(Func<TIn, TOut> transform) => transform(value);
+    }
     public static string Scaled(decimal input) =>
         input
             .Pipe(static x => x - 32).Pipe(static x => x * 5).Pipe(static x => x / 9)
@@ -21,10 +23,12 @@ internal static class Piping {
 
 ```csharp
 internal static class Forks {
-    public static TOut Fork<TIn, TLeft, TRight, TOut>(this TIn value, Func<TIn, TLeft> left, Func<TIn, TRight> right, Func<TLeft, TRight, TOut> join) =>
-        join(left(value), right(value));
-    public static TOut Fork<TIn, TPart, TOut>(this TIn value, Func<Seq<TPart>, TOut> join, Seq<Func<TIn, TPart>> prongs) =>
-        join(prongs.Map(prong => prong(value)));
+    extension<TIn>(TIn value) {
+        public TOut Fork<TLeft, TRight, TOut>(Func<TIn, TLeft> left, Func<TIn, TRight> right, Func<TLeft, TRight, TOut> join) =>
+            join(left(value), right(value));
+        public TOut Fork<TPart, TOut>(Func<Seq<TPart>, TOut> join, Seq<Func<TIn, TPart>> prongs) =>
+            join(prongs.Map(prong => prong(value)));
+    }
     public static double Average(Seq<double> values) =>
         values.Fork(static s => s.Fold(0.0, static (total, x) => total + x), static s => s.Count, static (sum, count) => sum / count);
 }
@@ -59,8 +63,10 @@ Validation rules of shape `T -> bool` collect into a policy: `ForAll` fits rules
 
 ```csharp
 internal static class Policies {
-    public static bool IsValid<T>(this T value, Seq<Func<T, bool>> rules) => rules.ForAll(rule => rule(value));
-    public static bool IsInvalid<T>(this T value, Seq<Func<T, bool>> violations) => violations.Exists(rule => rule(value));
+    extension<T>(T value) {
+        public bool IsValid(Seq<Func<T, bool>> rules) => rules.ForAll(rule => rule(value));
+        public bool IsInvalid(Seq<Func<T, bool>> violations) => violations.Exists(rule => rule(value));
+    }
 }
 ```
 
@@ -68,8 +74,10 @@ Later rules never run after a short circuit, the boolean form answers yes or no 
 
 ```csharp
 internal static class RuleTables {
-    public static TOutput Match<TInput, TOutput>(this TInput value, Func<TInput, TOutput> fallback, Seq<(Func<TInput, bool> When, Func<TInput, TOutput> Then)> cases) =>
-        cases.Find(c => c.When(value)).Match(Some: c => c.Then(value), None: () => fallback(value));
+    extension<TInput>(TInput value) {
+        public TOutput Match<TOutput>(Func<TInput, TOutput> fallback, Seq<(Func<TInput, bool> When, Func<TInput, TOutput> Then)> cases) =>
+            cases.Find(c => c.When(value)).Match(Some: c => c.Then(value), None: () => fallback(value));
+    }
     public static decimal Net(decimal amount) =>
         amount.Match(static x => x * 0.55m, [
             (static x => x <= 12_570m, static x => x),
@@ -229,9 +237,13 @@ Small general primitives beat one specific aggregate operation. A function compo
 
 ```csharp
 internal static class Quartiles {
-    public static Seq<Entry> TopQuartile(this Seq<Entry> population) =>
-        toSeq(population.OrderByDescending(static e => e.Amount)).Take(population.Count / 4);
-    public static decimal AverageAmount(this IEnumerable<Entry> population) => population.Average(static e => e.Amount);
+    extension(Seq<Entry> population) {
+        public Seq<Entry> TopQuartile() =>
+            toSeq(population.OrderByDescending(static e => e.Amount)).Take(population.Count / 4);
+    }
+    extension(IEnumerable<Entry> population) {
+        public decimal AverageAmount() => population.Average(static e => e.Amount);
+    }
     public static decimal Result(Seq<Entry> population) => population.TopQuartile().AverageAmount();
 }
 ```
@@ -255,8 +267,10 @@ Immutable state stays separate from behavior, and a pure transition returns its 
 internal sealed record State(decimal Balance);
 
 internal static class Transitions {
-    public static Fin<State> Debit(this State state, decimal amount) =>
-        state.Balance < amount ? Error.New("insufficient balance") : new State(state.Balance - amount);
+    extension(State state) {
+        public Fin<State> Debit(decimal amount) =>
+            state.Balance < amount ? Error.New("insufficient balance") : new State(state.Balance - amount);
+    }
 }
 ```
 

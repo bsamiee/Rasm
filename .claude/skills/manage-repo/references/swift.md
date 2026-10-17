@@ -82,7 +82,7 @@ Remote packages join `packages` in each importing project:
 
 swift-format comes from the selected toolchain through `xcrun`:
 - `mise.toml` holds no swift-format row, the mise registry has no swift-format entry and a mise `swift` puts a second binary on `PATH`
-- `--version` prints `main`, compiler and Xcode versions identify the toolchain and SDK
+- `--version` prints the toolchain release, the `lint:swift-format` runtime input
 - `.editorconfig` holds no `[*.swift]` section, `.swift-format` owns Swift indentation
 - `rules` lists every enabled rule with default-valued rows from `dump-configuration`, an omitted rule is off
 - Xcode upgrades judge each rule `dump-configuration` lists that `rules` omits

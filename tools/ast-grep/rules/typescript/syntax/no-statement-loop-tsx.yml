@@ -10,6 +10,6 @@ rule:
           not: {has: {regex: '^await$'}}
         - kind: for_statement, while_statement, do_statement
 message: Loop iterates by statement
-note: '`Array.map(<list>, <f>)` yields a value per element, `Array.reduce(<list>, <initial>, <f>)` folds elements into one value, `Array.unfold(<state>, <step>)` yields values while a state advances, `Effect.forEach(<list>, <f>)` runs an effect per element, `Effect.whileLoop` an effect per state step, and `<list>.forEach(<f>)` a host effect per element outside the runtime. `for await` consumes native async iterators at host boundaries'
+note: 'Call `Array.map(<list>, <f>)` for a value per element, `Array.reduce(<list>, <initial>, <f>)` to fold elements into one value, `Array.unfold(<state>, <step>)` for values while a state advances, `Effect.forEach(<list>, <f>)` for an effect per element, `Effect.whileLoop` for an effect per state step, or `<list>.forEach(<f>)` for a host effect per element outside the runtime'
 labels:
     LOOP: {style: primary}

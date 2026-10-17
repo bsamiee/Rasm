@@ -151,4 +151,4 @@ transform:
     MAPPED_CALL: {rewrite: {source: $CALL, rewriters: [named-reference, success-case-reference, failure-case-reference, plain-method, unreturned-value, unlifted-value]}}
 fix: $MAPPED_CALL
 message: '`$METHOD` callback lifts its result back into the Result with `$LIFTED` in place of `map` or `mapError`'
-note: '`map` replaces `flatMap { value in .success(<value>) }` and `mapError` replaces `flatMapError { error in .failure(<error>) }`, each branch of a conditional or `switch` unwrapped alike, and a callback that wraps its parameter passes the wrapper as a value (`map(Wrapper.init)`, `mapError(Failure.case)`, `mapError(Failure.case(label:))`)'
+note: 'Call `map` in place of `flatMap { value in .success(<value>) }` and `mapError` in place of `flatMapError { error in .failure(<error>) }`, unwrapping each branch of a conditional or `switch` alike, and pass a wrapper as a value (`map(Wrapper.init)`, `mapError(Failure.case)`, `mapError(Failure.case(label:))`) where the callback wraps its parameter'

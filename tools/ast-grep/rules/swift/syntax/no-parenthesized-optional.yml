@@ -18,4 +18,4 @@ rule:
         - not: {has: {kind: tuple_type_item, nthChild: {position: 2, ofRule: {kind: tuple_type_item}}}}
 fix: $TYPE
 message: '`($TYPE)` parenthesizes the type its optional wraps'
-note: 'Write `some <Protocol>?` and `any <Protocol>?`, which bind `?` to the whole opaque or existential type, a composition `(any <A> & <B>)?` keeps its parentheses'
+note: 'Write `some <Protocol>?` or `any <Protocol>?`, with `?` binding the whole opaque or existential type'

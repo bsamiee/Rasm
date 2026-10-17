@@ -1,0 +1,140 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-graph-algorithm-by-hand
+language: rust
+severity: error
+utils:
+    relax-write:
+        any:
+            - kind: assignment_expression
+              all:
+                - has: {field: left, kind: index_expression}
+                - has: {field: right, pattern: $ND}
+            - kind: call_expression
+              pattern: $_.insert($_, $ND)
+    relax-test:
+        any:
+            - has: {stopBy: end, kind: call_expression, has: {field: function, regex: '^((std|core)::cmp::)?Reverse$'}}
+            - inside:
+                kind: if_expression
+                stopBy: {kind: 'closure_expression, function_item, for_expression, while_expression, loop_expression'}
+                has: {field: condition, kind: binary_expression, all: [{has: {field: operator, regex: '^(<|<=|>|>=)$'}}, {any: [{has: {field: left, pattern: $ND}}, {has: {field: right, pattern: $ND}}]}]}
+    dijkstra-relax:
+        kind: call_expression
+        all:
+            - pattern: $H.push($$$)
+            - inside:
+                kind: if_expression
+                stopBy: {kind: 'closure_expression, function_item, for_expression, while_expression, loop_expression'}
+                all:
+                    - has: {field: consequence, has: {stopBy: end, matches: relax-write}}
+                    - has: {field: condition, has: {stopBy: end, pattern: $ND}}
+            - has: {field: arguments, has: {stopBy: end, pattern: $ND}}
+            - matches: relax-test
+            - inside:
+                kind: 'while_expression, loop_expression'
+                stopBy: {kind: 'closure_expression, function_item'}
+                has: {stopBy: end, kind: call_expression, pattern: $H.pop()}
+    decrement:
+        kind: expression_statement
+        any:
+            - has: {kind: compound_assignment_expr, pattern: '$D -= 1'}
+            - has: {kind: assignment_expression, pattern: '$D = $D - 1'}
+            - has: {kind: assignment_expression, pattern: '$D = $D.saturating_sub(1)'}
+            - has: {kind: assignment_expression, pattern: '$D = $D.strict_sub(1)'}
+            - has: {kind: assignment_expression, pattern: '$D = $D.checked_sub(1)?'}
+    released:
+        kind: if_expression
+        all:
+            - has: {field: condition, any: [{pattern: $D == 0}, {pattern: 0 == $D}]}
+            - any:
+                - follows: {stopBy: {not: {kind: 'line_comment, block_comment'}}, matches: decrement}
+                - inside: {kind: expression_statement, follows: {stopBy: {not: {kind: 'line_comment, block_comment'}}, matches: decrement}}
+    kahn-release:
+        kind: call_expression
+        all:
+            - pattern: $Q.$PUSH($$$)
+            - inside: {kind: if_expression, stopBy: {kind: 'closure_expression, function_item'}, matches: released}
+            - inside:
+                kind: 'while_expression, loop_expression'
+                stopBy: {kind: 'closure_expression, function_item'}
+                has: {stopBy: end, kind: call_expression, pattern: $Q.$POP()}
+    recursive-find:
+        kind: call_expression
+        all:
+            - any:
+                - has: {field: function, kind: field_expression, has: {field: field, pattern: $F}}
+                - has: {field: function, kind: identifier, pattern: $F}
+            - has: {field: arguments, has: {pattern: '$P[$X]'}}
+            - inside: {kind: function_item, stopBy: {kind: 'function_item, closure_expression'}, has: {field: name, pattern: $F}}
+    root-loop:
+        any:
+            - inside: {kind: while_expression, stopBy: {kind: 'function_item, closure_expression'}, has: {field: condition, any: [{pattern: '$P[$X] != $X'}, {pattern: '$X != $P[$X]'}]}}
+            - inside: {kind: loop_expression, stopBy: {kind: 'function_item, closure_expression'}, has: {stopBy: end, kind: binary_expression, any: [{pattern: '$P[$X] == $X'}, {pattern: '$X == $P[$X]'}]}}
+    path-compression:
+        kind: assignment_expression
+        all:
+            - has: {field: left, kind: index_expression, pattern: '$P[$X]'}
+            - any:
+                - has: {field: right, matches: recursive-find}
+                - has:
+                    field: right
+                    kind: identifier
+                    pattern: $R
+                    inside:
+                        kind: block
+                        stopBy: {kind: 'function_item, closure_expression'}
+                        has: {kind: let_declaration, all: [{has: {field: pattern, pattern: $R}}, {has: {field: value, matches: recursive-find}}]}
+                - all:
+                    - has: {field: right, pattern: '$P[$P[$X]]'}
+                    - matches: root-loop
+    tested:
+        any:
+            - inside: {field: condition, kind: if_expression}
+            - inside: {kind: unary_expression, inside: {field: condition, kind: if_expression}}
+    adjacency-read:
+        any:
+            - kind: index_expression
+            - kind: call_expression
+              has: {field: function, kind: field_expression, has: {field: field, regex: '^(neighbors|neighbors_directed|neighbors_undirected|edges|edges_directed|get)$'}}
+    visited-worklist:
+        kind: call_expression
+        all:
+            - any:
+                - pattern: $V.insert($$$)
+                - pattern: $V.contains($$$)
+            - matches: tested
+            - inside:
+                kind: 'while_expression, loop_expression'
+                stopBy: {kind: 'closure_expression, function_item'}
+                all:
+                    - has: {stopBy: end, kind: call_expression, pattern: $V.insert($$$)}
+                    - has: {stopBy: end, kind: call_expression, pattern: $W.$POP()}
+                    - has:
+                        stopBy: end
+                        kind: call_expression
+                        pattern: $W.$ADD($$$)
+                        any:
+                            - has: {field: arguments, has: {stopBy: end, matches: adjacency-read}}
+                            - inside:
+                                kind: for_expression
+                                stopBy: {kind: 'while_expression, loop_expression, closure_expression'}
+                                has: {field: value, any: [{matches: adjacency-read}, {has: {stopBy: end, matches: adjacency-read}}]}
+rule:
+    kind: 'call_expression, assignment_expression'
+    pattern: $SITE
+    any:
+        - matches: dijkstra-relax
+        - matches: kahn-release
+        - matches: path-compression
+        - matches: visited-worklist
+constraints:
+    PUSH: {regex: '^(push|push_back|push_front)$'}
+    POP: {regex: '^(pop|pop_back|pop_front)$'}
+    ADD: {regex: '^(push|push_back|push_front|extend)$'}
+transform:
+    SHORTEST: {replace: {source: $H, replace: '(?s)^.+$', by: 'a shortest-path relaxation'}}
+    ORDER: {replace: {source: $D, replace: '(?s)^.+$', by: 'a Kahn topological sort'}}
+    UNION: {replace: {source: $P, replace: '(?s)^.+$', by: 'union-find path compression'}}
+    TRAVERSAL: {replace: {source: $V, replace: '(?s)^.+$', by: 'a visited-set graph traversal'}}
+message: '`$SITE` runs $SHORTEST$ORDER$UNION$TRAVERSAL by hand'
+note: 'Hold the graph as a `petgraph::Graph` or `petgraph::graphmap::DiGraphMap` and call `petgraph::algo::dijkstra` or `astar` for shortest paths, `petgraph::algo::toposort` for an order, `petgraph::unionfind::UnionFind` for disjoint sets, and `petgraph::visit::Dfs` or `Bfs` for a traversal'

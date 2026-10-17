@@ -15,7 +15,7 @@ utils:
         matches:
             csharp-file-method-call:
                 declaration:
-                    not: {matches: csharp-validation-hook}
+                    not: {matches: thinktecture-validation-hook}
                     has:
                         stopBy: end
                         any:
@@ -35,7 +35,7 @@ utils:
               pattern: $KEY
               inside:
                 stopBy: end
-                matches: csharp-validation-hook
+                matches: thinktecture-validation-hook
                 has: {field: parameters, has: {kind: parameter, all: [{has: {field: name, pattern: $KEY}}, {has: {field: type, regex: '^string\??$'}}]}}
             - matches: {csharp-block-local: {declarator: {has: {nthChild: 2, matches: key-path}}}}
             - kind: identifier
@@ -68,8 +68,9 @@ utils:
             - has: {field: pattern, has: {field: name, pattern: $LOCAL}}
 rule:
     kind: throw_statement, throw_expression, invocation_expression, cast_expression
+    pattern: $THROW
     all:
-        - inside: {stopBy: end, matches: csharp-validation-hook}
+        - inside: {stopBy: end, matches: thinktecture-validation-hook}
         - any:
             - kind: throw_statement, throw_expression
             - kind: invocation_expression
@@ -89,5 +90,5 @@ rule:
                 field: value
                 kind: invocation_expression
                 has: {field: function, regex: '(^|\.)From(<.+>)?$'}
-message: "`ValidateFactoryArguments` throws in place of the typed error `TryCreate`, `Validate`, and framework converters return"
-note: Assign `validationError` and return, a nested value validates through its non-throwing `Validate`
+message: "`$THROW` throws inside `ValidateFactoryArguments`"
+note: Assign `validationError` and return, which `TryCreate`, `Validate`, and the framework converters read, and validate a nested value through its non-throwing `Validate`

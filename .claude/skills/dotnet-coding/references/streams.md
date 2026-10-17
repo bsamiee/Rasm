@@ -28,27 +28,29 @@ Subscription behavior depends on the source, not every observable is lazy. Callb
 
 Operators produce new observables in place of handling individual events imperatively, and the Rx names map onto `Source<A>`:
 
-| [INDEX] | [OPERATOR]      | [DESCRIPTION]                                                                   | [SOURCE]                             |
-| :-----: | :-------------- | :------------------------------------------------------------------------------ | :----------------------------------- |
-|  [01]   | `Select`        | Maps each emitted value                                                         | `Map`                                |
-|  [02]   | `SelectMany`    | Maps each value to an observable or task, then flattens the inner values        | Query `from`                         |
-|  [03]   | `Where`         | Retains values satisfying a predicate                                           | `Filter`                             |
-|  [04]   | `Take`, `Skip`  | Retains the first count or timespan of values, or discards an initial portion   | `Take`, `Skip`                       |
-|  [05]   | `First`         | Reduces the stream to its first value                                           | `Take(1).Last()`                     |
-|  [06]   | `Concat`        | Emits the first stream, then subscribes to the second after the first completes | `Combine`                            |
-|  [07]   | `StartWith`     | Prefixes a stream with initial values                                           | `pure` then `Combine`                |
-|  [08]   | `Merge`         | Interleaves values from streams as they arrive                                  | `Source.merge`                       |
-|  [09]   | `CombineLatest` | Recomputes from the latest values on either change, after both emitted          | None                                 |
-|  [10]   | `Zip`           | Pairs each value with one matching partner                                      | `Zip`                                |
-|  [11]   | `Scan`          | Emits every successive accumulated state                                        | `Scan` on `Seq`                      |
-|  [12]   | `GroupBy`       | Splits one stream into keyed streams                                            | None                                 |
+| [INDEX] | [OPERATOR]      | [DESCRIPTION]                                                                   | [SOURCE]              |
+| :-----: | :-------------- | :------------------------------------------------------------------------------ | :-------------------- |
+|  [01]   | `Select`        | Maps each emitted value                                                         | `Map`                 |
+|  [02]   | `SelectMany`    | Maps each value to an observable or task, then flattens the inner values        | Query `from`          |
+|  [03]   | `Where`         | Retains values satisfying a predicate                                           | `Filter`              |
+|  [04]   | `Take`, `Skip`  | Retains the first count or timespan of values, or discards an initial portion   | `Take`, `Skip`        |
+|  [05]   | `First`         | Reduces the stream to its first value                                           | `Take(1).Last()`      |
+|  [06]   | `Concat`        | Emits the first stream, then subscribes to the second after the first completes | `Combine`             |
+|  [07]   | `StartWith`     | Prefixes a stream with initial values                                           | `pure` then `Combine` |
+|  [08]   | `Merge`         | Interleaves values from streams as they arrive                                  | `Source.merge`        |
+|  [09]   | `CombineLatest` | Recomputes from the latest values on either change, after both emitted          | None                  |
+|  [10]   | `Zip`           | Pairs each value with one matching partner                                      | `Zip`                 |
+|  [11]   | `Scan`          | Emits every successive accumulated state                                        | `Scan` on `Seq`       |
+|  [12]   | `GroupBy`       | Splits one stream into keyed streams                                            | None                  |
 
 Queries over `Source<A>` with a `from` per stage flatten the inner source of each value instead of blocking on it. `Combine` depends on completion, when its first source never completes the second is never observed. Partitioning is the stream form of branching, each branch transforms independently, normalizes to a common type, and rejoins with `Source.merge`:
 
 ```csharp
 internal static class Branches {
-    public static (Source<A> Passed, Source<A> Failed) Partition<A>(this Source<A> source, Func<A, bool> predicate) =>
-        (source.Filter(predicate), source.Filter(value => !predicate(value)));
+    extension<A>(Source<A> source) {
+        public (Source<A> Passed, Source<A> Failed) Partition(Func<A, bool> predicate) =>
+            (source.Filter(predicate), source.Filter(value => !predicate(value)));
+    }
     public static IO<int> Rejoined(Source<int> source) {
         (Source<int> passed, Source<int> failed) = source.Partition(static item => item > 1);
         return Source.merge(passed.Map(static item => item * 10), failed).FoldReduce(0, static (sum, item) => sum + item);
@@ -86,8 +88,10 @@ Reactive streams express logic in which processing a new event depends on earlie
 
 ```csharp
 internal static class Transitions {
-    public static Source<(A Previous, A Current)> PairWithPrevious<A>(this Source<A> source) =>
-        source.Zip(source.Skip(1)).Map(static pair => (Previous: pair.First, Current: pair.Second));
+    extension<A>(Source<A> source) {
+        public Source<(A Previous, A Current)> PairWithPrevious() =>
+            source.Zip(source.Skip(1)).Map(static pair => (Previous: pair.First, Current: pair.Second));
+    }
 }
 ```
 

@@ -54,4 +54,4 @@ transform:
             by: ''
 fix: $FIXED
 message: '`$ATTRIBUTE` hides `$NAME` from the API it belongs to'
-note: 'Narrow the item to `pub(crate)` or `pub(super)` where the crate alone reads it, else keep it in the documented API, `#[doc(hidden)]` keeps the item callable from every dependent while `missing_docs` and semver checks skip it'
+note: 'Narrow the item to `pub(crate)` or `pub(super)` when the crate alone reads it, else keep it in the documented API'

@@ -38,7 +38,7 @@ public readonly partial struct Quality : IMinMaxValue<Quality> {
     public static Quality MinValue { get; } = new(0);
     public static Quality MaxValue { get; } = new(100);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -48,7 +48,7 @@ public readonly partial struct JpegQuality : IMinMaxValue<JpegQuality> {
     public static JpegQuality Standard { get; } = new(75);
     public static JpegQuality Export { get; } = new(90);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
@@ -271,7 +271,7 @@ public static class StillWriter {
                 if (!tiff.WriteScanline(segment.Array, segment.Offset, y, 0))
                     return Error.New(string.Create(CultureInfo.InvariantCulture, $"TIFF writer refused scanline {y}"));
             }
-            return Fin.Succ(unit);
+            return unit;
         }
         return IO.lift(environment => Optional(Tiff.ClientOpen(stream.Name, mode, stream, new BorrowedTiffStream())).ToFin(Error.New($"TIFF writer refused to open {stream.Name}")).Bind(tiff => {
             Fin<Unit> encoded = Try.lift(() => Encode(tiff, environment.Token)).Run();

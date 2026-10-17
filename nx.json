@@ -4,7 +4,7 @@
     "neverConnectToCloud": true,
     "namedInputs": {
         "production": [ "default", "!{projectRoot}/**/*.{spec,test,bench}.{ts,tsx,mts,cts}" ],
-        "dotnet": [ "{workspaceRoot}/{global.json,NuGet.config,Directory.Build.props,Directory.Build.rsp,Directory.Build.targets,Directory.Packages.props}", { "externalDependencies": [] }, { "env": "NUGET_PACKAGES" }, { "runtime": "dotnet --version" } ],
+        "dotnet": [ "{workspaceRoot}/{global.json,NuGet.config,Directory.Build.props,Directory.Build.rsp,Directory.Build.targets,Directory.Packages.props}", "{workspaceRoot}/tools/roslyn/**/*", { "externalDependencies": [] }, { "env": "NUGET_PACKAGES" }, { "runtime": "dotnet --version" } ],
         "python": [ "{workspaceRoot}/pyproject.toml", "{workspaceRoot}/uv.lock", { "externalDependencies": [] }, { "runtime": "uv --version" }, { "runtime": "python --version" } ],
         "vite": [ "{workspaceRoot}/vite.config.ts", { "externalDependencies": [ "vite", "effect" ] } ],
         "typescript": [ "{workspaceRoot}/tsconfig.base.json", { "json": "{workspaceRoot}/package.json", "fields": [ "type", "imports" ] }, { "runtime": "node --version" } ],
@@ -123,7 +123,7 @@
             { "filter": { "projects": [ "tag:build:swiftpm" ] }, "command": "swift package --package-path {projectRoot} --scratch-path $NX_WORKSPACE_ROOT/.cache/swiftpm/build/{projectRoot} update" }
         ],
         "lint": [ { "filter": { "projects": [ "tag:language:swift" ] }, "executor": "nx:noop", "dependsOn": [ "lint:*" ] } ],
-        "lint:swift-format": { "command": "xcrun swift-format lint --strict --parallel --recursive {projectRoot}", "cache": true, "inputs": [ "default", "{workspaceRoot}/.swift-format", { "externalDependencies": [] }, { "runtime": "xcodebuild -version" } ] },
+        "lint:swift-format": { "command": "xcrun swift-format lint --strict --parallel --recursive {projectRoot}", "cache": true, "inputs": [ "default", "{workspaceRoot}/.swift-format", { "externalDependencies": [] }, { "runtime": "xcrun swift-format --version" } ] },
         "lint:swiftlint": [
             {
                 "executor": "nx:run-commands",
@@ -181,7 +181,7 @@
                 "filter": { "projects": [ "tag:language:dotnet" ] },
                 "options": { "args": [ "...", "-bl:$NX_WORKSPACE_ROOT/.artifacts/dotnet/binlog/$NX_TASK_TARGET_PROJECT/$NX_TASK_TARGET_TARGET.binlog" ] },
                 "inputs": [ "...", "dotnet" ],
-                "outputs": [ "{workspaceRoot}/.artifacts/dotnet/coverage/{projectName}", "{workspaceRoot}/.artifacts/dotnet/binlog/{projectName}/test-dotnet-test.binlog" ]
+                "outputs": [ "{workspaceRoot}/.artifacts/dotnet/test/{projectName}", "{workspaceRoot}/.artifacts/dotnet/binlog/{projectName}/test-dotnet-test.binlog" ]
             },
             {
                 "filter": { "projects": [ "tag:language:python" ] },

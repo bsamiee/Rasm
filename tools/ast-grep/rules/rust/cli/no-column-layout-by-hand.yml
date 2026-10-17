@@ -1,0 +1,87 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-column-layout-by-hand
+language: rust
+severity: error
+utils:
+    measured:
+        kind: call_expression
+        any:
+            - all:
+                - has: {field: arguments, not: {has: {pattern: $_}}}
+                - has: {field: function, kind: field_expression, has: {field: field, regex: '^(len|count|width)$'}}
+            - all:
+                - has: {field: function, regex: '::(len|width)$'}
+                - has: {field: arguments, has: {nthChild: 1}, not: {has: {nthChild: 2}}}
+    measure-function:
+        any:
+            - kind: closure_expression
+              has: {field: body, any: [{matches: measured}, {kind: block, has: {matches: measured}}]}
+            - kind: scoped_identifier
+              regex: '::(len|width)$'
+    max-function:
+        kind: scoped_identifier
+        regex: '^((::)?(std|core)::)?((cmp|\w+)::)?max$'
+    max-of-measured:
+        kind: call_expression
+        any:
+            - all:
+                - has: {field: function, kind: field_expression, has: {field: field, regex: '^max$'}}
+                - has: {field: arguments, has: {nthChild: 1, matches: measured}}
+            - all:
+                - has: {field: function, matches: max-function}
+                - has: {field: arguments, has: {matches: measured}}
+    width-format:
+        kind: macro_invocation
+        pattern: $FORMAT
+        all:
+            - matches: {rust-std-macro: {name: {regex: '^(format|format_args|write|writeln|print|println|eprint|eprintln)$'}}}
+            - has: {kind: token_tree, has: {nthChild: {position: 1, ofRule: {kind: 'string_literal, raw_string_literal'}}, regex: '\{[^{}]*:[^{}.$]*\w\$'}}
+rule:
+    pattern: $WIDTH
+    any:
+        - kind: call_expression
+          all:
+            - has:
+                field: function
+                kind: field_expression
+                all:
+                    - has: {field: field, regex: '^max$'}
+                    - has:
+                        field: value
+                        kind: call_expression
+                        all:
+                            - has: {field: function, kind: field_expression, has: {field: field, regex: '^map$'}}
+                            - has: {field: arguments, has: {nthChild: 1, matches: measure-function}}
+            - has: {field: arguments, not: {has: {pattern: $_}}}
+        - kind: call_expression
+          all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^fold$'}}
+            - has:
+                field: arguments
+                has:
+                    nthChild: 2
+                    any:
+                        - kind: closure_expression
+                          has: {field: body, any: [{matches: max-of-measured}, {kind: block, has: {matches: max-of-measured}}]}
+                        - all:
+                            - matches: max-function
+                            - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, has: {field: value, kind: call_expression, all: [{has: {field: function, kind: field_expression, has: {field: field, regex: '^map$'}}}, {has: {field: arguments, has: {nthChild: 1, matches: measure-function}}}]}}}}
+        - kind: assignment_expression
+          all:
+            - has: {field: left, kind: identifier, pattern: $W}
+            - has:
+                field: right
+                kind: call_expression
+                any:
+                    - all:
+                        - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^max$'}}, {has: {field: value, pattern: $W}}]}
+                        - has: {field: arguments, has: {nthChild: 1, matches: measured}}
+                    - all:
+                        - has: {field: function, matches: max-function}
+                        - has: {field: arguments, all: [{has: {pattern: $W}}, {has: {matches: measured}}]}
+    inside: {kind: function_item, stopBy: {kind: function_item}, has: {stopBy: {kind: function_item}, matches: width-format}}
+labels:
+    WIDTH: {style: primary, message: 'Measures the column'}
+    FORMAT: {style: secondary, message: 'Pads by the measured width'}
+message: '`$WIDTH` measures a column width for a width format by hand'
+note: 'Add the rows to a `comfy_table::Table` and print it'

@@ -15,23 +15,20 @@ utils:
                 - has: {field: body, has: {kind: property_declaration, has: {field: name, pattern: $VALUE}}}
                 - has: {field: body, has: {kind: field_declaration, has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, pattern: $VALUE}}}}}
                 - has: {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $VALUE}}}
-    copied-argument:
-        kind: argument
-        has:
-            nthChild: 1
-            any:
-                - matches: owner-value
-                - kind: member_access_expression
-                  all:
-                    - has: {field: expression, regex: '^this$'}
-                    - has: {field: name, matches: owner-value}
+    copied-value:
+        any:
+            - matches: owner-value
+            - kind: member_access_expression
+              all:
+                - has: {field: expression, regex: '^this$'}
+                - has: {field: name, matches: owner-value}
     copy:
         kind: 'object_creation_expression, implicit_object_creation_expression'
         has:
             kind: argument_list
             all:
                 - has: {kind: argument, nthChild: 2}
-                - not: {has: {kind: argument, not: {matches: copied-argument}}}
+                - not: {has: {kind: argument, not: {has: {nthChild: 1, matches: copied-value}}}}
 rule:
     kind: 'property_declaration, method_declaration'
     all:
@@ -51,5 +48,5 @@ rule:
                         - has: {field: type, pattern: $TYPE}
                         - not: {inside: {stopBy: end, kind: 'method_declaration, property_declaration', has: {field: name, pattern: $NAME}}}
         - has: {kind: arrow_expression_clause, has: {nthChild: 1, matches: copy}}
-message: '`$NAME` copies members of its owner into `$TYPE`, members on the owner state what `$TYPE` derives'
+message: '`$NAME` builds `$TYPE` from members of its owner alone'
 note: Declare each member of the copy type on the owner holding its inputs, and delete the copy type when no other producer builds it

@@ -130,4 +130,4 @@ transform:
     HEX: {replace: {source: $FROM_BASE64, replace: '(?s)^.*\btoString\(.*$', by: '`Hex.encode(<bytes>)`'}}
     METHOD: {replace: {source: $HEX, replace: '^((globalThis|window|self)\.)?(Number\.)?parseInt$', by: '`Hex.decode(<text>)`'}}
 message: '`$OP` converts between bytes and text by hand, $METHOD converts in one call'
-note: '`effect/encoding` `Base64`, `Base64Url`, and `Hex` `encode` take bytes or UTF-8 text, and their `decode` and `decodeString` return a `Result` failing with `EncodingError` on malformed input, which replaces the `+`, `/`, and `=` rewrites and the `unescape` and `escape` UTF-8 round trip'
+note: 'Call `effect/encoding` `Base64`, `Base64Url`, or `Hex` `encode` on bytes or UTF-8 text, and `decode` or `decodeString` for a `Result` failing with `EncodingError` on malformed input, in place of the `+`, `/`, and `=` rewrites and the `unescape` and `escape` UTF-8 round trip'

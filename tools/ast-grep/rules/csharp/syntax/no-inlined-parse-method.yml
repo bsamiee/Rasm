@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-inlined-parse-method
+language: csharp
+severity: error
+utils:
+    unary:
+        kind: method_declaration, local_function_statement
+        has: {field: parameters, all: [{has: {kind: parameter, nthChild: 1, has: {field: name, pattern: $PARAMETER}}}, {not: {has: {kind: parameter, nthChild: 2}}}]}
+    owner-body:
+        inside: {kind: arrow_expression_clause, inside: {matches: unary}}
+    owner:
+        matches: unary
+        kind: method_declaration
+        has: {kind: modifier, regex: '^static$'}
+        all:
+            - has: {field: name, pattern: $OWNER}
+            - has:
+                field: body
+                kind: arrow_expression_clause
+                all:
+                    - has: {pattern: '$RECEIVER.$METHOD($PARAMETER, $$$)'}
+                    - has: {pattern: '$_RECEIVER.$_METHOD($PARAMETER, $$$REST)'}
+    plain-owner:
+        matches: unary
+        kind: method_declaration
+        has: {kind: modifier, regex: '^static$'}
+        all:
+            - has: {field: name, pattern: $OWNER}
+            - has: {field: body, kind: arrow_expression_clause, has: {pattern: '$RECEIVER.$METHOD($PARAMETER)'}}
+rule:
+    kind: invocation_expression
+    pattern: $PARSE
+    all:
+        - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Try)?Parse(Exact)?$'}}
+        - not: {has: {field: arguments, has: {kind: argument, has: {regex: '^(out|ref)$'}}}}
+        - not: {has: {field: arguments, has: {kind: argument, nthChild: 1, has: {field: name, pattern: $_}}}}
+        - any:
+            - all:
+                - pattern: $RECEIVER.$METHOD($ARGUMENT, $$$REST)
+                - not: {matches: owner-body}
+                - inside: {kind: declaration_list, stopBy: end, inside: {kind: 'class_declaration, struct_declaration, record_declaration, interface_declaration'}, has: {matches: owner}}
+            - all:
+                - pattern: $RECEIVER.$METHOD($ARGUMENT)
+                - not: {matches: owner-body}
+                - inside: {kind: declaration_list, stopBy: end, inside: {kind: 'class_declaration, struct_declaration, record_declaration, interface_declaration'}, has: {matches: plain-owner}}
+            - all:
+                - pattern: $RECEIVER.$METHOD($ARGUMENT, $$$REST)
+                - inside: {kind: arrow_expression_clause, inside: {matches: unary, follows: {stopBy: end, matches: owner}}}
+            - all:
+                - pattern: $RECEIVER.$METHOD($ARGUMENT)
+                - inside: {kind: arrow_expression_clause, inside: {matches: unary, follows: {stopBy: end, matches: plain-owner}}}
+transform:
+    WRAPPED: {replace: {source: $ARGUMENT, replace: '^((?s).*)$', by: '($1)'}}
+fix: $OWNER$WRAPPED
+labels:
+    PARSE: {style: primary, message: Parse the method states}
+    OWNER: {style: secondary, message: Method whose body is the parse}
+message: '`$PARSE` repeats the body of `$OWNER`'
+note: Call the method whose body is the parse, the file states the parse once

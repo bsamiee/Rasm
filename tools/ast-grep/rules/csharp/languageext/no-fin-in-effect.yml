@@ -59,18 +59,8 @@ utils:
             - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^pure$'}}}}
             - has: {field: arguments, has: {kind: argument, has: {matches: result-local}}, not: {has: {kind: argument, nthChild: 2}}}
             - not: {matches: typed-position}
-    tried:
-        pattern: {context: 'class C { object F() => $EFFECT.Try(); }', selector: invocation_expression, strictness: cst}
     tried-run:
-        any:
-            - kind: member_access_expression
-              all:
-                - has: {field: name, regex: '^runFin$'}
-                - has: {field: expression, matches: tried}
-            - kind: invocation_expression
-              all:
-                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Run$'}}, {has: {field: expression, matches: tried}}]}
-                - has: {field: arguments, not: {has: {kind: argument}}}
+        matches: {languageext-tried-run: {effect: {pattern: $_}}}
     continued:
         any:
             - inside: {kind: member_access_expression, field: expression}

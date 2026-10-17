@@ -15,7 +15,7 @@ public readonly partial struct BoundaryWidthScale : System.Numerics.IMinMaxValue
     public static BoundaryWidthScale MaxValue { get; } = new(double.MaxValue);
     public static BoundaryWidthScale Unit { get; } = new(1.0);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]

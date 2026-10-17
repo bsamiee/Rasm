@@ -20,4 +20,4 @@ rule:
             - all: [{has: {field: lhs, matches: raw-value}}, {has: {field: rhs, matches: text}}]
             - all: [{has: {field: lhs, matches: text}}, {has: {field: rhs, matches: raw-value}}]
 message: '`$SITE` compares `$VALUE` as text with a raw value that a case names'
-note: 'Compare the typed value with the case, `<value> == .<case>`, or with `<Type>(rawValue: <text>)` for a raw-representable struct, the compiler then checks the case where a misspelled literal compares false'
+note: 'Compare the typed value with the case (`<value> == .<case>`), or with `<Type>(rawValue: <text>)` for a raw-representable struct'

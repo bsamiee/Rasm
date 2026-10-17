@@ -17,6 +17,40 @@ test       = false
 doctest    = false
 bench      = false
 
+# --- [EXAMPLES] -------------------------------------------------------------------------
+
+[[example]]
+name       = "foreign_error_return"
+crate-type = ["lib"]
+
+[[example]]
+name       = "forwarding_newtype_exported"
+crate-type = ["lib"]
+
+[[example]]
+name       = "needless_boxed_future_exported"
+crate-type = ["lib"]
+
+[[example]]
+name       = "needless_reference_field_exported"
+crate-type = ["lib"]
+
+[[example]]
+name       = "optional_channel_sender_exported"
+crate-type = ["lib"]
+
+[[example]]
+name       = "single_caller_exported"
+crate-type = ["lib"]
+
+[[example]]
+name       = "unparsed_field_exported"
+crate-type = ["lib"]
+
+[[example]]
+name       = "untyped_error_exported"
+crate-type = ["lib"]
+
 # --- [LINTS] ----------------------------------------------------------------------------
 
 [lints]
@@ -26,25 +60,31 @@ workspace = true
 
 [dependencies]
 clippy_utils   = { workspace = true }
+derive-where   = { workspace = true }
 dylint_linting = { workspace = true }
 itertools      = { workspace = true }
 
 [dev-dependencies]
-anyhow              = { workspace = true }
-cargo_metadata      = { workspace = true }
-clap                = { workspace = true }
-derive_more         = { workspace = true }
-fs-err              = { workspace = true }
-futures             = { workspace = true }
-insta               = { workspace = true }
-opentelemetry-otlp  = { workspace = true }
-rasm-mcp            = { workspace = true }
-rmcp                = { workspace = true }
-serde               = { workspace = true }
-serde_json          = { workspace = true }
-serde_path_to_error = { workspace = true }
-thiserror           = { workspace = true }
-tokio               = { workspace = true }
-tokio-stream        = { workspace = true }
-tokio-util          = { workspace = true }
-tracing             = { workspace = true }
+anyhow               = { workspace = true }
+cargo_metadata       = { workspace = true }
+clap                 = { workspace = true }
+derive_more          = { workspace = true }
+fs-err               = { workspace = true }
+futures              = { workspace = true }
+indexmap             = { workspace = true }
+insta                = { workspace = true }
+nonempty-collections = { workspace = true }
+opentelemetry-otlp   = { workspace = true }
+rasm-mcp             = { workspace = true }
+rmcp                 = { workspace = true }
+serde                = { workspace = true }
+serde_json           = { workspace = true }
+serde_path_to_error  = { workspace = true }
+strum                = { workspace = true }
+thiserror            = { workspace = true }
+tokio                = { workspace = true }
+tokio-stream         = { workspace = true }
+tokio-util           = { workspace = true }
+tracing              = { workspace = true }
+uuid                 = { workspace = true }
+validated            = { workspace = true }

@@ -17,14 +17,25 @@ utils:
                           has: {field: field, regex: '^partition_result$'}
                         - kind: generic_function
                           has: {field: function, kind: field_expression, has: {field: field, regex: '^partition_result$'}}
+                        - kind: scoped_identifier
+                          has: {field: name, regex: '^partition_result$'}
     emptiness:
         any:
             - kind: call_expression
               all:
                 - has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $ERRORS}}, {has: {field: field, regex: '^is_empty$'}}]}
                 - has: {field: arguments, not: {has: {pattern: $_}}}
-            - kind: unary_expression
-              regex: '^!'
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(is_none|is_some)$'}}, {has: {field: value, kind: call_expression, all: [{has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $ERRORS}}, {has: {field: field, regex: '^(first|last)$'}}]}}, {has: {field: arguments, not: {has: {pattern: $_}}}}]}}]}
+                - has: {field: arguments, not: {has: {pattern: $_}}}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^(==|!=|>|<|>=|<=)$'}
+                - has: {kind: integer_literal, regex: '^[01]$'}
+                - has: {kind: call_expression, all: [{has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $ERRORS}}, {has: {field: field, regex: '^len$'}}]}}, {has: {field: arguments, not: {has: {pattern: $_}}}}]}
+            - kind: 'unary_expression, parenthesized_expression'
+              regex: '^[!(]'
               has: {matches: emptiness}
     error-return:
         kind: call_expression
@@ -37,17 +48,23 @@ utils:
               all:
                 - has: {field: condition, matches: emptiness}
                 - has: {stopBy: end, matches: error-return}
+            - kind: match_expression
+              all:
+                - has: {field: value, matches: emptiness}
+                - has: {stopBy: end, matches: error-return}
+            - kind: call_expression
+              has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(then|then_some)$'}}, {has: {field: value, matches: emptiness}}]}
             - kind: call_expression
               all:
                 - has: {field: function, regex: '^((nonempty_collections::)?(vector::)?NEVec|NonEmpty)::(try_from_vec|from_vec)$'}
                 - has: {field: arguments, has: {nthChild: 1, pattern: $ERRORS}}
 rule:
-    kind: 'if_expression, call_expression'
+    kind: 'if_expression, match_expression, call_expression'
     pattern: $SITE
     all:
         - matches: selection
         - any:
             - follows: {stopBy: end, matches: partitioned}
             - inside: {stopBy: {kind: 'function_item, closure_expression'}, follows: {stopBy: end, matches: partitioned}}
-message: '`$SITE` picks `Ok` or `Err` by whether the errors `partition_result` split off are empty'
-note: 'Collect the results into `validated::Validated<Vec<_>, _>` and call its `ok` (`<iter>.collect::<Validated<Vec<_>, _>>().ok()`), `ok` returns `Result<Vec<T>, NEVec<E>>` with every error in a list that cannot be empty'
+message: '`$SITE` picks `Ok` or `Err` by testing the errors `partition_result` split off for emptiness'
+note: 'Collect the results with `<iterator>.collect::<validated::Validated<Vec<_>, _>>().ok()` for a `Result<Vec<T>, NEVec<E>>` holding every error'

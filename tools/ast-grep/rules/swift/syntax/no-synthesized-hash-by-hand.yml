@@ -57,4 +57,4 @@ rule:
                                                 - matches: member-of-owner
                                                 - has: {field: body, has: {stopBy: end, kind: call_expression, any: [{pattern: '$H.combine($P)'}, {pattern: '$H.combine(self.$P)'}]}}
 message: '`hash(into:)` of `$T` combines every stored property, the hash the compiler synthesizes'
-note: 'Delete `hash(into:)` and keep the `Hashable` conformance, the compiler hashes every stored property of a struct whose properties are `Hashable`'
+note: 'Delete `hash(into:)` and keep the `Hashable` conformance'

@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-into-iter-chain
+language: rust
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - pattern: $A.into_iter().chain($B)
+constraints:
+    A: {kind: 'identifier, field_expression, self'}
+fix: iter::chain($A, $B)
+message: '`$A` converts into an iterator only to chain `$B` onto it'
+note: 'Call `iter::chain(<a>, <b>)` with `use core::iter;` in the file'

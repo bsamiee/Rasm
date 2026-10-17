@@ -90,4 +90,4 @@ transform:
     ARGUMENT: {replace: {source: $TEXT, replace: '(?s)^(.+)$', by: '($1)'}}
 fix: RegExp.escape$ARGUMENT
 message: '`$CALL` escapes regular expression syntax characters by hand'
-note: '`RegExp.escape(<text>)` escapes every syntax character, and writes a leading alphanumeric, other punctuators, and whitespace as hex escapes valid under `u` and `v`'
+note: 'Call `RegExp.escape(<text>)` to escape every syntax character, with a leading alphanumeric, other punctuators, and whitespace written as hex escapes valid under `u` and `v`'

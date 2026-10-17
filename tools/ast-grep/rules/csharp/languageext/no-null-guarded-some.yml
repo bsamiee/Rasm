@@ -43,7 +43,7 @@ utils:
             - kind: parenthesized_expression
               has: {matches: some-of-held}
     typed-none:
-        matches: csharp-none-value
+        matches: languageext-none-value
         not: {regex: '^default$'}
     absent-test:
         any:
@@ -97,11 +97,11 @@ utils:
               has: {matches: no-value-test}
     none-branch:
         any:
-            - matches: csharp-none-value
+            - matches: languageext-none-value
             - kind: return_statement
-              has: {matches: csharp-none-value}
+              has: {matches: languageext-none-value}
             - kind: block
-              has: {kind: return_statement, has: {matches: csharp-none-value}}
+              has: {kind: return_statement, has: {matches: languageext-none-value}}
               not: {has: {nthChild: 2}}
     typed-none-branch:
         any:
@@ -200,7 +200,7 @@ utils:
         kind: switch_expression_arm
         all:
             - has: {nthChild: 1, regex: '^(null|not\s*\{\s*\}|not\s+object|_)$'}
-            - has: {nthChild: 2, matches: csharp-none-value}
+            - has: {nthChild: 2, matches: languageext-none-value}
             - not: {has: {nthChild: 3}}
     present-arm:
         kind: switch_expression_arm

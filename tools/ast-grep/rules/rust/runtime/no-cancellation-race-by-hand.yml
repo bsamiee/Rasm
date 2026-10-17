@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-cancellation-race-by-hand
+language: rust
+severity: error
+utils:
+    cancel-call:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^cancelled(_owned)?$', pattern: $CANCELLED}}
+            - has: {field: arguments, regex: '^\(\s*\)$'}
+    cancel-tokens:
+        kind: identifier
+        regex: '^cancelled(_owned)?$'
+        pattern: $CANCELLED
+        follows: {regex: '^\.$'}
+        precedes: {kind: token_tree, regex: '^\(\s*\)$'}
+    cancel-future:
+        any:
+            - matches: cancel-call
+            - kind: call_expression
+              all:
+                - has: {field: function, regex: '^((::)?(std::)?boxed::)?Box::pin$'}
+                - has: {field: arguments, has: {nthChild: 1, matches: cancel-call}}
+            - kind: call_expression
+              has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(boxed|fuse)$'}}, {has: {field: value, matches: cancel-call}}]}
+            - kind: macro_invocation
+              all:
+                - has: {field: macro, regex: '^((::)?(std|core)::pin::)?pin$'}
+                - has: {kind: token_tree, has: {matches: cancel-tokens}}
+    cancel-binding:
+        kind: identifier
+        pattern: $BOUND
+        inside:
+            kind: function_item
+            stopBy: {kind: function_item}
+            has: {stopBy: end, kind: let_declaration, all: [{has: {field: pattern, pattern: $BOUND}}, {has: {field: value, matches: cancel-future}}]}
+    cancel-operand:
+        any:
+            - matches: cancel-future
+            - matches: cancel-binding
+            - kind: reference_expression
+              has: {field: value, matches: cancel-binding}
+            - kind: call_expression
+              has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^as_mut$'}}, {has: {field: value, matches: cancel-binding}}]}
+    select-function:
+        any:
+            - regex: '^((::)?futures(_util)?::)?future::select$'
+            - regex: '^select$'
+              inside: {kind: source_file, stopBy: end, has: {kind: use_declaration, regex: 'futures(_util)?::future::(select\b|\{[^}]*\bselect\b)'}}
+rule:
+    any:
+        - matches: rust-two-arm-select
+          all:
+            - has: {field: macro, pattern: $RACE}
+            - has: {regex: '^!$', pattern: $$BANG}
+            - has:
+                kind: token_tree
+                any:
+                    - has: {matches: cancel-tokens, precedes: {precedes: &arm-end {stopBy: {not: {kind: 'line_comment, block_comment'}}, regex: '^=>$'}}}
+                    - has: {matches: cancel-tokens, precedes: {precedes: &fused {regex: '^\.$', precedes: {regex: '^fuse$', precedes: {kind: token_tree, regex: '^\(\s*\)$', precedes: *arm-end}}}}}
+                    - has: {matches: cancel-binding, precedes: *arm-end}
+                    - has: {matches: cancel-binding, precedes: *fused}
+        - kind: call_expression
+          all:
+            - has: {field: function, pattern: $RACE, matches: select-function}
+            - has: {field: arguments, all: [{has: {nthChild: 2}}, {not: {has: {nthChild: 3}}}]}
+            - has: {field: arguments, has: {matches: cancel-operand}}
+message: '`$RACE$BANG` races one future against `$CANCELLED()` by hand'
+note: 'Await `<token>.run_until_cancelled(<future>)`, `None` on cancellation with the future dropped'

@@ -31,4 +31,4 @@ rule:
                             - not: {has: {stopBy: end, matches: reshaped}}
         - not: {has: {stopBy: end, matches: reshaped}}
 message: '`$SITE` copies the environment of this process into a custom environment'
-note: 'Pass `Environment.inherit`, with `updating(_:)` for overrides and removals (a `nil` value removes a key), the child then reads the environment at spawn and no dictionary copy or key conversion runs'
+note: 'Pass `Environment.inherit`, with `updating(_:)` for overrides and removals (a `nil` value removes a key)'

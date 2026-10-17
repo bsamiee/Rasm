@@ -9,7 +9,7 @@ utils:
               regex: '^[a-z_]'
               not: {any: [{inside: {kind: 'tuple_struct_pattern, struct_pattern', field: type}}, {inside: {kind: scoped_identifier}}]}
             - kind: 'shorthand_field_identifier, ref_pattern, mut_pattern, captured_pattern'
-    inert-value:
+    plain-value:
         any:
             - kind: block
               not: {has: {pattern: $_}}
@@ -25,8 +25,7 @@ rule:
                     kind: match_arm
                     all:
                         - has: {field: pattern, kind: match_pattern, all: [{has: {nthChild: 1, kind: or_pattern, pattern: $PATTERN}}, {not: {has: {field: condition, pattern: $_}}}, {not: {has: {stopBy: end, matches: binding}}}]}
-                        - has: {field: value, matches: inert-value}
+                        - has: {field: value, matches: plain-value}
                 - not: {has: {kind: match_arm, nthChild: {position: 2, ofRule: {kind: match_arm}}}}
-        - not: {matches: rust-commented}
 message: '`match $VALUE` holds one arm `$PATTERN` that discards the value'
-note: 'Write `let (<pattern>) = <value>;` before the arm''s value, an irrefutable or-pattern states the discard with no branch, and rustc checks it stays irrefutable. A match whose arm binds a name, holds a guard, or runs more than a plain value stays as written, the scrutinee''s temporaries live through the arm there'
+note: 'Write `let (<pattern>) = <value>;` and keep the arm value as the next expression'

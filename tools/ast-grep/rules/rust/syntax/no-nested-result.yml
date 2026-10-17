@@ -25,6 +25,6 @@ rule:
         - any:
             - inside: {kind: 'function_item, function_signature_item, closure_expression', field: return_type}
             - inside: {kind: 'parameter, field_declaration, type_item, let_declaration', field: type}
-        - not: {inside: {stopBy: end, matches: rust-fixed-signature}}
-message: '`$TYPE` nests one result layer in another'
-note: 'Return `Result<<value>, <error>>` with one error variant per cause, or an enum with a variant per outcome, a wire shape that tells absence from null decodes into that enum at the boundary, clippy `option_option` reports `Option<Option<T>>`'
+        - not: {inside: {stopBy: end, matches: rust-trait-or-extern-function}}
+message: '`$TYPE` nests `Result` in `Result`, directly or through `Option`, or nests `Result` between two `Option` layers'
+note: 'Return `Result<<value>, <error>>` with one error variant per cause, or an enum with a variant per outcome'

@@ -64,5 +64,5 @@ rewriters:
 transform:
     FIXED: rewrite($FIXABLE, rewriters=[dedupe])
 fix: $FIXED$KEPT
-message: '`$L` is deduplicated by hand'
-note: '`Array.dedupe(<list>)` keeps the first of each value by `Equal` in one call, a `Set` compares by identity and `indexOf` drops every `NaN`'
+message: '`$L` drops repeated values by hand through `indexOf` or a `Set`'
+note: 'Call `Array.dedupe(<list>)` to keep the first of each value by `Equal`, a `Set` compares by identity and `indexOf` drops every `NaN`'

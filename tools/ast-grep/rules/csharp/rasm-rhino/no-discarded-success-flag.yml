@@ -1,0 +1,461 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-discarded-success-flag
+language: csharp
+severity: error
+files: ['**/rhino/**']
+utils:
+    unit-type:
+        regex: '^((global::)?(LanguageExt\.)?)?IO\s*<\s*((global::)?(LanguageExt\.)?)?Unit\s*>$'
+    declared:
+        any:
+            - kind: parameter, property_declaration
+              has: {field: name, pattern: $EFFECT}
+            - kind: variable_declaration
+              has: {kind: variable_declarator, has: {field: name, pattern: $EFFECT}}
+    member:
+        kind: method_declaration, local_function_statement, constructor_declaration, accessor_declaration, operator_declaration, lambda_expression
+    optional-slot:
+        inside:
+            stopBy: end
+            kind: lambda_expression
+            all:
+                - has: {field: parameters, any: [{kind: implicit_parameter, pattern: $SLOT}, {kind: parameter_list, has: {kind: parameter, nthChild: 1, has: {field: name, pattern: $SLOT}}}]}
+                - inside:
+                    kind: argument
+                    inside:
+                        kind: argument_list
+                        inside:
+                            kind: invocation_expression
+                            has:
+                                field: function
+                                kind: member_access_expression
+                                has:
+                                    field: expression
+                                    any:
+                                        - kind: identifier
+                                          pattern: $OPTIONAL
+                                        - kind: member_access_expression
+                                          has: {field: name, pattern: $OPTIONAL}
+    optional-effect:
+        inside:
+            stopBy: end
+            kind: compilation_unit
+            has:
+                stopBy: end
+                any:
+                    - kind: parameter, property_declaration
+                      all:
+                        - has: {field: name, pattern: $OPTIONAL}
+                        - has: {field: type, regex: '^((global::)?(LanguageExt\.)?)?Option\s*<\s*((global::)?(LanguageExt\.)?)?IO\s*<\s*((global::)?(LanguageExt\.)?)?Unit\s*>\s*>$'}
+                    - kind: variable_declaration
+                      all:
+                        - has: {field: type, regex: '^((global::)?(LanguageExt\.)?)?Option\s*<\s*((global::)?(LanguageExt\.)?)?IO\s*<\s*((global::)?(LanguageExt\.)?)?Unit\s*>\s*>$'}
+                        - has: {kind: variable_declarator, has: {field: name, pattern: $OPTIONAL}}
+    optional-factory:
+        inside:
+            stopBy: end
+            kind: compilation_unit
+            has:
+                stopBy: end
+                any:
+                    - kind: parameter, property_declaration
+                      all:
+                        - has: {field: name, pattern: $OPTIONAL}
+                        - has: {field: type, regex: '^((global::)?(LanguageExt\.)?)?Option\s*<\s*((global::)?System\.)?Func\s*<.*,\s*((global::)?(LanguageExt\.)?)?IO\s*<\s*((global::)?(LanguageExt\.)?)?Unit\s*>\s*>\s*>$'}
+                    - kind: variable_declaration
+                      all:
+                        - has: {field: type, regex: '^((global::)?(LanguageExt\.)?)?Option\s*<\s*((global::)?System\.)?Func\s*<.*,\s*((global::)?(LanguageExt\.)?)?IO\s*<\s*((global::)?(LanguageExt\.)?)?Unit\s*>\s*>\s*>$'}
+                        - has: {kind: variable_declarator, has: {field: name, pattern: $OPTIONAL}}
+    unit-effect:
+        any:
+            - kind: identifier
+              pattern: $SLOT
+              all:
+                - matches: optional-slot
+                - matches: optional-effect
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: identifier, pattern: $SLOT}
+                - matches: optional-slot
+                - matches: optional-factory
+            - kind: identifier
+              any:
+                - inside: {stopBy: end, matches: member, has: {stopBy: end, matches: declared, has: {field: type, matches: unit-type}}}
+                - all:
+                    - not: {inside: {stopBy: end, matches: member, has: {stopBy: end, matches: declared}}}
+                    - inside: {stopBy: end, kind: 'class_declaration, record_declaration, struct_declaration', has: {field: body, has: {any: [{kind: property_declaration, matches: declared, has: {field: type, matches: unit-type}}, {kind: field_declaration, has: {matches: declared, has: {field: type, matches: unit-type}}}]}}}
+            - kind: invocation_expression
+              all:
+                - has:
+                    field: function
+                    any:
+                        - kind: identifier
+                          pattern: $METHOD
+                        - kind: member_access_expression
+                          has: {field: name, kind: identifier, pattern: $METHOD}
+                - inside:
+                    stopBy: end
+                    kind: compilation_unit
+                    has: {stopBy: end, kind: method_declaration, all: [{has: {field: returns, matches: unit-type}}, {has: {field: name, pattern: $METHOD}}]}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^lift$'}}}}
+                - has:
+                    field: arguments
+                    all:
+                        - not: {has: {kind: argument, nthChild: 2}}
+                        - has:
+                            kind: argument
+                            nthChild: 1
+                            has:
+                                any:
+                                    - kind: lambda_expression
+                                      all:
+                                        - has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
+                                        - has: {field: body, kind: block, not: {has: {stopBy: {kind: 'lambda_expression, local_function_statement, anonymous_method_expression'}, kind: return_statement, has: {pattern: $_}}}}
+                                    - kind: identifier
+                                      pattern: $ACTION
+                                      inside:
+                                        stopBy: end
+                                        kind: compilation_unit
+                                        has:
+                                            stopBy: end
+                                            any:
+                                                - kind: parameter, property_declaration
+                                                  all: [{has: {field: type, matches: {csharp-type-name: {name: {regex: '^Action$'}}}}}, {has: {field: name, pattern: $ACTION}}]
+                                                - kind: variable_declaration
+                                                  all:
+                                                    - has: {field: type, matches: {csharp-type-name: {name: {regex: '^Action$'}}}}
+                                                    - has: {kind: variable_declarator, has: {field: name, pattern: $ACTION}}
+    always:
+        any:
+            - kind: boolean_literal
+              regex: '^true$'
+            - matches: {csharp-constant-lambda: {value: {regex: '^true$'}}}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, matches: {csharp-type-name: {name: {regex: '^constant$'}}}}
+                - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, regex: '^true$'}}, {not: {has: {kind: argument, nthChild: 2}}}]}
+    never:
+        any:
+            - kind: boolean_literal
+              regex: '^false$'
+            - matches: {csharp-constant-lambda: {value: {regex: '^false$'}}}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, matches: {csharp-type-name: {name: {regex: '^constant$'}}}}
+                - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, regex: '^false$'}}, {not: {has: {kind: argument, nthChild: 2}}}]}
+    pure-true:
+        kind: lambda_expression
+        all:
+            - has: {field: parameters, any: [{kind: implicit_parameter}, {kind: parameter_list, all: [{has: {kind: parameter}}, {not: {has: {kind: parameter, nthChild: 2}}}]}]}
+            - has: {field: body, kind: invocation_expression, all: [{has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^pure$'}}}}}, {has: {field: arguments, regex: '^\(\s*true\s*\)$'}}]}
+    pure-false:
+        kind: lambda_expression
+        all:
+            - has: {field: parameters, any: [{kind: implicit_parameter}, {kind: parameter_list, all: [{has: {kind: parameter}}, {not: {has: {kind: parameter, nthChild: 2}}}]}]}
+            - has: {field: body, kind: invocation_expression, all: [{has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^pure$'}}}}}, {has: {field: arguments, regex: '^\(\s*false\s*\)$'}}]}
+    true-mapped:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Map|Select|Bind)$'}}
+            - has:
+                field: arguments
+                all:
+                    - not: {has: {kind: argument, nthChild: 2}}
+                    - has: {kind: argument, nthChild: 1, has: {any: [{matches: always}, {matches: pure-true}]}}
+            - not: {all: [{has: {field: function, has: {field: name, regex: '^Bind$'}}}, {not: {has: {field: arguments, has: {kind: argument, has: {matches: pure-true}}}}}]}
+            - not: {all: [{has: {field: function, has: {field: name, regex: '^(Map|Select)$'}}}, {has: {field: arguments, has: {kind: argument, has: {matches: pure-true}}}}]}
+    false-mapped:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Map|Select|Bind)$'}}
+            - has:
+                field: arguments
+                all:
+                    - not: {has: {kind: argument, nthChild: 2}}
+                    - has: {kind: argument, nthChild: 1, has: {any: [{matches: never}, {matches: pure-false}]}}
+            - not: {all: [{has: {field: function, has: {field: name, regex: '^Bind$'}}}, {not: {has: {field: arguments, has: {kind: argument, has: {matches: pure-false}}}}}]}
+            - not: {all: [{has: {field: function, has: {field: name, regex: '^(Map|Select)$'}}}, {has: {field: arguments, has: {kind: argument, has: {matches: pure-false}}}}]}
+    valued:
+        not: {matches: unit-effect}
+        pattern: $VALUED
+    valued-flagged:
+        matches: true-mapped
+        has: {field: function, has: {field: expression, matches: valued}}
+    inverted:
+        matches: false-mapped
+        has: {field: function, has: {field: expression, any: [{matches: unit-effect, pattern: $EFFECT}, {matches: valued}]}}
+    direct-slot:
+        any:
+            - matches: effect-slot
+            - matches: valued-flagged
+            - kind: parenthesized_expression
+              has: {matches: direct-slot}
+    inverted-slot:
+        any:
+            - matches: inverted
+            - kind: parenthesized_expression
+              has: {matches: inverted-slot}
+    failed-true:
+        matches: {csharp-constant-lambda: {value: {regex: '^true$'}}}
+    lifted-true:
+        kind: invocation_expression
+        all:
+            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^lift$'}}}}
+            - has:
+                field: arguments
+                all:
+                    - not: {has: {kind: argument, nthChild: 2}}
+                    - has:
+                        kind: argument
+                        nthChild: 1
+                        has:
+                            kind: lambda_expression
+                            pattern: $LIFTED
+                            all:
+                                - has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
+                                - has:
+                                    field: body
+                                    kind: block
+                                    all:
+                                        - has: {kind: return_statement, nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}, regex: '^return\s+true\s*;$'}
+                                        - not: {has: {stopBy: {kind: 'lambda_expression, local_function_statement, anonymous_method_expression'}, kind: return_statement, not: {regex: '^return\s+true\s*;$'}}}
+                                        - has: {nthChild: 2, not: {kind: comment}}
+                                        - not: {has: {stopBy: end, kind: 'lambda_expression, anonymous_method_expression, local_function_statement'}}
+    flagged:
+        any:
+            - matches: true-mapped
+              has: {field: function, has: {field: expression, pattern: $EFFECT, matches: unit-effect}}
+            - kind: query_expression
+              all:
+                - has: {kind: from_clause, nthChild: 1, has: {nthChild: {position: 1, reverse: true}, pattern: $EFFECT, matches: unit-effect}}
+                - has: {kind: select_clause, nthChild: 2, has: {kind: boolean_literal, regex: '^true$'}}
+                - not: {has: {nthChild: 3}}
+            - matches: lifted-true
+    optional-slot-map:
+        kind: invocation_expression
+        pattern: $MAPPED
+        all:
+            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Map|Select)$'}}
+            - has:
+                field: arguments
+                all:
+                    - not: {has: {kind: argument, nthChild: 2}}
+                    - has: {kind: argument, nthChild: 1, has: {kind: lambda_expression, has: {field: body, not: {not: {matches: flagged}}}}}
+    held:
+        kind: identifier
+        pattern: $LOCAL
+    effect-slot:
+        any:
+            - matches: flagged
+            - kind: parenthesized_expression
+              has: {matches: effect-slot}
+    lazy-slot:
+        kind: invocation_expression
+        all:
+            - has: {field: function, matches: {csharp-type-name: {name: {regex: '^Some$'}}}}
+            - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, has: {matches: effect-slot}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
+    failed-false:
+        matches: {csharp-constant-lambda: {value: {any: [{regex: '^false$'}, {kind: default_expression}]}}}
+    slot:
+        kind: argument
+        any:
+            - all:
+                - not: {has: {field: name, kind: identifier}}
+                - nthChild: 1
+            - has: {field: name, regex: '^effect$'}
+    site-slot:
+        kind: argument
+        all:
+            - any:
+                - all: [{not: {has: {field: name, kind: identifier}}}, {nthChild: {position: 1, reverse: true}}]
+                - has: {field: name, regex: '^site$'}
+            - has: {nthChild: {position: 1, reverse: true}, pattern: $SITE}
+    failed-slot:
+        kind: argument
+        any:
+            - all: [{not: {has: {field: name, kind: identifier}}}, {nthChild: {position: 2, reverse: true}}, {not: {nthChild: 1}}]
+            - has: {field: name, regex: '^failed$'}
+    absent-slot:
+        kind: argument
+        any:
+            - all: [{not: {has: {field: name, kind: identifier}}}, {nthChild: 2}, {nthChild: {position: 3, reverse: true}}]
+            - has: {field: name, regex: '^absent$'}
+    answer:
+        kind: invocation_expression
+        all:
+            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Callbacks$'}, member: {regex: '^Answer$'}}}}
+            - has:
+                field: arguments
+                all:
+                    - has: {matches: site-slot}
+                    - has: {kind: argument, nthChild: 3}
+                    - not: {has: {kind: argument, nthChild: 5}}
+                    - any:
+                        - all:
+                            - has: {matches: slot, has: {nthChild: {position: 1, reverse: true}, matches: optional-slot-map}}
+                            - has: {matches: failed-slot, has: {matches: failed-false}}
+                        - all:
+                            - has: {matches: slot, has: {nthChild: {position: 1, reverse: true}, matches: direct-slot}}
+                            - has: {matches: failed-slot, has: {matches: failed-false}}
+                        - all:
+                            - has: {matches: slot, has: {nthChild: {position: 1, reverse: true}, matches: inverted-slot}}
+                            - has: {matches: failed-slot, has: {matches: failed-true}}
+                        - all:
+                            - has: {matches: slot, has: {nthChild: {position: 1, reverse: true}, matches: lazy-slot}}
+                            - has: {matches: failed-slot, has: {matches: failed-false}}
+                        - all:
+                            - has: {matches: slot, has: {nthChild: {position: 1, reverse: true}, matches: held}}
+                            - has: {matches: failed-slot, has: {matches: failed-false}}
+                            - inside:
+                                kind: invocation_expression
+                                inside:
+                                    kind: return_statement
+                                    follows:
+                                        kind: local_declaration_statement
+                                        has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $LOCAL}}, {has: {nthChild: {position: 1, reverse: true}, matches: effect-slot}}]}
+    held-answer:
+        has: {field: arguments, has: {matches: slot, has: {nthChild: {position: 1, reverse: true}, matches: held}}}
+    optional-answer:
+        has: {field: arguments, has: {matches: slot, has: {nthChild: {position: 1, reverse: true}, matches: optional-slot-map}}}
+    dropped-absent:
+        matches: optional-answer
+        has: {field: arguments, has: {matches: absent-slot, pattern: $DROPPED_ABSENT}}
+    ignore-call:
+        kind: invocation_expression
+        has: {field: function, matches: {csharp-type-name: {name: {regex: '^ignore$'}}}}
+    discarded:
+        any:
+            - inside: {kind: assignment_expression, field: right, has: {field: left, regex: '^_$'}}
+            - inside: {kind: expression_statement}
+            - inside: {kind: argument, inside: {kind: argument_list, inside: {matches: ignore-call}}}
+    dropped-answer:
+        all:
+            - matches: answer
+            - not: {matches: held-answer}
+            - any: [{matches: dropped-absent}, {pattern: $DROPPED_PLAIN}]
+    in-order:
+        not:
+            has:
+                field: arguments
+                any:
+                    - has: {kind: argument, nthChild: 1, has: {field: name, not: {regex: '^effect$'}}}
+                    - has: {kind: argument, nthChild: 2, has: {field: name, not: {regex: '^(absent|site)$'}}}
+                    - has: {kind: argument, nthChild: 3, has: {field: name, not: {regex: '^site$'}}}
+    succeeded:
+        kind: invocation_expression
+        all:
+            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Callbacks$'}, member: {regex: '^Succeeded$'}}}}
+            - matches: in-order
+            - has:
+                field: arguments
+                all:
+                    - has: {kind: argument, nthChild: 1, pattern: $EFFECT}
+                    - any:
+                        - all:
+                            - has: {kind: argument, nthChild: 2, all: [{pattern: $SITE}, {pattern: $DROPPED_PLAIN}]}
+                            - not: {has: {kind: argument, nthChild: 3}}
+                        - all:
+                            - has: {kind: argument, nthChild: 2, pattern: $DROPPED_ABSENT, matches: {csharp-constant-lambda: {value: {kind: 'boolean_literal, default_expression'}}}}
+                            - has: {kind: argument, nthChild: 3, pattern: $SITE}
+                            - not: {has: {kind: argument, nthChild: 4}}
+    dropped-flag:
+        any:
+            - matches: succeeded
+            - matches: dropped-answer
+rule:
+    kind: invocation_expression
+    pattern: $DROPPED
+    all:
+        - any:
+            - all:
+                - matches: discarded
+                - not: {inside: {kind: argument, inside: {kind: argument_list, inside: {matches: ignore-call}}}}
+                - matches: dropped-flag
+            - all:
+                - matches: ignore-call
+                - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, has: {matches: dropped-flag}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
+        - not: {inside: {stopBy: end, kind: ERROR}}
+        - not: {has: {stopBy: end, kind: ERROR}}
+        - not: {matches: {csharp-owner-body: {type: {regex: '^Callbacks$'}, member: {regex: '^(Succeeded|Answer)$'}}}}
+        - not:
+            inside:
+                kind: assignment_expression
+                inside: {kind: lambda_expression, field: body, has: {field: parameters, kind: parameter_list, all: [{has: {kind: parameter, nthChild: 2}}, {not: {has: {kind: parameter, nthChild: 3}}}]}}
+rewriters:
+    - id: drop-identity
+      rule:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Map|Select)$'}}, {has: {field: expression, pattern: $IDENTITY_SOURCE}}]}
+            - has:
+                field: arguments
+                has:
+                    kind: argument
+                    has:
+                        kind: lambda_expression
+                        all:
+                            - has: {field: parameters, any: [{kind: implicit_parameter, pattern: $RUN}, {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $RUN}}}]}
+                            - has:
+                                field: body
+                                kind: invocation_expression
+                                all:
+                                    - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Map|Select|Bind)$'}}, {has: {field: expression, pattern: $RUN}}]}
+                                    - has: {field: arguments, has: {kind: argument, has: {any: [{matches: always}, {matches: pure-true}, {matches: never}, {matches: pure-false}]}}}
+      fix: $IDENTITY_SOURCE
+    - id: drop-flag
+      rule:
+        kind: return_statement
+        regex: '^return\s+true\s*;$'
+        inside: {kind: block, inside: {kind: lambda_expression}}
+      fix: ''
+    - id: drop-constant
+      rule:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Map|Select|Bind)$'}}, {has: {field: expression, pattern: $CONSTANT_SOURCE}}]}
+            - has: {field: arguments, has: {kind: argument, has: {any: [{matches: always}, {matches: pure-true}, {matches: never}, {matches: pure-false}]}}}
+      fix: $CONSTANT_SOURCE
+transform:
+    VOIDED:
+        rewrite:
+            source: $MAPPED
+            rewriters: [drop-identity, drop-constant]
+    VOID_BODY:
+        rewrite:
+            source: $LIFTED
+            rewriters: [drop-flag]
+    VOID_LINE:
+        replace:
+            source: $VOID_BODY
+            replace: '\n[ \t]*(\n[ \t]*\}$)'
+            by: '$1'
+    VOID_TAIL:
+        replace:
+            source: $VOID_LINE
+            replace: ';[ \t]+\}$'
+            by: '; }'
+    VOID:
+        replace:
+            source: $VOID_TAIL
+            replace: '(?s)^(.+)$'
+            by: 'IO.lift($1)'
+    UNIT_TAIL:
+        replace:
+            source: $DROPPED_PLAIN
+            replace: '(?s)^.*$'
+            by: 'static () => unit, '
+    ABSENT_UNIT_TAIL:
+        replace:
+            source: $DROPPED_ABSENT
+            replace: '(?s)^.*$'
+            by: 'static () => unit, static () => unit, '
+    IGNORED:
+        replace:
+            source: $VALUED
+            replace: '(?s)^(.+)$'
+            by: '$1.Map(ignore)'
+fix: Callbacks.Answer($EFFECT$IGNORED$VOID$VOIDED, $UNIT_TAIL$ABSENT_UNIT_TAIL$SITE)
+message: 'Success flag the caller discards is computed at `$SITE`'
+note: 'Use `Callbacks.Answer(<effect>, static () => unit, <site>)`, with `static () => unit` as the absent answer of an optional effect'

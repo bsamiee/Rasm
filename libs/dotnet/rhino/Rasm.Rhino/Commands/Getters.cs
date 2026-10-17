@@ -33,7 +33,7 @@ public readonly partial struct PickCount : System.Numerics.IMinMaxValue<PickCoun
     public static PickCount MinValue { get; } = new(1);
     public static PickCount MaxValue { get; } = new(int.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [Union]
@@ -309,7 +309,7 @@ public static class Getters {
                 return getter.Get();
             }),
             getter => Seq((GetResult.Number,
-                IO.lift(() => Admission.Validated<TValue, TRaw>(TRaw.CreateChecked(getter.Number())).Map(value => new Entered<TValue>(value, getter.GotDefault()))).Bind(entered))));
+                IO.lift(() => ValidationResults.Validated<TValue, TRaw>(TRaw.CreateChecked(getter.Number())).Map(value => new Entered<TValue>(value, getter.GotDefault()))).Bind(entered))));
 
     public static IO<T> Integer<TValue, TRaw, T>(RhinoDoc doc, EntryRequest<GetInteger, TValue, T> request, Func<Entered<TValue>, IO<T>> entered)
         where TValue : IObjectFactory<TValue, TRaw, ValidationError>, IConvertible<TRaw>, System.Numerics.IMinMaxValue<TValue>
@@ -325,7 +325,7 @@ public static class Getters {
                 return getter.Get();
             }),
             getter => Seq((GetResult.Number,
-                IO.lift(() => Admission.Validated<TValue, TRaw>(TRaw.CreateChecked(getter.Number())).Map(value => new Entered<TValue>(value, getter.GotDefault()))).Bind(entered))));
+                IO.lift(() => ValidationResults.Validated<TValue, TRaw>(TRaw.CreateChecked(getter.Number())).Map(value => new Entered<TValue>(value, getter.GotDefault()))).Bind(entered))));
 
     public static IO<T> Distance<TValue, T>(RhinoDoc doc, EntryRequest<GetNumber, TValue, T> request, Func<Entered<TValue>, IO<T>> entered)
         where TValue : IObjectFactory<TValue, Length, ValidationError>, IConvertible<Length>, System.Numerics.IMinMaxValue<TValue> =>
@@ -341,7 +341,7 @@ public static class Getters {
                 return getter.Get();
             }),
             getter => Seq((GetResult.Number,
-                IO.lift(() => Admission.Validated<TValue, Length>(Quantities.From(getter.Number(), space)).Map(value => new Entered<TValue>(value, getter.GotDefault()))).Bind(entered))))
+                IO.lift(() => ValidationResults.Validated<TValue, Length>(Quantities.From(getter.Number(), space)).Map(value => new Entered<TValue>(value, getter.GotDefault()))).Bind(entered))))
         select answer;
 
     public static IO<T> Text<T>(RhinoDoc doc, EntryRequest<GetString, string, T> request, bool literal, Func<Entered<string>, IO<T>> entered) =>

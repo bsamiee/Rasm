@@ -19,7 +19,7 @@ utils:
                 - any:
                     - has: {field: function, kind: member_access_expression, has: {field: expression, pattern: $STATE}}
                     - has: {field: arguments, has: {kind: argument, has: {pattern: $STATE}}}
-    settling:
+    fixed-point-loop:
         kind: 'while_statement, do_statement, for_statement'
         has: {stopBy: end, matches: equality}
 rule:
@@ -41,6 +41,6 @@ rule:
                     any:
                         - pattern: $STATE
                         - {kind: collection_expression, has: {kind: collection_element, has: {kind: expression_element, has: {pattern: $STATE}}}}
-        - inside: {stopBy: {matches: function}, matches: settling}
-message: '`$STATE` is rebuilt around its previous value each pass of a loop that compares it with its prior value, the fixpoint never settles'
-note: 'Map each pass into a finite lattice: join into a flat value (a set union, a bounded shape, or the operand roots) instead of wrapping the prior state in a new constructor'
+        - inside: {stopBy: {matches: function}, matches: fixed-point-loop}
+message: '`$STATE` wraps its previous value on each pass of a loop that stops once it stops changing, the loop never reaches a fixed point'
+note: Join each pass into a value from a finite set (a set union, a bounded shape, the operand roots) in place of a constructor wrapping the prior state

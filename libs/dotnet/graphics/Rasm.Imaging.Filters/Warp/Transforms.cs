@@ -16,7 +16,7 @@ public readonly partial struct TransformScale : IPresented<TransformScale, float
     public static TransformScale Identity { get; } = new(1f);
     public static Presentation<float> Presentation { get; } = new() { Soft = (1f / 16f, 16f), Scale = TrackScale.Log, Origin = (float)Identity };
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -25,7 +25,7 @@ public readonly partial struct SkewAngle : IPresented<SkewAngle, float> {
     public static SkewAngle MinValue { get; } = new(-MaxValue._value);
     public static Presentation<float> Presentation { get; } = new() { Unit = UnitsNet.Quantity.GetUnitInfo(AngleUnit.Radian), Soft = float.Atan(3f) switch { var reach => (-reach, reach) }, Origin = (float)Neutral };
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 internal readonly record struct Pose((ERational X, ERational Y) Offset, double Rotation, (double X, double Y) Scale, (double X, double Y) Skew, (double X, double Y) Pivot) {
@@ -136,7 +136,7 @@ public sealed record CornerPin(FramePosition TopLeft, FramePosition TopRight, Fr
     public static Option<PixelPass> Pass(CornerPin state, PassContext context) =>
         state with { Sampling = Default.Sampling, Wrap = Default.Wrap } == Default
             ? None
-            : Admission.Admitted(FrameQuad.Validate(state.TopLeft.Point(context.Extent), state.TopRight.Point(context.Extent), state.BottomRight.Point(context.Extent), state.BottomLeft.Point(context.Extent), out FrameQuad? quad), quad)
+            : ValidationResults.ToFin(FrameQuad.Validate(state.TopLeft.Point(context.Extent), state.TopRight.Point(context.Extent), state.BottomRight.Point(context.Extent), state.BottomLeft.Point(context.Extent), out FrameQuad? quad), quad)
                 .Map(static admitted => admitted.Homography.Inverse)
                 .Match(
                     Succ: inverse => Some<PixelPass>(new PixelPass.Frame(new CoordinateMap.Analytic((points, coverage, source) => {

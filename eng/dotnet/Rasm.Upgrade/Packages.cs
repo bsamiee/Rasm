@@ -21,9 +21,9 @@ internal sealed record Row(string Id, NuGetVersion Version, Group Attribute);
 internal sealed record Move(Row Row, NuGetVersion Version);
 
 // --- [ERRORS] --------------------------------------------------------------------------
-internal sealed record Usage() : Expected("Pass one argument, the Directory.Packages.props file to upgrade", 2);
-internal sealed record UnknownFramework() : Expected("Entry assembly names no target framework to match releases against", 3);
-internal sealed record MissingResource<T>(string Source) : Expected($"Package source {Source} serves no {typeof(T).Name} resource, update NuGet.config", 4);
+internal sealed record Usage() : Expected("Pass one argument, the Directory.Packages.props file to upgrade", 0);
+internal sealed record UnknownFramework() : Expected("Entry assembly names no target framework to match releases against", 0);
+internal sealed record MissingResource(string Source, Type Resource) : Expected($"Package source {Source} serves no {Resource.Name} resource, update NuGet.config", 0);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static partial class Packages {
@@ -51,7 +51,7 @@ internal static partial class Packages {
     public static IO<Seq<(PackageMetadataResource Metadata, FindPackageByIdResource Downloads)>> Feeds(PackageSourceMapping mapping, Seq<SourceRepository> sources, string packageId) {
         static FinT<IO, T> Resource<T>(SourceRepository source) where T : class, INuGetResource =>
             (from resource in IO.liftAsync(env => source.GetResourceAsync<T>(env.Token))
-             from required in IO.lift(Optional(resource).ToFin(new MissingResource<T>(source.PackageSource.Name)))
+             from required in IO.lift(Optional(resource).ToFin(new MissingResource(source.PackageSource.Name, typeof(T))))
              select required).Try();
 
         System.Collections.Generic.HashSet<string> configured = mapping.GetConfiguredPackageSources(packageId).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -180,6 +180,11 @@ internal static class Program {
 
     private static int Report(Error error) {
         Console.Error.WriteLine(string.Join('\n', error.AsIterable().Map(static leaf => leaf.IsExceptional ? leaf.ToException().ToString() : leaf.Message)));
-        return error.Filter<Expected>().Head is Expected expected ? expected.Code : 1;
+        return error.Filter<Expected>().Head switch {
+            Usage => 2,
+            UnknownFramework => 3,
+            MissingResource => 4,
+            _ => 1,
+        };
     }
 }

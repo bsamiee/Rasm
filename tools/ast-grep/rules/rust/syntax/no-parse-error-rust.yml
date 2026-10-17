@@ -84,11 +84,13 @@ utils:
 rule:
     any:
         - kind: ERROR
+          inside: {kind: source_file, stopBy: end, not: {regex: '^[(\[]'}}
           not: {matches: unreported}
         - kind: source_file
+          not: {regex: '^[(\[]'}
           has: {stopBy: end, pattern: $$MISSING, regex: '^$', not: {matches: unreported}}
 labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
 message: Grammar failed to parse the span
 note: >-
-    Use a form the grammar parses, every other rule skips constructs inside a parse error. Call a macro named after a primitive type by its path (`snapbox::str![..]`). Unreported tree-sitter-rust grammar gaps are `safe` items and foreign types of an `extern` block (`pub safe fn sqrt(x: f64) -> f64;`, `pub type Node;`), `~` and lone `$` tokens in a macro token tree, a `where` clause on a unit struct (`struct Marker where T: Send;`), the unit type bounded in a `where` clause (`(): Bound<T>`), the empty content of a raw string (`r""`), and the nightly forms `try bikeshed <type> { .. }` and `trait <name> = <bounds>;` with the recovery spread over the rest of their statement, a field default value (`retries: u8 = 3`), a bounded associated type default (`type Error: Bound = !;`), a struct literal closing on `..` with no base, return-type notation (`Store<get(..): Send>`, `where S::get(..): Send`), and an `impl` restriction on a trait (`pub impl(crate) trait Host`)
+    Write a form the grammar parses, and call a macro named after a primitive type by its path (`snapbox::str![..]`). Unreported tree-sitter-rust grammar gaps are `safe` items and foreign types of an `extern` block (`pub safe fn sqrt(x: f64) -> f64;`, `pub type Node;`), `~` and lone `$` tokens in a macro token tree, a `where` clause on a unit struct (`struct Marker where T: Send;`), the unit type bounded in a `where` clause (`(): Bound<T>`), the empty content of a raw string (`r""`), and the nightly forms `try bikeshed <type> { .. }` and `trait <name> = <bounds>;` with the recovery spread over the rest of their statement, a field default value (`retries: u8 = 3`), a bounded associated type default (`type Error: Bound = !;`), a struct literal closing on `..` with no base, return-type notation (`Store<get(..): Send>`, `where S::get(..): Send`), an `impl` restriction on a trait (`pub impl(crate) trait Host`), and a macro argument list parsed again as Rust (`info!(%value)`)

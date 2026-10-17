@@ -58,4 +58,4 @@ rule:
                 - has: {stopBy: end, matches: reference}
                 - not: {matches: two-references}
 message: '`$NAME` is a one-expression function with one caller in its file'
-note: 'Write the expression at its call site with arguments in place of parameters, and rebuild the logic within three levels where it reaches a fourth'
+note: 'Write the expression at its call site with arguments in place of parameters, rebuilding the logic where inlining reaches a fourth nesting level'

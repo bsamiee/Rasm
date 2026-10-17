@@ -133,5 +133,5 @@ rule:
                 - not: {has: {field: name, regex: '^__\w+__$'}}
                 - has: {field: body, has: {stopBy: end, pattern: $CALL, has: {field: function, matches: named-callee, not: {pattern: $NAME}}}}
         - has: {field: parameters, matches: forwarded-parameters}
-message: 'Function forwards its parameters unchanged to `$F`'
+message: '`$NAME` forwards its parameters unchanged to `$F`'
 note: 'Call `<callee>` at each call site, write its body in the member a host calls by name, and delete an override its parent member answers'

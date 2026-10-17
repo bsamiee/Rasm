@@ -8,4 +8,4 @@ rule:
         - pattern: '$DATA.base64EncodedString().replacing("+", with: "-")'
         - pattern: '$DATA.base64EncodedString().replacing("/", with: "_")'
 message: '`$DATA` encodes the standard base64 alphabet and rewrites it to the URL alphabet by text replacement'
-note: 'Call `<data>.base64EncodedString(options: [.base64URLAlphabet, .omitPaddingCharacter])`, which writes `-` and `_` and drops `=` padding in one pass'
+note: 'Call `<data>.base64EncodedString(options: [.base64URLAlphabet, .omitPaddingCharacter])`'

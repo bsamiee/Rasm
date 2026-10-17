@@ -11,4 +11,4 @@ transform:
     STABLE: {replace: {source: $INLINE, replace: '^@_alwaysEmitIntoClient$', by: '@export(implementation)'}}
 fix: $STABLE
 message: '`$ATTR` spells an attribute through its underscored form'
-note: 'Write `@inline(always)` for `@inline(__always)` and `@export(implementation)` for `@_alwaysEmitIntoClient`, the compiler rejects `@inline(always)` on a non-final class method and on a recursive call, and a public `@inline(always)` declaration is `@inlinable`'
+note: 'Write `@inline(always)` for `@inline(__always)` and `@export(implementation)` for `@_alwaysEmitIntoClient`. Compiler rejects `@inline(always)` on a non-final class method and on a recursive call, and makes a public `@inline(always)` declaration `@inlinable`'

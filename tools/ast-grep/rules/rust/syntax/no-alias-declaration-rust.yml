@@ -10,4 +10,4 @@ rule:
         - not: {inside: {kind: declaration_list, inside: {kind: 'trait_item, impl_item'}}}
         - not: {matches: {rust-attributed: {attribute: {matches: rust-cfg-attribute}}}}
 message: '`$ALIAS` is another name for `$TARGET`'
-note: 'Spell `<target>` at each use of `<alias>`. A `#[cfg]` alias names a type that differs per platform and stays as written'
+note: 'Spell the aliased type at each use and delete the alias'

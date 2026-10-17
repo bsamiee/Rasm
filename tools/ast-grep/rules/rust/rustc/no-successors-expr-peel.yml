@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-successors-expr-peel
+language: rust
+severity: error
+files: [tools/dylint/**]
+rule:
+    kind: call_expression
+    any:
+        - pattern: iter::successors(Some($E), $STEP).last()
+        - pattern: core::iter::successors(Some($E), $STEP).last()
+        - pattern: std::iter::successors(Some($E), $STEP).last()
+message: '`successors(..).last()` peels `$E` one step at a time to reach its innermost expression'
+note: 'Call `clippy_utils::peel_hir_expr_while(<expr>, |step| ..)` to reach the innermost expression with no `Option` to unwrap'

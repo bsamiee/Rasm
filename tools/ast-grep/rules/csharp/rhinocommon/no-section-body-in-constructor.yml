@@ -22,5 +22,5 @@ rule:
                     any:
                         - regex: '^Content$'
                         - {kind: member_access_expression, all: [{has: {field: expression, regex: '^this$'}}, {has: {field: name, regex: '^Content$'}}]}
-message: '`$SECTION` builds its body when the host constructs it, and the host constructs every section, hidden ones included'
-note: 'Build `Content` when the holder first shows the section, in `HolderVisible(true)` or `OnLoad`, and keep the constructor to identity'
+message: '`$SECTION` builds `Content` in the constructor the host runs for every section, hidden ones included'
+note: 'Build `Content` in `HolderVisible(true)` or `OnLoad`, when the holder first shows the section, and keep the constructor to identity'

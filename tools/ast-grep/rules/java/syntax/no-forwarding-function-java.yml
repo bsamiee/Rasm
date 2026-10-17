@@ -70,4 +70,4 @@ rule:
 transform:
     F: {replace: {source: $CALL, replace: '\s*\([\s\S]*$', by: ''}}
 message: Method `$FN` forwards its parameters unchanged to `$F`
-note: Call `<callee>` at each use, a method that forwards a call unchanged adds no fact
+note: 'Call the callee at each use and delete the method'

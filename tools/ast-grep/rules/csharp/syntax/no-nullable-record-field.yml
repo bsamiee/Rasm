@@ -35,7 +35,7 @@ utils:
                                     - inside: {stopBy: end, kind: field_declaration}
                                     - inside: {stopBy: end, matches: atomic-ref}
 rule:
-    matches: csharp-record-member
+    matches: csharp-instance-member
     all:
         - has:
             field: type
@@ -48,9 +48,9 @@ rule:
             any:
                 - has: {matches: serializer-attributes}
                 - matches: atomic-field
-                - inside: {stopBy: end, matches: csharp-wire-record}
+                - inside: {stopBy: end, matches: csharp-json-serializable-record}
                 - inside: {kind: field_declaration, has: {matches: serializer-attributes}}
-                - inside: {kind: 'parameter_list, declaration_list', inside: {kind: record_declaration, has: {kind: base_list}}}
-                - inside: {kind: field_declaration, inside: {kind: declaration_list, inside: {kind: record_declaration, has: {kind: base_list}}}}
-message: 'Field of type `$TYPE` states absence with null'
+                - inside: {kind: 'parameter_list, declaration_list', inside: {matches: languageext-error-record}}
+                - inside: {kind: field_declaration, inside: {kind: declaration_list, inside: {matches: languageext-error-record}}}
+message: 'Parameter, property, or field typed `$TYPE` states absence with null'
 note: Hold `Option<T>` and convert a nullable value once at the boundary with `Optional`

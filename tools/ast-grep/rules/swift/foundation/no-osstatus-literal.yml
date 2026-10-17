@@ -49,4 +49,4 @@ rule:
             - has: {field: expr, matches: status-value}
             - has: {kind: switch_entry, has: {kind: switch_pattern, has: {kind: pattern, has: {matches: status-literal}}}}
 message: '`$SITE` restates an SDK status code as a literal'
-note: 'Name the SDK constant (`errSecItemNotFound`, `noErr`), `import Security` declares the `errSec` codes'
+note: 'Name the SDK constant (`errSecItemNotFound`, `noErr`), importing `Security` for the `errSec` codes'

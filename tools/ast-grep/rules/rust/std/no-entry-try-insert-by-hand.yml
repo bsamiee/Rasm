@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-entry-try-insert-by-hand
+language: rust
+severity: error
+utils:
+    error-value:
+        any:
+            - kind: call_expression
+              has: {field: function, kind: identifier, regex: '^Err$'}
+            - kind: block
+              all:
+                - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, kind: call_expression, has: {field: function, kind: identifier, regex: '^Err$'}}
+                - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
+rule:
+    kind: match_expression
+    all:
+        - has: {field: value, pattern: $MAP.entry($KEY)}
+        - has:
+            field: body
+            all:
+                - has:
+                    kind: match_arm
+                    all:
+                        - has: {field: pattern, kind: match_pattern, has: {kind: tuple_struct_pattern, has: {field: type, regex: '^((\w+::)*Entry::)?Occupied$'}}}
+                        - has: {field: value, matches: error-value}
+                - has:
+                    kind: match_arm
+                    all:
+                        - has: {field: pattern, kind: match_pattern, has: {kind: tuple_struct_pattern, all: [{has: {field: type, regex: '^((\w+::)*Entry::)?Vacant$'}}, {has: {nthChild: 2, kind: identifier, pattern: $SLOT}}]}}
+                        - has: {field: value, has: {stopBy: end, pattern: $SLOT.insert($VALUE)}}
+message: '`match` on `$MAP.entry($KEY)` inserts into a vacant entry and fails on an occupied one by hand'
+note: 'Call `<map>.try_insert(<key>, <value>)` on a `HashMap` or `BTreeMap` (`#![feature(map_try_insert)]`) and map its `OccupiedError` into the error'

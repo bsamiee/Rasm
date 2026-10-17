@@ -118,5 +118,5 @@ rule:
             - inside: {kind: module, stopBy: end, regex: '\b(format_|TracebackException|StackSummary|extract_(tb|stack)|format(Exception|Stack))'}
             - inside: {stopBy: {not: {matches: content}}, kind: argument_list, inside: {matches: sink}}
             - matches: text
-message: '`$USE` writes rendered exception or stack text, a logger event with `exc_info` or `stack_info` renders it'
-note: 'Use a configured logger with `exception(<event>)` in handlers, `exc_info=<exception>` for captured exceptions, or `stack_info=True` for current stacks. A captured `TracebackException` or `StackSummary` holds no exception, the logger takes the exception it came from'
+message: '`$USE` writes rendered exception or stack text by hand'
+note: 'Log through a configured logger with `exception(<event>)` in handlers, `exc_info=<exception>` for captured exceptions, or `stack_info=True` for current stacks, passing the exception a captured `TracebackException` or `StackSummary` came from'

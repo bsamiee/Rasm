@@ -8,7 +8,7 @@ utils:
             - matches: {csharp-type-name: {name: {regex: '^(Error|Expected|Exceptional|ManyErrors|Exception)$'}}}
             - kind: identifier
               pattern: $ERROR
-              inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, kind: record_declaration, all: [{has: {field: name, pattern: $ERROR}}, {matches: csharp-error-record}]}}
+              inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, kind: record_declaration, all: [{has: {field: name, pattern: $ERROR}}, {matches: languageext-error-record}]}}
     failure-name:
         regex: '^(error|failure|fault|reason|problem|cause)|(^|[a-z0-9])(Error|Failure|Fault|Reason|Problem|Cause)([A-Z0-9]|$)'
     failure-type:
@@ -92,4 +92,4 @@ rule:
             - has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, pattern: $FIELD}}}
             - inside: {matches: member-with-data}
 message: '`$FIELD` holds an optional failure beside a success flag'
-note: Use `Fin<T>` or a union case instead of separate success and failure fields. A history or observation can retain completed data and a later failure together without representing alternative result states
+note: Return `Fin<T>` or one union case per result state in place of a success flag beside a failure field

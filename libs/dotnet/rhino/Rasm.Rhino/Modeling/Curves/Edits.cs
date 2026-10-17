@@ -8,7 +8,7 @@ public readonly partial struct TrimLength : System.Numerics.IMinMaxValue<TrimLen
     public static TrimLength MinValue { get; } = new(double.BitIncrement(0d));
     public static TrimLength MaxValue { get; } = new(double.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]

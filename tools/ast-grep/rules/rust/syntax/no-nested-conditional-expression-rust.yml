@@ -55,7 +55,7 @@ utils:
                 stopBy: end
                 kind: identifier
                 pattern: $BOUND
-                inside: {kind: 'match_arm, if_expression', stopBy: {kind: 'match_arm, if_expression, closure_expression, function_item'}, matches: binding-owner}
+                inside: {kind: 'match_arm, if_expression', stopBy: {kind: 'match_arm, if_expression, function_item'}, matches: binding-owner}
     consuming-tail:
         any:
             - matches: consuming-match
@@ -64,13 +64,13 @@ utils:
     nested-block:
         kind: block
         all:
-            - has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, matches: tail-conditional, not: {matches: consuming-tail}}
-            - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
+            - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, matches: tail-conditional, not: {matches: consuming-tail}}
+            - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
     nested-match-block:
         kind: block
         all:
-            - has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, any: [{matches: selecting-match}, {kind: expression_statement, has: {nthChild: 1, matches: selecting-match}}], not: {matches: consuming-tail}}
-            - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
+            - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, any: [{matches: selecting-match}, {kind: expression_statement, has: {nthChild: 1, matches: selecting-match}}], not: {matches: consuming-tail}}
+            - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
     nested-value:
         any:
             - matches: conditional
@@ -86,7 +86,7 @@ utils:
                 has:
                     kind: block
                     any:
-                        - all: [{has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, not: {matches: statement}, pattern: $X}}, {not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}}]
+                        - all: [{has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, not: {matches: statement}, pattern: $X}}, {not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}}]
                         - pattern: $X
     guard-foldable-arm:
         kind: match_arm
@@ -97,8 +97,8 @@ utils:
                     - matches: else-branch
                     - kind: block
                       all:
-                        - has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, any: [{matches: else-branch}, {kind: expression_statement, has: {matches: else-branch}}]}
-                        - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
+                        - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, any: [{matches: else-branch}, {kind: expression_statement, has: {matches: else-branch}}]}
+                        - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
             - precedes: {kind: match_arm, all: [{has: {field: pattern, regex: '^_$'}}, {has: {field: value, pattern: $X}}]}
             - not:
                 has:
@@ -127,7 +127,7 @@ utils:
     body-tail:
         kind: expression_statement
         all:
-            - nthChild: {position: 1, reverse: true, ofRule: {matches: rust-statement-slot}}
+            - nthChild: {position: 1, reverse: true, ofRule: {matches: rust-statement}}
             - not: {has: {regex: '^;$'}}
             - inside:
                 kind: block
@@ -144,5 +144,5 @@ rule:
         - inside: {kind: match_arm, field: value}
         - inside: {kind: closure_expression, field: body}
         - inside: {matches: body-tail}
-message: 'Conditional expression nests a conditional'
-note: 'Select with one `match` over the combined subjects (`match (<a>, <b>)`), an `else if` chain, or an arm guard (`<pattern> if <test> =>`), a nested conditional hides the test combination that selects each value. An inner `match` over a call that consumes the outer binding stays as written. `no-nested-repeated-else` owns an inner `if` repeating the outer `else`, `no-arm-nested-let` an arm holding an `if let`, clippy `collapsible_match` an arm holding an `if` with an `else` repeating the catch-all arm, and `no-infallible-unwrap` an arm-less `match` over an uninhabited value'
+message: '`if` or `match` value nests another `if` or `match`'
+note: 'Select with one `match` over the combined subjects (`match (<a>, <b>)`), an `else if` chain, or an arm guard (`<pattern> if <test> =>`)'

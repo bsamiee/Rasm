@@ -74,7 +74,7 @@ utils:
     mutation:
         kind: invocation_expression
         all:
-            - matches: csharp-atom-mutation
+            - matches: languageext-atom-mutation
             - any:
                 - has: {field: function, kind: member_access_expression, has: {field: expression, pattern: $CELL}}
                 - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {pattern: $CELL}}}
@@ -101,5 +101,9 @@ rule:
         - inside:
             stopBy: {matches: deferred-callback}
             matches: lock-region
+            pattern: $REGION
+labels:
+    WRITE: {style: primary, message: 'Changes the atomic cell'}
+    REGION: {style: secondary, message: 'Runs while the lock is held'}
 message: '`$WRITE` changes an atomic cell under a lock that serializes it a second time'
 note: Use the atomic cell's operations alone or a lock over a plain field, each orders every write

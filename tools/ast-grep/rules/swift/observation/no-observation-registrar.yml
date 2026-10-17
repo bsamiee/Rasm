@@ -8,4 +8,4 @@ rule:
         - has: {kind: type_annotation, has: {field: name, regex: '^(Observation\.)?ObservationRegistrar$'}}
         - has: {field: value, kind: call_expression, has: {nthChild: 1, regex: '^(Observation\.)?ObservationRegistrar$'}}
 message: 'Stored `ObservationRegistrar` restates the access and mutation calls the `@Observable` macro writes'
-note: 'Declare the type `@Observable final class` with plain stored properties, the macro expands the registrar, `access`, and `withMutation` for each one'
+note: 'Declare the type `@Observable final class` with plain stored properties'

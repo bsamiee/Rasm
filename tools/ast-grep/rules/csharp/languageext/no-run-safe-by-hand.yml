@@ -3,12 +3,8 @@ id: no-run-safe-by-hand
 language: csharp
 severity: error
 utils:
-    tried:
-        any:
-            - pattern: {context: 'class C { object F() => $EFFECT.Try(); }', selector: invocation_expression, strictness: cst}
-            - pattern: {context: 'class C { object F() => $EFFECT.Try().As(); }', selector: invocation_expression, strictness: cst}
-            - kind: parenthesized_expression
-              has: {matches: tried}
+    bare-call:
+        has: {field: arguments, not: {has: {kind: argument}}}
     tried-shape:
         any:
             - pattern: {context: 'class C { object F() => $_EFFECT.Try(); }', selector: invocation_expression, strictness: cst}
@@ -27,33 +23,44 @@ utils:
                 all:
                     - has: {field: name, pattern: $LOCAL}
                     - has: {nthChild: 2, matches: tried-shape}
-    unwrapped:
+    local-run:
         any:
             - kind: member_access_expression
               all:
                 - has: {field: name, regex: '^runFin$'}
-                - has: {field: expression, pattern: $BASE}
+                - has: {field: expression, matches: tried-local}
             - kind: invocation_expression
               all:
-                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Run$'}}, {has: {field: expression, pattern: $BASE}}]}
-                - has: {field: arguments, not: {has: {kind: argument}}}
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Run$'}}, {has: {field: expression, matches: tried-local}}]}
+                - matches: bare-call
+    direct:
+        any:
+            - matches: {languageext-tried-run: {effect: {pattern: $EFFECT}}}
             - kind: invocation_expression
               all:
-                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: unwrapped}}]}
-                - has: {field: arguments, not: {has: {kind: argument}}}
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: direct}}]}
+                - matches: bare-call
             - kind: parenthesized_expression
-              has: {matches: unwrapped}
+              has: {matches: direct}
+    kept:
+        any:
+            - matches: local-run
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: kept}}]}
+                - matches: bare-call
+            - kind: parenthesized_expression
+              has: {matches: kept}
 rule:
     kind: invocation_expression
     all:
         - pattern: {context: 'class C { object F() => $IO.$RUN($$$ENV); }', selector: invocation_expression, strictness: cst}
-        - has: {field: function, has: {field: expression, matches: unwrapped}}
         - any:
             - all:
-                - has: {stopBy: end, pattern: $BASE, matches: tried}
+                - has: {field: function, has: {field: expression, matches: direct}}
                 - has: {field: function, has: {field: name, pattern: $DIRECT}}
             - all:
-                - has: {stopBy: end, pattern: $BASE, matches: tried-local}
+                - has: {field: function, has: {field: expression, matches: kept}}
                 - has: {field: function, has: {field: name, pattern: $KEPT}}
                 - has: {field: function, has: {field: expression, pattern: $KEPT_IO}}
 constraints:
@@ -63,5 +70,5 @@ transform:
     RECEIVER: {replace: {source: $EFFECT, replace: '(?s)^(.+)$', by: '${1}.'}}
     KEPT_RECEIVER: {replace: {source: $KEPT_IO, replace: '(?s)^(.+)$', by: '${1}.'}}
 fix: $RECEIVER$SAFE$KEPT_RECEIVER$KEPT($$$ENV)
-message: '`$BASE` run by hand restates `RunSafe`'
-note: Use `RunSafe()` or `RunSafeAsync()` on the effect with an unchanged environment, each returns a `Fin`
+message: '`$IO.$RUN` restates `RunSafe` by hand'
+note: Call `RunSafe()` or `RunSafeAsync()` on the effect with an unchanged environment, each returns a `Fin`

@@ -60,6 +60,16 @@ struct Paired {
     current: watch::Sender<Config>,
 }
 
+#[derive(Debug, Default)]
+struct Plain {
+    config: RwLock<Config>,
+}
+
+#[derive(Debug, Default)]
+struct Unpacked {
+    snapshot: RwLock<Arc<Config>>,
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 impl Registry {
@@ -95,7 +105,7 @@ impl Published {
 }
 
 impl Overwritten {
-    fn new() -> Self { Self { current: watch::Sender::new(Config::default()) } }
+    fn new() -> Self { Self { current: watch::Sender::default() } }
 
     fn update(&self, next: Config) { self.current.send_modify(|current| *current = next); }
 
@@ -121,6 +131,21 @@ impl Paired {
     }
 
     fn update(&self, next: Config) -> Config { self.current.send_replace(next) }
+}
+
+impl Plain {
+    fn update(&self, next: Config) { *self.config.write() = next; }
+
+    fn port(&self) -> u16 { self.config.read().port }
+}
+
+impl Unpacked {
+    fn update(&self, next: Config) { *self.snapshot.write() = Arc::new(next); }
+
+    fn into_snapshot(self) -> Arc<Config> {
+        let Self { snapshot } = self;
+        snapshot.into_inner()
+    }
 }
 
 fn shared() -> u16 {
@@ -154,7 +179,11 @@ fn main() {
     lent.update(Config { port: 84 });
     overwritten.update(Config { port: 85 });
     tweaked.retune(86);
+    let (plain, unpacked) = (Plain::default(), Unpacked::default());
+    plain.update(Config { port: 90 });
+    unpacked.update(Config { port: 91 });
+    black_box(&(plain.port(), unpacked.into_snapshot()));
     black_box([published.update(Config { port: 87 }), watched.update(Config { port: 88 }), paired.update(Config { port: 89 })]);
-    black_box((watched.watch(), receiver));
+    black_box(&(watched.watch(), receiver));
     black_box([registry.current().port, cache.port(), tuned.port(), lent.lock().lock().port, shared(), published.port(), overwritten.port(), tweaked.port(), local(), channel()]);
 }

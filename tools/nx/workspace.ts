@@ -261,14 +261,14 @@ const _PROJECTS = {
         const launched = Object.values(bootstrap.macos.launchd.agents).some(({ args }) => bins.some(({ name }) => args.includes(name)));
         const tested = crate.targets.some(({ test }) => test);
         const dylint = crate.dependencies.some(({ name }) => name === 'dylint_linting');
-        const selection = Object.keys(Record.filter({ '--lib': crate.targets.some(({ types }) => !types.includes('bin')), '--bins': binary, '--tests': tested }, identity));
+        const selection = tested ? { options: { args: Object.keys(Record.filter({ '--lib': crate.targets.some(({ types }) => !types.includes('bin')), '--bins': binary, '--tests': true }, identity)) } } : {};
         return {
             name: crate.name,
             tags: ['language:rust', ...(dylint ? ['host:dylint'] : [])],
             targets: {
-                typecheck: { options: { args: selection } },
+                typecheck: { ...selection },
                 'lint:cargo-modules': {},
-                'lint:dylint': { options: { args: selection } },
+                'lint:dylint': { ...selection },
                 check: {},
                 ...(tested ? { test: {}, ...(dylint ? {} : { coverage: {} }) } : {}),
                 ...(binary ? { build: { outputs: bins.map(({ name }) => `{workspaceRoot}/${crate.output}/debug/${name}`) } } : {}),

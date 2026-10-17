@@ -11,8 +11,11 @@ rule:
             - all:
                 - has: {nthChild: 1, kind: identifier, regex: '^cfg_attr$'}
                 - has: {field: arguments, has: {kind: identifier, regex: '^deprecated$', follows: {regex: '^,$'}}}
+            - all:
+                - has: {nthChild: 1, kind: identifier, regex: '^cfg(_attr)?$'}
+                - has: {field: arguments, regex: '^\(\s*(any\s*\(\s*\)|false|not\s*\(\s*all\s*\(\s*\)\s*\))\s*[,)]'}
         - kind: 'function_item, struct_item, enum_item, union_item, const_item, static_item, type_item, trait_item, mod_item, macro_definition'
           has: {field: name, regex: '^_\w', pattern: $MARK}
           not: {has: {kind: visibility_modifier, regex: '^pub$'}}
 message: '`$MARK` keeps an item in place of finishing its removal'
-note: 'Delete the deprecated or unused item and move each consumer to its replacement in the same change. A deprecation or a leading underscore keeps the cause the compiler reports, `no-lint-suppression-rust` owns an `#[allow]` or `#[expect]` on a dead-code or unused lint'
+note: 'Delete the deprecated, compiled-out (`cfg(any())`, `cfg(false)`), or underscore-named item and move each consumer to its replacement in the same change'

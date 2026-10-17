@@ -18,7 +18,7 @@ public readonly partial struct LevelCount : IMinMaxValue<LevelCount> {
     public static LevelCount MaxValue { get; } = new(int.MaxValue);
     public static LevelCount Eighths { get; } = new(8 + 1);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -26,7 +26,7 @@ public readonly partial struct ColorCount : IMinMaxValue<ColorCount> {
     public static ColorCount MinValue { get; } = new(QuantizerConstants.MinColors);
     public static ColorCount MaxValue { get; } = new(QuantizerConstants.MaxColors);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ComplexValueObject]

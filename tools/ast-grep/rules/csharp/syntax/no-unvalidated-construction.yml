@@ -4,11 +4,8 @@ language: csharp
 severity: error
 utils:
     callee:
-        any:
-            - kind: member_access_expression
-              has: {field: name, pattern: $CALLEE}
-            - kind: identifier, generic_name
-              pattern: $CALLEE
+        kind: member_access_expression
+        has: {field: name, pattern: $CALLEE}
     flags-type:
         matches: {csharp-type-name: {name: {regex: '^BindingFlags$'}}}
     non-public-member:
@@ -37,11 +34,6 @@ utils:
 rule:
     any:
         - kind: invocation_expression
-          has:
-            field: function
-            matches: callee
-            regex: '(^|\.)Get(Safe)?UninitializedObject$'
-        - kind: invocation_expression
           all:
             - has:
                 field: function
@@ -59,8 +51,6 @@ rule:
           all:
             - has: {field: function, matches: callee, has: {field: name, regex: '^GetConstructors?$'}}
             - has: {field: arguments, matches: non-public-flag}
-        - kind: member_access_expression
-          has: {field: name, pattern: $CALLEE, regex: '^DeclaredConstructors$'}
         - kind: method_declaration
           all:
             - has: {field: name, pattern: $CALLEE}
@@ -121,5 +111,5 @@ rule:
                     - all:
                         - has: {field: expression, matches: {csharp-type-name: {name: {regex: '^MemoryMarshal$'}}}}
                         - has: {field: name, regex: '^(Cast|AsRef|Read|TryRead)<'}
-message: '`$CALLEE` bypasses its type''s public constructors and factories'
-note: Use a declared factory or public constructor, each runs the checks its type states. `UnsafeAccessorType` constructors bind an external type the compiler cannot see and run that type's constructor
+message: '`$CALLEE` bypasses the public constructors and factories of the type it creates'
+note: 'Use a declared factory or public constructor, each runs the checks its type states, an `UnsafeAccessorType` accessor binds a type the compiler cannot see and runs its constructor'

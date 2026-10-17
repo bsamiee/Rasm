@@ -1,0 +1,128 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-angle-conversion-by-hand
+language: rust
+severity: error
+utils:
+    pi:
+        kind: 'identifier, scoped_identifier'
+        regex: '^((::)?(std|core)::)?((f32|f64)::)?(consts::)?(PI|TAU)$'
+    half-turn:
+        kind: 'float_literal, integer_literal'
+        regex: '^(180|360)(\.0*)?(_?f(32|64))?$'
+    term:
+        any: [{matches: pi}, {matches: half-turn}]
+    multiply:
+        kind: binary_expression
+        has: {field: operator, regex: '^\*$'}
+    divide:
+        kind: binary_expression
+        has: {field: operator, regex: '^/$'}
+    ratio:
+        matches: divide
+        all:
+            - has: {field: left, matches: term, pattern: $NUM}
+            - has: {field: right, all: [{matches: term}, {pattern: $DEN}]}
+    degree-factor:
+        kind: float_literal
+        regex: '^5_?7\.2_?9_?5[\d_]*(_?f(32|64))?$'
+    radian-factor:
+        kind: float_literal
+        regex: '^0\.0_?1_?7_?4_?5_?3[\d_]*(_?f(32|64))?$'
+    constant-ratio:
+        all:
+            - any:
+                - all:
+                    - matches: divide
+                    - has: {field: left, matches: multiply, all: [{has: {field: right, matches: term, pattern: $NUM}}, {has: {field: left, pattern: $X}}]}
+                    - has: {field: right, all: [{matches: term}, {pattern: $DEN}]}
+                - all:
+                    - matches: divide
+                    - has: {field: left, matches: multiply, has: {field: left, matches: term, pattern: $NUM}}
+                    - has: {field: right, all: [{matches: term}, {pattern: $DEN}]}
+                    - has: {field: left, has: {field: right, pattern: $X}}
+                - all:
+                    - matches: multiply
+                    - has: {field: right, matches: term, pattern: $NUM}
+                    - has: {field: left, matches: divide, all: [{has: {field: right, all: [{matches: term}, {pattern: $DEN}]}}, {has: {field: left, pattern: $X}}]}
+                - all:
+                    - matches: multiply
+                    - has: {field: right, kind: parenthesized_expression, has: {matches: ratio}}
+                    - has: {field: left, pattern: $X}
+                - all:
+                    - matches: multiply
+                    - has: {field: left, any: [{matches: ratio}, {kind: parenthesized_expression, has: {matches: ratio}}]}
+                    - has: {field: right, pattern: $X}
+            - has: {stopBy: end, matches: pi}
+            - has: {stopBy: end, matches: half-turn}
+            - not: {regex: '\bPI\b[^;]*\b360|\b360[^;]*\bPI\b|\bTAU\b[^;]*\b180|\b180[^;]*\bTAU\b'}
+    to-degrees-factor:
+        pattern: $DEGREES
+        any:
+            - all: [{matches: multiply}, {has: {field: right, matches: degree-factor}}, {has: {field: left, pattern: $X}}]
+            - all: [{matches: multiply}, {has: {field: left, matches: degree-factor}}, {has: {field: right, pattern: $X}}]
+            - all: [{matches: divide}, {has: {field: right, matches: radian-factor}}, {has: {field: left, pattern: $X}}]
+    to-radians-factor:
+        pattern: $RADIANS
+        any:
+            - all: [{matches: multiply}, {has: {field: right, matches: radian-factor}}, {has: {field: left, pattern: $X}}]
+            - all: [{matches: multiply}, {has: {field: left, matches: radian-factor}}, {has: {field: right, pattern: $X}}]
+            - all: [{matches: divide}, {has: {field: right, matches: degree-factor}}, {has: {field: left, pattern: $X}}]
+    angle-ratio:
+        all:
+            - matches: ratio
+            - has: {matches: pi}
+            - has: {matches: half-turn}
+    fused-conversion:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^mul_add$'}}, {has: {field: value, pattern: $X}}]}
+            - has:
+                field: arguments
+                all:
+                    - has:
+                        nthChild: 1
+                        any:
+                            - matches: angle-ratio
+                            - {kind: parenthesized_expression, has: {matches: angle-ratio}}
+                            - {matches: degree-factor, pattern: $DEGREES}
+                            - {matches: radian-factor, pattern: $RADIANS}
+                    - has: {nthChild: 2, pattern: $OFFSET}
+                    - not: {has: {nthChild: 3}}
+            - not: {has: {field: arguments, has: {nthChild: 1, regex: '\bPI\b[^,]*\b360|\b360[^,]*\bPI\b|\bTAU\b[^,]*\b180|\b180[^,]*\bTAU\b'}}}
+rule:
+    kind: 'binary_expression, call_expression'
+    pattern: $CONVERSION
+    any:
+        - matches: constant-ratio
+        - matches: to-degrees-factor
+        - matches: to-radians-factor
+        - matches: fused-conversion
+rewriters:
+    - id: plain-receiver
+      rule:
+        kind: 'identifier, field_expression, call_expression, index_expression, parenthesized_expression, scoped_identifier, float_literal, integer_literal, macro_invocation, try_expression, self'
+        pattern: $R
+      fix: $R
+    - id: grouped-receiver
+      rule:
+        kind: 'binary_expression, type_cast_expression, unary_expression, reference_expression'
+        pattern: $R
+      fix: ($R)
+transform:
+    RECEIVER:
+        rewrite: {source: $X, rewriters: [plain-receiver, grouped-receiver]}
+    TOWARD:
+        replace: {source: $DEN, replace: '^.*(PI|TAU)$', by: to_degrees}
+    METHOD:
+        replace: {source: $TOWARD, replace: '^[^t].*$', by: to_radians}
+    DEGREES_NAME:
+        replace: {source: $DEGREES, replace: '^[\s\S]+$', by: to_degrees}
+    PLUS:
+        replace: {source: $OFFSET, replace: '^([\s\S]+)$', by: ' + $1)'}
+    OPEN:
+        replace: {source: $OFFSET, replace: '^[\s\S]+$', by: '('}
+    RADIANS_NAME:
+        replace: {source: $RADIANS, replace: '^[\s\S]+$', by: to_radians}
+fix: $OPEN$RECEIVER.$METHOD$DEGREES_NAME$RADIANS_NAME()$PLUS
+message: '`$CONVERSION` converts an angle between degrees and radians by hand'
+note: 'Call `<value>.to_radians()` or `<value>.to_degrees()` of `f32` or `f64`'

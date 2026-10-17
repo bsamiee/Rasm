@@ -2,12 +2,16 @@
 id: no-cloned-command-matches
 language: rust
 severity: error
-rule:
-    kind: call_expression
-    all:
-        - has: {field: function, kind: field_expression, has: {field: field, regex: '^(get_matches|try_get_matches_from)$', pattern: $METHOD}}
-        - pattern: $COMMAND.clone().$METHOD($$$)
-        - inside:
+utils:
+    command-copy:
+        kind: call_expression
+        any:
+            - pattern: $COMMAND.clone()
+            - pattern: $COMMAND.to_owned()
+            - pattern: Clone::clone(&$COMMAND)
+            - pattern: Command::clone(&$COMMAND)
+    owned-command:
+        inside:
             kind: 'function_item, closure_expression'
             stopBy: &owner {kind: 'function_item, closure_expression'}
             has:
@@ -15,8 +19,25 @@ rule:
                 kind: let_declaration
                 all:
                     - has: {field: pattern, kind: identifier, pattern: $COMMAND}
-                    - has: {field: value, kind: call_expression}
+                    - has: {field: value, kind: 'call_expression, macro_invocation'}
+rule:
+    kind: call_expression
+    all:
+        - has: {field: function, kind: field_expression, has: {field: field, regex: '^(get_matches|get_matches_from|try_get_matches_from)$', pattern: $METHOD}}
+        - has:
+            field: function
+            has:
+                field: value
+                any:
+                    - matches: command-copy
+                    - kind: identifier
+                      pattern: $COPY
+                      inside:
+                        kind: block
+                        stopBy: *owner
+                        has: {kind: let_declaration, all: [{has: {field: pattern, pattern: $COPY}}, {has: {field: value, matches: command-copy}}]}
+        - matches: owned-command
 constraints:
     COMMAND: {kind: identifier}
-message: '`$COMMAND` is cloned to keep the command readable after `$METHOD` consumes it'
-note: 'Bind `let mut <command>` and call `get_matches_mut()` or `try_get_matches_from_mut(<arguments>)`, clap parses through `&mut Command` and leaves the built command readable. A command bound to a reference, field, or parameter stays'
+message: '`$METHOD` consumes a clone of `$COMMAND`'
+note: 'Bind the command with `let mut` and call `get_matches_mut()`, or `try_get_matches_from_mut(<arguments>)` in place of the `_from` methods'

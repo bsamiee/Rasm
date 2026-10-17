@@ -27,8 +27,8 @@ public static class FalseColor {
                 Lut1D.From(table.Length, positions.SelectMany(static position => (float[])[position.X, position.Y, position.Z]).ToArray(), Vector3.Zero, Vector3.One)
                     .Bind(static response => new LutTable.Sequence([new LutTable.Log(LogSpace.AgXLog.Allocation), new LutTable.ChannelCurve(response)]).Inverse()),
                 0d.Cons(openings).Zip(toSeq(colours)).Traverse(static stop => RampPosition.Validated(stop.First).Bind(position =>
-                        Admission.Admitted(RampStop.Validate(position, stop.Second, out RampStop item), item))).As()
-                    .Bind(static stops => Admission.Admitted(Ramp.Validate(stops, RampInterpolation.Constant, out Ramp? keyed), keyed)))
+                        ValidationResults.ToFin(RampStop.Validate(position, stop.Second, out RampStop item), item))).As()
+                    .Bind(static stops => ValidationResults.ToFin(Ramp.Validate(stops, RampInterpolation.Constant, out Ramp? keyed), keyed)))
             .Apply((scene, ramp) => (ramp, Labels(openings, scene)))
             .As();
 

@@ -19,7 +19,7 @@ public readonly partial struct PixelDensity : IMinMaxValue<PixelDensity> {
     public static PixelDensity MinValue { get; } = new(1d / (double)Length.FromMeters(1).Inches);
     public static PixelDensity MaxValue { get; } = new(uint.MaxValue / (double)Length.FromMeters(1).Inches);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<string>]

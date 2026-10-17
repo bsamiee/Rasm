@@ -2,9 +2,56 @@
 id: no-field-display
 language: rust
 severity: error
+utils:
+    field-text:
+        any:
+            - {kind: reference_expression, has: {field: value, kind: field_expression, has: {field: value, kind: self}}}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: value, kind: field_expression, has: {field: value, kind: self}}}, {has: {field: field, regex: '^(as_str|as_ref)$'}}]}
+                - has: {field: arguments, not: {has: {pattern: $_}}}
+    field-write:
+        any:
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, has: {field: field, regex: '^(write_str|pad)$'}}
+                - has: {field: arguments, all: [{has: {nthChild: 1, matches: field-text}}, {not: {has: {nthChild: 2}}}]}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, has: {field: field, regex: '^write_fmt$'}}
+                - has: {field: arguments, has: {nthChild: 1, kind: macro_invocation, all: [{matches: {rust-std-macro: {name: {regex: '^format_args$'}}}}, {has: {kind: token_tree, regex: '^\(\s*"(?:[^"\\]|\\.)*"(\s*,\s*(\w+\s*=\s*)?&?\s*self\.\w+)*\s*,?\s*\)$'}}]}}
+            - kind: macro_invocation
+              all:
+                - matches: {rust-std-macro: {name: {regex: '^write$'}}}
+                - has: {kind: token_tree, regex: '^\(\s*\w+\s*,\s*"(?:[^"\\]|\\.)*"(\s*,\s*\w+\s*=\s*&?\s*self\.\w+)+\s*,?\s*\)$'}
+    binding-write:
+        kind: macro_invocation
+        all:
+            - matches: {rust-std-macro: {name: {regex: '^write$'}}}
+            - has: {kind: token_tree, regex: '^\(\s*\w+\s*,\s*"(?:[^"\\]|\\.)*"(\s*,\s*[a-z_]\w*)*\s*,?\s*\)$'}
+    statement:
+        nthChild: {position: 1, ofRule: {matches: rust-statement}}
+    display-body:
+        kind: block
+        any:
+            - all:
+                - has: {matches: statement, any: [{matches: field-write}, {kind: expression_statement, has: {nthChild: 1, matches: field-write}}]}
+                - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
+            - all:
+                - has: {matches: statement, kind: let_declaration, all: [{has: {field: pattern, kind: 'struct_pattern, tuple_struct_pattern', regex: '^Self\b'}}, {has: {field: value, regex: '^\*?\s*self$'}}]}
+                - has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}, any: [{matches: binding-write}, {kind: expression_statement, has: {nthChild: 1, matches: binding-write}}]}
+                - not: {has: {nthChild: {position: 3, ofRule: {matches: rust-statement}}}}
+    field-display:
+        kind: impl_item
+        all:
+            - has: {field: trait, regex: '^(((std|core)::)?fmt::)?Display$'}
+            - has: {field: body, has: {kind: function_item, all: [{has: {field: name, regex: '^fmt$'}}, {has: {field: body, matches: display-body}}]}}
+            - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: 'struct_item, enum_item', has: {field: name, pattern: $T}}}
+            - not: {inside: {kind: source_file, stopBy: end, has: {stopBy: end, matches: {rust-error-type: {name: {pattern: $T}}}}}}
 rule:
     kind: impl_item
-    matches: rust-field-display
-    has: {field: type, pattern: $T}
+    all:
+        - has: {field: type, kind: type_identifier, pattern: $T}
+        - any: [{matches: rust-field-display}, {matches: field-display}]
 message: '`Display` for `$T` writes a literal format over its own fields'
-note: 'Derive `derive_more::Display` on `<type>` with `#[display("<format>")]` naming fields (`{host}`, `{_0}`) and delete the impl. Enums take one attribute per variant, and a single-field struct forwards with no attribute. An error type thiserror renders stays as written'
+note: 'Derive `derive_more::Display` on the type with `#[display("<format>")]` naming fields (`{host}`, `{_0}`), one attribute per enum variant and none for a single-field struct, and delete the impl'

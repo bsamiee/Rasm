@@ -32,4 +32,4 @@ rule:
                 - has: {matches: recovery}
                 - has: {kind: value_arguments, not: {has: {nthChild: 2}}, has: {kind: value_argument, has: {field: value, matches: recovery}}}
 message: '`flatMapError` maps a failure case of `$E` to `.success(nil)` in place of a producer returning `nil` for it'
-note: 'Return `.success(nil)` for the case from its producing function and drop it from its failure type and from each consumer''s `flatMapError`, a host error cast or pattern (`as? CocoaError`, `case CocoaError.fileNoSuchFile`, `.noSuchFileOrDirectory as Errno`) stays a classifying boundary'
+note: 'Return `.success(nil)` for the case from its producing function and drop the case from its failure type and from each consumer''s `flatMapError`'

@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-bool-to-result-by-hand
+language: rust
+severity: error
+utils:
+    primary:
+        kind: 'identifier, self, field_expression, call_expression, macro_invocation, parenthesized_expression, index_expression, boolean_literal, scoped_identifier, try_expression, await_expression'
+    compound:
+        not: {any: [{matches: primary}, {kind: 'let_condition, let_chain'}]}
+    unit-ok:
+        matches: {rust-single-statement: {first: {pattern: Ok(())}}}
+    error-arm:
+        matches: {rust-single-statement: {first: {pattern: Err($E)}}}
+    ok-first:
+        all:
+            - has: {field: consequence, matches: unit-ok}
+            - has: {field: alternative, kind: else_clause, has: {kind: block, matches: error-arm}}
+    error-first:
+        all:
+            - has: {field: consequence, matches: error-arm}
+            - has: {field: alternative, kind: else_clause, has: {kind: block, matches: unit-ok}}
+    negation:
+        kind: unary_expression
+        regex: '^!'
+    branch:
+        kind: if_expression
+        all:
+            - not: {inside: {kind: else_clause}}
+            - not: {matches: rust-const-context}
+            - any:
+                - all: [{matches: ok-first}, {has: {field: condition, matches: primary, pattern: $P}}]
+                - all: [{matches: ok-first}, {has: {field: condition, matches: compound, pattern: $Q}}]
+                - all: [{matches: error-first}, {has: {field: condition, matches: negation, has: {nthChild: 1, matches: primary, pattern: $P}}}]
+                - all: [{matches: error-first}, {has: {field: condition, matches: negation, has: {nthChild: 1, matches: compound, pattern: $Q}}}]
+                - all: [{matches: error-first}, {has: {field: condition, not: {matches: negation}, matches: primary, pattern: $NP}}]
+                - all: [{matches: error-first}, {has: {field: condition, not: {matches: negation}, matches: compound, pattern: $NQ}}]
+    unit-option:
+        kind: call_expression
+        any:
+            - pattern: $B.then_some(()).$OK($UE)
+            - pattern: '$B.then(|| ()).$OK($UE)'
+    flattened-option:
+        kind: call_expression
+        any:
+            - pattern: '$C.then(|| $LAZY).$FOK($FE).flatten()'
+            - pattern: $C.then_some($EAGER).$FOK($FE).flatten()
+            - pattern: $C.then($CALL).$FOK($FE).flatten()
+rule:
+    kind: 'if_expression, call_expression'
+    any:
+        - matches: branch
+        - matches: unit-option
+        - matches: flattened-option
+constraints:
+    OK: {regex: '^ok_or(_else)?$'}
+    FOK: {regex: '^ok_or(_else)?$'}
+transform:
+    QW: {replace: {source: $Q, replace: '^([\s\S]+)$', by: '($1)'}}
+    NPW: {replace: {source: $NP, replace: '^([\s\S]+)$', by: '(!$1)'}}
+    NQW: {replace: {source: $NQ, replace: '^([\s\S]+)$', by: '(!($1))'}}
+    BRANCH_TAIL: {replace: {source: $E, replace: '^([\s\S]+)$', by: '.ok_or_else(|| $1)'}}
+    UNIT_TAIL: {replace: {source: $OK, replace: '^(.+)$', by: '.$1'}}
+    UNIT_ARGUMENT: {replace: {source: $UE, replace: '^([\s\S]+)$', by: '($1)'}}
+    FLAT_TAIL: {replace: {source: $FOK, replace: '^(.+)$', by: '.$1'}}
+    FLAT_ARGUMENT: {replace: {source: $FE, replace: '^([\s\S]+)$', by: '($1)'}}
+    LAZY_RESULT: {replace: {source: $LAZY, replace: '^([\s\S]+)$', by: '.and_then(|()| $1)'}}
+    EAGER_RESULT: {replace: {source: $EAGER, replace: '^([\s\S]+)$', by: '.and($1)'}}
+    CALLED_RESULT: {replace: {source: $CALL, replace: '^([\s\S]+)$', by: '.and_then(|()| $1())'}}
+fix: '$P$QW$NPW$NQW$BRANCH_TAIL$B$UNIT_TAIL$UNIT_ARGUMENT$C$FLAT_TAIL$FLAT_ARGUMENT$LAZY_RESULT$EAGER_RESULT$CALLED_RESULT'
+message: '`$P$Q$NP$NQ$B$C` converts a `bool` into a `Result` by hand'
+note: 'Write `<condition>.ok_or(<error>)` or `.ok_or_else(<closure>)`, with `.and(<result>)` or `.and_then(|()| <result>)` after it when the condition selects a result'

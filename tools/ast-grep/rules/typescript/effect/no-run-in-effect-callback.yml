@@ -122,6 +122,6 @@ transform:
     COMPOSED: rewrite($CALL, rewriters=[map-first, map-last, suspend])
 fix: $COMPOSED
 message: '`$RUN` starts a separate runtime inside an effect callback'
-note: 'Return the effect from its callback, `flatMap` in place of `map` and `suspend` in place of `sync` or `promise`, the enclosing runtime then supplies interruption and context'
+note: 'Return the effect from its callback through `flatMap` in place of `map` and `suspend` in place of `sync` or `promise`, the enclosing runtime supplying interruption and context'
 labels:
     RUN: {style: primary}

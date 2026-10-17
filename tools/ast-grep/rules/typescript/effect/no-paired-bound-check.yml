@@ -59,4 +59,4 @@ rule:
                 - has: {stopBy: {not: {matches: link}}, matches: lower, has: {field: function, has: {field: property, regex: '^isGreaterThan(OrEqualTo)?BigDecimal$'}}}
                 - has: {stopBy: {not: {matches: link}}, matches: upper, has: {field: function, has: {field: property, regex: '^isLessThan(OrEqualTo)?BigDecimal$'}}}
 message: '`$LOWER` and `$UPPER` state one range of one schema as two checks'
-note: '`Schema.isBetweenLength`, `isBetweenSize`, `isBetweenProperties`, `isBetweenCodePoints`, `isBetween`, `isBetweenDate`, `isBetweenBigInt`, or `isBetweenBigDecimal` states both bounds in one check with one expected message and one arbitrary constraint'
+note: 'Call `Schema.isBetweenLength`, `isBetweenSize`, `isBetweenProperties`, `isBetweenCodePoints`, `isBetween`, `isBetweenDate`, `isBetweenBigInt`, or `isBetweenBigDecimal` to state both bounds in one check with one expected message and one arbitrary constraint'

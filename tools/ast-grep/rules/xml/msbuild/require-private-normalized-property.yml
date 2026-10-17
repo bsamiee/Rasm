@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: require-private-normalized-property
+language: xml
+severity: error
+files: ['**/*.{csproj,props,targets}']
+rule:
+    all:
+        - matches: {msbuild-element: {name: {regex: '^[A-Za-z]', pattern: _PROPERTY}}}
+        - inside: {kind: content, inside: {matches: {msbuild-element: {name: {regex: '^PropertyGroup$'}}}}}
+        - not: {inside: {matches: {msbuild-element: {name: {regex: '^ProjectExtensions$'}}}, stopBy: end}}
+        - has:
+            kind: content
+            has:
+                kind: CharData
+                regex: "^\\s*\\$\\((\\[MSBuild\\]::(NormalizeDirectory|NormalizePath|EnsureTrailingSlash)|\\[System\\.IO\\.Path\\]::(GetFullPath|TrimEndingDirectorySeparator))\\(\\s*'?\\$\\([A-Za-z_][A-Za-z0-9_]*\\)'?\\s*\\)\\)\\s*$"
+                not: {regex: '\(\s*''?\$\(MSBuild[A-Za-z0-9_]*\)'}
+        - not:
+            inside:
+                kind: element
+                stopBy: end
+                matches: {msbuild-metadata: {name: {regex: '^TreatAsLocalProperty$'}, value: {regex: '[^"''\s]'}}}
+message: '`$PROPERTY` normalizes itself, and a global property of that name skips the assignment'
+note: Assign the normalized value to a private property

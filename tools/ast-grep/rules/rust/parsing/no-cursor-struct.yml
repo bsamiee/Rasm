@@ -10,7 +10,9 @@ utils:
                 - not: {has: {kind: mutable_specifier}}
                 - has: {field: type, any: [{kind: primitive_type, regex: '^str$'}, {kind: array_type, not: {has: {field: length, pattern: $_}}, has: {field: element, regex: '^(u8|char)$'}}]}
             - kind: generic_type
-              regex: '^Vec\s*<\s*char\s*>$'
+              regex: '^(Vec\s*<\s*(char|u8)\s*>|Box\s*<\s*(str|\[\s*(u8|char)\s*\])\s*>|(Arc|Rc)\s*<\s*(str|\[\s*u8\s*\])\s*>)$'
+            - kind: type_identifier
+              regex: '^String$'
     self-field:
         kind: field_expression
         all:
@@ -32,4 +34,4 @@ rule:
                     - has: {field: type, any: [{pattern: $NAME}, {kind: generic_type, has: {field: type, pattern: $NAME}}]}
                     - has: {field: body, has: {stopBy: end, kind: 'compound_assignment_expr, assignment_expression', has: {field: left, matches: self-field}}}
 message: '`$NAME` walks `$INPUT` by hand through index `$POS`'
-note: 'Parse through a `winnow` stream (`&str`, `winnow::LocatingSlice` where spans matter, `winnow::Partial` for incremental input) that its parsers advance, and read binary layouts through `binrw` `#[derive(BinRead)]`. A struct pairing input with an offset it advances restates the stream'
+note: 'Parse through a `winnow` stream its parsers advance (`&str`, `winnow::LocatingSlice` where spans matter, `winnow::Partial` for incremental input), and read binary layouts through `binrw` `#[derive(BinRead)]`'

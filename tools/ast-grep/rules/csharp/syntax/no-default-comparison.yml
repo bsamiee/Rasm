@@ -51,6 +51,7 @@ utils:
         matches: {csharp-type-name: {name: {regex: '^(EqualityComparer|Comparer)$'}}}
         has: {stopBy: end, kind: type_argument_list, has: {matches: type-parameter}}
 rule:
+    pattern: $COMPARISON
     any:
         - kind: invocation_expression
           all:
@@ -86,5 +87,5 @@ rule:
             - any:
                 - all: [{has: {field: left, matches: generic-operand}}, {has: {field: right, matches: default-value}}]
                 - all: [{has: {field: left, matches: default-value}}, {has: {field: right, matches: generic-operand}}]
-message: Comparison with `default` reads a sentinel as absence
-note: Return absence as `Option<A>` from the producer, `default` is a valid value of a type parameter
+message: '`$COMPARISON` reads the `default` of a type parameter as absence'
+note: 'Return absence as `Option<A>` from the producer, `default` is a valid value of every type parameter'

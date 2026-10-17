@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-reawaited-select-future
+language: rust
+severity: error
+utils:
+    polled:
+        kind: identifier
+        pattern: $FUTURE
+        any:
+            - follows: {kind: mutable_specifier, follows: {regex: '^&$'}}
+            - precedes: {regex: '^\.$', precedes: {kind: identifier, regex: '^as_mut$'}}
+    awaited:
+        kind: await_expression
+        has:
+            any:
+                - {kind: identifier, pattern: $FUTURE}
+                - {kind: parenthesized_expression, has: {kind: reference_expression, has: {field: value, kind: identifier, pattern: $FUTURE}}}
+                - {kind: call_expression, has: {field: function, kind: field_expression, all: [{has: {field: value, kind: identifier, pattern: $FUTURE}}, {has: {field: field, regex: '^as_mut$'}}]}}
+    absent:
+        any:
+            - kind: match_arm
+              all:
+                - has: {field: pattern, regex: '^(Option::)?None$'}
+                - follows: {stopBy: end, kind: match_arm, has: {field: pattern, regex: '^(Option::)?Some\('}}
+            - kind: match_arm
+              all:
+                - has: {field: pattern, regex: '^(Option::)?None$'}
+                - precedes: {stopBy: end, kind: match_arm, has: {field: pattern, regex: '^(Option::)?Some\('}}
+            - kind: else_clause
+              inside: {kind: if_expression, has: {field: condition, kind: let_condition, has: {field: pattern, regex: '^(Option::)?Some\('}}}
+rule:
+    kind: await_expression
+    all:
+        - matches: awaited
+        - inside: {matches: absent, stopBy: {kind: 'match_arm, else_clause, closure_expression, async_block, function_item'}}
+        - inside:
+            kind: function_item
+            stopBy: end
+            has:
+                stopBy: end
+                kind: macro_invocation
+                all:
+                    - has: {field: macro, regex: '^(::)?(tokio::|futures::)?select(_biased)?$'}
+                    - has: {kind: token_tree, has: {matches: polled}}
+message: '`$FUTURE` reaches a second `await` in the `None` case of an `Option` recording whether a `select!` finished it'
+note: 'Pin `futures::future::maybe_done(<future>)`, poll it through `&mut` in every `select!` and join, and read its output once through `as_mut().take_output()`'

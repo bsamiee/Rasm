@@ -23,4 +23,4 @@ transform:
     COPYING: {replace: {source: $REVERSED, replace: '^sort$', by: toSorted}}
 fix: $LIST.$COPYING$ARGUMENTS
 message: '`$CALL` copies the list to `$MUTATE` the copy in place'
-note: '`<list>.toReversed()` and `<list>.toSorted(<compare>)` return the reordered copy in one call on every array and typed array, the only receivers of `slice` with `reverse` and `sort`'
+note: 'Call `<list>.toReversed()` or `<list>.toSorted(<compare>)` for the reordered copy in one call'

@@ -30,7 +30,7 @@ public static class ValueKey {
         where TValue : IObjectFactory<TValue, TRaw, ValidationError>, IConvertible<TRaw>
         where TRaw : notnull, ISpanParsable<TRaw> =>
         new(name, caption, help, @default, new StateParameter<TValue>.Keyed<TValue, TRaw>(Lens.identity<TValue>()),
-            Admission.Validated<TValue, TRaw>, static value => value.ToValue(), StoredText.Recall<TValue, TRaw>);
+            ValidationResults.Validated<TValue, TRaw>, static value => value.ToValue(), StoredText.Recall<TValue, TRaw>);
 
     public static ValueKey<TRaw, TRaw> Raw<TRaw>(string name, string caption, string help, TRaw @default) where TRaw : notnull, ISpanParsable<TRaw> =>
         new(name, caption, help, @default, new StateParameter<TRaw>.Raw<TRaw>(Lens.identity<TRaw>()), Fin.Succ, identity, StoredText.Parse<TRaw>);
@@ -44,7 +44,7 @@ public static class ValueKey {
 
     public static ValueKey<Option<TValue>, string> Optional<TValue>(string name, string caption, string help)
         where TValue : IObjectFactory<TValue, string, ValidationError>, IConvertible<string> =>
-        fun(static (string text) => Conversions.Present(text).Traverse(Admission.Validated<TValue, string>).As()) switch {
+        fun(static (string text) => Conversions.Present(text).Traverse(ValidationResults.Validated<TValue, string>).As()) switch {
             var recall => new(name, caption, help, Option<TValue>.None, new StateParameter<Option<TValue>>.OptionalKeyed<TValue, string>(Lens.identity<Option<TValue>>()),
                 recall, static value => Conversions.Unset(value.Map(static held => held.ToValue())), recall),
         };
@@ -97,5 +97,5 @@ public static class StoredText {
     public static Fin<TValue> Recall<TValue, TRaw>(string text)
         where TValue : IObjectFactory<TValue, TRaw, ValidationError>
         where TRaw : notnull, ISpanParsable<TRaw> =>
-        Parse<TRaw>(text).Bind(Admission.Validated<TValue, TRaw>);
+        Parse<TRaw>(text).Bind(ValidationResults.Validated<TValue, TRaw>);
 }

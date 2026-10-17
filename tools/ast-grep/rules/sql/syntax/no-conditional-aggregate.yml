@@ -116,5 +116,5 @@ rewriters:
 transform:
     FIXED: {rewrite: {source: $NODE, rewriters: [counted, filtered]}}
 fix: $FIXED
-message: '`$NODE` filters aggregated rows through a conditional argument, `$FIXED` states the filter'
+message: '`$NODE` filters aggregated rows through a conditional argument in place of `$FIXED`'
 note: 'Use `<aggregate>(<value>) filter (where <condition>)`, and `count(*) filter (where <condition>)` for a counted condition'

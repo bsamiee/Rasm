@@ -91,5 +91,5 @@ rule:
                     has: {field: name, regex: '^value$'}
                     inside: {kind: argument_list, inside: {kind: call, has: {field: function, matches: test-call}}}
             - matches: tested
-message: 'Absence test reads `Context.preferences`, whose native getter returns the global user preferences'
-note: 'Use `Context.preferences` directly; its native value is present independently of the context window, scene and window manager'
+message: 'Absence test reads `Context.preferences`, a member the native getter always returns as the global user preferences'
+note: 'Read `Context.preferences` without the test, its native value existing independently of the context window, scene, and window manager'

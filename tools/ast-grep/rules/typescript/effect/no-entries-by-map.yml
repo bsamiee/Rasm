@@ -117,4 +117,4 @@ transform:
     BODY: rewrite($FN, rewriters=[key, bare])
 fix: $R.$OP($L, $BODY)
 message: '`$R.fromEntries` over a mapped list rebuilds `$R.$OP`'
-note: '`Record.fromIterableWith(<list>, <f>)` adds the pair `<f>` returns per element and `Record.fromIterableBy(<list>, <key>)` adds each element under its key, with no entry array between'
+note: 'Call `Record.fromIterableWith(<list>, <f>)` to add the pair `<f>` returns per element, or `Record.fromIterableBy(<list>, <key>)` to add each element under its key, with no entry array between'

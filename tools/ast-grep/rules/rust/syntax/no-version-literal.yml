@@ -31,5 +31,6 @@ rule:
             - inside: {kind: 'const_item, static_item', field: value}
             - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '(?i)oid'}}}
             - matches: rust-test-scope
+            - matches: rust-macro-argument
 message: '`$VERSION` restates a version the package manifest owns'
-note: 'Read the product version from `env!("CARGO_PKG_VERSION")`, and a dependency or protocol version from the `const` its owner declares once'
+note: 'Read the product version from `env!("CARGO_PKG_VERSION")` and a dependency or protocol version from the `const` its owner declares'

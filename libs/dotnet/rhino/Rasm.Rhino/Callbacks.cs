@@ -16,6 +16,8 @@ public static class Callbacks {
     private static readonly JoinableTaskContext Threading = Eto.Forms.Application.Instance.Invoke(static () =>
         Eto.Forms.Application.Instance.Properties.Create(typeof(JoinableTaskContext), static () => new JoinableTaskContext()));
 
+    private static readonly JoinableTaskCollection Pending = Threading.CreateCollection();
+
     public static Fin<T> Settled<T>(IO<T> effect, CancellationToken token) =>
         Try.lift(() => Threading.Factory.Run(async () => {
             using EnvIO environment = EnvIO.New(token: token, syncContext: SynchronizationContext.Current);
@@ -54,12 +56,15 @@ public static class Callbacks {
         effect.Iter(run => Run(run, site));
 
     public static void Started<T>(IO<T> effect, CallbackSite site) =>
-        _ = effect.Map(unit)
+        Pending.Add(Threading.Factory.RunAsync(() => effect.Map(unit)
             .IfFail(error => IO.lift(() => site.Sink.Report(error, site.Owner, site.Member)))
-            .RunAsync(CancellationToken.None).AsTask();
+            .RunAsync(CancellationToken.None).AsTask()));
 
     public static EventHandler<TArgs> Handler<TArgs>(Func<TArgs, IO<Unit>> deliver, CallbackSite site) =>
         (_, args) => Started(IO.pure(args).Bind(deliver), site);
+
+    internal static IO<Unit> Drained =>
+        IO.liftAsync(static environment => Pending.JoinTillEmptyAsync(environment.Token).ToUnit());
 
     // --- [CALLS]
     public static IO<T> Captured<T>(Func<Action<Fin<T>>, IO<Unit>> host, string member) =>

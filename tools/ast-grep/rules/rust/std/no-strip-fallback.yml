@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-strip-fallback
+language: rust
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - pattern: $S.$STRIP($P).unwrap_or($S)
+constraints:
+    STRIP: {regex: '^strip_(prefix|suffix)$'}
+transform:
+    METHOD: {replace: {source: $STRIP, replace: '^strip_', by: 'trim_'}}
+fix: $S.$METHOD($P)
+message: '`$S.$STRIP($P)` falls back to `$S`'
+note: 'Call `trim_prefix(<pattern>)` or `trim_suffix(<pattern>)` on `str`, `[T]`, or `Path`'

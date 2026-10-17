@@ -13,7 +13,7 @@ utils:
                 field: consequence
                 kind: block
                 any:
-                    - all: [{has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, not: {matches: statement}, pattern: $A}}, {not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}}]
+                    - all: [{has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, not: {matches: statement}, pattern: $A}}, {not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}}]
                     - pattern: $AB
             - has:
                 field: alternative
@@ -21,7 +21,7 @@ utils:
                 has:
                     kind: block
                     any:
-                        - all: [{has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, not: {matches: statement}, pattern: $X}}, {not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}}]
+                        - all: [{has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, not: {matches: statement}, pattern: $X}}, {not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}}]
                         - pattern: $X
     fallback:
         kind: match_arm
@@ -42,16 +42,15 @@ rule:
     kind: match_arm
     all:
         - has: {field: pattern, kind: match_pattern, pattern: $P, not: {has: {field: condition, pattern: $_}}}
-        - not: {matches: rust-commented}
         - has:
             field: value
             any:
                 - matches: let-else-branch
                 - kind: block
                   all:
-                    - has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, any: [{matches: let-else-branch}, {kind: expression_statement, has: {matches: let-else-branch}}]}
-                    - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
-        - precedes: {matches: fallback}
+                    - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, any: [{matches: let-else-branch}, {kind: expression_statement, has: {matches: let-else-branch}}]}
+                    - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
+        - precedes: {matches: fallback, pattern: $FALLBACK}
         - not: {has: {field: value, any: [{matches: binding-test}, {has: {stopBy: end, matches: binding-test}}]}}
         - not:
             has:
@@ -70,5 +69,8 @@ rule:
 transform:
     COMMA: {replace: {source: $A, replace: '^[\s\S]+$', by: ','}}
 fix: '$P if $COND => $A$AB$COMMA'
-message: 'Arm `$P` nests an `if let` whose `else` repeats the catch-all arm'
-note: 'Move the `let` into an arm guard (`<pattern> if let <binding> = <value> => <body>`), a failed guard falls through to the catch-all arm the `else` repeated. Clippy `collapsible_match` owns an `if let` over an arm binding no branch reads and nests its pattern into the arm pattern'
+labels:
+    P: {style: primary, message: 'Arm nesting the `if let`'}
+    FALLBACK: {style: secondary, message: 'Catch-all arm the `else` repeats'}
+message: 'Arm `$P` nests an `if let` with an `else` repeating the catch-all arm'
+note: 'Move the `let` into an arm guard, `<pattern> if let <binding> = <value> => <body>`'

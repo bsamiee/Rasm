@@ -20,7 +20,7 @@ public readonly partial struct MetresPerUnit : System.Numerics.IMinMaxValue<Metr
     public static MetresPerUnit MinValue { get; } = new(double.BitIncrement(0d));
     public static MetresPerUnit MaxValue { get; } = new(double.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 public sealed record SkylightReference(Guid Environment, uint RenderHash, Option<SkylightIntensity> Gain);

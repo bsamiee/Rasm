@@ -40,8 +40,8 @@ fn narrow(options: &Options) -> Result<u16, ParseIntError> { options.port.parse(
 
 fn wide(options: &Options) -> Result<u32, ParseIntError> { options.port.parse() }
 
-pub fn exported(exported: &Exported) -> Option<u8> { exported.level.parse().ok() }
+pub fn exported(exported: &Exported) -> Result<u8, ParseIntError> { exported.level.parse() }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-fn main() { black_box((Options::parse, verbosity, threshold, bound, shown, narrow, wide, exported)); }
+fn main() { black_box(&(Options::parse, verbosity, threshold, bound, shown, narrow, wide, exported)); }

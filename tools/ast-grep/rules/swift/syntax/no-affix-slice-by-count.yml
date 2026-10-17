@@ -51,4 +51,4 @@ transform:
     TRIMMED: {rewrite: {source: $SLICE, rewriters: [trimmed-copy, trimmed-in-place]}}
 fix: $TRIMMED
 message: '`$SLICE` removes the tested affix `$AFFIX` by a count that restates its length'
-note: 'Drop the affix by one match, `<text>.trimmingPrefix(<affix>)`, `trimPrefix(<affix>)`, or `<text>.replacing(/<affix>\z/, with: "")` where text without it stays unchanged, `<text>.wholeMatch(of: /<affix>(.*)/)?.1` where text without it yields nil'
+note: 'Drop the affix by one match: `<text>.trimmingPrefix(<affix>)`, `trimPrefix(<affix>)`, or `<text>.replacing(/<affix>\z/, with: "")` to keep text without it unchanged, or `<text>.wholeMatch(of: /<affix>(.*)/)?.1` to yield `nil` for text without it'

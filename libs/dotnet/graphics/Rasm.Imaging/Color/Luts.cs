@@ -16,7 +16,7 @@ public readonly partial struct LatticeSize : IMinMaxValue<LatticeSize> {
     public static LatticeSize MaxValue { get; } = new(256);
     public static LatticeSize Default { get; } = new(33);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -25,7 +25,7 @@ public readonly partial struct CurveLength : IMinMaxValue<CurveLength> {
     public static CurveLength MaxValue { get; } = new(300_000);
     public static CurveLength ResolveShaper { get; } = new(65_536);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 public sealed class Lut1D {

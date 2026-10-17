@@ -14,4 +14,4 @@ fn environmental() -> Result<SpanExporter, ExporterBuildError> { SpanExporter::b
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-fn main() { black_box((configured, qualified, environmental)); }
+fn main() { black_box(&(configured, qualified, environmental)); }

@@ -95,6 +95,17 @@ impl From<io::Error> for ReadError {
     fn from(value: io::Error) -> Self { Self::Io(value) }
 }
 
+#[derive(Debug, Error)]
+enum AttributedError {
+    #[error("attributed bytes are not text")]
+    Text(#[source] Utf8Error),
+}
+
+#[automatically_derived]
+impl From<Utf8Error> for AttributedError {
+    fn from(value: Utf8Error) -> Self { Self::Text(value) }
+}
+
 #[derive(Debug)]
 struct ManualError(ParseIntError);
 
@@ -165,6 +176,18 @@ fn bikeshed(text: &str) -> Result<u16, PortError> { try bikeshed Result<u16, Por
 
 fn read(path: &str) -> Result<String, ReadError> { Ok(fs_err::read_to_string(path)?) }
 
+fn closured(text: &str) -> Result<u16, PortError> {
+    let port = text.trim().parse().map_err(|error| PortError::from(error))?;
+    Ok(port)
+}
+
+fn variant_closure(bytes: &[u8]) -> Result<&str, PortError> {
+    let text = str::from_utf8(bytes).map_err(|error| PortError::Text(error))?;
+    Ok(text)
+}
+
+fn attributed(bytes: &[u8]) -> Result<&str, AttributedError> { Ok(str::from_utf8(bytes)?) }
+
 fn scale(text: &str) -> Result<f64, ScaleError> {
     let scale = text.trim().parse().map_err(ScaleError::Parse)?;
     Ok(scale)
@@ -194,6 +217,9 @@ fn main() {
         scale("1.5").map_err(PortError::Scale)?;
         blocked("8089")?;
         bikeshed("8090")?;
+        closured("8091")?;
+        variant_closure(b"8092")?;
+        attributed(b"8093").map_or(Ok(0), parse)?;
         Ok(())
     };
     black_box((run(), read("port").map(|text| text.len()))).0.unwrap_or_default();

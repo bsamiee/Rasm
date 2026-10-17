@@ -5,55 +5,65 @@ severity: error
 utils:
     result-type:
         matches: {csharp-type-name: {name: {regex: '^(Fin|Validation)$'}}}
-    result-member:
-        kind: method_declaration, local_function_statement
-        has: {field: returns, matches: result-type}
     result-query:
         kind: query_expression
-        any:
-            - inside: {kind: arrow_expression_clause, inside: {matches: result-member}}
-            - inside:
-                kind: return_statement
-                inside:
-                    stopBy: {kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression'}
-                    matches: result-member
+        matches: {languageext-result-target: {type: {matches: result-type}}}
     result-call:
         kind: invocation_expression
         any:
             - matches: {csharp-file-method-call: {declaration: {has: {field: returns, matches: result-type}}}}
+            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Validated(\s*<.+>)?$'}}
+            - has: {field: function, matches: {csharp-type-name: {name: {regex: '^guard$'}}}}
             - has:
                 field: function
                 kind: member_access_expression
                 all:
                     - has: {field: name, regex: '^(Map|Bind|MapFail|BindFail|BiMap|As)(\s*<.+>)?$'}
                     - has: {field: expression, matches: result-call}
+    lifted-call:
+        kind: invocation_expression
+        all:
+            - matches: languageext-io-lift
+            - has:
+                field: arguments
+                not: {has: {kind: argument, nthChild: 2}}
+                has:
+                    kind: argument
+                    has:
+                        any:
+                            - matches: result-call
+                            - kind: lambda_expression
+                              all:
+                                - has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
+                                - has: {field: body, matches: result-call}
+    error-construction:
+        kind: invocation_expression
+        has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Error$'}, member: {regex: '^New$'}}}}
+    lifted-body:
+        inside: {kind: lambda_expression, field: body, inside: {kind: argument, inside: {kind: argument_list, inside: {matches: languageext-io-lift}}}}
+    argument-effect:
+        kind: 'invocation_expression, assignment_expression, await_expression'
+        inside: {stopBy: {kind: from_clause}, kind: argument}
+        not: {any: [{matches: error-construction}, {matches: lifted-body}, {has: {field: function, regex: '^nameof$'}}]}
     step:
         kind: from_clause
+        all:
+            - any:
+                - has: {matches: result-call}
+                - has: {matches: lifted-call}
+                - inside: {matches: result-query}
+            - not: {has: {stopBy: end, matches: argument-effect}}
+    dependent:
         any:
-            - has: {matches: csharp-check-call}
-            - has: {matches: result-call}
-            - inside: {matches: result-query}
-    outcome:
-        kind: invocation_expression
-        any:
-            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Conversions$'}, member: {regex: '^FromResult$'}}}}
-            - all:
-                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Unless(\s*<.+>)?$'}}
-                - has:
-                    field: arguments
-                    has:
-                        kind: argument
-                        nthChild: 1
-                        has:
-                            kind: identifier
-                            pattern: $FLAG
-                            inside:
-                                stopBy: end
-                                any:
-                                    - kind: 'method_declaration, local_function_statement'
-                                      has: {field: parameters, has: {kind: parameter, all: [{has: {field: type, regex: '^bool$'}}, {has: {field: name, pattern: $FLAG}}]}}
-                                    - kind: block
-                                      has: {kind: local_declaration_statement, has: {kind: variable_declaration, all: [{has: {field: type, regex: '^bool$'}}, {has: {kind: variable_declarator, has: {field: name, pattern: $FLAG}}}]}}
+            - has: {stopBy: end, kind: identifier, pattern: $EARLIER}
+            - has:
+                stopBy: end
+                kind: identifier
+                pattern: $READ
+                inside:
+                    stopBy: {kind: 'from_clause, let_clause'}
+                    kind: from_clause
+                    follows: {stopBy: {not: {kind: 'let_clause, comment'}}, kind: let_clause, has: {kind: identifier, nthChild: 1, pattern: $READ}}
 rule:
     kind: from_clause
     all:
@@ -62,10 +72,12 @@ rule:
         - follows:
             stopBy: {not: {kind: 'let_clause, comment'}}
             kind: from_clause
+            pattern: $EARLIER_STEP
             all:
                 - has: {field: name, pattern: $EARLIER}
                 - matches: step
-                - not: {has: {stopBy: end, matches: outcome}}
-        - not: {matches: csharp-check-dependent-step}
-message: '`$LATER` reads nothing `$EARLIER` binds or tests and runs only after `$EARLIER` succeeds, a failed `$EARLIER` hides the `$LATER` error'
-note: Use `(<check>, <check>).Apply(<combine>).As()` or `Seq(<checks>).Traverse(identity).As()` over independent checks and one bind for dependent steps, `Fin` apply joins the error of every failed check
+        - not: {matches: dependent}
+labels:
+    EARLIER_STEP: {style: secondary, message: 'Runs first and stops the query on failure'}
+message: '`$LATER` waits on `$EARLIER` but reads nothing it binds'
+note: Combine independent checks with `(<check>, <check>).Apply(<combine>).As()` or `Seq(<checks>).Traverse(identity).As()`, which report the error of every failed check, and bind a step only where it reads an earlier value

@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-discarded-receiver
+language: rust
+severity: error
+utils:
+    channel-path:
+        kind: scoped_identifier
+        all:
+            - pattern: $MODULE::channel
+            - regex: '(^|::)(broadcast|watch)::channel$'
+    channel-call:
+        kind: call_expression
+        all:
+            - has:
+                field: function
+                any:
+                    - matches: channel-path
+                    - kind: generic_function
+                      all:
+                        - has: {field: function, matches: channel-path}
+                        - has: {field: type_arguments, pattern: $TYPES}
+            - has: {field: arguments, pattern: $ARGS}
+    unread-receiver:
+        any:
+            - not: {has: {nthChild: 2, kind: identifier}}
+            - all:
+                - has: {nthChild: 2, kind: identifier, pattern: $RECEIVER}
+                - not: {inside: {kind: function_item, stopBy: {kind: function_item}, has: {stopBy: end, kind: identifier, pattern: $RECEIVER, not: {inside: {kind: tuple_pattern}}}}}
+    tuple-binding:
+        kind: let_declaration
+        all:
+            - has: {field: pattern, kind: tuple_pattern, all: [{regex: '^\(\s*(mut\s+)?\w+\s*,\s*_\w*\s*,?\s*\)$'}, {has: {nthChild: 1, pattern: $SENDER}}, {matches: unread-receiver}]}
+            - has: {field: value, matches: channel-call}
+            - any:
+                - has: {field: type, kind: tuple_type, has: {nthChild: 1, pattern: $SENDER_TYPE}}
+                - not: {has: {field: type, pattern: $_}}
+    sender-field:
+        kind: field_expression
+        all:
+            - has: {field: field, regex: '^0$'}
+            - has: {field: value, matches: channel-call}
+rule:
+    pattern: $SITE
+    any:
+        - matches: tuple-binding
+        - matches: sender-field
+rewriters:
+    - id: binding-form
+      rule: {matches: tuple-binding}
+      transform:
+        TURBOFISH: replace($TYPES, replace='^<', by='::<')
+        ANNOTATION:
+            replace: {source: $SENDER_TYPE, replace: '^(.+)$', by: ': $1'}
+      fix: let $SENDER$ANNOTATION = $MODULE::Sender$TURBOFISH::new$ARGS;
+    - id: field-form
+      rule: {matches: sender-field}
+      transform:
+        TURBOFISH: replace($TYPES, replace='^<', by='::<')
+      fix: $MODULE::Sender$TURBOFISH::new$ARGS
+transform:
+    FIXED: rewrite($SITE, rewriters=[binding-form, field-form])
+fix: $FIXED
+message: '`$MODULE::channel` builds a receiver that no code reads'
+note: 'Construct the sender alone with `<module>::Sender::new` and take receivers from `Sender::subscribe` where a consumer exists'

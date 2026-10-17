@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-diag-item-set-by-hand
+language: rust
+severity: error
+rule:
+    all:
+        - any:
+            - kind: call_expression
+              any:
+                - pattern: '[$$$NAMES].into_iter().any(|$N| $X.is_diag_item($CX, $N))'
+                - pattern: '[$$$NAMES].iter().any(|&$N| $X.is_diag_item($CX, $N))'
+                - pattern: '[$$$NAMES].into_iter().any(|$N| $X.is_lang_item($CX, $N))'
+                - pattern: '[$$$NAMES].iter().any(|&$N| $X.is_lang_item($CX, $N))'
+            - kind: binary_expression
+              any:
+                - pattern: $X.is_diag_item($CX, $A) || $X.is_diag_item($CX, $B)
+                - pattern: $X.is_lang_item($CX, $A) || $X.is_lang_item($CX, $B)
+        - not: {inside: {stopBy: end, matches: rust-trait-of-assoc-test}}
+message: '`$X` repeats one item lookup per name of a set'
+note: 'Match one lookup against the set: `matches!(<value>.opt_diag_name(cx), Some(sym::A | sym::B))` for diagnostic items, `matches!(tcx.as_lang_item(<def_id>), Some(LangItem::A | LangItem::B))` for lang items'

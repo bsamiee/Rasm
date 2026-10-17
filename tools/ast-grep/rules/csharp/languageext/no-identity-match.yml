@@ -6,7 +6,7 @@ utils:
     relay:
         kind: identifier
         not: {regex: '^identity$'}
-        matches: csharp-identity-function
+        matches: languageext-identity-function
     relayed:
         has:
             field: arguments
@@ -19,8 +19,8 @@ utils:
         kind: argument
         pattern: $IDENTITY_ARGUMENT
         any:
-            - matches: csharp-identity-function
-            - has: {matches: csharp-identity-function}
+            - matches: languageext-identity-function
+            - has: {matches: languageext-identity-function}
     positional:
         kind: argument
         not: {has: {field: name, pattern: $_}}
@@ -126,11 +126,24 @@ utils:
                 any:
                     - has: {kind: null_literal}
                     - has: {kind: lambda_expression, any: [{has: {field: body, kind: null_literal}}, {has: {field: type, pattern: $_}}]}
+    ran:
+        any:
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^RunSafe$'}}
+                - has: {field: arguments, not: {has: {kind: argument}}}
+            - kind: parenthesized_expression
+              has: {matches: ran}
+    reporting-fallback:
+        all:
+            - has: {field: function, has: {field: expression, matches: ran}}
+            - has: {field: arguments, has: {kind: argument, has: {kind: 'lambda_expression, anonymous_method_expression', has: {kind: block, has: {kind: expression_statement, nthChild: 1}}}}}
 rule:
     kind: invocation_expression
     all:
         - matches: match-call
         - not: {matches: kept-fallback}
+        - not: {matches: reporting-fallback}
         - not:
             all:
                 - has: {field: arguments, has: {kind: argument, has: {matches: widening-result}}}
@@ -178,5 +191,5 @@ transform:
     OPEN: {replace: {source: $FALLBACK, replace: '(?s)^(.*)$', by: '('}}
     CLOSE: {replace: {source: $FALLBACK, replace: '(?s)^(.*)$', by: ')'}}
 fix: "$HELD$RECEIVER_DOT$IDENTITY_METHOD$FALLBACK_METHOD$NONE_METHOD$FAIL_METHOD$RIGHT_METHOD$LEFT_METHOD$CALL$OPEN$FIRST$FALLBACK$CLOSE"
-message: "`Match` returns one case's value unchanged and handles the other case alone"
+message: "`Match` over `$RECEIVER$INPUT` returns one case unchanged and handles the other case alone"
 note: "Use `IfFail` on a `Fin`, `Validation`, `Try`, or `IO`, `IfNone` or prelude `ifNone` on an `Option`, and `IfLeft` or `IfRight` on an `Either`, each passes the unchanged case through"

@@ -189,7 +189,7 @@ public abstract partial record ChartPlacement {
         static double Offset(int index, int count, double length) => (index + 0.5d - (count / 2d)) / length;
         static double Ratio(double part, double weight) => weight is 0d ? 0d : part / weight;
         Fin<(ChartPatch Patch, PatchSample Sample)> Mean(ChartPatch patch, (double R, double G, double B, double Weight) sum) =>
-            Admission.Admitted(PatchSample.Validate(Ratio(sum.R, sum.Weight), Ratio(sum.G, sum.Weight), Ratio(sum.B, sum.Weight), out PatchSample sample), sample).Map(held => (patch, held));
+            ValidationResults.ToFin(PatchSample.Validate(Ratio(sum.R, sum.Weight), Ratio(sum.G, sum.Weight), Ratio(sum.B, sum.Weight), out PatchSample sample), sample).Map(held => (patch, held));
         (Func<(double X, double Y), Option<(double X, double Y)>> image, (WrapMode Across, WrapMode Down) wrap) = ToImage(frame.Extent);
         Func<(double R, double G, double B, double Weight), (double X, double Y), (double R, double G, double B, double Weight)> add = (sum, point) =>
             frame.Sample(point, wrap, sum, static (total, texel, weight) => (total.R + (texel.X * weight), total.G + (texel.Y * weight), total.B + (texel.Z * weight), total.Weight + weight));
@@ -200,7 +200,7 @@ public abstract partial record ChartPlacement {
         return Chart.Cells.Map((cell, index) => (cell.Patch, Sum: Sum(index)))
             .Traverse(cell => Mean(cell.Patch, cell.Sum))
             .As()
-            .Bind(patches => Admission.Admitted(ChartSamples.Validate(Chart, gamut, toHashMap(patches), out ChartSamples? samples), samples));
+            .Bind(patches => ValidationResults.ToFin(ChartSamples.Validate(Chart, gamut, toHashMap(patches), out ChartSamples? samples), samples));
 
         (double R, double G, double B, double Weight) Sum(int cell) {
             (double x, double y) = Centre(cell);
@@ -225,7 +225,7 @@ public abstract partial record ChartPlacement {
         select (topLeft, topRight, bottomRight, bottomLeft);
 
     private static Fin<FrameQuad> Placed(((double X, double Y) TopLeft, (double X, double Y) TopRight, (double X, double Y) BottomRight, (double X, double Y) BottomLeft) corners) =>
-        Admission.Admitted(FrameQuad.Validate(corners.TopLeft, corners.TopRight, corners.BottomRight, corners.BottomLeft, out FrameQuad? quad), quad);
+        ValidationResults.ToFin(FrameQuad.Validate(corners.TopLeft, corners.TopRight, corners.BottomRight, corners.BottomLeft, out FrameQuad? quad), quad);
 
     private Error Unaligned => Error.New($"chart alignment {Quad} fits no rectilinear view");
 

@@ -90,7 +90,7 @@ public sealed partial class SetBook {
 
     public static SetBook Empty { get; } = new(Map<SetName, RenderSet>());
 
-    public static DictionaryCodec<SetBook> Codec { get; } = DictionaryCodec.Json<SetBook>(nameof(SetBook), 2, new RecordUpgrade<SetBook>(nameof(SetBook), ArchiveV1));
+    public static DictionaryCodec<SetBook> Codec { get; } = DictionaryCodec.Json<SetBook>(nameof(SetBook), 2, new RecordUpgrade<SetBook>(ArchiveV1));
 
     public Map<SetName, RenderSet> Sets { get; }
 
@@ -169,7 +169,7 @@ public sealed partial class SetBook {
                     .As()
                     .ToFin()))
             .Bind(static rows => Callbacks.Unique(rows, static row => row.Name, nameof(ArchiveV1)).ToFin())
-            .Bind(static rows => Admission.Admitted(Validate(toMap(rows), out SetBook? book), book));
+            .Bind(static rows => ValidationResults.ToFin(Validate(toMap(rows), out SetBook? book), book));
 
     private static Fin<RenderSet> ArchivedSet(ArchivableDictionary source) =>
         (ArchivableDictionaries.Required<string>(source, MembershipKey).Bind(SetMembership.Validated).ToValidation(),

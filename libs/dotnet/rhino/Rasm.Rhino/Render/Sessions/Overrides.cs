@@ -18,7 +18,7 @@ public readonly partial struct Albedo : System.Numerics.IMinMaxValue<Albedo> {
     public static Albedo MaxValue { get; } = new(1f);
     public static Albedo Clay { get; } = new(0.522522f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 public sealed record RenderOverride(string Name, ValueSet Values, Option<Albedo> Clay);

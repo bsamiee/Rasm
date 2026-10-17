@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-exec-for-builtin-task
+language: xml
+severity: error
+files: ['**/*.{csproj,props,targets}']
+rule:
+    all:
+        - matches: {msbuild-element: {name: {regex: '^Exec$'}}}
+        - matches:
+            msbuild-metadata:
+                name: {regex: '^Command$'}
+                value: {regex: '(?i)^["'']\s*(?:(?:mkdir|md|cp|copy|xcopy|robocopy|del|erase|rm|rmdir|rd|mv|move|touch)\s|echo\s[^|]*>)', pattern: _COMMAND}
+transform:
+    COMMAND_TEXT: {replace: {source: $COMMAND, replace: '^["'']|["'']$', by: ''}}
+message: '`Exec` runs `$COMMAND_TEXT` through the platform shell for work a built-in task does'
+note: Use `MakeDir`, `Copy`, `Delete`, `RemoveDir`, `Move`, `Touch`, or `WriteLinesToFile`

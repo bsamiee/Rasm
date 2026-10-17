@@ -2,6 +2,7 @@
 id: no-wrapped-mapping-result
 language: csharp
 severity: error
+files: ['libs/dotnet/rhino/Rasm.Rhino/**']
 utils:
     option:
         has: {kind: identifier, nthChild: 1, regex: '^Option$'}
@@ -17,7 +18,7 @@ utils:
                 field: returns
                 stopBy: end
                 kind: method_declaration
-                matches: csharp-mapping-method
+                matches: mapperly-mapping-method
               not:
                 all:
                     - matches: option
@@ -32,7 +33,7 @@ utils:
                 stopBy: end
                 inside:
                     kind: parameter_list
-                    inside: {kind: method_declaration, matches: csharp-mapping-method}
+                    inside: {kind: method_declaration, matches: mapperly-mapping-method}
     option-parameter:
         kind: identifier
         pattern: $HELD
@@ -66,7 +67,7 @@ utils:
         kind: throw_expression, throw_statement
         not: {matches: type-switch-default}
     mapping-body:
-        inside: {field: body, stopBy: end, kind: method_declaration, matches: csharp-mapping-method}
+        inside: {field: body, stopBy: end, kind: method_declaration, matches: mapperly-mapping-method}
     unwrap:
         any:
             - kind: invocation_expression
@@ -88,7 +89,7 @@ utils:
               matches:
                 csharp-file-method-call:
                     declaration:
-                        not: {matches: csharp-mapping-method}
+                        not: {matches: mapperly-mapping-method}
                         has:
                             stopBy: end
                             any:

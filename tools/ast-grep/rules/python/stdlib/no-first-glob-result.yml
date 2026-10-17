@@ -45,5 +45,5 @@ rule:
             - has: {field: right, matches: searched}
             - has: {field: body, has: {matches: exit}}
             - not: {has: {field: alternative, kind: else_clause}}
-message: '`$FIRST` takes one path from a directory search in filesystem order, the owner places the path or a `match` with `case [<path>]` selects the one result'
-note: 'Directory searches yield paths in the order the filesystem lists them, an index or `next` raises on an empty search and picks any path from a full one'
+message: '`$FIRST` takes one path from a directory search in filesystem order'
+note: 'Take the path its owner places, or select the one result with a `match` on `case [<path>]`, an index or `next` raising on an empty search and picking any path from a full one'

@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-item-update-in-props
+language: xml
+severity: error
+files: ['**/*.props']
+utils:
+    same-include:
+        all:
+            - matches: {msbuild-element: {name: {pattern: _ITEM}}}
+            - matches: {msbuild-metadata: {name: {regex: '^Include$'}, value: {kind: AttValue}}}
+    import:
+        kind: element
+        any:
+            - matches: {msbuild-element: {name: {regex: '^(Import|Sdk)$'}}}
+            - has: {kind: element, stopBy: end, matches: {msbuild-element: {name: {regex: '^(Import|Sdk)$'}}}}
+rule:
+    all:
+        - matches: {msbuild-element: {name: {pattern: _ITEM}}}
+        - matches: {msbuild-metadata: {name: {regex: '^(Update|Remove)$', pattern: _OPERATION}, value: {kind: AttValue}}}
+        - not: {inside: {matches: {msbuild-element: {name: {regex: '^Target$'}}}, stopBy: end}}
+        - not: {follows: {stopBy: end, matches: import}}
+        - not: {inside: {kind: element, stopBy: end, follows: {stopBy: end, matches: import}}}
+        - not: {follows: {stopBy: end, matches: same-include}}
+        - not:
+            inside:
+                kind: content
+                inside: {kind: element, follows: {stopBy: end, kind: element, has: {kind: content, has: {matches: same-include}}}}
+message: '`$ITEM` `$OPERATION` in a props file runs before the SDK globs and the project body declare the item'
+note: Move the item operation to `Directory.Build.targets` or the project, and a glob exclusion to `DefaultItemExcludes`

@@ -18,7 +18,7 @@ public readonly partial struct DefocusRadius : IPresented<DefocusRadius, float> 
     public static DefocusRadius MaxValue { get; } = new(0.1f * ReferenceFrame.GreaterSide);
     public static Presentation<float> Presentation => AxisFraction.Presentation;
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [SmartEnum<string>]

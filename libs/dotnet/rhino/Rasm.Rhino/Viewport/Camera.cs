@@ -12,7 +12,7 @@ public readonly partial struct CameraAngle : System.Numerics.IMinMaxValue<Camera
     public static CameraAngle MinValue { get; } = new(double.BitIncrement(0d));
     public static CameraAngle MaxValue { get; } = new(double.BitDecrement(0.5 * Math.PI * (1d - RhinoMath.SqrtEpsilon)));
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -20,7 +20,7 @@ public readonly partial struct ParallelExtent : System.Numerics.IMinMaxValue<Par
     public static ParallelExtent MinValue { get; } = new(double.BitIncrement(0d));
     public static ParallelExtent MaxValue { get; } = new(double.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [Union]
@@ -106,7 +106,7 @@ public static class Cameras {
     public static Fin<Option<LensFocus>> Focus(ViewInfo view, LengthUnit spaceUnit, Option<LensDistance> focal, Option<PositiveMagnitude> aperture) =>
         aperture.IsSome
             ? focal.Traverse(length => LensDistance.Validated((float)(view.FocalBlurDistance * LengthUnit.Scale(spaceUnit, LengthUnit.Meters)))
-                .Bind(focus => Admission.Admitted(LensFocus.Validate(length, focus, out LensFocus held), held))).As()
+                .Bind(focus => ValidationResults.ToFin(LensFocus.Validate(length, focus, out LensFocus held), held))).As()
             : Fin.Succ(Option<LensFocus>.None);
 
     public static Fin<Camera> ToCamera(ViewInfo view, LengthUnit spaceUnit, PixelExtent extent, Option<LensFocus> lens) =>
@@ -117,7 +117,7 @@ public static class Cameras {
                     Refused.Unless(view.Viewport.GetFrustum(out double left, out double right, out double bottom, out double top, out double near, out _),
                             (Left: parallel ? left * metres : left / near, Right: parallel ? right * metres : right / near,
                                 Bottom: parallel ? bottom * metres : bottom / near, Top: parallel ? top * metres : top / near), nameof(ViewportInfo.GetFrustum))
-                        .Bind(static window => Admission.Admitted(ViewWindow.Validate((window.Left / 2d) + (window.Right / 2d), (window.Bottom / 2d) + (window.Top / 2d), window.Right - window.Left, window.Top - window.Bottom, out ViewWindow held), held)))
+                        .Bind(static window => ValidationResults.ToFin(ViewWindow.Validate((window.Left / 2d) + (window.Right / 2d), (window.Bottom / 2d) + (window.Top / 2d), window.Right - window.Left, window.Top - window.Bottom, out ViewWindow held), held)))
                 .Apply((pose, window) => new Camera(pose, parallel ? new Frustum.Parallel(window) : new Frustum.Perspective(window), extent, lens))
                 .As(),
         };

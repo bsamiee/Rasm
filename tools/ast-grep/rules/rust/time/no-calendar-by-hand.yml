@@ -1,0 +1,115 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-calendar-by-hand
+language: rust
+severity: error
+utils:
+    zero:
+        kind: integer_literal
+        regex: '^0(_?[iu](8|16|32|64|128|size))?$'
+    leap-divisor:
+        kind: integer_literal
+        regex: '^(4|100|400)(_?[iu](8|16|32|64|128|size))?$'
+    remainder:
+        any:
+            - kind: binary_expression
+              all: [{has: {field: operator, regex: '^%$'}}, {has: {field: right, matches: leap-divisor}}]
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, has: {field: field, regex: '^(rem_euclid|wrapping_rem|strict_rem)$'}}
+                - has: {field: arguments, has: {nthChild: 1, matches: leap-divisor}}
+    divisibility:
+        any:
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^(==|!=)$'}
+                - any:
+                    - all: [{has: {field: left, matches: remainder}}, {has: {field: right, matches: zero}}]
+                    - all: [{has: {field: right, matches: remainder}}, {has: {field: left, matches: zero}}]
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, has: {field: field, regex: '^is_multiple_of$'}}
+                - has: {field: arguments, has: {nthChild: 1, matches: leap-divisor}}
+    leap-chain:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^(&&|\|\|)$'}
+            - has: {stopBy: end, matches: divisibility, has: {stopBy: end, kind: integer_literal, regex: '^4(_?[iu]\w+)?$'}}
+            - has: {stopBy: end, matches: divisibility, has: {stopBy: end, kind: integer_literal, regex: '^100(_?[iu]\w+)?$'}}
+    leap-rule:
+        all:
+            - any:
+                - matches: leap-chain
+                - all:
+                    - matches: divisibility
+                    - has: {stopBy: end, kind: integer_literal, regex: '^400(_?[iu]\w+)?$'}
+            - not: {inside: {stopBy: end, matches: leap-chain}}
+    month-table:
+        any:
+            - kind: array_expression
+              any:
+                - regex: '^\[\s*(31\w*\s*,\s*2[89]\w*\s*,\s*31\w*\s*,\s*30|0\w*\s*,\s*31\w*\s*,\s*(59\w*\s*,\s*90|60\w*\s*,\s*91))\b'
+                - regex: '^\[\s*4\w*\s*,\s*6\w*\s*,\s*9\w*\s*,\s*11\w*\s*\]$'
+            - kind: match_pattern
+              regex: '^(4\s*\|\s*6\s*\|\s*9\s*\|\s*11|1\s*\|\s*3\s*\|\s*5\s*\|\s*7\s*\|\s*8\s*\|\s*10\s*\|\s*12)$'
+            - kind: binary_expression
+              regex: '^(4\s*\|\s*6\s*\|\s*9\s*\|\s*11|1\s*\|\s*3\s*\|\s*5\s*\|\s*7\s*\|\s*8\s*\|\s*10\s*\|\s*12)$'
+    second-count:
+        kind: 'integer_literal, float_literal'
+        regex: '^(3_*6_*0_*0(_*0_*0_*0)?|8_*6_*4_*0_*0(_*0_*0_*0)?|6_*0_*4_*8_*0_*0(_*0_*0_*0)?|3_*1_*5_*3_*6_*0_*0_*0)(\.0*)?(_?[iu](8|16|32|64|128|size)|_?f(32|64))?$'
+    duration-argument:
+        any:
+            - all:
+                - has: {stopBy: end, kind: integer_literal, regex: '^3_*6_*0_*0(_?u64)?$'}
+                - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '(^|::)Duration::from_secs$'}}}
+            - all:
+                - has: {stopBy: end, kind: integer_literal, regex: '^3_*6_*0_*0_*0_*0_*0(_?u64)?$'}
+                - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '(^|::)Duration::from_millis$'}}}
+    second-count-split:
+        all:
+            - any:
+                - kind: 'binary_expression, compound_assignment_expr'
+                  all:
+                    - has: {field: operator, regex: '^(/|%|\*)=?$'}
+                    - has: {field: right, matches: second-count}
+                - kind: binary_expression
+                  all:
+                    - has: {field: operator, regex: '^\*$'}
+                    - has: {field: left, matches: second-count}
+                - kind: call_expression
+                  all:
+                    - has: {field: function, kind: field_expression, has: {field: field, regex: &method '^(((checked|saturating|wrapping|strict|overflowing)_)?(mul|div|rem)|(div|rem)_euclid|div_(ceil|floor))$'}}
+                    - has: {field: arguments, has: {nthChild: 1, matches: second-count}, not: {has: {nthChild: 2}}}
+                - kind: call_expression
+                  all:
+                    - has: {field: function, kind: scoped_identifier, all: [{has: {field: path, regex: '^[iu](8|16|32|64|128|size)$'}}, {has: {field: name, regex: *method}}]}
+                    - has: {field: arguments, has: {nthChild: 2, matches: second-count}}
+            - not: {matches: duration-argument}
+    named-count:
+        kind: 'const_item, static_item, let_declaration'
+        has: {field: value, matches: second-count}
+    factor-chain:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^[*/%]$'}
+            - regex: '(^|\*\s*)(24|60|7)(\.0*)?(_?[iu](8|16|32|64|128|size)|_?f(32|64))?\s*\*\s*(60|24)(\.0*)?(_?[iu](8|16|32|64|128|size)|_?f(32|64))?\b|/\s*60(\.0*)?(_?[iu](8|16|32|64|128|size)|_?f(32|64))?\s*[/%]\s*(60|24)(\.0*)?(_?[iu](8|16|32|64|128|size)|_?f(32|64))?\b'
+            - not: {inside: {kind: binary_expression, has: {field: operator, regex: '^[*/%]$'}}}
+            - not: {matches: duration-argument}
+    date-format:
+        kind: 'string_literal, raw_string_literal'
+        not: {matches: rust-macro-argument}
+        any:
+            - regex: '\{\w*:0>?4\}[-/.]?\{\w*:0>?2\}[-/.]?\{\w*:0>?2\}'
+            - regex: '\{\w*:0>?2\}[-/.]\{\w*:0>?2\}[-/.]\{\w*:0>?4\}'
+            - regex: '\{\w*:0>?2\}:\{\w*:0>?2\}:\{\w*:0>?2\}'
+rule:
+    kind: 'binary_expression, call_expression, array_expression, match_pattern, compound_assignment_expr, string_literal, raw_string_literal, const_item, static_item, let_declaration'
+    pattern: $SITE
+    any:
+        - matches: leap-rule
+        - matches: month-table
+        - matches: second-count-split
+        - matches: named-count
+        - matches: factor-chain
+        - matches: date-format
+message: '`$SITE` restates a calendar fact by hand'
+note: 'Hold the value as a `jiff::civil::Date`, `jiff::civil::Time`, `jiff::Timestamp`, or `jiff::SignedDuration` and call `in_leap_year`, `days_in_month`, `day_of_year`, `as_hours`, `SignedDuration::from_hours`, `Span::total(Unit::Day)`, or format it through `Display` or `strftime("<format>")`'

@@ -11,16 +11,16 @@ utils:
         any:
             - kind: 'continue_expression, unit_expression'
             - kind: block
-              not: {has: {pattern: $_, matches: rust-statement-slot, not: {any: [{kind: continue_expression}, {kind: expression_statement, has: {nthChild: 1, kind: continue_expression}}]}}}
+              not: {has: {pattern: $_, matches: rust-statement, not: {any: [{kind: continue_expression}, {kind: expression_statement, has: {nthChild: 1, kind: continue_expression}}]}}}
     continue-block:
         kind: block
         all:
             - has:
-                nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}
+                nthChild: {position: 1, ofRule: {matches: rust-statement}}
                 any:
                     - kind: continue_expression
                     - {kind: expression_statement, has: {nthChild: 1, kind: continue_expression}}
-            - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
+            - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
     exit:
         any:
             - kind: 'return_expression, break_expression'
@@ -31,7 +31,7 @@ utils:
         all:
             - has: {field: condition, pattern: $TEST, matches: closure-safe}
             - not: {has: {field: alternative, pattern: $_}}
-            - not: {has: {field: consequence, has: {nthChild: {position: 1, reverse: true, ofRule: {matches: rust-statement-slot}}, matches: exit}}}
+            - not: {has: {field: consequence, has: {nthChild: {position: 1, reverse: true, ofRule: {matches: rust-statement}}, matches: exit}}}
     loop-variable-flatten:
         kind: let_condition
         all:
@@ -76,18 +76,18 @@ rule:
             any:
                 - all:
                     - has:
-                        nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}
+                        nthChild: {position: 1, ofRule: {matches: rust-statement}}
                         kind: expression_statement
                         has:
                             nthChild: 1
                             matches: plain-if
                             not: {has: {field: condition, any: [{matches: loop-variable-flatten}, {kind: let_condition, has: {field: value, matches: lending-binding}}]}}
-                    - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
+                    - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
                 - all:
-                    - has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, kind: expression_statement, has: {nthChild: 1, matches: selecting-match}}
-                    - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
+                    - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, kind: expression_statement, has: {nthChild: 1, matches: selecting-match}}
+                    - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
                 - has:
-                    nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}
+                    nthChild: {position: 1, ofRule: {matches: rust-statement}}
                     any:
                         - kind: expression_statement
                           has: {nthChild: 1, matches: plain-if, has: {field: consequence, matches: continue-block}}
@@ -98,5 +98,5 @@ rule:
                             - has: {field: alternative, matches: continue-block}
         - not: {matches: rust-statement-loop}
         - not: {matches: test-reads-written-state}
-message: '`for` selects elements by the test `$TEST` at the top of its body'
-note: 'Select with `<iterator>.filter(<test>)`, `.filter_map(<f>)` for a binding the body reads, or `.flatten()` over nested options, the body then holds the work alone, a test the body cannot run in a closure (`?`, `.await`, `return`, a write the test reads) stays in the loop'
+message: '`for` selects elements by test `$TEST` at the top of its body'
+note: 'Select with `<iterator>.filter(<test>)`, `.filter_map(<f>)` for a binding the body reads, or `.flatten()` over nested options'

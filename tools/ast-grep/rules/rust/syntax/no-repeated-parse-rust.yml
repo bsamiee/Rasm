@@ -34,62 +34,33 @@ utils:
         kind: call_expression
         any:
             - all:
-                - has: {field: function, kind: generic_function, all: [{has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^parse$'}}, {has: {field: value, pattern: $ARGUMENT}}]}}, {has: {field: type_arguments, pattern: $KEY}}]}
+                - has: {field: function, kind: generic_function, all: [{has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^parse$'}}, {has: {field: value, pattern: $ARGUMENT}}]}}, {has: {field: type_arguments, has: {nthChild: 1, pattern: $KEY}, not: {has: {nthChild: 2}}}}]}
                 - has: {field: arguments, not: {has: {pattern: $_}}}
             - all:
-                - has: {field: function, matches: parser-path, pattern: $KEY}
+                - has: {field: function, matches: parser-path, any: [{regex: '::from_str$', has: {field: path, pattern: $KEY}}, {not: {regex: '::from_str$'}, pattern: $KEY}]}
                 - has: {field: arguments, has: {nthChild: 1, pattern: $ARGUMENT}, not: {has: {nthChild: 2}}}
     owner-parse:
         kind: call_expression
         any:
             - all:
-                - has: {field: function, kind: generic_function, all: [{has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^parse$'}}, {has: {field: value, kind: identifier, pattern: $PARAMETER}}]}}, {has: {field: type_arguments, pattern: $KEY}}]}
+                - has: {field: function, kind: generic_function, all: [{has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^parse$'}}, {has: {field: value, kind: identifier, pattern: $PARAMETER}}]}}, {has: {field: type_arguments, has: {nthChild: 1, pattern: $KEY}, not: {has: {nthChild: 2}}}}]}
                 - has: {field: arguments, not: {has: {pattern: $_}}}
             - all:
-                - has: {field: function, matches: parser-path, pattern: $KEY}
+                - has: {field: function, matches: parser-path, any: [{regex: '::from_str$', has: {field: path, pattern: $KEY}}, {not: {regex: '::from_str$'}, pattern: $KEY}]}
                 - has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $PARAMETER}, not: {has: {nthChild: 2}}}
     owner-shape:
         kind: function_item
         all:
             - has: {field: parameters, all: [{has: {kind: parameter, nthChild: 1, all: [{has: {field: pattern, kind: identifier, pattern: $PARAMETER}}, {has: {field: type, kind: reference_type, has: {field: type, kind: primitive_type, regex: '^str$'}}}]}}, {not: {has: {nthChild: 2}}}]}
-            - has: {field: body, kind: block, all: [{has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, matches: owner-parse}}, {not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}}]}
+            - has: {field: body, kind: block, all: [{has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, matches: owner-parse}}, {not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}}]}
     owner:
         matches: owner-shape
         has: {field: name, pattern: $OWNER}
-    holder:
-        matches: owner-shape
-        has: {field: name, pattern: $HOLDER}
-    declared-as:
-        inside:
-            kind: 'function_item, closure_expression'
-            stopBy: end
-            any:
-                - has: {field: parameters, has: {kind: parameter, all: [{has: {field: pattern, pattern: $ARGUMENT}}, {has: {field: type, matches: declared-type}}]}}
-                - has: {stopBy: end, kind: let_declaration, all: [{has: {field: pattern, pattern: $ARGUMENT}}, {has: {field: type, matches: declared-type}}]}
-    direct-shape:
-        any:
-            - kind: identifier
-              matches: declared-as
-            - kind: call_expression
-              all:
-                - has: {field: function, kind: field_expression, has: {field: field, regex: '^(trim|trim_start|trim_end|as_str)$'}}
-                - has: {field: arguments, not: {has: {pattern: $_}}}
-    borrowed-shape:
-        kind: identifier
-        inside:
-            kind: 'function_item, closure_expression'
-            stopBy: end
-            any:
-                - has: {field: parameters, has: {kind: parameter, all: [{has: {field: pattern, pattern: $ARGUMENT}}, {has: {field: type, kind: type_identifier, regex: '^String$'}}]}}
-                - has: {stopBy: end, kind: let_declaration, all: [{has: {field: pattern, pattern: $ARGUMENT}}, {has: {field: type, kind: type_identifier, regex: '^String$'}}]}
-    declared-type:
-        kind: reference_type
 rule:
     pattern: $SECOND
     all:
         - any:
-            - pattern: $SAME
-              all:
+            - all:
                 - matches: parse-of
                 - any:
                     - matches: after-parse
@@ -99,21 +70,8 @@ rule:
                 - matches: keyed-parse
                 - inside: {kind: source_file, stopBy: end, regex: '\bfn\s+\w+\s*(<[^>]*>)?\s*\(\s*\w+\s*:\s*&\s*(''\w+\s+)?str\s*,?\s*\)', has: {stopBy: end, matches: owner}}
                 - not: {inside: {kind: function_item, stopBy: end, has: {field: name, pattern: $OWNER}}}
-                - has: {stopBy: end, all: [{pattern: $ARGUMENT}, {pattern: $DIRECT}, {matches: direct-shape}]}
-            - all:
-                - matches: keyed-parse
-                - inside: {kind: source_file, stopBy: end, regex: '\bfn\s+\w+\s*(<[^>]*>)?\s*\(\s*\w+\s*:\s*&\s*(''\w+\s+)?str\s*,?\s*\)', has: {stopBy: end, matches: owner}}
-                - not: {inside: {kind: function_item, stopBy: end, has: {field: name, pattern: $OWNER}}}
-                - has: {stopBy: end, all: [{pattern: $ARGUMENT}, {pattern: $BORROWED}, {matches: borrowed-shape}]}
-            - pattern: $SAME
-              all:
-                - matches: keyed-parse
-                - inside: {kind: source_file, stopBy: end, regex: '\bfn\s+\w+\s*(<[^>]*>)?\s*\(\s*\w+\s*:\s*&\s*(''\w+\s+)?str\s*,?\s*\)', has: {stopBy: end, matches: holder}}
-                - not: {inside: {kind: function_item, stopBy: end, has: {field: name, pattern: $HOLDER}}}
-        - not: {any: [{matches: rust-test-scope}, {matches: rust-hex-pair-parse}, {matches: rust-utf8-int-parse}]}
-transform:
-    CALL_DIRECT: {replace: {source: $DIRECT, replace: '^((?s).+)$', by: '($1)'}}
-    CALL_BORROWED: {replace: {source: $BORROWED, replace: '^((?s).+)$', by: '(&$1)'}}
-fix: $OWNER$CALL_DIRECT$CALL_BORROWED$SAME
-message: '`$SECOND` repeats a parse an earlier site of the file owns'
-note: 'Parse the input once at the boundary into its domain type and pass the value, every later reader receives the validated value. A site parsing with the parser a one-parameter function of the file owns calls that function. The fix borrows a `String` argument and passes a reference-typed one as is'
+        - not: {matches: rust-test-scope}
+labels:
+    OWNER: {style: secondary, message: 'Function performing the parse'}
+message: '`$SECOND` repeats a parse an earlier expression or a one-parameter function of the file performs'
+note: 'Parse the input once at the boundary into its domain type and pass the value, or call the file''s one-parameter parsing function'

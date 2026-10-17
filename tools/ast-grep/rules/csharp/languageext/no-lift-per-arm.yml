@@ -6,7 +6,7 @@ utils:
     direct-lift:
         kind: invocation_expression
         all:
-            - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^(lift|liftAsync)$'}}}}
+            - matches: languageext-io-lift
             - has:
                 field: arguments
                 all:

@@ -29,15 +29,15 @@ public static class MachinePower {
     public static IO<Unit> ShutDown =>
         "60" switch {
             var seconds => OperatingSystem.IsWindows()
-                ? DisposalOps.Within<Process, Unit>(retain => Started("shutdown", ["/s", "/t", seconds], retain)
-                    .Bind(static shutdown =>
-                        from token in cancelToken
-                        from exited in IO.liftAsync(async () => {
-                            await shutdown.WaitForExitAsync(token).ConfigureAwait(false);
-                            return unit;
-                        })
-                        from code in IO.lift(() => Refused.Unless(shutdown.ExitCode is 0, nameof(Process.ExitCode)))
-                        select unit), DisposalOps.Release)
+                ? DisposalOps.Within<Process, Unit>(retain =>
+                    from shutdown in Started("shutdown", ["/s", "/t", seconds], retain)
+                    from token in cancelToken
+                    from exited in IO.liftAsync(async () => {
+                        await shutdown.WaitForExitAsync(token).ConfigureAwait(false);
+                        return unit;
+                    })
+                    from code in IO.lift(() => Refused.Unless(shutdown.ExitCode is 0, nameof(Process.ExitCode)))
+                    select unit, DisposalOps.Release)
                 : DisposalOps.Within<Process, Unit>(retain => Started("osascript", ["-e", $"delay {seconds}", "-e", """tell application "System Events" to shut down"""], retain).Map(static _ => unit), DisposalOps.Release),
         };
 

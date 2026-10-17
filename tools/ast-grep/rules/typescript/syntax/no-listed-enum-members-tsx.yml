@@ -48,4 +48,4 @@ rule:
                                     - has: {field: name, pattern: $NAME}
                                     - has: {field: value, has: {stopBy: end, kind: literal_type, has: {kind: string, pattern: $ITEM}}}
 message: '`$LIST` lists every member of `$NAME` again'
-note: 'Declare the members once as `const <list> = [...] as const` or `Schema.Literals([...])` and derive `$NAME` as `(typeof <list>)[number]` or `typeof <schema>.Type`'
+note: 'Declare the members once as `const <list> = [...] as const` or `Schema.Literals([...])` and derive the union type as `(typeof <list>)[number]` or `typeof <schema>.Type`'

@@ -22,7 +22,7 @@ public readonly partial struct NoiseDeviation : IPresented<NoiseDeviation, float
     public static NoiseDeviation MaxValue { get; } = new(MathF.Sqrt(2f * MathF.Log(float.MaxValue)));
     public static Presentation<float> Presentation { get; } = new() { Soft = (0.001f, 1f), Scale = TrackScale.Log };
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 public sealed record FilmGrain(
@@ -49,7 +49,7 @@ public sealed record FilmGrain(
                 Some: scan => context.Derivations.Derived((scan, state.ScanSpan, context.Extent), Scores).Map(tile => (Tiled(tile, field), (Func<Mat, Fin<Unit>>)(static _ => unit))),
                 None: () => Fin.Succ(((Action<Span<Vector4>, long, long>)((row, column, line) => { for (int x = 0; x < row.Length; x++) row[x] = CoordinateHash.Normals(column + x, line, field); }), (Func<Mat, Fin<Unit>>)(header => Normalized(header, sigma)))));
             return from noise in draws
-                   let plane = new PixelFrame(frame.Origin, frame.Size, frame.Extent, static _ => { })
+                   let plane = new PixelFrame(frame.Origin, frame.Size, frame.Extent)
                    from drawn in new PixelPass.Pointwise(noise.Draw).Run(plane, new Progress<int>())
                    from normalized in plane.Filter(noise.Shape)
                    from applied in new PixelPass.Pointwise((row, _, line) => {

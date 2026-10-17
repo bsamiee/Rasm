@@ -53,4 +53,4 @@ rule:
             - not: {has: {field: body, has: {stopBy: {matches: scope}, matches: propagation}}}
 fix: throws($T)
 message: '`$NAME` throws `$T` alone through an untyped `throws`'
-note: 'Declare `throws(<type>)` with the one type every `throw` names, callers then match its cases where an untyped `throws` hands them `any Error`'
+note: 'Declare `throws(<type>)` with the one type every `throw` names'

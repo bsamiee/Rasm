@@ -76,7 +76,7 @@ fn native() -> [usize; 2] { [Native::as_bytes(OsStr::new("x")).len(), ffi::OsStr
 fn main() -> ExitCode {
     let shared = Shared::new(AtomicU32::new(0));
     let rendered = rendered(&Map::new()).map_or(0, |text| text.len());
-    let flags = [loaded(&shared), elapsed(None, &Instant), waited(1), shadowed(0), dropped(), failed(IoError::from(ErrorKind::NotFound)).is_err(), taken(&mut vec![1_u8]).is_empty()];
-    black_box((rendered, native(), shown(&fmt()), Cell::new(0_u8).into_inner()));
+    let flags = [loaded(&shared), elapsed(None, &Instant), waited(1), shadowed(0), dropped(), taken(&mut vec![1_u8]).is_empty()];
+    black_box(&(rendered, native(), shown(&fmt()), Cell::new(0_u8).into_inner(), failed(IoError::from(ErrorKind::NotFound))));
     ExitCode::from(u8::from(flags.contains(&true) || ranked() || tokio::local()))
 }

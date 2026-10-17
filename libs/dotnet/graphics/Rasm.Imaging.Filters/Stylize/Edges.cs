@@ -22,7 +22,7 @@ public readonly partial struct SectorEccentricity : IMinMaxValue<SectorEccentric
     public static SectorEccentricity MinValue { get; } = new(0f);
     public static SectorEccentricity MaxValue { get; } = new(2f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [SmartEnum<string>]

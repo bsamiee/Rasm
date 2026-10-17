@@ -24,7 +24,7 @@ utils:
                         - has: {kind: parameter_list, has: {kind: parameter, has: {field: type, matches: optional-name}}}
     error-members:
         kind: declaration_list
-        inside: {kind: record_declaration, matches: csharp-error-record, has: {field: name, pattern: $RECORD}}
+        inside: {kind: record_declaration, matches: languageext-error-record, has: {field: name, pattern: $RECORD}}
     inner-error:
         kind: parameter
         all:
@@ -39,7 +39,7 @@ rule:
             - has: {field: type, matches: optional}
             - has: {field: name, pattern: $FACT}
             - not: {matches: inner-error}
-            - inside: {kind: parameter_list, inside: {kind: record_declaration, matches: csharp-error-record, has: {field: name, pattern: $RECORD}}}
+            - inside: {kind: parameter_list, inside: {kind: record_declaration, matches: languageext-error-record, has: {field: name, pattern: $RECORD}}}
         - kind: property_declaration
           all:
             - has: {field: type, matches: optional}

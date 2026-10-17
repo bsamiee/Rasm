@@ -116,7 +116,7 @@ public sealed record Halftone(
         AxisFraction.MaxValue, Swatch.Black, new(Enabled: true, Swatch.White), BlendingMode.Mix);
 
     public static Option<PixelPass> Pass(Halftone state, PassContext context) =>
-        Some(Blend.Mixed(new PixelPass.Pointwise(Print(state, context)), state.Mode, AxisFraction.MaxValue, []));
+        Blend.Mixed(new PixelPass.Pointwise(Print(state, context)), state.Mode, AxisFraction.MaxValue, []);
 
     private static Action<Span<Vector4>, long, long> Print(Halftone state, PassContext context) {
         (ERational pitch, int height, (double X, double Y, double Z) weights) = (ERational.FromSingle(state.Size).Multiply(context.Extent.ShortSide), context.Extent.Height, context.Working.Luminance);
@@ -289,7 +289,7 @@ public sealed record GlyphCells(
         AxisFraction.Create(0.1f), Seed.MinValue, Timing.Default, Hold.Create(6f / 24f), BlendingMode.Mix);
 
     public static Option<PixelPass> Pass(GlyphCells state, PassContext context) =>
-        Some(Blend.Mixed(new PixelPass.Frame((frame, progress) => Kernel(state, context, frame, progress)), state.Mode, AxisFraction.MaxValue, []));
+        Blend.Mixed(new PixelPass.Frame((frame, progress) => Kernel(state, context, frame, progress)), state.Mode, AxisFraction.MaxValue, []);
 
     private static unsafe Fin<Unit> Kernel(GlyphCells state, PassContext context, PixelFrame frame, IProgress<int> progress) => frame.Filter(header => {
         using VectorOfMat atlas = new();

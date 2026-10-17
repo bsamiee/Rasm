@@ -8,7 +8,7 @@ utils:
     interface-member:
         has: {field: name, regex: '^(TryFormat|TryGetValue|TryParse)$'}
         inside: {kind: declaration_list, inside: {has: {kind: base_list, regex: '\bI(ReadOnly)?Dictionary\s*<|\bI(Utf8)?(Span)?(Parsable|Formattable)\b'}}}
-    answer-parameter:
+    out-parameter:
         kind: parameter
         has: {kind: modifier, regex: '^out$'}
     flag-parameter:
@@ -21,11 +21,11 @@ utils:
         all:
             - has: {field: name, regex: '^Try'}
             - has: {field: returns, matches: bool-type}
-            - has: {field: parameters, has: {kind: parameter, nthChild: {position: 1, reverse: true}, matches: answer-parameter}}
-            - not: {has: {field: parameters, has: {kind: parameter, not: {nthChild: {position: 1, reverse: true}}, matches: answer-parameter}}}
+            - has: {field: parameters, has: {kind: parameter, nthChild: {position: 1, reverse: true}, matches: out-parameter}}
+            - not: {has: {field: parameters, has: {kind: parameter, not: {nthChild: {position: 1, reverse: true}}, matches: out-parameter}}}
     result-type:
         matches: {csharp-type-name: {name: {regex: '^(Option|Fin|IO)$'}}}
-    host-answer-adapter:
+    host-delegate-adapter:
         any:
             - kind: method_declaration
               has: {field: returns, matches: result-type}
@@ -38,12 +38,12 @@ rule:
         - any:
             - kind: 'delegate_declaration, local_function_statement'
               any:
-                - all: [{has: {field: type, matches: bool-type}}, {has: {field: parameters, has: {matches: answer-parameter}}}]
+                - all: [{has: {field: type, matches: bool-type}}, {has: {field: parameters, has: {matches: out-parameter}}}]
                 - has: {field: parameters, has: {matches: flag-parameter}}
-              not: {kind: delegate_declaration, inside: {kind: compilation_unit, stopBy: end, has: {matches: host-answer-adapter, stopBy: end}}}
+              not: {kind: delegate_declaration, inside: {kind: compilation_unit, stopBy: end, has: {matches: host-delegate-adapter, stopBy: end}}}
             - kind: method_declaration
               any:
-                - all: [{has: {field: returns, matches: bool-type}}, {has: {field: parameters, has: {matches: answer-parameter}}}]
+                - all: [{has: {field: returns, matches: bool-type}}, {has: {field: parameters, has: {matches: out-parameter}}}]
                 - has: {field: parameters, has: {matches: flag-parameter}}
               not:
                 any:
@@ -51,5 +51,5 @@ rule:
                     - has: {kind: explicit_interface_specifier}
                     - matches: interface-member
                     - all: [{matches: csharp-visible-member}, {not: {matches: try-pattern}}]
-message: '`$NAME` answers through a `bool` and an `out` parameter'
-note: Return `Option<T>` or `Fin<T>`, one value holds both the answer and its presence
+message: '`$NAME` returns presence as a `bool` beside an `out` parameter'
+note: 'Return `Option<T>` or `Fin<T>`, one value holding the result and its presence, an override, `extern` import, or BCL interface member keeps its declared signature'

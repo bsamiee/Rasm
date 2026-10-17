@@ -78,5 +78,5 @@ rule:
                             all:
                                 - has: {nthChild: 1, pattern: $P}
                                 - has: {field: type, regex: '^list\[', has: {stopBy: end, matches: {python-imported-name: {module: {regex: '^refurb\.error$'}, name: {regex: '^Error$'}}}}}
-message: '`$WRITE` writes into the container parameter `$P`'
-note: 'Use `return` for a new container or `yield` for its items, a domain function writes only its return value. A refurb `check(node, errors: list[Error])` appends to `errors`, the one report channel refurb gives a check'
+message: '`$WRITE` writes into container parameter `$P`'
+note: 'Return a new container or `yield` its items'

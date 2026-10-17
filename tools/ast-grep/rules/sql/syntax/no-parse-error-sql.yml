@@ -40,5 +40,4 @@ rule:
 labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
 message: Grammar failed to parse the span
-note: >-
-    Use a form the grammar parses, every other rule skips constructs inside a parse error. Unreported tree-sitter-sqlite3 grammar gaps are the DuckDB forms `* exclude (...)`, `create macro ... as table`, `::type` casts, and struct literals `{key: value}` in a table function
+note: 'Write a form the grammar parses, every other rule skips constructs inside a parse error. Unreported tree-sitter-sqlite3 grammar gaps are the DuckDB forms `* exclude (...)`, `create macro ... as table`, `::type` casts, and struct literals `{key: value}` in a table function'

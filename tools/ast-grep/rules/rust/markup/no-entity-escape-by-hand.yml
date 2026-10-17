@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-entity-escape-by-hand
+language: rust
+severity: error
+utils:
+    entity:
+        kind: string_literal
+        regex: '^"&(amp|lt|gt|quot|apos|#[0-9]+|#x[0-9A-Fa-f]+);"$'
+    markup-char:
+        kind: char_literal
+        regex: '^''(&|<|>|"|\\"|\\''|'')''$'
+    markup-test:
+        kind: binary_expression
+        all: [{has: {field: operator, regex: '^==$'}}, {has: {matches: markup-char}}]
+    entity-branch:
+        matches: entity
+        inside:
+            kind: block
+            stopBy: {kind: 'closure_expression, function_item, block'}
+            inside: {kind: if_expression, has: {field: condition, any: [{matches: markup-test}, {has: {stopBy: end, matches: markup-test}}]}}
+rule:
+    kind: 'call_expression, match_expression, string_literal'
+    pattern: $ESCAPE
+    any:
+        - matches: rust-entity-escape
+        - matches: entity-branch
+message: '`$ESCAPE` maps markup characters to entities by hand'
+note: 'Call `quick_xml::escape::escape` (all five predefined entities), `partial_escape` (`&`, `<`, `>`), or `minimal_escape` (`&`, `<`) to write text, and `quick_xml::escape::unescape` to read text and numeric references'

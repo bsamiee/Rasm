@@ -2218,6 +2218,22 @@ importers:
         specifier: 'catalog:'
         version: 4.10.2
 
+  tools/typescript-go:
+    dependencies:
+      '@effect/platform-node':
+        specifier: 'catalog:'
+        version: 4.0.5(effect@4.0.5)(redis@6.2.1(@opentelemetry/api@1.10.0-rc.0))
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.5
+      typescript:
+        specifier: 'catalog:'
+        version: 7.1.0-dev.20261014.1
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.5
+
 packages:
 
   '@adobe-uxp-types/photoshop@0.1.8':

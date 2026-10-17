@@ -16,4 +16,4 @@ rule:
           has: {kind: statements, has: {stopBy: end, kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^yield$'}}}}
           inside: {kind: willset_didset_block, inside: {kind: property_declaration, inside: {kind: class_body, inside: {matches: observable-class}}}}
 message: '`$SITE` hands changes of an `@Observable` model to waiters through stream continuations the model feeds by hand'
-note: 'Iterate `Observations { <model>.<property> }` at each waiter, it yields every transactional change of the properties the closure reads, and keep the waited state a tracked stored property'
+note: 'Iterate `Observations { <model>.<property> }` at each waiter for every transactional change of the properties the closure reads, and keep the waited state a tracked stored property'

@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-indexed-array-fill
+language: rust
+severity: error
+rule:
+    kind: let_declaration
+    all:
+        - has: {kind: mutable_specifier}
+        - has: {field: pattern, kind: identifier, pattern: $A}
+        - has: {field: value, kind: array_expression, pattern: '[$X; $N]'}
+        - precedes:
+            kind: expression_statement
+            has:
+                kind: for_expression
+                any:
+                    - pattern: 'for $I in 0..$N { $A[$I] = $V; }'
+                    - pattern: 'for $I in 0..$A.len() { $A[$I] = $V; }'
+                    - pattern: 'for ($I, $SLOT) in $A.iter_mut().enumerate() { *$SLOT = $V; }'
+constraints:
+    V: {not: {has: {stopBy: end, kind: identifier, pattern: $A}}}
+message: '`$A` starts as `[$X; $N]` and a loop then writes each slot from its index'
+note: 'Bind `let <array> = array::from_fn(|<index>| <value>);` with `use core::array;`'

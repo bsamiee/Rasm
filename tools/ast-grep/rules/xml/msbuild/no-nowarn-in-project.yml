@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-nowarn-in-project
+language: xml
+severity: error
+files: ['**/*.csproj']
+rule:
+    any:
+        - all:
+            - matches: {msbuild-element: {name: {regex: '^(NoWarn|WarningsNotAsErrors)$', pattern: _PROPERTY}}}
+            - inside: {kind: content, inside: {matches: {msbuild-element: {name: {regex: '^PropertyGroup$'}}}}}
+        - all:
+            - matches: {msbuild-element: {name: {regex: '^[A-Za-z]'}}}
+            - inside: {kind: content, inside: {matches: {msbuild-element: {name: {regex: '^ItemGroup$'}}}}}
+            - matches: {msbuild-metadata: {name: {regex: '^NoWarn$', pattern: _PROPERTY}, value: {regex: '[^"''\s]'}}}
+message: '`$PROPERTY` in a project file silences diagnostics of that project'
+note: Fix the code each diagnostic reports, a warning no fix at the cause clears takes a row in `Directory.Build.props`

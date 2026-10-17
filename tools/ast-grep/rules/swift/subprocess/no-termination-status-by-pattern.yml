@@ -33,4 +33,4 @@ transform:
     RESULT: {replace: {source: $EQUAL_LEFT, replace: '(?s)^((Subprocess\.)?TerminationStatus)?\.exited\(0\)\s*!=\s*(.+)$', by: '!${3}.isSuccess'}}
 fix: $RESULT
 message: '`$SITE` tests a `TerminationStatus` for exit code 0 by pattern'
-note: 'Read `isSuccess`, swift-subprocess defines it as exit code 0 and `false` for a signal, the same test without restating the cases'
+note: 'Read `isSuccess` (exit code 0, `false` for a signal)'

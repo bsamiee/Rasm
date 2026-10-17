@@ -31,4 +31,4 @@ rule:
         - kind: call_expression
           has: {nthChild: 1, kind: simple_identifier, regex: '^(NSHomeDirectory|NSTemporaryDirectory|NSSearchPathForDirectoriesInDomains)$'}
 message: '`$SITE` looks up a user directory through `FileManager` or a Foundation path function in place of the `URL` static property'
-note: 'Read `URL.applicationSupportDirectory`, `URL.cachesDirectory`, `URL.documentsDirectory`, `URL.homeDirectory`, `URL.temporaryDirectory`, and the other `URL` directory properties, each names the current user''s directory as a `URL` without an array index, a `FileManager` instance, or path text'
+note: 'Read `URL.applicationSupportDirectory`, `URL.cachesDirectory`, `URL.documentsDirectory`, `URL.homeDirectory`, `URL.temporaryDirectory`, and the other `URL` directory properties'

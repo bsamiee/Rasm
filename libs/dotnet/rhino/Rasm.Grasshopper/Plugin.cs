@@ -18,7 +18,7 @@ namespace Rasm.Grasshopper;
 public sealed record GrasshopperPluginDefinition {
     public Option<(IGlyph Glyph, int Master)> Mark { get; init; }
     public Seq<Func<DefinedGrasshopperPlugin, IO<Unit>>> DataTypes { get; init; }
-    public TimeProvider Clock { get; init; } = TimeProvider.System;
+    public required TimeProvider Clock { get; init; }
     public Seq<Func<DefinedGrasshopperPlugin, Action<IDisposable>, IO<Unit>>> Acquisitions { get; init; }
 }
 

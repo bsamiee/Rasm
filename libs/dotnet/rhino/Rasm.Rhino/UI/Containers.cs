@@ -16,7 +16,7 @@ public readonly partial struct SplitShare : System.Numerics.IMinMaxValue<SplitSh
     public static SplitShare MaxValue { get; } = new(1d);
     public static SplitShare Even { get; } = new(0.5d);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -24,7 +24,7 @@ public readonly partial struct PaneExtent : System.Numerics.IMinMaxValue<PaneExt
     public static PaneExtent MinValue { get; } = new(0d);
     public static PaneExtent MaxValue { get; } = new(double.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 public abstract record SplitAnchor {

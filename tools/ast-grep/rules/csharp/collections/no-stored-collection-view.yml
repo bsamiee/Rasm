@@ -1,0 +1,78 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-stored-collection-view
+language: csharp
+severity: error
+utils:
+    owner:
+        kind: 'class_declaration, record_declaration, struct_declaration'
+    held:
+        kind: identifier
+        pattern: $HELD
+        inside:
+            stopBy: {matches: owner}
+            matches: owner
+            any:
+                - kind: record_declaration
+                  has: {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $HELD}}}
+                - has: {field: body, has: {kind: property_declaration, has: {field: name, pattern: $HELD}}}
+                - has: {field: body, has: {kind: field_declaration, has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, pattern: $HELD}}}}}
+    held-read:
+        any:
+            - matches: held
+            - kind: member_access_expression
+              all: [{has: {field: expression, regex: '^this$'}}, {has: {field: name, matches: held}}]
+    copy:
+        any:
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(ToArray|AsMemory|AsSpan|ToImmutableArray|ToList|ToSeq|ToArr|ToLst|Strict)$'}}, {has: {field: expression, any: [{matches: held-read}, {matches: copy}]}}]}
+            - kind: collection_expression
+              has: {kind: spread_element, has: {matches: held-read}}
+            - kind: 'object_creation_expression, implicit_object_creation_expression'
+              all:
+                - any:
+                    - has: {field: type, matches: memory-type}
+                    - inside: {kind: variable_declarator, inside: {kind: variable_declaration, has: {field: type, matches: memory-type}}}
+                - has: {kind: argument_list, has: {kind: argument, nthChild: 1, has: {any: [{matches: held-read}, {matches: copy}]}}}
+    memory-type:
+        matches: {csharp-type-name: {name: {regex: '^(ReadOnly)?Memory$'}}}
+    instance:
+        not: {has: {kind: modifier, regex: '^(const|static)$'}}
+    member-name:
+        kind: identifier
+        pattern: $NAME
+        inside:
+            stopBy: {matches: owner}
+            matches: owner
+            has:
+                field: body
+                any:
+                    - has: {kind: property_declaration, has: {field: name, pattern: $NAME}}
+                    - has: {kind: field_declaration, has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, pattern: $NAME}}}}
+    stored:
+        any:
+            - matches: member-name
+            - kind: member_access_expression
+              all: [{has: {field: expression, regex: '^this$'}}, {has: {field: name, matches: member-name}}]
+rule:
+    any:
+        - kind: variable_declarator
+          all:
+            - has: {field: name, pattern: $NAME}
+            - has: {matches: copy}
+            - inside: {kind: variable_declaration, inside: {kind: field_declaration, matches: instance}}
+        - kind: property_declaration
+          all:
+            - matches: instance
+            - has: {field: name, pattern: $NAME}
+            - has: {field: value, matches: copy}
+        - kind: assignment_expression
+          all:
+            - has: {field: left, matches: stored}
+            - has: {field: operator, regex: '^=$'}
+            - has: {field: right, matches: copy}
+            - inside: {stopBy: {matches: owner}, kind: constructor_declaration}
+labels:
+    HELD: {style: secondary, message: 'Collection the type holds'}
+message: '`$NAME` stores a copy or view of `$HELD`, a collection its type holds'
+note: Read the view from the held collection where it is used, one stored collection states the elements once

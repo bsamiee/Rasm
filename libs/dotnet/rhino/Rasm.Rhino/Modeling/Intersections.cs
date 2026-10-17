@@ -11,7 +11,7 @@ public readonly partial struct ReflectionCount : System.Numerics.IMinMaxValue<Re
     public static ReflectionCount MinValue { get; } = new(1);
     public static ReflectionCount MaxValue { get; } = new(1000);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [Union(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]

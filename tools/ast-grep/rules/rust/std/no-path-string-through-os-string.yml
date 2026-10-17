@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-path-string-through-os-string
+language: rust
+severity: error
+rule:
+    kind: call_expression
+    pattern: $P.into_os_string().into_string()
+fix: $P.into_string()
+message: '`$P` converts to `String` through an intermediate `OsString`'
+note: 'Call `into_string()` on the `PathBuf`, its error holds the `PathBuf` in place of an `OsString`'

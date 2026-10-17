@@ -81,7 +81,7 @@ fn main() {
     let words = ["", "port", "tls"];
     let (sender, received) = mpsc::channel();
     sender.send(4).unwrap_or_default();
-    black_box((
+    black_box(&(
         lifecycle().unplaced(),
         short(&&"tls"),
         Catalog { words: words.to_vec() }.split(),

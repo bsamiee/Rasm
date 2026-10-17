@@ -9,7 +9,7 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - `overrides` rows rewrite resolved versions and peer ranges across the graph, `<parent>><child>` scopes a row to one consumer
 - `catalog:` as an override value keeps one version source, the catalog
 - Catalog versions outside a peer range take a `<parent>><peer>: 'catalog:'` row, or each importer resolves its own copy of the parent
-- `ncu` ranks a suffixed `github:` tag (`-with-generated-files`) below the plain one, a suffixed row joins `--reject` beside an `sd` step choosing its tag
+- `ncu` ranks a suffixed `github:` tag (`-with-generated-files`) below the plain one, a suffixed row joins `--reject` and an `sd` step picks its tag
 - `allowBuilds` rows name packages with an install script, `true` runs it, `false` skips it, `pnpm install` reports a missing row
 - `peerDependencyRules.allowedVersions` silences the unmet peer warning and resolves nothing
 - `minimumReleaseAge: 0` lifts the default 1440-minute release delay
@@ -28,7 +28,8 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - `maxNodeModuleJsDepth` counts a linked sibling package as one level, its untyped JavaScript dependencies take the sibling's depth plus one
 - `lib` names declarations the host runtime ships, the Node row's in `tsconfig.base.json`, a UXP host's level, and `esnext` with `dom` in a browser
 - `esnext` parts of a Node or UXP `lib` enter once the host runtime defines their members
-- `tsconfig.base.json` `$schema` names the installed `typescript` schema, editors validate a file naming `$schema` against it alone and combine a `json.schemas` row with Schema Store's, which lacks current `lib` parts
+- `tsconfig.base.json` `$schema` names the installed `typescript` schema, Schema Store's schema lacks current `lib` parts
+- Editors validate a file naming `$schema` against the named schema alone, a `json.schemas` row validates beside Schema Store's
 - Browser projects run in current browsers alone, root `vite.config.ts` `web` builds at `esnext`
 - `tsconfig.base.json` excludes each project's `vite.config.ts` and `vitest.config.ts`, root `tsconfig.json` includes each one
 - Root `postinstall` patches the installed `tsc` through `effect-tsgo patch`, `typecheck` and `tsc --lsp` report Effect diagnostics in one type check
@@ -42,7 +43,7 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - Node strips types from a `.ts` file it runs (`process.features.typescript` reads `strip`), no loader package joins
 - `erasableSyntaxOnly` keeps every file strippable
 - Targets running a file name `node <file>.ts` with `cwd` at the project
-- `@nx/vitest` infers `test` and `@nx/playwright` `e2e` from their config beside a `package.json`, a Playwright `webServer` starting the app's `serve`
+- `@nx/vitest` infers `test` and `@nx/playwright` `e2e` from a config beside a `package.json`, a Playwright `webServer` starting the app's `serve`
 - Root Vite and Vitest configs export functions of a project directory, a project config passes `import.meta.dirname`
 - Root Vitest config lists `projects` from the workspace globs
 - `webServer` stops its process group with SIGKILL, `nx run` leaves its task serving the port, `gracefulShutdown` SIGTERM waits for the task to exit
@@ -52,8 +53,21 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 
 - Severity string on a group enables each of its rules at the string's level, `preset` beside it adds none
 - `project` at `all` turns on the scanner its import rules read, a group severity alone leaves import rules silent
-- `noUnresolvedImports`, `noUndeclaredVariables`, and `noNodejsModules` are `off`, `tsc` reports unresolved specifiers, missing exports, undeclared names
+- `noUnresolvedImports`, `noUndeclaredVariables`, and `noNodejsModules` are `off`, `tsc` reports each unresolved specifier, export, and name
 - Scanner skips ambient `declare module` declarations, `tsc` reads them
 - `none` on a domain leaves on each domain rule a group severity enables
 - `organizeImports` runs by default, every other source action is a row
 - `files.ignoreUnknown` silences unknown file types in a directory walk, `files.includes` negations name tracked files of a type Biome processes
+
+## [05]-[CHECKS]
+
+- `tools/typescript-go` runs type-aware checks over root files of every `tsconfig.json` git lists, as root target `lint:typescript-go`
+- `typescript/sync` spawns installed `tsc`, the binary `effect-tsgo patch` replaced, its semantic diagnostics include Effect diagnostics
+- Checks are `Check` generators over a `SourceFile` and its `Project`, yielding `checker` and `program` requests through each method's `.gen`
+- One `api.batch` sends every file's `.gen` requests per run, a plain method call inside a check sends a round trip of its own
+- Checks join the `Object.entries<Check>` literal in `_inspect` keyed by code, reported as `error RASM<code>` in `tsc --pretty false` form
+- Codes start past refurb's `RASM1xx`, a duplicate key fails `tsc`
+- Tests sit in `<check>.spec.ts` beside their check, asserting `diagnoseSources(import.meta.dirname, { '<file>.ts': <source> })` lines inline
+- `diagnoseSources` layers inline files over package directory, they compile under package `tsconfig.json` and resolve its dependencies
+- First spec file removes `--passWithNoTests` from package `test` target
+- TypeScript team holds `typescript/sync` exports forward-compatible, breaking before 7.1 stable only when needed and never through 7.x after

@@ -2,9 +2,27 @@
 id: no-ansi-escape-literal
 language: rust
 severity: error
+utils:
+    escape-code:
+        kind: integer_literal
+        regex: '^(27|0x1[bB]|0o33|0b0*11011)(_?(u8|u32))?$'
 rule:
-    kind: 'string_literal, raw_string_literal'
     pattern: $ESCAPE
-    regex: '\\(x1[bB]|u\{0*1[bB]\})\\*\['
-message: '`$ESCAPE` spells an ANSI control sequence by hand'
-note: 'Style text through `anstyle::Style` written as `{style}<text>{style:#}` to `anstream::stdout()` or `stderr()`, move the cursor and erase through `crossterm::cursor` and `crossterm::terminal::Clear` commands, and strip escapes through `anstream::adapter::strip_str`. `anstream` drops styling where output is no terminal or the environment disables color'
+    not: {matches: rust-macro-argument}
+    any:
+        - kind: 'string_literal, raw_string_literal'
+          any:
+            - regex: '(\\(x1[bB]|u\{0*1[bB]\})|\x1b)\\*\['
+            - regex: '^b?"(\\x1[bB]|\\u\{0*1[bB]\}|\x1b)"$'
+        - kind: char_literal
+          regex: '^b?''(\\x1[bB]|\\u\{0*1[bB]\}|\x1b)''$'
+        - kind: type_cast_expression
+          all:
+            - has: {field: value, matches: escape-code}
+            - has: {field: type, regex: '^char$'}
+        - kind: call_expression
+          all:
+            - has: {field: function, regex: '^((::)?(std|core)::)?(char::)?(char::)?(from_u32|from_u32_unchecked)$|^((::)?(std|core)::(primitive::)?)?char::from$'}
+            - has: {field: arguments, has: {nthChild: 1, matches: escape-code}}
+message: '`$ESCAPE` spells an ANSI escape character by hand'
+note: 'Style text through `anstyle::Style` written as `{style}<text>{style:#}` to `anstream::stdout()` or `stderr()`, move the cursor and erase through `crossterm::cursor` and `crossterm::terminal::Clear`, and strip escapes through `anstream::adapter::strip_str`'

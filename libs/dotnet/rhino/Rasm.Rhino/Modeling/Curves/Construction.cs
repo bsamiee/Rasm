@@ -68,7 +68,7 @@ public readonly partial struct FoilCount : System.Numerics.IMinMaxValue<FoilCoun
     public static FoilCount MinValue { get; } = new(1);
     public static FoilCount MaxValue { get; } = new(int.MaxValue);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]

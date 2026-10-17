@@ -26,7 +26,7 @@ public readonly partial struct MergeRoundness : System.Numerics.IMinMaxValue<Mer
     public static MergeRoundness MinValue { get; } = new(0d);
     public static MergeRoundness MaxValue { get; } = new(1d);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]

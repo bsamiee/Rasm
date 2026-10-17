@@ -32,4 +32,4 @@ rule:
                         - has: {field: value, matches: url-path}
                         - inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, regex: '\bcontentsOfDirectory$'}}}}
 message: '`$SITE` builds a file location from path text in place of the URL members that join components'
-note: 'Call `<directory>.appending(path: <name>)`, `appendingPathExtension(<extension>)`, or `deletingLastPathComponent().appending(path: <name> + <suffix>)` on the URL, `URL(filePath:)` for a path string, and `contentsOfDirectory(at:includingPropertiesForKeys:)` for a listing, text joins double a trailing slash, move a suffix inside a directory URL, and cut a `file://` path at `#` or `?`'
+note: 'Call `<directory>.appending(path: <name>)`, `appendingPathExtension(<extension>)`, or `deletingLastPathComponent().appending(path: <name> + <suffix>)` on the URL, `URL(filePath:)` for a path string, and `contentsOfDirectory(at:includingPropertiesForKeys:)` for a listing'

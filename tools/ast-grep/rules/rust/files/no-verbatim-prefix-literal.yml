@@ -2,9 +2,36 @@
 id: no-verbatim-prefix-literal
 language: rust
 severity: error
+utils:
+    prefix-test:
+        kind: call_expression
+        has: {field: function, kind: field_expression, has: {field: field, regex: '^(strip_prefix|starts_with|trim_start_matches|replace|replacen|split_once|find|contains)$'}}
+    tested:
+        inside:
+            stopBy: {kind: 'expression_statement, let_declaration, block, const_item, static_item'}
+            kind: arguments
+            inside: {matches: prefix-test}
+    verbatim-prefix:
+        kind: 'string_literal, raw_string_literal'
+        regex: '^(b?r#*"\\\\\?(\\|"|$)|b?"\\\\\\\\\?(\\\\|"))'
+        any:
+            - matches: tested
+            - inside:
+                kind: 'const_item, static_item, let_declaration'
+                all:
+                    - any:
+                        - has: {field: name, pattern: $NAME}
+                        - has: {field: pattern, kind: identifier, pattern: $NAME}
+                    - inside:
+                        kind: source_file
+                        stopBy: end
+                        has: {stopBy: end, matches: prefix-test, has: {field: arguments, has: {stopBy: end, kind: identifier, pattern: $NAME}}}
 rule:
-    kind: 'string_literal, raw_string_literal'
     pattern: $LIT
-    matches: rust-verbatim-prefix
+    not: {matches: rust-macro-argument}
+    any:
+        - matches: verbatim-prefix
+        - kind: scoped_identifier
+          regex: '(^|::)Prefix::Verbatim(Disk|UNC)?$'
 message: '`$LIT` tests or strips the Windows verbatim path prefix by hand'
-note: 'Pass the path through `dunce::simplified(<path>)`, and a canonical path through `dunce::simplified(&fs_err::canonicalize(<path>)?)`, dunce drops `\\?\` from a verbatim disk path of valid, unreserved names within 260 characters and keeps every other path whole. `simplified` changes nothing off Windows'
+note: 'Pass the path through `dunce::simplified(<path>)`, and a canonical path through `dunce::simplified(&fs_err::canonicalize(<path>)?)`'

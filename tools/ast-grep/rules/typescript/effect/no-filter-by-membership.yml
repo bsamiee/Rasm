@@ -50,4 +50,4 @@ transform:
     OPERANDS: rewrite($ARGS, rewriters=[other])
 fix: $QUALIFIER$OPERATION$OPERANDS$KEPT
 message: '`filter` tests each element for membership in `$SEEN` by hand'
-note: '`difference` of `Array`, `Chunk`, or `HashSet` keeps the elements absent from `<seen>` and `intersection` those present, each comparing by `Equal` in one call'
+note: 'Call `difference` of `Array`, `Chunk`, or `HashSet` for the elements absent from `<seen>` and `intersection` for those present, both comparing by `Equal`'

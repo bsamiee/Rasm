@@ -36,7 +36,7 @@ public readonly partial struct StandardOffset : System.Numerics.IMinMaxValue<Sta
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) {
         value = Math.Round(value * NodaConstants.SecondsPerHour, MidpointRounding.ToEven) / NodaConstants.SecondsPerHour;
-        validationError = Admission.Refusal(value, MinValue, MaxValue);
+        validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
     }
 }
 
@@ -47,7 +47,7 @@ public readonly partial struct DaylightSaving : System.Numerics.IMinMaxValue<Day
 
     public Offset ToValue() => Offset.FromSeconds(_value * NodaConstants.SecondsPerMinute);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -56,7 +56,7 @@ public readonly partial struct SunIntensity : System.Numerics.IMinMaxValue<SunIn
     public static SunIntensity MaxValue { get; } = new(double.MaxValue);
     public static SunIntensity Default { get; } = new(1d);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<double>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Horizon", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -64,7 +64,7 @@ public readonly partial struct SunAltitude : System.Numerics.IMinMaxValue<SunAlt
     public static SunAltitude MinValue { get; } = new(-90d);
     public static SunAltitude MaxValue { get; } = new(90d);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<LocalDateTime>(AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -74,10 +74,10 @@ public sealed partial class SunMoment : System.Numerics.IMinMaxValue<SunMoment>,
     public static SunMoment MaxValue { get; } = new(Instant.FromUnixTimeSeconds(uint.MaxValue).WithOffset(StandardOffset.MinValue.ToValue()).LocalDateTime);
 
     public static Fin<SunMoment> Read(Sun sun) =>
-        Admission.Validated<SunMoment, LocalDateTime>(LocalDateTime.FromDateTime(sun.GetDateTime(DateTimeKind.Local)));
+        ValidationResults.Validated<SunMoment, LocalDateTime>(LocalDateTime.FromDateTime(sun.GetDateTime(DateTimeKind.Local)));
 
     public static IO<SunMoment> Now(SunSite site, TimeProvider clock) =>
-        IO.lift(() => Admission.Validated<SunMoment, LocalDateTime>(clock.GetCurrentInstant().WithOffset(site.Wall).LocalDateTime));
+        IO.lift(() => ValidationResults.Validated<SunMoment, LocalDateTime>(clock.GetCurrentInstant().WithOffset(site.Wall).LocalDateTime));
 
     public static ValidationError? Validate(string? value, IFormatProvider? provider, out SunMoment? item) {
         item = null;
@@ -95,7 +95,7 @@ public sealed partial class SunMoment : System.Numerics.IMinMaxValue<SunMoment>,
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref LocalDateTime value) {
         value = value.With(TimeAdjusters.TruncateToSecond);
-        validationError = Admission.Refusal(value, MinValue._value, MaxValue._value);
+        validationError = ValidationResults.OutsideRange(value, MinValue._value, MaxValue._value);
     }
 }
 
@@ -109,7 +109,7 @@ public sealed record SunSite(GeoCoordinate Place, NorthAngle North, StandardOffs
     public static Fin<SunSite> Read(Sun sun) =>
         (GeoCoordinate.From(sun.Latitude, sun.Longitude).ToValidation(),
          NorthAngle.Validated(sun.North).ToValidation(),
-         Admission.Validated<StandardOffset, double>(sun.TimeZone).ToValidation(),
+         ValidationResults.Validated<StandardOffset, double>(sun.TimeZone).ToValidation(),
          Callbacks.Found(sun.DaylightSavingOn, sun.DaylightSavingMinutes).Traverse(static minutes => DaylightSaving.Validated(minutes)).As().ToValidation())
             .Apply(static (place, north, standard, saving) => new SunSite(place, north, standard, saving))
             .As()
@@ -118,7 +118,7 @@ public sealed record SunSite(GeoCoordinate Place, NorthAngle North, StandardOffs
     public static Fin<SunSite> Placed(GeoCoordinate place, NorthAngle north, SunMoment moment) =>
         from interval in Zone(place).Map(zone => zone.MapLocal((LocalDateTime)moment).EarlyInterval)
         let positive = Some(interval.Savings).Filter(static offset => offset > Offset.Zero)
-        from site in (Admission.Validated<StandardOffset, Offset>(interval.WallOffset - positive.IfNone(Offset.Zero)).ToValidation(),
+        from site in (ValidationResults.Validated<StandardOffset, Offset>(interval.WallOffset - positive.IfNone(Offset.Zero)).ToValidation(),
                       positive.Traverse(static offset => Conversions.Whole(Duration.FromSeconds(offset.Seconds), Duration.FromMinutes(1)).Bind(static minutes => DaylightSaving.Validated(minutes))).As().ToValidation())
             .Apply((standard, saving) => new SunSite(place, north, standard, saving))
             .As()
@@ -184,8 +184,8 @@ public sealed record SunSite(GeoCoordinate Place, NorthAngle North, StandardOffs
 
     private Fin<Vector3d> Direction(Sun sun, DateTimeZone computer, Instant at) =>
         at.InZone(computer) switch {
-            var held => (Admission.Validated<SunMoment, LocalDateTime>(held.LocalDateTime).ToValidation(),
-                         Admission.Validated<StandardOffset, Offset>(held.Offset).ToValidation())
+            var held => (ValidationResults.Validated<SunMoment, LocalDateTime>(held.LocalDateTime).ToValidation(),
+                         ValidationResults.Validated<StandardOffset, Offset>(held.Offset).ToValidation())
                 .Apply((_, offset) => {
                     SunMapper.Update(this with { Standard = offset, Saving = None }, sun);
                     sun.SetDateTime(at.ToDateTimeUtc(), DateTimeKind.Local);
@@ -398,8 +398,8 @@ public abstract partial record SunWindow : IConvertible<string> {
     private static Option<T> Succeeded<T>(ParseResult<T> result) where T : struct => Callbacks.Found(result.TryGetValue(default, out T value), value);
 
     private static Fin<TWindow> Bounded<TWindow>(LocalDateTime start, LocalDateTime end, Period step, Duration grain, Func<LocalDateTime, LocalDateTime, int, TWindow> window) =>
-        (Admission.Validated<SunMoment, LocalDateTime>(start).ToValidation(),
-         Admission.Validated<SunMoment, LocalDateTime>(end).ToValidation(),
+        (ValidationResults.Validated<SunMoment, LocalDateTime>(start).ToValidation(),
+         ValidationResults.Validated<SunMoment, LocalDateTime>(end).ToValidation(),
          (start <= end ? Fin.Succ(unit) : Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"sun study starts at {start} after its end {end}"))).ToValidation(),
          Some(step).Filter(held => held.Years is 0 && held.Months is 0 && held.ToDuration() >= grain)
              .ToFin(Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"sun study step {step} is no positive count of {grain}")))

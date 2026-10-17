@@ -26,4 +26,4 @@ rule:
                                     - has: {field: value, matches: typescript-built-text}
         - inside: {kind: program, stopBy: end, matches: {uxp-host-file: {module: {regex: '^(adobe:)?indesign$'}}}}
 message: '`$SOURCE` builds the script source of `doScript` from values'
-note: 'Keep the source text constant and pass each value through the `withArguments` array, which the script reads as `arguments` (`arguments[0]` in JavaScript, `item 1 of arguments` in AppleScript)'
+note: 'Keep the source text constant and pass each value through the `withArguments` array for the script to read as `arguments` (`arguments[0]` in JavaScript, `item 1 of arguments` in AppleScript)'

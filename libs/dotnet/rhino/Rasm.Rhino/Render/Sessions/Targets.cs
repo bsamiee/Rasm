@@ -223,7 +223,7 @@ public sealed record OutputBook(Seq<OutputTarget> Targets, Option<int> Current, 
     private const string Owner = "output";
     private const string CurrentKey = "current";
 
-    public static DictionaryCodec<ValueSet> Codec { get; } = DictionaryCodec.Json<ValueSet>(nameof(OutputBook), 2, new RecordUpgrade<ValueSet>(nameof(ValueSet), ValueSet.ArchiveV1));
+    public static DictionaryCodec<ValueSet> Codec { get; } = DictionaryCodec.Json<ValueSet>(nameof(OutputBook), 2, new RecordUpgrade<ValueSet>(ValueSet.ArchiveV1, ValueSet.Codec.Name));
 
     public ValueSet Captured =>
         new(Targets.Map(static (target, index) => ValueSet.Fields(Owned(index), target).Entries)

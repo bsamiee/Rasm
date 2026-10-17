@@ -40,7 +40,7 @@ public readonly record struct EntryKey(string Owner, Seq<string> Path) : ICompar
 public sealed record ValueSet(HashMap<EntryKey, string> Entries) {
     public static ValueSet Empty { get; } = new(HashMap<EntryKey, string>());
 
-    public static DictionaryCodec<ValueSet> Codec { get; } = DictionaryCodec.Json<ValueSet>(nameof(ValueSet), 2, new RecordUpgrade<ValueSet>(nameof(ValueSet), ArchiveV1));
+    public static DictionaryCodec<ValueSet> Codec { get; } = DictionaryCodec.Json<ValueSet>(nameof(ValueSet), 2, new RecordUpgrade<ValueSet>(ArchiveV1));
 
     public static ValueSet Fields<TRecord>(string owner, TRecord record, Seq<IStateParameter<TRecord>> parameters) where TRecord : notnull =>
         new(toHashMap(parameters.Bind(FieldTexts.Of).Choose(field => field.Capture(record).Map(text => (new EntryKey(owner, field.Path), text)))));

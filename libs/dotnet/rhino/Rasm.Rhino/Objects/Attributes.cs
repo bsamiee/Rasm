@@ -34,7 +34,7 @@ public readonly partial struct WireDensity : System.Numerics.IMinMaxValue<WireDe
 
     // --- [FACTORY]
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
-        validationError = Admission.Refusal(value, MinValue._value, MaxValue._value);
+        validationError = ValidationResults.OutsideRange(value, MinValue._value, MaxValue._value);
 }
 
 public sealed record DecalState(

@@ -27,24 +27,49 @@ utils:
                 - all: [{has: {field: field, regex: '^read_line$'}}, {has: {field: value, matches: stdin-value}}]
                 - all:
                     - has: {field: field, regex: '^next$'}
-                    - has: {field: value, kind: call_expression, has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^lines$'}}, {has: {field: value, matches: stdin-value}}]}}
+                    - has:
+                        field: value
+                        any:
+                            - {kind: call_expression, has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^lines$'}}, {has: {field: value, matches: stdin-value}}]}}
+                            - {kind: identifier, matches: stdin-value}
+    console-call:
+        kind: call_expression
+        all:
+            - has: {field: function, regex: '^((::)?(std|tokio)::)?(io::)?std(out|err)$'}
+            - has: {field: arguments, not: {has: {pattern: $_}}}
+    console-value:
+        any:
+            - matches: console-call
+            - kind: identifier
+              regex: '^std(out|err)$'
+            - has: {stopBy: end, kind: identifier, regex: '^std(out|err)$'}
+            - kind: identifier
+              pattern: $OUT
+              inside:
+                kind: block
+                stopBy: {kind: 'function_item, closure_expression'}
+                has: {kind: let_declaration, all: [{has: {field: pattern, pattern: $OUT}}, {has: {field: value, any: [{matches: console-call}, {has: {stopBy: end, matches: console-call}}]}}]}
     prompt-write:
         any:
             - matches: {rust-std-macro: {name: {regex: '^e?print$'}}}
             - kind: macro_invocation
               all:
                 - matches: {rust-std-macro: {name: {regex: '^write$'}}}
-                - has: {kind: token_tree, has: {kind: identifier, regex: '^std(out|err)$'}}
+                - has: {kind: token_tree, has: {nthChild: 1, kind: identifier, matches: console-value}}
             - kind: call_expression
-              has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^write_all$'}}, {has: {field: value, has: {stopBy: end, kind: identifier, regex: '^std(out|err)$'}}}]}
+              has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^write_all$'}}, {has: {field: value, matches: console-value}}]}
     prompt:
         kind: expression_statement
-        has: {any: [{matches: prompt-write}, {kind: try_expression, has: {matches: prompt-write}}]}
+        pattern: $PROMPT
+        has: {any: [{matches: prompt-write}, {kind: try_expression, has: {matches: prompt-write}}, {kind: await_expression, has: {matches: prompt-write}}, {kind: try_expression, has: {kind: await_expression, has: {matches: prompt-write}}}]}
 rule:
     matches: line-read
     pattern: $READ
     any:
         - follows: {stopBy: end, matches: prompt}
         - inside: {stopBy: {inside: {kind: block}}, follows: {stopBy: end, matches: prompt}}
-message: '`$READ` reads an answer from stdin after printing a prompt by hand'
-note: 'Ask through `inquire::Text::new(<prompt>).prompt()`, `Confirm::new(<prompt>).prompt()`, or `Select::new(<prompt>, <options>).prompt()`, each renders the prompt, edits the line, validates the answer, and returns a typed value or an `InquireError`'
+labels:
+    READ: {style: primary, message: 'Reads the answer'}
+    PROMPT: {style: secondary, message: 'Prints the prompt'}
+message: '`$READ` reads an answer from stdin after a printed prompt'
+note: 'Ask through `inquire::Text::new(<prompt>).prompt()`, `inquire::Confirm::new(<prompt>).prompt()`, or `inquire::Select::new(<prompt>, <options>).prompt()`'

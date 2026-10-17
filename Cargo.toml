@@ -29,7 +29,7 @@ futures          = "0.3.34"                                                     
 pin-project-lite = "0.2.17"                                                                                                                      # Pinned fields of hand-written futures and tower response types without unsafe
 tokio            = { version = "1.53.3", features = ["rt-multi-thread", "macros", "signal", "process", "net", "sync", "io-util", "time", "fs"] } # Async runtime every service, client, and store driver runs on
 tokio-util       = { version = "0.7.20", features = ["rt"] }                                                                                     # Cancellation tokens, task trackers, and drop guards that scope service lifetimes
-tokio-stream     = { version = "0.1.19", features = ["sync", "signal", "io-util"] }                                                              # Stream adapters over tokio channels, watches, intervals, and line readers
+tokio-stream     = { version = "0.1.19", features = ["sync", "signal", "io-util", "rt", "net", "fs"] }                                           # Stream adapters over tokio channels, watches, intervals, line readers, join sets, listeners, and directory reads
 
 # --- [CONCURRENCY]
 arc-swap = "1.9.2"                                           # Read-mostly snapshots replaced whole while readers keep their copy
@@ -57,14 +57,13 @@ thiserror            = "2.0.21"                                    # Error enums
 validated            = "1.0.0"                                     # Applicative validation accumulating every independent error
 
 # --- [DERIVES]
-auto_impl     = "1.4.0"                                                                                                                               # Capability traits implemented for references, Arc, and Box from one impl
-bon           = "3.10.2"                                                                                                                              # Compile-time-checked builders on structs, functions, and methods
-derive-where  = "1.7.0"                                                                                                                               # Derives on generic and phantom-typed records without spurious bounds
-derive_more   = { version = "2.1.1", features = ["from", "into", "try_from", "display", "deref", "constructor", "is_variant", "from_str", "as_ref"] } # Conversion, display, and constructor derives on invariant-free newtypes
-dynosaur      = "0.3.1"                                                                                                                               # Dynamic dispatch over async capability traits swapped at composition
-o2o           = { version = "0.5.5", default-features = false, features = ["syn2"] }                                                                  # Field mappings between domain records and contract records, default `syn1` compiles its macros against syn 1 beside syn 2
-strum         = { version = "0.28.0", features = ["derive"] }                                                                                         # Enum name tables, iteration, and discriminant enums
-trait-variant = "0.1.3"                                                                                                                               # Send variants of async capability traits
+auto_impl    = "1.4.0"                                                                                                                               # Capability traits implemented for references, Arc, and Box from one impl
+bon          = "3.10.2"                                                                                                                              # Compile-time-checked builders on structs, functions, and methods
+derive-where = { version = "1.7.0", features = ["safe"] }                                                                                            # Derives on generic and phantom-typed records without spurious bounds or `unsafe` blocks
+derive_more  = { version = "2.1.1", features = ["from", "into", "try_from", "display", "deref", "constructor", "is_variant", "from_str", "as_ref"] } # Conversion, display, and constructor derives on invariant-free newtypes
+dynosaur     = "0.3.1"                                                                                                                               # Dynamic dispatch over async capability traits swapped at composition
+o2o          = { version = "0.5.5", default-features = false, features = ["syn2"] }                                                                  # Field mappings between domain records and contract records, default `syn1` compiles its macros against syn 1 beside syn 2
+strum        = { version = "0.28.0", features = ["derive"] }                                                                                         # Enum name tables, iteration, and discriminant enums
 
 # --- [COLLECTIONS]
 cardinality-estimator = { version = "1.0.3", features = ["with_serde"] }          # HyperLogLog distinct counts that merge across shards
@@ -106,8 +105,8 @@ serde_with          = { version = "3.24.0", features = ["base64", "hex", "jiff_0
 json-patch          = "4.2.0"                                                                        # JSON Patch apply and diff over JSON values
 
 # --- [SCHEMA]
-jsonschema = { version = "0.58.6", default-features = false, features = ["resolve-file", "idna"] }           # Runtime validation of documents against JSON Schema, without `resolve-http` and `tls-aws-lc-rs` since sync `validator_for` panics fetching a remote `$ref` inside a tokio runtime
-schemars   = { version = "1.2.3", features = ["jiff02", "uuid1", "indexmap2", "url2", "semver1", "bytes1"] } # JSON Schema derived from record types
+jsonschema = { version = "0.58.6", default-features = false, features = ["resolve-file", "idna"] }                             # Runtime validation of documents against JSON Schema, without `resolve-http` and `tls-aws-lc-rs` since sync `validator_for` panics fetching a remote `$ref` inside a tokio runtime
+schemars   = { version = "1.2.3", features = ["jiff02", "uuid1", "indexmap2", "url2", "semver1", "bytes1", "preserve_order"] } # JSON Schema derived from record types in field declaration order
 
 # --- [NEWTYPES]
 bounded-integer = { version = "0.6.2", features = ["std", "serde1", "schemars1"] } # Ranged integers with bounds that reach derived schema
@@ -273,7 +272,7 @@ opentelemetry_sdk                  = "0.33.1"                                   
 tracing-subscriber                 = { version = "0.3.23", features = ["env-filter"] }                  # Subscriber registry and directive filters under the JSON layer
 json-subscriber                    = { version = "0.3.1", features = ["tracing-opentelemetry-0-34"] }   # JSON lines with flattened span fields, static service fields, and the request trace and span ids
 opentelemetry-appender-tracing     = "0.33.1"                                                           # Tracing events exported as log records
-opentelemetry-otlp                 = "0.33.1"                                                           # OTLP export over HTTP
+opentelemetry-otlp                 = { version = "0.33.1", features = ["reqwest-rustls"] }              # OTLP export over HTTP and rustls HTTPS
 opentelemetry-resource-detectors   = "0.13.0"                                                           # Host, OS, and process resource attributes
 tracing-appender                   = "0.2.5"                                                            # Rolling and non-blocking file writers
 tracing-opentelemetry              = "0.34.0"                                                           # Tracing spans exported as OpenTelemetry spans and metrics
@@ -562,7 +561,7 @@ prettyplease   = "0.3.0"                                             # Generated
 
 # --- [LINTING]
 clippy_utils   = { git = "https://github.com/rust-lang/rust-clippy", rev = "a7fb0ed8a7b593daa6fb8c3d5e161cd9e0d06fb8" } # Type, path, and diagnostic queries over compiler HIR for lint passes
-dylint_linting = "6.1.1"                                                                                                # Late lint declarations and registration entry dylint driver loads
+dylint_linting = "6.2.0"                                                                                                # Late lint declarations and registration entry dylint driver loads
 
 # --- [TESTING]
 approx                 = { version = "0.6.0-rc2", features = ["vec_impl", "derive"] }                                                                                                                        # Tolerance comparisons in float assertions
@@ -588,6 +587,7 @@ rasm-mcp = { path = "libs/rust/mcp", version = "1.0.0" } # MCP server foundation
 [workspace.lints.rust]
 ambiguous_negative_literals   = "warn"                            # `-1.abs()` negating method result in place of literal
 closure_returning_async_block = "warn"                            # Closures returning `async` block, async closure is the direct form
+dead_code_pub_in_binary       = "warn"                            # `pub` items of binary crates nothing reads, removals delete every mention
 deprecated_in_future          = "warn"                            # Items marked deprecated from future release
 deref_into_dyn_supertrait     = "warn"                            # `Deref` impls from `dyn` subtrait to supertrait object, trait upcasting shadows each
 impl_trait_redundant_captures = "warn"                            # `use<..>` listing every in-scope parameter, edition 2024 `impl Trait` captures each by default
@@ -621,7 +621,7 @@ exit                   = "warn" # `process::exit` outside `main`, boundary trans
 expect_used            = "warn" # `expect` on `Option` and `Result`, consumers compose without unwrapping
 indexing_slicing       = "warn" # Index and slice expressions that can panic, absence stays `Option`
 infinite_loop          = "warn" # Endless loops in functions not returning `!`, signatures name return types directly
-missing_assert_message = "warn" # Compile-time assertions without message, each build failure names its broken invariant
+missing_assert_message = "warn" # Assertions without message, each failure in a test or `const` block names its broken invariant
 panic                  = "warn" # `panic!` calls, expected failures use the result type
 string_slice           = "warn" # Every string slice, `str::get` returns `Option` in place of panicking off char boundary
 todo                   = "warn" # `todo!` placeholders, work runs to completion
@@ -683,9 +683,10 @@ string_add           = "warn" # `String + &str`, asymmetric `Add` that `push_str
 string_lit_chars_any = "warn" # `"abc".chars().any(..)` membership tests, `matches!` states set directly
 
 # --- [OWNERSHIP]
-empty_drop = "warn" # Empty `Drop` impls, removals delete every mention
-mem_forget = "warn" # `mem::forget` on values with destructors, release runs on every path
-rc_buffer  = "warn" # `Rc` or `Arc` over growable buffers, shared values publish as immutable `str` or slices
+clone_on_ref_ptr = "warn" # `.clone()` on `Rc`, `Arc`, and `Weak`, `Arc::clone(&x)` names the shared handle it copies
+empty_drop       = "warn" # Empty `Drop` impls, removals delete every mention
+mem_forget       = "warn" # `mem::forget` on values with destructors, release runs on every path
+rc_buffer        = "warn" # `Rc` or `Arc` over growable buffers, shared values publish as immutable `str` or slices
 
 # --- [DECLARATIONS]
 empty_enum_variants_with_brackets = "warn" # `Variant()` and `Variant {}` with no fields, `Variant` is the direct form
@@ -702,6 +703,7 @@ pub_without_shorthand             = "warn" # `pub(in super)` visibility paths, `
 
 # --- [MODULES]
 absolute_paths           = "warn" # Crate-rooted paths past two segments, preamble imports name each item
+alloc_instead_of_core    = "warn" # Paths through `alloc` to items `core` owns, `core` names owner
 inline_modules           = "warn" # Inline `mod` blocks outside tests, each module takes its own file
 mod_module_files         = "warn" # `mod.rs` files, each module file takes its module's name
 pub_use                  = "warn" # Every `pub use` re-export, items sit in owning public module
@@ -711,20 +713,21 @@ unused_trait_names       = "warn" # `use Trait` imported for its methods alone, 
 
 # --- [NAMING]
 error_impl_error           = "warn" # Error types named `Error`, each names raising package
-min_ident_chars            = "warn" # Single-character identifiers outside the default `i`, `j`, `n`, `w`, `x`, `y`, and `z`
+min_ident_chars            = "warn" # Single-character identifiers outside coordinate axes `w`, `x`, `y`, and `z`
 module_name_repetitions    = "warn" # Item names repeating their module's name, paths state module once
 renamed_function_params    = "warn" # Trait impls renaming trait parameters, trait owns each parameter name
 shadow_unrelated           = "warn" # Names rebound to unrelated values, one name holds one concept
 single_char_lifetime_names = "warn" # Single-character lifetime names, each lifetime names its purpose
 
 # --- [ALLOWED]
-manual_assert               = "allow" # Rewrites a flagged `panic!` into an assertion the `assertion` dylint rejects
-missing_errors_doc          = "allow" # Names and types state each contract in place of doc comments
-missing_panics_doc          = "allow" # Names and types state each contract in place of doc comments
-option_if_let_else          = "allow" # Rewrites `match` and `if let` over `Option` into `map_or` or `map_or_else`, control flow selects by pattern matching result cases
-redundant_pub_crate         = "allow" # Demands `pub` on items in private modules where rustc `unreachable_pub` demands `pub(crate)`
-significant_drop_tightening = "allow" # Demands `drop` of lock guards before scope end, acquisition and release pair in one resource scope
-too_many_lines              = "allow" # Caps functions at 100 lines, data dependency decides composition in place of line count
+literal_string_with_formatting_args = "allow" # Flags inline snapshot literals quoting a fixture's format string, insta reads snapshots from literals
+manual_assert                       = "allow" # Rewrites a flagged `panic!` into a run-time assertion, expected failures use the result type
+missing_errors_doc                  = "allow" # Names and types state each contract in place of doc comments
+missing_panics_doc                  = "allow" # Names and types state each contract in place of doc comments
+option_if_let_else                  = "allow" # Rewrites `match` and `if let` over `Option` into `map_or` or `map_or_else`, control flow selects by pattern matching result cases
+redundant_pub_crate                 = "allow" # Demands `pub` on items in private modules where rustc `unreachable_pub` demands `pub(crate)`
+significant_drop_tightening         = "allow" # Demands `drop` of lock guards before scope end, acquisition and release pair in one resource scope
+too_many_lines                      = "allow" # Caps functions at 100 lines, data dependency decides composition in place of line count
 
 [workspace.lints.cargo]
 pedantic                      = { level = "warn", priority = -1 } # Binary names off kebab case and `readme` keys restating inferred file, each fact is stated once

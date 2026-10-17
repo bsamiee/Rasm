@@ -2,15 +2,35 @@
 id: no-sql-keyword-sniff
 language: rust
 severity: error
+utils:
+    keyword:
+        kind: string_literal
+        regex: '^"(SELECT|INSERT|UPDATE|DELETE|WITH|CREATE|ALTER|DROP|PRAGMA|EXPLAIN)\b[^"]*"$'
+    any-case-keyword:
+        kind: string_literal
+        regex: '(?i)^"(select|insert|update|delete|with|create|alter|drop|pragma|explain)\b[^"]*"$'
+    cased:
+        kind: call_expression
+        has: {field: function, kind: field_expression, has: {field: field, regex: '^to_(ascii_)?(upper|lower)case$'}}
 rule:
-    kind: call_expression
+    kind: 'call_expression, binary_expression'
     pattern: $SNIFF
-    all:
-        - has: {field: function, kind: field_expression, has: {field: field, regex: '^(starts_with|strip_prefix|eq_ignore_ascii_case)$'}}
-        - any:
-            - has: {field: arguments, has: {nthChild: 1, kind: string_literal, regex: '^"(SELECT|INSERT|UPDATE|WITH|CREATE|ALTER|DROP|PRAGMA|EXPLAIN)\b[^"]*"$'}}
-            - all:
-                - has: {field: function, kind: field_expression, has: {field: value, kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, regex: '^to_(ascii_)?(upper|lower)case$'}}}}
-                - has: {field: arguments, has: {nthChild: 1, kind: string_literal, regex: '(?i)^"(select|insert|update|delete|with|create|alter|drop|pragma|explain)\b[^"]*"$'}}
+    any:
+        - kind: call_expression
+          all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^(starts_with|strip_prefix|eq_ignore_ascii_case)$'}}
+            - any:
+                - has: {field: arguments, has: {nthChild: 1, matches: keyword}}
+                - all:
+                    - any:
+                        - has: {field: function, kind: field_expression, has: {field: value, matches: cased}}
+                        - has: {field: function, kind: field_expression, has: {field: field, regex: '^eq_ignore_ascii_case$'}}
+                    - has: {field: arguments, has: {nthChild: 1, matches: any-case-keyword}}
+        - kind: binary_expression
+          all:
+            - has: {field: operator, regex: '^(==|!=)$'}
+            - any:
+                - has: {matches: keyword, not: {regex: '^"DELETE"$'}}
+                - has: {kind: call_expression, regex: '^Some\(', has: {field: arguments, has: {nthChild: 1, matches: keyword, not: {regex: '^"DELETE"$'}}}}
 message: '`$SNIFF` classifies SQL text by its leading keyword'
-note: 'Parse the text once with `sqlparser::parser::Parser::parse_sql(&dialect, text)` and match the `sqlparser::ast::Statement` variants (`Query`, `Insert`, `Update`, `Delete`, `CreateTable`), a keyword prefix misreads comments, parentheses, and CTE bodies'
+note: 'Parse the text once with `sqlparser::parser::Parser::parse_sql(&<dialect>, <text>)` and match the `sqlparser::ast::Statement` variants (`Query`, `Insert`, `Update`, `Delete`, `CreateTable`)'

@@ -7,32 +7,55 @@ utils:
         kind: let_declaration
         all:
             - has: {field: pattern, kind: identifier, pattern: $SET}
-            - has: {field: value, kind: call_expression, regex: '^((::)?(std::)?(collections::)?|indexmap::(set::)?)?(HashSet|BTreeSet|IndexSet)(::<[^()]*>)?::(new|default|with_capacity)\('}
+            - any:
+                - has: {field: value, kind: call_expression, regex: '^((::)?(\w+::)*)?(\w*HashSet|BTreeSet|IndexSet)(::<[^()]*>)?::(new|default|with_capacity|with_hasher|with_capacity_and_hasher)\('}
+                - all:
+                    - has: {field: type, regex: '^((::)?(\w+::)*)?(\w*HashSet|BTreeSet|IndexSet)\b'}
+                    - has: {field: value, kind: call_expression, regex: '^((::)?(std|core)::)?(default::)?Default::default\(\)$'}
+    set-insert:
+        kind: call_expression
+        has: {field: function, kind: field_expression, all: [{has: {field: value, kind: identifier, pattern: $SET}}, {has: {field: field, regex: '^insert$'}}]}
+    insert-test:
+        any:
+            - matches: set-insert
+            - kind: block
+              all:
+                - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, matches: set-insert}
+                - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
+    insert-option:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^then(_some)?$'}}, {has: {field: value, matches: set-insert}}]}
     own-read:
         kind: identifier
         any:
             - inside: {kind: let_declaration, field: pattern}
-            - inside:
-                kind: field_expression
-                field: value
-                all:
-                    - has: {field: field, regex: '^insert$'}
-                    - inside: {kind: call_expression, field: function, inside: {kind: closure_expression, field: body, inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, regex: '^(filter|retain)$'}}}}}}
+            - inside: {kind: field_expression, field: value, has: {field: field, regex: '^insert$'}}
 rule:
     kind: call_expression
+    pattern: $SITE
     all:
-        - has: {field: function, kind: field_expression, has: {field: field, regex: '^(filter|retain)$', pattern: $ADAPTER}}
-        - has:
-            field: arguments
-            has:
-                nthChild: 1
-                kind: closure_expression
-                has: {field: body, kind: call_expression, has: {field: function, kind: field_expression, all: [{has: {field: value, kind: identifier, pattern: $SET}}, {has: {field: field, regex: '^insert$'}}]}}
+        - any:
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, has: {field: field, regex: '^(filter|retain)$'}}
+                - has: {field: arguments, has: {nthChild: 1, kind: closure_expression, has: {field: body, matches: insert-test}}}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, has: {field: field, regex: '^(filter_map|flat_map)$'}}
+                - has: {field: arguments, has: {nthChild: 1, kind: closure_expression, has: {field: body, any: [{matches: insert-option}, {kind: block, has: {matches: insert-option}}]}}}
+            - matches: set-insert
+              inside:
+                kind: if_expression
+                field: condition
+                all:
+                    - has: {field: consequence, has: {stopBy: end, kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, regex: '^push$'}}}}
+                    - inside: {kind: block, stopBy: {kind: 'function_item, closure_expression, block'}, inside: {kind: for_expression, has: {field: body, kind: block}}}
         - inside:
             kind: block
             stopBy: end
             all:
                 - has: {matches: empty-set}
                 - not: {has: {stopBy: end, kind: identifier, pattern: $SET, not: {matches: own-read}}}
-message: '`$ADAPTER` keeps first occurrences through inserts into the local set `$SET`'
-note: 'Call `Itertools::unique()` for whole items or `Itertools::unique_by(<key>)` for a key (`use itertools::Itertools as _;`, items or keys implement `Hash` and `Eq`), both adapters keep each first occurrence in input order and own the seen set. A `retain` becomes `<vec>.into_iter().unique().collect()`'
+message: '`$SITE` keeps first occurrences through inserts into local set `$SET`'
+note: 'Call `Itertools::unique()` for whole items or `Itertools::unique_by(<key>)` for a key (`use itertools::Itertools as _;`), and rewrite a `retain` as `<vec>.into_iter().unique().collect()`'

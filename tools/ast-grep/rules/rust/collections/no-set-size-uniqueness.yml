@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-set-size-uniqueness
+language: rust
+severity: error
+rule:
+    kind: binary_expression
+    any:
+        - pattern: $I.collect::<$SET<$_>>().len() == $N
+        - pattern: $N == $I.collect::<$SET<$_>>().len()
+constraints:
+    SET: {regex: '^(Fx|Unord)?(Hash|BTree|Index)Set$'}
+message: '`$I` collects into a `$SET` only to compare its size with `$N`'
+note: 'Call `Itertools::all_unique()` on the iterator when the compared size counts its items (`use itertools::Itertools as _;`)'

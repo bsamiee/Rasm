@@ -2,8 +2,45 @@
 id: no-variant-parse-match
 language: rust
 severity: error
+utils:
+    variant-value:
+        any:
+            - kind: scoped_identifier
+              has: {field: path, pattern: $E}
+            - kind: call_expression
+              all:
+                - has: {field: function, regex: '^(Some|Ok)$'}
+                - has: {field: arguments, all: [{has: {nthChild: 1, kind: scoped_identifier, has: {field: path, pattern: $E}}}, {not: {has: {nthChild: 2}}}]}
+            - kind: block
+              all:
+                - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, matches: variant-value}
+                - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
+    literal-arm:
+        kind: match_arm
+        all:
+            - has: {field: pattern, kind: match_pattern, regex: '^"[^"\\]*"(\s*\|\s*"[^"\\]*")*$'}
+            - has: {field: value, matches: variant-value}
+    fallback-arm:
+        kind: match_arm
+        all:
+            - has: {field: pattern, kind: match_pattern, regex: '^(_|[a-z_]\w*)$'}
+            - has: {field: value, any: [{regex: '^\{?\s*(return\s+)?(None\b|Err\s*\(|((::)?anyhow\s*::\s*)?bail\s*!)'}, {matches: variant-value}]}
 rule:
     kind: match_expression
-    matches: rust-variant-parse-match
-message: 'Match decodes text into enum variants through a literal arm per variant'
-note: 'Derive `strum::EnumString` on `<enum>` with `#[strum(serialize = "<text>")]` per variant (one per alternative literal, `#[strum(ascii_case_insensitive)]` for a lowercased subject) and keep the crate error through `#[strum(parse_err_ty = <Error>, parse_err_fn = <fn>)]`, the derive parses the table the variants declare and implements `FromStr` and `TryFrom<&str>`, `.ok()` gives the `Option` a decoder returning `Some` built by hand and `#[strum(default)]` keeps a fallback variant'
+    all:
+        - has: {field: value, pattern: $SUBJECT}
+        - has:
+            field: body
+            all:
+                - has: {kind: match_arm, nthChild: {position: 1, reverse: true, ofRule: {kind: match_arm}}, matches: fallback-arm}
+                - has: {kind: match_arm, matches: literal-arm}
+                - not: {has: {kind: match_arm, not: {any: [{matches: literal-arm}, {matches: fallback-arm}]}}}
+        - inside: {kind: 'function_item, closure_expression', stopBy: {kind: 'function_item, closure_expression'}}
+        - any:
+            - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: enum_item, has: {field: name, pattern: $E}}}
+            - all:
+                - has: {field: body, has: {kind: match_arm, has: {field: value, regex: '\bSelf::'}}}
+                - inside: {kind: impl_item, stopBy: end, has: {field: type, kind: type_identifier, pattern: $T}}
+                - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: enum_item, has: {field: name, pattern: $T}}}
+message: '`match` on `$SUBJECT` decodes text into enum variants through one literal arm per variant'
+note: 'Derive `strum::EnumString` with `#[strum(serialize = "<text>")]` per variant (`#[strum(ascii_case_insensitive)]` for a lowercased subject, `#[strum(default)]` for a fallback variant, `#[strum(parse_err_ty = <Error>, parse_err_fn = <fn>)]` for the crate error) and call `<text>.parse()`, with `.ok()` where the decoder returns `Option`'

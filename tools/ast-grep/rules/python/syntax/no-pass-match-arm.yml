@@ -184,4 +184,4 @@ transform:
     OUT: rewrite($FIXABLE, rewriters=[if-test])
 fix: $OUT$KEPT
 message: 'Two-arm `match` over `$SUBJECT` holds an arm that only passes'
-note: 'Use one `if` whose test states the case the acting arm matches, a name the arm binds assigned by `:=` inside the test'
+note: 'Write one `if` testing the case the acting arm matches, binding the arm''s name with `:=` inside the test'

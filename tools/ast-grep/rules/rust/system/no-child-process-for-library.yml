@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-child-process-for-library
+language: rust
+severity: error
+utils:
+    command-new:
+        kind: call_expression
+        has: {field: function, regex: '^((::)?((std|tokio|async_std|async_process|smol)::)?process::)?Command::new$|^((::)?process_wrap::(std|tokio)::)?CommandWrap::with_new$'}
+    library-program:
+        kind: string_literal
+        regex: '^"([^"]*[/\\])?(tar|gzip|gunzip|zip|unzip|7z|7zz|zstd|xz|bzip2|brotli|curl|wget|ssh|scp|sftp|openssl|ffmpeg|ffprobe|magick|convert|vips|pdftotext|pdftoppm|typst|resvg|rsvg-convert|mmdc|vl-convert|sqlite3|psql|jq|less|more|secret-tool|ps|pgrep|pkill|kill|killall|top|uname|sw_vers|hostname|nproc|df|free|vm_stat)(\.exe)?"$'
+    conditional-program:
+        kind: string_literal
+        any:
+            - regex: '^"([^"]*[/\\])?cargo(\.exe)?"$'
+              inside: {stopBy: {kind: function_item}, kind: function_item, has: {stopBy: end, kind: string_literal, regex: '^"metadata"$'}}
+            - regex: '^"([^"]*[/\\])?security"$'
+              inside: {stopBy: {kind: function_item}, kind: function_item, has: {stopBy: end, kind: string_literal, regex: '^"(find|add|delete)-(generic|internet)-password"$'}}
+    program:
+        pattern: $PROGRAM
+        any: [{matches: library-program}, {matches: conditional-program}]
+    relayed-program:
+        kind: identifier
+        pattern: $NAME
+        any:
+            - inside: {kind: function_item, stopBy: {kind: function_item}, has: {stopBy: end, kind: let_declaration, all: [{has: {field: pattern, pattern: $NAME}}, {has: {field: value, matches: program}}]}}
+            - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: 'const_item, static_item', all: [{has: {field: name, pattern: $NAME}}, {has: {field: value, matches: program}}]}}
+    shell:
+        kind: string_literal
+        regex: '^"([^"]*[/\\])?(sh|bash|zsh|dash|fish|cmd|powershell|pwsh)(\.exe)?"$'
+    shell-command:
+        kind: string_literal
+        pattern: $PROGRAM
+        regex: '^"\s*(tar|gzip|gunzip|zip|unzip|7z|7zz|zstd|xz|bzip2|brotli|curl|wget|ssh|scp|sftp|openssl|ffmpeg|ffprobe|magick|convert|vips|pdftotext|pdftoppm|typst|resvg|rsvg-convert|mmdc|vl-convert|sqlite3|psql|jq|less|more|secret-tool|ps|pgrep|pkill|kill|killall|top|uname|sw_vers|hostname|nproc|df|free|vm_stat)\b'
+        inside: {stopBy: {kind: call_expression}, kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, regex: '^args?$'}}}
+rule:
+    matches: command-new
+    any:
+        - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, any: [{matches: program}, {matches: relayed-program}]}}
+        - all:
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, matches: shell}}
+            - any:
+                - inside: {kind: 'expression_statement, let_declaration', stopBy: {kind: 'expression_statement, let_declaration'}, has: {stopBy: end, matches: shell-command}}
+                - all:
+                    - inside: {kind: let_declaration, field: value, has: {field: pattern, kind: identifier, pattern: $COMMAND}}
+                    - inside: {kind: function_item, stopBy: {kind: function_item}, has: {stopBy: end, kind: expression_statement, all: [{has: {stopBy: end, kind: field_expression, has: {field: value, kind: identifier, pattern: $COMMAND}}}, {has: {stopBy: end, matches: shell-command}}]}}
+message: '`$PROGRAM` runs as a child process for work a library does in process'
+note: 'Call the crate in place of the program: `tar` with `flate2` (tar, gzip, gunzip), `zip` (zip, unzip), `sevenz-rust2` (7z), `zstd`, `lzma-rust2` (xz), `bzip2`, `brotli`, `reqwest` (curl, wget), `russh` and `russh-sftp` (ssh, scp, sftp), `aws-lc-rs`, `rcgen`, and `x509-parser` (openssl), `ffmpeg-next` (ffmpeg, ffprobe), `image` or `libvips` (magick, convert, vips), `pdf_oxide` (pdftotext), `hayro` (pdftoppm), `typst`, `resvg` (resvg, rsvg-convert), `mermaid-rs-renderer` (mmdc), `vl-convert-rs` (vl-convert), `rusqlite` (sqlite3), `sqlx` (psql), `serde_json` (jq), `cargo_metadata::MetadataCommand` (cargo metadata), `minus` (less, more), `keyring` (security password items, secret-tool), and `sysinfo` (ps, pgrep, pkill, kill, killall, top, uname, sw_vers, hostname, nproc, df, free, vm_stat)'

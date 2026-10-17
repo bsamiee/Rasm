@@ -36,4 +36,4 @@ rule:
             - matches: rendered-text
     not: {inside: {stopBy: end, matches: timeline-schedule}}
 message: '`$READ` reads the clock or a random value inside a view or a description'
-note: 'Hold a typed `Date` in the model and render it through `context.date` of one `TimelineView`, `Text(<date>, style: .relative)`, or `Text(timerInterval:)`, a store action reads the clock and passes its instant down'
+note: 'Hold a typed `Date` in the model, read the clock in a store action that passes its instant down, and render it through `context.date` of one `TimelineView`, `Text(<date>, style: .relative)`, or `Text(timerInterval:)`'

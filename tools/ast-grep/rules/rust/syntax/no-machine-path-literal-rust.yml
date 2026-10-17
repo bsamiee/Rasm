@@ -2,9 +2,43 @@
 id: no-machine-path-literal-rust
 language: rust
 severity: error
+utils:
+    machine-text:
+        kind: 'string_literal, raw_string_literal'
+        regex: '(^[rbc]*#*"|[\s"''=:(,]|file://)(~/|(/(Applications|Users/[^/\s"'']+|home/[^/\s"'']+|root|Volumes|opt|Library|System/Volumes|private|tmp|mnt|media|snap)|/usr/local|/var/folders|[A-Za-z]:(\\{1,2}|/)(Program Files( \(x86\))?|Users|ProgramData))([\\/]|"|$))|\$\{?(HOME|USERPROFILE)\}?[\\/]'
+    embedding-macro:
+        matches: {rust-std-macro: {name: {regex: '^(include_str|include_bytes|include)$'}}}
+    home-layout-segment:
+        kind: 'string_literal, raw_string_literal'
+        any:
+            - regex: '^r?#*"(\.local[\\/]+(share|state)|Library[\\/]+(Application Support|Caches|Preferences)|AppData)([\\/]|"|$)'
+            - all:
+                - regex: '^r?#*"\.(config|cache)([\\/]|")'
+                - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, has: {field: value, regex: '(?i)home'}}}}
+            - all:
+                - regex: '^r?#*"(share|state|Application Support|Caches|Preferences)"'
+                - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, has: {field: value, regex: '\.(join|push)\(\s*r?#*"(Library|\.local)"#*\s*\)$'}}}}
 rule:
     kind: 'string_literal, raw_string_literal, macro_invocation, call_expression'
     pattern: $PATH
-    matches: rust-machine-path
-message: '`$PATH` hardcodes a path from one machine, one platform''s home layout, or the build checkout into the product'
-note: 'Take the location as an argument the boundary resolves at run time (a `clap` value, `std::env::current_exe`) and append segments with `Path::join`, or embed checkout content at build time with `include_str!`, an installed binary runs where no checkout exists'
+    not: {any: [{matches: rust-test-scope}, {matches: rust-macro-argument}]}
+    any:
+        - matches: machine-text
+        - kind: macro_invocation
+          matches: {rust-std-macro: {name: {regex: '^option_env$'}}}
+          not: {inside: {stopBy: end, matches: embedding-macro}}
+        - kind: macro_invocation
+          all:
+            - matches: {rust-std-macro: {name: {regex: '^concat$'}}}
+            - has: {kind: token_tree, has: {kind: string_literal, regex: '^"(~|/(Users|home|Volumes|root|mnt|media))/?"$'}}
+        - kind: macro_invocation
+          all:
+            - matches: {rust-std-macro: {name: {regex: '^env$'}}}
+            - has: {kind: token_tree, has: {kind: string_literal, regex: '^"(CARGO_MANIFEST_DIR|CARGO_MANIFEST_PATH|CARGO_TARGET_TMPDIR|CARGO_WORKSPACE_DIR|CARGO_HOME|RUSTUP_HOME|OUT_DIR|HOME|USERPROFILE|USER|USERNAME|LOGNAME|PWD|HOSTNAME|TMPDIR)"$'}}
+            - not: {inside: {stopBy: end, matches: embedding-macro}}
+        - kind: call_expression
+          all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^(join|push)$'}}
+            - has: {field: arguments, has: {nthChild: 1, matches: home-layout-segment}, not: {has: {nthChild: 2}}}
+message: '`$PATH` names a path from one machine, home layout, or build checkout'
+note: 'Take the location as an argument the boundary resolves at run time (a `clap` value, `std::env::current_exe`) and append segments with `Path::join`, or embed checkout content at build time with `include_str!`'

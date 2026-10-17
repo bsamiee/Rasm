@@ -3,29 +3,64 @@ id: no-included-golden-assert
 language: rust
 severity: error
 utils:
-    include:
+    golden-read:
+        any:
+            - kind: identifier
+              regex: '^include_(str|bytes)$'
+              precedes: {regex: '^!$'}
+            - kind: identifier
+              regex: '^(read_to_string|read)$'
+              follows: {regex: '^::$', follows: {kind: identifier, regex: '^(fs|fs_err)$'}}
+    golden-value:
+        any:
+            - matches: {rust-std-macro: {name: {regex: '^include_(str|bytes)$'}}}
+            - kind: call_expression
+              has: {field: function, regex: '^(((::)?std::)?fs|fs_err)::(read_to_string|read)$'}
+            - kind: 'try_expression, call_expression, reference_expression'
+              has: {nthChild: 1, matches: golden-value}
+            - kind: field_expression
+              has: {field: value, matches: golden-value}
+    golden-binding:
         kind: identifier
-        regex: '^include_(str|bytes)$'
-        precedes: {regex: '^!$'}
-    golden-item:
-        kind: 'const_item, static_item'
-        all:
-            - has: {field: name, pattern: $GOLDEN}
-            - has: {field: value, matches: {rust-std-macro: {name: {regex: '^include_(str|bytes)$'}}}}
+        any:
+            - inside:
+                kind: source_file
+                stopBy: end
+                has:
+                    stopBy: end
+                    kind: 'const_item, static_item'
+                    all: [{has: {field: name, pattern: $GOLDEN}}, {has: {field: value, matches: golden-value}}]
+            - inside:
+                kind: function_item
+                stopBy: {kind: function_item}
+                has:
+                    stopBy: {kind: function_item}
+                    kind: let_declaration
+                    all: [{has: {field: pattern, pattern: $GOLDEN}}, {has: {field: value, matches: golden-value}}]
+    comparing-assert:
+        kind: macro_invocation
+        any:
+            - has: {field: macro, regex: '^((::)?(std|core|pretty_assertions|similar_asserts)::)?(debug_)?(assert_eq|assert_str_eq)$'}
+            - all:
+                - matches: {rust-std-macro: {name: {regex: '^(debug_)?assert$'}}}
+                - has: {kind: token_tree, has: {regex: '^==$'}}
 rule:
     kind: macro_invocation
     pattern: $ASSERT
     all:
-        - has: {field: macro, regex: '^((::)?(std|core|pretty_assertions)::)?assert_eq$'}
+        - matches: comparing-assert
         - has:
             kind: token_tree
             any:
-                - has: {matches: include}
+                - has: {stopBy: end, matches: golden-read}
                 - has:
+                    stopBy: end
                     kind: identifier
-                    regex: '^[A-Z][A-Z0-9_]*$'
                     all:
                         - pattern: $GOLDEN
-                        - inside: {kind: source_file, stopBy: end, has: {stopBy: end, matches: golden-item}}
-message: '`$ASSERT` compares output to a golden file the test includes'
-note: 'Write `insta::assert_snapshot!(<output>)` for text or `insta::assert_binary_snapshot!("<name>.<ext>", <bytes>)` for bytes, insta stores the expected value under `snapshots/` and reviews changes through `cargo insta review`. A golden file kept by hand drifts from the output with no diff to accept'
+                        - not: {precedes: {regex: '^(::|!|\()$'}}
+                        - not: {precedes: {regex: '^\.$', precedes: {regex: '^(len|is_empty)$'}}}
+                        - not: {follows: {regex: '^(\.|::)$'}}
+                        - matches: golden-binding
+message: '`$ASSERT` compares output to a golden file the test reads'
+note: 'Write `insta::assert_snapshot!(<output>)` for text or `insta::assert_binary_snapshot!("<name>.<ext>", <bytes>)` for bytes, and review changes through `cargo insta review`'

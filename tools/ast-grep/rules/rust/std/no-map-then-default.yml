@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-map-then-default
+language: rust
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - any:
+            - pattern: $O.map_or($D, $F)
+            - pattern: $O.map_or_else($D, $F)
+        - not: {matches: rust-default-compared-binding}
+constraints:
+    O: {not: {matches: rust-dropped-error}}
+    D: {matches: rust-default-value}
+fix: $O.map_or_default($F)
+message: '`$O` maps its value and spells the default `$D` fallback by hand'
+note: 'Call `<option>.map_or_default(<f>)`'

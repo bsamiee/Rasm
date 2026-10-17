@@ -29,4 +29,4 @@ rule:
                 - has: {stopBy: end, matches: blanket-impl}
                 - not: {has: {stopBy: end, kind: dynamic_type, has: {field: trait, matches: named-trait}}}
 message: 'Trait `$NAME` with an empty body and an empty blanket impl names a set of bounds'
-note: 'Write `trait <name> = <bound> + <bound>;` (`#![feature(trait_alias)]`), the alias names the bounds without a trait and impl pair. A trait used as `dyn` stays as written'
+note: 'Write `trait <name> = <bound> + <bound>;` (`#![feature(trait_alias)]`) and delete the trait and impl pair'

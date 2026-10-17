@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-split-write-back
+language: rust
+severity: error
+utils:
+    write-back:
+        kind: expression_statement
+        has: {kind: assignment_expression, any: [{pattern: '*$S = $REST'}, {pattern: '$S = $REST'}]}
+rule:
+    kind: let_declaration
+    all:
+        - pattern: 'let ($ITEM, $REST) = $S.$SPLIT()?;'
+        - precedes: {matches: write-back}
+constraints:
+    SPLIT: {regex: '^split_(first|last)$'}
+transform:
+    METHOD: {replace: {source: $SPLIT, replace: '^split_', by: 'split_off_'}}
+fix:
+    template: 'let $ITEM = $S.$METHOD()?;'
+    expandEnd: {matches: write-back}
+message: '`$S.$SPLIT()` splits off one element and assigns the remainder back to `$S` by hand'
+note: 'Call `split_off_first()` or `split_off_last()` on the `&mut &[T]` binding'

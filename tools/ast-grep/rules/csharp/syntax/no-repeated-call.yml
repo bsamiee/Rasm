@@ -62,9 +62,13 @@ utils:
                 stopBy: end
                 matches: member
                 not: {not: {has: {stopBy: end, matches: mutates}}}
+    first-call:
+        any:
+            - all: [{pattern: $CALL}, {pattern: $FIRST}]
+            - has: {stopBy: end, all: [{pattern: $CALL}, {pattern: $FIRST}]}
     earlier:
         not: {matches: member}
-        follows: {stopBy: end, matches: holds-call}
+        follows: {stopBy: end, matches: first-call}
 rule:
     pattern: $CALL
     all:
@@ -73,5 +77,8 @@ rule:
             - matches: earlier
             - inside: {stopBy: {matches: member}, matches: earlier}
         - not: {has: {stopBy: end, matches: unshared}}
+labels:
+    CALL: {style: primary, message: Evaluation repeating the earlier one}
+    FIRST: {style: secondary, message: Earlier evaluation from the same inputs}
 message: '`$CALL` is evaluated again from the same inputs in one member'
 note: Bind the call to a name before its first site, a local or a query `let`, and read the name at each use

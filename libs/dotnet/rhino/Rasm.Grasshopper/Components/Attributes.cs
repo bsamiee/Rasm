@@ -39,7 +39,7 @@ public sealed record PlotBody<TReading>(Extent Width, Extent Height, Func<TReadi
          CanvasLength.Validated(axis.Maximum).ToValidation())
             .Apply(static (minimum, ideal, maximum) => (Minimum: minimum, Ideal: ideal, Maximum: maximum))
             .As().ToFin()
-            .Bind(static lengths => Admission.Admitted(Extent.Validate(lengths.Minimum, lengths.Ideal, lengths.Maximum, out Extent item), item));
+            .Bind(static lengths => ValidationResults.ToFin(Extent.Validate(lengths.Minimum, lengths.Ideal, lengths.Maximum, out Extent item), item));
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -67,7 +67,7 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
         Responder.MouseDownHook += Reply<ResponseMouseArgs>(args => args.Buttons is MouseButtons.Primary ? Began(args.ContentLocation) : IO.pure(Response.Ignored), nameof(Responses.MouseDown));
         Responder.MouseDragHook += Reply<ResponseMouseArgs>(args => Sizing(current => IO.lift(() => {
             current.Frame.Continue(args.ContentLocation);
-            Size = current.Frame.Resized.Size - current.Margins.Size - new SizeF(Rim, Rim);
+            ((IResizableAttributes)this).Size = current.Frame.Resized.Size - current.Margins.Size - new SizeF(Rim, Rim);
             Pivot = RectangleF.Inset(current.Frame.Resized, current.Margins).Center;
         }).Map(Response.Handled)), nameof(Responses.MouseDrag));
         Responder.MouseUpHook += Reply<ResponseMouseArgs>(args => args.Buttons is MouseButtons.Primary ? Finished : IO.pure(Response.Ignored), nameof(Responses.MouseUp));
@@ -81,7 +81,7 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
     }
 
     // --- [LAYOUT]
-    public SizeF Size {
+    SizeF IResizableAttributes.Size {
         get {
             SizeF held = Owner.CustomValues.Get(SizeKey, plot.Match(
                 Some: static body => new SizeF(body.Body.Width.Ideal, body.Body.Height.Ideal),
@@ -93,8 +93,8 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
             return SizeF.Max(Minimum, SizeF.Min(shown, Maximum));
         }
         set {
-            SizeF held = SizeF.Max(Minimum, SizeF.Min(Eto.Drawing.Size.Round(value), Maximum));
-            if (held == Size)
+            SizeF held = SizeF.Max(Minimum, SizeF.Min(Size.Round(value), Maximum));
+            if (held == ((IResizableAttributes)this).Size)
                 return;
 
             Owner.CustomValues.Set(SizeKey, held);
@@ -104,7 +104,7 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
     }
 
     protected override void LayoutCentralBox(Font font) {
-        CentralBox = RectangleF.FromCenter(Pivot, Size + new SizeF(Rim, Rim));
+        CentralBox = RectangleF.FromCenter(Pivot, ((IResizableAttributes)this).Size + new SizeF(Rim, Rim));
         ContentBox = RectangleF.Inset(CentralBox, new PaddingF(StandardLayout.IconPadding));
     }
 
@@ -323,7 +323,7 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
     private IO<Unit> Cleaned(Option<Either<Resizing, IDisposable>> held) => held.Match(
         Some: current => current.Match(
             Left: resize => Callbacks.Each(Seq(SnapSession.End(Editor.Instance.Canvas),
-                IO.lift(() => { Size = resize.Undo.Size; }), IO.lift(() => { Pivot = resize.Undo.Pivot; }))).Map(unit),
+                IO.lift(() => { ((IResizableAttributes)this).Size = resize.Undo.Size; }), IO.lift(() => { Pivot = resize.Undo.Pivot; }))).Map(unit),
             Right: static release => IO.lift(release.Dispose)),
         None: static () => IO.pure(unit));
 

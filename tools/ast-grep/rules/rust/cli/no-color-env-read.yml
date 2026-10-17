@@ -3,10 +3,10 @@ id: no-color-env-read
 language: rust
 severity: error
 rule:
-    kind: string_literal
+    kind: 'string_literal, raw_string_literal'
     pattern: $NAME
-    regex: '^"(NO_COLOR|CLICOLOR|CLICOLOR_FORCE)"$'
-    inside: {kind: token_tree, inside: {kind: attribute}}
+    regex: '^r?#*"(NO_COLOR|CLICOLOR|CLICOLOR_FORCE|COLORTERM|TERM)"#*$'
+    inside: {kind: token_tree, stopBy: {kind: attribute}, inside: {kind: attribute}}
     follows: {regex: '^=$', follows: {regex: '^env$'}}
-message: '`$NAME` reads a color setting the terminal stream reads itself'
-note: 'Write through `anstream::stdout()` or `stderr()`, both streams read `NO_COLOR`, `CLICOLOR`, and `CLICOLOR_FORCE` beside terminal state. Set an explicit choice through `anstream::ColorChoice::write_global`'
+message: '`$NAME` reads a color variable `anstream` reads itself'
+note: 'Delete the argument and write through `anstream::stdout()` or `stderr()`, and set an explicit choice through `anstream::ColorChoice::write_global`'

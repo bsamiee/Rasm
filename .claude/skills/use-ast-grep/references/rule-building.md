@@ -66,7 +66,7 @@ Corrections earn a rule by one criterion and are refused by one, each a verdict 
 |  [08]   | `accepted-form`   |    0    | Accepted form, rewrite adds members, lines, or changes behavior           |
 
 - Patterns with one instance and no sibling are findings, width alone earns no rule
-- Rules duplicating a configured checker are refused, a project condition or a mechanical correction the checker lacks earns one
+- Use `manage-repo` for the checker each correction belongs to
 
 ## [05]-[DERIVATION]
 
@@ -82,5 +82,6 @@ Findings group by correction and reason, instances with both in common become si
 - Guards over a position drop when the shape fixes the position
 - Returns in both arms make every later statement dead
 - Notes state every operation a fix selects by shape, the map and the bind of one match
+- Messages interpolate captures and transform outputs, notes and label messages print as written and name forms by placeholder
 - Absence rules derive from an operation returning Option and reconstructing its result by hand
 - Direct boolean conditionals over plain values stay, a match combinator adds value when it removes existing structure

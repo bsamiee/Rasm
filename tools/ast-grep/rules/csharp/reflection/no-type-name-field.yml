@@ -1,0 +1,191 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-type-name-field
+language: csharp
+severity: error
+utils:
+    type-type: {matches: {csharp-type-name: {name: {regex: '^Type$'}}}}
+    type-call:
+        any:
+            - kind: invocation_expression
+              all:
+                - has: {field: function, any: [{kind: identifier, regex: '^GetType$'}, {kind: member_access_expression, has: {field: name, regex: '^GetType$'}}, {kind: conditional_access_expression, has: {kind: member_binding_expression, has: {field: name, regex: '^GetType$'}}}]}
+                - has: {field: arguments, not: {has: {kind: argument}}}
+            - kind: typeof_expression
+    type-source:
+        any:
+            - matches: type-call
+            - kind: identifier
+              matches: {csharp-declared-type: {type: {matches: type-type}}}
+    type-value:
+        any:
+            - matches: type-source
+            - kind: identifier
+              matches: {csharp-block-local: {declarator: {all: [{inside: {kind: variable_declaration, has: {field: type, kind: implicit_type}}}, {has: {matches: type-source}}]}}}
+            - kind: postfix_unary_expression
+              has: {matches: type-value}
+    direct-read:
+        any:
+            - kind: member_access_expression
+              all:
+                - has: {field: name, regex: '^(Name|FullName|AssemblyQualifiedName)$'}
+                - has: {field: expression, matches: type-value}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^ToString$'}}, {has: {field: expression, matches: type-value}}]}
+                - has: {field: arguments, not: {has: {kind: argument}}}
+    type-parameter-nameof:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: identifier, regex: '^nameof$'}
+            - has:
+                field: arguments
+                has:
+                    kind: argument
+                    has:
+                        kind: identifier
+                        pattern: $NAMED
+                        inside: {stopBy: end, has: {kind: type_parameter_list, has: {kind: type_parameter, has: {field: name, pattern: $NAMED}}}}
+    name-read:
+        any:
+            - matches: direct-read
+            - matches: type-parameter-nameof
+            - kind: identifier
+              matches: {csharp-block-local: {declarator: {has: {matches: direct-read}}}}
+            - kind: conditional_access_expression
+              all:
+                - has: {field: condition, matches: type-value}
+                - has: {kind: member_binding_expression, has: {field: name, regex: '^(Name|FullName|AssemblyQualifiedName)$'}}
+    value-wrapper:
+        any:
+            - kind: binary_expression
+              has: {field: operator, regex: '^\?\?$'}
+            - kind: postfix_unary_expression
+            - kind: 'interpolation, interpolated_string_expression'
+            - kind: member_access_expression
+              has: {field: name, regex: '^(ToUpperInvariant|ToLowerInvariant|Trim|TrimEnd|TrimStart)$'}
+            - kind: invocation_expression
+              has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(ToUpperInvariant|ToLowerInvariant|Trim|TrimEnd|TrimStart)$'}}
+    created-type:
+        not: {regex: 'Exception$'}
+        pattern: $CREATED
+    creation:
+        any:
+            - kind: object_creation_expression
+              has: {field: type, matches: created-type}
+            - kind: implicit_object_creation_expression
+              any:
+                - inside: {kind: variable_declarator, inside: {kind: variable_declaration, has: {field: type, matches: created-type}}}
+                - inside:
+                    kind: 'arrow_expression_clause, return_statement'
+                    inside:
+                        stopBy: {kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression'}
+                        kind: 'method_declaration, local_function_statement'
+                        has: {field: returns, matches: created-type}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, has: {field: expression, kind: identifier, matches: created-type}}
+                - inside:
+                    kind: compilation_unit
+                    stopBy: end
+                    has: {stopBy: end, kind: 'class_declaration, record_declaration, struct_declaration', has: {field: name, pattern: $CREATED}}
+    stored:
+        any:
+            - inside:
+                kind: argument
+                stopBy: {not: {matches: value-wrapper}}
+                inside: {kind: argument_list, inside: {matches: creation}}
+            - inside:
+                kind: with_initializer
+                stopBy: {not: {matches: value-wrapper}}
+                inside: {kind: with_expression, has: {kind: identifier, nthChild: 1, pattern: $CREATED}}
+            - inside:
+                kind: assignment_expression
+                field: right
+                stopBy: {not: {matches: value-wrapper}}
+                inside: {kind: initializer_expression, inside: {matches: creation}}
+    stored-parameter:
+        kind: parameter
+        all:
+            - has: {field: name, pattern: $PARAMETER}
+            - inside:
+                kind: parameter_list
+                inside:
+                    kind: 'method_declaration, local_function_statement'
+                    has: {field: body, has: {stopBy: end, kind: identifier, pattern: $PARAMETER, matches: stored}}
+    callee-name:
+        any:
+            - kind: identifier
+              pattern: $CALLEE
+            - kind: generic_name
+              has: {kind: identifier, pattern: $CALLEE}
+    callee-parameters:
+        kind: parameter_list
+        inside:
+            kind: 'method_declaration, local_function_statement'
+            has: {field: name, pattern: $CALLEE}
+    receiver-parameters:
+        kind: parameter_list
+        has: {kind: parameter, nthChild: 1, has: {kind: modifier, regex: '^this$'}}
+    receiver-call:
+        inside:
+            kind: argument_list
+            inside:
+                kind: invocation_expression
+                has: {field: function, kind: member_access_expression, not: {has: {field: expression, kind: identifier, regex: '^[A-Z]'}}}
+    shifted:
+        all:
+            - matches: receiver-call
+            - inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, all: [{matches: callee-parameters}, {matches: receiver-parameters}]}}
+    relayed-argument:
+        kind: argument
+        all:
+            - inside:
+                kind: argument_list
+                inside:
+                    kind: invocation_expression
+                    has: {field: function, any: [{matches: callee-name}, {kind: member_access_expression, has: {field: name, matches: callee-name}}]}
+            - any:
+                - has: {field: name, pattern: $PARAMETER}
+                  inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, matches: callee-parameters, has: {matches: stored-parameter}}}
+                - nthChild: 1
+                  not: {matches: shifted}
+                  inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, matches: callee-parameters, has: {nthChild: 1, matches: stored-parameter}}}
+                - nthChild: 2
+                  not: {matches: shifted}
+                  inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, matches: callee-parameters, has: {nthChild: 2, matches: stored-parameter}}}
+                - nthChild: 3
+                  not: {matches: shifted}
+                  inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, matches: callee-parameters, has: {nthChild: 3, matches: stored-parameter}}}
+                - nthChild: 4
+                  not: {matches: shifted}
+                  inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, matches: callee-parameters, has: {nthChild: 4, matches: stored-parameter}}}
+                - nthChild: 1
+                  matches: shifted
+                  inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, matches: callee-parameters, has: {nthChild: 2, matches: stored-parameter}}}
+                - nthChild: 2
+                  matches: shifted
+                  inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, matches: callee-parameters, has: {nthChild: 3, matches: stored-parameter}}}
+                - nthChild: 3
+                  matches: shifted
+                  inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, matches: callee-parameters, has: {nthChild: 4, matches: stored-parameter}}}
+rule:
+    all:
+        - matches: name-read
+        - pattern: $READ
+        - any:
+            - matches: stored
+            - inside:
+                kind: argument
+                stopBy: {not: {matches: value-wrapper}}
+                matches: relayed-argument
+            - inside:
+                kind: member_access_expression
+                field: expression
+                stopBy: {not: {matches: value-wrapper}}
+                has: {field: name, matches: callee-name}
+                inside:
+                    kind: invocation_expression
+                    field: function
+                    inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, all: [{matches: callee-parameters}, {matches: receiver-parameters}, {has: {nthChild: 1, matches: stored-parameter}}]}}
+message: '`$READ` stores a CLR type name in a field of `$CREATED`'
+note: 'Store the `Type` or the value itself, and format its name where a person reads it'

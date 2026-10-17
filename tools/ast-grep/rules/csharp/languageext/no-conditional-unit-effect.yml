@@ -3,9 +3,6 @@ id: no-conditional-unit-effect
 language: csharp
 severity: error
 utils:
-    unit-fin:
-        matches: {csharp-type-name: {name: {regex: '^Fin$'}}}
-        has: {stopBy: end, kind: type_argument_list, all: [{has: {nthChild: 1, regex: '^Unit$'}}, {not: {has: {nthChild: 2}}}]}
     unit-value:
         any:
             - matches: {csharp-type-name: {name: {regex: '^unit$'}}}
@@ -14,11 +11,9 @@ utils:
               regex: '^default$'
             - kind: default_expression
               has: {field: type, matches: {csharp-type-name: {name: {regex: '^Unit$'}}}}
-    single-argument:
-        has: {field: arguments, has: {kind: argument}, not: {has: {kind: argument, nthChild: 2}}}
     unit-argument:
         has: {field: arguments, has: {kind: argument, has: {matches: unit-value}}, not: {has: {kind: argument, nthChild: 2}}}
-    unit-success:
+    unit-effect:
         any:
             - matches: {csharp-type-name: {name: {regex: '^unit(IO|Eff)$'}}}
             - kind: invocation_expression
@@ -27,146 +22,42 @@ utils:
                     field: function
                     any:
                         - matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^pure$'}}}
-                        - matches: {csharp-owner-member: {type: {regex: '^Fin$'}, member: {regex: '^Succ$'}}}
-                        - matches: {csharp-owner-member: {type: {regex: '^Eff$'}, member: {regex: '^Pure$'}}}
-                        - matches: {csharp-type-name: {name: {regex: '^(Pure|FinSucc|SuccessEff|Success)$'}}}
-                - matches: unit-argument
-            - kind: object_creation_expression
-              all:
-                - has: {field: type, kind: qualified_name, all: [{has: {field: qualifier, matches: unit-fin}}, {has: {field: name, regex: '^Succ$'}}]}
-                - matches: unit-argument
-    unit-failure:
-        any:
-            - kind: invocation_expression
-              all:
-                - has:
-                    field: function
-                    any:
-                        - matches: {csharp-type-name: {name: {regex: '^Fail$'}}}
-                        - has: {stopBy: end, kind: type_argument_list, has: {nthChild: {position: 1, reverse: true}, regex: '^Unit$'}}
-                          any:
-                            - matches: {csharp-owner-member: {type: {regex: '^(IO|Fin)$'}, member: {regex: '^(fail|Fail)$'}}}
-                            - matches: {csharp-owner-member: {type: {regex: '^Eff$'}, member: {regex: '^Fail$'}}}
-                            - matches: {csharp-type-name: {name: {regex: '^(FinFail|FailEff)$'}}}
-                - matches: single-argument
-            - kind: object_creation_expression
-              all:
-                - has: {field: type, kind: qualified_name, all: [{has: {field: qualifier, matches: unit-fin}}, {has: {field: name, regex: '^Fail$'}}]}
-                - matches: single-argument
-    success-arm:
-        any:
-            - matches: unit-success
-            - kind: invocation_expression
-              all:
-                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: success-arm}}]}
-                - has: {field: arguments, not: {has: {kind: argument}}}
-            - kind: cast_expression
-              has: {field: value, matches: success-arm}
-            - kind: parenthesized_expression
-              has: {matches: success-arm}
-    failure-arm:
-        any:
-            - matches: unit-failure
-            - kind: invocation_expression
-              all:
-                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: failure-arm}}]}
-                - has: {field: arguments, not: {has: {kind: argument}}}
-            - kind: cast_expression
-              has: {field: value, matches: failure-arm}
-            - kind: parenthesized_expression
-              has: {matches: failure-arm}
-    success-return:
-        any:
-            - kind: return_statement
-              has: {matches: success-arm}
-            - kind: block
-              all:
-                - has: {kind: return_statement, nthChild: {position: 1, ofRule: {not: {kind: comment}}}, has: {matches: success-arm}}
-                - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
-    failure-return:
-        any:
-            - kind: return_statement
-              has: {matches: failure-arm}
-            - kind: block
-              all:
-                - has: {kind: return_statement, nthChild: {position: 1, ofRule: {not: {kind: comment}}}, has: {matches: failure-arm}}
-                - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
-    effect-success:
-        any:
-            - matches: {csharp-type-name: {name: {regex: '^unit(IO|Eff)$'}}}
-            - kind: invocation_expression
-              all:
-                - has: {field: function, any: [{matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^pure$'}}}}, {matches: {csharp-owner-member: {type: {regex: '^Eff$'}, member: {regex: '^Pure$'}}}}, {matches: {csharp-type-name: {name: {regex: '^SuccessEff$'}}}}]}
+                        - matches: {csharp-owner-member: {type: {regex: '^Eff$'}, member: {regex: '^(Pure|Success)$'}}}
+                        - matches: {csharp-type-name: {name: {regex: '^SuccessEff$'}}}
                 - matches: unit-argument
             - kind: invocation_expression
               all:
-                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: effect-success}}]}
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: unit-effect}}]}
                 - has: {field: arguments, not: {has: {kind: argument}}}
             - kind: cast_expression
-              has: {field: value, matches: effect-success}
+              has: {field: value, matches: unit-effect}
             - kind: parenthesized_expression
-              has: {matches: effect-success}
+              has: {matches: unit-effect}
     other-effect:
         pattern: $_
-        not:
-            any:
-                - matches: success-arm
-                - kind: throw_expression
-    effect-success-return:
+        not: {any: [{matches: unit-effect}, {kind: throw_expression}]}
+    lone-return:
         any:
             - kind: return_statement
-              has: {matches: effect-success}
             - kind: block
               all:
-                - has: {kind: return_statement, nthChild: {position: 1, ofRule: {not: {kind: comment}}}, has: {matches: effect-success}}
+                - has: {kind: return_statement, nthChild: {position: 1, ofRule: {not: {kind: comment}}}}
                 - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
-    other-effect-return:
+    unit-return:
+        matches: lone-return
         any:
-            - kind: return_statement
-              has: {matches: other-effect}
-            - kind: block
-              all:
-                - has: {kind: return_statement, nthChild: {position: 1, ofRule: {not: {kind: comment}}}, has: {matches: other-effect}}
-                - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+            - {kind: return_statement, has: {matches: unit-effect}}
+            - {kind: block, has: {kind: return_statement, has: {matches: unit-effect}}}
+    other-return:
+        matches: lone-return
+        any:
+            - {kind: return_statement, has: {matches: other-effect}}
+            - {kind: block, has: {kind: return_statement, has: {matches: other-effect}}}
     bool-arm:
         kind: switch_expression_arm
         not: {has: {kind: when_clause}}
-    ternary-pair:
-        any:
-            - all: [{has: {field: consequence, matches: success-arm}}, {has: {field: alternative, matches: failure-arm}}]
-            - all: [{has: {field: consequence, matches: failure-arm}}, {has: {field: alternative, matches: success-arm}}]
-            - all: [{has: {field: consequence, matches: effect-success}}, {has: {field: alternative, matches: other-effect}}]
-            - all: [{has: {field: consequence, matches: other-effect}}, {has: {field: alternative, matches: effect-success}}]
     fallthrough:
         not: {has: {field: alternative, pattern: $_}}
-    statement-pair:
-        any:
-            - all:
-                - has: {field: consequence, matches: success-return}
-                - any: [{has: {field: alternative, matches: failure-return}}, {all: [{matches: fallthrough}, {precedes: {matches: failure-return}}]}]
-            - all:
-                - has: {field: consequence, matches: failure-return}
-                - any: [{has: {field: alternative, matches: success-return}}, {all: [{matches: fallthrough}, {precedes: {matches: success-return}}]}]
-            - all:
-                - has: {field: consequence, matches: effect-success-return}
-                - any: [{has: {field: alternative, matches: other-effect-return}}, {all: [{matches: fallthrough}, {precedes: {matches: other-effect-return}}]}]
-            - all:
-                - has: {field: consequence, matches: other-effect-return}
-                - any: [{has: {field: alternative, matches: effect-success-return}}, {all: [{matches: fallthrough}, {precedes: {matches: effect-success-return}}]}]
-    switch-pair:
-        any:
-            - all:
-                - has: {matches: bool-arm, nthChild: 2, has: {nthChild: 2, matches: success-arm}}
-                - has: {matches: bool-arm, nthChild: 3, has: {nthChild: 2, matches: failure-arm}}
-            - all:
-                - has: {matches: bool-arm, nthChild: 2, has: {nthChild: 2, matches: failure-arm}}
-                - has: {matches: bool-arm, nthChild: 3, has: {nthChild: 2, matches: success-arm}}
-            - all:
-                - has: {matches: bool-arm, nthChild: 2, has: {nthChild: 2, matches: effect-success}}
-                - has: {matches: bool-arm, nthChild: 3, has: {nthChild: 2, matches: other-effect}}
-            - all:
-                - has: {matches: bool-arm, nthChild: 2, has: {nthChild: 2, matches: other-effect}}
-                - has: {matches: bool-arm, nthChild: 3, has: {nthChild: 2, matches: effect-success}}
     option-branch:
         kind: invocation_expression
         all:
@@ -196,12 +87,21 @@ rule:
                             - has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
                             - has: {field: body, matches: option-branch}
         - kind: conditional_expression
-          has: {field: condition, pattern: $CONDITION}
-          matches: ternary-pair
-          not: {any: [{inside: {kind: lambda_expression, field: body}}, {inside: {kind: argument, inside: {kind: tuple_expression}}}]}
+          all:
+            - has: {field: condition, pattern: $CONDITION}
+            - any:
+                - all: [{has: {field: consequence, matches: unit-effect}}, {has: {field: alternative, matches: other-effect}}]
+                - all: [{has: {field: consequence, matches: other-effect}}, {has: {field: alternative, matches: unit-effect}}]
         - kind: if_statement
-          has: {field: condition, pattern: $CONDITION}
-          matches: statement-pair
+          all:
+            - has: {field: condition, pattern: $CONDITION}
+            - any:
+                - all:
+                    - has: {field: consequence, matches: unit-return}
+                    - any: [{has: {field: alternative, matches: other-return}}, {all: [{matches: fallthrough}, {precedes: {matches: other-return}}]}]
+                - all:
+                    - has: {field: consequence, matches: other-return}
+                    - any: [{has: {field: alternative, matches: unit-return}}, {all: [{matches: fallthrough}, {precedes: {matches: unit-return}}]}]
         - kind: switch_expression
           all:
             - has: {nthChild: 1, pattern: $CONDITION}
@@ -213,6 +113,12 @@ rule:
                 - all:
                     - has: {matches: bool-arm, nthChild: 2, has: {kind: constant_pattern, regex: '^false$'}}
                     - has: {matches: bool-arm, nthChild: 3, has: {kind: 'constant_pattern, discard', regex: '^(true|_)$'}}
-            - matches: switch-pair
-message: Branch on `$CONDITION` pairs a unit success with a failure or another effect
-note: "Use `when(<condition>, <effect>).As()` or `unless(<condition>, <effect>).As()` on an `IO` or `Eff` and `<condition> ? unit : <error>` on a `Fin` or `Validation` a declared return type or local receives, each states the unit arm once, a lambda body or tuple element keeps its typed arms since neither gives the conditional a target type"
+            - any:
+                - all:
+                    - has: {matches: bool-arm, nthChild: 2, has: {nthChild: 2, matches: unit-effect}}
+                    - has: {matches: bool-arm, nthChild: 3, has: {nthChild: 2, matches: other-effect}}
+                - all:
+                    - has: {matches: bool-arm, nthChild: 2, has: {nthChild: 2, matches: other-effect}}
+                    - has: {matches: bool-arm, nthChild: 3, has: {nthChild: 2, matches: unit-effect}}
+message: Branch on `$CONDITION` pairs a unit effect with another effect
+note: Write `when(<condition>, <effect>).As()` or `unless(<condition>, <effect>).As()`, each runs the effect under the condition and returns the unit effect otherwise

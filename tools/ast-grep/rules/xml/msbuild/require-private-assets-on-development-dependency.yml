@@ -1,0 +1,100 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: require-private-assets-on-development-dependency
+language: xml
+severity: error
+files: ['**/*.{csproj,props,targets}']
+utils:
+    development-reference:
+        any:
+            - all:
+                - matches: {msbuild-element: {name: {regex: '^PackageReference$'}}}
+                - matches:
+                    msbuild-metadata:
+                        name: {regex: '^Include$'}
+                        value: {regex: '^["''][A-Za-z0-9.]*(?i:\.(analyzers?|sourcegenerators?|generators?|codefixes))["'']$|^["''][A-Za-z0-9.]*[a-z0-9](Analyzers?|SourceGenerators?)["'']$', pattern: _DEPENDENCY}
+            - all:
+                - matches: {msbuild-element: {name: {regex: '^ProjectReference$'}}}
+                - matches: {msbuild-metadata: {name: {regex: '^(Include|Update)$'}, value: {pattern: _DEPENDENCY}}}
+                - matches: {msbuild-metadata: {name: {regex: '^OutputItemType$'}, value: {regex: '^["'']?\s*Analyzer\s*["'']?$'}}}
+                - not: {matches: unrestored-reference}
+                - not:
+                    all:
+                        - matches: {msbuild-metadata: {name: {regex: '^Update$'}, value: {pattern: _DEPENDENCY}}}
+                        - inside:
+                            stopBy: end
+                            kind: document
+                            has:
+                                stopBy: end
+                                all:
+                                    - matches: {msbuild-element: {name: {regex: '^ProjectReference$'}}}
+                                    - matches: {msbuild-metadata: {name: {regex: '^Include$'}, value: {pattern: _DEPENDENCY}}}
+                                    - matches: unrestored-reference
+    unrestored-reference:
+        matches: {msbuild-metadata: {name: {regex: '^ReferenceOutputAssembly$'}, value: {regex: '(?i)^["'']?\s*false\s*["'']?$'}}}
+    all-assets:
+        any:
+            - regex: '(?i)^["'']?\s*all\s*["'']?$'
+            - all:
+                - regex: '(?i)^["'']?\s*(?:(?:compile|runtime|contentFiles|build|buildMultitargeting|buildTransitive|analyzers|native)\s*;\s*)*(?:compile|runtime|contentFiles|build|buildMultitargeting|buildTransitive|analyzers|native)\s*;?\s*["'']?$'
+                - regex: '(?i)(^["'']?|;)\s*compile\s*(;|["'']?$)'
+                - regex: '(?i)(^["'']?|;)\s*runtime\s*(;|["'']?$)'
+                - regex: '(?i)(^["'']?|;)\s*contentFiles\s*(;|["'']?$)'
+                - regex: '(?i)(^["'']?|;)\s*build\s*(;|["'']?$)'
+                - regex: '(?i)(^["'']?|;)\s*buildMultitargeting\s*(;|["'']?$)'
+                - regex: '(?i)(^["'']?|;)\s*buildTransitive\s*(;|["'']?$)'
+                - regex: '(?i)(^["'']?|;)\s*analyzers\s*(;|["'']?$)'
+                - regex: '(?i)(^["'']?|;)\s*native\s*(;|["'']?$)'
+    private-assets-element:
+        matches: {msbuild-element: {name: {regex: '^PrivateAssets$'}}}
+    private-assets-all:
+        kind: element
+        any:
+            - all:
+                - matches: {msbuild-metadata: {name: {regex: '^PrivateAssets$'}, value: {kind: AttValue, matches: all-assets}}}
+                - not:
+                    has:
+                        kind: content
+                        has:
+                            matches: private-assets-element
+                            not: {has: {kind: content, matches: all-assets}}
+            - has:
+                kind: content
+                has:
+                    matches: private-assets-element
+                    nthChild: {position: 1, reverse: true, ofRule: {matches: private-assets-element}}
+                    all:
+                        - has: {kind: content, matches: all-assets}
+                        - not: {has: {kind: STag, has: {kind: Attribute}}}
+rule:
+    pattern: _REFERENCE
+    matches: development-reference
+    not: {matches: private-assets-all}
+rewriters:
+    - id: remove-metadata
+      rule:
+        any:
+            - kind: Attribute
+              has: {kind: Name, regex: '^PrivateAssets$'}
+              inside: {matches: msbuild-tag, inside: {pattern: _REFERENCE}}
+            - matches: private-assets-element
+              inside: {kind: content, inside: {pattern: _REFERENCE}}
+      fix: ''
+    - id: add-metadata
+      rule:
+        matches: msbuild-tag
+        pattern: _TAG
+        has: {kind: Name, regex: '^(Package|Project)Reference$'}
+      transform:
+        STRIPPED: rewrite($TAG, rewriters=[remove-metadata])
+        FIXED:
+            replace:
+                source: $STRIPPED
+                replace: '(\s*/?>)$'
+                by: ' PrivateAssets="all"$1'
+      fix: $FIXED
+transform:
+    DEPENDENCY_TEXT: {replace: {source: $DEPENDENCY, replace: '^["'']|["'']$', by: ''}}
+    FIXED: rewrite($REFERENCE, rewriters=[add-metadata, remove-metadata])
+fix: $FIXED
+message: '`$DEPENDENCY_TEXT` flows as a dependency to every referencing project'
+note: Set `PrivateAssets="all"` on the reference

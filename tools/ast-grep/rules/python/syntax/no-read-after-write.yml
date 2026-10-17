@@ -93,4 +93,4 @@ rule:
                     stopBy: {kind: expression_statement, has: {kind: assignment, has: {field: left, pattern: $READ}}}
                     matches: assigned
 message: '`$READ$SIMULATED` reads after a write or changes state through simulated input'
-note: 'Use native setter outcomes or events for committed state, and native state operations for simulated input. Requested values do not establish committed values'
+note: 'Read committed state from native setter outcomes or events, and change state through native operations in place of simulated input'

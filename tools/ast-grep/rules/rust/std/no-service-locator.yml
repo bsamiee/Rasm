@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-service-locator
+language: rust
+severity: error
+rule:
+    any:
+        - kind: static_item
+          all:
+            - has: {field: name, pattern: $NAME}
+            - has: {field: type, regex: '^(\w+::)*(LazyLock|LazyCell|Lazy)\b'}
+            - has: {field: value, regex: '\b(fs(_err)?::(tokio::)?(read|read_to_string|File::open)|File::open)\b'}
+        - kind: generic_type
+          pattern: $LOCATOR
+          all:
+            - has: {field: type, regex: '^((std::)?collections::)?(HashMap|BTreeMap|IndexMap)$'}
+            - has: {field: type_arguments, has: {nthChild: 1, regex: '^((std::)?any::)?TypeId$'}}
+            - has: {field: type_arguments, has: {nthChild: 2, has: {stopBy: end, kind: dynamic_type, regex: '\bAny\b'}}}
+message: '`$NAME$LOCATOR` supplies a dependency through a lazy global or a type-keyed lookup'
+note: 'Build the value once in `main` and pass it as an argument or a field of the state the handlers receive'

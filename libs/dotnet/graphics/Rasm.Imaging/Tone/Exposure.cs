@@ -18,7 +18,7 @@ public readonly partial struct Exposure : IPresented<Exposure, float> {
 
     public static double Applied(float scale, float amount) => double.Log2(double.Lerp(1d, scale, amount));
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 public sealed record ExposureState(Exposure Exposure, Metering Metering)

@@ -17,4 +17,4 @@ struct Derived;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-fn main() { black_box((Manual.to_string(), Manual.source().is_none(), Derived.source().is_none())); }
+fn main() { black_box(&(Manual.to_string(), Manual.source().is_none(), Derived.source().is_none())); }

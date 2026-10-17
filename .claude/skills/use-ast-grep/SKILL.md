@@ -5,7 +5,7 @@ description: "Use when outlining, searching, or rewriting code with ast-grep or 
 
 # [AST_GREP]
 
-MCP tools answer searches with a match list or a tree. Deferred MCP tools load through `ToolSearch` query `select:mcp__ast-grep__find_code,mcp__ast-grep__find_code_by_rule,mcp__ast-grep__dump_syntax_tree,mcp__ast-grep__test_match_code_rule`. CLI runs through `nx run rasm:outline`, `nx run rasm:lint:ast-grep`, and `nx run rasm:rewrite`, and directly with `--custom-languages allow` for interactive writes (`-i`) and runs that need an exit code. Search rules stay inline, durable rules are files under `ruleDirs` of `sgconfig.yml`. Language tooling resolves symbol identity, types, and behavior beyond syntax.
+MCP tools answer searches with a match list or a tree. Deferred MCP tools load through `ToolSearch` query `select:mcp__ast-grep__find_code,mcp__ast-grep__find_code_by_rule,mcp__ast-grep__dump_syntax_tree,mcp__ast-grep__test_match_code_rule`. CLI runs through `nx run rasm:outline`, `nx run rasm:lint:ast-grep`, and `nx run rasm:rewrite`, and directly with `--custom-languages allow` for interactive writes (`-i`) and runs that need an exit code. Search rules stay inline, durable rules are files under `ruleDirs` of `sgconfig.yml`.
 
 [REFERENCES]:
 - [01]-[RULE_BUILDING](references/rule-building.md): Deriving rules from diffs, code smells, and principles
@@ -145,6 +145,8 @@ Scans parse each file once, try a rule at each node of its kind set, and walk ea
 - `injected` names a built-in language or a `customLanguages` key, `run -l <injected>` walks every file of a host that injects it
 - Injections parse source ranges without decoding host strings, plain and literal block YAML scalars and JSON strings with no `escape_sequence`
 - Injection entries hold ownership predicates in their `utils` map beside `rule` and `injected`, injection compilation loads no `utilDirs`
+- Injected ranges parse twice, a node both documents hold reports from each unless its rule excludes one side
+- Leaf-token rules exclude host macro arguments through one shared util, rules reading enclosing host context skip the injected copy
 - Kind lists inside a flow map are quoted (`{kind: 'block_mapping_pair, flow_pair'}`), an unquoted second kind reads as a key
 - Under `expandoChar`, patterns spell metavariables with that character (`_VAR`, `___VAR`), fix templates and transform sources use `$`
 - Unparsable rule files of any language and duplicate ids fail every load of the root config, an unknown key in `sgconfig.yml` loads silently

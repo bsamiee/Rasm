@@ -40,7 +40,7 @@ public abstract record PlottedCurve {
         public override Func<double, double> Fit() => Value.Fit();
 
         public override Fin<PlottedCurve> With(Seq<CurvePoint> points) =>
-            Admission.Admitted(PointCurve.Validate(points, out PointCurve? curve), curve).Map<PlottedCurve>(held => this with { Value = held });
+            ValidationResults.ToFin(PointCurve.Validate(points, out PointCurve? curve), curve).Map<PlottedCurve>(held => this with { Value = held });
     }
 
     public sealed record Hue<TKind>(HueCurve<TKind> Value) : PlottedCurve where TKind : IHueCurveKind {
@@ -54,7 +54,7 @@ public abstract record PlottedCurve {
         public override Func<double, double> Fit() => Value.Fit();
 
         public override Fin<PlottedCurve> With(Seq<CurvePoint> points) =>
-            Admission.Admitted(HueCurve<TKind>.Validate(points, out HueCurve<TKind>? curve), curve).Map<PlottedCurve>(held => this with { Value = held });
+            ValidationResults.ToFin(HueCurve<TKind>.Validate(points, out HueCurve<TKind>? curve), curve).Map<PlottedCurve>(held => this with { Value = held });
     }
 }
 

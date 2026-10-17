@@ -139,7 +139,7 @@ impl Plugin for Circle {
 
 fn main() {
     let mut square = Square { side: 2, title: String::from("unit") };
-    black_box((
+    black_box(&(
         [square.as_display().to_string(), square.label().to_string(), square.as_erased().to_string(), square.as_shown().to_string(), square.as_named_display().to_string()],
         Box::new(Square { side: 3, title: square.name() }).into_display().to_string(),
         square.area(),

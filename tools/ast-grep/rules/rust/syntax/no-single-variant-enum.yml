@@ -7,6 +7,7 @@ rule:
     all:
         - has: {field: name, pattern: $NAME}
         - has: {field: body, all: [{has: {kind: enum_variant}}, {not: {has: {kind: enum_variant, nthChild: {position: 2, ofRule: {kind: enum_variant}}}}}]}
-        - not: {matches: {rust-attributed: {attribute: {regex: '^#\[\s*(serde\b|repr\b|derive\s*\([^)]*\b(Serialize|Deserialize|ValueEnum|JsonSchema|EnumString)\b)'}}}}
+        - not: {matches: {rust-attributed: {attribute: {regex: '^#\[\s*(serde\b|repr\b|derive\s*\([^)]*\b(ValueEnum|EnumString)\b)'}}}}
+        - not: {has: {field: body, has: {kind: attribute_item, regex: '^#\[\s*serde\b'}}}
 message: '`$NAME` declares one variant'
-note: 'Declare the variant''s payload as a struct named for the variant, a one-variant enum states no choice and adds a path and a match arm at each use. A thiserror enum becomes a struct holding the variant''s `#[error(..)]`. A serde, clap, or `#[repr]` enum stays as written, its variant names or values are wire data'
+note: 'Declare the variant''s payload as a struct named for the variant, moving a thiserror variant''s `#[error(..)]` onto the struct'

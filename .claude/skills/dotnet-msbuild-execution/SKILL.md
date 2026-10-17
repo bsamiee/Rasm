@@ -47,7 +47,7 @@ dotnet msbuild <project>.csproj -targets
 
 ## [02]-[SDK_HOOK_POINTS]
 
-Extend the SDK chain from a target naming an SDK target in `BeforeTargets` or `AfterTargets`, or from a `DependsOn` property a `.targets` file appends to after the SDK assigned it. `BeforeBuild`, `AfterBuild`, `BeforeCompile`, `AfterCompile`, `BeforeResolveReferences`, `AfterResolveReferences`, `BeforeClean`, `AfterClean`, `BeforePublish`, and `AfterPublish` are empty SDK targets the implicit `Sdk.targets` import defines after the project body, a same-named target in a project file loses silently.
+Extend the SDK chain from a target naming an SDK target in `BeforeTargets` or `AfterTargets`, or from a `DependsOn` property a `.targets` file appends to after the SDK assigned it. `BeforeBuild`, `AfterBuild`, `BeforeCompile`, `AfterCompile`, `BeforeResolveReferences`, `AfterResolveReferences`, `BeforeClean`, `AfterClean`, `BeforeRebuild`, `AfterRebuild`, `BeforeResGen`, `AfterResGen`, `BeforePublish`, and `AfterPublish` are empty SDK targets the implicit `Sdk.targets` import defines after the project body, a same-named target in a project or `.props` file loses silently.
 
 BAD:
 
@@ -149,6 +149,7 @@ Tasks inside a target run at execution time with the current properties and item
 - `Copy` with `SkipUnchangedFiles="true"` compares size and timestamp, `UseHardlinksIfPossible` links in place of copying, `Retries` hides a file race
 - Boolean parameters read `true`, `on`, `yes`, `!false`, `!off`, and `!no` as true
 - Task parameters are attributes, a child element (`<Delete><Files>stage/*.tmp</Files></Delete>`) fails `MSB4067`
+- `SourceFiles` and `Files` on `Copy`, `Move`, `Unzip`, `Delete`, and `Touch` take `@(Item)`, a wildcard there reaches the task as one literal file name
 - `Warning` and `Error` take `Code` and `File`, `Message` takes `Importance`
 - Custom diagnostics take a `Code` that `MSBuildWarningsAsMessages`, `NoWarn`, and `-warnaserror` can name
 - `CallTarget` runs the named target in a new scope, `TargetOutputs` alone comes back and a property or item it sets stays invisible to the caller

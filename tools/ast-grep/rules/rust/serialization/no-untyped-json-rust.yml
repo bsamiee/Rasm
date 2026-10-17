@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-untyped-json-rust
+language: rust
+severity: error
+utils:
+    json-macro:
+        kind: macro_invocation
+        all:
+            - has: {field: macro, regex: '^((::)?serde_json::)?json$'}
+            - has: {kind: token_tree, has: {stopBy: end, kind: token_tree, regex: '^\{', has: {kind: string_literal, precedes: {regex: '^:$'}}}}
+    json-format:
+        kind: macro_invocation
+        all:
+            - matches: {rust-std-macro: {name: {regex: '^(format|format_args|write|writeln|print|println|eprint|eprintln)$'}}}
+            - has: {kind: token_tree, has: {kind: 'string_literal, raw_string_literal', regex: '\{\{\s*(\\"[^"\\]+\\"|"[^"]+")\s*:'}}
+    key-literal:
+        any:
+            - kind: string_literal
+            - kind: call_expression
+              all:
+                - has: {field: function, regex: '^((::)?(std::)?(string::)?)?String::from$'}
+                - has: {field: arguments, has: {nthChild: 1, kind: string_literal}}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: value, kind: string_literal}}, {has: {field: field, regex: '^(to_owned|to_string|into)$'}}]}
+                - has: {field: arguments, regex: '^\(\s*\)$'}
+    json-value:
+        any:
+            - kind: scoped_identifier
+              regex: '^((::)?serde_json::)?Value::Null$'
+            - kind: call_expression
+              has: {field: function, regex: '^((::)?serde_json::)?(Value::(Bool|Number|String|Array|Object|from)|to_value)$'}
+            - kind: try_expression
+              has: {kind: call_expression, has: {field: function, regex: '^((::)?serde_json::)?to_value$'}}
+            - kind: macro_invocation
+              has: {field: macro, regex: '^((::)?serde_json::)?json$'}
+    keyed-entry:
+        kind: tuple_expression
+        all:
+            - has: {nthChild: 1, matches: key-literal}
+            - has: {nthChild: 2, matches: json-value}
+            - not: {has: {nthChild: 3}}
+            - inside: {kind: array_expression}
+    keyed-insert:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^insert$'}}
+            - has: {field: arguments, all: [{has: {nthChild: 1, matches: key-literal}}, {has: {nthChild: 2, matches: json-value}}, {not: {has: {nthChild: 3}}}]}
+    json-text:
+        kind: string_literal
+        regex: '^"\{\s*\\"[^"\\]+\\"\s*:'
+        any:
+            - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '(^|::|\.)(from|push_str|write_str)$'}}}
+            - inside: {field: value, kind: field_expression, has: {field: field, regex: '^(to_owned|to_string|into)$'}}
+            - inside: {kind: binary_expression, has: {field: operator, regex: '^\+$'}}
+rule:
+    pattern: $DOCUMENT
+    all:
+        - any:
+            - matches: json-macro
+              not: {has: {stopBy: end, matches: rust-geometry-format-text}}
+            - matches: json-format
+              not: {has: {stopBy: end, matches: rust-geometry-format-text}}
+            - matches: keyed-entry
+            - matches: keyed-insert
+            - matches: json-text
+              not: {matches: rust-geometry-format-text}
+        - not: {matches: rust-test-scope}
+message: '`$DOCUMENT` builds a document as untyped text or an untyped value keyed by string'
+note: 'Declare a `#[derive(Deserialize, Serialize, JsonSchema)]` type per document, write it through `serde_json::to_value` or `serde_json::to_string`, and derive its schema with `schemars::schema_for!`'

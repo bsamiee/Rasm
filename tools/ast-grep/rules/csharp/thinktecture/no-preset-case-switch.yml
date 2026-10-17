@@ -63,7 +63,7 @@ utils:
     stateless-union:
         all:
             - matches:
-                csharp-file-union:
+                thinktecture-union:
                     name: {pattern: $UNION}
             - has: {kind: declaration_list, has: {matches: stateless-case, has: {field: name, pattern: $FIRST_CASE}}}
             - has: {kind: declaration_list, has: {matches: stateless-case, not: {has: {field: name, pattern: $FIRST_CASE}}}}
@@ -82,7 +82,7 @@ utils:
                             has:
                                 stopBy: end
                                 matches:
-                                    csharp-file-union:
+                                    thinktecture-union:
                                         name: {pattern: $UNION}
                                 has: {kind: declaration_list, has: {matches: stateless-case, has: {field: name, pattern: $PRESET}}}
     preset-arms:

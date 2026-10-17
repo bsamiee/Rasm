@@ -159,5 +159,5 @@ rule:
             - not: {inside: {kind: decorated_definition, has: {matches: override}}}
 constraints:
     D: {matches: signature-default}
-message: 'Parameter `$P` accepts None and the body resolves None to `$D`'
-note: 'Use `<name>: <type> = <default>` in the signature, the parameter rejects None and callers read its default at its declaration'
+message: 'Parameter `$P` accepts `None` and the body resolves `None` to `$D`'
+note: 'Declare `<name>: <type> = <default>` in the signature'

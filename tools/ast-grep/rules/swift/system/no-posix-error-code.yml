@@ -18,5 +18,5 @@ rule:
                 - any:
                     - inside: {kind: property_declaration, field: value, has: {matches: posix-code-annotation}}
                     - inside: {kind: 'if_statement, guard_statement', has: {matches: posix-code-annotation}}
-message: '`$SITE` maps a raw code through `POSIXErrorCode`, which yields `nil` for a code it does not name'
-note: 'Throw `Errno(rawValue:)` from System, it holds every raw code and matches by case (`.noSuchFileOrDirectory`)'
+message: '`$SITE` maps a raw code through `POSIXErrorCode`, `nil` for a code it does not name'
+note: 'Throw `Errno(rawValue:)` from System, holding every raw code and matching by case (`.noSuchFileOrDirectory`)'

@@ -71,4 +71,4 @@ transform:
             by: '.map { $1 in $2 }'
 fix: '[$X$MAP$IFMAP].compactMap(\.self)'
 message: '`$X` becomes an array through a closure or branch with an empty default'
-note: '`[<optional>].compactMap(\.self)` holds the value when present and nothing otherwise, `[<optional>.map { <transform> }].compactMap(\.self)` holds its transform'
+note: 'Write `[<optional>].compactMap(\.self)`, or `[<optional>.map { <transform> }].compactMap(\.self)` for a transform'

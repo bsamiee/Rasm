@@ -150,5 +150,5 @@ rewriters:
 transform:
     FIXED: {rewrite: {source: $FIXABLE, rewriters: [lookup, test, keyed]}}
 fix: $FIXED$KEPT
-message: '`$SCAN` scans enum members for one member, value, or name, `<enum>(<value>)`, `<enum>[<name>]`, and `<value> in <enum>` look it up'
-note: 'An enum class maps each value and name to its member and tests membership by value, a loop or a default falls through where the lookup raises and keeps its form'
+message: '`$SCAN` scans enum members for one member, value, or name'
+note: 'Look up `<enum>(<value>)`, `<enum>[<name>]`, or `<value> in <enum>`. The fix keeps a loop or a default that falls through where the lookup raises'

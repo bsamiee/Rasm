@@ -13,4 +13,4 @@ rule:
                 kind: for_statement
                 has: {field: collection, kind: call_expression, has: {nthChild: 1, regex: '^(Observation\.)?Observations$'}}
 message: '`$SITE` ends iteration of `Observations` on a condition read outside the tracked closure'
-note: 'Build the sequence with `Observations.untilFinished { <model>.done ? .finish : .next(<model>.<property>) }`, the closure reads the ending condition under tracking and the sequence finishes on it'
+note: 'Build the sequence with `Observations.untilFinished { <model>.done ? .finish : .next(<model>.<property>) }` to read the ending condition under tracking'

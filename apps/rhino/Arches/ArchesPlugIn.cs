@@ -11,6 +11,7 @@ namespace Arches;
 // --- [COMPOSITION] ---------------------------------------------------------------------
 public sealed class ArchesPlugIn() : DefinedPlugIn(new PlugInDefinition {
     LoadTime = PlugInLoadTime.AtStartup,
+    Clock = TimeProvider.System,
     Acquisitions = [AppSettings.NudgeFollowsActiveDocument(static (resolution, snap, grid) => (snap, 2 * resolution, grid))],
     Commands = [
         static sink => new ArchCommand(sink, new Guid(0x6d076643, 0x514b, 0x42b3, 0xa7, 0x16, 0xec, 0x15, 0x57, 0xa0, 0x4d, 0xec), "CircularArch", "Select circular arch type", IterableNE.create<ArchChoice>(

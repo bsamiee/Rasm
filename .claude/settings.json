@@ -11,8 +11,9 @@
     "enableAllProjectMcpServers": true,
     "disabledMcpjsonServers": [ "greptile", "arena" ],
     "permissions": {
-        "deny": [ "mcp__rhino-mcp-platform__run_python", "mcp__rhino-mcp-platform__g1_*", "mcp__blender__*_for_cli" ]
+        "deny": [ "mcp__rhino-mcp-platform__run_python", "mcp__rhino-mcp-platform__g1_*", "mcp__blender__*_for_cli", "EnterWorktree", "Bash(git worktree *)" ]
     },
+    "worktree": { "bgIsolation": "none" },
     "hooks": {
         "SessionStart": [
             {

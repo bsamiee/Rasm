@@ -14,4 +14,4 @@ rule:
         - not: {matches: cfg-attribute}
         - not: {inside: {stopBy: end, kind: 'impl_item, mod_item', matches: cfg-attribute}}
 message: 'Inherent method `$NAME` holds an empty body'
-note: 'Delete the method and each call to it, a no-op member stands in for behavior the type lacks'
+note: 'Delete the method and each call to it'

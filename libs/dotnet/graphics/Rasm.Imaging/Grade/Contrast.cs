@@ -12,7 +12,7 @@ public readonly partial struct Contrast : IMinMaxValue<Contrast> {
     public static Contrast MaxValue { get; } = new(2f);
     public static Contrast Neutral { get; } = new(1f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "MiddleGrey", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -20,7 +20,7 @@ public readonly partial struct ContrastPivot : IMinMaxValue<ContrastPivot> {
     public static ContrastPivot MinValue { get; } = new((float)CurveAxis.Stops.Span.Low);
     public static ContrastPivot MaxValue { get; } = new((float)CurveAxis.Stops.Span.High);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 public sealed record ContrastGrade(Contrast Contrast, ContrastPivot Pivot, SignedFraction Vibrance, Magnitude Saturation)

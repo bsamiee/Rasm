@@ -16,7 +16,7 @@ public readonly partial struct WheelHue : IPresented<WheelHue, float> {
     public static WheelHue MaxValue { get; } = new(float.BitDecrement(float.Tau));
     public static Presentation<float> Presentation { get; } = new() { Unit = Quantity.GetUnitInfo(AngleUnit.Radian) };
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Neutral", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -25,7 +25,7 @@ public readonly partial struct WheelLuma : IPresented<WheelLuma, float> {
     public static WheelLuma MaxValue { get; } = new(3f);
     public static Presentation<float> Presentation { get; } = new() { Origin = (float)Neutral };
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 public readonly record struct WheelOffset(WheelHue Hue, AxisFraction Strength, WheelLuma Luma) : IStateRecord<WheelOffset, WheelOffsetParameter> {

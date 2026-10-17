@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-console-output-rust
+language: rust
+severity: error
+utils:
+    entry:
+        inside: {kind: function_item, stopBy: end, has: {field: name, regex: '^main$'}}
+    sink-crate:
+        inside: {kind: source_file, stopBy: end, has: {kind: use_declaration, regex: '\b(crossterm|ratatui|termion|console|indicatif|dialoguer|cursive|tui|env_logger|pretty_env_logger|fern|simplelog|simple_logger|tracing_subscriber|tracing_appender|log4rs|flexi_logger|slog_term|anstream|termcolor|owo_colors|colored|yansi)\b'}}
+    handed-over:
+        any:
+            - inside: {kind: arguments, stopBy: {not: {kind: 'reference_expression, parenthesized_expression'}}, not: {inside: {kind: call_expression, has: {field: function, regex: '(^|::)(Write::(write|write_all|write_fmt|write_vectored|flush)|copy)$'}}}}
+            - inside: {kind: field_initializer, field: value, stopBy: {not: {kind: 'reference_expression, parenthesized_expression'}}}
+            - inside: {kind: function_item, stopBy: end, has: {field: return_type, regex: '\b(Stdout|Stderr|StdoutLock|StderrLock|Write)\b'}}
+    stream-call:
+        kind: call_expression
+        all:
+            - has: {field: function, regex: '^((::)?std::)?(io::)?(stdout|stderr)$'}
+            - has: {field: arguments, not: {has: {pattern: $_}}}
+            - not: {inside: {kind: field_expression, field: value, has: {field: field, regex: '^(is_terminal|as_raw_fd|as_fd|as_raw_handle|as_handle)$'}}}
+            - not: {matches: handed-over}
+            - not: {inside: {kind: source_file, stopBy: end, regex: '^[(\[]'}}
+    stream-token:
+        kind: identifier
+        regex: '^(stdout|stderr)$'
+        precedes: {kind: token_tree, regex: '^\(\s*\)$'}
+    stream-macro:
+        kind: macro_invocation
+        all:
+            - matches: {rust-std-macro: {name: {regex: '^write(ln)?$'}}}
+            - has: {kind: token_tree, has: {matches: stream-token, precedes: {stopBy: end, regex: '^,$'}}}
+rule:
+    pattern: $OUT
+    all:
+        - any:
+            - matches: stream-call
+              any:
+                - has: {field: function, regex: 'stderr$'}
+                - not: {matches: entry}
+            - matches: stream-macro
+              any:
+                - has: {kind: token_tree, has: {matches: stream-token, regex: '^stderr$'}}
+                - not: {matches: entry}
+        - not: {matches: sink-crate}
+message: '`$OUT` writes a diagnostic outside the tracing subscriber or a result outside `main`'
+note: 'Emit a diagnostic as `tracing::<level>!(<fields>, "<message>")` and write a command-line result to stdout from `main`'

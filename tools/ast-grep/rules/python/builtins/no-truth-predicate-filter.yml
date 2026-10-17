@@ -56,5 +56,5 @@ rule:
         - matches: truth-predicate
     not: {has: {kind: comment, stopBy: end}}
 fix: None
-message: 'Replace redundant truth predicates with `None` to use `$FILTER`''s truth test'
-note: 'Identity and truth-conversion predicates repeat the built-in truth test; predicates containing comments stay unchanged'
+message: 'Truth predicate repeats the test `$FILTER` applies to a `None` predicate'
+note: 'Pass `None` as the predicate'

@@ -109,4 +109,4 @@ transform:
     CALL_FIX: rewrite($CALL, rewriters=[blocking-call])
 fix: $AWAITED_FIX$NESTED_FIX$CALL_FIX
 message: 'Blocking `$CALLEE` stalls a coroutine'
-note: 'Use `await anyio.<name>(<arguments>)`, the AnyIO function takes the same arguments and returns the same result. Rule reports calls under an unshadowed `anyio` import with no comment inside the callee'
+note: 'Call `await anyio.<name>(<arguments>)`, the AnyIO function taking the same arguments and returning the same result'

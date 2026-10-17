@@ -23,6 +23,8 @@ public sealed record Refused(string Member, string Reason) : Expected($"{Member}
 
     public static Fin<T> UnlessFound<T>(T? value, string member) where T : class => value is { } found ? found : new Refused(member, Absent);
 
+    public static Fin<T> UnlessFound<T>(T? value, string member) where T : struct => value is { } found ? found : new Refused(member, Absent);
+
     public static Fin<T> UnlessValid<T>(bool valid, T value, string member) => valid ? value : new Refused(member, Invalid);
 }
 

@@ -44,7 +44,7 @@ public sealed class PlugInSession(IO<Unit> flush) {
 
     private sealed record Held(Func<(Error Error, Type Owner, string Member), IO<Unit>> Post, Seq<IDisposable> Releases, HashMap<object, object> Slots);
 
-    public static Fin<PlugInSession> Of(IPlugInSink sink) => sink is IPlugInLifetime lifetime ? lifetime.Session : new NotFound("held service", nameof(PlugInSession));
+    public static Fin<PlugInSession> Of(IPlugInSink sink) => sink is IPlugInLifetime lifetime ? lifetime.Session : new NotFound("plug-in session", $"{sink}");
 
     private Fin<Unit> Changed(Func<Held, Held> change) => atomic(() => state.Swap(held => held.Map(change))).ToFin(Errors.Cancelled).Map(static _ => unit);
 
@@ -75,7 +75,7 @@ public sealed class PlugInSession(IO<Unit> flush) {
             .RunSafe();
 
     // --- [CLOSE]
-    public IO<Unit> Close => Callbacks.Each(Seq(Released, flush)).Map(unit).Uninterruptible();
+    public IO<Unit> Close => Callbacks.Each(Seq(Callbacks.Drained, Released, flush)).Map(unit).Uninterruptible();
 
     private IO<Unit> Released =>
         (from taken in atomicIO(() => {

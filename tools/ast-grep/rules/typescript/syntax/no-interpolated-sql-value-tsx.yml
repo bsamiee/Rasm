@@ -33,5 +33,5 @@ rule:
             any:
                 - follows: {kind: string_fragment, regex: "'$"}
                 - has: {stopBy: end, matches: quoting}
-message: '`$VALUE` splices a value into a quoted SQL literal, a bound parameter holds it'
-note: 'Keep the statement constant and bind each value as a parameter, through the Effect SQL client tagged template, the database then reads each value typed and unquoted'
+message: '`$VALUE` splices a value into a quoted SQL literal'
+note: 'Keep the statement constant and bind each value as a parameter through the Effect SQL client tagged template'

@@ -24,8 +24,9 @@ utils:
         inside: {kind: arrow_expression_clause, inside: {matches: unary}}
     owner:
         matches: unary
+        kind: method_declaration
         all:
-            - has: {field: name, pattern: $OWNER}
+            - has: {kind: modifier, regex: '^static$'}
             - has:
                 field: body
                 kind: arrow_expression_clause
@@ -34,40 +35,36 @@ utils:
                     - has: {pattern: '$_RECEIVER.$_METHOD($PARAMETER, $$$REST)'}
     plain-owner:
         matches: unary
+        kind: method_declaration
         all:
-            - has: {field: name, pattern: $OWNER}
+            - has: {kind: modifier, regex: '^static$'}
             - has: {field: body, kind: arrow_expression_clause, has: {pattern: '$RECEIVER.$METHOD($PARAMETER)'}}
     owned:
+        not: {has: {field: arguments, any: [{has: {kind: argument, has: {regex: '^(out|ref)$'}}}, {has: {kind: argument, nthChild: 1, has: {field: name, pattern: $_}}}]}}
         any:
             - all:
-                - pattern: $RECEIVER.$METHOD($ARGUMENT, $$$REST)
+                - pattern: $RECEIVER.$METHOD($_ARGUMENT, $$$REST)
                 - not: {matches: owner-body}
-                - inside: {kind: compilation_unit, stopBy: end, has: {stopBy: end, matches: owner}}
+                - inside: {kind: declaration_list, stopBy: end, inside: {kind: 'class_declaration, struct_declaration, record_declaration, interface_declaration'}, has: {matches: owner}}
             - all:
-                - pattern: $RECEIVER.$METHOD($ARGUMENT)
+                - pattern: $RECEIVER.$METHOD($_ARGUMENT)
                 - not: {matches: owner-body}
-                - inside: {kind: compilation_unit, stopBy: end, has: {stopBy: end, matches: plain-owner}}
+                - inside: {kind: declaration_list, stopBy: end, inside: {kind: 'class_declaration, struct_declaration, record_declaration, interface_declaration'}, has: {matches: plain-owner}}
             - all:
-                - pattern: $RECEIVER.$METHOD($ARGUMENT, $$$REST)
+                - pattern: $RECEIVER.$METHOD($_ARGUMENT, $$$REST)
                 - inside: {kind: arrow_expression_clause, inside: {matches: unary, follows: {stopBy: end, matches: owner}}}
             - all:
-                - pattern: $RECEIVER.$METHOD($ARGUMENT)
+                - pattern: $RECEIVER.$METHOD($_ARGUMENT)
                 - inside: {kind: arrow_expression_clause, inside: {matches: unary, follows: {stopBy: end, matches: plain-owner}}}
 rule:
     all:
         - pattern: $PARSE
         - matches: parse-call
-        - any:
-            - matches: owned
-            - all:
-                - pattern: $SAME
-                - not: {matches: owner-body}
-                - inside:
-                    stopBy: end
-                    matches: reader
-                    follows: {stopBy: end, has: {stopBy: end, matches: parse-call}}
-transform:
-    WRAPPED: {replace: {source: $ARGUMENT, replace: '^((?s).*)$', by: '($1)'}}
-fix: $OWNER$WRAPPED$SAME
+        - not: {matches: owner-body}
+        - not: {matches: owned}
+        - inside:
+            stopBy: end
+            matches: reader
+            follows: {stopBy: end, has: {stopBy: end, matches: parse-call}}
 message: '`$PARSE` repeats a parse an earlier reader of the file runs'
 note: Parse once at the owner of the text, a value object or smart enum member, and read the parsed value at every other reader

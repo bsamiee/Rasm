@@ -1,0 +1,110 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-linear-lookup-per-item
+language: csharp
+severity: error
+utils:
+    owner:
+        kind: 'method_declaration, local_function_statement, constructor_declaration, accessor_declaration, property_declaration, field_declaration'
+    sequence-type:
+        regex: '^(IEnumerable|IReadOnlyList|IReadOnlyCollection|IList|ICollection|List|ImmutableArray|ImmutableList|Seq|Lst|Arr|Iterable)\b|\[\]$'
+    item:
+        any:
+            - inside: {stopBy: {matches: owner}, kind: foreach_statement, has: {field: left, pattern: $ITEM}}
+            - inside: {stopBy: {matches: owner}, kind: for_statement, has: {field: initializer, has: {kind: variable_declarator, has: {field: name, pattern: $ITEM}}}}
+            - inside:
+                stopBy: {matches: owner}
+                kind: lambda_expression
+                all:
+                    - has: {field: parameters, any: [{kind: implicit_parameter, pattern: $ITEM}, {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $ITEM}}}]}
+                    - inside:
+                        kind: argument
+                        inside:
+                            kind: argument_list
+                            inside:
+                                kind: invocation_expression
+                                has:
+                                    field: function
+                                    kind: member_access_expression
+                                    any:
+                                        - has: {field: name, regex: '^(Select|SelectMany|Where|Count|Any|All|Sum|Average|Min|Max|MinBy|MaxBy|Aggregate|ToDictionary|ToLookup|GroupBy|OrderBy|OrderByDescending|ThenBy|ThenByDescending|ForEach|TakeWhile|SkipWhile|DistinctBy|ExceptBy|IntersectBy|UnionBy)$'}
+                                        - all:
+                                            - has: {field: name, regex: '^(Map|Filter|Bind|Choose|Iter|Fold|Exists|ForAll|Traverse|TraverseM|Partition|Find)$'}
+                                            - has:
+                                                field: expression
+                                                any:
+                                                    - matches: {csharp-declared-type: {type: {matches: sequence-type}}}
+                                                    - {kind: invocation_expression, has: {field: function, regex: '^(toSeq|Seq|toList|List|toArray|Array)$'}}
+    on-probe:
+        any:
+            - pattern: $PROBE
+            - has: {stopBy: end, kind: identifier, pattern: $PROBE}
+    on-item:
+        all:
+            - any: [{pattern: $ITEM}, {has: {stopBy: end, kind: identifier, pattern: $ITEM}}]
+            - not: {matches: on-probe}
+    keyed:
+        any:
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^==$'}
+                - any:
+                    - all: [{has: {field: left, matches: on-probe}}, {has: {field: right, matches: on-item}}]
+                    - all: [{has: {field: left, matches: on-item}}, {has: {field: right, matches: on-probe}}]
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Equals$'}}
+                - any:
+                    - all: [{has: {field: function, has: {field: expression, matches: on-probe}}}, {has: {field: arguments, has: {kind: argument, matches: on-item}}}]
+                    - all: [{has: {field: function, has: {field: expression, matches: on-item}}}, {has: {field: arguments, has: {kind: argument, matches: on-probe}}}]
+    probe:
+        kind: lambda_expression
+        all:
+            - has: {field: parameters, any: [{kind: implicit_parameter, pattern: $PROBE}, {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $PROBE}}}]}
+            - has: {field: body, any: [{matches: keyed}, {has: {stopBy: end, matches: keyed}}]}
+    scan:
+        kind: invocation_expression
+        any:
+            - all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(First|FirstOrDefault|Single|SingleOrDefault|Last|LastOrDefault|Any|All|Where|Find|FindIndex|FindLast|FindLastIndex|Exists|TrueForAll|Filter|Count|Choose)$'}}, {has: {field: expression, pattern: $SOURCE}}]}
+                - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: probe}}}
+            - all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Exists|Find|FindIndex|FindLast|FindLastIndex|FindAll|TrueForAll)$'}}, {has: {field: expression, regex: '^Array$'}}]}
+                - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, pattern: $SOURCE}}, {has: {kind: argument, nthChild: 2, has: {matches: probe}}}]}
+            - all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Contains|IndexOf|LastIndexOf)$'}}, {has: {field: expression, pattern: $SOURCE, matches: {csharp-declared-type: {type: {matches: sequence-type}}}}}]}
+                - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {any: [{pattern: $ITEM}, {has: {stopBy: end, kind: identifier, pattern: $ITEM}}]}}}
+    binds-item:
+        any:
+            - {kind: lambda_expression, has: {field: parameters, any: [{kind: implicit_parameter, pattern: $ITEM}, {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $ITEM}}}]}}
+            - {kind: foreach_statement, has: {field: left, pattern: $ITEM}}
+            - {kind: for_statement, has: {field: initializer, has: {kind: variable_declarator, has: {field: name, pattern: $ITEM}}}}
+    varies:
+        any:
+            - pattern: $ITEM
+            - has: {stopBy: end, kind: identifier, pattern: $ITEM}
+            - matches: inner-local
+            - has: {stopBy: end, matches: inner-local}
+    inner-local:
+        kind: identifier
+        pattern: $LOCAL
+        inside:
+            stopBy: end
+            any:
+                - {kind: lambda_expression, has: {field: parameters, any: [{kind: implicit_parameter, pattern: $LOCAL}, {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $LOCAL}}}]}}
+                - {kind: foreach_statement, has: {field: left, pattern: $LOCAL}}
+            has: {stopBy: end, pattern: $SCAN}
+            inside: {stopBy: end, matches: binds-item}
+rule:
+    kind: invocation_expression
+    all:
+        - pattern: $SCAN
+        - matches: item
+        - matches: scan
+        - not:
+            any:
+                - has: {field: function, kind: member_access_expression, has: {field: expression, not: {regex: '^Array$'}, matches: varies}}
+                - all:
+                    - has: {field: function, kind: member_access_expression, has: {field: expression, regex: '^Array$'}}
+                    - has: {field: arguments, has: {kind: argument, nthChild: 1, matches: varies}}
+message: '`$SCAN` scans `$SOURCE` once per `$ITEM`'
+note: 'Build one `ToDictionary`, `ToLookup`, `ToHashSet`, or `toHashMap` index of the scanned sequence before the loop, or pair both sides with `Join` or `GroupJoin`'

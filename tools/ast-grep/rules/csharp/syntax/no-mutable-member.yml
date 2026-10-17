@@ -38,16 +38,11 @@ rule:
                             - has: {kind: modifier, regex: '^(override|static)$'}
                             - matches: writable-collection-property
                             - has: {kind: explicit_interface_specifier}
-                            - all:
-                                - kind: property_declaration
-                                - has: {field: name, regex: '^Size$'}
-                                - has: {field: type, matches: {csharp-type-name: {name: {regex: '^SizeF$'}}}}
-                                - inside: {kind: declaration_list, inside: {kind: class_declaration, has: {kind: base_list, has: {matches: {csharp-type-name: {name: {regex: '^IResizableAttributes$'}}}}}}}
                     matches: member-owner
         - kind: field_declaration
           pattern: $FIELD
           all:
-            - not: {has: {kind: modifier, regex: '^(readonly|const|required)$'}}
+            - not: {has: {kind: modifier, regex: '^(readonly|const|required|static)$'}}
             - not: {matches: csharp-visible-member}
             - matches: record-owner
         - kind: field_declaration
@@ -83,4 +78,4 @@ transform:
     READONLY: {replace: {source: $DECLARATION, replace: '(?s)^(.*?)\b(partial\s+)?record(\s+struct)\b', by: '${1}readonly ${2}record${3}'}}
 fix: $INIT$READONLY_FIELD$REQUIRED_PROPERTY$READONLY
 message: '`$TYPE` holds a member that changes after construction'
-note: Use `init` accessors, `readonly` fields, and `readonly record struct`, a later change goes through `with` or a transition returning the next value
+note: Use `init` accessors, `readonly` fields, and `readonly record struct`, a later change goes through `with` or a transition returning the next value, and a setter a host interface requires takes an explicit interface implementation

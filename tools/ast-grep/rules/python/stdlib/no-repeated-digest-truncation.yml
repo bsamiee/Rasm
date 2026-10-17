@@ -46,5 +46,5 @@ rule:
 constraints:
     ALG: {regex: '^([''"]?)(md5|sha1|sha224|sha256|sha384|sha512|sha3_224|sha3_256|sha3_384|sha3_512|blake2b|blake2s)([''"]?)$'}
     DIGEST: {regex: '^(hex)?digest$'}
-message: '`$TRUNCATION` truncates a `$ALG` digest to `[$SLICE]` a second time in the file, one function from hashed bytes to truncated digest serves every site'
-note: 'Algorithm and length are one fact the function body states once, and no site states the name and module a template would give that function'
+message: '`$TRUNCATION` truncates a `$ALG` digest to `[$SLICE]` a second time in the file'
+note: 'Declare one function from hashed bytes to truncated digest stating algorithm and length once, and call it at every site'

@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: languageext-bind-callback
+language: csharp
+arguments: [value, body]
+utils:
+    unary-parameters:
+        any:
+            - kind: implicit_parameter
+              matches: value
+            - kind: parameter_list
+              all:
+                - has: {kind: parameter, has: {field: name, matches: value}, not: {has: {kind: 'modifier, attribute_list'}}}
+                - not: {has: {kind: parameter, nthChild: 2}}
+    callback:
+        any:
+            - kind: lambda_expression
+              all:
+                - has: {field: parameters, matches: unary-parameters}
+                - not: {has: {kind: modifier, regex: '^async$'}}
+                - not: {has: {field: type, pattern: $_}}
+                - has: {field: body, matches: body}
+            - kind: anonymous_method_expression
+              all:
+                - has: {field: parameters, matches: unary-parameters}
+                - has: {kind: block, matches: body}
+rule:
+    kind: invocation_expression
+    all:
+        - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Bind|SelectMany)(\s*<.+>)?$'}}
+        - has:
+            field: arguments
+            all:
+                - not: {has: {kind: argument, nthChild: 2}}
+                - has: {kind: argument, not: {has: {field: name, pattern: $_}}, has: {matches: callback}}

@@ -45,7 +45,7 @@ public readonly partial struct ProgressFraction : System.Numerics.IMinMaxValue<P
     public static ProgressFraction MinValue { get; } = new(0f);
     public static ProgressFraction MaxValue { get; } = new(1f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

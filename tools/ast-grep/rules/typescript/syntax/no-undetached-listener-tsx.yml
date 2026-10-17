@@ -24,4 +24,4 @@ rule:
             - not: {has: {field: arguments, has: {nthChild: 3, has: {stopBy: end, kind: 'property_identifier, shorthand_property_identifier', regex: '^signal$'}}}}
             - not: {inside: {kind: program, stopBy: end, has: {stopBy: end, matches: removal, has: {field: arguments, has: {nthChild: 2, pattern: $HANDLER, not: {kind: 'arrow_function, function_expression'}}}}}}
 message: '`$TARGET` keeps the `$EVENT` listener attached'
-note: 'Remove the listener with the function it was added with when its owner closes, or register it with `{ signal }` and abort the `AbortController`. A removal given a new function matches no listener, and a listener a function adds to a global stays once per call'
+note: 'Remove the listener with the function it was added with when its owner closes, or register it with `{ signal }` and abort the `AbortController`, a removal given a new function matching no listener'

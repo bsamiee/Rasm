@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-duplicate-project-instance
+language: xml
+severity: error
+files: ['**/*.{csproj,props,targets}']
+utils:
+    shared-output-properties:
+        regex: '[^"''\s]'
+        not:
+            any:
+                - regex: '(?i)(^["'']?|;)\s*(OutputPath|OutDir|BaseOutputPath|IntermediateOutputPath|BaseIntermediateOutputPath|ArtifactsPath|ArtifactsPivots|ArtifactsProjectName)\s*='
+                - regex: '(?i)^["'']?\s*(?:(?:Configuration|TargetFramework|RuntimeIdentifier)\s*=[^;"'']*;?\s*)+["'']?$'
+rule:
+    any:
+        - all:
+            - matches: {msbuild-element: {name: {regex: '^MSBuild$'}}}
+            - matches: {msbuild-metadata: {name: {regex: '^Properties$'}, value: {matches: shared-output-properties, pattern: _PROPERTIES}}}
+            - not: {matches: {msbuild-metadata: {name: {regex: '^Targets$'}, value: {regex: '^["'']\s*(?:Get[A-Za-z]+\s*;?\s*)+["'']$'}}}}
+        - all:
+            - inside: {kind: content, inside: {matches: {msbuild-element: {name: {regex: '^(ItemGroup|ItemDefinitionGroup)$'}}}}}
+            - matches: {msbuild-metadata: {name: {regex: '^AdditionalProperties$'}, value: {matches: shared-output-properties, pattern: _PROPERTIES}}}
+transform:
+    PROPERTIES_TEXT: {replace: {source: $PROPERTIES, replace: '^["'']|["'']$', by: ''}}
+message: 'Global properties `$PROPERTIES_TEXT` the output path lacks build a second project instance into shared output directories'
+note: Pivot output paths on the property through `ArtifactsPivots`, or run the target in one instance through `DependsOnTargets`

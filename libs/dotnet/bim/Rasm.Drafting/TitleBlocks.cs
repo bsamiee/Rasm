@@ -34,10 +34,10 @@ public sealed partial class RevisionIndex {
         ordinal is 0 ? "" : Spell(symbols, (ordinal - 1) / symbols.Length) + symbols[(ordinal - 1) % symbols.Length];
 
     private static Fin<RevisionIndex> Admitted(RevisionAlphabet alphabet, int ordinal) =>
-        Admission.Admitted(Validate(alphabet, ordinal, out RevisionIndex? index), index);
+        ValidationResults.ToFin(Validate(alphabet, ordinal, out RevisionIndex? index), index);
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref RevisionAlphabet alphabet, ref int ordinal) =>
-        validationError = Admission.Refusal(ordinal, 1, alphabet.Count);
+        validationError = ValidationResults.OutsideRange(ordinal, 1, alphabet.Count);
 }
 
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]

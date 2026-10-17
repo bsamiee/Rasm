@@ -224,5 +224,4 @@ transform:
     FIXED: {rewrite: {source: $NODE, rewriters: [grouped, json-operator, operator, prefixed, included, limited, insertion, joined, committed, selected, temp, star, starred, renamed, compared, null-identity, is-null, is-not-null]}}
 fix: $FIXED
 message: '`$NODE` is a second spelling of `$FIXED`'
-note: >-
-    Use the fix's spelling, one spelling per operation SQLite and DuckDB both read. Null-safe comparison keeps two spellings, `is` for SQLite text DuckDB's bundled SQLite 3.38.1 parses, `is not distinct from` for DuckDB SQL. Scalar CASE and iif remain because Cloudflare D1 rejects if through its function authorizer
+note: 'Write the fix''s spelling, the one SQLite and DuckDB both read. Null-safe comparison keeps `is` in SQLite text and `is not distinct from` in DuckDB SQL. Scalar `case` and `iif` stay, Cloudflare D1''s function authorizer rejects `if`'

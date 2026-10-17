@@ -16,7 +16,7 @@ public readonly partial struct HatchScale : System.Numerics.IMinMaxValue<HatchSc
     public static HatchScale MaxValue { get; } = new(double.MaxValue);
     public static HatchScale Unit { get; } = new(1.0);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 public sealed record HatchFill(ComponentRef<HatchPattern> Pattern, double Rotation, HatchScale Scale);

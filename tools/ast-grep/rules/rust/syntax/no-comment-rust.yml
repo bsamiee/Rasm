@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-comment-rust
+language: rust
+severity: error
+rule:
+    kind: 'line_comment, block_comment'
+    pattern: $COMMENT
+    not: {any: [{regex: '^// --- \[[A-Z][A-Z0-9_]*\]( -+)?$'}, {matches: rust-macro-argument}]}
+transform:
+    TEXT: {replace: {source: $COMMENT, replace: '\s+$', by: ''}}
+message: '`$TEXT` comments code outside a section divider'
+note: 'Delete the comment, doc and suppression comments and commented-out code included, and state its fact in a name or type, keeping `// --- [<SECTION>] ---` and `// --- [<FAMILY>]` dividers'

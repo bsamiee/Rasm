@@ -287,7 +287,7 @@ public static class EffectPipeline {
     public static Option<PixelPass> Staged<TState>(EffectValue<TState> value, PassContext context) where TState : IPixelStage<TState> =>
         value.Amount.Contains(AxisFraction.MinValue)
             ? None
-            : TState.Pass(value.Record, context).Map(pass => value.Amount.Map(mix => Blend.Mixed(pass, BlendingMode.Mix, mix, [])).IfNone(pass));
+            : TState.Pass(value.Record, context).Bind(pass => Blend.Mixed(pass, BlendingMode.Mix, value.Amount.IfNone(AxisFraction.MaxValue), []));
 
     private static IO<(PassContext Pass, Seq<PostEffect> Order, Option<PositiveMagnitude> Gamma, RenderRun Run)> Context<TState>(PostEffectPipeline pipeline, PostEffectType stage, EffectValue<TState> value, Derivations derivations)
         where TState : IPixelStage<TState> =>

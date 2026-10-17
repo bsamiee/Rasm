@@ -80,5 +80,5 @@ rewriters:
 transform:
     FIXED: {rewrite: {source: $FIXABLE, rewriters: [ordered, unwrapped]}}
 fix: $FIXED$KEPT
-message: '`$AGGREGATE` reads rows in an order `$SUBQUERY` sets and the aggregate does not keep'
+message: '`$AGGREGATE` relies on a row order `$SUBQUERY` sets and the aggregate ignores'
 note: 'Move `order by` from the subquery or common table expression into the aggregate call as `<aggregate>(<arguments> order by <key>)`, SQLite and DuckDB order aggregate input by an in-call `order by` alone'

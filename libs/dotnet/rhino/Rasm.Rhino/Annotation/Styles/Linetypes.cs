@@ -68,7 +68,7 @@ public sealed record LinetypeSettings(
 
 public sealed record LinetypeDefinition(LinetypeSettings Settings, Option<LinetypeShapes> Shapes) {
     public static Fin<LinetypeDefinition> Of(LineType type, LineWidth width) =>
-        Admission.Admitted(LinetypePattern.Validate(toSeq(type.Pattern(width)), out LinetypePattern? pattern), pattern).Map(held => new LinetypeDefinition(
+        ValidationResults.ToFin(LinetypePattern.Validate(toSeq(type.Pattern(width)), out LinetypePattern? pattern), pattern).Map(held => new LinetypeDefinition(
             new LinetypeSettings(held, new LinetypeWidth.Distance(width.Width, None), LineCapStyle.Flat, LineJoinStyle.Round, AlwaysModelDistances: false, HashMap<EqStringOrdinalIgnoreCase, string, string>()),
             None));
 }
@@ -81,7 +81,7 @@ public static partial class Linetypes {
     // --- [READS]
     public static IO<LinetypeDefinition> Definition(Linetype linetype) =>
         IO.lift(() =>
-            from pattern in Admission.Admitted(LinetypePattern.Validate(Segments(linetype), out LinetypePattern? held), held)
+            from pattern in ValidationResults.ToFin(LinetypePattern.Validate(Segments(linetype), out LinetypePattern? held), held)
             from width in Width(linetype, toSeq(linetype.GetTaperPoints()))
             select new LinetypeDefinition(
                 new LinetypeSettings(pattern, width, linetype.LineCapStyle, linetype.LineJoinStyle, linetype.AlwaysModelDistances, UserStrings.Held(linetype.GetUserStrings())),
@@ -119,7 +119,7 @@ public static partial class Linetypes {
          from end in points.Last
          select (Start: start, End: end))
             .Traverse(K<Fin, LinetypeTaper<TWidth>> (ends) =>
-                Admission.Admitted(LinetypeTaper<TWidth>.Validate(width(ends.Start.Y), points.Tail.Init.Head.Map(point => (point.X, width(point.Y))), width(ends.End.Y), out LinetypeTaper<TWidth>? taper), taper))
+                ValidationResults.ToFin(LinetypeTaper<TWidth>.Validate(width(ends.Start.Y), points.Tail.Init.Head.Map(point => (point.X, width(point.Y))), width(ends.End.Y), out LinetypeTaper<TWidth>? taper), taper))
             .As();
 
     // --- [WRITES]
@@ -185,7 +185,7 @@ public static partial class Linetypes {
     public static IO<LinetypePattern> Parse(string text, bool millimeters) =>
         DisposalOps.Within(() => Linetype.CreateFromPatternString(text, millimeters), native =>
          from parsed in IO.lift(() => Optional(native).ToFin(Errors.ParseError($"{nameof(Linetype)}.{nameof(Linetype.CreateFromPatternString)} parsed no whole value from {text}")))
-         from pattern in IO.lift(() => Admission.Admitted(LinetypePattern.Validate(Segments(parsed), out LinetypePattern? value), value))
+         from pattern in IO.lift(() => ValidationResults.ToFin(LinetypePattern.Validate(Segments(parsed), out LinetypePattern? value), value))
          select pattern, static native => DisposalOps.Release(native));
 
     public static IO<string> Text(LinetypePattern pattern, bool millimeters) =>

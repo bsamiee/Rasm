@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-validation-conversion-by-hand
+language: csharp
+severity: error
+rule:
+    kind: invocation_expression
+    pattern: $CROSSING
+    all:
+        - has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Error$'}, member: {regex: '^New$'}}}}
+        - has:
+            field: arguments
+            all:
+                - has: {kind: argument, nthChild: 1, has: {matches: {csharp-owner-member: {type: {regex: '^ErrorCodes$'}, member: {regex: '^ValidationFailed$'}}}}}
+                - has: {kind: argument, nthChild: 2, has: {kind: member_access_expression, has: {field: name, regex: '^Message$'}}}
+                - not: {has: {kind: argument, nthChild: 3}}
+        - not: {inside: {stopBy: end, kind: class_declaration, has: {field: name, regex: '^ValidationResults$'}}}
+message: "`$CROSSING` converts a Thinktecture `ValidationError` message into an `Error` by hand"
+note: Call `ValidationResults.ToFin(<validation error>, <value>)`, the conversion `<type>.Validated(<raw>)` runs, and delete a helper whose body is the conversion

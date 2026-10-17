@@ -4,17 +4,46 @@ language: csharp
 severity: error
 utils:
     unreachable:
-        kind: throw_expression, throw_statement
+        kind: 'throw_expression, throw_statement'
         has: {kind: object_creation_expression, has: {field: type, matches: {csharp-type-name: {name: {regex: '^UnreachableException$'}}}}}
-        not: {inside: {kind: switch_expression_arm, stopBy: {kind: 'lambda_expression, anonymous_method_expression'}}}
+        not: {inside: {kind: switch_expression_arm, stopBy: &function {kind: 'lambda_expression, anonymous_method_expression, local_function_statement'}}}
+    throwing-helper:
+        kind: 'method_declaration, local_function_statement'
+        has: {field: body, has: {stopBy: *function, matches: unreachable}}
+    helper-name:
+        any:
+            - kind: identifier
+              pattern: $HELPER
+            - kind: generic_name
+              has: {kind: identifier, nthChild: 1, pattern: $HELPER}
+    helper-group:
+        matches: helper-name
+        inside:
+            stopBy: end
+            kind: compilation_unit
+            has: {stopBy: end, matches: throwing-helper, has: {field: name, pattern: $HELPER}}
+    arm:
+        any:
+            - kind: 'lambda_expression, anonymous_method_expression'
+              has:
+                stopBy: *function
+                any:
+                    - matches: unreachable
+                    - matches: {csharp-file-method-call: {declaration: {matches: throwing-helper}}}
+            - matches: helper-group
+            - kind: member_access_expression
+              has: {field: name, matches: helper-group}
+    arm-call:
+        kind: 'identifier, generic_name, member_access_expression'
+        regex: '(^|\.)\s*(Switch|SwitchPartially|Map|MapPartially|Match|MatchUnsafe|BiMap|BiBind|IfNone|IfNoneUnsafe|IfFail|IfLeft|IfRight|match|ifNone|ifNoneUnsafe|ifLeft|ifRight)(\s*<.+>)?$'
 rule:
     kind: argument
     all:
-        - has: {kind: 'lambda_expression, anonymous_method_expression', has: {stopBy: {kind: 'lambda_expression, anonymous_method_expression, local_function_statement'}, matches: unreachable}}
+        - has: {matches: arm}
         - inside:
             kind: argument_list
             inside:
                 kind: invocation_expression
-                has: {field: function, pattern: $CALL, regex: '(^|\.)\s*(Switch|SwitchPartially|Map|MapPartially|Match|MatchUnsafe|BiMap|BiBind|IfNone|IfNoneUnsafe|IfFail|IfLeft|IfRight)(\s*<.+>)?$'}
-message: 'Arm of `$CALL` throws `UnreachableException` for a case its value admits and the caller never receives'
-note: Use a union or request type parameterized by the cases each call accepts
+                has: {field: function, pattern: $CALL, matches: arm-call}
+message: 'Arm of `$CALL` throws `UnreachableException` for a case its value admits'
+note: 'Narrow the value to a union or request type holding the cases the call handles, every arm then returns a value'

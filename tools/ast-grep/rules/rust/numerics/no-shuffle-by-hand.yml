@@ -4,18 +4,31 @@ language: rust
 severity: error
 utils:
     covering-range:
-        kind: range_expression
         any:
-            - pattern: $_..=$I
-            - pattern: ..=$I
-            - pattern: $_..$I + 1
-            - pattern: $I..$_
-            - pattern: $I..=$_
+            - kind: range_expression
+              any:
+                - pattern: $_..=$I
+                - pattern: $_..$I + 1
+                - pattern: $I..$_
+                - pattern: $I..=$_
+            - kind: assignment_expression
+              all:
+                - has: {field: left, kind: range_expression, regex: '^\.\.$'}
+                - has: {field: right, pattern: $I}
     draw:
-        kind: call_expression
-        all:
-            - has: {field: function, kind: field_expression, has: {field: field, regex: '^(random_range|gen_range)$'}}
-            - has: {field: arguments, has: {nthChild: 1, matches: covering-range}}
+        any:
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, has: {field: field, regex: '^(random_range|gen_range|usize|u32|u64)$'}}
+                - has: {field: arguments, has: {nthChild: 1, matches: covering-range}}
+            - kind: call_expression
+              all:
+                - has: {field: function, regex: '(^|::)(random_range|gen_range)$|^((::)?fastrand::)usize$'}
+                - has: {field: arguments, has: {matches: covering-range}}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^%$'}
+                - has: {field: right, any: [{pattern: $I + 1}, {kind: parenthesized_expression, has: {pattern: $I + 1}}]}
     drawn:
         any:
             - matches: draw
@@ -38,4 +51,4 @@ rule:
                 - has: {field: arguments, has: {nthChild: 2, kind: identifier, pattern: $I}}
                 - has: {field: arguments, has: {nthChild: 1, matches: drawn}}
 message: '`$SWAP` steps a Fisher-Yates shuffle by hand'
-note: 'Shuffle through rand: `values.shuffle(&mut rng)` from `rand::seq::SliceRandom`, or `values.partial_shuffle(&mut rng, amount)` for a prefix. A swap with an index below `i` alone is a cyclic permutation and stays as written'
+note: 'Call `<values>.shuffle(&mut <rng>)` from `rand::seq::SliceRandom`, or `<values>.partial_shuffle(&mut <rng>, <amount>)` for a prefix'

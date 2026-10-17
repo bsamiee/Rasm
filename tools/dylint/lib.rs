@@ -9,17 +9,18 @@ extern crate rustc_hir;
 extern crate rustc_lexer;
 extern crate rustc_lint;
 extern crate rustc_middle;
+extern crate rustc_parse_format;
 extern crate rustc_session;
 extern crate rustc_span;
 
-use core::{cell::RefCell, iter, ops::ControlFlow};
+use core::{iter, ops::ControlFlow};
 
 use clippy_utils::{
-    SpanlessEq, fn_def_id, get_expr_use_site, get_parent_expr,
+    fn_def_id, get_expr_use_site, get_parent_expr, is_from_proc_macro,
     macros::macro_backtrace,
     paths::{PathNS, lookup_path_str},
     peel_blocks,
-    res::{MaybeDef as _, MaybeResPath as _, MaybeTypeckRes as _},
+    res::{MaybeDef as _, MaybeResPath as _},
     sym,
     ty::{implements_trait, is_copy},
     visitors::{Visitable, for_each_expr},
@@ -27,18 +28,19 @@ use clippy_utils::{
 use rustc_abi::FieldIdx;
 use rustc_attr_ir::lang_items::LangItem;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet, FxIndexMap};
+use rustc_errors::{Applicability, Diag, DiagMessage};
 use rustc_hir::{
-    Body, BodyId, CoroutineDesugaring, CoroutineKind, Expr, ExprKind, HirId, Mutability, Node, Pat, PatKind, StructTailExpr, UnOp,
+    Body, BodyId, Expr, ExprKind, HirId, Mutability, Node, Pat, PatKind, UnOp,
     def::{CtorKind, DefKind, Res},
     def_id::{DefId, LocalDefId},
     pat_util::EnumerateAndAdjustIterator as _,
 };
 use rustc_lint::LateContext;
 use rustc_middle::ty::{
-    self, AdtDef, Binder, BottomUpFolder, Clause, FieldDef, FnSig, Interner as _, PolyTraitClause, Ty, TyCtxt, TypeFoldable, TypeckResults, TypingEnv, Unnormalized, VariantDef,
+    self, AdtDef, Clause, FieldDef, FnSig, Interner as _, PolyTraitClause, Ty, TyCtxt, TypeckResults, TypingEnv, Unnormalized, VariantDef,
     adjustment::{Adjust, AutoBorrow, DerefAdjustKind, PointerCoercion},
 };
-use rustc_span::{MacroKind, Span, Symbol, SyntaxContext};
+use rustc_span::{ExpnKind, FileName, MacroKind, RemapPathScopeComponents, Span, Symbol};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -65,16 +67,11 @@ impl Place {
         }
     }
 
-    fn name(self, cx: &LateContext<'_>) -> Symbol {
-        match self {
-            Self::Field(item) | Self::Static(item) => cx.tcx.item_name(item),
-            Self::Local(binding) | Self::Parameter(binding) => cx.tcx.hir_name(binding),
-        }
-    }
+    fn name(self, cx: &LateContext<'_>) -> Symbol { cx.tcx.hir_name(self.hir_id(cx)) }
 
     fn exported(self, cx: &LateContext<'_>) -> bool {
         match self {
-            Self::Field(item) | Self::Static(item) => cx.effective_visibilities.is_exported(item),
+            Self::Field(item) | Self::Static(item) => exported(cx, item),
             Self::Local(_) | Self::Parameter(_) => false,
         }
     }
@@ -89,76 +86,65 @@ enum Access<'tcx> {
     Assigned(&'tcx Expr<'tcx>),
 }
 
+impl Access<'_> {
+    const fn writes(self) -> bool {
+        match self {
+            Self::Mutated | Self::Assigned(_) => true,
+            Self::Copied | Self::Borrowed | Self::Moved => false,
+        }
+    }
+}
+
 #[derive(Clone, Copy)]
 enum Upcast {
     Supertrait(DefId),
     Any,
 }
 
-struct Ledger<U> {
-    places: FxIndexMap<Place, Option<U>>,
-}
-
-impl<U> Default for Ledger<U> {
-    fn default() -> Self { Self { places: FxIndexMap::default() } }
-}
-
-impl<U> Ledger<U> {
-    fn record<F>(&mut self, place: Place, usage: F) -> Option<&mut U>
-    where F: FnOnce() -> U {
-        self.places.entry(place).or_insert_with(|| Some(usage())).as_mut()
-    }
-
-    fn escape(&mut self, place: Place) { self.places.insert(place, None); }
-
-    fn escape_bound<'tcx, F>(&mut self, cx: &LateContext<'tcx>, pat: &'tcx Pat<'tcx>, kept: F)
-    where F: Fn(Ty<'tcx>) -> bool {
-        let bound = pattern_fields(cx.typeck_results(), pat)
-            .filter(|(_, bound)| !matches!(bound.kind, PatKind::Wild))
-            .filter_map(|(field, _)| field.as_local())
-            .filter(|&field| kept(cx.tcx.type_of(field).instantiate_identity().skip_normalization()));
-        for field in bound {
-            self.escape(Place::Field(field));
-        }
-    }
-
-    fn held<'ledger>(&'ledger self, cx: &LateContext<'_>) -> impl Iterator<Item = (Place, &'ledger U)> {
-        self.places.iter().filter_map(|(&place, usage)| Some((place, usage.as_ref()?))).filter(|&(place, _)| !place.exported(cx) && !place.span(cx).from_expansion())
-    }
-}
-
-// --- [SERVICES] ------------------------------------------------------------------------
-
-struct Polling {
-    offloads: FxHashSet<DefId>,
-}
-
-impl Polling {
-    fn new(tcx: TyCtxt<'_>) -> Self { Self { offloads: paths(tcx, PathNS::Value, &["std::thread::Scope::spawn"]) } }
-
-    fn polled(&self, cx: &LateContext<'_>, body: LocalDefId) -> bool {
-        let offloaded = |closure: &Expr<'_>| {
-            get_parent_expr(cx, closure).and_then(|call| parameter_of(cx, call, closure)).is_some_and(|(callee, input)| {
-                self.offloads.contains(&callee)
-                    || cx
-                        .tcx
-                        .clauses_of(callee)
-                        .clauses
-                        .iter()
-                        .filter_map(|(clause, _)| clause.as_type_outlives_clause())
-                        .map(Binder::skip_binder)
-                        .any(|outlives| outlives.0 == input && outlives.1.is_static())
-            })
-        };
-        match cx.tcx.coroutine_kind(body) {
-            Some(CoroutineKind::Desugared(CoroutineDesugaring::Async | CoroutineDesugaring::AsyncGen, _)) => true,
-            Some(_) => false,
-            None => matches!(cx.tcx.hir_node_by_def_id(body), Node::Expr(closure) if !offloaded(closure) && self.polled(cx, cx.tcx.hir_enclosing_body_owner(closure.hir_id))),
-        }
-    }
-}
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
+// --- [ORIGINS]
+fn workspace_def(cx: &LateContext<'_>, item: DefId) -> bool {
+    let source_map = cx.tcx.sess.source_map();
+    item.is_local()
+        || matches!(source_map.span_to_filename(cx.tcx.def_span(item)), FileName::Real(file)
+            if source_map.working_dir().local_path().is_some_and(|root| file.embeddable_name(RemapPathScopeComponents::DIAGNOSTICS).1.starts_with(root)))
+}
+
+fn expanded_externally(cx: &LateContext<'_>, span: Span) -> bool {
+    span.macro_backtrace().any(|expansion| !matches!(expansion.kind, ExpnKind::Macro(MacroKind::Bang, _)) || !expansion.macro_def_id.is_some_and(|written| workspace_def(cx, written)))
+}
+
+fn derived(tcx: TyCtxt<'_>, item: DefId) -> bool {
+    matches!(tcx.expn_that_defined(item).expn_data().kind, ExpnKind::Macro(MacroKind::Derive, _)) || macro_backtrace(tcx.def_span(item)).any(|call| call.kind == MacroKind::Derive)
+}
+
+fn derived_impl(tcx: TyCtxt<'_>, implementation: DefId) -> bool { tcx.is_automatically_derived(implementation) && derived(tcx, implementation) }
+
+fn exported(cx: &LateContext<'_>, item: LocalDefId) -> bool { cx.tcx.entry_fn(()).is_none() && cx.effective_visibilities.is_exported(item) }
+
+fn suggest<M, R>(cx: &LateContext<'_>, node: HirId, diag: &mut Diag<'_>, span: Span, help: M, replacement: R, applicability: Applicability)
+where
+    M: Into<DiagMessage>,
+    R: ToString,
+{
+    let generated = match cx.tcx.hir_node(node) {
+        Node::Expr(expr) => is_from_proc_macro(cx, expr),
+        Node::Pat(pat) => is_from_proc_macro(cx, pat),
+        Node::Item(item) => is_from_proc_macro(cx, item),
+        Node::TraitItem(item) => is_from_proc_macro(cx, item),
+        Node::ImplItem(item) => is_from_proc_macro(cx, item),
+        Node::Field(field) => is_from_proc_macro(cx, field),
+        Node::Variant(variant) => is_from_proc_macro(cx, variant),
+        Node::Ty(ty) => is_from_proc_macro(cx, ty),
+        _ => false,
+    };
+    if span.from_expansion() || generated {
+        diag.span_help(span, help);
+    } else {
+        diag.span_suggestion(span, help, replacement, applicability);
+    }
+}
 
 // --- [PATHS]
 fn resolve<T>(tcx: TyCtxt<'_>, namespace: PathNS, table: &[(&str, T)]) -> FxHashMap<DefId, T>
@@ -186,7 +172,7 @@ fn result_parts<'tcx>(cx: &LateContext<'tcx>, ty: Ty<'tcx>) -> Option<(Ty<'tcx>,
 fn pointee<'tcx>(cx: &LateContext<'tcx>, ty: Ty<'tcx>) -> Ty<'tcx> {
     let referent = ty.peel_refs();
     if let ty::Adt(owner, args) = referent.kind()
-        && (owner.is_box() || [sym::Arc, sym::Rc, sym::Cow].into_iter().any(|name| owner.is_diag_item(cx, name)))
+        && (owner.is_box() || matches!(owner.opt_diag_name(cx), Some(sym::Arc | sym::Rc | sym::Cow)))
         && let Some(inner) = args.types().next()
     {
         inner
@@ -203,34 +189,20 @@ fn is_text<'tcx>(cx: &LateContext<'tcx>, ty: Ty<'tcx>) -> bool {
 fn is_error<'tcx>(cx: &LateContext<'tcx>, ty: Ty<'tcx>) -> bool { cx.tcx.get_diagnostic_item(sym::Error).is_some_and(|error| implements_trait(cx, pointee(cx, ty), error, &[])) }
 
 fn derives<'tcx>(cx: &LateContext<'tcx>, ty: Ty<'tcx>, derived: Symbol) -> bool {
-    cx.tcx.get_diagnostic_item(derived).is_some_and(|implemented| cx.tcx.non_blanket_impls_for_ty(implemented, ty).any(|implementation| cx.tcx.is_automatically_derived(implementation)))
+    cx.tcx.get_diagnostic_item(derived).is_some_and(|implemented| cx.tcx.non_blanket_impls_for_ty(implemented, ty).any(|implementation| derived_impl(cx.tcx, implementation)))
 }
 
 fn signature(tcx: TyCtxt<'_>, item: DefId) -> FnSig<'_> {
     tcx.instantiate_bound_regions_with_erased(tcx.normalize_erasing_regions(TypingEnv::non_body_analysis(tcx, item), tcx.fn_sig(item).instantiate_identity()))
 }
 
-fn delivered(tcx: TyCtxt<'_>, item: DefId) -> Ty<'_> {
+fn awaited_output(tcx: TyCtxt<'_>, item: DefId) -> Ty<'_> {
     let output = signature(tcx, item).output();
     tcx.get_impl_future_output_ty(output).and_then(|future| tcx.try_normalize_erasing_regions(TypingEnv::non_body_analysis(tcx, item), Unnormalized::new(future)).ok()).unwrap_or(output)
 }
 
 fn bounds_of<'tcx>(tcx: TyCtxt<'tcx>, item: DefId, param: Ty<'tcx>) -> impl Iterator<Item = PolyTraitClause<'tcx>> {
     tcx.param_env(item).caller_bounds().filter_map(Clause::as_trait_clause).filter(move |bound| bound.self_ty().skip_binder() == param)
-}
-
-fn boxed_future<'tcx>(cx: &LateContext<'tcx>, output: Ty<'tcx>) -> Option<bool> {
-    if let ty::Adt(pin, pinned) = output.kind()
-        && pin.is_lang_item(cx, LangItem::Pin)
-        && let ty::Adt(boxed, boxed_args) = pinned.type_at(0).kind()
-        && boxed.is_box()
-        && let ty::Dynamic(predicates, ..) = boxed_args.type_at(0).kind()
-        && predicates.principal_def_id().is_some_and(|principal| cx.tcx.is_lang_item(principal, LangItem::Future))
-    {
-        Some(predicates.auto_traits().any(|auto| cx.tcx.is_diagnostic_item(sym::Send, auto)))
-    } else {
-        None
-    }
 }
 
 fn upcast(cx: &LateContext<'_>, method: LocalDefId) -> Option<Upcast> {
@@ -308,40 +280,7 @@ fn access<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) -> Access<'tcx> 
 
 fn cloned<'tcx>(cx: &LateContext<'tcx>, call: &'tcx Expr<'tcx>) -> Option<&'tcx Expr<'tcx>> {
     let (ExprKind::Call(_, &[Expr { kind: ExprKind::AddrOf(_, Mutability::Not, source), .. }]) | ExprKind::MethodCall(_, source, [], _)) = call.kind else { return None };
-    fn_def_id(cx, call).and_then(|clone| cx.tcx.trait_of_assoc(clone)).is_some_and(|clone| clone.is_diag_item(cx, sym::Clone)).then_some(source)
-}
-
-fn held<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) -> Option<(Place, Ty<'tcx>)> {
-    match place(cx, expr)? {
-        held @ (Place::Field(item) | Place::Static(item)) => Some((held, cx.tcx.type_of(item).instantiate_identity().skip_normalization())),
-        Place::Local(binding) if let Node::LetStmt(local) = cx.tcx.parent_hir_node(binding) => {
-            let bound = cx.typeck_results().node_type(binding);
-            if let ty::Adt(shared, args) = bound.kind()
-                && shared.is_diag_item(cx, sym::Arc)
-            {
-                local.init.and_then(|init| cloned(cx, init)).map_or_else(
-                    || {
-                        local
-                            .init
-                            .and_then(|init| fn_def_id(cx, init))
-                            .filter(|&built| cx.tcx.item_name(built) == sym::new && impl_owner(cx.tcx, built).is_some_and(|owner| owner.is_diag_item(cx, sym::Arc)))
-                            .map(|_| (Place::Local(binding), args.type_at(0)))
-                    },
-                    |source| held(cx, source),
-                )
-            } else {
-                Some((Place::Local(binding), bound))
-            }
-        }
-        Place::Local(_) | Place::Parameter(_) => None,
-    }
-}
-
-fn rebound(cx: &LateContext<'_>, expr: &Expr<'_>) -> bool {
-    get_parent_expr(cx, expr).and_then(|parent| if let ExprKind::AddrOf(..) = parent.kind { get_parent_expr(cx, parent) } else { Some(parent) }).is_some_and(|call| {
-        cloned(cx, call).is_some_and(|source| source.hir_id == expr.hir_id)
-            && matches!(cx.tcx.parent_hir_node(call.hir_id), Node::LetStmt(local) if matches!(local.pat.kind, PatKind::Binding(_, _, _, None)))
-    })
+    fn_def_id(cx, call).opt_parent(cx).is_diag_item(cx, sym::Clone).then_some(source)
 }
 
 fn pattern_fields<'tcx>(typeck: &TypeckResults<'tcx>, pat: &'tcx Pat<'tcx>) -> impl Iterator<Item = (DefId, &'tcx Pat<'tcx>)> {
@@ -378,21 +317,10 @@ fn constructed<'tcx>(typeck: &TypeckResults<'tcx>, expr: &'tcx Expr<'tcx>) -> Op
     }
 }
 
-fn datum(typeck: &TypeckResults<'_>, expr: &Expr<'_>) -> bool {
+fn literal_or_const(typeck: &TypeckResults<'_>, expr: &Expr<'_>) -> bool {
     matches!(expr.kind, ExprKind::Lit(_))
         || matches!(expr.kind, ExprKind::Unary(UnOp::Neg, operand) if matches!(operand.kind, ExprKind::Lit(_)))
         || matches!(expr.kind, ExprKind::Path(qpath) if matches!(typeck.qpath_res(&qpath, expr.hir_id), Res::Def(DefKind::Const | DefKind::AssocConst | DefKind::Ctor(_, CtorKind::Const), _)))
-}
-
-fn constant(typeck: &TypeckResults<'_>, expr: &Expr<'_>) -> bool {
-    let value = peel_blocks(expr);
-    datum(typeck, value)
-        || matches!(value.kind, ExprKind::Tup(items) | ExprKind::Array(items) if items.iter().all(|item| constant(typeck, item)))
-        || matches!(value.kind, ExprKind::Call(callee, arguments)
-            if matches!(callee.kind, ExprKind::Path(qpath) if matches!(typeck.qpath_res(&qpath, callee.hir_id), Res::Def(DefKind::Ctor(..), _)))
-                && arguments.iter().all(|argument| constant(typeck, argument)))
-        || matches!(value.kind, ExprKind::Struct(_, fields, StructTailExpr::None) if fields.iter().all(|field| constant(typeck, field.expr)))
-        || matches!(value.kind, ExprKind::AddrOf(_, _, operand) if constant(typeck, operand))
 }
 
 fn any_expr<'tcx, N, F>(tcx: TyCtxt<'tcx>, node: N, mut found: F) -> bool
@@ -403,17 +331,13 @@ where
     for_each_expr(tcx, node, |expr| if found(expr) { ControlFlow::Break(()) } else { ControlFlow::Continue(()) }).is_some()
 }
 
-fn receiving_call<'tcx>(cx: &LateContext<'tcx>, receiver: &Expr<'_>) -> Option<(&'tcx Expr<'tcx>, DefId)> {
+fn method_call_on<'tcx>(cx: &LateContext<'tcx>, receiver: &Expr<'_>) -> Option<(&'tcx Expr<'tcx>, DefId)> {
     get_parent_expr(cx, receiver)
         .filter(|call| matches!(call.kind, ExprKind::MethodCall(_, called, ..) if called.hir_id == receiver.hir_id))
         .and_then(|call| Some((call, cx.typeck_results().type_dependent_def_id(call.hir_id)?)))
 }
 
-fn iterator_method(cx: &LateContext<'_>, call: &Expr<'_>) -> bool {
-    cx.ty_based_def(call).opt_def_id().and_then(|method| cx.tcx.trait_of_assoc(method)).is_some_and(|owner| owner.is_diag_item(cx, sym::Iterator) || owner.is_diag_item(cx, sym::DoubleEndedIterator))
-}
-
-fn fn_value(cx: &LateContext<'_>, expr: &Expr<'_>) -> Option<DefId> {
+fn fn_item_value(cx: &LateContext<'_>, expr: &Expr<'_>) -> Option<DefId> {
     if let ExprKind::Path(qpath) = &expr.kind
         && let Res::Def(DefKind::Fn | DefKind::AssocFn, function) = cx.qpath_res(qpath, expr.hir_id)
         && !get_parent_expr(cx, expr).is_some_and(|call| matches!(call.kind, ExprKind::Call(callee, _) if callee.hir_id == expr.hir_id))
@@ -441,7 +365,18 @@ fn parameter_of<'tcx>(cx: &LateContext<'tcx>, call: &Expr<'_>, argument: &Expr<'
 fn generated(cx: &LateContext<'_>, node: HirId) -> bool {
     iter::once(node.owner)
         .chain(cx.tcx.hir_parent_owner_iter(node).map(|(owner, _)| owner))
-        .any(|owner| macro_backtrace(cx.tcx.def_span(owner)).any(|call| matches!(call.kind, MacroKind::Attr | MacroKind::Derive)))
+        .any(|owner| derived(cx.tcx, owner.to_def_id()) || macro_backtrace(cx.tcx.def_span(owner)).any(|call| call.kind == MacroKind::Attr))
+}
+
+fn trait_impls(tcx: TyCtxt<'_>) -> FxIndexMap<LocalDefId, Vec<(DefId, LocalDefId)>> {
+    tcx.all_local_trait_impls(())
+        .iter()
+        .flat_map(|(&implemented, implementations)| implementations.iter().map(move |&implementation| (implemented, implementation)))
+        .filter_map(|implementation @ (_, local)| Some((tcx.type_of(local).instantiate_identity().skip_normalization().peel_refs().ty_adt_def()?.did().as_local()?, implementation)))
+        .fold(FxIndexMap::default(), |mut owners, (owner, implementation)| {
+            owners.entry(owner).or_default().push(implementation);
+            owners
+        })
 }
 
 fn enclosing_trait_impl(cx: &LateContext<'_>, node: HirId) -> Option<DefId> { cx.tcx.trait_impl_of_assoc(cx.tcx.typeck_root_def_id(cx.tcx.hir_enclosing_body_owner(node).to_def_id())) }
@@ -469,161 +404,126 @@ fn parameter_bindings(tcx: TyCtxt<'_>, body: BodyId) -> Vec<HirId> {
     })
 }
 
-fn equal_bodies<'tcx, F>(cx: &LateContext<'tcx>, left: LocalDefId, right: LocalDefId, mut differ: F) -> Option<Vec<(HirId, HirId)>>
-where F: FnMut(&TypeckResults<'tcx>, &Expr<'_>, &TypeckResults<'tcx>, &Expr<'_>) -> bool {
-    let closures = RefCell::new(Vec::<(BodyId, BodyId)>::new());
-    let differences = RefCell::new(Vec::new());
-    let equal = {
-        let mut spanless = SpanlessEq::new(cx).expr_fallback(|left_typeck, left_expr, right_typeck, right_expr| {
-            if let (ExprKind::Closure(left_closure), ExprKind::Closure(right_closure)) = (left_expr.kind, right_expr.kind) {
-                closures.borrow_mut().push((left_closure.body, right_closure.body));
-                left_closure.capture_clause == right_closure.capture_clause && left_closure.fn_decl.inputs.len() == right_closure.fn_decl.inputs.len()
-            } else if differ(left_typeck, left_expr, right_typeck, right_expr) {
-                differences.borrow_mut().push((left_expr.hir_id, right_expr.hir_id));
-                true
-            } else {
-                false
-            }
-        });
-        let mut inter = spanless.inter_expr(SyntaxContext::root());
-        let mut compare = |left_body: BodyId, right_body: BodyId| {
-            let (left_bindings, right_bindings) = (parameter_bindings(cx.tcx, left_body), parameter_bindings(cx.tcx, right_body));
-            left_bindings.len() == right_bindings.len() && {
-                inter.locals.extend(iter::zip(left_bindings, right_bindings));
-                inter.eq_body(left_body, right_body)
-            }
-        };
-        compare(cx.tcx.hir_body_owned_by(left).id(), cx.tcx.hir_body_owned_by(right).id())
-            && iter::from_fn(|| closures.borrow_mut().pop()).all(|(left_body, right_body)| compare(left_body, right_body))
-    };
-    equal.then(|| differences.into_inner())
-}
-
-fn replaced<'tcx, T, F>(tcx: TyCtxt<'tcx>, value: T, substitute: F) -> T
-where
-    T: TypeFoldable<TyCtxt<'tcx>>,
-    F: Fn(Ty<'tcx>) -> Option<Ty<'tcx>>,
-{
-    value.fold_with(&mut BottomUpFolder { tcx, ty_op: |ty| substitute(ty).unwrap_or(ty), lt_op: |region| region, ct_op: |constant| constant })
-}
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
+macro_rules! lint {
+    ($($lint:ident: $description:literal),+ $(,)?) => {
+        lint!(Pass; $($lint: $description),+);
+        pub(crate) struct Pass;
+        impl Pass { pub(crate) const fn new(_: ::rustc_middle::ty::TyCtxt<'_>) -> Self { Self } }
+    };
+    (default $pass:ty; $($lint:ident: $description:literal),+ $(,)?) => {
+        lint!($pass; $($lint: $description),+);
+        impl $pass { pub(crate) fn new(_: ::rustc_middle::ty::TyCtxt<'_>) -> Self { Self::default() } }
+    };
+    ($pass:ty; $($lint:ident: $description:literal),+ $(,)?) => {
+        $(::rustc_lint::declare_lint! { $lint, Warn, $description })+
+        ::rustc_lint::impl_lint_pass!($pass => [$($lint),+]);
+    };
+}
+
 macro_rules! lints {
-    ($($head:ident $(::$segment:ident)+),+ $(,)?) => {
-        fn register(store: &mut rustc_lint::LintStore) {
-            $(lints!(@row store [$head] $($segment)+);)+
+    ($($folder:ident::$module:ident),+ $(,)?) => {
+        dylint_linting::__maybe_mangle! {
+            pub extern "Rust" fn register_lints(_: &rustc_session::Session, store: &mut rustc_lint::LintStore) {
+                $(
+                    store.register_lints(&$folder::$module::Pass::lint_vec());
+                    store.register_late_lint_pass(Box::new(|tcx| Box::new($folder::$module::Pass::new(tcx))));
+                )+
+            }
         }
-    };
-    (@row $store:ident [$($pass:ident)::+] new) => {
-        $store.register_lints(&$($pass)::+::lint_vec());
-        $store.register_late_lint_pass(Box::new(|tcx| Box::new($($pass)::+::new(tcx))));
-    };
-    (@row $store:ident [$($pass:ident)::+] $last:ident) => {
-        $store.register_lints(&$($pass)::+::$last::lint_vec());
-        $store.register_late_lint_pass(Box::new(|_| Box::new(<$($pass)::+::$last>::default())));
-    };
-    (@row $store:ident [$($module:ident)::+] $next:ident $($segment:ident)+) => {
-        lints!(@row $store [$($module)::+::$next] $($segment)+)
     };
 }
 
 dylint_linting::dylint_library!();
 
-dylint_linting::__maybe_mangle! {
-    pub extern "Rust" fn register_lints(_: &rustc_session::Session, store: &mut rustc_lint::LintStore) {
-        register(store);
-    }
-}
-
-mod assertion;
-mod async_mutex_without_await;
-mod blocking_call_in_async;
-mod boxed_future_return;
-mod captured_clone;
-mod construction_invariant;
-mod debug_main_error;
-mod detached_task;
-mod duplicate_constant;
-mod environment_override;
+mod concurrency;
+mod duplication;
 mod errors;
-mod formatted_event;
-mod interior_mutable_static;
-mod macro_closure_call;
-mod manual_arc_swap;
-mod manual_cancellation_token;
-mod manual_language_feature;
-mod manual_partition;
-mod manual_serialization;
-mod manual_std_method;
-mod manual_stream;
-mod manual_upcast;
-mod needless_import_rename;
-mod nested_task;
-mod optional_sender;
-mod owned_catch_all;
-mod plain_record;
-mod redundant_indirection;
-mod redundant_reference;
-mod renamed_macro_params;
-mod repeated_body;
-mod restated_type;
-mod sequential_join;
-mod single_caller;
-mod single_use_wrapper;
-mod split_table;
-mod string_tag;
-mod unbounded_pending_map;
-mod unparsed_field;
-mod unshared_cell;
-mod untyped_document;
+mod expressions;
+mod interior_mutability;
+mod items;
+mod macros;
+mod manual;
+mod patterns;
+mod representation;
 
 lints! {
-    assertion::Assertion::new,
-    async_mutex_without_await::AsyncMutexWithoutAwait::new,
-    blocking_call_in_async::BlockingCallInAsync::new,
-    boxed_future_return::BoxedFutureReturn,
-    captured_clone::CapturedClone,
-    construction_invariant::ConstructionInvariant,
-    debug_main_error::DebugMainError,
-    detached_task::DetachedTask::new,
-    duplicate_constant::DuplicateConstant,
-    environment_override::EnvironmentOverride::new,
-    errors::contextless_io_error::ContextlessIoError::new,
-    errors::foreign_error_return::ForeignErrorReturn,
-    errors::manual_error_impl::ManualErrorImpl,
-    errors::redundant_error_conversion::RedundantErrorConversion::new,
-    errors::rendered_error::RenderedError,
-    errors::split_outcome::SplitOutcome,
-    errors::untyped_error::UntypedError,
-    formatted_event::FormattedEvent::new,
-    interior_mutable_static::InteriorMutableStatic::new,
-    macro_closure_call::MacroClosureCall,
-    manual_arc_swap::ManualArcSwap::new,
-    manual_cancellation_token::ManualCancellationToken::new,
-    manual_language_feature::ManualLanguageFeature::new,
-    manual_partition::ManualPartition,
-    manual_serialization::ManualSerialization::new,
-    manual_std_method::ManualStdMethod::new,
-    manual_stream::ManualStream::new,
-    manual_upcast::ManualUpcast,
-    needless_import_rename::NeedlessImportRename::new,
-    nested_task::NestedTask,
-    optional_sender::OptionalSender::new,
-    owned_catch_all::OwnedCatchAll,
-    plain_record::PlainRecord,
-    redundant_indirection::RedundantIndirection,
-    redundant_reference::RedundantReference,
-    renamed_macro_params::RenamedMacroParams,
-    repeated_body::RepeatedBody,
-    restated_type::RestatedType,
-    sequential_join::SequentialJoin::new,
-    single_caller::SingleCaller,
-    single_use_wrapper::SingleUseWrapper::new,
-    split_table::SplitTable,
-    string_tag::StringTag::new,
-    unbounded_pending_map::UnboundedPendingMap::new,
-    unparsed_field::UnparsedField::new,
-    unshared_cell::UnsharedCell,
-    untyped_document::UntypedDocument::new,
+    concurrency::async_lock_without_await,
+    concurrency::blocking_call_in_async,
+    concurrency::buffered_join,
+    concurrency::detached_task,
+    concurrency::manual_abort_on_drop,
+    concurrency::manual_arc_swap,
+    concurrency::manual_cancellation_token,
+    concurrency::manual_stream,
+    concurrency::needless_boxed_future,
+    concurrency::optional_channel_sender,
+    concurrency::redundant_spawn,
+    concurrency::sequential_await,
+    concurrency::short_circuited_join,
+    concurrency::unbounded_pending_map,
+    duplication::duplicate_body,
+    duplication::duplicate_trait_constant,
+    duplication::duplicate_type,
+    errors::debug_main_error,
+    errors::discarded_error,
+    errors::discarded_error_source,
+    errors::foreign_error_return,
+    errors::independent_question_marks,
+    errors::io_error_without_context,
+    errors::manual_error_impl,
+    errors::partition_by_result,
+    errors::redundant_error_conversion,
+    errors::source_in_error_message,
+    errors::stringified_error,
+    errors::untyped_error,
+    expressions::absurd_nonzero_comparison,
+    expressions::assertions_outside_tests,
+    expressions::cloned_command_matches,
+    expressions::environment_override,
+    expressions::map_indexing,
+    expressions::redundant_clone_in_closure,
+    expressions::redundant_default_base,
+    expressions::wrapping_arithmetic,
+    interior_mutability::interior_mutable_static,
+    interior_mutability::needless_cell,
+    items::needless_import_rename,
+    items::single_caller,
+    macros::redundant_closure_call_in_macro,
+    macros::renamed_function_params_in_macro,
+    macros::restriction_in_macro,
+    manual::manual_anonymous_impl,
+    manual::manual_bool_toggle,
+    manual::manual_default_field_values,
+    manual::manual_deref_pattern,
+    manual::manual_drop_guard,
+    manual::manual_from_utf8_lossy_owned,
+    manual::manual_partition,
+    manual::manual_path_is_empty,
+    manual::manual_retain_back,
+    manual::manual_slice_as_array,
+    manual::manual_type_changing_struct_update,
+    manual::manual_upcast,
+    manual::manual_vec_from_fn,
+    patterns::rest_pattern_workspace_field,
+    patterns::wildcard_workspace_enum_match_arm,
+    representation::fn_pointer_iterator_type,
+    representation::formatted_tracing_value,
+    representation::forwarding_newtype,
+    representation::manual_serialization,
+    representation::manual_slot_map,
+    representation::manual_variant_collection,
+    representation::needless_reference_field,
+    representation::needless_struct,
+    representation::option_field_pairs,
+    representation::primitive_domain_binding,
+    representation::sentinel_default,
+    representation::single_impl_trait,
+    representation::stringified_uuid,
+    representation::stringly_typed_value,
+    representation::unchecked_construction,
+    representation::unparsed_field,
+    representation::untyped_json_access,
+    representation::variant_constant_functions,
 }

@@ -59,4 +59,4 @@ rule:
                       has: {field: property, regex: '^(none|empty)$'}
                       pattern: $D
 message: '`Match.orElse` yields `$D` for every case the arms miss'
-note: '`Match.exhaustive` after a `Match.when` or `Match.tag` arm per missed case closes the union and fails the type check on an uncovered case'
+note: 'Call `Match.exhaustive` after a `Match.when` or `Match.tag` arm per missed case to close the union and fail the type check on an uncovered case'

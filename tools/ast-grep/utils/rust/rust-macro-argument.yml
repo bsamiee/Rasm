@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-macro-argument
+language: rust
+rule:
+    all:
+        - inside:
+            kind: token_tree
+            stopBy: end
+            regex: '^[(\[]'
+            any:
+                - inside: {kind: macro_invocation}
+                - follows: {regex: '^!$', follows: {kind: identifier}}
+        - not: {matches: rust-test-scope}

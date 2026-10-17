@@ -1,0 +1,128 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-mutable-collection-member
+language: csharp
+severity: error
+utils:
+    mutable-collection:
+        any:
+            - kind: array_type
+            - kind: 'generic_name, qualified_name, identifier'
+              matches: csharp-writable-collection
+            - kind: 'generic_name, qualified_name'
+              matches: {csharp-type-name: {name: {regex: '^PriorityQueue$'}}}
+              has: {stopBy: end, kind: type_argument_list}
+              not: {has: {field: qualifier, not: {regex: '^(global::)?System\.Collections\.Generic$'}}}
+            - kind: 'generic_name, qualified_name'
+              matches: {csharp-type-name: {name: {regex: '^Memory$'}}}
+              not: {has: {field: qualifier, not: {regex: '^(global::)?System$'}}}
+    exposed-array:
+        matches: csharp-visible-member
+        kind: 'property_declaration, parameter'
+        has: {field: type, any: [{kind: array_type}, {kind: nullable_type, has: {field: type, kind: array_type}}]}
+    generic-type:
+        kind: generic_name
+        has: {kind: type_argument_list, has: {matches: mutable-within}}
+    mutable-within:
+        any:
+            - matches: mutable-collection
+            - kind: nullable_type
+              has: {field: type, matches: mutable-within}
+            - kind: tuple_type
+              has: {kind: tuple_element, has: {field: type, matches: mutable-within}}
+            - matches: generic-type
+              not: {regex: '^(Func|Action)\s*<'}
+            - kind: qualified_name
+              all:
+                - not: {matches: {csharp-type-name: {name: {regex: '^(Func|Action)$'}}}}
+                - has: {field: name, matches: generic-type}
+    pinned-allocation:
+        kind: invocation_expression
+        all:
+            - has:
+                field: function
+                matches: {csharp-owner-member: {type: {regex: '^GC$'}, member: {regex: '^Allocate(Uninitialized)?Array$'}}}
+                has: {field: name, has: {kind: type_argument_list, has: {pattern: $ELEMENT}}}
+            - has:
+                field: arguments
+                has:
+                    kind: argument
+                    any:
+                        - regex: '^pinned\s*:\s*true$'
+                        - {nthChild: 2, regex: '^true$'}
+    pinned-array:
+        all:
+            - has: {field: type, kind: array_type, has: {field: type, pattern: $ELEMENT}}
+            - any:
+                - kind: property_declaration
+                  has: {field: name, pattern: $NAME}
+                - kind: variable_declaration
+                  has: {kind: variable_declarator, has: {field: name, pattern: $NAME}}
+            - any:
+                - has: {field: value, matches: pinned-allocation}
+                - has: {kind: variable_declarator, has: {matches: pinned-allocation}}
+                - inside:
+                    stopBy: end
+                    kind: declaration_list
+                    has:
+                        stopBy: end
+                        kind: assignment_expression
+                        all:
+                            - has: {field: left, any: [{pattern: $NAME}, {has: {stopBy: end, pattern: $NAME}}]}
+                            - has: {field: right, any: [{matches: pinned-allocation}, {has: {stopBy: end, matches: pinned-allocation}}]}
+    field-reference:
+        not: {inside: {stopBy: end, kind: constructor_declaration}}
+        any:
+            - kind: identifier
+              pattern: $NAME
+              not: {inside: {field: name, kind: 'member_access_expression, variable_declarator, parameter'}}
+            - kind: member_access_expression
+              all:
+                - has: {field: expression, regex: '^this$'}
+                - has: {field: name, pattern: $NAME}
+    whole-argument:
+        inside:
+            kind: argument
+            not: {has: {regex: '^(ref|out)$'}}
+            inside:
+                kind: argument_list
+                inside:
+                    kind: invocation_expression
+                    not: {has: {field: function, matches: {csharp-owner-member: {type: {regex: '^Array$'}, member: {regex: '^'}}}}}
+    field-read:
+        any:
+            - matches: whole-argument
+            - inside: {field: expression, kind: member_access_expression, has: {field: name, regex: '^Length$'}}
+            - inside:
+                field: expression
+                kind: element_access_expression
+                not:
+                    any:
+                        - inside: {field: left, kind: assignment_expression}
+                        - inside: {kind: 'prefix_unary_expression, postfix_unary_expression', has: {regex: '^(\+\+|--)$'}}
+                        - inside: {kind: ref_expression}
+                        - inside: {kind: argument, has: {regex: '^(ref|out)$'}}
+    confined-array:
+        kind: variable_declaration
+        all:
+            - has: {field: type, kind: array_type}
+            - has: {kind: variable_declarator, has: {field: name, pattern: $NAME}}
+            - inside:
+                kind: field_declaration
+                all:
+                    - has: {kind: modifier, regex: '^readonly$'}
+                    - not: {has: {kind: modifier, regex: '^(public|internal|protected)$'}}
+                inside:
+                    kind: declaration_list
+                    all:
+                        - has: {stopBy: end, all: [{matches: field-reference}, {matches: whole-argument}]}
+                        - not: {has: {stopBy: end, matches: field-reference, not: {matches: field-read}}}
+rule:
+    matches: csharp-instance-member
+    all:
+        - has:
+            field: type
+            pattern: $TYPE
+            matches: mutable-within
+        - not: {any: [{matches: pinned-array}, {matches: confined-array}, {matches: exposed-array}, {inside: {stopBy: end, matches: csharp-json-serializable-record}}]}
+message: 'Field, property, or primary constructor parameter of type `$TYPE` stores a mutable collection'
+note: Use `Seq<A>`, `Arr<A>`, `Lst<A>`, `Map<K, V>`, `HashMap<K, V>`, `Set<A>`, or `LanguageExt.HashSet<A>`, with input copied through `toSeq` at the boundary

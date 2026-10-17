@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-declaration-only-crate-root
+language: rust
+severity: error
+files: ['**/lib.rs', '**/main.rs']
+rule:
+    kind: source_file
+    all:
+        - has: {kind: 'mod_item, use_declaration, extern_crate_declaration'}
+        - not: {has: {kind: 'const_item, static_item, struct_item, enum_item, union_item, type_item, trait_item, impl_item, function_item, macro_definition, macro_invocation, foreign_mod_item'}}
+        - not: {has: {kind: mod_item, has: {field: body, kind: declaration_list}}}
+message: Crate root holds `mod`, `use`, and `extern crate` lines alone
+note: 'Move the code of the module the crate is named for into the root and keep `mod` lines for the modules beside it'

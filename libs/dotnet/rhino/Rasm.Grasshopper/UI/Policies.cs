@@ -43,7 +43,7 @@ public static class Policies {
             IO<IResult> Entered(string text) =>
                 from parsed in IO.lift(() => assistant.Parse(constructor: null, text, existing))
                 from answer in parsed.Success
-                    ? Admission.Validated<T, TKey>(parsed.Value).Match(
+                    ? ValidationResults.Validated<T, TKey>(parsed.Value).Match(
                         Succ: value => assign(value).Map((IResult)parsed),
                         Fail: error => IO.pure<IResult>(Result<TKey>.Fail(ErrorOps.Localize(error), text)))
                     : IO.pure<IResult>(parsed)

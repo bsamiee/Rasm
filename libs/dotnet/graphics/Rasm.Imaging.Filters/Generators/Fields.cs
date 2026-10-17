@@ -25,7 +25,7 @@ public readonly partial struct FogDistance : IMinMaxValue<FogDistance> {
     public static FogDistance MinValue => Neutral;
     public static FogDistance MaxValue { get; } = new(1e6f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -34,7 +34,7 @@ public readonly partial struct FogAttenuation : IMinMaxValue<FogAttenuation> {
     public static FogAttenuation MaxValue { get; } = new(1e6f);
     public static FogAttenuation Standard { get; } = new((float)(double)Length.FromFeet(100).Meters);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -42,7 +42,7 @@ public readonly partial struct OpticalDepth : IMinMaxValue<OpticalDepth> {
     public static OpticalDepth MinValue { get; } = new(0f);
     public static OpticalDepth MaxValue { get; } = new(64f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<int>(AllowDefaultStructs = true, DefaultInstancePropertyName = "Rings", SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -50,7 +50,7 @@ public readonly partial struct VortexArms : IMinMaxValue<VortexArms> {
     public static VortexArms MinValue => Rings;
     public static VortexArms MaxValue { get; } = new(32);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 public sealed record GeneratedLayer(BlendingMode Mode, Exposure Exposure) : IStateRecord<GeneratedLayer, GeneratedLayerParameter> {
@@ -422,7 +422,7 @@ public sealed record Fog(
             None: static () => Some<Func<long, long, float>>(static (_, _) => 1f))
         .Map(opacity => state.Diffusion.Active.Match(
             Some: radius => new PixelPass.Frame((frame, progress) => frame.Filter(source => {
-                PixelFrame spread = new(frame.Origin, frame.Size, frame.Extent, static _ => { });
+                PixelFrame spread = new(frame.Origin, frame.Size, frame.Extent);
                 using Mat target = spread.Header();
                 return source.Blur(target, radius.Pixels(context.Extent))
                     .Bind(_ => state.Layer.Pass(Fill(state, context, opacity, (column, line) => spread.Row(line)[(int)(column - spread.Origin.X)].AsVector3())).Run(frame, progress));

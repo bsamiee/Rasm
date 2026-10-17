@@ -4,3 +4,4 @@ language: rust
 rule:
     kind: attribute_item
     has: {kind: attribute, has: {nthChild: 1, kind: identifier, regex: '^cfg$'}}
+    not: {regex: '^#\[\s*cfg\s*\(\s*(all\s*\(\s*\)|any\s*\(\s*\)|true|false|not\s*\(\s*(all|any)\s*\(\s*\)\s*\))\s*\)\s*\]$'}

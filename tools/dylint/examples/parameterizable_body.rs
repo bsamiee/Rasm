@@ -100,6 +100,14 @@ impl Shape for Circle {
     fn area(&self) -> f64 { PI * self.radius * self.radius }
 }
 
+impl From<u64> for Uptime {
+    fn from(seconds: u64) -> Self { Self { seconds } }
+}
+
+impl From<u64> for Clock {
+    fn from(ticks: u64) -> Self { Self { ticks } }
+}
+
 impl Square {
     fn perimeter(&self) -> f64 { self.side * 4.0 }
 }
@@ -108,9 +116,9 @@ impl Circle {
     fn perimeter(&self) -> f64 { PI * self.radius * 2.0 }
 }
 
-const fn retry_reads(client: &Client) -> Policy { Policy::new(client, 3, TIMEOUT) }
+const fn retry_reads(client: &Client) -> Policy { Policy::new(client, 3, TIMEOUT.strict_mul(2)) }
 
-const fn retry_writes(client: &Client) -> Policy { Policy::new(client, 5, TIMEOUT) }
+const fn retry_writes(client: &Client) -> Policy { Policy::new(client, 5, TIMEOUT.strict_mul(2)) }
 
 fn total_squares(shapes: &[Square]) -> f64 { shapes.iter().map(Shape::area).sum() }
 
@@ -154,6 +162,10 @@ fn uptime() -> Uptime { Default::default() }
 
 fn clock() -> Clock { Default::default() }
 
+fn started(value: u64) -> Uptime { Uptime::from(value.strict_add(1)) }
+
+fn ticked(value: u64) -> Clock { Clock::from(value.strict_add(1)) }
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 fn main() {
@@ -162,11 +174,11 @@ fn main() {
     let squares = [Square { side: 1.0 }];
     let circles = [Circle { radius: 1.0 }];
     let measured = total_squares(&squares) + total_circles(&circles) + fence_squares(&squares) + fence_circles(&circles) + squares[0].perimeter() + circles[0].perimeter();
-    black_box((
+    black_box(&(
         (reads.attempts, writes.attempts, reads.timeout, writes.endpoint),
         (Page.render(), Banner.render(), trimmed_left(" a"), trimmed_right("b ")),
         measured,
         (page_size(), banner_size(), red() != green(), weight(1), cost(1)),
-        (Footer.render(), is_large(5), is_huge(6), uptime().seconds, clock().ticks, BadScheme.to_string(), TimedOut.to_string()),
+        (Footer.render(), is_large(5), is_huge(6), uptime().seconds, clock().ticks, started(1).seconds, ticked(2).ticks, BadScheme.to_string(), TimedOut.to_string()),
     ));
 }

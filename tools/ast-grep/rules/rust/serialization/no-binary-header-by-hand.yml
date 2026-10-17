@@ -2,9 +2,59 @@
 id: no-binary-header-by-hand
 language: rust
 severity: error
+utils:
+    magic-bytes:
+        any:
+            - kind: string_literal
+              regex: '^b"(\\x[0-9A-Fa-f]{2}|\\.|[^"\\]){2,}"$'
+            - kind: array_expression
+              all:
+                - has: {nthChild: 2}
+                - not: {has: {kind: 'identifier, call_expression, field_expression, binary_expression, range_expression'}}
+                - has: {kind: 'integer_literal, char_literal', regex: '^(0x[0-9A-Fa-f]+(_?u8)?|b''.*'')$'}
+    magic-constant:
+        kind: identifier
+        regex: '^[A-Z][A-Z0-9_]*$'
+        pattern: $NAME
+        inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: 'const_item, static_item', all: [{has: {field: name, pattern: $NAME}}, {has: {field: value, any: [{matches: magic-bytes}, {kind: reference_expression, has: {field: value, matches: magic-bytes}}]}}]}}
+    magic:
+        any:
+            - matches: magic-bytes
+            - matches: magic-constant
+    magic-test:
+        any:
+            - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, regex: '^(starts_with|strip_prefix|ends_with)$'}}}}
+            - inside: {kind: binary_expression, has: {field: operator, regex: '^(==|!=)$'}}
+            - inside: {kind: reference_expression, inside: {kind: binary_expression, has: {field: operator, regex: '^(==|!=)$'}}}
+            - inside: {kind: reference_expression, inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, regex: '^(starts_with|strip_prefix|ends_with)$'}}}}}
+            - inside: {kind: match_pattern}
+            - inside: {kind: token_tree, inside: {kind: macro_invocation, has: {field: macro, regex: '^((::)?(std|core)::)?matches$'}}}
+    endian-read:
+        any:
+            - kind: call_expression
+              has: {field: function, kind: scoped_identifier, has: {field: name, regex: '^from_(le|be)_bytes$'}}
+            - kind: scoped_identifier
+              has: {field: name, regex: '^from_(le|be)_bytes$'}
+              inside: {kind: arguments}
+            - kind: call_expression
+              has: {field: function, kind: field_expression, has: {field: field, regex: '^get_(u|i|f)(16|32|64|128)(_le|_ne)?$'}}
+            - kind: call_expression
+              has: {field: function, kind: generic_function, all: [{has: {field: function, kind: field_expression, has: {field: field, regex: '^read_(u|i|f)(16|32|64|128)$'}}}, {has: {field: type_arguments, regex: '(LittleEndian|BigEndian|NetworkEndian|LE|BE)'}}]}
+            - kind: call_expression
+              has: {field: function, kind: scoped_identifier, all: [{has: {field: path, regex: '(^|::)(LittleEndian|BigEndian|NetworkEndian|LE|BE)$'}}, {has: {field: name, regex: '^read_(u|i|f)(16|32|64|128)$'}}]}
+    magic-site:
+        matches: magic
+        all:
+            - matches: magic-test
+            - inside: {kind: function_item, stopBy: {kind: function_item}, has: {field: body, has: {stopBy: end, matches: endian-read}}}
+    header-read:
+        any:
+            - matches: magic-site
+            - matches: endian-read
+              inside: {kind: function_item, stopBy: {kind: function_item}, has: {field: body, has: {stopBy: end, matches: magic-site}}}
 rule:
-    kind: 'string_literal, call_expression'
+    kind: 'string_literal, array_expression, identifier, call_expression, scoped_identifier'
     pattern: $SITE
-    matches: rust-binary-header-read
+    matches: header-read
 message: '`$SITE` tests a magic number beside endian field reads to decode a binary header by hand'
-note: 'Declare the header as a record deriving `binrw::BinRead` with `#[br(little, magic = <bytes>)]` or `#[br(big, magic = <bytes>)]` and read it through `BinReaderExt::read_le` or `read_be`, binrw checks the magic and decodes each field with its position in the error'
+note: 'Declare the header as a record deriving `binrw::BinRead` with `#[br(little, magic = <bytes>)]` or `#[br(big, magic = <bytes>)]` and read it through `BinReaderExt::read_le` or `read_be`'

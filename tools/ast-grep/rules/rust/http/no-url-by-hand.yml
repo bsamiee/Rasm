@@ -1,0 +1,111 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-url-by-hand
+language: rust
+severity: error
+utils:
+    url-text:
+        kind: string_literal
+        regex: '^"([A-Za-z][A-Za-z0-9+.-]*|\{[A-Za-z0-9_]*\})://'
+    open-segment:
+        kind: string_literal
+        regex: '([^/:]/|[?=&])"$'
+    open-url:
+        matches: url-text
+        regex: '://[^"]*([^/:]/|[?=&])"$'
+    placed:
+        not: {kind: 'string_literal, raw_string_literal, char_literal, integer_literal'}
+    spliced:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^\+$'}
+            - has: {field: right, matches: placed}
+            - has: {field: left, any: [{matches: open-segment}, {kind: call_expression, has: {stopBy: end, matches: open-segment}}, {kind: binary_expression, has: {field: right, matches: open-segment}}]}
+    formatting:
+        matches: {rust-std-macro: {name: {regex: '^(format|format_args|write|writeln|print|println|eprint|eprintln)$'}}}
+    formatted-url:
+        kind: macro_invocation
+        all:
+            - matches: formatting
+            - has:
+                kind: token_tree
+                any:
+                    - has: {matches: url-text, regex: '://[^"/?]*[/?]([^"]*[^{])?\{[A-Za-z0-9_:}]'}
+                    - has: {kind: string_literal, regex: '[?&][\w.~-]+=\{[A-Za-z0-9_:}]'}
+                    - has: {matches: open-url, not: {nthChild: 1}}
+    concatenated-url:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^\+$'}
+            - not: {inside: {kind: binary_expression, field: left}}
+            - has: {stopBy: end, matches: url-text}
+            - any: [{matches: spliced}, {has: {stopBy: end, matches: spliced}}]
+    joined-url:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^(concat|join)$'}}
+            - has:
+                field: function
+                has:
+                    field: value
+                    kind: array_expression
+                    all:
+                        - has: {nthChild: 1, matches: url-text}
+                        - has: {matches: placed}
+    url-binding:
+        kind: identifier
+        pattern: $S
+        inside:
+            kind: function_item
+            stopBy: {kind: function_item}
+            has: {stopBy: end, kind: let_declaration, all: [{has: {field: pattern, pattern: $S}}, {has: {field: value, any: [{matches: open-url}, {has: {stopBy: end, matches: open-url}}]}}]}
+    appended-url:
+        any:
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^push_str$'}}, {has: {field: value, kind: identifier, pattern: $S}}]}
+                - has: {field: arguments, has: {nthChild: 1, matches: placed}}
+                - has: {field: function, has: {field: value, matches: url-binding}}
+            - kind: compound_assignment_expr
+              all:
+                - has: {field: operator, regex: '^\+=$'}
+                - has: {field: left, kind: identifier, pattern: $S}
+                - has: {field: right, matches: placed}
+                - has: {field: left, matches: url-binding}
+    percent-encoding:
+        kind: macro_invocation
+        all:
+            - matches: formatting
+            - has: {kind: token_tree, has: {kind: string_literal, regex: '%\{\w*:0?2[xX]\}'}}
+    pair-split:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^(split_once|rsplit_once|splitn|rsplitn|split)$'}}
+            - has: {field: arguments, has: {kind: 'char_literal, string_literal', regex: '^[''"]=[''"]$'}}
+    amp-split:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^(split|split_terminator|rsplit)$'}}
+            - has: {field: arguments, has: {nthChild: 1, any: [{kind: 'char_literal, string_literal', regex: '^[''"]&[''"]$'}, {kind: array_expression, has: {kind: char_literal, regex: '^''&''$'}}]}}
+    query-split:
+        matches: pair-split
+        any:
+            - inside:
+                kind: closure_expression
+                stopBy: {kind: 'closure_expression, function_item'}
+                inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, has: {stopBy: end, matches: amp-split}}}}
+            - inside:
+                kind: for_expression
+                stopBy: {kind: 'closure_expression, function_item'}
+                has: {field: value, any: [{matches: amp-split}, {has: {stopBy: end, matches: amp-split}}]}
+rule:
+    kind: 'macro_invocation, binary_expression, call_expression, compound_assignment_expr'
+    pattern: $URL
+    any:
+        - matches: formatted-url
+        - matches: concatenated-url
+        - matches: joined-url
+        - matches: appended-url
+        - matches: percent-encoding
+        - matches: query-split
+message: '`$URL` builds or parses URL text by hand'
+note: 'Build the URL through `url::Url::parse(<base>)?.join(<path>)?` with `path_segments_mut()` and `query_pairs_mut().append_pair(<key>, <value>)`, encode a value through `url::form_urlencoded::byte_serialize`, and read pairs through `Url::query_pairs()` or `form_urlencoded::parse`'

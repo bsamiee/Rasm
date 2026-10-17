@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-split-once-by-position
+language: rust
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - any:
+            - pattern: '$S.iter().position($P).map(|$I| (&$S[..$I], &$S[$I + 1..]))'
+            - pattern: '$S.iter().position($P).map(|$I| (&$S[..$I], &$S[($I + 1)..]))'
+constraints:
+    I: {kind: identifier}
+fix: $S.split_once($P)
+message: '`$S` splits around the first match of a predicate by hand'
+note: 'Call `<slice>.split_once(<predicate>)` (`#![feature(slice_split_once)]`)'

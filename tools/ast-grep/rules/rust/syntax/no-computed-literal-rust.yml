@@ -80,22 +80,6 @@ utils:
                     - has: {field: value, matches: text}
                     - has: {field: field, regex: '^(to_uppercase|to_lowercase|to_ascii_uppercase|to_ascii_lowercase|trim|trim_start|trim_end|trim_matches|trim_start_matches|trim_end_matches|replace|replacen|strip_prefix|strip_suffix)$'}
             - not: {has: {field: arguments, has: {pattern: $_, not: {matches: literal}}}}
-    owned-text:
-        any:
-            - kind: call_expression
-              all:
-                - has: {field: function, kind: field_expression, all: [{has: {field: value, matches: text}}, {has: {field: field, regex: '^(to_string|to_owned|into)$'}}]}
-                - has: {field: arguments, not: {has: {pattern: $_}}}
-            - kind: call_expression
-              all:
-                - has: {field: function, regex: '^((::)?(std|alloc)::string::)?String::from$'}
-                - has: {field: arguments, has: {nthChild: 1, matches: text}, not: {has: {nthChild: 2}}}
-    literal-concat:
-        kind: binary_expression
-        all:
-            - has: {field: operator, regex: '^\+$'}
-            - has: {field: left, any: [{matches: owned-text}, {matches: literal-concat}]}
-            - has: {field: right, any: [{matches: text}, {matches: owned-text}]}
     arith-operand:
         any:
             - matches: number
@@ -108,10 +92,6 @@ utils:
             - has: {field: operator, regex: '^(\+|-|\*|/|%|<<|>>|&|\||\^)$'}
             - has: {field: left, matches: arith-operand}
             - has: {field: right, matches: arith-operand}
-    outer:
-        not: {inside: {stopBy: {not: {kind: parenthesized_expression}}, kind: binary_expression, matches: computed-operator}}
-    computed-operator:
-        any: [{matches: literal-arith}, {matches: literal-concat}]
 rule:
     pattern: $COMPUTED
     any:
@@ -120,14 +100,10 @@ rule:
         - matches: literal-path-join
         - matches: literal-array-join
         - matches: literal-text-method
-        - all: [{matches: literal-concat}, {matches: outer}]
         - all:
             - matches: literal-arith
-            - matches: outer
+            - not: {inside: {stopBy: {not: {kind: parenthesized_expression}}, kind: binary_expression, matches: literal-arith}}
             - not: {matches: rust-const-context}
             - not: {matches: rust-test-scope}
-            - not: {matches: rust-second-count-split}
-            - not: {has: {stopBy: end, any: [{matches: rust-byte-hash-constant}, {matches: rust-conversion-factor}, {matches: rust-earth-radius}, {matches: rust-luminance-weight}, {matches: rust-srgb-transfer}]}}
-            - not: {inside: {stopBy: end, matches: rust-srgb-transfer}}
 message: '`$COMPUTED` computes a literal from literals'
-note: 'Write one literal holding the result, or bind arithmetic to a `const` named for the fact it derives (inside its one reader when one function reads it), a reader sees the value without evaluating code. Joined constant path segments take `PathBuf::from("<base>/<segment>")`. Text built from `env!` values takes `concat!(<piece>, env!("<NAME>"))`'
+note: 'Write one literal holding the result or a `const` named for the fact the arithmetic derives, `PathBuf::from("<base>/<segment>")` for joined path segments, and `concat!(<piece>, env!("<NAME>"))` for text built from `env!`'

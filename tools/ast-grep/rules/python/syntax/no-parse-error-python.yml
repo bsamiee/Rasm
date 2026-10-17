@@ -26,6 +26,5 @@ rule:
           has: {stopBy: end, pattern: $$MISSING, regex: '^$', not: {matches: unreported}}
 labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
-message: Span fails to parse, write it in a form tree-sitter-python parses
-note: >-
-    Every other rule skips constructs inside a parse error. Unreported tree-sitter-python grammar gaps are type parameter defaults (`class Box[T = int]`)
+message: 'Grammar failed to parse the span'
+note: 'Write a form tree-sitter-python parses, every other rule skips constructs inside a parse error. Unreported tree-sitter-python grammar gaps are type parameter defaults (`class Box[T = int]`)'

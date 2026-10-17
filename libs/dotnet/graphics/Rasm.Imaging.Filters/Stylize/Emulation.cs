@@ -32,7 +32,7 @@ public readonly partial struct LineCount : IMinMaxValue<LineCount> {
     public EInteger Line(long row, PixelExtent extent) =>
         NoiseFunctions.Split(ERational.FromInt64(row).Multiply(_value).Divide(extent.Height)).Cell;
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [SmartEnum<string>]

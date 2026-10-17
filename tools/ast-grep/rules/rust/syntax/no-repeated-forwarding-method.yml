@@ -50,43 +50,28 @@ utils:
               has: {nthChild: 1, matches: plain-tail}
     one-statement:
         kind: block
-        not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement-slot}}}}
+        not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
     wrap-shape:
         kind: function_item
-        has: {field: body, matches: one-statement, has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, matches: wrap-tail}}
+        has: {field: body, matches: one-statement, has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, matches: wrap-tail}}
     free-shape:
         kind: function_item
-        has: {field: body, matches: one-statement, has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, matches: free-tail}}
+        has: {field: body, matches: one-statement, has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, matches: free-tail}}
     plain-shape:
         kind: function_item
-        has: {field: body, matches: one-statement, has: {nthChild: {position: 1, ofRule: {matches: rust-statement-slot}}, matches: plain-tail}}
+        has: {field: body, matches: one-statement, has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, matches: plain-tail}}
     wrap-trio:
         all:
             - matches: wrap-shape
-            - any:
-                - follows: {stopBy: end, matches: wrap-shape, follows: {stopBy: end, matches: wrap-shape}}
-                - precedes: {stopBy: end, matches: wrap-shape, precedes: {stopBy: end, matches: wrap-shape}}
-                - all:
-                    - follows: {stopBy: end, matches: wrap-shape}
-                    - precedes: {stopBy: end, matches: wrap-shape}
+            - follows: {stopBy: end, matches: wrap-shape, follows: {stopBy: end, matches: wrap-shape}}
     free-trio:
         all:
             - matches: free-shape
-            - any:
-                - follows: {stopBy: end, matches: free-shape, follows: {stopBy: end, matches: free-shape}}
-                - precedes: {stopBy: end, matches: free-shape, precedes: {stopBy: end, matches: free-shape}}
-                - all:
-                    - follows: {stopBy: end, matches: free-shape}
-                    - precedes: {stopBy: end, matches: free-shape}
+            - follows: {stopBy: end, matches: free-shape, follows: {stopBy: end, matches: free-shape}}
     plain-trio:
         all:
             - matches: plain-shape
-            - any:
-                - follows: {stopBy: end, matches: plain-shape, follows: {stopBy: end, matches: plain-shape}}
-                - precedes: {stopBy: end, matches: plain-shape, precedes: {stopBy: end, matches: plain-shape}}
-                - all:
-                    - follows: {stopBy: end, matches: plain-shape}
-                    - precedes: {stopBy: end, matches: plain-shape}
+            - follows: {stopBy: end, matches: plain-shape, follows: {stopBy: end, matches: plain-shape}}
 rule:
     kind: function_item
     all:
@@ -96,5 +81,5 @@ rule:
             - matches: wrap-trio
             - matches: free-trio
             - matches: plain-trio
-message: '`$NAME` repeats the forwarding shape of two sibling methods over `self.$FIELD`'
-note: 'Hold the shared policy in one function and generate the forwarding methods from one `macro_rules!` invocation listing a row per method, the macro states the forwarding shape once'
+message: '`$NAME` forwards to `self.$FIELD` in the shape of two earlier methods'
+note: 'Generate the forwarding methods from one `macro_rules!` invocation with a row per method, and hold shared policy in one function'

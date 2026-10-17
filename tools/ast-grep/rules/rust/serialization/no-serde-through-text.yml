@@ -12,21 +12,52 @@ utils:
             - all:
                 - has: {field: name, regex: '^deserialize$'}
                 - inside: {kind: declaration_list, inside: {kind: impl_item, has: {field: trait, regex: '(^|::)Deserialize\s*<'}}}
+            - has: {field: type_parameters, regex: '\b(Serializer|Deserializer\s*<)'}
+            - has: {kind: where_clause, regex: '\b(Serializer|Deserializer\s*<)'}
+            - has: {field: parameters, has: {kind: parameter, has: {field: type, regex: '^impl\s+((serde::)?(ser::|de::)?)?(Serializer|Deserializer\s*<)'}}}
+    text-rendering:
+        any:
+            - kind: call_expression
+              has: {field: function, kind: field_expression, has: {field: field, regex: '^to_string$'}}
+            - matches: {rust-std-macro: {name: {regex: '^format$'}}}
+            - kind: reference_expression
+              has: {field: value, any: [{kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, regex: '^to_string$'}}}, {matches: {rust-std-macro: {name: {regex: '^format$'}}}}]}
     display-write:
         kind: call_expression
         any:
-            - pattern: $S.serialize_str(&self.to_string())
-            - pattern: $S.collect_str(self)
-            - pattern: $S.collect_str(&self)
+            - all:
+                - has: {field: function, kind: field_expression, has: {field: field, regex: '^serialize_str$'}}
+                - has: {field: arguments, has: {nthChild: 1, matches: text-rendering}}
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^collect_str$'}}
+            - all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^serialize$'}}, {has: {field: value, matches: text-rendering}}]}
+            - all:
+                - has: {field: function, regex: '^((serde::)?(ser::)?Serialize::)serialize$'}
+                - has: {field: arguments, has: {nthChild: 1, matches: text-rendering}}
+    text-type:
+        regex: '^(String|&\s*(''\w+\s+)?str|(std::borrow::)?Cow<\s*(''\w+\s*,\s*)?str\s*>)$'
     text-read:
-        kind: call_expression
-        has: {field: function, regex: '^(String|<\s*&\s*(''\w+\s+)?str\s*>|Cow::<\s*str\s*>|<\s*(String|&\s*(''\w+\s+)?str)\s+as\s+((serde::)?(de::)?)?Deserialize(<[^>]*>)?\s*>)::deserialize$'}
+        any:
+            - kind: call_expression
+              has: {field: function, regex: '^(String|<\s*&\s*(''\w+\s+)?str\s*>|Cow::<\s*str\s*>|<\s*(String|&\s*(''\w+\s+)?str)\s+as\s+((serde::)?(de::)?)?Deserialize(<[^>]*>)?\s*>)::deserialize$'}
+            - kind: call_expression
+              all:
+                - has: {field: function, regex: '^((serde::)?(de::)?Deserialize::)deserialize$'}
+                - inside: {kind: let_declaration, stopBy: {kind: 'let_declaration, block'}, has: {field: type, matches: text-type}}
+            - kind: call_expression
+              has: {field: function, kind: field_expression, has: {field: field, regex: '^deserialize_str$'}}
     text-parse:
         kind: call_expression
         any:
             - has: {field: function, kind: field_expression, has: {field: field, regex: '^parse$'}}
             - has: {field: function, kind: generic_function, has: {field: function, kind: field_expression, has: {field: field, regex: '^parse$'}}}
-            - has: {field: function, kind: scoped_identifier, has: {field: name, regex: '^from_str$'}}
+            - has: {field: function, kind: scoped_identifier, has: {field: name, regex: '^(from_str|try_from)$'}}
+    parsing-visitor:
+        kind: function_item
+        all:
+            - has: {field: name, regex: '^visit_(borrowed_)?str$'}
+            - inside: {kind: declaration_list, inside: {kind: impl_item, has: {field: trait, regex: '(^|::)Visitor\s*<'}}}
+            - has: {field: body, has: {stopBy: end, matches: text-parse}}
 rule:
     pattern: $SITE
     any:
@@ -39,5 +70,6 @@ rule:
             all:
                 - matches: serde-method
                 - has: {field: body, has: {stopBy: end, matches: text-parse}}
+        - matches: parsing-visitor
 message: '`$SITE` serializes or deserializes a value through `Display` or `FromStr` text by hand'
-note: 'Derive `serde_with::SerializeDisplay` and `serde_with::DeserializeFromStr` on the type, or mark a field `#[serde_as(as = "serde_with::DisplayFromStr")]`, and delete the hand impl, serde_with writes the `Display` text and parses through `FromStr` with the parse error as the serde error'
+note: 'Derive `serde_with::SerializeDisplay` and `serde_with::DeserializeFromStr` on the type, or mark a field `#[serde_as(as = "serde_with::DisplayFromStr")]`, and delete the impl'

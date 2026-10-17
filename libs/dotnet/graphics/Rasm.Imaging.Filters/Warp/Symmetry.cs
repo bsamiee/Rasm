@@ -9,7 +9,7 @@ public readonly partial struct MirrorCount : IMinMaxValue<MirrorCount> {
     public static MirrorCount MinValue { get; } = new(1);
     public static MirrorCount MaxValue { get; } = new(32);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 public sealed record Kaleidoscope(MirrorCount Mirrors, SignedAngle Rotation, FramePosition Center, TransformScale Zoom, Sampling Sampling, WrapMode Wrap)

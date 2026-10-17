@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-stateful-from-fn
+language: rust
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - has: {field: function, regex: '^((::)?(std|core)::)?iter::from_fn$'}
+        - has:
+            field: arguments
+            has:
+                kind: closure_expression
+                regex: '^move\b'
+                has:
+                    field: body
+                    has:
+                        stopBy: {kind: closure_expression}
+                        kind: 'assignment_expression, compound_assignment_expr'
+                        has: {field: left, any: [{kind: identifier, pattern: $STATE}, {kind: field_expression, has: {field: value, kind: identifier, pattern: $STATE}}]}
+        - not: {has: {stopBy: end, kind: let_declaration, has: {field: pattern, has: {stopBy: end, kind: identifier, pattern: $STATE}}}}
+        - not: {has: {stopBy: end, kind: let_declaration, has: {field: pattern, kind: identifier, pattern: $STATE}}}
+message: '`iter::from_fn` closure keeps iteration state in captured `$STATE`'
+note: 'Write `gen move { <loop>; yield <item>; }` (`#![feature(gen_blocks)]`) with the state as a local of the block'

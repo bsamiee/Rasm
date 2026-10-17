@@ -1,0 +1,87 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-duplicate-log-field
+language: rust
+severity: error
+utils:
+    log-macro:
+        kind: macro_invocation
+        has: {field: macro, regex: '^(::)?(tracing::)?((trace|debug|info|warn|error)(_span)?|event|span)$'}
+    event-macro:
+        kind: macro_invocation
+        has: {field: macro, regex: '^(::)?(tracing::)?(trace|debug|info|warn|error|event)$'}
+    instrument-fields:
+        kind: token_tree
+        follows: {kind: identifier, regex: '^fields$'}
+        inside: {kind: token_tree, follows: {regex: '^(::)?(tracing::)?instrument$'}, inside: {kind: attribute, stopBy: end}}
+    format-string:
+        kind: 'string_literal, raw_string_literal'
+        follows: {stopBy: &token {not: {kind: 'line_comment, block_comment'}}, regex: '^[(,]$'}
+        not: {precedes: {regex: '^=$'}}
+    field-group:
+        kind: token_tree
+        any:
+            - inside: {matches: log-macro}
+            - all: [{regex: '^\{'}, {follows: {stopBy: *token, regex: '^[(,]$'}}, {inside: {kind: token_tree, inside: {matches: log-macro}}}]
+            - matches: instrument-fields
+    field-start:
+        all:
+            - any:
+                - kind: 'identifier, self'
+                  any:
+                    - follows: {stopBy: *token, regex: '^[(,{]$'}
+                    - follows: {regex: '^[?%]$', follows: {stopBy: *token, regex: '^[(,{]$'}}
+                - kind: 'string_literal, raw_string_literal, token_tree'
+                  follows: {stopBy: *token, regex: '^[(,{]$'}
+                  precedes: {stopBy: *token, regex: '^=$'}
+            - inside: {matches: field-group}
+            - not: {all: [{inside: {stopBy: {kind: macro_invocation}, matches: event-macro}}, {follows: {stopBy: end, matches: format-string}}]}
+    name-end:
+        regex: '^(=|,|\)|\})$'
+    repeated-field:
+        matches: field-start
+        pattern: $NAME
+        any:
+            - all:
+                - precedes: {matches: name-end}
+                - precedes: {stopBy: end, matches: field-start, pattern: $NAME, precedes: {matches: name-end}}
+            - all:
+                - precedes: {regex: '^\.$', precedes: {kind: identifier, pattern: $B, precedes: {matches: name-end}}}
+                - precedes: {stopBy: end, matches: field-start, pattern: $NAME, precedes: {regex: '^\.$', precedes: {kind: identifier, pattern: $B, precedes: {matches: name-end}}}}
+            - all:
+                - precedes: {regex: '^\.$', precedes: {kind: identifier, pattern: $B, precedes: {regex: '^\.$', precedes: {kind: identifier, pattern: $C, precedes: {matches: name-end}}}}}
+                - precedes: {stopBy: end, matches: field-start, pattern: $NAME, precedes: {regex: '^\.$', precedes: {kind: identifier, pattern: $B, precedes: {regex: '^\.$', precedes: {kind: identifier, pattern: $C, precedes: {matches: name-end}}}}}}
+            - all:
+                - precedes: {regex: '^\.$', precedes: {kind: identifier, pattern: $B, precedes: {regex: '^\.$', precedes: {kind: identifier, pattern: $C, precedes: {regex: '^\.$', precedes: {kind: identifier, pattern: $D, precedes: {matches: name-end}}}}}}}
+                - precedes: {stopBy: end, matches: field-start, pattern: $NAME, precedes: {regex: '^\.$', precedes: {kind: identifier, pattern: $B, precedes: {regex: '^\.$', precedes: {kind: identifier, pattern: $C, precedes: {regex: '^\.$', precedes: {kind: identifier, pattern: $D, precedes: {matches: name-end}}}}}}}}
+            - all:
+                - regex: '^message$'
+                - precedes: {matches: name-end}
+                - inside: {stopBy: {kind: macro_invocation}, matches: event-macro}
+                - precedes: {stopBy: end, matches: format-string}
+rule:
+    any:
+        - matches: log-macro
+          has: {kind: token_tree, has: {stopBy: end, matches: repeated-field}}
+        - kind: attribute_item
+          has: {kind: attribute, has: {stopBy: end, matches: instrument-fields, has: {matches: repeated-field}}}
+        - kind: attribute_item
+          all:
+            - has: {kind: attribute, has: {stopBy: end, matches: instrument-fields, has: {matches: field-start, pattern: $NAME, precedes: {matches: name-end}}}}
+            - precedes:
+                stopBy: {kind: function_item}
+                kind: function_item
+                has: {field: parameters, has: {kind: parameter, has: {field: pattern, pattern: $NAME}}}
+            - not:
+                has:
+                    kind: attribute
+                    has:
+                        stopBy: end
+                        any:
+                            - {kind: identifier, regex: '^skip_all$'}
+                            - {kind: token_tree, follows: {kind: identifier, regex: '^skip$'}, has: {kind: identifier, pattern: $NAME}}
+transform:
+    TAIL: {replace: {source: $B, replace: '^(.*)$', by: '.$1'}}
+    TAIL2: {replace: {source: $C, replace: '^(.*)$', by: '.$1'}}
+    TAIL3: {replace: {source: $D, replace: '^(.*)$', by: '.$1'}}
+message: 'Event or span records `$NAME$TAIL$TAIL2$TAIL3` twice'
+note: 'Record each value under its own field name, counting a trailing format string as field `message` and each `#[instrument]` parameter outside `skip(<name>)` and `skip_all` as a field'

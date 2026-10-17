@@ -55,5 +55,5 @@ rule:
                                 - has: {kind: call_suffix, has: {kind: lambda_literal, has: {matches: sole, has: {matches: drain}}}}
         - matches: collect
           inside: {matches: run-body, stopBy: end}
-message: '`$SITE` drains or collects output that an output method of the run returns itself'
-note: 'Pass `output: .discarded` for output no code reads and `.bytes(limit:)`, `.data(limit:)`, or `.string(limit:)` for collected output, the run then needs no `.sequence` output and no loop in its body'
+message: '`$SITE` drains or collects output by hand that an output option of the run handles'
+note: 'Pass `output: .discarded` for output no code reads and `.bytes(limit:)`, `.data(limit:)`, or `.string(limit:)` for collected output, and drop the `.sequence` output and the loop'

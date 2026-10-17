@@ -106,7 +106,7 @@ public readonly partial struct Nits : IMinMaxValue<Nits> {
     public static Nits FileWhite { get; } = new(203f);
     public static Nits HlgPeak { get; } = new(1_000f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [SmartEnum<string>]
@@ -313,7 +313,7 @@ public readonly partial struct CompressionThreshold : IMinMaxValue<CompressionTh
     public static CompressionThreshold ReferenceMagenta { get; } = new(0.803f);
     public static CompressionThreshold ReferenceYellow { get; } = new(0.880f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -324,7 +324,7 @@ public readonly partial struct CompressionLimit : IMinMaxValue<CompressionLimit>
     public static CompressionLimit ReferenceMagenta { get; } = new(1.264f);
     public static CompressionLimit ReferenceYellow { get; } = new(1.312f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 [ValueObject<float>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
@@ -333,7 +333,7 @@ public readonly partial struct CompressionPower : IMinMaxValue<CompressionPower>
     public static CompressionPower MaxValue { get; } = new(65504f);
     public static CompressionPower Reference { get; } = new(1.2f);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = Admission.Refusal(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
 public sealed record GamutCompression(

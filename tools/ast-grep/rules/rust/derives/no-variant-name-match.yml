@@ -2,11 +2,52 @@
 id: no-variant-name-match
 language: rust
 severity: error
+utils:
+    variant-text:
+        any:
+            - kind: string_literal
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: value, kind: string_literal}}, {has: {field: field, regex: '^(to_owned|to_string|into)$'}}]}
+                - has: {field: arguments, not: {has: {pattern: $_}}}
+            - kind: call_expression
+              all:
+                - has: {field: function, regex: '^(String|Cow)::(from|Borrowed)$'}
+                - has: {field: arguments, all: [{has: {nthChild: 1, kind: string_literal}}, {not: {has: {nthChild: 2}}}]}
+            - kind: block
+              all:
+                - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, matches: variant-text}
+                - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
+    unit-arm:
+        kind: match_arm
+        all:
+            - has: {field: pattern, kind: match_pattern, has: {nthChild: 1, kind: scoped_identifier}, not: {has: {field: condition, pattern: $_}}}
+            - has: {field: value, matches: variant-text}
+    naming-method:
+        kind: function_item
+        all:
+            - has: {field: parameters, regex: '^\(\s*&?\s*self\s*\)$'}
+            - has: {field: return_type, regex: '^(&\s*(''static\s+)?str|String|Cow\s*<\s*''static\s*,\s*str\s*>)$'}
+            - not:
+                all:
+                    - has: {kind: function_modifiers, regex: '\bconst\b'}
+                    - inside:
+                        kind: source_file
+                        stopBy: end
+                        has: {stopBy: end, kind: call_expression, matches: rust-const-context, has: {field: function, any: [{kind: field_expression, has: {field: field, pattern: $METHOD}}, {kind: scoped_identifier, has: {field: name, pattern: $METHOD}}]}}
+            - inside: {kind: declaration_list, inside: {kind: impl_item, all: [{not: {has: {field: trait, pattern: $_}}}, {has: {field: type, kind: type_identifier, pattern: $T}}]}}
+    name-match:
+        kind: match_expression
+        all:
+            - has: {field: value, regex: '^\*?\s*self$'}
+            - has: {field: body, all: [{has: {kind: match_arm, nthChild: {position: 2, ofRule: {kind: match_arm}}}}, {not: {has: {kind: match_arm, not: {matches: unit-arm}}}}]}
+            - inside: {kind: function_item, stopBy: {kind: 'function_item, closure_expression'}, has: {field: name, pattern: $METHOD}, matches: naming-method}
+            - inside: {kind: source_file, stopBy: end, all: [{has: {stopBy: end, kind: enum_item, has: {field: name, pattern: $T}}}, {not: {has: {stopBy: end, matches: {rust-error-type: {name: {pattern: $T}}}}}}]}
 rule:
     kind: match_expression
     all:
-        - matches: rust-variant-name-match
         - inside: {kind: function_item, stopBy: {kind: 'function_item, closure_expression'}, has: {field: name, pattern: $METHOD}}
         - inside: {kind: impl_item, stopBy: end, has: {field: type, pattern: $T}}
+        - any: [{matches: rust-variant-name-match}, {matches: name-match}]
 message: '`$METHOD` of `$T` spells one string literal per unit variant'
-note: 'Derive `derive_more::Display` (for `fmt`) with each literal in a `#[display("<text>")]` on its variant, or `strum::IntoStaticStr` (for `as_str` and `name`) or `strum::AsRefStr` (for `as_ref`) with each literal in `#[strum(serialize = "<text>")]` or one `#[strum(serialize_all = "<case>")]`, the derive states the variant table once and stays exhaustive with it. A `const fn` a `const` or `static` initializer, `const {}` block, or `const fn` of the file calls and an error type thiserror renders stay as written'
+note: 'Derive `derive_more::Display` for `fmt` with `#[display("<text>")]` per variant, or `strum::IntoStaticStr` for a `&''static str` method or `strum::AsRefStr` for `as_ref` with `#[strum(serialize = "<text>")]` per variant or one `#[strum(serialize_all = "<case>")]`, and call `<value>.into()` or `<value>.to_string()` in place of the method'

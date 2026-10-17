@@ -171,7 +171,7 @@ public static class NumericRows {
         from doc in scope.DocumentIO
         from text in Measure(doc, soft, modelUnits)
         let bounds = (TValue.MinValue.ToValue(), TValue.MaxValue.ToValue())
-        from typed in Typed(text, Admission.Validated<TValue, Length>, static value => value.ToValue(), bounds, scope.Sink, retain)
+        from typed in Typed(text, ValidationResults.Validated<TValue, Length>, static value => value.ToValue(), bounds, scope.Sink, retain)
         let cell = new NumericCell<TValue, Length>(typed.Field, typed.Field.Fit, None, typed.Part, text, static value => value.ToValue(), bounds)
         from cells in Bound(source, field, lens, cell,
             (_, _) => EventKind.DocumentPropertiesChanged.In(doc.RuntimeSerialNumber).Inline(_ => Measure(doc, soft, modelUnits).Bind(typed.Field.Retext), scope.Sink, retain),

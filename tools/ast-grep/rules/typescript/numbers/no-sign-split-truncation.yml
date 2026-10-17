@@ -101,5 +101,5 @@ rule:
                 - all: [{has: {field: left, matches: sign}}, {has: {field: right, matches: floored-magnitude}}]
                 - all: [{has: {field: left, matches: floored-magnitude}}, {has: {field: right, matches: sign}}]
 fix: $MATH.trunc($N)
-message: '`$N` is truncated by its sign through `ceil` and `floor`'
-note: '`Math.trunc(<n>)` drops the fraction toward zero in one call, with the same result for every number, `-0`, `NaN`, and infinities included, and evaluates `<n>` once'
+message: '`ceil` and `floor` truncate `$N` by its sign'
+note: 'Call `Math.trunc(<n>)` to drop the fraction toward zero in one call, with the same result for every number (`-0`, `NaN`, and infinities included) and one evaluation of `<n>`'
