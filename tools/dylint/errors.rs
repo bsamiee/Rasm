@@ -10,33 +10,26 @@ use crate::{bounds_of, is_error, is_text, pointee};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, strum::IntoStaticStr)]
 enum UntypedKind {
+    #[strum(serialize = "text callers cannot match")]
     Text,
+    #[strum(serialize = "a primitive that names no failure")]
     Code,
+    #[strum(serialize = "a tuple that names no failure")]
     Tuple,
+    #[strum(serialize = "a unit type that names no failure")]
     Unit,
+    #[strum(serialize = "an erased `dyn Error` callers cannot match")]
     Erased,
+    #[strum(serialize = "a report that erases each failure's type")]
     Report,
+    #[strum(serialize = "a collection of errors that can be empty")]
     Many,
+    #[strum(serialize = "a collection of text callers cannot match")]
     Messages,
+    #[strum(serialize = "a `Display` type that implements no `core::error::Error`")]
     NoError(DefId),
-}
-
-impl UntypedKind {
-    const fn reason(self) -> &'static str {
-        match self {
-            Self::Text => "text callers cannot match",
-            Self::Code => "a primitive that names no failure",
-            Self::Tuple => "a tuple that names no failure",
-            Self::Unit => "a unit type that names no failure",
-            Self::Erased => "an erased `dyn Error` callers cannot match",
-            Self::Report => "a report that erases each failure's type",
-            Self::Many => "a collection of errors that can be empty",
-            Self::Messages => "a collection of text callers cannot match",
-            Self::NoError(_) => "a `Display` type that implements no `core::error::Error`",
-        }
-    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -102,6 +95,7 @@ fn unread<'tcx>(cx: &LateContext<'tcx>, handler: &Expr<'tcx>) -> Option<(&'tcx P
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 pub(crate) mod debug_main_error;
+pub(crate) mod decode_without_path;
 pub(crate) mod discarded_error;
 pub(crate) mod discarded_error_source;
 pub(crate) mod foreign_error_return;

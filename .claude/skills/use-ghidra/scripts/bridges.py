@@ -13,23 +13,18 @@ import psutil
 
 type Session = SessionStart | SessionEnd
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-HEADLESS = "ghidra.app.util.headless.AnalyzeHeadless"
-BRIDGE = "GhidraCliBridge.java"
-
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-class Event(msgspec.Struct, frozen=True, tag_field="hook_event_name"):
-    """Session event, tagged by event name."""
+class Event(msgspec.Struct, frozen=True, tag_field="hook_event_name", tag=True):
+    """Session event, tagged by its class name."""
 
 
-class SessionStart(Event, frozen=True, tag="SessionStart"):
+class SessionStart(Event, frozen=True):
     """Start of a Claude Code session."""
 
 
-class SessionEnd(Event, frozen=True, tag="SessionEnd"):
+class SessionEnd(Event, frozen=True):
     """End of the Claude Code session it names."""
 
     session_id: str
@@ -54,7 +49,7 @@ class Bridge(msgspec.Struct, frozen=True):
     project: Path
     owner: Owner
     orphaned: bool
-    environ: dict[str, str]
+    environ: frozendict[str, str]
 
     def ended(self, event: Session) -> bool:
         """Return whether owner's process ended or `event` ends owner's session."""
@@ -70,14 +65,18 @@ class Bridge(msgspec.Struct, frozen=True):
 
 def bridges() -> tuple[Bridge, ...]:
     """Return each bridge JVM naming its owner, orphaned when no older process holds owner's pid, project from `AnalyzeHeadless` location and name arguments."""
+    headless = "ghidra.app.util.headless.AnalyzeHeadless"
     processes = tuple(psutil.process_iter(("cmdline", "environ", "create_time")))
     started = {process.pid: process.info["create_time"] for process in processes}
     return tuple(
-        Bridge(Path(argv[at + 1], argv[at + 2]), owner, owner.pid not in started or started[owner.pid] > process.info["create_time"], environ)
+        Bridge(
+            Path(argv[(at := argv.index(headless)) + 1], argv[at + 2]),
+            owner := msgspec.convert(environ, Owner, strict=False),
+            owner.pid not in started or started[owner.pid] > process.info["create_time"],
+            frozendict(environ),
+        )
         for process in processes
-        if {HEADLESS, BRIDGE} <= set(argv := process.info["cmdline"] or []) and set(Owner.__struct_encode_fields__) <= (environ := process.info["environ"] or {}).keys()
-        for owner in (msgspec.convert(environ, Owner, strict=False),)
-        for at in (argv.index(HEADLESS),)
+        if {headless, "GhidraCliBridge.java"} <= set(argv := process.info["cmdline"] or []) and set(Owner.__struct_encode_fields__) <= (environ := process.info["environ"] or {}).keys()
     )
 
 
@@ -96,8 +95,7 @@ def commands(event: Session, found: tuple[Bridge, ...], projects: tuple[Path, ..
 def main() -> None:
     """Start each command in its own session, a bridge's save at `ghidra stop` outlasts the hook."""
     event = msgspec.json.decode(sys.stdin.buffer.read(), type=Session)
-    settings = msgspec.convert(os.environ, Settings)
-    projects = tuple(path.with_suffix("") for path in Path(settings.projects).glob("*.gpr"))
+    projects = tuple(path.with_suffix("") for path in Path(msgspec.convert(os.environ, Settings).projects).glob("*.gpr"))
     for command, environ in commands(event, bridges(), projects, os.environ):
         subprocess.Popen(command, env=environ, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
 
@@ -107,4 +105,4 @@ if __name__ == "__main__":
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["BRIDGE", "HEADLESS", "Bridge", "Event", "Owner", "Session", "SessionEnd", "SessionStart", "Settings", "bridges", "commands", "main"]
+__all__ = ["main"]

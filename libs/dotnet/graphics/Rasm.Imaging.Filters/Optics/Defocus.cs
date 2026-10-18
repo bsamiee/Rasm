@@ -49,19 +49,19 @@ public sealed unsafe record Defocus(FocusField Field, DefocusRadius Radius, Posi
             tilt: static s => Some(Framed(s, AxisFraction.MinValue, 1))).Map<PixelPass>(field => Gathered(state.Iris, state.Fringe, field));
 
     internal static Fin<Unit> Correlate(Mat image, Iris iris, SignedFraction fringe, Vector256<double> radii) =>
-        toSeq(Range(0, image.NumberOfChannels)).Traverse(lane => PixelSampling.KernelTaps<int>(ERational.FromDouble(radii[lane]).Multiply(ERational.FromSingle(iris.Circumradius))).Map(side => (Lane: lane, Side: side))).As().Bind(kernels => Try.lift(() => {
-            foreach ((int lane, int side) in kernels) {
+        toSeq(Range(0, image.NumberOfChannels)).Traverse(channel => PixelSampling.KernelTaps<int>(ERational.FromDouble(radii[channel]).Multiply(ERational.FromSingle(iris.Circumradius))).Map(side => (Channel: channel, Side: side))).As().Bind(kernels => Try.lift(() => {
+            foreach ((int channel, int side) in kernels) {
                 using Mat plane = new();
                 using Mat kernel = new(side, side, DepthType.Cv32F, 1);
                 for (int y = 0; y < side; y++) {
                     Span<float> cells = new((void*)kernel.GetDataPointer(y), side);
                     for (int x = 0; x < cells.Length; x++)
-                        cells[x] = (float)Tap(iris, fringe, iris.Outline(((side / 2) - x, (side / 2) - y)), radii[lane])[lane];
+                        cells[x] = (float)Tap(iris, fringe, iris.Outline(((side / 2) - x, (side / 2) - y)), radii[channel])[channel];
                 }
                 CvInvoke.Normalize(kernel, kernel, 1d, 0d, NormType.L1);
-                CvInvoke.ExtractChannel(image, plane, lane);
+                CvInvoke.ExtractChannel(image, plane, channel);
                 CvInvoke.Filter2D(plane, plane, kernel, new Point(-1, -1), 0d, BorderType.Replicate);
-                CvInvoke.InsertChannel(plane, image, lane);
+                CvInvoke.InsertChannel(plane, image, channel);
             }
             return unit;
         }).Run());
@@ -86,9 +86,9 @@ public sealed unsafe record Defocus(FocusField Field, DefocusRadius Radius, Posi
                         for (int span = Window(float.Max(own, near) * circumradius), k = 0; k < span * span; k++) {
                             (int dy, int dx) = ((k / span) - (span / 2), (k % span) - (span / 2));
                             (int u, int v) = (int.Clamp(x + dx, 0, radius.Width - 1), int.Clamp(y + dy, 0, radius.Height - 1));
-                            Vector256<double> lanes = Tap(iris, fringe, outlines[((dy + (side / 2)) * side) + dx + (side / 2)], float.Abs(float.Min(radius[v, u], own)));
+                            Vector256<double> weights = Tap(iris, fringe, outlines[((dy + (side / 2)) * side) + dx + (side / 2)], float.Abs(float.Min(radius[v, u], own)));
                             Vector4 pixel = light[v, u];
-                            (sum, total) = (sum + (lanes * Vector256.Create(pixel.X, pixel.Y, pixel.Z, pixel.W)), total + lanes);
+                            (sum, total) = (sum + (weights * Vector256.Create(pixel.X, pixel.Y, pixel.Z, pixel.W)), total + weights);
                         }
                         row[x] = Vector256.Narrow(sum / total, Vector256<double>.Zero).GetLower().AsVector4() switch { { W: > 0f } mean => new(mean.AsVector3() / mean.W, mean.W), _ => Vector4.Zero };
                     }

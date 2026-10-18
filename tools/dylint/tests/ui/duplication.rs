@@ -112,34 +112,6 @@ fn duplicate_body(found: &str) {
         | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         = help: delete `sum` and call `total` at each call site
 
-    warning: `Deref` impls for `Tracked` and `Exported` repeat one body for `deref`
-      --> tools/dylint/examples/forwarding_newtype_deref.rs:40:5
-       |
-    40 |     fn deref(&self) -> &Self::Target { &self.0 }
-       |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       |
-    note: repeated here
-      --> tools/dylint/examples/forwarding_newtype_deref.rs:53:5
-       |
-    53 |     fn deref(&self) -> &Self::Target { &self.0 }
-       |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       = help: generate the repeating `Deref` impls from one local `macro_rules!` that takes the implementing type
-       = note: `#[warn(duplicate_body)]` on by default
-
-    warning: `Default` impls for `Config` and `Limits` repeat one body for `default`
-      --> tools/dylint/examples/manual_default_field_values.rs:55:5
-       |
-    55 |     fn default() -> Self { Self::new() }
-       |     ^^^^^^^^^^^^^^^^^^^^
-       |
-    note: repeated here
-      --> tools/dylint/examples/manual_default_field_values.rs:72:5
-       |
-    72 |     fn default() -> Self { Self::new() }
-       |     ^^^^^^^^^^^^^^^^^^^^
-       = help: generate the repeating `Default` impls from one local `macro_rules!` that takes the implementing type
-       = note: `#[warn(duplicate_body)]` on by default
-
     warning: `Iterator` impls for `Countdown` and `Repeated` repeat one body for `next`
       --> tools/dylint/examples/manual_gen_block.rs:21:5
        |
@@ -189,8 +161,24 @@ fn duplicate_trait_constant(found: &str) {
     ...
     43 |     const ARITY: usize = 2;
        |     ^^^^^^^^^^^^^^^^^^
-       = help: declare the value as the default of `Arity::ARITY` and delete `ARITY` from each impl
+       = help: set the default of `Arity::ARITY` to the value and delete `ARITY` from each impl
        = note: `#[warn(duplicate_trait_constant)]` on by default
+
+    warning: every `Depth` impl sets `DEPTH` to the same value
+      --> tools/dylint/examples/duplicate_trait_constant.rs:14:5
+       |
+    14 |     const DEPTH: u8 = 1;
+       |     ^^^^^^^^^^^^^^^
+       |
+    note: set here
+      --> tools/dylint/examples/duplicate_trait_constant.rs:55:5
+       |
+    55 |     const DEPTH: u8 = 4;
+       |     ^^^^^^^^^^^^^^^
+    ...
+    59 |     const DEPTH: u8 = 4;
+       |     ^^^^^^^^^^^^^^^
+       = help: set the default of `Depth::DEPTH` to the value and delete `DEPTH` from each impl
     ");
 }
 
@@ -580,7 +568,7 @@ fn parameterizable_body(found: &str) {
         |
     167 | fn ticked(value: u64) -> Clock { Clock::from(value.strict_add(1)) }
         | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        = help: call `From::from` directly in place of `started` and `ticked`
+        = help: make one function generic over `S: From` in place of `started` and `ticked`
     "#);
 }
 

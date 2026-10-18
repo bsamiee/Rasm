@@ -176,7 +176,7 @@ public sealed record ParticleField(
 
     private static Fin<Unit> Kernel(ParticleField state, PassContext context, PixelFrame frame, IProgress<int> progress) =>
         (state.Turbulence == ShortSideLength.Neutral
-            ? Fin.Succ((Sample: state.Basis.Sampler, Range: (Lower: 0f, Upper: 0f)))
+            ? (Sample: state.Basis.Sampler, Range: (Lower: 0f, Upper: 0f))
             : state.Basis.BoundedSampler).Bind(bounded => Try.lift(() => {
                 (PointCells cells, int side, (ERational X, ERational Y) middle, ERational time, ERational shutter) =
                     (state.Cells, context.Extent.ShortSide, (ERational.FromInt32(context.Extent.Width).Divide(2), ERational.FromInt32(context.Extent.Height).Divide(2)),
@@ -232,8 +232,7 @@ public sealed record ParticleField(
                             scale, optical, gain, state.Covering ? coating.Sample(draw.X) : Vector4.Zero, light));
                     }
                 }
-                Particle[] ordered = [.. particles.OrderByDescending(static particle => particle.Depth).ThenBy(static particle => particle.Layer)
-                .ThenBy(static particle => particle.Line).ThenBy(static particle => particle.Column)];
+                Particle[] ordered = [.. particles.OrderByDescending(static particle => particle.Depth).ThenBy(static particle => particle.Layer).ThenBy(static particle => particle.Line).ThenBy(static particle => particle.Column)];
                 return state.Layer.Pass((row, column, line) => {
                     long y = context.Extent.Height - 1L - line;
                     for (int x = 0; x < row.Length; x++) {
@@ -252,8 +251,9 @@ public sealed record ParticleField(
                     NoiseFunctions.Split(ERational.FromInt64(pixel).Subtract(center).Divide(side).Subtract(displacement).Divide(cell)).Cell;
 
                 (ERational Low, ERational High) Travel(ERational rate, double near, double far) {
-                    ERational[] endpoints = [rate.Multiply(ERational.FromDouble(near)).Multiply(time), rate.Multiply(ERational.FromDouble(far)).Multiply(time),
-                    rate.Multiply(ERational.FromDouble(near)).Multiply(time.Subtract(shutter)), rate.Multiply(ERational.FromDouble(far)).Multiply(time.Subtract(shutter))];
+                    ERational[] endpoints = [
+                        rate.Multiply(ERational.FromDouble(near)).Multiply(time), rate.Multiply(ERational.FromDouble(far)).Multiply(time),
+                        rate.Multiply(ERational.FromDouble(near)).Multiply(time.Subtract(shutter)), rate.Multiply(ERational.FromDouble(far)).Multiply(time.Subtract(shutter))];
                     return (endpoints.Aggregate(ERational.Min), endpoints.Aggregate(ERational.Max));
                 }
 
@@ -273,16 +273,17 @@ public sealed record ParticleField(
 
                 Vector256<double> Spatial(long column, long line, ERational tau) {
                     (ERational left, ERational top, ERational right, ERational bottom) = (ERational.FromInt64(column), ERational.FromInt64(line), ERational.FromInt64(column + 1), ERational.FromInt64(line + 1));
-                    (Particle Particle, (ERational X, ERational Y) Point, ERational LowX, ERational HighX, ERational LowY, ERational HighY, double Modulation)[] active = [.. from particle in ordered
-                                                                                                                                                                           let point = Moved(particle, tau)
-                                                                                                                                                                           let reach = ERational.FromDouble(Grown(particle.Radius))
-                                                                                                                                                                           let lowX = ERational.Max(left, point.X.Subtract(reach))
-                                                                                                                                                                           let highX = ERational.Min(right, point.X.Add(reach))
-                                                                                                                                                                           let lowY = ERational.Max(top, point.Y.Subtract(reach))
-                                                                                                                                                                           let highY = ERational.Min(bottom, point.Y.Add(reach))
-                                                                                                                                                                           where lowX.CompareTo(highX) < 0 && lowY.CompareTo(highY) < 0
-                                                                                                                                                                           let modulation = 1d - (state.Twinkle * plain(particle.Point with { W = ERational.FromSingle(state.TwinkleRate).Multiply(tau) }, twinkle).Value)
-                                                                                                                                                                           select (Particle: particle, Point: point, LowX: lowX, HighX: highX, LowY: lowY, HighY: highY, Modulation: modulation)];
+                    (Particle Particle, (ERational X, ERational Y) Point, ERational LowX, ERational HighX, ERational LowY, ERational HighY, double Modulation)[] active = [..
+                        from particle in ordered
+                        let point = Moved(particle, tau)
+                        let reach = ERational.FromDouble(Grown(particle.Radius))
+                        let lowX = ERational.Max(left, point.X.Subtract(reach))
+                        let highX = ERational.Min(right, point.X.Add(reach))
+                        let lowY = ERational.Max(top, point.Y.Subtract(reach))
+                        let highY = ERational.Min(bottom, point.Y.Add(reach))
+                        where lowX.CompareTo(highX) < 0 && lowY.CompareTo(highY) < 0
+                        let modulation = 1d - (state.Twinkle * plain(particle.Point with { W = ERational.FromSingle(state.TwinkleRate).Multiply(tau) }, twinkle).Value)
+                        select (Particle: particle, Point: point, LowX: lowX, HighX: highX, LowY: lowY, HighY: highY, Modulation: modulation)];
                     ERational[] xs = [.. new SortedSet<ERational>(active.SelectMany(static item => new[] { item.LowX, item.HighX }).Append(left).Append(right))];
                     ERational[] ys = [.. new SortedSet<ERational>(active.SelectMany(static item => new[] { item.LowY, item.HighY }).Append(top).Append(bottom))];
                     Vector256<double> total = Vector256<double>.Zero;

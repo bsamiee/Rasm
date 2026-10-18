@@ -70,8 +70,8 @@ public static class Copies {
 
     public static IO<Seq<(T Result, TRow Row)>> Acquire<T, TRow>(Func<(T?[]? Results, IReadOnlyList<TRow>? Rows)> create, string member, Action<IDisposable> retain) where T : GeometryBase =>
         Owned(create,
-            answer => (Refused.UnlessFound(answer.Results, member).Bind(products => Measurements.Valid([.. products], member)).ToValidation(), Refused.UnlessFound(answer.Rows, member).ToValidation())
-                .Apply(static (kept, rows) => kept.Zip(toSeq(rows))).As().ToFin(),
+            answer => (Refused.UnlessFound(answer.Results, member).Bind(products => Measurements.Valid([.. products], member)), Refused.UnlessFound(answer.Rows, member))
+                .Apply(static (kept, rows) => kept.Zip(toSeq(rows))).As(),
             static answer => Released(answer.Results), retain);
 
     // --- [INDICES]

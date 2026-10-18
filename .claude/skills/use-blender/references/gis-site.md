@@ -28,10 +28,9 @@ Every task starts from one read of georeference stores and grid north, the clock
 ```python
 import math
 
-import bpy
-
 from BlenderGIS.core.proj import reprojPt
 from BlenderGIS.geoscene import GeoScene
+import bpy
 
 scene = bpy.context.scene
 geo = GeoScene(scene)
@@ -63,14 +62,13 @@ With `isGeoref` holding while a stale projected origin sits beside a moved latit
 One call writes the georeference, Blosm's center, and Sun Position's site, moment, and north:
 
 ```python
-import math
 from datetime import datetime, timedelta
+import math
 from zoneinfo import ZoneInfo
-
-import bpy
 
 from BlenderGIS.core.proj import reprojPt
 from BlenderGIS.geoscene import GeoScene
+import bpy
 
 scene = bpy.context.scene
 latitude, longitude = <latitude>, <longitude>
@@ -124,7 +122,7 @@ def framed(to_scene: Callable[[float, float], Vector], height: float) -> Matrix:
 |  [02]   | Blosm import            | `TransverseMercator(lat=, lon=).toGeographic(x, y)`, then `reprojPt(4326, geo.crs, lon, lat)` |
 |  [03]   | Survey in the scene CRS | `Vector((east * unit - geo.crsx + x, north * unit - geo.crsy + y))`, a translation            |
 
-`reprojPt` runs offline through the `pyproj` BlenderGIS bundles. Height is source origin's elevation minus site elevation.
+`reprojPt` runs offline through the `pyproj` BlenderGIS bundles. Height is source origin's elevation minus site elevation. Calls placing data through `framed` define it in the same call.
 
 ## [05]-[TERRAIN]
 
@@ -184,9 +182,8 @@ curl -fsS -A '<application name>' -o <dir>/site.osm 'https://overpass-api.de/api
 ```
 
 ```python
-import bpy
-
 import BlenderGIS.operators.io_import_osm as osm
+import bpy
 
 dem = bpy.data.objects["<terrain>"]
 osm.OSMTAGS = osm.getTags()
@@ -206,11 +203,10 @@ result = {"status": sorted(status), "collections": {c.name: len(c.objects) for c
 Blosm builds roof shapes and `building:part` stacks in a spherical transverse Mercator about `scene["lat"]` and `scene["lon"]` that turns and stretches against UTM. Terrain enters Blosm's frame through inverse frame matrix, and frame matrix places the result:
 
 ```python
-import bpy
-from mathutils import Vector
-
 from BlenderGIS.core.proj import reprojPt
 from BlenderGIS.geoscene import GeoScene
+import bpy
+from mathutils import Vector
 from util.transverse_mercator import TransverseMercator
 
 scene = bpy.context.scene
@@ -241,10 +237,7 @@ added = [obj for obj in bpy.data.objects if obj not in before]
 envelopes = [obj for obj in added if obj.name.endswith("_envelope")]
 for obj in (obj for obj in added if obj not in envelopes and obj.parent is None):
     obj.matrix_world = frame @ obj.matrix_world
-for obj in (terrain, *envelopes):
-    data = obj.data
-    bpy.data.objects.remove(obj)
-    bpy.data.meshes.remove(data)
+bpy.data.batch_remove(ids=(terrain, mesh, *envelopes, *(obj.data for obj in envelopes)))
 ```
 
 - `util.transverse_mercator` resolves once Blosm loads
@@ -258,11 +251,10 @@ for obj in (terrain, *envelopes):
 LandXML TINs import with minimum easting and northing subtracted and stored per surface in double precision, and the object matrix places them:
 
 ```python
-import bpy
-from mathutils import Vector
-
 from BlenderGIS.core.proj import reprojPt
 from BlenderGIS.geoscene import GeoScene
+import bpy
+from mathutils import Vector
 
 geo = GeoScene(bpy.context.scene)
 status = bpy.ops.import_scene.landxml_tin(filepath="<file>.xml", source_units="<units>")
@@ -288,9 +280,8 @@ for tin in [obj for obj in bpy.context.selected_objects if "landxml_source" in o
 Point Cloud I/O imports each file as a `POINTCLOUD` object with `color`, `intensity`, `classification`, and `radius` attributes. LAS and LAZ center their points and store the subtracted minimum as `las_origin_offset`:
 
 ```python
-import bpy
-
 from BlenderGIS.geoscene import GeoScene
+import bpy
 
 geo = GeoScene(bpy.context.scene)
 before = set(bpy.data.objects)
@@ -303,8 +294,9 @@ cloud.location = (east - geo.crsx, north - geo.crsy, height - <site elevation>)
 E57 scans import in each scanner's frame, and each scan's header pose places it:
 
 ```python
-import pye57
+import bpy
 from mathutils import Matrix
+import pye57
 
 before = set(bpy.data.objects)
 status = bpy.ops.import_scene.point_cloud_e57(filepath="<file>.e57", merge_scans=False)
@@ -326,6 +318,8 @@ for index, scan in enumerate(sorted((obj for obj in bpy.data.objects if obj not 
 `importgis.shapefile` reads a shapefile in the CRS `shpCRS` names and reprojects it to scene CRS:
 
 ```python
+import bpy
+
 bpy.ops.importgis.shapefile(filepath="<file>.shp", shpCRS="EPSG:<epsg>", elevSource="OBJ", objElevName="<terrain>", fieldExtrudeName="<height field>", separateObjects=True, fieldObjName="<name field>")
 ```
 
@@ -350,8 +344,7 @@ world = scene.world or bpy.data.worlds.new("<World>")
 scene.world = world
 sky = next((node for node in world.node_tree.nodes if node.type == "TEX_SKY"), None) or world.node_tree.nodes.new("ShaderNodeTexSky")
 world.node_tree.links.new(sky.outputs["Color"], next(node for node in world.node_tree.nodes if node.type == "BACKGROUND").inputs["Color"])
-light = next((obj for obj in scene.objects if obj.type == "LIGHT" and obj.data.type == "SUN"), None)
-if light is None:
+if (light := next((obj for obj in scene.objects if obj.type == "LIGHT" and obj.data.type == "SUN"), None)) is None:
     light = bpy.data.objects.new("<Sun>", bpy.data.lights.new("<Sun>", "SUN"))
     scene.collection.objects.link(light)
 sun = scene.sun_pos_properties

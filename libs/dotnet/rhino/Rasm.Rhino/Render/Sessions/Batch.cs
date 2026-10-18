@@ -55,14 +55,11 @@ internal sealed class AsyncContext(IPlugInSink sink) : AsyncRenderContext {
 
     public IO<bool> Start(RenderWindow window, Func<Action<IDisposable>, IO<RenderWork>> open, LocalizeStringPair caption) =>
         DisposalOps.OnFailure(
-            from work in DisposalOps.Replace(open, (_, lease) => {
-                Seq<IDisposable> prior = atomic(() => {
-                    Option<Seq<IDisposable>> held = scenes.Value;
-                    scenes.Value = held.Map(_ => Seq(lease));
-                    return held;
-                }).ToFin(Errors.Cancelled).ThrowIfFail();
-                return DisposalOps.Release(prior);
-            })
+            from work in DisposalOps.Replace(open, (_, lease) => atomicIO(() => {
+                Option<Seq<IDisposable>> held = scenes.Value;
+                scenes.Value = held.Map(_ => Seq(lease));
+                return held.ToFin(Errors.Cancelled);
+            }).Bind(IO.lift).Bind(DisposalOps.Release))
             from control in work.Ready.Traverse(ready => DisposalOps.Acquire(IO.lift(() => new ExecutionControl(ready, Sink)), window.RegisterPostEffectExecutionControl)).As()
             from started in IO.lift(() => StartRenderThread(() => Rendered(window, work.Render, control, caption.Local), caption.English))
             select started,
@@ -161,7 +158,7 @@ internal sealed class BatchPipeline : RenderPipeline {
                 select work, engine.Caption))
             select started,
             static () => false,
-            new CallbackSite(context.Sink, GetType(), member));
+            new CallbackSite(context.Sink, typeof(BatchPipeline), member));
 
     private IO<SceneBatch> FullScene(RenderWindow window, Action<IDisposable> retain) =>
         DisposalOps.Within(() => new RenderSourceView(document), source =>

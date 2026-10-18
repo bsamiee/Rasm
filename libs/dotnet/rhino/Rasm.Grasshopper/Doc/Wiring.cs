@@ -49,7 +49,7 @@ public static class Wiring {
         Rewired(() => Seq(Existing(left, middle), Existing(middle, right), Created(left, right)), () => Connections.CutOutMiddleMan(left, middle, right, undo));
 
     private static IO<Unit> Rewired(Func<Seq<Fin<Unit>>> checks, Func<bool> rewire) =>
-        IO.lift(() => checks().Traverse(static check => check.ToValidation()).As().ToFin().Map(_ => ignore(rewire())));
+        IO.lift(() => checks().Traverse(static check => check).As().Map(_ => ignore(rewire())));
 
     // --- [OBJECTS]
     public static IO<(Shout Shout, Listen Listen)> SplitWire(IParameter source, IParameter target, Option<string> name, PointF location, ActionList actions) =>

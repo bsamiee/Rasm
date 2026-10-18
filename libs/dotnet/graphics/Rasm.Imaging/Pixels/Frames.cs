@@ -79,7 +79,7 @@ public sealed class PixelFrame {
         from header in (
                 from samples in part.Header.IsDeep
                      ? Fin.Fail<InterleavedFloatImage>(Error.New($"EXR part '{part.Header.Name}' holds deep samples"))
-                     : Fin.Succ(layer.Length is 0 && PartConversion.IsLuminanceChroma(part) ? PartConversion.LuminanceChromaToRgbaFloat(part) : PartConversion.ToInterleavedFloat(part))
+                     : layer.Length is 0 && PartConversion.IsLuminanceChroma(part) ? PartConversion.LuminanceChromaToRgbaFloat(part) : PartConversion.ToInterleavedFloat(part)
                 from layout in Components(samples.ChannelNames, layer)
                 select (Samples: samples, Layout: layout),
                 Optional(part.Header.Chromaticities).Traverse(static stated => Gamut.Of(stated).ToFin(Error.New(string.Create(CultureInfo.InvariantCulture,

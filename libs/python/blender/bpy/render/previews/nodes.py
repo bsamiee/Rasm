@@ -28,7 +28,7 @@ from blender.bpy.commands.operators import Call, Done, Empty, Operator, Outcome,
 from blender.bpy.data.ids.images import loaded, Tag
 from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.ids.store import Handle, resolved
-from blender.bpy.data.rna.descriptors import Descriptor, rooted, Value, written
+from blender.bpy.data.rna.descriptors import Descriptor, IdName, rooted, Value, written
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events.handlers import Change, PathHandler, SceneHandler, UpdateHandler
 from blender.bpy.extension.identity import Identity, Name
@@ -493,7 +493,7 @@ class NodePreview:
                 return Ok(Unchanged(reason="No node is selected"))
 
             def flipping(attached: Attached[NodeSetting]) -> BlenderResult[Done]:
-                edits = tuple(flipped(attached, node) for node in nodes)
+                edits = tuple(attached.read(node).bind(lambda held: attached.write(node, msgspec.structs.replace(held, show=not held.show))) for node in nodes)
                 return tallied(edits, (("INFO", f"Flipped {sum(edit.is_ok() for edit in edits)} nodes"),))
 
             return NodePreview.setting.bound(call.identity).bind(flipping)
@@ -589,9 +589,92 @@ class NodePreview:
             return paired(NodePreview.clay.made(identity, lambda: Ok(bpy.data.materials.new("Clay"))), self.stack.config()).bind(lambda pair: shaded(pair[0], Clay(), pair[1], identity))
 
         def staged(world: Environment | bpy.types.World, lamp: Lamp | bpy.types.Light) -> Staging:
-            return Staging(
-                source=scene, size=(size, size), engine=PreviewEngine.of(scene), world=world, lamp=lamp, value=render.valued, chain=PreviewScene(stack=self.stack).chain(scene, Nothing, (), ())
+            return Staging(source=scene, size=(size, size), engine=PreviewEngine.of(scene), world=world, lamp=lamp, value=render.valued, chain=Chain.of(scene, Nothing, (), ()))
+
+        def swatched() -> BlenderResult[bpy.types.Material]:
+            def defaulted(socket: bpy.types.NodeSocket) -> Option[Value]:
+                found: bpy.types.Property | None = socket.bl_rna.properties.get("default_value")
+                return Option.of_optional(found).map(lambda prop: Descriptor(root=type(socket), owner="", prop=prop).read(socket))
+
+            def graph(source: bpy.types.Node, name: Option[str]) -> Graph:
+                socket, kind = target.socket, type(source)
+                own = {
+                    descriptor: descriptor.read(source)
+                    for prop in source.bl_rna.properties
+                    if prop.identifier not in bpy.types.Node.bl_rna.properties and not prop.is_readonly
+                    for descriptor in (Descriptor(root=kind, owner="", prop=prop),)
+                }
+                inputs = {item.identifier: held for item in source.inputs if not item.is_linked for held in defaulted(item).to_list()}
+                sink, aovs = bpy.types.ShaderNodeOutputMaterial, bpy.types.ShaderNodeOutputAOV
+                return Graph(
+                    kind=bpy.types.ShaderNodeTree,
+                    nodes={
+                        "field": Node(kind=kind, members=own, inputs=inputs),
+                        "coordinates": Node(kind=bpy.types.ShaderNodeTexCoord),
+                        "emission": Node(kind=bpy.types.ShaderNodeEmission),
+                        "output": Node(kind=sink, members={Descriptor(root=sink, owner="", prop=sink.bl_rna.properties["target"]): "ALL"}),
+                        **name.map(lambda held: {"aov": Node(kind=aovs, members={Descriptor(root=aovs, owner="", prop=aovs.bl_rna.properties["aov_name"]): held})}).default_value({}),
+                    },
+                    links=(
+                        *(
+                            Link(source=End(node="coordinates", socket="Generated"), target=End(node="field", socket=item.identifier))
+                            for item in source.inputs
+                            if item.type == "VECTOR" and not item.is_linked
+                        ),
+                        Link(source=End(node="field", socket=socket), target=End(node="emission", socket="Color")),
+                        Link(source=End(node="emission", socket="Emission"), target=End(node="output", socket="Surface")),
+                        *(Link(source=End(node="field", socket=socket), target=End(node="aov", socket="Value")) for _ in name.to_list()),
+                    ),
+                )
+
+            found = (
+                held(target)
+                .map(lambda root: Editor(source=target.source, groups=target.groups).tree(root) if isinstance(root, bpy.types.NodeTree) else Nothing)
+                .bind(lambda tree: tree.bind(lambda inner: Option.of_optional(inner.nodes.get(target.node))).to_result_with(lambda: (BlenderAbsentFault(owner=repr(target.source), key=target.node),)))
             )
+            return paired(paired(found, aov), NodePreview.swatch.made(identity, lambda: Ok(bpy.data.materials.new("Swatch")))).bind(
+                lambda parts: tree_of(parts[1]).bind(lambda tree: reconciled(graph(*parts[0]), tree, identity)).map(lambda _: parts[1])
+            )
+
+        def clayed() -> BlenderResult[bpy.types.Object]:
+            def clothed(group: bpy.types.NodeTree, carried: Routed[Holder], material: bpy.types.Material) -> BlenderResult[None]:
+                return active_output(group).bind(
+                    lambda sink: created(group, bpy.types.GeometryNodeSetMaterial).bind(
+                        lambda painted: accumulated((
+                            socket_at(painted.inputs, "Geometry").bind(lambda target: joined(group, carried.socket, target)),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                            socket_at(painted.outputs, "Geometry").bind(lambda source: joined(group, source, sink.inputs[0])),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                            socket_at(painted.inputs, "Material").bind(lambda socket: written(socket, "default_value", material)),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                        )).map(lambda _: None)
+                    )
+                )
+
+            def copied(item: bpy.types.Object, name: str, carried: Routed[Holder], material: bpy.types.Material) -> BlenderResult[bpy.types.Object]:
+                def acquired(copy: bpy.types.Object) -> bpy.types.Object:
+                    resources.callback(bpy.data.objects.remove, copy)
+                    return copy
+
+                return paired(
+                    tree_of(carried.holder),
+                    Ownership(kind=bpy.types.Object, key=PreviewScene.routes.key, saved=Saved.NEVER, single=False)
+                    .made(identity, lambda: Option.of_optional(item.copy()).to_result_with(lambda: (BlenderAbsentFault(owner=repr(item), key="copy"),)))
+                    .map(acquired),
+                ).bind(
+                    lambda pair: accumulated((
+                        written(pair[1], "parent", None),
+                        written(pair[1], "location", (0.0, 0.0, 0.0)),
+                        written(pair[1].modifiers[name], "node_group", pair[0]),
+                        *(written(later, "show_render", value=False) for later in itertools.dropwhile(lambda modifier: modifier.name != name, pair[1].modifiers) if later.name != name),
+                        clothed(pair[0], carried, material),
+                    )).map(lambda _: pair[1])
+                )
+
+            match target.source:
+                case GeometrySource(item=handle, modifier=name):
+                    return paired(paired(handle.resolve(), held(target).bind(lambda group: resources.enter_context(routed(identity, group, target)))), clay()).bind(
+                        lambda parts: copied(parts[0][0], name, parts[0][1], parts[1])
+                    )
+                case MaterialSource() | LightSource() | WorldSource() | CompositorSource():
+                    return Error((BlenderAbsentFault(owner=repr(target.source), key=target.node),))
 
         with ExitStack() as resources:
             match target.source:
@@ -617,13 +700,11 @@ class NodePreview:
                 case GeometrySource():
                     aim = Vector((0.3, -0.6, 0.9)).normalized().to_track_quat("Z", "Y").to_euler()
                     staging = (
-                        paired(clayed(identity, target, clay, resources), msgspec.structs.replace(lighting, strength=0.25).environment).map(
+                        paired(clayed(), msgspec.structs.replace(lighting, strength=0.25).environment).map(
                             lambda pair: msgspec.structs.replace(staged(pair[1], Lamp(energy=4.0, rotation=(aim.x, aim.y, aim.z))), subject=Some(pair[0]), view=Framed())
                         )
                         if render.kind is RenderKind.GEOMETRY_CLAY
-                        else paired(swatched(identity, target, aov), environment).map(
-                            lambda pair: msgspec.structs.replace(staged(pair[1], lighting.lamp), material=Some(pair[0]), shape=Some(Shape.PLANE))
-                        )
+                        else paired(swatched(), environment).map(lambda pair: msgspec.structs.replace(staged(pair[1], lighting.lamp), material=Some(pair[0]), shape=Some(Shape.PLANE)))
                     )
                 case CompositorSource():
                     staging = paired(self.effected(identity, scene, target, size, resources), environment).map(
@@ -650,7 +731,7 @@ class NodePreview:
             return (
                 active_output(group)
                 .bind(lambda sink: joined(group, carried.socket, sink.inputs[0]))
-                .map(lambda _: (preview.chain(scene, head, (*mirrored, Mirrored(entry=entry, group=group)), ()), head.map(lambda plane: (plane.shape[1], plane.shape[0])).default_value((size, size))))
+                .map(lambda _: (Chain.of(scene, head, (*mirrored, Mirrored(entry=entry, group=group)), ()), head.map(lambda plane: (plane.shape[1], plane.shape[0])).default_value((size, size))))
             )
 
         match target.source:
@@ -676,6 +757,12 @@ class NodePreview:
         """Renders a target, stores its plane in the texture cache and the previews folder, and holds its uniform value."""
         state, folder, limit = NodePreview.state[identity.package], identity.folder / "previews", settings.display.limit
         key = demand.content.default_value(demand)
+
+        def pruned() -> BlenderResult[None]:
+            files: BlenderResult[tuple[Path, ...]] = catch(lambda: tuple(sorted(folder.glob("*.exr"), key=lambda path: path.stat().st_mtime)), exception=OSError)().map_error(
+                lambda error: (BlenderReadFault(request=folder, error=error),)
+            )
+            return Result[tuple[Path, ...], BlenderFaults].bind(files, lambda files: accumulated(removed(path) for path in files[:-limit])).map(lambda _: None)
 
         def numbered(readback: Readback) -> Option[float]:
             plane = readback.plane
@@ -710,7 +797,7 @@ class NodePreview:
                                 .map_error(BlenderImagingFault.lifted)
                             ),
                         )
-                        .bind(lambda _: pruned(folder, limit))
+                        .bind(lambda _: pruned())
                     )
 
                 return demand.content.map(written_file).default_value(Ok(None)).bind(lambda _: state.signal.fired())
@@ -743,6 +830,168 @@ class NodePreview:
             for editor in Editor.of(space).to_list()
             for tree in Option.of_optional(space.edit_tree).to_list()
         )
+
+        def keyed(node: bpy.types.Node, render: Render, staged: Staged, config: PyOpenColorIO.Config, enclosing: tuple[bpy.types.Node, ...]) -> BlenderResult[Option[ContentHash]]:
+            def held[B: bpy.types.ID](block: B, fresh: Callable[[B], BlenderResult[ContentHash]]) -> BlenderResult[ContentHash]:
+                handle: Handle[bpy.types.ID] = Handle.of(block)
+                return Option.of_optional(state.held.get(handle)).map(Ok).default_with(lambda: fresh(block).map(lambda key: state.held.setdefault(handle, key)))
+
+            def data_key(block: bpy.types.ID, *, weighted: bool) -> BlenderResult[ContentHash]:
+                def read[T](values: "bpy.types.bpy_prop_collection[T]", properties: Iterable[bpy.types.Property]) -> tuple[npt.NDArray[np.bool | np.int32 | np.float32], ...]:
+                    buffers: tuple[tuple[str, npt.NDArray[np.bool | np.int32 | np.float32]], ...] = tuple(
+                        (
+                            prop.identifier,
+                            np.empty(
+                                len(values) * (1 if isinstance(prop, bpy.types.EnumProperty) else max(prop.array_length, 1)),
+                                np.float32 if isinstance(prop, bpy.types.FloatProperty) else np.bool if isinstance(prop, bpy.types.BoolProperty) else np.int32,
+                            ),
+                        )
+                        for prop in properties
+                        if isinstance(prop, bpy.types.BoolProperty | bpy.types.IntProperty | bpy.types.FloatProperty | bpy.types.EnumProperty)
+                    )
+                    for member, buffer in buffers:
+                        values.foreach_get(member, buffer)
+                    return tuple(buffer for _, buffer in buffers)
+
+                def captured(struct: "bpy.types.bpy_struct[object]") -> BlenderResult[Snapshot]:
+                    definition: bpy.types.Struct = struct.bl_rna  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
+                    return Snapshot.capture(
+                        struct,
+                        Some(
+                            tuple(
+                                Descriptor(root=type(struct), owner="", prop=prop)
+                                for prop in Snapshot.members(definition)
+                                if not (isinstance(prop, bpy.types.CollectionProperty) or (isinstance(prop, bpy.types.PointerProperty) and prop.is_readonly))
+                            )
+                        ),
+                    )
+
+                shapes = tuple(Option.of_optional(block.shape_keys).to_list()) if isinstance(block, bpy.types.Mesh | bpy.types.Curve) else ()
+                keys = tuple(key for shape in shapes for key in shape.key_blocks)
+                materials = tuple(block.materials) if isinstance(block, bpy.types.Mesh | bpy.types.Curve | bpy.types.Curves | bpy.types.PointCloud | bpy.types.GreasePencil) else ()
+                attributes: tuple[bpy.types.Attribute, ...] = ()
+                structs: tuple[bpy.types.bpy_struct[object], ...] = (block, *shapes, *keys)
+                arrays: tuple[npt.NDArray[np.bool | np.int32 | np.float32 | np.float64], ...] = ()
+                labels: tuple[tuple[str, str | None], ...] = ()
+                match block:
+                    case bpy.types.Mesh():
+                        attributes = tuple(block.attributes)
+                        arrays = (
+                            *read(block.polygons, (bpy.types.MeshPolygon.bl_rna.properties["loop_start"],)),
+                            *(array for key in keys for array in read(key.points, bpy.types.ShapeKeyPoint.bl_rna.properties)),
+                            *(array for layer in block.skin_vertices for array in read(layer.data, bpy.types.MeshSkinVertex.bl_rna.properties)),
+                            *(
+                                (np.fromiter((value for index, vertex in enumerate(block.vertices) for element in vertex.groups for value in (index, element.group, element.weight)), np.float64),)
+                                if weighted
+                                else ()
+                            ),
+                        )
+                    case bpy.types.Curve():
+                        profiles = tuple(Option.of_optional(block.bevel_profile).to_list())
+                        structs = (*structs, *profiles)
+                        arrays = (
+                            *read(block.splines, bpy.types.Spline.bl_rna.properties),
+                            *(array for spline in block.splines for array in read(spline.points, bpy.types.SplinePoint.bl_rna.properties)),
+                            *(array for spline in block.splines for array in read(spline.bezier_points, bpy.types.BezierSplinePoint.bl_rna.properties)),
+                            *(array for key in keys for array in read(key.data, (bpy.types.ShapeKeyPoint.bl_rna.properties["co"],))),
+                            *(array for profile in profiles for array in read(profile.points, bpy.types.CurveProfilePoint.bl_rna.properties)),
+                            *(
+                                (*read(block.body_format, bpy.types.TextCharacterFormat.bl_rna.properties), *read(block.text_boxes, bpy.types.TextBox.bl_rna.properties))
+                                if isinstance(block, bpy.types.TextCurve)
+                                else ()
+                            ),
+                        )
+                    case bpy.types.Curves():
+                        attributes, arrays = tuple(block.attributes), read(block.curve_offset_data, bpy.types.IntAttributeValue.bl_rna.properties)
+                    case bpy.types.PointCloud():
+                        attributes = tuple(block.attributes)
+                    case bpy.types.GreasePencil():
+                        drawings = tuple(drawing for layer in block.layers for frame in layer.frames for drawing in Option.of_optional(frame.drawing).to_list())
+                        nodes = (*block.layers, *block.layer_groups)
+                        attributes, structs = (*block.attributes, *(attribute for drawing in drawings for attribute in drawing.attributes)), (block, *nodes)
+                        arrays = (
+                            *(array for layer in block.layers for array in read(layer.frames, bpy.types.GreasePencilFrame.bl_rna.properties)),
+                            *(array for drawing in drawings for array in read(drawing.curve_offsets, bpy.types.IntAttributeValue.bl_rna.properties)),
+                        )
+                        labels = tuple((node.name, Option.of_optional(node.parent_group).map(lambda group: group.name).to_optional()) for node in nodes)
+                    case _:
+                        pass
+                columns = tuple(
+                    array
+                    for attribute in attributes
+                    for data in (attribute.bl_rna.properties["data"],)
+                    if isinstance(data, bpy.types.CollectionProperty)
+                    for item in Option.of_optional(data.fixed_type).to_list()
+                    for array in read(getattr(attribute, data.identifier), item.properties)
+                )
+                named = msgspec.msgpack.encode((
+                    tuple((attribute.name, attribute.domain, attribute.data_type) for attribute in attributes),
+                    tuple(Option.of_optional(material).map(IdName.of).to_optional() for material in materials),
+                    tuple(key.relative_key.name for key in keys),
+                    labels,
+                ))
+                return accumulated(captured(struct) for struct in structs).map(lambda snapshots: content_hash(type(block), *snapshots, named, arrays=(*columns, *arrays)))
+
+            def geometry(item: bpy.types.Object, name: str) -> BlenderResult[Option[tuple[msgspec.Struct | ContentHash, ...]]]:
+                earlier = tuple(itertools.takewhile(lambda modifier: modifier.name != name, item.modifiers))
+                snapshots = accumulated(Snapshot.capture(modifier) for modifier in (*earlier, *Option.of_optional(item.modifiers.get(name)).to_list()))
+                trees = accumulated(fingerprinted(group) for modifier in earlier if isinstance(modifier, bpy.types.NodesModifier) for group in Option.of_optional(modifier.node_group).to_list())
+                data = accumulated(held(block, lambda found: data_key(found, weighted=bool(item.vertex_groups))) for block in Option.of_optional(item.data).to_list())
+                return paired(snapshots, paired(trees, data)).map(
+                    lambda parts: reduce(
+                        lambda values, key: values.map2(lambda rows, key: (*rows, key), key),
+                        parts[1][0],
+                        Option[tuple[msgspec.Struct | ContentHash, ...]].Some((
+                            *parts[0],
+                            Snapshot.of(bpy.types.Object, {"vertex_groups": tuple(group.name for group in item.vertex_groups)}),
+                            *parts[1][1],
+                        )),
+                    )
+                )
+
+            def sourced() -> BlenderResult[Option[tuple[msgspec.Struct | ContentHash, ...]]]:
+                match render.target.source:
+                    case GeometrySource(item=handle, modifier=name):
+                        return handle.resolve().bind(lambda item: geometry(item, name))
+                    case MaterialSource() | LightSource() | WorldSource() | CompositorSource():
+                        return Ok(Some(()))
+
+            context = accumulated(fingerprinted(group) for group in enclosing)
+            return paired(fingerprinted(node), paired(context, sourced())).map(
+                lambda parts: reduce(
+                    lambda own, key: own.map2(lambda prior, current: content_hash(Render, prior, current), key),
+                    parts[1][0],
+                    parts[0].map2(lambda own, source: content_hash(Render, staged, own, *source, config=Some(config)), parts[1][1]),
+                )
+            )
+
+        def restored(key: ContentHash, config: PyOpenColorIO.Config, name: str, limit: int, kept: frozenset[Hashable]) -> BlenderResult[bool]:
+            path = identity.folder / "previews" / f"{key.hex()}.exr"
+
+            def cached(image: ImageFile[np.float32]) -> BlenderResult[bool]:
+                decoded = catch(
+                    lambda: dict[Hashable, float]((key, msgspec.json.decode(str(field.value), type=float)) for field in image.header if field.name == name), exception=msgspec.DecodeError
+                )()
+                match decoded:
+                    case Result(tag="error"):
+                        return Ok(False)
+                    case Result(ok=numbers):
+                        pass
+                return (
+                    TextureCache(identity=identity)
+                    .stored(key, image.pixels, limit, kept)
+                    .bind(lambda _: catch(lambda: os.utime(path), exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=path, error=error),)))
+                    .map(lambda _: state.values.update(numbers))
+                    .map(lambda _: True)
+                )
+
+            match read_file(str(path), config):
+                case Result(tag="error", error=faults) if all(isinstance(fault, ImagingReadFault) for fault in faults):
+                    return Ok(False)
+                case Result(tag="error", error=faults):
+                    return Error(BlenderImagingFault.lifted(faults))
+                case Result(ok=image):
+                    return cached(image)
 
         def rank(planned: Planned) -> Rank:
             node, region = planned.node, planned.region
@@ -787,7 +1036,7 @@ class NodePreview:
                     .map(lambda prior: Ok(remembered(prior.content)))
                     .default_with(
                         lambda: (
-                            paired(keyed(identity, node, render, staged, config, nested), context)
+                            paired(keyed(node, render, staged, config, nested), context)
                             .map(lambda parts: parts[0].map2(lambda key, context: content_hash(Render, key, *context, config=Some(config)), parts[1]))
                             .map(remembered)
                         )
@@ -805,7 +1054,7 @@ class NodePreview:
 
                 def planned(rows: tuple[tuple[bpy.types.Node, Render, int], ...]) -> BlenderResult[tuple[Planned, ...]]:
                     handles = tuple(dict.fromkeys(render.target.source.scene for _, render, _ in rows if isinstance(render.target.source, CompositorSource)))
-                    return resolved(handles).map(lambda scenes: dict(zip(handles, scenes, strict=True))).bind(lambda sources: accumulated(each(*row, sources) for row in rows))
+                    return resolved(handles).map(lambda scenes: dict(zip(handles, scenes))).bind(lambda sources: accumulated(each(*row, sources) for row in rows))
 
                 return targets(identity, editor, tree, settings).bind(
                     lambda found: planned(
@@ -855,9 +1104,7 @@ class NodePreview:
                     accumulated(
                         Ok(Some(key))
                         if key in TextureCache.held[identity.package]
-                        else content.map(lambda digest: restored(identity, digest, config, name, settings.display.limit, kept).map(lambda held: Some(key) if held else Nothing)).default_value(
-                            Ok(Nothing)
-                        )
+                        else content.map(lambda digest: restored(digest, config, name, settings.display.limit, kept).map(lambda held: Some(key) if held else Nothing)).default_value(Ok(Nothing))
                         for key, content in {key: plan.demand.content for plan, _rank, key in ranked}.items()
                     )
                     .map(lambda parts: frozenset(key for part in parts for key in part.to_list()))
@@ -1107,132 +1354,6 @@ def isolated(node: bpy.types.Node, target: Target, settings: NodePreviews) -> Op
     )
 
 
-def keyed(identity: Identity, node: bpy.types.Node, render: Render, staged: Staged, config: PyOpenColorIO.Config, enclosing: tuple[bpy.types.Node, ...]) -> BlenderResult[Option[ContentHash]]:
-    """Combines shared native graph fingerprints with the actual render and geometry source."""
-    state = NodePreview.state[identity.package]
-
-    def held[B: bpy.types.ID](block: B, fresh: Callable[[B], BlenderResult[ContentHash]]) -> BlenderResult[ContentHash]:
-        handle: Handle[bpy.types.ID] = Handle.of(block)
-        return Option.of_optional(state.held.get(handle)).map(Ok).default_with(lambda: fresh(block).map(lambda key: state.held.setdefault(handle, key)))
-
-    def geometry(item: bpy.types.Object, name: str) -> BlenderResult[Option[tuple[msgspec.Struct | ContentHash, ...]]]:
-        earlier = tuple(itertools.takewhile(lambda modifier: modifier.name != name, item.modifiers))
-        snapshots = accumulated(Snapshot.capture(modifier) for modifier in (*earlier, *Option.of_optional(item.modifiers.get(name)).to_list()))
-        trees = accumulated(fingerprinted(group) for modifier in earlier if isinstance(modifier, bpy.types.NodesModifier) for group in Option.of_optional(modifier.node_group).to_list())
-        data = accumulated(held(block, data_key) for block in Option.of_optional(item.data).to_list())
-        return paired(snapshots, paired(trees, data)).map(
-            lambda parts: reduce(
-                lambda values, key: values.map2(lambda rows, key: (*rows, key), key),
-                parts[1][0],
-                Option[tuple[msgspec.Struct | ContentHash, ...]].Some((*parts[0], Snapshot.of(bpy.types.Object, {"vertex_groups": tuple(group.name for group in item.vertex_groups)}), *parts[1][1])),
-            )
-        )
-
-    def sourced() -> BlenderResult[Option[tuple[msgspec.Struct | ContentHash, ...]]]:
-        match render.target.source:
-            case GeometrySource(item=handle, modifier=name):
-                return handle.resolve().bind(lambda item: geometry(item, name))
-            case MaterialSource() | LightSource() | WorldSource() | CompositorSource():
-                return Ok(Some(()))
-
-    context = accumulated(fingerprinted(group) for group in enclosing)
-    return paired(fingerprinted(node), paired(context, sourced())).map(
-        lambda parts: reduce(
-            lambda own, key: own.map2(lambda prior, current: content_hash(Render, prior, current), key),
-            parts[1][0],
-            parts[0].map2(lambda own, source: content_hash(Render, staged, own, *source, config=Some(config)), parts[1][1]),
-        )
-    )
-
-
-def swatched(identity: Identity, target: Target, aov: BlenderResult[Option[str]]) -> BlenderResult[bpy.types.Material]:
-    """Reconciles the swatch material to one shader node of a geometry tree fed generated coordinates."""
-
-    def graph(source: bpy.types.Node, name: Option[str]) -> Graph:
-        socket, kind = target.socket, type(source)
-        own = {
-            descriptor: descriptor.read(source)
-            for prop in source.bl_rna.properties
-            if prop.identifier not in bpy.types.Node.bl_rna.properties and not prop.is_readonly
-            for descriptor in (Descriptor(root=kind, owner="", prop=prop),)
-        }
-        inputs = {item.identifier: held for item in source.inputs if not item.is_linked for held in defaulted(item).to_list()}
-        sink, aovs = bpy.types.ShaderNodeOutputMaterial, bpy.types.ShaderNodeOutputAOV
-        return Graph(
-            kind=bpy.types.ShaderNodeTree,
-            nodes={
-                "field": Node(kind=kind, members=own, inputs=inputs),
-                "coordinates": Node(kind=bpy.types.ShaderNodeTexCoord),
-                "emission": Node(kind=bpy.types.ShaderNodeEmission),
-                "output": Node(kind=sink, members={Descriptor(root=sink, owner="", prop=sink.bl_rna.properties["target"]): "ALL"}),
-                **name.map(lambda held: {"aov": Node(kind=aovs, members={Descriptor(root=aovs, owner="", prop=aovs.bl_rna.properties["aov_name"]): held})}).default_value({}),
-            },
-            links=(
-                *(Link(source=End(node="coordinates", socket="Generated"), target=End(node="field", socket=item.identifier)) for item in source.inputs if item.type == "VECTOR" and not item.is_linked),
-                Link(source=End(node="field", socket=socket), target=End(node="emission", socket="Color")),
-                Link(source=End(node="emission", socket="Emission"), target=End(node="output", socket="Surface")),
-                *(Link(source=End(node="field", socket=socket), target=End(node="aov", socket="Value")) for _ in name.to_list()),
-            ),
-        )
-
-    found = (
-        held(target)
-        .map(lambda root: Editor(source=target.source, groups=target.groups).tree(root) if isinstance(root, bpy.types.NodeTree) else Nothing)
-        .bind(lambda tree: tree.bind(lambda inner: Option.of_optional(inner.nodes.get(target.node))).to_result_with(lambda: (BlenderAbsentFault(owner=repr(target.source), key=target.node),)))
-    )
-    return paired(paired(found, aov), NodePreview.swatch.made(identity, lambda: Ok(bpy.data.materials.new("Swatch")))).bind(
-        lambda parts: tree_of(parts[1]).bind(lambda tree: reconciled(graph(*parts[0]), tree, identity)).map(lambda _: parts[1])
-    )
-
-
-def clayed(identity: Identity, target: Target, clay: Callable[[], BlenderResult[bpy.types.Material]], resources: ExitStack) -> BlenderResult[bpy.types.Object]:
-    """Copies a geometry target's object at the origin over its routed modifier group, its geometry set to the clay material."""
-
-    def clothed(group: bpy.types.NodeTree, carried: Routed[Holder], material: bpy.types.Material) -> BlenderResult[None]:
-        def connected(sink: bpy.types.Node) -> BlenderResult[None]:
-            return (
-                created(group, bpy.types.GeometryNodeSetMaterial)
-                .bind(
-                    lambda painted: accumulated((
-                        socket_at(painted.inputs, "Geometry").bind(lambda target: joined(group, carried.socket, target)),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                        socket_at(painted.outputs, "Geometry").bind(lambda source: joined(group, source, sink.inputs[0])),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                        socket_at(painted.inputs, "Material").bind(lambda socket: written(socket, "default_value", material)),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                    ))
-                )
-                .map(lambda _: None)
-            )
-
-        return active_output(group).bind(connected)
-
-    def copied(item: bpy.types.Object, name: str, carried: Routed[Holder], material: bpy.types.Material) -> BlenderResult[bpy.types.Object]:
-        def acquired(copy: bpy.types.Object) -> bpy.types.Object:
-            resources.callback(bpy.data.objects.remove, copy)
-            return copy
-
-        return paired(
-            tree_of(carried.holder),
-            Ownership(kind=bpy.types.Object, key=PreviewScene.routes.key, saved=Saved.NEVER, single=False)
-            .made(identity, lambda: Option.of_optional(item.copy()).to_result_with(lambda: (BlenderAbsentFault(owner=repr(item), key="copy"),)))
-            .map(acquired),
-        ).bind(
-            lambda pair: accumulated((
-                written(pair[1], "parent", None),
-                written(pair[1], "location", (0.0, 0.0, 0.0)),
-                written(pair[1].modifiers[name], "node_group", pair[0]),
-                *(written(later, "show_render", value=False) for later in itertools.dropwhile(lambda modifier: modifier.name != name, pair[1].modifiers) if later.name != name),
-                clothed(pair[0], carried, material),
-            )).map(lambda _: pair[1])
-        )
-
-    match target.source:
-        case GeometrySource(item=handle, modifier=name):
-            return paired(paired(handle.resolve(), held(target).bind(lambda group: resources.enter_context(routed(identity, group, target)))), clay()).bind(
-                lambda parts: copied(parts[0][0], name, parts[0][1], parts[1])
-            )
-        case MaterialSource() | LightSource() | WorldSource() | CompositorSource():
-            return Error((BlenderAbsentFault(owner=repr(target.source), key=target.node),))
-
-
 def sourced(space: bpy.types.SpaceNodeEditor, root: bpy.types.NodeTree) -> Option[Source]:
     """Answers the data-block whose tree a node editor shows, a geometry group's object modifier and an effect group's entry among them."""
     match space.id, space.id_from, root:
@@ -1377,20 +1498,23 @@ def outputs_of(node: bpy.types.Node) -> tuple[bpy.types.NodeSocket, ...]:
 
 def zoned(tree: bpy.types.NodeTree) -> frozenset[str]:
     """Answers the names of the nodes inside every repeat, simulation, for-each, and closure zone of a tree."""
+    pairs = sorted((link.from_node.name, link.to_node.name) for link in tree.links)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+    following = {name: frozenset(target for _, target in group) for name, group in itertools.groupby(pairs, key=lambda pair: pair[0])}
 
-    def inside(start: bpy.types.Node, end: bpy.types.Node) -> frozenset[str]:
-        def walked(frontier: tuple[bpy.types.Node, ...], seen: frozenset[str]) -> frozenset[str]:
-            match frontier:
-                case (head, *rest):
-                    fresh = {node.name: node for link in tree.links if head != end and link.from_node == head for node in Option.of_optional(link.to_node).to_list() if node.name not in seen}
-                    return walked((*rest, *fresh.values()), seen | fresh.keys())
-                case _:
-                    return seen
+    def inside(start: str, end: str) -> frozenset[str]:
+        def walked(frontier: frozenset[str], seen: frozenset[str]) -> frozenset[str]:
+            fresh = frozenset(target for name in frontier - {end} for target in following.get(name, frozenset())) - seen
+            return walked(fresh, seen | fresh) if fresh else seen
 
-        return walked((start,), frozenset({start.name}))
+        return walked(frozenset({start}), frozenset({start}))
 
     return frozenset(
-        name for node in tree.nodes if "paired_output" in node.bl_rna.properties for end in (node.path_resolve("paired_output"),) if isinstance(end, bpy.types.Node) for name in inside(node, end)
+        name
+        for node in tree.nodes
+        if "paired_output" in node.bl_rna.properties
+        for end in (node.path_resolve("paired_output"),)
+        if isinstance(end, bpy.types.Node)
+        for name in inside(node.name, end.name)
     )
 
 
@@ -1425,66 +1549,6 @@ def outlet(tree: bpy.types.NodeTree, socket: bpy.types.NodeSocket, output: type[
     ).map(lambda _: None)
 
 
-def defaulted(socket: bpy.types.NodeSocket) -> Option[Value]:
-    """Reads a socket's `default_value` through a descriptor over its own property, `Nothing` for a socket holding none."""
-    found: bpy.types.Property | None = socket.bl_rna.properties.get("default_value")
-    return Option.of_optional(found).map(lambda prop: Descriptor(root=type(socket), owner="", prop=prop).read(socket))
-
-
-def data_key(block: bpy.types.ID) -> BlenderResult[ContentHash]:
-    """Keys object data by its value members, attribute arrays, shape key and spline coordinates, and grease pencil drawing attributes."""
-    match block:
-        case bpy.types.Mesh() | bpy.types.Curve():
-            geometry = (
-                attributes(block.attributes)
-                if isinstance(block, bpy.types.Mesh)
-                else (*(coordinates(spline.points) for spline in block.splines), *(coordinates(spline.bezier_points) for spline in block.splines))
-            )
-            arrays = (*geometry, *(coordinates(key.data) for keys in Option.of_optional(block.shape_keys).to_list() for key in keys.key_blocks))
-        case bpy.types.Curves() | bpy.types.PointCloud():
-            arrays = attributes(block.attributes)
-        case bpy.types.GreasePencil():
-            arrays = tuple(array for layer in block.layers for frame in layer.frames for drawing in Option.of_optional(frame.drawing).to_list() for array in attributes(drawing.attributes))
-        case _:
-            arrays = ()
-    return Snapshot.capture(block).map(lambda snapshot: content_hash(type(block), snapshot, arrays=arrays))
-
-
-def attributes(group: Iterable[bpy.types.Attribute]) -> tuple[npt.NDArray[np.float32 | np.int32 | np.bool], ...]:
-    """Reads every numeric attribute's values through `foreach_get` into a buffer typed by its value property."""
-
-    def read(
-        values: "bpy.types.bpy_prop_collection[bpy.types.bpy_struct[object]]", prop: bpy.types.FloatProperty | bpy.types.IntProperty | bpy.types.BoolProperty
-    ) -> npt.NDArray[np.float32 | np.int32 | np.bool]:
-        count = len(values) * max(prop.array_length, 1)
-        match prop:
-            case bpy.types.FloatProperty():
-                buffer: npt.NDArray[np.float32 | np.int32 | np.bool] = np.empty(count, np.float32)
-            case bpy.types.IntProperty():
-                buffer = np.empty(count, np.int32)
-            case bpy.types.BoolProperty():
-                buffer = np.empty(count, np.bool)
-        values.foreach_get(prop.identifier, buffer)
-        return buffer
-
-    return tuple(
-        read(getattr(attribute, data.identifier), prop)
-        for attribute in group
-        for data in (attribute.bl_rna.properties["data"],)
-        if isinstance(data, bpy.types.CollectionProperty)
-        for item in Option.of_optional(data.fixed_type).to_list()
-        for prop in item.properties
-        if isinstance(prop, bpy.types.FloatProperty | bpy.types.IntProperty | bpy.types.BoolProperty)
-    )
-
-
-def coordinates[P: "bpy.types.bpy_struct[object]"](points: "bpy.types.bpy_prop_collection[P]") -> npt.NDArray[np.float32]:
-    """Reads the `co` member of every point of a collection through `foreach_get`, its width from the item's RNA."""
-    buffer = np.empty(sum(prop.array_length for item in points for prop in (item.bl_rna.properties["co"],) if isinstance(prop, bpy.types.FloatProperty)), np.float32)
-    points.foreach_get("co", buffer)
-    return buffer
-
-
 def refreshed(identity: Identity) -> BlenderResult[None]:
     """Drops every target key and its held failure, so each editor's targets key and render again."""
     state = NodePreview.state[identity.package]
@@ -1499,47 +1563,6 @@ def cleared(identity: Identity) -> BlenderResult[int]:
     TextureCache.held[identity.package].clear()
     NodePreview.state[identity.package].values.clear()
     return accumulated(removed(path) for path in files).bind(lambda _: refreshed(identity)).map(lambda _: len(files))
-
-
-def restored(identity: Identity, key: ContentHash, config: PyOpenColorIO.Config, name: str, limit: int, kept: frozenset[Hashable]) -> BlenderResult[bool]:
-    """Restores a readable file and its value after upload, propagating GPU and file-time faults."""
-    path = identity.folder / "previews" / f"{key.hex()}.exr"
-
-    def cached(image: ImageFile[np.float32]) -> BlenderResult[bool]:
-        decoded = catch(lambda: dict[Hashable, float]((key, msgspec.json.decode(str(field.value), type=float)) for field in image.header if field.name == name), exception=msgspec.DecodeError)()
-        match decoded:
-            case Result(tag="error"):
-                return Ok(False)
-            case Result(ok=numbers):
-                pass
-        return (
-            TextureCache(identity=identity)
-            .stored(key, image.pixels, limit, kept)
-            .bind(lambda _: catch(lambda: os.utime(path), exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=path, error=error),)))
-            .map(lambda _: NodePreview.state[identity.package].values.update(numbers))
-            .map(lambda _: True)
-        )
-
-    match read_file(str(path), config):
-        case Result(tag="error", error=faults) if all(isinstance(fault, ImagingReadFault) for fault in faults):
-            return Ok(False)
-        case Result(tag="error", error=faults):
-            return Error(BlenderImagingFault.lifted(faults))
-        case Result(ok=image):
-            return cached(image)
-
-
-def flipped(attached: Attached[NodeSetting], node: bpy.types.Node) -> BlenderResult[None]:
-    """Flips whether a node takes a thumbnail under the Marked scope."""
-    return attached.read(node).bind(lambda held: attached.write(node, msgspec.structs.replace(held, show=not held.show)))
-
-
-def pruned(folder: Path, limit: int) -> BlenderResult[None]:
-    """Removes the oldest stored thumbnails past the limit by file time."""
-    files: BlenderResult[tuple[Path, ...]] = catch(lambda: tuple(sorted(folder.glob("*.exr"), key=lambda path: path.stat().st_mtime)), exception=OSError)().map_error(
-        lambda error: (BlenderReadFault(request=folder, error=error),)
-    )
-    return Result[tuple[Path, ...], BlenderFaults].bind(files, lambda files: accumulated(removed(path) for path in files[:-limit])).map(lambda _: None)
 
 
 def value(values: npt.NDArray[np.float32]) -> Option[float]:

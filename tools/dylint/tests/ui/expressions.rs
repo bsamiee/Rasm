@@ -199,24 +199,82 @@ fn assertions_outside_tests(found: &str) {
     "#);
 }
 
+fn borrowed_indexing(found: &str) {
+    insta::assert_snapshot!(found, @r#"
+    warning: indexing `BTreeMap<u32, u16>` by `&1` panics when the entry is absent
+     --> tools/dylint/examples/borrowed_indexing.rs:8:49
+      |
+    8 | fn ordered(ports: &BTreeMap<u32, u16>) -> u16 { ports[&1] }
+      |                                                 ^^^^^^^^^
+      |
+      = help: call `get` and handle `None`
+      = note: `#[warn(borrowed_indexing)]` on by default
+
+    warning: indexing `HashMap<&str, u16>` by `"http"` panics when the entry is absent
+      --> tools/dylint/examples/borrowed_indexing.rs:10:48
+       |
+    10 | fn hashed(ports: &HashMap<&str, u16>) -> u16 { ports["http"] }
+       |                                                ^^^^^^^^^^^^^
+       |
+       = help: call `get` and handle `None`
+
+    warning: indexing `IndexMap<u32, u16>` by `&2` panics when the entry is absent
+      --> tools/dylint/examples/borrowed_indexing.rs:12:50
+       |
+    12 | fn inserted(ports: &IndexMap<u32, u16>) -> u16 { ports[&2] }
+       |                                                  ^^^^^^^^^
+       |
+       = help: call `get` and handle `None`
+
+    warning: indexing `BTreeMap<u32, u16>` by `&3` panics when the entry is absent
+      --> tools/dylint/examples/borrowed_indexing.rs:28:9
+       |
+    26 | macro_rules! port {
+    27 |     ($ports:expr) => {
+    28 |         $ports[&3]
+       |         ^^^^^^^^^^
+    ...
+    32 | fn expanded(ports: &BTreeMap<u32, u16>) -> u16 { port!(ports) }
+       |                                                  ------------ in this macro invocation
+       |
+       = help: call `get` and handle `None`
+
+    warning: indexing `VecDeque<u16>` by `3` panics when the entry is absent
+      --> tools/dylint/examples/borrowed_indexing.rs:51:43
+       |
+    51 | fn queued(queue: &VecDeque<u16>) -> u16 { queue[3] }
+       |                                           ^^^^^^^^
+       |
+       = help: call `get` and handle `None`
+    "#);
+}
+
 fn cloned_command_matches(found: &str) {
     insta::assert_snapshot!(found, @"
-    warning: `try_get_matches_from` consumes a clone of `command`
+    warning: `try_get_matches_from` consumes a copy of `command`
       --> tools/dylint/examples/cloned_command_matches.rs:14:87
        |
     14 | fn parsed(command: &Command, arguments: &[&str]) -> Result<ArgMatches, clap::Error> { command.clone().try_get_matches_from(arguments) }
        |                                                                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: take the command by `&mut` and call `get_matches_mut()`, or `try_get_matches_from_mut(<arguments>)` for the `_from` methods
+       = help: call `try_get_matches_from_mut(<arguments>)` through a `&mut` to `command`
        = note: `#[warn(cloned_command_matches)]` on by default
 
-    warning: `try_get_matches_from` consumes a clone of `cli.command`
+    warning: `try_get_matches_from` consumes a copy of `cli.command`
       --> tools/dylint/examples/cloned_command_matches.rs:16:80
        |
     16 | fn fielded(cli: &Cli, arguments: &[&str]) -> Result<ArgMatches, clap::Error> { cli.command.clone().try_get_matches_from(arguments) }
        |                                                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: take the command by `&mut` and call `get_matches_mut()`, or `try_get_matches_from_mut(<arguments>)` for the `_from` methods
+       = help: call `try_get_matches_from_mut(<arguments>)` through a `&mut` to `cli.command`
+
+    warning: `try_get_matches_from` consumes a copy of `command`
+      --> tools/dylint/examples/cloned_command_matches.rs:25:5
+       |
+    25 |     copy.try_get_matches_from(arguments)
+       |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: call `try_get_matches_from_mut(<arguments>)` through a `&mut` to `command`
     ");
 }
 
@@ -257,55 +315,54 @@ fn environment_override(found: &str) {
     "#);
 }
 
-fn map_indexing(found: &str) {
-    insta::assert_snapshot!(found, @r#"
-    warning: indexing `BTreeMap<u32, u16>` by `&1` panics when the key is absent
-     --> tools/dylint/examples/map_indexing.rs:8:49
-      |
-    8 | fn ordered(ports: &BTreeMap<u32, u16>) -> u16 { ports[&1] }
-      |                                                 ^^^^^^^^^
-      |
-      = help: call `get` and handle `None`
-      = note: `#[warn(map_indexing)]` on by default
+fn explicit_iter_chain_zip(found: &str) {
+    insta::assert_snapshot!(found, @"
+    warning: `iter` converts `left` into an iterator only to call `zip`
+      --> tools/dylint/examples/assertions_outside_tests.rs:26:5
+       |
+    26 |     left.iter().zip(right).map(|(left, right)| left.strict_mul(*right)).sum()
+       |     ^^^^^^^^^^^^^^^^^^^^^^ help: call `iter::zip` with `use core::iter;`: `iter::zip(left, right)`
+       |
+       = note: `#[warn(explicit_iter_chain_zip)]` on by default
+    applicability MaybeIncorrect: call `iter::zip` with `use core::iter;`
 
-    warning: indexing `HashMap<&str, u16>` by `"http"` panics when the key is absent
-      --> tools/dylint/examples/map_indexing.rs:10:48
+    warning: `into_iter` converts `left` into an iterator only to call `chain`
+      --> tools/dylint/examples/explicit_iter_chain_zip.rs:18:57
        |
-    10 | fn hashed(ports: &HashMap<&str, u16>) -> u16 { ports["http"] }
-       |                                                ^^^^^^^^^^^^^
+    18 | fn owned(left: Vec<u32>, right: Vec<u32>) -> Vec<u32> { left.into_iter().chain(right).collect() }
+       |                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: call `iter::chain` with `use core::iter;`: `iter::chain(left, right)`
        |
-       = help: call `get` and handle `None`
+       = note: `#[warn(explicit_iter_chain_zip)]` on by default
+    applicability MaybeIncorrect: call `iter::chain` with `use core::iter;`
 
-    warning: indexing `IndexMap<u32, u16>` by `&2` panics when the key is absent
-      --> tools/dylint/examples/map_indexing.rs:12:50
+    warning: `iter` converts `values` into an iterator only to call `zip`
+      --> tools/dylint/examples/explicit_iter_chain_zip.rs:20:55
        |
-    12 | fn inserted(ports: &IndexMap<u32, u16>) -> u16 { ports[&2] }
-       |                                                  ^^^^^^^^^
-       |
-       = help: call `get` and handle `None`
+    20 | ...2]) -> u32 { values.iter().zip(weights).map(|(value, weight)| value.strict_mul(*weight)).sum() }
+       |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^ help: call `iter::zip` with `use core::iter;`: `iter::zip(values, weights)`
+    applicability MaybeIncorrect: call `iter::zip` with `use core::iter;`
 
-    warning: indexing `BTreeMap<u32, u16>` by `&3` panics when the key is absent
-      --> tools/dylint/examples/map_indexing.rs:20:9
+    warning: `iter` converts `values` into an iterator only to call `zip`
+      --> tools/dylint/examples/explicit_iter_chain_zip.rs:24:5
        |
-    18 | macro_rules! port {
-    19 |     ($ports:expr) => {
-    20 |         $ports[&3]
-       |         ^^^^^^^^^^
-    ...
-    24 | fn expanded(ports: &BTreeMap<u32, u16>) -> u16 { port!(ports) }
-       |                                                  ------------ in this macro invocation
-       |
-       = help: call `get` and handle `None`
+    24 |     values.iter().zip(weights).map(|(value, weight)| value.strict_add(*weight)).sum()
+       |     ^^^^^^^^^^^^^^^^^^^^^^^^^^ help: call `iter::zip` with `use core::iter;`: `iter::zip(&values, weights)`
+    applicability MaybeIncorrect: call `iter::zip` with `use core::iter;`
 
-    warning: indexing `BTreeMap<&str, usize>` by `"err"` panics when the key is absent
-       --> tools/dylint/examples/stringly_typed_value.rs:151:61
-        |
-    151 |     tally.get("ok").copied().unwrap_or_default().strict_add(tally["err"])
-        |                                                             ^^^^^^^^^^^^
-        |
-        = help: call `get` and handle `None`
-        = note: `#[warn(map_indexing)]` on by default
-    "#);
+    warning: `iter_mut` converts `values` into an iterator only to call `zip`
+      --> tools/dylint/examples/explicit_iter_chain_zip.rs:29:5
+       |
+    29 |     values.iter_mut().zip(weights).for_each(|(value, weight)| *value = value.strict_mul(*weight));
+       |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: call `iter::zip` with `use core::iter;`: `iter::zip(&mut values, weights)`
+    applicability MaybeIncorrect: call `iter::zip` with `use core::iter;`
+
+    warning: `iter` converts `map` into an iterator only to call `chain`
+      --> tools/dylint/examples/explicit_iter_chain_zip.rs:33:69
+       |
+    33 | ... &[(u32, u32)]) -> usize { map.iter().chain(extra.iter().map(|(key, value)| (key, value))).count() }
+       |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: call `iter::chain` with `use core::iter;`: `iter::chain(map, extra.iter().map(|(key, value)| (key, value)))`
+    applicability MaybeIncorrect: call `iter::chain` with `use core::iter;`
+    ");
 }
 
 fn redundant_clone_in_closure(found: &str) {
@@ -368,6 +425,13 @@ fn redundant_default_base(found: &str) {
     36 | fn retry() -> Retry { Retry { attempts: 4, ..Default::default() } }
        |                                              ^^^^^^^^^^^^^^^^^^ help: write `..` to take each field's declared default
     applicability MaybeIncorrect: write `..` to take each field's declared default
+
+    warning: `..Limits::default()` fills only `Limits` fields with declared default values
+      --> tools/dylint/examples/redundant_default_base.rs:45:53
+       |
+    45 | fn named(name: String) -> Limits { Limits { name, ..Limits::default() } }
+       |                                                     ^^^^^^^^^^^^^^^^^ help: write `..` to take each field's declared default
+    applicability MachineApplicable: write `..` to take each field's declared default
     ");
 }
 
@@ -394,15 +458,7 @@ fn wrapping_arithmetic(found: &str) {
      --> tools/dylint/examples/wrapping_arithmetic.rs:9:41
       |
     9 | fn wrapped(value: u8) -> Wrapping<u8> { Wrapping(value) + Wrapping(1) }
-      |                                         ^^^^^^^^^^^^^^^
-      |
-      = help: call `checked_*` and return overflow as an error, or `saturating_*` where the type limit bounds the domain
-
-    warning: `Wrapping` arithmetic wraps on overflow
-     --> tools/dylint/examples/wrapping_arithmetic.rs:9:59
-      |
-    9 | fn wrapped(value: u8) -> Wrapping<u8> { Wrapping(value) + Wrapping(1) }
-      |                                                           ^^^^^^^^^^^
+      |                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
       |
       = help: call `checked_*` and return overflow as an error, or `saturating_*` where the type limit bounds the domain
 
@@ -418,9 +474,43 @@ fn wrapping_arithmetic(found: &str) {
        |                                        -------------- in this macro invocation
        |
        = help: call `checked_*` and return overflow as an error, or `saturating_*` where the type limit bounds the domain
+
+    warning: `wrapping_add_signed` wraps on overflow
+      --> tools/dylint/examples/wrapping_arithmetic.rs:29:44
+       |
+    29 | const fn signed(value: u32) -> u32 { value.wrapping_add_signed(-1) }
+       |                                            ^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: call `checked_*` and return overflow as an error, or `saturating_*` where the type limit bounds the domain
+
+    warning: `Wrapping` arithmetic wraps on overflow
+      --> tools/dylint/examples/wrapping_arithmetic.rs:32:5
+       |
+    32 |     total += Wrapping(1);
+       |     ^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: call `checked_*` and return overflow as an error, or `saturating_*` where the type limit bounds the domain
+
+    warning: `Wrapping` arithmetic wraps on overflow
+      --> tools/dylint/examples/wrapping_arithmetic.rs:33:5
+       |
+    33 |     -total
+       |     ^^^^^^
+       |
+       = help: call `checked_*` and return overflow as an error, or `saturating_*` where the type limit bounds the domain
     ");
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-snapshots!(absurd_nonzero_comparison, assertions_outside_tests, cloned_command_matches, environment_override, map_indexing, redundant_clone_in_closure, redundant_default_base, wrapping_arithmetic);
+snapshots!(
+    absurd_nonzero_comparison,
+    assertions_outside_tests,
+    borrowed_indexing,
+    cloned_command_matches,
+    environment_override,
+    explicit_iter_chain_zip,
+    redundant_clone_in_closure,
+    redundant_default_base,
+    wrapping_arithmetic
+);

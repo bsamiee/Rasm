@@ -28,5 +28,5 @@ rule:
             - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: value, matches: nameless-literal}}}}
             - follows: {stopBy: end, matches: earlier-site}
             - inside: {stopBy: end, follows: {stopBy: end, matches: earlier-site}}
-message: '`$LOGGER` logs a literal naming no operation, or logs again after an earlier log call in its scope'
-note: 'Name the operation and its subject in the message beyond the level words, and log once per operation after its paths join'
+message: '`$LOGGER` logs a literal naming no operation or the message of an earlier log call, and a log reader cannot tell the sites apart'
+note: 'Name the operation and its subject in each message beyond the level words, and log a failure that several paths share once after they join'

@@ -1,4 +1,4 @@
-use clippy_utils::{diagnostics::span_lint_hir_and_then, fn_def_id, res::MaybeDef as _, sym};
+use clippy_utils::{diagnostics::span_lint_hir_and_then, fn_def_id, res::MaybeDef as _, source::snippet, sym};
 use rustc_data_structures::fx::FxHashSet;
 use rustc_errors::Applicability;
 use rustc_hir::{Expr, ExprKind, StructTailExpr};
@@ -9,7 +9,7 @@ use crate::{derives, expanded_externally, suggest};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-lint!(REDUNDANT_DEFAULT_BASE: "`..Default::default()` bases that fill only fields with declared default values");
+lint!(REDUNDANT_DEFAULT_BASE: "`Default::default` struct bases that fill only fields with declared default values");
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
@@ -32,7 +32,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 REDUNDANT_DEFAULT_BASE,
                 expr.hir_id,
                 base.span,
-                format!("`..Default::default()` fills only `{}` fields with declared default values", cx.tcx.item_name(owner.did())),
+                format!("`..{}` fills only `{}` fields with declared default values", snippet(cx, base.span, ".."), cx.tcx.item_name(owner.did())),
                 |diag| {
                     suggest(cx, base.hir_id, diag, base.span, "write `..` to take each field's declared default", "", applicability);
                 },

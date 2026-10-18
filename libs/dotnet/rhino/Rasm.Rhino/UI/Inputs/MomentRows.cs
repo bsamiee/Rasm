@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Eto.Drawing;
 using Eto.Forms;
 using NodaTime.Text;
@@ -89,7 +88,6 @@ public static class MomentRows {
                 DateTimePickerMode.Date => wall.Date.At(value.ToValue().TimeOfDay),
                 DateTimePickerMode.Time => value.ToValue().Date.At(wall.TimeOfDay),
                 DateTimePickerMode.DateTime => wall,
-                _ => throw new UnreachableException(nameof(DateTimePickerMode)),
             }).IfNone(wall)).Map(static value => Some(value)))
         from bound in RowEdit.Bind(source, IterableNE.create(field),
             h => picker.ValueChanged += h, h => picker.ValueChanged -= h,
@@ -107,7 +105,7 @@ public static class MomentRows {
         from held in scope.Read(source)
         from answered in Optional(picker.Value).Match(
             Some: picked => edit.Preview(merged(held, LocalDateTime.FromDateTime(picked)), Some(Accessors.StepEventsDelay)),
-            None: () => edit.Commit(Fin.Succ(Option<TValue>.None)).Map(unit))
+            None: () => edit.Commit(Option<TValue>.None).Map(unit))
         select answered;
 
     private static IO<RowCells> Ranged<TRecord>(

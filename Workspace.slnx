@@ -20,6 +20,9 @@
     <Folder Name="/tests/dotnet/">
         <Project Path="tests/dotnet/Rasm.TestSupport/Rasm.TestSupport.csproj" />
     </Folder>
+    <Folder Name="/tests/dotnet/tools/roslyn/">
+        <Project Path="tests/dotnet/tools/roslyn/Rasm.Analyzers.Tests/Rasm.Analyzers.Tests.csproj" />
+    </Folder>
     <Folder Name="/tools/roslyn/">
         <Project Path="tools/roslyn/Rasm.Analyzers/Rasm.Analyzers.csproj" />
         <Project Path="tools/roslyn/Rasm.Analyzers.CodeFixes/Rasm.Analyzers.CodeFixes.csproj" />

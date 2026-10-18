@@ -57,7 +57,7 @@ public static class ReferenceCalculations {
     public static double SignedVolume(double[][] vertices, int[][] faces) {
         Shape(vertices.All(static vertex => vertex.Length >= 3), "every vertex needs three coordinates", nameof(vertices));
         Shape(faces.All(face => face.Length >= 3 && face.All(index => index >= 0 && index < vertices.Length)), "every face needs three valid vertex indices", nameof(faces));
-        return faces.Sum(face => FaceVolume(vertices, face));
+        return faces.Sum(face => Enumerable.Range(1, face.Length - 2).Sum(k => SignedTetraVolume(vertices[face[0]], vertices[face[k]], vertices[face[k + 1]])));
     }
     public static double SignedTetraVolume(double[] a, double[] b, double[] c) =>
         (a, b, c) switch {
@@ -65,8 +65,6 @@ public static class ReferenceCalculations {
                 ((ax * ((by * cz) - (bz * cy))) - (ay * ((bx * cz) - (bz * cx))) + (az * ((bx * cy) - (by * cx)))) / 6.0,
             _ => throw new ArgumentException("every vertex needs three coordinates", nameof(a)),
         };
-    private static double FaceVolume(double[][] vertices, int[] face) =>
-        Enumerable.Range(1, face.Length - 2).Sum(k => SignedTetraVolume(vertices[face[0]], vertices[face[k]], vertices[face[k + 1]]));
     public static int OrientationSign(double[][] simplex) {
         int dim = simplex.Length - 1;
         bool valid = simplex.Length is 3 or 4 && simplex.All(point => point.Length >= dim && point.Take(dim).All(double.IsFinite));

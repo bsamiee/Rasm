@@ -140,11 +140,8 @@ class LightGroupEdits(msgspec.Struct, frozen=True, kw_only=True):
         ),
     )
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
         """Answers each lobe row's ownership merge and the five operators.
-
-        Args:
-            identity: Extension placing the row.
 
         Returns:
             `Ok` of every band and acquisition pair, or every construction fault.

@@ -11,6 +11,8 @@ utils:
         regex: '^(180|360)(\.0*)?(_?f(32|64))?$'
     term:
         any: [{matches: pi}, {matches: half-turn}]
+    flops-term:
+        any: [{matches: pi, regex: 'PI$'}, {matches: half-turn, regex: '^180'}]
     multiply:
         kind: binary_expression
         has: {field: operator, regex: '^\*$'}
@@ -35,6 +37,7 @@ utils:
                     - matches: divide
                     - has: {field: left, matches: multiply, all: [{has: {field: right, matches: term, pattern: $NUM}}, {has: {field: left, pattern: $X}}]}
                     - has: {field: right, all: [{matches: term}, {pattern: $DEN}]}
+                    - not: {all: [{has: {field: left, has: {field: right, matches: flops-term}}}, {has: {field: right, matches: flops-term}}]}
                 - all:
                     - matches: divide
                     - has: {field: left, matches: multiply, has: {field: left, matches: term, pattern: $NUM}}
@@ -97,6 +100,11 @@ rule:
         - matches: to-degrees-factor
         - matches: to-radians-factor
         - matches: fused-conversion
+          any:
+            - inside: {kind: field_expression, field: value}
+            - inside: {kind: 'binary_expression, unary_expression, type_cast_expression, reference_expression, try_expression'}
+          pattern: $GROUPED
+        - matches: fused-conversion
 rewriters:
     - id: plain-receiver
       rule:
@@ -118,11 +126,13 @@ transform:
     DEGREES_NAME:
         replace: {source: $DEGREES, replace: '^[\s\S]+$', by: to_degrees}
     PLUS:
-        replace: {source: $OFFSET, replace: '^([\s\S]+)$', by: ' + $1)'}
+        replace: {source: $OFFSET, replace: '^([\s\S]+)$', by: ' + $1'}
     OPEN:
-        replace: {source: $OFFSET, replace: '^[\s\S]+$', by: '('}
+        replace: {source: $GROUPED, replace: '^[\s\S]+$', by: '('}
+    CLOSE:
+        replace: {source: $GROUPED, replace: '^[\s\S]+$', by: ')'}
     RADIANS_NAME:
         replace: {source: $RADIANS, replace: '^[\s\S]+$', by: to_radians}
-fix: $OPEN$RECEIVER.$METHOD$DEGREES_NAME$RADIANS_NAME()$PLUS
+fix: $OPEN$RECEIVER.$METHOD$DEGREES_NAME$RADIANS_NAME()$PLUS$CLOSE
 message: '`$CONVERSION` converts an angle between degrees and radians by hand'
 note: 'Call `<value>.to_radians()` or `<value>.to_degrees()` of `f32` or `f64`'

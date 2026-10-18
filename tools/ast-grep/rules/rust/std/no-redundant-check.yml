@@ -60,11 +60,9 @@ utils:
             - kind: for_expression
               has: {field: value, matches: iteration}
             - kind: 'if_expression, while_expression'
-              has: {field: condition, any: [{kind: let_condition, has: {field: value, matches: iteration}}, {kind: let_chain, has: {kind: let_condition, has: {field: value, matches: iteration}}}]}
-            - kind: match_expression
-              has: {field: value, matches: iteration}
-            - kind: let_declaration
-              all: [{has: {field: value, matches: iteration}}, {any: [{has: {field: pattern, kind: slice_pattern}}, {has: {field: alternative, pattern: $_}}]}]
+              all:
+                - has: {field: condition, any: [{kind: let_condition, has: {field: value, matches: iteration}}, {kind: let_chain, has: {kind: let_condition, has: {field: value, matches: iteration}}}]}
+                - not: {has: {field: alternative, pattern: $_}}
     consuming-block:
         kind: block
         all:
@@ -93,6 +91,6 @@ rule:
             - not: {has: {field: alternative, pattern: $_}}
             - has: {field: condition, kind: unary_expression, regex: '^!', has: {matches: contains-key}}
             - has: {field: consequence, matches: {rust-single-statement: {first: {matches: diverging}}}}
-            - inside: {kind: expression_statement, precedes: {stopBy: end, has: {stopBy: end, matches: keyed-read}}}
+            - inside: {kind: expression_statement, precedes: {stopBy: end, any: [{matches: keyed-read}, {has: {stopBy: end, matches: keyed-read}}]}}
 message: '`$CONDITION` repeats a fact the next pattern or lookup states'
-note: 'Delete the guard: a loop over an empty collection runs no body, `if let` and `match` read the case, and `get` returns `None` for a missing key'
+note: 'Delete the guard: a loop over an empty collection runs no body, an `if let` without `else` reads the case, and `get` returns `None` for a missing key'

@@ -110,7 +110,7 @@ public sealed class EffectState<TState>(Guid effect, TState factory, Option<Axis
 
     // --- [PERSISTENCE]
     public IO<Unit> ReadState(PostEffectState store) =>
-        from read in EffectStates.Folded(Owner, path => IO.lift(() => Stored(store, EntryKey.Name(path))), factory, amount)
+        from read in EffectStates.Folded(Owner, path => IO.lift(() => Callbacks.Found(store.TryGetValue(EntryKey.Name(path), out string text), text)), factory, amount)
         from _ in IO.lift(() => atomic(() => held.Swap(_ => read.Value)))
         from __ in unless(read.Refused.IsEmpty, IO.fail<Unit>(Error.Many(read.Refused))).As()
         select unit;
@@ -123,8 +123,6 @@ public sealed class EffectState<TState>(Guid effect, TState factory, Option<Axis
 
     public IO<Unit> ResetToFactoryDefaults() =>
         IO.lift(() => atomic(() => held.Swap(_ => Default))).Map(unit);
-
-    private static Option<string> Stored(PostEffectState store, string key) => Callbacks.Found(store.TryGetValue(key, out string text), text);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

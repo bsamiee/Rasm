@@ -170,7 +170,7 @@ public sealed class DefinedSnapshotClient(SnapshotDefinition definition, PlugIn 
     public override bool PrepareForDocumentAnimation(RhinoDoc doc, BinaryArchiveReader archive_start, BinaryArchiveReader archive_stop) =>
         Callbacks.Succeeded(
             from state in definition.Document
-            select state.Prepare(doc, archive_start, archive_stop).Bind(frames => writeIO(documentFrames, frames)).Map(unit),
+            select state.Prepare(doc, archive_start, archive_stop).Bind(frames => writeIO(documentFrames, frames)),
             static () => false, CallbackSite.Of(this));
 
     public override void ExtendBoundingBoxForDocumentAnimation(RhinoDoc doc, BinaryArchiveReader archive_start, BinaryArchiveReader archive_stop, ref BoundingBox bbox) =>
@@ -184,9 +184,7 @@ public sealed class DefinedSnapshotClient(SnapshotDefinition definition, PlugIn 
         new SnapshotObject(doc, doc_object, transform) switch {
             var subject => Callbacks.Succeeded(
                 from objects in definition.Objects
-                select from frames in objects.State.Prepare(subject, archive_start, archive_stop)
-                       from stored in IO.lift(() => objectFrames.SwapKey(doc_object.Id, _ => frames))
-                       select unit,
+                select objects.State.Prepare(subject, archive_start, archive_stop).Bind(frames => IO.lift(() => objectFrames.SwapKey(doc_object.Id, _ => frames))),
                 static () => false, CallbackSite.Of(this)),
         };
 
@@ -220,7 +218,7 @@ public static class NamedSnapshots {
     public static IO<Seq<string>> Names(RhinoDoc doc) =>
         IO.lift(() => Conversions.Rows(doc.Snapshots.Names));
 
-    private static Validation<Error, Unit> Expect(Seq<string> names, (SnapshotName Name, bool Present) row) =>
+    private static Fin<Unit> Expect(Seq<string> names, (SnapshotName Name, bool Present) row) =>
         Holds(names, row) ? unit
         : row.Present ? new NotFound("snapshot", $"{row.Name}")
         : Error.New($"{nameof(SnapshotTable.Names)} already holds {row.Name}");
@@ -239,7 +237,7 @@ public static class NamedSnapshots {
     public static IO<Unit> RunSnapshot(RhinoDoc doc, SnapshotChange change) =>
         from before in Names(doc)
         let request = change.Request
-        from expected in IO.lift(() => request.Before.Traverse(row => Expect(before, row)).As().ToFin())
+        from expected in IO.lift(() => request.Before.Traverse(row => Expect(before, row)).As())
         from ran in Documents.RunScript(doc, request.Script, echo: false, display: None)
         select ran;
 

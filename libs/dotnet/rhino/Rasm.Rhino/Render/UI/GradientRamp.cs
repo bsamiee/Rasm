@@ -195,7 +195,7 @@ public sealed class GradientRamp(IPlugInSink sink, string caption, GradientRampS
         (from editor in Editing(state)
          from ramp in editor.Shown
          from grip in editor.Grip.Map(held => held with { Raw = held.Raw + ((e.Location.X - previous.X) / Bar(editor, size).Width * Scale(e.Modifiers)) })
-         select Held(editor, ramp, grip, Inside(size, e.Location), Located(Snaps(e.Modifiers) ? editor.Position.Snapped(grip.Raw, 0d) : grip.Raw)))
+         select Held(editor, ramp, grip, RectangleF.Inflate(new RectangleF(size), new SizeF(Plots.Reach, Plots.Reach)).Contains(e.Location), Located(Snaps(e.Modifiers) ? editor.Position.Snapped(grip.Raw, 0d) : grip.Raw)))
         .IfNone(new Transition<GradientRampState, Ramp>(state, None));
 
     protected override Transition<GradientRampState, Ramp> Released(GradientRampState state, SizeF size, float scale, Option<RampPart> part, MouseEventArgs e) =>
@@ -210,8 +210,6 @@ public sealed class GradientRamp(IPlugInSink sink, string caption, GradientRampS
         from editor in Editing(state)
         from _ in part
         select new Transition<GradientRampState, Ramp>(editor, None);
-
-    private static bool Inside(SizeF size, PointF point) => RectangleF.Inflate(new RectangleF(size), new SizeF(Plots.Reach, Plots.Reach)).Contains(point);
 
     private static Transition<GradientRampState, Ramp> Held(GradientRampState.Editor editor, Ramp ramp, RampGrip grip, bool inside, Option<RampPosition> at) =>
         (inside

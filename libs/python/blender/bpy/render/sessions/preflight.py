@@ -212,7 +212,7 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True):
             ),
         )
 
-    def acquisitions(self, identity: Identity, /) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, _identity: Identity, /) -> BlenderResult[Acquisitions]:
         """Retains every native audit command declaration for registration."""
         return Ok(self.operators)
 
@@ -240,7 +240,7 @@ def audited() -> BlenderResult[None]:
     def lost(missing: tuple[Dependency, ...]) -> BlenderResult[None]:
         """Resolves the missing dependencies' original owners once before reporting their paths."""
         return resolved(dependency.owner for dependency in missing).bind(
-            lambda owners: accumulated(absent(owner, str(dependency.path)) for dependency, owner in zip(missing, owners, strict=True)).map(lambda _: None)
+            lambda owners: accumulated(absent(owner, str(dependency.path)) for dependency, owner in zip(missing, owners)).map(lambda _: None)
         )
 
     trees = tuple(dict.fromkeys((*(tree for holder in (*bpy.data.materials, *bpy.data.worlds, *bpy.data.lights) for tree in Option.of_optional(holder.node_tree).to_list()), *bpy.data.node_groups)))

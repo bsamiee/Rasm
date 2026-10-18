@@ -33,7 +33,7 @@ nonisolated enum AuthenticationState: Equatable, Codable, Sendable {
     case signInRequired
 }
 
-nonisolated enum AccountOperation: Equatable, Sendable {
+enum AccountOperation: Equatable, Sendable {
     case refreshing
     case selecting
     case starting
@@ -55,7 +55,7 @@ nonisolated enum AccountOperation: Equatable, Sendable {
     var refusalDescription: String { "\(description), try again when it finishes" }
 }
 
-nonisolated enum RefreshTrigger: Equatable, Sendable {
+enum RefreshTrigger: Equatable, Sendable {
     case background
     case revalidation
     case immediate
@@ -148,20 +148,20 @@ nonisolated enum SignInTarget: Sendable {
     case account(Account, isSelected: Bool)
 }
 
-nonisolated enum AuthenticationRefusal: Sendable {
+enum AuthenticationRefusal: Sendable {
     case differentAccount(email: String)
     case alreadyConnected(email: String)
     case failure(ProviderError)
 }
 
-nonisolated enum AuthenticationPhase: Sendable {
+enum AuthenticationPhase: Sendable {
     case pending
     case completing
     case refused(AuthenticationRefusal)
     case cancelling
 }
 
-nonisolated struct AuthenticationPresentation: Identifiable, Sendable {
+struct AuthenticationPresentation: Identifiable, Sendable {
     let id: UUID
     let provider: Provider
     var phase: AuthenticationPhase

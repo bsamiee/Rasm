@@ -24,5 +24,5 @@ rule:
     any:
         - matches: rust-entity-escape
         - matches: entity-branch
-message: '`$ESCAPE` maps markup characters to entities by hand'
+message: '`$ESCAPE` converts between markup characters and entities by hand'
 note: 'Call `quick_xml::escape::escape` (all five predefined entities), `partial_escape` (`&`, `<`, `>`), or `minimal_escape` (`&`, `<`) to write text, and `quick_xml::escape::unescape` to read text and numeric references'

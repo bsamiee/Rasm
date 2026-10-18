@@ -11,9 +11,9 @@ utils:
     holds-discard-var:
         any:
             - matches: discard-var
-            - kind: 'parenthesized_pattern, negated_pattern'
+            - kind: parenthesized_pattern
               has: {matches: holds-discard-var}
-            - kind: 'and_pattern, or_pattern'
+            - kind: and_pattern
               any: [{has: {field: left, matches: holds-discard-var}}, {has: {field: right, matches: holds-discard-var}}]
 rule:
     kind: is_pattern_expression

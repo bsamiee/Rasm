@@ -17,17 +17,6 @@ class SourceError extends Schema.TaggedError<SourceError, { readonly brand: uniq
 }) {}
 
 const Located = Schema.Struct({ loc: Schema.Struct({ line: Schema.Int }) });
-const needsReference = (node: AnyNode, parent: AnyNode | undefined, grandparent: AnyNode | undefined): boolean =>
-    (parent?.type === 'AssignmentExpression' && parent.left === node) ||
-    (parent?.type === 'UpdateExpression' && parent.argument === node) ||
-    (parent?.type === 'UnaryExpression' && parent.operator === 'delete') ||
-    ((parent?.type === 'CallExpression' || parent?.type === 'NewExpression') && parent.callee === node) ||
-    (parent?.type === 'TaggedTemplateExpression' && parent.tag === node) ||
-    ((parent?.type === 'ForInStatement' || parent?.type === 'ForOfStatement') && parent.left === node) ||
-    (parent?.type === 'AssignmentPattern' && parent.left === node) ||
-    parent?.type === 'ArrayPattern' ||
-    parent?.type === 'RestElement' ||
-    grandparent?.type === 'ObjectPattern';
 const compiled = (
     code: string,
     scope: Readonly<Record<string, unknown>>,
@@ -36,6 +25,17 @@ const compiled = (
     Result.try({
         try: () => {
             const [text, tokens] = [new MagicString(code), Array.empty<Token>()];
+            const needsReference = (node: AnyNode, parent: AnyNode | undefined, grandparent: AnyNode | undefined): boolean =>
+                (parent?.type === 'AssignmentExpression' && parent.left === node) ||
+                (parent?.type === 'UpdateExpression' && parent.argument === node) ||
+                (parent?.type === 'UnaryExpression' && parent.operator === 'delete') ||
+                ((parent?.type === 'CallExpression' || parent?.type === 'NewExpression') && parent.callee === node) ||
+                (parent?.type === 'TaggedTemplateExpression' && parent.tag === node) ||
+                ((parent?.type === 'ForInStatement' || parent?.type === 'ForOfStatement') && parent.left === node) ||
+                (parent?.type === 'AssignmentPattern' && parent.left === node) ||
+                parent?.type === 'ArrayPattern' ||
+                parent?.type === 'RestElement' ||
+                grandparent?.type === 'ObjectPattern';
             ancestor(parse(code, { ecmaVersion: 2024, allowReturnOutsideFunction: true, onToken: tokens }), {
                 MemberExpression: (node, _state, ancestors) => {
                     const [, parent, grandparent] = Array.reverse(ancestors);
@@ -49,21 +49,20 @@ const compiled = (
                 },
             });
             const [bound, body] = [{ __read: read, ...scope }, text.toString()];
-            const Compiled: new (...parameters: readonly string[]) => (...values: readonly unknown[]) => unknown =
-                Object.getPrototypeOf(() => undefined).constructor;
-            const run = new Compiled(...Object.keys(bound), body);
+            // biome-ignore lint/nursery/noImpliedEval: <host> compiles caller-supplied source
+            const run = new Function(...Object.keys(bound), body);
             const source = run.toString();
-            return { run: (): unknown => run(...Object.values(bound)), header: source.slice(0, source.indexOf(body)).split('\n').length - 1 };
+            return { run: (): unknown => Reflect.apply(run, undefined, Object.values(bound)), header: source.slice(0, source.indexOf(body)).split('\n').length - 1 };
         },
         catch: (cause) => SourceError.make({ line: Option.map(Schema.decodeUnknownOption(Located)(cause), ({ loc }) => loc.line), cause }),
     });
 ```
 
-Each splice replaces one bracket token or inserts text. `needsReference` keeps assignment targets, call and `new` callees, and binding patterns as written, since `__read` returns a value. `parse` under `ecmaVersion: 2024` rejects syntax V8 in UXP lacks, with its line, before compilation. `Compiled` is the `Function` constructor reached through a function's prototype, typed where it is read, and `header` is the line count that constructor writes ahead of its body.
+Each splice replaces one bracket token or inserts text. `needsReference` keeps assignment targets, call and `new` callees, and binding patterns as written, since `__read` returns a value. `parse` under `ecmaVersion: 2024` rejects syntax V8 in UXP lacks, with its line, before compilation. `new Function` stands under one rule-specific `biome-ignore`, `Reflect.apply` calls the untyped `Function` it returns, and `header` is the line count that constructor writes ahead of its body.
 
 - Scope entries are the names the source references, passed as values, and no source text is built from a value
 - Bodies with a top-level `await` compile as the return of an async arrow function around the body and run outside a synchronous unit of work
-- Supplied TypeScript is stripped with a position-preserving stripper before the parse
+- Supplied TypeScript passes through `stripTypeScriptTypes(<code>, { mode: 'strip' })` of `node:module`, which keeps every position, before reaching the host
 
 ## [02]-[THROWN_LINES]
 
@@ -72,16 +71,9 @@ Throws from compiled source report their line inside the frame V8 marks as evalu
 ```ts
 const line = (cause: unknown, header: number): Option.Option<number> => {
     const prepare = Error.prepareStackTrace;
-    Error.prepareStackTrace = (_error, frames): number | null =>
-        Option.getOrNull(
-            Option.flatMapNullishOr(
-                Array.findFirst(frames, (frame) => frame.isEval()),
-                (frame) => frame.getLineNumber(),
-            ),
-        );
+    Error.prepareStackTrace = (_error, frames) => frames.find((frame) => frame.isEval())?.getLineNumber();
     try {
-        const at = Predicate.hasProperty(cause, 'stack') ? cause.stack : undefined;
-        return Option.map(Option.liftPredicate(at, Predicate.isNumber), (frameLine) => frameLine - header);
+        return Option.map(Option.liftPredicate(Predicate.hasProperty(cause, 'stack') ? cause.stack : undefined, Predicate.isNumber), (at) => at - header);
     } finally {
         Error.prepareStackTrace = prepare;
     }

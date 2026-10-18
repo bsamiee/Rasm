@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-local-function-in-weak-capture
+language: swiftlang
+severity: error
+utils:
+    weak-self:
+        kind: capture_list_item
+        all:
+            - has: {kind: ownership_modifier, regex: '^weak$'}
+            - has: {field: name, regex: '^self$'}
+    weak-closure:
+        kind: lambda_literal
+        has: {field: captures, has: {matches: weak-self}}
+    member-read:
+        kind: simple_identifier
+        pattern: $MEMBER
+        all:
+            - not: {inside: {kind: 'navigation_suffix, value_argument_label'}}
+            - not: {inside: {kind: function_declaration, stopBy: end, has: {kind: parameter, has: {field: name, pattern: $MEMBER}}}}
+            - inside:
+                kind: class_body
+                stopBy: end
+                has:
+                    any:
+                        - {kind: property_declaration, has: {field: name, has: {field: bound_identifier, pattern: $MEMBER}}}
+                        - {kind: function_declaration, has: {field: name, pattern: $MEMBER}}
+    self-reader:
+        kind: function_declaration
+        has: {field: body, has: {stopBy: end, any: [{kind: self_expression}, {matches: member-read}]}}
+rule:
+    matches: weak-self
+    pattern: $CAPTURE
+    inside:
+        kind: capture_list
+        inside:
+            matches: weak-closure
+            has:
+                stopBy: end
+                kind: simple_identifier
+                pattern: $FUNCTION
+                not: {inside: {kind: 'navigation_suffix, value_argument_label'}}
+                inside:
+                    stopBy: end
+                    kind: statements
+                    not: {inside: {stopBy: end, matches: weak-closure}}
+                    has: {matches: self-reader, has: {field: name, pattern: $FUNCTION}}
+message: 'Local function `$FUNCTION` holds `self` strongly from its declaration and keeps the owner of its `[weak self]` caller alive'
+note: 'Hold the body inline in the closure and read `self` through the weak capture'
+labels:
+    CAPTURE: {style: primary}
+    FUNCTION: {style: secondary, message: Captures `self` strongly}

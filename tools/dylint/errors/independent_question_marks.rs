@@ -1,19 +1,22 @@
-use core::{iter, ops::ControlFlow, slice};
+use core::{fmt::Display, iter, ops::ControlFlow, slice};
 
 use clippy_utils::{
     diagnostics::span_lint_hir_and_then,
-    peel_hir_expr_while,
+    get_parent_expr, peel_hir_expr_while,
     res::MaybeResPath as _,
+    source::snippet,
     visitors::{for_each_expr_without_closures, is_local_used},
 };
-use rustc_hir::{Block, Expr, ExprField, ExprKind, HirId, MatchSource, PatKind, Stmt, StmtKind, UnOp};
+use rustc_hir::{Block, Expr, ExprField, ExprKind, HirId, MatchSource, Mutability, PatKind, Stmt, StmtKind, UnOp};
 use rustc_lint::{LateContext, LateLintPass};
+use rustc_middle::ty::adjustment::{Adjust, AutoBorrow, AutoBorrowMutability};
+use rustc_span::Span;
 
-use crate::expanded_externally;
+use crate::{any_expr, expanded_externally, result_parts};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-lint!(INDEPENDENT_QUESTION_MARKS: "consecutive `let` bindings applying `?` where the second reads no value of the first and a later expression combines both");
+lint!(INDEPENDENT_QUESTION_MARKS: "`?` on independent results in consecutive `let` bindings a later expression combines, or in sibling operands of one expression");
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_block(&mut self, cx: &LateContext<'tcx>, block: &'tcx Block<'tcx>) {
@@ -36,16 +39,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             })
             .res_local_id()
         };
-        let joins = |expr: &Expr<'_>, first: HirId, second: HirId| {
-            let (head, rest, fields): (Option<&Expr<'_>>, &[Expr<'_>], &[ExprField<'_>]) = match expr.kind {
-                ExprKind::Binary(_, left, right) => (Some(left), slice::from_ref(right), &[]),
-                ExprKind::Tup(items) | ExprKind::Array(items) | ExprKind::Call(_, items) => (None, items, &[]),
-                ExprKind::MethodCall(_, receiver, arguments, _) => (Some(receiver), arguments, &[]),
-                ExprKind::Struct(_, fields, _) => (None, &[], fields),
-                _ => (None, &[], &[]),
-            };
-            iter::chain(head, rest).chain(fields.iter().map(|field| field.expr)).filter_map(read).fold([false; 2], |[left, right], local| [left || local == first, right || local == second])
-                == [true; 2]
+        let joins = |expr: &'tcx Expr<'tcx>, first: HirId, second: HirId| {
+            operands(expr).filter_map(read).fold([false; 2], |[left, right], local| [left || local == first, right || local == second]) == [true; 2]
         };
         iter::successors(Some(block.stmts), |statements| statements.split_first().map(|(_, rest)| rest))
             .filter_map(|statements| {
@@ -63,10 +58,48 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                         .any(|expr| for_each_expr_without_closures(expr, |part| if joins(part, first_binding, second_binding) { ControlFlow::Break(()) } else { ControlFlow::Continue(()) }).is_some()))
                 .then(|| (node, first.span.to(second.span), first_name, second_name))
             })
-            .for_each(|(node, span, first_name, second_name)| {
-                span_lint_hir_and_then(cx, INDEPENDENT_QUESTION_MARKS, node, span, format!("`?` on `{first_name}` returns before independent `{second_name}` is computed"), |diag| {
-                    diag.help("evaluate both and accumulate their errors through `validated::Validated` before combining");
-                });
-            });
+            .for_each(|(node, span, first_name, second_name)| report(cx, node, span, first_name, second_name));
     }
+
+    fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
+        let typeck = cx.typeck_results();
+        let mutates = |inner: &Expr<'_>| {
+            matches!(inner.kind, ExprKind::AddrOf(_, Mutability::Mut, _))
+                || typeck.expr_adjustments(inner).iter().any(|adjustment| matches!(adjustment.kind, Adjust::Borrow(AutoBorrow::Ref(AutoBorrowMutability::Mut { .. }))))
+        };
+        let question = |inner: &'tcx Expr<'tcx>| match inner.kind {
+            ExprKind::Match(&Expr { kind: ExprKind::Call(_, [scrutinee]), .. }, _, MatchSource::TryDesugar(_))
+                if scrutinee.res_local_id().is_none() && result_parts(cx, typeck.expr_ty(scrutinee)).is_some() =>
+                ControlFlow::Break(scrutinee),
+            _ => ControlFlow::Continue(()),
+        };
+        let tried = |combined: &'tcx Expr<'tcx>| {
+            operands(combined).filter(|&operand| !any_expr(cx.tcx, operand, mutates)).filter_map(|operand| for_each_expr_without_closures(operand, question)).collect::<Vec<_>>()
+        };
+        if !expanded_externally(cx, expr.span)
+            && let &[first, second, ..] = &tried(expr)
+            && get_parent_expr(cx, expr).is_none_or(|parent| tried(parent).len() < 2)
+        {
+            report(cx, expr.hir_id, first.span.source_callsite().to(second.span.source_callsite()), snippet(cx, first.span.source_callsite(), ".."), snippet(cx, second.span.source_callsite(), ".."));
+        }
+    }
+}
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+fn operands<'tcx>(expr: &'tcx Expr<'tcx>) -> impl Iterator<Item = &'tcx Expr<'tcx>> {
+    let (head, rest, fields): (Option<&Expr<'_>>, &[Expr<'_>], &[ExprField<'_>]) = match expr.kind {
+        ExprKind::Binary(_, left, right) => (Some(left), slice::from_ref(right), &[]),
+        ExprKind::Tup(items) | ExprKind::Array(items) | ExprKind::Call(_, items) => (None, items, &[]),
+        ExprKind::MethodCall(_, receiver, arguments, _) => (Some(receiver), arguments, &[]),
+        ExprKind::Struct(_, fields, _) => (None, &[], fields),
+        _ => (None, &[], &[]),
+    };
+    iter::chain(head, rest).chain(fields.iter().map(|field| field.expr))
+}
+
+fn report(cx: &LateContext<'_>, node: HirId, span: Span, first: impl Display, second: impl Display) {
+    span_lint_hir_and_then(cx, INDEPENDENT_QUESTION_MARKS, node, span, format!("`?` on `{first}` returns before independent `{second}` is computed"), |diag| {
+        diag.help("collect each result into `validated::Validated`, combine them through `map2`..`map4`, and call `.ok()`");
+    });
 }

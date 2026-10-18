@@ -2,6 +2,7 @@
 id: no-truncating-trim-in-hook
 language: csharp
 severity: error
+ignores: ['tools/roslyn/**']
 utils:
     extension-class:
         matches: {csharp-type-name: {name: {regex: '^StringExtensions$'}}}

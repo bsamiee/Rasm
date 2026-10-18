@@ -27,9 +27,9 @@ internal readonly record struct Occluder(PixelFrame Depth, float Source) {
         Seq<(double X, double Y)> disc = toSeq(
             from y in Window(source.Y, extent.Height)
             from x in Window(source.X, extent.Width)
-            let centre = (X: x + 0.5d, Y: y + 0.5d)
-            where double.Hypot(centre.X - source.X, centre.Y - source.Y) <= reach
-            select centre);
+            let center = (X: x + 0.5d, Y: y + 0.5d)
+            where double.Hypot(center.X - source.X, center.Y - source.Y) <= reach
+            select center);
         return disc.IsEmpty ? 1f : disc.Filter(point => !occluder.Hides(point)).Count / (float)disc.Count;
 
         IEnumerable<int> Window(double at, int size) =>
@@ -42,15 +42,13 @@ internal readonly record struct Occluder(PixelFrame Depth, float Source) {
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class FlareAnchor : ICaptioned {
     public static readonly FlareAnchor Frame = new("frame", "Frame position", [], static (position, _, context) =>
-        Fin.Succ(Some((position.Point(context.Extent), Option<float>.None))));
+        Some((position.Point(context.Extent), Option<float>.None)));
     public static readonly FlareAnchor Sun = new("sun", "Sun", [GuideChannel.Depth], static (_, _, context) =>
         context.Lights.ToFin(Error.New("sun flare anchor needs the scene lights")).Map(lights => lights.Sun.Bind(direction => Distant(direction, context))));
     public static readonly FlareAnchor Light = new("light", "Light", [GuideChannel.Depth], static (_, light, context) =>
-        light.Match(
-            Some: target => context.Lights.ToFin(Error.New(string.Create(CultureInfo.InvariantCulture, $"light flare anchor {target} needs the scene lights"))).Map(lights =>
-                (from point in lights.Points.Find(target) from camera in context.Camera from located in camera.Pixel(point) select (located.Point, Depth: Some(located.Depth)))
-                | lights.Directions.Find(target).Bind(direction => Distant(direction, context))),
-            None: static () => Fin.Succ(Option<((double X, double Y) Point, Option<float> Depth)>.None)));
+        light.Traverse(target => context.Lights.ToFin(Error.New(string.Create(CultureInfo.InvariantCulture, $"light flare anchor {target} needs the scene lights"))).Map(lights =>
+            (from point in lights.Points.Find(target) from camera in context.Camera from located in camera.Pixel(point) select (located.Point, Depth: Some(located.Depth)))
+            | lights.Directions.Find(target).Bind(direction => Distant(direction, context)))).As().Map(static located => located.Flatten()));
 
     public string Caption { get; }
     public Seq<GuideChannel> Occluders { get; }
@@ -125,7 +123,7 @@ public sealed record LensFlare(
         state.Source.Pass(context, (point, occlusion) => (frame, progress) => Try.lift(() => Fill(state, context, point).Match(
             Some: fill => state.Layer.Pass(fill(occlusion.Match(
                 Some: occluder => occluder.Visible(point, state.HotspotSize, context.Extent), None: 1f))).Run(frame, progress),
-            None: static () => Fin.Succ(unit))).Run());
+            None: static () => unit)).Run());
 
     private static Option<Func<float, Action<Span<Vector4>, long, long>>> Fill(LensFlare state, PassContext context, (double X, double Y) source) {
         (FieldFrame frame, double side, Iris iris) = (Placement.Default.Frame(context.Extent), context.Extent.ShortSide, state.Iris);
@@ -139,7 +137,7 @@ public sealed record LensFlare(
         (Matrix3x2 turn, (double X, double Y) halo, double width, double rim) =
             (Matrix3x2.CreateRotation(state.BarAngle), (state.RingMagnification * X, state.RingMagnification * Y), state.RingWidth, ShapeEdge.Band(state.RingSoftness, context.Extent));
         RampTable ghostColors = state.GhostColors.Tabulate(context.Working);
-        ((double X, double Y) Centre, float Flip, double Radius, double Ramp, double Bound, Vector3 Color)[] ghosts = [..
+        ((double X, double Y) Center, float Flip, double Radius, double Ramp, double Bound, Vector3 Color)[] ghosts = [..
             from k in state.Ghosts.Enabled ? Enumerable.Range(0, state.GhostCount) : []
             let u = CoordinateHash.Uniforms(k, 0L, draws)
             let position = (k + 0.5d + (state.GhostVariation * (u.Y - 0.5d))) / state.GhostCount
@@ -182,8 +180,8 @@ public sealed record LensFlare(
 
         Vector3 Chain((double X, double Y) q) {
             Vector256<double> sum = Vector256<double>.Zero;
-            foreach (((double X, double Y) centre, float flip, double radius, double ramp, double bound, Vector3 color) in ghosts) {
-                (double x, double y) = ((q.X - centre.X) * side, (q.Y - centre.Y) * side);
+            foreach (((double X, double Y) center, float flip, double radius, double ramp, double bound, Vector3 color) in ghosts) {
+                (double x, double y) = ((q.X - center.X) * side, (q.Y - center.Y) * side);
                 if (double.Hypot(x, y) > bound) continue;
                 (double reach, double outline) = iris.Outline((flip * x, -flip * y));
                 sum += Vector256.Create(color.X, color.Y, color.Z, 0d) * iris.Weights(reach, outline, radius, ramp, state.Fringe);

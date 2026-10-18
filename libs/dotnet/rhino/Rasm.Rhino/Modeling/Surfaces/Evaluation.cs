@@ -12,20 +12,20 @@ public sealed record SurfaceJet(Point3d Point, Vector3d Normal, Seq<Seq<Vector3d
 public static class SurfaceEvaluation {
     // --- [SAMPLES]
     public static IO<SurfaceJet> Jet(Surface surface, Point2d uv, int order) =>
-        from at in IO.lift(() => InDomain(surface, uv, nameof(Surface.Evaluate)).ToFin())
+        from at in IO.lift(() => InDomain(surface, uv, nameof(Surface.Evaluate)))
         from normal in IO.lift(() => surface.NormalAt(at.X, at.Y))
         from jet in IO.lift(() => (
-                Refused.Unless(surface.Evaluate(at.X, at.Y, order, out Point3d point, out Vector3d[] derivatives), (Point: point, Partials: derivatives), nameof(Surface.Evaluate)).ToValidation(),
-                Refused.UnlessValid(normal != Vector3d.Zero, normal, nameof(Surface.NormalAt)).ToValidation())
+                Refused.Unless(surface.Evaluate(at.X, at.Y, order, out Point3d point, out Vector3d[] derivatives), (Point: point, Partials: derivatives), nameof(Surface.Evaluate)),
+                Refused.UnlessValid(normal != Vector3d.Zero, normal, nameof(Surface.NormalAt)))
             .Apply((sampled, unitNormal) => new SurfaceJet(
                 sampled.Point,
                 unitNormal,
                 toSeq(Range(1, order)).Map(k => toSeq(sampled.Partials.Skip((int)((k * (k + 1L) / 2) - 1)).Take(k + 1))).Strict()))
-            .As().ToFin())
+            .As())
         select jet;
 
     public static IO<SurfaceCurvature> Curvature(Surface surface, Point2d uv, Action<IDisposable> retain) =>
-        from at in IO.lift(() => InDomain(surface, uv, nameof(Surface.CurvatureAt)).ToFin())
+        from at in IO.lift(() => InDomain(surface, uv, nameof(Surface.CurvatureAt)))
         from sampled in IO.lift(Fin<Point2d> () => surface.IsAtSingularity(at.X, at.Y, exact: false) ? Error.New(ErrorCodes.ValidationFailed, $"{nameof(Surface.CurvatureAt)} takes no point at a singularity") : at)
         from curvature in Copies.Owned(
             () => surface.CurvatureAt(sampled.X, sampled.Y),
@@ -48,8 +48,7 @@ public static class SurfaceEvaluation {
         Copies.Acquire(
             () => (InDomain(surface, start, nameof(Surface.ShortPath)), InDomain(surface, end, nameof(Surface.ShortPath)))
                 .Apply((origin, target) => surface.ShortPath(origin, target, tolerances.Absolute))
-                .As()
-                .ToFin(),
+                .As(),
             nameof(Surface.ShortPath), retain);
 
     // --- [SCANS]
@@ -60,8 +59,8 @@ public static class SurfaceEvaluation {
             .Strict());
 
     // --- [DOMAIN]
-    private static Validation<Error, Point2d> InDomain(Surface surface, Point2d uv, string member) =>
-        (Conversions.Within(surface.Domain((int)SurfaceDirection.U), uv.X, member).ToValidation(), Conversions.Within(surface.Domain((int)SurfaceDirection.V), uv.Y, member).ToValidation())
+    private static Fin<Point2d> InDomain(Surface surface, Point2d uv, string member) =>
+        (Conversions.Within(surface.Domain((int)SurfaceDirection.U), uv.X, member), Conversions.Within(surface.Domain((int)SurfaceDirection.V), uv.Y, member))
             .Apply(static (u, v) => new Point2d(u, v))
             .As();
 

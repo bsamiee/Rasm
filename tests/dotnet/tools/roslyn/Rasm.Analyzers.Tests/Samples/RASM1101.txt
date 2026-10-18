@@ -1,0 +1,27 @@
+using Thinktecture;
+
+[Union]
+internal abstract partial record Shape {
+    internal sealed record Circle(double Radius) : Shape;
+    internal sealed record Square(double Side) : Shape;
+}
+
+internal static class DiscardArm {
+    internal static double Area(Shape shape) => shape switch { Shape.Circle circle => circle.Radius, {|#0:_ => 0d|} };
+}
+
+internal static class DefaultSection {
+    internal static double Area(Shape shape) {
+        switch (shape) {
+            case Shape.Circle circle:
+                return circle.Radius;
+            {|#1:default:|}
+                return 0d;
+        }
+    }
+}
+
+internal static class NullArm {
+    internal static double Plain(object value) => value switch { int count => count, _ => 0d };
+    internal static bool Present(Shape? shape) => shape switch { null => false, _ => true };
+}

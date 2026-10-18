@@ -188,6 +188,7 @@ private struct AccountCard: View {
         let hasSession: Bool = usage.map { current in current.session != nil } ?? true
         let isStarting: Bool = model.running?.kind == .starting
         let showsStart: Bool = isStarting || model.canStartSession(at: now)
+        let startLabel: String = isStarting ? "Cancel" : "Start session"
         if hasSession {
             UsageGauge(
                 title: "Session",
@@ -198,8 +199,20 @@ private struct AccountCard: View {
                 leadsGlyphRow: true,
             ) {
                 if showsStart {
-                    sessionStart(isStarting: isStarting)
-                        .transition(.opacity)
+                    Button {
+                        if isStarting { store.cancelOperation(model.account.id) } else { store.startSession(model.account.id) }
+                    } label: {
+                        Image(systemName: "arrow.trianglehead.clockwise")
+                            .font(.body)
+                            .opacity(isStarting ? 0 : 1)
+                    }
+                    .buttonStyle(.accessoryBar)
+                    .overlay {
+                        if isStarting { ProgressView().controlSize(.small) }
+                    }
+                    .accessibilityLabel(startLabel)
+                    .help(startLabel)
+                    .transition(.opacity)
                 }
             }
             .animation(.default, value: showsStart)
@@ -217,23 +230,6 @@ private struct AccountCard: View {
                 ) {}
             }
         }
-    }
-
-    private func sessionStart(isStarting: Bool) -> some View {
-        let label: String = isStarting ? "Cancel" : "Start session"
-        return Button {
-            if isStarting { store.cancelOperation(model.account.id) } else { store.startSession(model.account.id) }
-        } label: {
-            Image(systemName: "arrow.trianglehead.clockwise")
-                .font(.body)
-                .opacity(isStarting ? 0 : 1)
-        }
-        .buttonStyle(.accessoryBar)
-        .overlay {
-            if isStarting { ProgressView().controlSize(.small) }
-        }
-        .accessibilityLabel(label)
-        .help(label)
     }
 
     private var note: String? {

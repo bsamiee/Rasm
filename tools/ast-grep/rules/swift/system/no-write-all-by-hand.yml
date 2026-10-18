@@ -6,7 +6,7 @@ rule:
     kind: while_statement
     pattern: $SITE
     all:
-        - has: {field: condition, regex: '^\w+\s*<\s*[\w.]+\.count$', has: {nthChild: 1, kind: simple_identifier, pattern: $WRITTEN}}
+        - has: {regex: '^\w+\s*<\s*[\w.]+\.count$', has: {nthChild: 1, kind: simple_identifier, pattern: $WRITTEN}}
         - has:
             kind: statements
             all:

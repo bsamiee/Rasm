@@ -30,15 +30,15 @@ public sealed record PlotBody<TReading>(Extent Width, Extent Height, Func<TReadi
     public static Fin<PlotBody<TReading>> Of(
         (float Minimum, float Ideal, float Maximum) width, (float Minimum, float Ideal, float Maximum) height,
         Func<TReading, PlotCanvas, RectangleF, IO<Unit>> paint) =>
-        (Axis(width).ToValidation(), Axis(height).ToValidation())
-            .Apply((wide, high) => new PlotBody<TReading>(wide, high, paint)).As().ToFin();
+        (Axis(width), Axis(height))
+            .Apply((wide, high) => new PlotBody<TReading>(wide, high, paint)).As();
 
     private static Fin<Extent> Axis((float Minimum, float Ideal, float Maximum) axis) =>
-        (CanvasLength.Validated(axis.Minimum).ToValidation(),
-         CanvasLength.Validated(axis.Ideal).ToValidation(),
-         CanvasLength.Validated(axis.Maximum).ToValidation())
+        (CanvasLength.Validated(axis.Minimum),
+         CanvasLength.Validated(axis.Ideal),
+         CanvasLength.Validated(axis.Maximum))
             .Apply(static (minimum, ideal, maximum) => (Minimum: minimum, Ideal: ideal, Maximum: maximum))
-            .As().ToFin()
+            .As()
             .Bind(static lengths => ValidationResults.ToFin(Extent.Validate(lengths.Minimum, lengths.Ideal, lengths.Maximum, out Extent item), item));
 }
 
@@ -173,12 +173,12 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
             () => capsule.Slab.ApexPath,
             path => IO.lift(() => context.Graphics.SetClip(path)).Bind(_ => IO.lift(() =>
                 (from side in Sides from parameter in side.Parameters select (side.Side, Parameter: parameter)).Iter(held => {
-                    if (!ModularList.ResolveColour(held.Parameter, out Color colour))
+                    if (!ModularList.ResolveColour(held.Parameter, out Color color))
                         return;
 
                     const float width = 3f;
                     RectangleF bounds = held.Parameter.Attributes.Bounds;
-                    context.Graphics.FillRectangle(colour, new RectangleF(held.Side is PlugSide.Input ? bounds.Left : bounds.Right - width, bounds.Top, width, bounds.Height));
+                    context.Graphics.FillRectangle(color, new RectangleF(held.Side is PlugSide.Input ? bounds.Left : bounds.Right - width, bounds.Top, width, bounds.Height));
                 }))),
             path => Callbacks.Each(Seq(IO.lift(context.Graphics.ResetClip), IO.lift(path.Dispose))).Map(unit)), Site());
         base.DrawForeground(context, skin, capsule, shade);

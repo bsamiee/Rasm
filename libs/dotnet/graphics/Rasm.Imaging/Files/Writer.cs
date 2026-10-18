@@ -140,7 +140,7 @@ public abstract partial record StillFormat {
 
         public static IterableNE<string> Extensions => IterableNE.create(".exr");
 
-        public static Validation<Error, StillFormat> From(PixelFrame beauty, ExrLayout layout, bool alpha, Option<PassSet> passes) =>
+        public static Fin<StillFormat> From(PixelFrame beauty, ExrLayout layout, bool alpha, Option<PassSet> passes) =>
             passes.Traverse(set => set.Fits(beauty)).As().Map(_ => (StillFormat)new ExrRaster(beauty, layout, alpha, passes));
     }
 
@@ -156,10 +156,10 @@ public abstract partial record StillFormat {
 
         public static IterableNE<string> Extensions => IterableNE.create(".dng");
 
-        public static Validation<Error, StillFormat> From(PixelFrame frame, Gamut gamut, Option<double> exposure, Option<LensDistance> focalLength, Option<PositiveMagnitude> aperture) {
-            static Validation<Error, float> Rational(TiffTag tag, float value, int minimum) =>
+        public static Fin<StillFormat> From(PixelFrame frame, Gamut gamut, Option<double> exposure, Option<LensDistance> focalLength, Option<PositiveMagnitude> aperture) {
+            static Fin<float> Rational(TiffTag tag, float value, int minimum) =>
                 value >= minimum && value < (double)int.MaxValue
-                    ? Validation.Success<Error, float>(value)
+                    ? value
                     : Error.New(string.Create(CultureInfo.InvariantCulture, $"DNG field {tag} value {value} lies outside [{minimum}, {int.MaxValue})"));
             return (
                     DngWriter.Bounded(frame.Size),
@@ -216,12 +216,12 @@ public static class StillWriter {
                 depth.Encode(scratch.Span, alpha: false, destination);
             };
 
-    internal static byte[][] Planar(OutputDepth depth, PixelExtent size, int lanes, Action<int, Span<Vector4>> source) {
+    internal static byte[][] Planar(OutputDepth depth, PixelExtent size, int channels, Action<int, Span<Vector4>> source) {
         int bytes = depth.SampleBytes;
         int chunk = int.Min(size.Width, System.Array.MaxLength / Unsafe.SizeOf<Vector4>());
-        byte[][] planes = new byte[lanes][];
-        for (int lane = 0; lane < lanes; lane++)
-            planes[lane] = new byte[(int)((long)size.Width * size.Height * bytes)];
+        byte[][] planes = new byte[channels][];
+        for (int channel = 0; channel < channels; channel++)
+            planes[channel] = new byte[(int)((long)size.Width * size.Height * bytes)];
         using SpanOwner<Vector4> scratch = SpanOwner<Vector4>.Allocate(size.Width);
         using SpanOwner<byte> encoded = SpanOwner<byte>.Allocate((int)depth.RowBytes(chunk, alpha: true));
         for (int y = 0; y < size.Height; y++) {
@@ -230,9 +230,9 @@ public static class StillWriter {
                 int count = int.Min(chunk, size.Width - x);
                 Span<byte> row = encoded.Span[..(int)depth.RowBytes(count, alpha: true)];
                 depth.Encode(scratch.Span.Slice(x, count), alpha: true, row);
-                for (int lane = 0; lane < lanes; lane++)
-                    row.AsSpan2D(count, 4 * bytes).Slice(0, lane * bytes, count, bytes)
-                        .CopyTo(planes[lane].AsSpan(((y * size.Width) + x) * bytes, count * bytes));
+                for (int channel = 0; channel < channels; channel++)
+                    row.AsSpan2D(count, 4 * bytes).Slice(0, channel * bytes, count, bytes)
+                        .CopyTo(planes[channel].AsSpan(((y * size.Width) + x) * bytes, count * bytes));
             }
         }
         return planes;

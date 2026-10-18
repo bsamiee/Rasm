@@ -3,31 +3,26 @@ id: no-ambient-read-through-process
 language: rust
 severity: error
 utils:
-    command-new:
-        kind: call_expression
-        has: {field: function, regex: '^((::)?((std|tokio|async_std|async_process|smol)::)?process::)?Command::new$|^((::)?process_wrap::(std|tokio)::)?CommandWrap::with_new$'}
     ambient-program:
         kind: string_literal
         pattern: $PROGRAM
         regex: '^"([^"]*[/\\])?(printenv|pwd|date|whoami|id|tty|locale)(\.exe)?"$'
-    shell:
-        kind: string_literal
-        regex: '^"([^"]*[/\\])?(sh|bash|zsh|dash|fish|cmd|powershell|pwsh)(\.exe)?"$'
     shell-command:
         kind: string_literal
         pattern: $PROGRAM
         regex: '^"\s*((printenv|pwd|date|whoami|id|tty|locale)\b|echo\s[^"]*(\$|%\w+%))'
         inside: {stopBy: {kind: call_expression}, kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, regex: '^args?$'}}}
 rule:
-    matches: command-new
-    any:
-        - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, matches: ambient-program}}
-        - all:
-            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, matches: shell}}
-            - any:
-                - inside: {kind: 'expression_statement, let_declaration', stopBy: {kind: 'expression_statement, let_declaration'}, has: {stopBy: end, matches: shell-command}}
-                - all:
-                    - inside: {kind: let_declaration, field: value, has: {field: pattern, kind: identifier, pattern: $COMMAND}}
-                    - inside: {kind: function_item, stopBy: {kind: function_item}, has: {stopBy: end, kind: expression_statement, all: [{has: {stopBy: end, kind: field_expression, has: {field: value, kind: identifier, pattern: $COMMAND}}}, {has: {stopBy: end, matches: shell-command}}]}}
+    all:
+        - matches: rust-command-new
+        - any:
+            - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, matches: ambient-program}}
+            - all:
+                - has: {field: arguments, has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, matches: rust-shell-program}}
+                - any:
+                    - inside: {stopBy: {inside: {kind: block}}, inside: {kind: block}, has: {stopBy: end, matches: shell-command}}
+                    - all:
+                        - inside: {kind: let_declaration, field: value, has: {field: pattern, kind: identifier, pattern: $COMMAND}}
+                        - inside: {kind: function_item, stopBy: {kind: function_item}, has: {stopBy: end, kind: expression_statement, all: [{has: {stopBy: end, kind: field_expression, has: {field: value, kind: identifier, pattern: $COMMAND}}}, {has: {stopBy: end, matches: shell-command}}]}}
 message: '`$PROGRAM` reads the environment, user, working directory, or clock of the process through a child process'
 note: 'Read the value once at the boundary (`clap` field with `env = "<NAME>"` for a variable) and pass it, the working directory, and the clock as arguments to the code that needs them'

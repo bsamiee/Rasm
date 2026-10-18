@@ -11,15 +11,15 @@ utils:
                 kind: field_expression
                 all:
                     - has: {field: value, kind: identifier, pattern: $STATE}
-                    - has: {field: field, regex: '^(push|push_back|push_front|push_str|insert|extend|extend_from_slice|append)$'}
+                    - has: {field: field, matches: rust-growing-method}
             - kind: 'compound_assignment_expr, assignment_expression'
               has: {field: left, kind: identifier, pattern: $STATE}
     valued-return:
         kind: return_expression
-        has: {pattern: $STATE, not: {regex: '^Some\s*\('}}
+        has: {pattern: $FOUND, not: {kind: call_expression, all: [{has: {field: function, regex: '^Some$'}}, {has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $ELEMENT}, not: {has: {nthChild: 2}}}}]}}
     valued-break:
         kind: break_expression
-        has: {pattern: $STATE, not: {kind: label}}
+        has: {pattern: $FOUND, not: {kind: label}}
     pushing-fold:
         kind: call_expression
         all:
@@ -39,6 +39,10 @@ utils:
 rule:
     any:
         - matches: rust-statement-loop
+          any:
+            - kind: for_expression
+              has: {field: pattern, any: [{kind: identifier, pattern: $ELEMENT}, {kind: reference_pattern, has: {kind: identifier, pattern: $ELEMENT}}, {pattern: $ELEMENT}]}
+            - not: {kind: for_expression}
           has:
             field: body
             has:
@@ -48,5 +52,8 @@ rule:
                     - matches: valued-return
                     - matches: valued-break
         - matches: pushing-fold
-message: 'Loop or `fold` produces `$STATE` statement by statement'
+labels:
+    STATE: {style: secondary, message: 'Written each pass'}
+    FOUND: {style: secondary, message: 'Returned from inside the loop'}
+message: 'Loop or `fold` computes its result statement by statement'
 note: 'Build the value with one adapter chain: `.map(<f>).collect()` builds, `.filter(<test>)` keeps, `.sum()` or `.fold(<initial>, <f>)` accumulates, `.max()`, `.min()`, or `.reduce(<f>)` selects an extreme, `.any`, `.all`, `.find`, `.position`, or `.find_map` stops at the first match, and a fallible traversal over independent elements collects into `validated::Validated`'

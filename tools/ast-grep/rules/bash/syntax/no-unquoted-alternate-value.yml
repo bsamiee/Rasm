@@ -27,4 +27,3 @@ rule:
 fix: '"$VALUE"'
 message: 'Value `$VALUE` word-splits and glob-expands inside an alternate value expansion'
 note: 'Quote the value, `${<condition>:+--option="$<value>"}`'
-labels: {VALUE: {style: primary}}

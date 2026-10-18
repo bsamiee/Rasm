@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Drawing;
 using Rasm.Imaging.Files;
 using Rasm.Imaging.Pixels;
@@ -71,16 +70,13 @@ public sealed record ImageOutputState(bool UseViewportSize, PixelDimension Image
 
     public static string Owner => "image-output";
 
-    public static Option<DocumentEvent<RenderPropertyChangedEvent>> Changed => None;
-
     public static IO<ImageOutputState> Read(RenderSettingsScope scope) =>
         IO.lift(() => scope.Settings switch {
-            var settings => (PixelDimension.Validated(settings.ImageSize.Width).ToValidation(),
-                             PixelDimension.Validated(settings.ImageSize.Height).ToValidation(),
-                             PixelDensity.Validated(settings.ImageDpi).ToValidation())
+            var settings => (PixelDimension.Validated(settings.ImageSize.Width),
+                             PixelDimension.Validated(settings.ImageSize.Height),
+                             PixelDensity.Validated(settings.ImageDpi))
                 .Apply((width, height, dpi) => new ImageOutputState(settings.UseViewportSize, width, height, dpi, settings.ImageUnitSystem))
-                .As()
-                .ToFin(),
+                .As(),
         });
 
     public static IO<ImageOutputState> Write(RenderSettingsScope scope, ImageOutputState state) =>
@@ -104,7 +100,7 @@ public sealed partial class ImageOutputParameter : IStateParameter<ImageOutputSt
     public static readonly ImageOutputParameter ImageHeight = new("image-height", StateParameter.Bounded(Lens<ImageOutputState, PixelDimension>.New(static state => state.ImageHeight, static height => state => state with { ImageHeight = height })),
         new("Height", "Rendered image height in pixels"));
     public static readonly ImageOutputParameter ImageDpi = new("image-dpi", StateParameter.Bounded(Lens<ImageOutputState, PixelDensity>.New(static state => state.ImageDpi, static dpi => state => state with { ImageDpi = dpi }),
-    new Presentation<double> { Form = NumberForm.Field, Step = 1d, Decimals = 0 }),
+            new Presentation<double> { Form = NumberForm.Field, Step = 1d, Decimals = 0 }),
         new("DPI", "Pixels per inch stamped into captured and saved images"));
     public static readonly ImageOutputParameter ImageUnitSystem = new("image-unit-system", new StateParameter<ImageOutputState>.Enumerated<UnitSystem>(
         Lens<ImageOutputState, UnitSystem>.New(static state => state.ImageUnitSystem, static system => state => state with { ImageUnitSystem = system }),
@@ -121,8 +117,6 @@ public sealed record RenderSourceState(RenderSettings.RenderingSources RenderSou
     public static RenderSourceState Default { get; } = new(RenderSettings.RenderingSources.ActiveViewport, None, None, None);
 
     public static string Owner => "render-source";
-
-    public static Option<DocumentEvent<RenderPropertyChangedEvent>> Changed => None;
 
     public static IO<RenderSourceState> Read(RenderSettingsScope scope) =>
         IO.lift(() => RenderSettingsMapper.ToState(scope.Settings));
@@ -156,7 +150,6 @@ public sealed partial class RenderSourceParameter : IStateParameter<RenderSource
             RenderSettings.RenderingSources.SpecificViewport => "Specific viewport",
             RenderSettings.RenderingSources.NamedView => "Named view",
             RenderSettings.RenderingSources.SnapShot => "Snapshot",
-            _ => throw new UnreachableException(),
         }),
         new("Source", "View the rendering is taken from"));
     public static readonly RenderSourceParameter SpecificViewport = new("specific-viewport", new StateParameter<RenderSourceState>.OptionalRaw<string>(
@@ -186,8 +179,6 @@ public sealed record FrameState(
 
     public static string Owner => "frame";
 
-    public static Option<DocumentEvent<RenderPropertyChangedEvent>> Changed => None;
-
     public static IO<FrameState> Read(RenderSettingsScope scope) =>
         IO.lift(() => scope.Settings switch {
             var settings => ShadowmapQuality.ByLevel.Value.Find(settings.ShadowmapLevel).ToFin(new Refused(nameof(RenderSettings.ShadowmapLevel), Refused.Invalid))
@@ -199,8 +190,6 @@ public sealed record FrameState(
 
     public static IO<FrameState> Write(RenderSettingsScope scope, FrameState state) =>
         IO.lift(() => { RenderSettingsMapper.Update(state, scope.Settings); return state; });
-
-    public static RowRules Rules(RowSource<FrameState> source, FrameParameter parameter) => RowRules.Always;
 }
 
 [SmartEnum<string>]
@@ -217,7 +206,6 @@ public sealed partial class FrameParameter : IStateParameter<FrameState> {
             AntialiasLevel.Draft => "Draft quality",
             AntialiasLevel.Good => "Good quality",
             AntialiasLevel.High => "Final quality",
-            _ => throw new UnreachableException(),
         }),
         new("Quality", "Antialiasing quality the renderer samples at"));
     public static readonly FrameParameter ShadowmapLevel = new("shadowmap-level", new StateParameter<FrameState>.Choice<ShadowmapQuality>(
@@ -265,8 +253,6 @@ public sealed record LinearWorkflowState(bool PreProcessColors, Gamma PostProces
 
     public static string Owner => "linear-workflow";
 
-    public static Option<DocumentEvent<RenderPropertyChangedEvent>> Changed => None;
-
     public static IO<LinearWorkflowState> Read(RenderSettingsScope scope) =>
         RenderSettingsSources.SubOwner(scope, static settings => settings.LinearWorkflow, static workflow => IO.lift(() =>
             Gamma.Validated(workflow.PostProcessGamma)
@@ -274,8 +260,6 @@ public sealed record LinearWorkflowState(bool PreProcessColors, Gamma PostProces
 
     public static IO<LinearWorkflowState> Write(RenderSettingsScope scope, LinearWorkflowState state) =>
         RenderSettingsSources.SubOwner(scope, static settings => settings.LinearWorkflow, workflow => IO.lift(() => { RenderSettingsMapper.Update(state, workflow); return state; }));
-
-    public static RowRules Rules(RowSource<LinearWorkflowState> source, LinearWorkflowParameter parameter) => RowRules.Always;
 }
 
 [SmartEnum<string>]
@@ -286,7 +270,7 @@ public sealed partial class LinearWorkflowParameter : IStateParameter<LinearWork
         Lens<LinearWorkflowState, bool>.New(static state => state.PreProcessColors, static on => state => state with { PreProcessColors = on })),
         new("Use linear workflow", "Linearizes colors and textures by the gamma before rendering"));
     public static readonly LinearWorkflowParameter PostProcessGamma = new("gamma", StateParameter.Bounded(Lens<LinearWorkflowState, Gamma>.New(static state => state.PostProcessGamma, static gamma => state => state with { PostProcessGamma = gamma }),
-    new Presentation<float> { Step = 0.01f, Decimals = 2 }),
+            new Presentation<float> { Step = 0.01f, Decimals = 2 }),
         new("Gamma", "Gamma the rendering is encoded with and colors are linearized by"));
     public static readonly LinearWorkflowParameter PostProcessGammaOn = new("use-post-process-gamma", new StateParameter<LinearWorkflowState>.Toggle(
         Lens<LinearWorkflowState, bool>.New(static state => state.PostProcessGammaOn, static on => state => state with { PostProcessGammaOn = on })),
@@ -303,15 +287,11 @@ public sealed record DitheringState(bool Enabled, DitherMethod Method)
 
     public static string Owner => "dithering";
 
-    public static Option<DocumentEvent<RenderPropertyChangedEvent>> Changed => None;
-
     public static IO<DitheringState> Read(RenderSettingsScope scope) =>
         RenderSettingsSources.SubOwner(scope, static settings => settings.Dithering, static dithering => IO.lift(() => RenderSettingsMapper.ToState(dithering)));
 
     public static IO<DitheringState> Write(RenderSettingsScope scope, DitheringState state) =>
         RenderSettingsSources.SubOwner(scope, static settings => settings.Dithering, dithering => IO.lift(() => { RenderSettingsMapper.Update(state, dithering); return state; }));
-
-    public static RowRules Rules(RowSource<DitheringState> source, DitheringParameter parameter) => RowRules.Always;
 }
 
 [SmartEnum<string>]
@@ -360,7 +340,6 @@ public sealed partial class RenderChannelsParameter : IStateParameter<RenderChan
         static mode => mode switch {
             RenderChannels.Modes.Automatic => "Automatic",
             RenderChannels.Modes.Custom => "Custom",
-            _ => throw new UnreachableException(),
         }),
         new("Render channels", "Channels the renderer writes, Automatic adding each post effect's required channels"));
     public static readonly RenderChannelsParameter Distance = new("distance", Member(RenderWindow.StandardChannels.DistanceFromCamera), new("Distance", "Distance from the camera per pixel"));

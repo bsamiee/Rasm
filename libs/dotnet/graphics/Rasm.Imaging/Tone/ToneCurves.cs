@@ -227,15 +227,15 @@ public readonly record struct SigmoidCurve(float WhiteTarget, float PaperExposur
         WhiteTarget * MathF.Pow(1f + (PaperExposure * MathF.Pow(FilmFog + float.MaxNumber(value, 0f), -ContrastPower)), -SkewPower);
 
     public static SigmoidCurve Of(SigmoidState state, Display display) {
-        double grey = Exposure.MiddleGrey;
+        double gray = Exposure.MiddleGray;
         double peak = (float)display.Peak / (float)Nits.ReferenceWhite;
         double skew = Math.Pow(5d, -(float)state.Skew);
-        double contrast = (float)state.Contrast * (1d - grey) / (skew * (1d - Math.Pow(grey / peak, 1d / skew)));
-        double towardGrey = Math.Pow(peak / grey, 1d / skew) - 1d;
+        double contrast = (float)state.Contrast * (1d - gray) / (skew * (1d - Math.Pow(gray / peak, 1d / skew)));
+        double towardGray = Math.Pow(peak / gray, 1d / skew) - 1d;
         double black = Math.Pow((float)state.Black, 1d / skew);
-        double lifted = Math.Pow(towardGrey * black, 1d / contrast);
-        double fog = grey * lifted / (Math.Pow(1d - black, 1d / contrast) - lifted);
-        return new((float)peak, (float)(Math.Pow(fog + grey, contrast) * towardGrey), (float)fog, (float)contrast, (float)skew);
+        double lifted = Math.Pow(towardGray * black, 1d / contrast);
+        double fog = gray * lifted / (Math.Pow(1d - black, 1d / contrast) - lifted);
+        return new((float)peak, (float)(Math.Pow(fog + gray, contrast) * towardGray), (float)fog, (float)contrast, (float)skew);
     }
 }
 
@@ -379,8 +379,8 @@ public static class ToneCurves {
 
     private static PixelPass.Color ToneMapped(PassContext context, ToneMapOperator operation, ToneMapParameters parameters) =>
         Curved(context, context.Working, Seq<Action<Span<Vector4>>>(row => {
-            Span<float> lanes = MemoryMarshal.Cast<Vector4, float>(row);
-            ImageProcessing.ToneMap(lanes, lanes, 4, operation, parameters);
+            Span<float> components = MemoryMarshal.Cast<Vector4, float>(row);
+            ImageProcessing.ToneMap(components, components, 4, operation, parameters);
         }));
 
     private static Action<Span<Vector4>> Adapted(PhotoreceptorState state, (double X, double Y, double Z) weights, PixelFrame frame, (double Mean, double Maximum, double Minimum) logs) {

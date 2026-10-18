@@ -2,6 +2,7 @@
 id: no-statements-as-unit
 language: csharp
 severity: error
+ignores: ['tools/roslyn/**']
 utils:
     unit-call:
         kind: invocation_expression

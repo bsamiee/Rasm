@@ -1,17 +1,16 @@
-import { Array, Effect, Option, Record, Schema, Struct } from 'effect';
+import { Array, Effect, Option, Record, Struct } from 'effect';
 import { Check } from 'lucide-react';
-import type { ReactNode } from 'react';
 import { CheckboxButton, CheckboxField } from 'react-aria-components';
-import { placementLabel } from '../media/display.ts';
+import { quantity, sheetLabel } from '../media/display.ts';
 import { MediaFigure } from '../media/figure.tsx';
-import { type AssetCollection, PdfAsset } from '../model/asset.ts';
+import type { AssetCollection } from '../model/asset.ts';
 import { type Composition, createComposition, placementsFor } from '../model/placement.ts';
 import { MenuButton } from './controls.tsx';
 import { identifier } from './services.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-function ReuseFile({
+const ReuseFile = ({
     assets,
     sourceId,
     selected,
@@ -25,18 +24,17 @@ function ReuseFile({
     onSource: (id: Option.Option<string>) => void;
     onSelect: (indices: readonly number[]) => void;
     onAdd: (compositions: readonly (typeof Composition.Type)[]) => void;
-}): ReactNode {
+}) => {
     const source = Option.flatMap(sourceId, (id) => Record.get(assets, id));
-    const sheets = Option.match(source, { onNone: () => [], onSome: (asset) => placementsFor(asset, true) });
-    const order = new Map(selected.map((index, position) => [index, position]));
-    const pdf = Option.exists(source, Schema.is(PdfAsset));
-    const chosen = pdf ? Array.getSomes(selected.map((index) => Array.get(sheets, index))) : sheets;
+    const placements = Option.toArray(source).flatMap(placementsFor);
+    const pages = placements.filter((placement) => placement.kind === 'pdf');
+    const chosen = pages.length > 0 ? Array.getSomes(selected.map((index) => Array.get(pages, index))) : placements;
     return (
         <div className="flex min-w-0 flex-col gap-4">
-            {pdf && <p className="hint">Select sheets in presentation order. Publishing a sheet makes the entire original PDF public, including unselected pages.</p>}
+            {pages.length > 0 && <p className="hint">Select sheets in presentation order. Publishing a sheet makes the entire original PDF public, including unselected pages.</p>}
             <MenuButton
                 label="Source file"
-                onAction={({ asset }): void => {
+                onAction={({ asset }) => {
                     onSource(Option.some(asset.id));
                     onSelect([]);
                 }}
@@ -45,63 +43,57 @@ function ReuseFile({
                 {Option.match(source, { onNone: () => 'Select a file', onSome: Struct.get('name') })}
             </MenuButton>
             <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="hint">
-                    {chosen.length} selected{pdf ? ` · ${sheets.length} sheets` : ''}
-                </p>
+                <p className="hint">{[`${chosen.length} selected`, ...(pages.length > 0 ? [quantity(pages.length, { one: 'sheet', other: 'sheets' })] : [])].join(' · ')}</p>
                 <button
                     className="button button-outline"
                     disabled={chosen.length === 0}
-                    onClick={(): void => {
+                    onClick={() => {
                         onAdd(chosen.map((placement) => createComposition(Effect.runSync(identifier), placement)));
                         onSource(Option.none());
                         onSelect([]);
                     }}
                     type="button"
                 >
-                    Add {chosen.length} {chosen.length === 1 ? 'composition' : 'compositions'}
+                    Add {quantity(chosen.length, { one: 'composition', other: 'compositions' })}
                 </button>
             </div>
-            {pdf && (
-                <div className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,140px),1fr))] gap-3 [--media-height:160px]">
+            {pages.length > 0 ? (
+                <div className="media-h-40 grid grid-cols-sheets gap-3">
                     <div className="actions col-span-full">
-                        <button className="button button-ghost" onClick={(): void => onSelect(sheets.map((_, index) => index))} type="button">
+                        <button className="button button-ghost" onClick={() => onSelect(pages.map((_, index) => index))} type="button">
                             All sheets
                         </button>
-                        <button className="button button-ghost" onClick={(): void => onSelect([])} type="button">
+                        <button className="button button-ghost" onClick={() => onSelect([])} type="button">
                             Clear
                         </button>
                     </div>
-                    {sheets.map((placement, index) => {
-                        const position = order.get(index);
-                        const label = placement.kind === 'pdf' ? (placement.page.label ?? '') : placementLabel(placement);
-                        return (
-                            <div className="min-w-0 bg-background p-3" key={placementLabel(placement)}>
-                                <MediaFigure active={true} placement={placement} presentation="thumbnail" priority={false} renderMedia={true} />
-                                <CheckboxField isSelected={position !== undefined} onChange={(checked): void => onSelect(checked ? [...selected, index] : selected.filter((value) => value !== index))}>
-                                    <CheckboxButton className="group flex min-h-11 w-full items-center gap-2 text-left">
-                                        <span className="grid size-5 shrink-0 place-items-center border border-control-line group-selected:border-accent-text group-selected:bg-accent-text group-selected:text-background">
-                                            <Check className="size-3.5 opacity-0 group-selected:opacity-100" />
-                                        </span>
-                                        <span className="wrap-anywhere min-w-0 text-sm">
-                                            {label === '' ? `Sheet ${index + 1}` : label}
-                                            {position !== undefined && <span className="block text-muted text-xs">Order {position + 1}</span>}
-                                        </span>
-                                    </CheckboxButton>
-                                </CheckboxField>
-                            </div>
-                        );
-                    })}
+                    {pages.map((placement, index) => (
+                        <div className="min-w-0 bg-background p-3" key={placement.page.number}>
+                            <MediaFigure active={true} placement={placement} presentation="thumbnail" priority={false} renderMedia={true} />
+                            <CheckboxField isSelected={selected.includes(index)} onChange={(checked) => onSelect(checked ? [...selected, index] : selected.filter((value) => value !== index))}>
+                                <CheckboxButton className="group flex min-h-11 w-full items-center gap-2 text-left">
+                                    <span className="editor-checkbox">
+                                        <Check className="editor-check" />
+                                    </span>
+                                    <span className="wrap-anywhere min-w-0 text-sm">
+                                        {sheetLabel(placement.page, pages.length)}
+                                        {selected.includes(index) && <span className="block text-muted text-xs">Order {selected.indexOf(index) + 1}</span>}
+                                    </span>
+                                </CheckboxButton>
+                            </CheckboxField>
+                        </div>
+                    ))}
                 </div>
-            )}
-            {!pdf &&
+            ) : (
                 chosen.map((placement) => (
-                    <div className="[--media-height:240px]" key={placement.asset.id}>
+                    <div className="media-h-60" key={placement.asset.id}>
                         <MediaFigure active={true} placement={placement} presentation="expandable" priority={false} renderMedia={true} />
                     </div>
-                ))}
+                ))
+            )}
         </div>
     );
-}
+};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

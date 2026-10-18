@@ -62,12 +62,12 @@ public static class MeshTopology {
                 booleanSplit: static (options, of) => (Meshes: Mesh.CreateBooleanSplit(of.MeshesToSplit, of.MeshSplitters, options, out Result result, out int[][] map), Result: result, Map: map, Member: nameof(Mesh.CreateBooleanSplit))),
             made =>
                 from verdict in made.Result switch {
-                    Result.Nothing => Fin.Succ(unit),
-                    Result.Failure when token.IsCancellationRequested => Fin.Fail<Unit>(Errors.Cancelled),
+                    Result.Nothing => unit,
+                    Result.Failure when token.IsCancellationRequested => Errors.Cancelled,
                     var result => Conversions.FromResult(result, made.Member),
                 }
-                from rows in (Refused.UnlessFound(made.Meshes, made.Member).Bind(meshes => Measurements.Valid([.. meshes], made.Member)).ToValidation(), Refused.UnlessFound(made.Map, made.Member).ToValidation())
-                    .Apply(static (meshes, map) => meshes.Zip(toSeq(map), static (mesh, inputs) => (Mesh: mesh, Inputs: toSeq(inputs)))).As().ToFin()
+                from rows in (Refused.UnlessFound(made.Meshes, made.Member).Bind(meshes => Measurements.Valid([.. meshes], made.Member)), Refused.UnlessFound(made.Map, made.Member))
+                    .Apply(static (meshes, map) => meshes.Zip(toSeq(map), static (mesh, inputs) => (Mesh: mesh, Inputs: toSeq(inputs)))).As()
                 select rows,
             static made => DisposalOps.Release(Conversions.Rows(made.Meshes)), retain)
         select answer;
@@ -89,7 +89,7 @@ public static class MeshTopology {
                     Meshes: state.Mesh.SplitWithProjectedPolylines(of.Curves, state.Tolerances.Absolute, textLog: null, state.Token, state.Progress), OpenCutEnds: Option<Point3d[]>.None,
                     Member: nameof(Mesh.SplitWithProjectedPolylines))),
             made => (made.Meshes switch {
-                null when token.IsCancellationRequested => Fin.Fail<Option<Seq<Mesh>>>(Errors.Cancelled),
+                null when token.IsCancellationRequested => Errors.Cancelled,
                 null when method is MeshSplit.Self or MeshSplit.Non2Manifolds => Option<Seq<Mesh>>.None,
                 null => new Refused(made.Member, Refused.Absent),
                 var meshes => Measurements.Valid([.. meshes], made.Member).Map(Some),
@@ -103,9 +103,9 @@ public static class MeshTopology {
                 from copy in Copies.Duplicate(source, output)
                 from result in Copies.Owned(
                     () => Optional(copy.ExtractNonManifoldEdges(selective)),
-                    extracted => (Measurements.Valid(copy, nameof(Mesh.ExtractNonManifoldEdges)).ToValidation(),
-                            extracted.Traverse(static mesh => Measurements.Valid(mesh, nameof(Mesh.ExtractNonManifoldEdges))).As().ToValidation())
-                        .Apply(static (remaining, extracted) => (Remaining: remaining, Extracted: extracted)).As().ToFin(),
+                    extracted => (Measurements.Valid(copy, nameof(Mesh.ExtractNonManifoldEdges)),
+                            extracted.Traverse(static mesh => Measurements.Valid(mesh, nameof(Mesh.ExtractNonManifoldEdges))).As())
+                        .Apply(static (remaining, extracted) => (Remaining: remaining, Extracted: extracted)).As(),
                     static extracted => DisposalOps.Release(extracted.ToSeq()), output)
                 select result,
             retain);

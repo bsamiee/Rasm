@@ -149,7 +149,7 @@ class Rgb[T: float = float](msgspec.Struct, frozen=True, kw_only=True, array_lik
     green: T
     blue: T
 
-    def __array__(self, dtype: npt.DTypeLike | None = None, copy: bool | None = None) -> npt.NDArray[np.float64]:
+    def __array__(self, dtype: npt.DTypeLike | None = None, *, copy: bool | None = None) -> npt.NDArray[np.float64]:
         """Components as a three-element array, the form numpy reads a color in."""
         return np.array(msgspec.structs.astuple(self), dtype=dtype, copy=copy)
 

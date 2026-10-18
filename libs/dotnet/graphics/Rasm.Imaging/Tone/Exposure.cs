@@ -12,7 +12,7 @@ public readonly partial struct Exposure : IPresented<Exposure, float> {
     public static Exposure MinValue { get; } = new(-32f);
     public static Exposure MaxValue { get; } = new(32f);
     public static Presentation<float> Presentation { get; } = new() { Soft = (-10f, 10f), Origin = 0f, Step = 0.01f, Decimals = 3 };
-    public static float MiddleGrey => 0.18f;
+    public static float MiddleGray => 0.18f;
 
     public float Scale => float.Exp2(_value);
 

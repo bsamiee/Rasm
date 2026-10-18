@@ -1,7 +1,7 @@
 {
     "name": "@rasm/ui",
     "private": true,
-    "description": "Foundation for web app interfaces over React Aria: reorderable lists, page-wide dialog state, and focus after render",
+    "description": "Foundation for web app interfaces over React Aria: reorderable lists, page-wide dialog state, focus after render, and CSS custom properties from hoisted rules",
     "type": "module",
     "exports": {
         "./*": "./*"
@@ -13,6 +13,15 @@
         "react-aria-components": "catalog:"
     },
     "devDependencies": {
-        "@types/react": "catalog:"
+        "@rasm/test-support": "workspace:*",
+        "@storybook/react-vite": "catalog:",
+        "@types/react": "catalog:",
+        "@types/react-dom": "catalog:",
+        "@vitest/browser-playwright": "catalog:",
+        "react-dom": "catalog:",
+        "storybook": "catalog:",
+        "vite": "catalog:",
+        "vitest": "catalog:",
+        "vitest-browser-react": "catalog:"
     }
 }

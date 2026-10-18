@@ -1,0 +1,10 @@
+using System.Threading.Tasks;
+using Rhino;
+
+internal static class TaskRunDocument {
+    internal static Task<int> Counted(RhinoDoc doc) => Task.Run(() => {|#0:doc|}.Objects.Count);
+}
+
+internal static class TaskRunValue {
+    internal static Task<int> Detached(int count) => Task.Run(() => count + 1);
+}

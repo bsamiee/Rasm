@@ -74,7 +74,7 @@ public static class CurveEdits {
             from copyA in Copies.Duplicate(curveA, owned)
             from copyB in Copies.Duplicate(curveB, owned)
             from met in IO.lift(() => Refused.Unless(Curve.MakeEndsMeet(copyA, adjustStartCurveA, copyB, adjustStartCurveB), nameof(Curve.MakeEndsMeet)))
-            from valid in IO.lift(() => (Measurements.Valid(copyA, nameof(Curve.MakeEndsMeet)).ToValidation(), Measurements.Valid(copyB, nameof(Curve.MakeEndsMeet)).ToValidation())
-                .Apply(static (a, b) => (A: a, B: b)).As().ToFin())
+            from valid in IO.lift(() => (Measurements.Valid(copyA, nameof(Curve.MakeEndsMeet)), Measurements.Valid(copyB, nameof(Curve.MakeEndsMeet)))
+                .Apply(static (a, b) => (A: a, B: b)).As())
             select valid, retain);
 }

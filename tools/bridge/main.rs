@@ -1,17 +1,17 @@
 #![feature(error_reporter)]
 
-use core::mem;
+use core::future::ready;
 use std::{error::Report, ffi::OsString, io, process, sync::Arc};
 
 use futures::{FutureExt as _, StreamExt as _, TryFutureExt as _, TryStreamExt as _, future, stream};
 use opentelemetry_semantic_conventions::attribute::EXCEPTION_MESSAGE;
 use rasm_mcp::{Endpoint, Notifier, PROTOCOL_VERSIONS, Progress, Unserved, fault};
 use rmcp::{
-    ClientHandler, ClientLifecycleMode, ErrorData, Peer, RoleClient, RoleServer, ServiceError,
+    ClientLifecycleMode, ErrorData, Peer, RoleClient, RoleServer, Service, ServiceError,
     model::{
-        CallToolResult, ClientCapabilities, ClientConfig, ClientRequest, CompleteResult, GetMeta as _, GetPromptResult, Implementation, ListPromptsResult, ListResourceTemplatesResult,
-        ListResourcesResult, ListToolsResult, MetaObject, ProgressNotificationParam, PromptListChangedNotification, ProtocolVersion, ReadResourceResult, RequestMetaObject,
-        ResourceListChangedNotification, ResultType, ServerConfig, ServerPeerInfo, ServerResult, SubscriptionFilter, ToolListChangedNotification,
+        CallToolResult, ClientCapabilities, ClientConfig, ClientRequest, ClientResult, CompleteResult, GetMeta as _, GetPromptResult, Implementation, ListPromptsResult, ListResourceTemplatesResult,
+        ListResourcesResult, ListToolsResult, MetaObject, ProtocolVersion, ReadResourceResult, RequestMetaObject, ResultType, ServerConfig, ServerNotification, ServerPeerInfo, ServerRequest,
+        ServerResult, SubscriptionFilter,
     },
     service::{ClientInitializeError, NotificationContext, PeerRequestOptions, RequestContext, SubscriptionEnd, serve_client_with_lifecycle_and_ct},
     transport::TokioChildProcess,
@@ -30,7 +30,7 @@ use tokio_util::{sync::CancellationToken, task::AbortOnDropHandle};
 struct Args {
     #[arg(help = "Stdio MCP server to bridge, written after --")]
     command: OsString,
-    #[arg(help = "Arguments of the stdio MCP server")]
+    #[arg(help = "Stdio MCP server arguments")]
     arguments: Vec<OsString>,
 }
 
@@ -38,11 +38,11 @@ struct Args {
 
 #[derive(Debug, thiserror::Error)]
 enum BridgeError {
-    #[error("cannot spawn the upstream server {}", command.display())]
+    #[error("cannot spawn upstream server {}", command.display())]
     Spawn { command: OsString, source: io::Error },
     #[error("upstream lifecycle failed")]
     Lifecycle(#[source] Box<ClientInitializeError>),
-    #[error("upstream completed its lifecycle without server info")]
+    #[error("upstream lifecycle ended without server info")]
     Unidentified,
     #[error("upstream server ended")]
     Ended,
@@ -50,26 +50,17 @@ enum BridgeError {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-#[derive(Clone)]
 struct Upstream {
     config: ClientConfig,
-    progress: Notifier<ProgressNotificationParam>,
     notifier: Notifier,
 }
 
-macro_rules! relayed {
-    ($($method:ident => $notification:expr,)*) => {$(
-        async fn $method(&self, _: NotificationContext<RoleClient>) { self.notifier.notify($notification); }
-    )*};
-}
+impl Service<RoleClient> for Upstream {
+    async fn handle_request(&self, request: ServerRequest, context: RequestContext<RoleClient>) -> Result<ClientResult, ErrorData> { self.config.handle_request(request, context).await }
 
-impl ClientHandler for Upstream {
-    async fn on_progress(&self, params: ProgressNotificationParam, _: NotificationContext<RoleClient>) { self.progress.notify(params); }
-
-    relayed! {
-        on_tool_list_changed => ToolListChangedNotification::default(),
-        on_prompt_list_changed => PromptListChangedNotification::default(),
-        on_resource_list_changed => ResourceListChangedNotification::default(),
+    fn handle_notification(&self, notification: ServerNotification, _: NotificationContext<RoleClient>) -> impl Future<Output = Result<(), ErrorData>> {
+        self.notifier.notify(notification);
+        ready(Ok(()))
     }
 
     fn get_info(&self) -> ClientConfig { self.config.clone() }
@@ -79,7 +70,7 @@ struct Bridge {
     peer: Peer<RoleClient>,
     info: ServerConfig,
     version: ProtocolVersion,
-    upstream: Upstream,
+    notifier: Notifier,
     stop: CancellationToken,
     ended: future::Shared<future::BoxFuture<'static, ()>>,
     _stderr: Option<AbortOnDropHandle<()>>,
@@ -92,19 +83,19 @@ impl Bridge {
         let (transport, stderr) = TokioChildProcess::builder(command).stderr(process::Stdio::piped()).spawn().map_err(|source| BridgeError::Spawn { command: args.command, source })?;
         let stderr = stderr.map(|stderr| {
             let logged = SplitStream::new(BufReader::new(stderr).split(b'\n')).map_ok(|line| tracing::info!(target: "upstream", message = %String::from_utf8_lossy(&line))).try_collect::<()>();
-            AbortOnDropHandle::new(tokio::spawn(logged.unwrap_or_else(|error| tracing::warn!({ EXCEPTION_MESSAGE } = %Report::new(error), "upstream stderr read failed"))))
+            AbortOnDropHandle::new(tokio::spawn(logged.unwrap_or_else(|error| tracing::warn!({ EXCEPTION_MESSAGE } = %Report::new(error), "cannot read upstream stderr"))))
         });
         let (legacy, preferred_versions) = PROTOCOL_VERSIONS.iter().rev().cloned().partition::<Vec<_>, _>(ProtocolVersion::has_initialize);
         let lifecycle = ClientLifecycleMode::Auto { preferred_versions, legacy_version: legacy.into_iter().next() };
-        let (upstream, stop) = (Upstream { config: ClientConfig::new(ClientCapabilities::default(), identity.clone()), progress: Notifier::default(), notifier }, CancellationToken::new());
-        let service = serve_client_with_lifecycle_and_ct(upstream.clone(), transport, lifecycle, stop.clone()).await.map_err(|error| BridgeError::Lifecycle(Box::new(error)))?;
+        let (upstream, stop) = (Upstream { config: ClientConfig::new(ClientCapabilities::default(), identity.clone()), notifier: notifier.clone() }, CancellationToken::new());
+        let service = serve_client_with_lifecycle_and_ct(upstream, transport, lifecycle, stop.clone()).await.map_err(|error| BridgeError::Lifecycle(Box::new(error)))?;
         let (peer, ended) = (service.peer().clone(), service.waiting().map(|quit| tracing::info!(quit = ?quit, "upstream ended")).boxed().shared());
         let ServerPeerInfo { protocol_version: version, mut capabilities, server_info, instructions, meta, .. } = Arc::unwrap_or_clone(peer.peer_info().ok_or(BridgeError::Unidentified)?);
         capabilities.logging = None;
         capabilities.resources.iter_mut().filter(|_| version.has_initialize()).for_each(|resources| resources.subscribe = None);
         let mut info = ServerConfig::new(capabilities).with_server_info(server_info.unwrap_or(identity));
         (info.instructions, info.meta) = (instructions, meta);
-        Ok(Self { peer, info, version, upstream, stop, ended, _stderr: stderr })
+        Ok(Self { peer, info, version, notifier, stop, ended, _stderr: stderr })
     }
 }
 
@@ -113,23 +104,23 @@ impl Endpoint for Bridge {
 
     fn info(&self) -> &ServerConfig { &self.info }
 
-    async fn handle(&self, mut request: ClientRequest, mut context: RequestContext<RoleServer>) -> Result<ServerResult, ErrorData> {
+    async fn handle(&self, mut request: ClientRequest, context: RequestContext<RoleServer>) -> Result<ServerResult, ErrorData> {
         let options = match (self.version.has_initialize(), context.meta.client_capabilities(), context.meta.client_info()) {
             (false, Some(capabilities), Some(client)) => PeerRequestOptions::no_options().with_meta(RequestMetaObject::with_client_context(self.version.clone(), client, capabilities)),
             (true | false, _, _) => PeerRequestOptions::no_options(),
         };
         let (progress, cancelled) = (Progress::default(), context.ct.clone());
-        let relayed = progress.relay(&context);
-        let mut updates = stream::iter(context.meta.get_progress_token().map(|_| self.upstream.progress.subscribe())).flatten();
-        *request.get_meta_mut() = mem::take(&mut context.meta);
+        let mut updates = stream::iter(context.meta.get_progress_token().map(|_| self.notifier.subscribe())).flatten();
+        *request.get_meta_mut() = context.meta.clone();
         scrub(request.get_meta_mut());
-        let forwarded = async move {
+        let forwarded = async {
             let mut handle = self.peer.send_cancellable_request(request, options).await.map_err(fault)?;
             loop {
                 tokio::select! {
                     biased;
                     Some(update) = updates.next() => match update {
-                        Ok(update) if update.progress_token == handle.progress_token => progress.report(update.progress, update.total, update.message),
+                        Ok(ServerNotification::ProgressNotification(update)) if update.params.progress_token == handle.progress_token =>
+                            progress.report(update.params.progress, update.params.total, update.params.message),
                         Ok(_) | Err(BroadcastStreamRecvError::Lagged(_)) => {}
                     },
                     received = &mut handle.rx => break received.map_err(|_closed| ServiceError::TransportClosed).flatten().map_err(fault),
@@ -137,7 +128,7 @@ impl Endpoint for Bridge {
                 }
             }
         };
-        let mut response = future::join(forwarded, relayed).await.0?;
+        let mut response = progress.relay(&context, forwarded).await?;
         if let ServerResult::CompleteResult(CompleteResult { result_type, .. })
         | ServerResult::GetPromptResult(GetPromptResult { result_type, .. })
         | ServerResult::ListPromptsResult(ListPromptsResult { result_type, .. })
@@ -153,13 +144,13 @@ impl Endpoint for Bridge {
     }
 
     fn subscribe(&self, uri: &str) -> Result<impl Future<Output = ()> + Send + 'static, Unserved> {
-        Ok(follow(self.peer.clone(), self.upstream.notifier.clone(), SubscriptionFilter::builder().resource_subscription(uri).build()))
+        Ok(follow(self.peer.clone(), self.notifier.clone(), SubscriptionFilter::builder().resource_subscription(uri).build()))
     }
 
     async fn serve(&self, stopping: CancellationToken) -> Result<(), BridgeError> {
         let listed = self.listed();
-        let _following = (!self.version.has_initialize() && listed != SubscriptionFilter::default())
-            .then(|| AbortOnDropHandle::new(tokio::spawn(follow(self.peer.clone(), self.upstream.notifier.clone(), listed))));
+        let _following =
+            (!self.version.has_initialize() && listed != SubscriptionFilter::default()).then(|| AbortOnDropHandle::new(tokio::spawn(follow(self.peer.clone(), self.notifier.clone(), listed))));
         let closed = stopping.run_until_cancelled(self.ended.clone()).await.map_or(Ok(()), |()| Err(BridgeError::Ended));
         self.stop.cancel();
         self.ended.clone().await;

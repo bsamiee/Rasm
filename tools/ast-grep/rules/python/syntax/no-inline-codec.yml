@@ -20,17 +20,19 @@ utils:
         has: {field: function, matches: {python-member-use: {module: {regex: '^pydantic(\.type_adapter)?$'}, name: {regex: '^TypeAdapter$'}}}}
     codec-call:
         kind: call
-        pattern: $CALL
-        has:
-            field: function
-            kind: attribute
-            all:
-                - has: {field: attribute, pattern: $METHOD}
-                - any:
-                    - has: {field: object, matches: msgspec-codec}
-                    - all:
-                        - has: {field: attribute, regex: '^(validate_(python|json|strings)|dump_(python|json)|json_schema|get_default_value)$'}
-                        - has: {field: object, matches: pydantic-adapter}
+        all:
+            - has: {field: function, kind: attribute, has: {field: object, kind: call}}
+            - inside: {kind: module, stopBy: end, regex: '\b(Encoder|Decoder|TypeAdapter)\b'}
+            - pattern: $CALL
+            - has:
+                field: function
+                all:
+                    - has: {field: attribute, pattern: $METHOD}
+                    - any:
+                        - has: {field: object, matches: msgspec-codec}
+                        - all:
+                            - has: {field: attribute, regex: '^(validate_(python|json|strings)|dump_(python|json)|json_schema|get_default_value)$'}
+                            - has: {field: object, matches: pydantic-adapter}
     mappable:
         kind: call
         not:

@@ -4,7 +4,7 @@ language: rust
 severity: error
 utils:
     money-name:
-        regex: '(?i)(^|_)(prices?|subtotals?|tax(es)?|fees?|balances?|payments?|refunds?|discounts?|revenues?|salar(y|ies)|wages?|money|amount_(usd|eur|gbp|jpy|chf|cad|aud)|\w+_(usd|eur|gbp|jpy|chf|cad|aud|dollars|euros))$'
+        regex: '(?i)^(account_)?balances?$|(^|_)(prices?|subtotals?|tax(es)?|fees?|payments?|refunds?|discounts?|revenues?|salar(y|ies)|wages?|money|amount_(usd|eur|gbp|jpy|chf|cad|aud)|\w+_(usd|eur|gbp|jpy|chf|cad|aud|dollars|euros))$'
     float:
         kind: primitive_type
         regex: '^f(32|64)$'
@@ -27,4 +27,4 @@ rule:
                 - has: {field: return_type, matches: float-type}
                 - not: {matches: rust-trait-or-extern-function}
 message: '`$DECLARATION` holds money as a binary float'
-note: 'Type the amount as `rust_decimal::Decimal` and round through `round_dp_with_strategy`, and serialize a wire number through `rust_decimal::serde::float` or `rust_decimal::serde::arbitrary_precision`'
+note: 'Type the amount as `rust_decimal::Decimal` and round through `round_dp_with_strategy`, its serde impls write the exact value as a string'

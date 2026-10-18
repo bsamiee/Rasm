@@ -1,6 +1,6 @@
 use core::hint::black_box;
 
-use tokio::task::{AbortHandle, JoinHandle};
+use tokio::task::{AbortHandle, JoinHandle, JoinSet};
 use tokio_util::sync::CancellationToken;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -43,6 +43,26 @@ async fn main() {
     let service = Service { task: tokio::spawn(async { 5 }), abort: watched.abort_handle(), token: CancellationToken::new() };
     service.stop();
     drop(service);
-    drop(Shared { token: CancellationToken::new() });
+    drop((Shared { token: CancellationToken::new() }, Restartable { task: None }, Pool { tasks: JoinSet::new() }));
     black_box(&watched.await);
+}
+
+struct Restartable {
+    task: Option<JoinHandle<u64>>,
+}
+
+impl Drop for Restartable {
+    fn drop(&mut self) {
+        if let Some(task) = &self.task {
+            task.abort();
+        }
+    }
+}
+
+struct Pool {
+    tasks: JoinSet<u64>,
+}
+
+impl Drop for Pool {
+    fn drop(&mut self) { self.tasks.abort_all(); }
 }

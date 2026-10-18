@@ -12,20 +12,21 @@ utils:
             - has: {field: object, matches: {effect-module: {name: {regex: '\bArray$'}}}}
     two-parameter-callback:
         not: {all: [{kind: 'arrow_function, function_expression'}, {has: {field: parameters, has: {nthChild: 3}}}]}
-    mapped-list:
+    native-mapped:
         kind: call_expression
-        any:
-            - all:
-                - has:
-                    field: function
-                    kind: member_expression
-                    all:
-                        - has: {field: property, regex: '^map$'}
-                        - has: {field: object, pattern: $XS, not: {matches: {effect-module: {name: {regex: '\b[A-Z]\w*$'}}}}}
-                - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $F}}, {not: {has: {nthChild: 2}}}]}
-            - all:
-                - has: {field: function, matches: array-map}
-                - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $XS}}, {has: {nthChild: 2, pattern: $F}}, {not: {has: {nthChild: 3}}}]}
+        all:
+            - has:
+                field: function
+                kind: member_expression
+                all:
+                    - has: {field: property, regex: '^map$'}
+                    - has: {field: object, not: {matches: {effect-module: {name: {regex: '\b[A-Z]\w*$'}}}}}
+            - has: {field: arguments, not: {has: {nthChild: 2}}}
+    module-mapped:
+        kind: call_expression
+        all:
+            - has: {field: function, matches: array-map}
+            - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $XS}}, {has: {nthChild: 2, pattern: $F}}, {not: {has: {nthChild: 3}}}]}
     traversal-options:
         not: {kind: object, has: {kind: pair, has: {field: key, regex: '^mode$'}}}
 rule:
@@ -33,7 +34,11 @@ rule:
     any:
         - all:
             - has: {field: function, matches: all-member, pattern: $ALL}
-            - has: {field: arguments, has: {nthChild: 1, matches: mapped-list}}
+            - has:
+                field: arguments
+                any:
+                    - has: {nthChild: 1, matches: module-mapped}
+                    - all: [{has: {nthChild: 1, matches: native-mapped}}, {has: {nthChild: 2, not: {matches: traversal-options}}}]
             - any:
                 - pattern: $FIXABLE
                   all:

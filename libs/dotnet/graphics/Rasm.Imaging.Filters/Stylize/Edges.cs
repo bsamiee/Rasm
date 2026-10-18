@@ -54,7 +54,7 @@ public sealed partial class StrokeParameter : IStateParameter<Stroke> {
         new("Width", "Line width as a share of the frame's short side, the cap under a world width"));
     public static readonly StrokeParameter World = new("world", new StateParameter<Stroke>.OptionalNumeric<Length, float>(
         Lens<Stroke, Gated<Length>>.New(static stroke => stroke.World, static world => stroke => stroke with { World = world }),
-        NumericDomain.Metres((0f, float.MaxValue), new() { Soft = (0f, (float)Length.FromInches(1).Meters), Origin = (float)Stroke.Default.World.Value.Meters })),
+        NumericDomain.Meters((0f, float.MaxValue), new() { Soft = (0f, (float)Length.FromInches(1).Meters), Origin = (float)Stroke.Default.World.Value.Meters })),
         new("World width", "Line width on the surface it marks, narrowing with distance"));
     public static readonly StrokeParameter Color = new("color", new StateParameter<Stroke>.Color(Lens<Stroke, Swatch>.New(static stroke => stroke.Color, static color => stroke => stroke with { Color = color })),
         new("Color", "Line color"));
@@ -127,18 +127,18 @@ public sealed partial class OutlineSource {
             using Mat second = new(guide, secondBox);
             first.ConvertTo(first, DepthType.Cv64F);
             second.ConvertTo(second, DepthType.Cv64F);
-            using Mat colour = Lanes.Colour();
+            using Mat rgb = ChannelMask.Rgb();
             using Mat product = new();
             using Mat dot = new();
             using Mat lengths = new();
             using Mat partner = new();
             using ScalarArray bend = new(double.Cos(state.CreaseAngle));
             CvInvoke.Multiply(first, second, product);
-            CvInvoke.Transform(product, dot, colour);
+            CvInvoke.Transform(product, dot, rgb);
             CvInvoke.Multiply(first, first, product);
-            CvInvoke.Transform(product, lengths, colour);
+            CvInvoke.Transform(product, lengths, rgb);
             CvInvoke.Multiply(second, second, product);
-            CvInvoke.Transform(product, partner, colour);
+            CvInvoke.Transform(product, partner, rgb);
             CvInvoke.Multiply(lengths, partner, lengths);
             CvInvoke.Sqrt(lengths, lengths);
             CvInvoke.Multiply(lengths, bend, lengths);
@@ -330,7 +330,7 @@ public sealed record GeometryOutline(
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class GeometryOutlineParameter : IStateParameter<GeometryOutline> {
-    private static readonly NumericDomain<Length, float> Distance = NumericDomain.Metres((0f, float.MaxValue), new() {
+    private static readonly NumericDomain<Length, float> Distance = NumericDomain.Meters((0f, float.MaxValue), new() {
         Soft = (0f, (float)Length.FromFeet(1000).Meters), Origin = (float)GeometryOutline.Default.TaperNear.Value.Meters,
     });
 
@@ -645,7 +645,7 @@ public sealed partial class KuwaharaKind : ICaptioned {
                 using Mat copy = new();
                 using Mat across = new(3, 3, DepthType.Cv64F, 1);
                 using Mat down = new();
-                using Mat colour = Lanes.Colour();
+                using Mat rgb = ChannelMask.Rgb();
                 using Mat horizontal = new(source.Size, DepthType.Cv64F, source.NumberOfChannels);
                 using Mat vertical = new(source.Size, DepthType.Cv64F, source.NumberOfChannels);
                 using Mat product = new();
@@ -660,7 +660,7 @@ public sealed partial class KuwaharaKind : ICaptioned {
                 return Seq((horizontal, horizontal, xx), (horizontal, vertical, xy), (vertical, vertical, yy)).TraverseM(pair => {
                     (Mat first, Mat second, Mat tensor) = pair;
                     CvInvoke.Multiply(first, second, product);
-                    CvInvoke.Transform(product, tensor, colour);
+                    CvInvoke.Transform(product, tensor, rgb);
                     return tensor.Blur(tensor, uniformity);
                 }).As().Bind(_ => new PixelPass.Pointwise((row, _, line) => {
                     int y = frame.RowIndex(line);
@@ -686,9 +686,9 @@ public sealed partial class KuwaharaKind : ICaptioned {
                             double distance = (diskX * diskX) + (diskY * diskY);
                             if (distance > 1d)
                                 continue;
-                            Vector256<double> lanes = Vector256.Create(diskX, (diskX - diskY) / diagonal, diskY, (diskX + diskY) / diagonal);
-                            Vector256<double> bend = Vector256.Create(overlap) - (envelope * lanes * lanes);
-                            Vector256<double> swing = Vector256.Create(lanes.GetElement(2), lanes.GetElement(3), -lanes.GetElement(0), -lanes.GetElement(1));
+                            Vector256<double> projections = Vector256.Create(diskX, (diskX - diskY) / diagonal, diskY, (diskX + diskY) / diagonal);
+                            Vector256<double> bend = Vector256.Create(overlap) - (envelope * projections * projections);
+                            Vector256<double> swing = Vector256.Create(projections.GetElement(2), projections.GetElement(3), -projections.GetElement(0), -projections.GetElement(1));
                             (Vector256<double> low, Vector256<double> high) = (Vector256.Max(bend + swing, Vector256<double>.Zero), Vector256.Max(bend - swing, Vector256<double>.Zero));
                             double radial = double.Exp(-double.Pi * distance) / Vector256.Sum((low * low) + (high * high));
                             (low, high) = (low * low * radial, high * high * radial);
@@ -755,8 +755,8 @@ public sealed partial class PainterlyParameter : IStateParameter<Painterly> {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-file static class Lanes {
-    public static Mat Colour() {
+file static class ChannelMask {
+    public static Mat Rgb() {
         Mat sums = new(1, 4, DepthType.Cv32F, 1);
         sums.SetTo([1f, 1f, 1f, 0f]);
         return sums;

@@ -1,0 +1,2 @@
+#0 `Invoke` marshals one call to the UI thread
+#1 `AsyncInvoke` marshals one call to the UI thread

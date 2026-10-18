@@ -6,7 +6,7 @@ from enum import Enum
 from functools import partial
 import math
 from pathlib import Path
-from typing import Annotated, ClassVar, Literal, overload
+from typing import Annotated, ClassVar, Literal, overload, Self
 
 import bmesh
 import bpy
@@ -168,6 +168,12 @@ class Chain(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     offered: tuple[Offered, ...] | Mapping[EffectName, Configured[Effect]] = ()
     initial_view: Option[DisplayView] = Nothing
 
+    @classmethod
+    def of(cls, source: bpy.types.Scene, head: Option[npt.NDArray[np.float32]], mirrored: tuple[Mirrored, ...], offered: tuple[Offered, ...]) -> Self:
+        """Adds the source's native formation only where the chain contains none."""
+        formed = any(held.row.filter(lambda row: row.record is DisplayView).is_some() for held in mirrored) or any(isinstance(item.record.effect, DisplayView) for item in offered)
+        return cls(head=head, mirrored=mirrored, offered=offered if formed else (Offered(row=formation, record=Entry(effect=viewed(source))), *offered))
+
 
 class Staging(msgspec.Struct, frozen=True, kw_only=True, eq=False):
     """Complete desired preview scene for one native render."""
@@ -217,71 +223,6 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
             identity, lambda: catch(lambda: bpy.data.scenes.new("Preview"), exception=RuntimeError)().map_error(lambda error: (BlenderEditFault(request=self.scene.key, error=error),))
         )
 
-    @overload
-    def piece(self, identity: Identity, piece: Shape, scene: bpy.types.Scene) -> BlenderResult[tuple[bpy.types.Object, bpy.types.Mesh]]: ...
-
-    @overload
-    def piece(self, identity: Identity, piece: Literal[Rig.CAMERA], scene: bpy.types.Scene) -> BlenderResult[tuple[bpy.types.Object, bpy.types.Camera]]: ...
-
-    @overload
-    def piece(self, identity: Identity, piece: Literal[Rig.LAMP], scene: bpy.types.Scene) -> BlenderResult[tuple[bpy.types.Object, bpy.types.Light]]: ...
-
-    def piece(self, identity: Identity, piece: Piece, scene: bpy.types.Scene) -> BlenderResult[tuple[bpy.types.Object, bpy.types.Mesh | bpy.types.Camera | bpy.types.Light]]:
-        """Owns a native mesh, camera, or light and links its object exactly once."""
-        objects, data = piece_ownership(piece)
-
-        def built() -> BlenderResult[bpy.types.Mesh | bpy.types.Camera | bpy.types.Light]:
-            def native() -> bpy.types.Mesh | bpy.types.Camera | bpy.types.Light:
-                match piece:
-                    case Rig.CAMERA:
-                        return bpy.data.cameras.new(data.key)
-                    case Rig.LAMP:
-                        return bpy.data.lights.new(data.key, type="SUN")
-                    case Shape() as shape:
-                        with ExitStack() as scope:
-                            mesh = bpy.data.meshes.new(data.key)
-                            rollback = scope.enter_context(ExitStack())
-                            rollback.callback(bpy.data.meshes.remove, mesh)
-                            surface = bmesh.new()
-                            scope.callback(surface.free)
-                            surface.loops.layers.uv.new("UVMap")
-                            match shape:
-                                case Shape.PLANE:
-                                    bmesh.ops.create_grid(surface, x_segments=1, y_segments=1, size=1.0, calc_uvs=True)
-                                case Shape.SPHERE:
-                                    bmesh.ops.create_uvsphere(surface, u_segments=48, v_segments=24, radius=0.92, calc_uvs=True)
-                                case Shape.CUBE:
-                                    bmesh.ops.create_cube(surface, size=1.0, calc_uvs=True)
-                            surface.to_mesh(mesh)
-                            for face in mesh.polygons:
-                                face.use_smooth = shape is Shape.SPHERE
-                            rollback.pop_all()
-                            return mesh
-
-            return catch(native, exception=RuntimeError)().map_error(lambda error: (BlenderEditFault(request=data.key, error=error),))
-
-        def linked(block: bpy.types.Mesh | bpy.types.Camera | bpy.types.Light) -> BlenderResult[bpy.types.Object]:
-            def native() -> bpy.types.Object:
-                with ExitStack() as rollback:
-                    item = bpy.data.objects.new(objects.key, block)
-                    rollback.callback(bpy.data.objects.remove, item)
-                    scene.collection.objects.link(item)
-                    rollback.pop_all()
-                    return item
-
-            return catch(native, exception=RuntimeError)().map_error(lambda error: (BlenderEditFault(request=objects.key, error=error),))
-
-        transforms = Snapshot.of(
-            bpy.types.Object,
-            {
-                "location": (0.0, 0.0, 0.0),
-                "rotation_euler": (0.7854, 0.6155, 0.0) if piece is Shape.CUBE else (0.0, 0.0, 0.0),
-                "scale": (1.04, 1.04, 1.0) if piece is Shape.PLANE else (0.98, 0.98, 0.98) if piece is Shape.CUBE else (1.0, 1.0, 1.0),
-                "hide_render": isinstance(piece, Shape),
-            },
-        )
-        return data.made(identity, built).bind(lambda block: objects.made(identity, lambda: linked(block)).bind(lambda item: transforms.apply(item).outcome.map(lambda _: (item, block))))
-
     def headed(self, identity: Identity, plane: npt.NDArray[np.float32]) -> BlenderResult[bpy.types.NodeTree]:
         """Fills a runtime image and returns a compositor-only head group."""
         height, width, _ = plane.shape
@@ -324,11 +265,6 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
             for group in Option.of_optional(held.entry.node_group).to_list()
             if bool(enabled.descriptor.read(held.entry)) and not rendering(group)
         )
-
-    def chain(self, source: bpy.types.Scene, head: Option[npt.NDArray[np.float32]], mirrored: tuple[Mirrored, ...], offered: tuple[Offered, ...]) -> Chain:
-        """Adds the source's native formation only where the chain contains none."""
-        formed = any(held.row.filter(lambda row: row.record is DisplayView).is_some() for held in mirrored) or any(isinstance(item.record.effect, DisplayView) for item in offered)
-        return Chain(head=head, mirrored=mirrored, offered=offered if formed else (Offered(row=formation, record=Entry(effect=viewed(source))), *offered))
 
     def chained(self, identity: Identity, scene: bpy.types.Scene, chain: Chain, *, context: Context = Nothing) -> BlenderResult[None]:
         """Appends the head and mirrors, then places effects or applies a named recipe."""
@@ -522,8 +458,7 @@ class PreviewScene(msgspec.Struct, frozen=True, kw_only=True):
                 .apply(scene)
                 .outcome.bind(
                     lambda _: paired(
-                        accumulated(self.piece(identity, shape, scene).map(lambda piece: (shape, piece)) for shape in Shape),
-                        paired(self.piece(identity, Rig.CAMERA, scene), self.piece(identity, Rig.LAMP, scene)),
+                        accumulated(piece(identity, shape, scene).map(lambda made: (shape, made)) for shape in Shape), paired(piece(identity, Rig.CAMERA, scene), piece(identity, Rig.LAMP, scene))
                     )
                 )
                 .bind(lambda pieces: configured(pieces[0], *pieces[1]))
@@ -699,6 +634,75 @@ def piece_ownership(piece: Piece) -> tuple[Ownership[bpy.types.Object], Ownershi
     return Ownership(kind=bpy.types.Object, key=key, saved=Saved.NEVER), Ownership(kind=kind, key=key, saved=Saved.NEVER)
 
 
+@overload
+def piece(identity: Identity, kind: Shape, scene: bpy.types.Scene) -> BlenderResult[tuple[bpy.types.Object, bpy.types.Mesh]]: ...
+
+
+@overload
+def piece(identity: Identity, kind: Literal[Rig.CAMERA], scene: bpy.types.Scene) -> BlenderResult[tuple[bpy.types.Object, bpy.types.Camera]]: ...
+
+
+@overload
+def piece(identity: Identity, kind: Literal[Rig.LAMP], scene: bpy.types.Scene) -> BlenderResult[tuple[bpy.types.Object, bpy.types.Light]]: ...
+
+
+def piece(identity: Identity, kind: Piece, scene: bpy.types.Scene) -> BlenderResult[tuple[bpy.types.Object, bpy.types.Mesh | bpy.types.Camera | bpy.types.Light]]:
+    """Owns a native mesh, camera, or light and links its object exactly once."""
+    objects, data = piece_ownership(kind)
+
+    def built() -> BlenderResult[bpy.types.Mesh | bpy.types.Camera | bpy.types.Light]:
+        def native() -> bpy.types.Mesh | bpy.types.Camera | bpy.types.Light:
+            match kind:
+                case Rig.CAMERA:
+                    return bpy.data.cameras.new(data.key)
+                case Rig.LAMP:
+                    return bpy.data.lights.new(data.key, type="SUN")
+                case Shape() as shape:
+                    with ExitStack() as scope:
+                        mesh = bpy.data.meshes.new(data.key)
+                        rollback = scope.enter_context(ExitStack())
+                        rollback.callback(bpy.data.meshes.remove, mesh)
+                        surface = bmesh.new()
+                        scope.callback(surface.free)
+                        surface.loops.layers.uv.new("UVMap")
+                        match shape:
+                            case Shape.PLANE:
+                                bmesh.ops.create_grid(surface, x_segments=1, y_segments=1, size=1.0, calc_uvs=True)
+                            case Shape.SPHERE:
+                                bmesh.ops.create_uvsphere(surface, u_segments=48, v_segments=24, radius=0.92, calc_uvs=True)
+                            case Shape.CUBE:
+                                bmesh.ops.create_cube(surface, size=1.0, calc_uvs=True)
+                        surface.to_mesh(mesh)
+                        for face in mesh.polygons:
+                            face.use_smooth = shape is Shape.SPHERE
+                        rollback.pop_all()
+                        return mesh
+
+        return catch(native, exception=RuntimeError)().map_error(lambda error: (BlenderEditFault(request=data.key, error=error),))
+
+    def linked(block: bpy.types.Mesh | bpy.types.Camera | bpy.types.Light) -> BlenderResult[bpy.types.Object]:
+        def native() -> bpy.types.Object:
+            with ExitStack() as rollback:
+                item = bpy.data.objects.new(objects.key, block)
+                rollback.callback(bpy.data.objects.remove, item)
+                scene.collection.objects.link(item)
+                rollback.pop_all()
+                return item
+
+        return catch(native, exception=RuntimeError)().map_error(lambda error: (BlenderEditFault(request=objects.key, error=error),))
+
+    transforms = Snapshot.of(
+        bpy.types.Object,
+        {
+            "location": (0.0, 0.0, 0.0),
+            "rotation_euler": (0.7854, 0.6155, 0.0) if kind is Shape.CUBE else (0.0, 0.0, 0.0),
+            "scale": (1.04, 1.04, 1.0) if kind is Shape.PLANE else (0.98, 0.98, 0.98) if kind is Shape.CUBE else (1.0, 1.0, 1.0),
+            "hide_render": isinstance(kind, Shape),
+        },
+    )
+    return data.made(identity, built).bind(lambda block: objects.made(identity, lambda: linked(block)).bind(lambda item: transforms.apply(item).outcome.map(lambda _: (item, block))))
+
+
 def rendering(group: bpy.types.NodeTree) -> bool:
     """Reads whether the group or a nested group requests a scene render."""
     return any(
@@ -732,5 +736,6 @@ __all__ = [
     "Top",
     "View",
     "White",
+    "piece",
     "rendering",
 ]

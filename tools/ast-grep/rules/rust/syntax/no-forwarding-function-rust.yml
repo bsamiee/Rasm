@@ -24,11 +24,14 @@ utils:
             - matches: forwarded-call
             - kind: 'await_expression, expression_statement, return_expression'
               has: {nthChild: 1, matches: forwarding-statement}
+    step:
+        matches: rust-statement
+        not: {kind: 'function_item, const_item, static_item, use_declaration'}
     forwarding-body:
         kind: block
         all:
-            - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, matches: forwarding-statement}
-            - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
+            - has: {nthChild: {position: 1, ofRule: {matches: step}}, matches: forwarding-statement}
+            - not: {has: {nthChild: {position: 2, ofRule: {matches: step}}}}
     parameter-name:
         kind: parameter
         has: {field: pattern, kind: identifier, pattern: $X}

@@ -118,7 +118,7 @@ public sealed record BrowserRow<TItem, TKey>(
     public bool Reorders { get; init; }
     public Option<ListSearch<TItem>> Search { get; init; }
     public Option<Func<TItem, string, Fin<TItem>>> Rename { get; init; }
-    public Option<Lens<TItem, bool>> Favourite { get; init; }
+    public Option<Lens<TItem, bool>> Favorite { get; init; }
     public Option<Func<TItem, Option<string>>> File { get; init; }
     public Option<Func<RowScope, TItem, Action<IDisposable>, IO<Unit>>> Preview { get; init; }
     public Seq<HostEvent<Unit>> Reloads { get; init; }
@@ -586,7 +586,7 @@ public static class ListRows {
         where TKey : notnull =>
         new(row.Key, item => row.Label(scope, item), (view, item, size, retain) => row.Tile(scope, view, item, size, retain), row.Wording.Shown(row.Empty, scope.Sink)) {
             Numbered = row.Numbered,
-            Favourite = row.Favourite.Map(static lens => lens.Get),
+            Favorite = row.Favorite.Map(static lens => lens.Get),
             Preview = row.Preview.Map(preview => (Func<TItem, Action<IDisposable>, IO<Unit>>)((item, retain) => preview(scope, item, retain))),
             Export = row.File.Map(static file => (Func<Control, Seq<TItem>, Option<Thumbnail>, IO<Unit>>)(
                 (view, items, thumbnail) => Transfer.Drag(view, items.Choose(file), thumbnail.Bind(static held => held.Drag)))),
@@ -613,7 +613,7 @@ public static class ListRows {
         let shown = row.Current(scope).Bind(value => browser.Receive(value.Map<BrowserEdit<TItem, TKey>>(static key => new BrowserEdit<TItem, TKey>.Applied(key))))
         let settled = Settled(row, scope, timer, pending).Bind(_ => shown)
         let applied = (Func<BrowserEdit<TItem, TKey>, Option<TKey>>)(static value => value.Switch(
-            applied: static held => Some(held.Key), reordered: static _ => None, renamed: static _ => None, favourited: static _ => None))
+            applied: static held => Some(held.Key), reordered: static _ => None, renamed: static _ => None, favorited: static _ => None))
         let stepped = (Func<BrowserEdit<TItem, TKey>, IO<Unit>>)(value => applied(value).Match(
             Some: key =>
                 from delay in Accessors.StepEventsDelay
@@ -665,15 +665,15 @@ public static class ListRows {
         value.Switch(
             row,
             applied: static (_, _) => Option<Func<Seq<TItem>, Fin<Seq<TItem>>>>.None,
-            reordered: static (held, reordered) => Some<Func<Seq<TItem>, Fin<Seq<TItem>>>>(latest => Fin.Succ(toSeq(
+            reordered: static (held, reordered) => Some<Func<Seq<TItem>, Fin<Seq<TItem>>>>(latest => toSeq(
                 from key in reordered.Keys
                 from item in latest
                 where EqualityComparer<TKey>.Default.Equals(held.Key(item), key)
-                select item))),
+                select item)),
             renamed: static (held, renamed) => held.Rename.Map<Func<Seq<TItem>, Fin<Seq<TItem>>>>(rename => latest =>
                 from item in rename(renamed.Item, renamed.Name)
                 select Replaced(held.Key, None, latest, item)),
-            favourited: static (held, favourited) => held.Favourite
-                .Map(lens => lens.Update(static on => !on, favourited.Item))
-                .Map<Func<Seq<TItem>, Fin<Seq<TItem>>>>(toggled => latest => Fin.Succ(Replaced(held.Key, None, latest, toggled))));
+            favorited: static (held, favorited) => held.Favorite
+                .Map(lens => lens.Update(static on => !on, favorited.Item))
+                .Map<Func<Seq<TItem>, Fin<Seq<TItem>>>>(toggled => latest => Replaced(held.Key, None, latest, toggled)));
 }

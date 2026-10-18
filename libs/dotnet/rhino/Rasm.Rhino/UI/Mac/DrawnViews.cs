@@ -119,11 +119,11 @@ public static class DrawnViews {
             AccessibilityCustomActions = [.. Actions(control, placement.Role, placement.Frame.Center)],
         };
 
-    private static Seq<NSAccessibilityCustomAction> Actions(ComponentControl control, PartRole role, PointF centre) =>
+    private static Seq<NSAccessibilityCustomAction> Actions(ComponentControl control, PartRole role, PointF center) =>
         Seq<(bool Taken, NSString Action, Func<bool> Perform)>(
-                (role.Activates, NSAccessibilityActions.PressAction, () => control.Activate(centre)),
-                (role.Adjusts, NSAccessibilityActions.IncrementAction, () => control.Adjust(centre, 1)),
-                (role.Adjusts, NSAccessibilityActions.DecrementAction, () => control.Adjust(centre, -1)))
+                (role.Activates, NSAccessibilityActions.PressAction, () => control.Activate(center)),
+                (role.Adjusts, NSAccessibilityActions.IncrementAction, () => control.Adjust(center, 1)),
+                (role.Adjusts, NSAccessibilityActions.DecrementAction, () => control.Adjust(center, -1)))
             .Filter(static row => row.Taken)
             .Choose(static row => Optional(NSAccessibility.GetActionDescription(row.Action)).Map(name => new NSAccessibilityCustomAction { Name = name, Handler = row.Perform }));
 

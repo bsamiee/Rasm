@@ -111,7 +111,7 @@ public sealed partial class ToneMappingParameter : IStateParameter<ToneMapping> 
     public static readonly ToneMappingParameter FilmPostFilterBlue = Film.Row(static section => StateParameter.Bounded(lens(section, Lens<FilmState, AxisFraction>.New(static film => film.PostFilterBlue, static value => film => film with { PostFilterBlue = value })), FilmShare),
         new("Post-filter blue", "Blue transmittance of the filter over the print"));
     public static readonly ToneMappingParameter FilmMidtoneSaturation = Film.Row(static section => StateParameter.Bounded(lens(section, Lens<FilmState, Magnitude>.New(static film => film.MidtoneSaturation, static value => film => film with { MidtoneSaturation = value })), Field),
-        new("Midtone saturation", "Saturation factor at mid grey"));
+        new("Midtone saturation", "Saturation factor at middle gray"));
     public static readonly ToneMappingParameter PreserveHue = Application.Row(static section => StateParameter.Bounded(lens(section, Lens<CurveApplication, AxisFraction>.New(static application => application.PreserveHue, static value => application => application with { PreserveHue = value }))),
         new("Preserve hue", "Share of each pixel's hue kept through the curve"));
     public static readonly ToneMappingParameter Purity = Application.Row(static section => StateParameter.Bounded(lens(section, Lens<CurveApplication, AxisFraction>.New(static application => application.Purity, static value => application => application with { Purity = value }))),
@@ -131,7 +131,7 @@ public sealed partial class ToneMappingParameter : IStateParameter<ToneMapping> 
     public static readonly ToneMappingParameter BlueRotation = Application.Row(static section => StateParameter.Bounded(lens(section, Lens<CurveApplication, PrimaryRotation>.New(static application => application.BlueRotation, static value => application => application with { BlueRotation = value })), Turn),
         new("Blue rotation", "Turn of the blue rendering primary about white"));
     public static readonly ToneMappingParameter SigmoidContrast = Sigmoid.Row(static section => StateParameter.Bounded(lens(section, Lens<SigmoidState, CurveGamma>.New(static sigmoid => sigmoid.Contrast, static value => sigmoid => sigmoid with { Contrast = value })), new Presentation<float> { Soft = (0.7f, 3f) }),
-        new("Contrast", "Slope at middle grey on the stops axis"));
+        new("Contrast", "Slope at middle gray on the stops axis"));
     public static readonly ToneMappingParameter SigmoidSkew = Sigmoid.Row(static section => StateParameter.Bounded(lens(section, Lens<SigmoidState, SignedFraction>.New(static sigmoid => sigmoid.Skew, static value => sigmoid => sigmoid with { Skew = value }))),
         new("Skew", "Moves contrast toward the shadows or the highlights"));
     public static readonly ToneMappingParameter SigmoidBlack = Sigmoid.Row(static section => StateParameter.Bounded(lens(section, Lens<SigmoidState, TargetBlack>.New(static sigmoid => sigmoid.Black, static value => sigmoid => sigmoid with { Black = value })), AxisFraction.Presentation with { Soft = (0f, 0.01f) }),

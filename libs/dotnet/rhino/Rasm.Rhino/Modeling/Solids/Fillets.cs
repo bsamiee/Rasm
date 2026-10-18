@@ -133,7 +133,7 @@ public static class Fillets {
 
     private static Fin<FilletResult> Result((string Member, bool Accepted, Seq<Brep?> Fillets, Seq<Brep?> Trimmed0, Seq<Brep?> Trimmed1) made) =>
         made.Accepted
-            ? (Measurements.Valid(made.Fillets, made.Member).ToValidation(), Measurements.Valid(made.Trimmed0, made.Member).ToValidation(), Measurements.Valid(made.Trimmed1, made.Member).ToValidation())
-                .Apply(static (fillets, trimmed0, trimmed1) => new FilletResult(fillets, trimmed0, trimmed1)).As().ToFin()
+            ? (Measurements.Valid(made.Fillets, made.Member), Measurements.Valid(made.Trimmed0, made.Member), Measurements.Valid(made.Trimmed1, made.Member))
+                .Apply(static (fillets, trimmed0, trimmed1) => new FilletResult(fillets, trimmed0, trimmed1)).As()
             : new Refused(made.Member, Refused.Declined);
 }

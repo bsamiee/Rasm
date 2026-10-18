@@ -43,9 +43,9 @@ utils:
             - kind: call_expression
               has: {field: function, kind: scoped_identifier, all: [{has: {field: path, regex: '(^|::)(LittleEndian|BigEndian|NetworkEndian|LE|BE)$'}}, {has: {field: name, regex: '^read_(u|i|f)(16|32|64|128)$'}}]}
     magic-site:
-        matches: magic
         all:
             - matches: magic-test
+            - matches: magic
             - inside: {kind: function_item, stopBy: {kind: function_item}, has: {field: body, has: {stopBy: end, matches: endian-read}}}
     header-read:
         any:

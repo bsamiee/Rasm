@@ -179,9 +179,9 @@ public sealed partial class StandardName : IComparable<StandardName> {
     public static Fin<StandardName> From(NamingStandard standard, string text) =>
         standard.Layout.Split(standard.Fields, text)
             .Bind(fields => Validate(standard, fields, out StandardName? name) is null ? Optional(name) : None)
-            .ToFin(Error.New(ErrorCodes.ValidationFailed, $"{text} is no name under the {standard} naming standard"));
+            .ToFin(Error.New(ErrorCodes.ValidationFailed, $"{text} breaks naming standard {standard}"));
 
-    public static Validation<Error, Seq<(TSheet Sheet, StandardName Number)>> Renumber<TSheet>(Seq<(TSheet Sheet, StandardName Number)> ordered, Seq<StandardName> others) {
+    public static Fin<Seq<(TSheet Sheet, StandardName Number)>> Renumber<TSheet>(Seq<(TSheet Sheet, StandardName Number)> ordered, Seq<StandardName> others) {
         HashMap<(NamingStandard Standard, HashMap<NameField, string> Fields), Seq<int>> bySeries = toHashMap(ordered.GroupBy(static entry => entry.Number.Series)
             .Select(static series => (series.Key, toSeq(series).Map(static entry => entry.Number.Sequence.Map(static sequence => sequence.Value)).Somes().Distinct().Strict())));
         Seq<(TSheet Sheet, StandardName Number)> renumbered = ordered.Map(entry => (entry.Sheet, Number: entry.Number.Resequenced(old => {
@@ -189,12 +189,12 @@ public sealed partial class StandardName : IComparable<StandardName> {
             return sequences.Fold(old, Math.Min) + sequences.TakeWhile(sequence => sequence != old).Count;
         })));
         HashMap<StandardName, int> counts = toHashMap(renumbered.CountBy(static entry => entry.Number).Select(static count => (count.Key, count.Value)));
-        LanguageExt.HashSet<StandardName> taken = toHashSet(others);
+        LanguageExt.HashSet<StandardName> taken = [.. others];
         return renumbered
             .Map(static (entry, index) => (entry.Sheet, entry.Number, Index: index))
             .Traverse(entry => counts[entry.Number] > 1 || taken.Contains(entry.Number)
-                ? Error.New(string.Create(CultureInfo.InvariantCulture, $"renumbered sheet {entry.Index} takes the sheet number {entry.Number} another sheet holds"))
-                : Success<Error, (TSheet Sheet, StandardName Number)>((entry.Sheet, entry.Number)))
+                ? Error.New(string.Create(CultureInfo.InvariantCulture, $"renumbered sheet {entry.Index} takes number {entry.Number} of another sheet"))
+                : Fin.Succ((entry.Sheet, entry.Number)))
             .As();
     }
 
@@ -236,9 +236,9 @@ public sealed partial class StandardName : IComparable<StandardName> {
             .IfNone(this);
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref NamingStandard standard, ref HashMap<NameField, string> fields) =>
-        validationError = Admits(standard, fields) ? null : new ValidationError($"fields must fit the {standard} naming standard");
+        validationError = Accepts(standard, fields) ? null : new ValidationError($"fields must fit the {standard} naming standard");
 
-    private static bool Admits(NamingStandard standard, HashMap<NameField, string> fields) =>
+    private static bool Accepts(NamingStandard standard, HashMap<NameField, string> fields) =>
         standard.Fields.ForAll(field => fields.Find(field).Match(Some: field.Allows, None: () => !field.Required))
         && standard.Layout.Split(standard.Fields, standard.Layout.Compose(standard.Fields, fields)) == Some(fields);
 }

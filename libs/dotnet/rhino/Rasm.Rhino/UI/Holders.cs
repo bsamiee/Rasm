@@ -358,6 +358,7 @@ public sealed class SectionLifetime : IDisposable {
 public sealed class SectionHolder : EtoCollapsibleSectionHolder2, ICollapsibleSectionHolder2 {
     // --- [STATE]
     private readonly OrderedDictionary<IDisposable, Control> owned;
+    private readonly EventHandler<EventArgs> tick;
     private Option<ICollapsibleSection> fullHeight;
 
     private SectionHolder(OrderedDictionary<IDisposable, Control> owned) {
@@ -368,8 +369,6 @@ public sealed class SectionHolder : EtoCollapsibleSectionHolder2, ICollapsibleSe
             handler => m_timer.Elapsed += handler, handler => m_timer.Elapsed -= handler,
             OnTick, lease => owned.TryAdd(lease, this)).Run();
     }
-
-    private readonly EventHandler<EventArgs> tick;
 
     private void OnTick(object? sender, EventArgs args) =>
         Callbacks.Started(DisposalOps.OnFailure(Native(IO.lift(() => {

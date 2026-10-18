@@ -31,21 +31,22 @@ playwright cli run-code --filename=$PLAYWRIGHT_MCP_OUTPUT_DIR/script.js
 
 ## [01]-[PERMISSIONS]
 
-`.playwright/cli.config.json` grants every context permission, `setGeolocation` and clipboard calls run without a grant:
+Sessions open with every permission at `prompt`, and a page request behind one (geolocation, clipboard) fails as denied:
+- `grantPermissions` grants the listed permissions, on `origin` alone when given
 - `clearPermissions` returns every permission to `prompt`
-- `grantPermissions` grants the listed permissions on `origin` and denies the rest there
 
 ```bash
 playwright cli run-code "async page => {
+    await page.context().grantPermissions(['geolocation']);
     await page.context().setGeolocation({ latitude: 51.5074, longitude: -0.1278 });
 }"
 
 playwright cli run-code "async page => {
-    await page.context().clearPermissions();
+    await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: 'https://example.com' });
 }"
 
 playwright cli run-code "async page => {
-    await page.context().grantPermissions(['clipboard-read'], { origin: 'https://example.com' });
+    await page.context().clearPermissions();
 }"
 ```
 

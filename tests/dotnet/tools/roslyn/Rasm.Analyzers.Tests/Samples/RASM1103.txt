@@ -1,0 +1,18 @@
+using LanguageExt;
+using LanguageExt.Common;
+
+namespace Thinktecture {
+    internal static class ValidationResults {
+        internal static Fin<T> ToFin<T>(ValidationError? error, T value) => error is null ? value : Error.New(error.Message);
+    }
+}
+
+internal static class ConvertedByHand {
+    internal static Error Raised(Thinktecture.ValidationError error) => {|#0:Error.New(error.Message)|};
+    internal static Error Expected(Thinktecture.ValidationError error) => {|#1:new Expected(error.Message, 0)|};
+}
+
+internal static class MessageRead {
+    internal static string Logged(Thinktecture.ValidationError error) => $"invalid: {error.Message}";
+    internal static int Length(Thinktecture.ValidationError error) => error.Message.Length;
+}

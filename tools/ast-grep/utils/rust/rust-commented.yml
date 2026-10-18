@@ -1,5 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: rust-commented
-language: rust
-rule:
-    has: {stopBy: end, kind: 'line_comment, block_comment'}

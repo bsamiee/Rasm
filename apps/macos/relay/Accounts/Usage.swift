@@ -110,7 +110,7 @@ nonisolated struct AccountUsage: Equatable, Sendable {
     }
 }
 
-nonisolated enum UsageState: Sendable {
+enum UsageState: Sendable {
     case unavailable
     case current(AccountUsage)
     case stale(AccountUsage)

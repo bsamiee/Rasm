@@ -20,6 +20,11 @@ fn local(arguments: &[&str]) -> Result<ArgMatches, clap::Error> {
     command.clone().try_get_matches_from(arguments)
 }
 
+fn copied(command: &Command, arguments: &[&str]) -> Result<ArgMatches, clap::Error> {
+    let copy = command.to_owned();
+    copy.try_get_matches_from(arguments)
+}
+
 fn borrowed(command: &mut Command, arguments: &[&str]) -> Result<ArgMatches, clap::Error> { command.try_get_matches_from_mut(arguments) }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -27,5 +32,5 @@ fn borrowed(command: &mut Command, arguments: &[&str]) -> Result<ArgMatches, cla
 fn main() {
     let mut command = Command::new("fixture");
     let cli = Cli { command: command.clone() };
-    black_box(&(parsed(&command, &["fixture"]), fielded(&cli, &["fixture"]), local(&["fixture"]), borrowed(&mut command, &["fixture"])));
+    black_box(&(parsed(&command, &["fixture"]), fielded(&cli, &["fixture"]), local(&["fixture"]), copied(&command, &["fixture"]), borrowed(&mut command, &["fixture"])));
 }

@@ -24,11 +24,10 @@ from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderFaults, BlenderImagingFault, BlenderReadFault, BlenderResult
-from blender.bpy.render.color.spaces import ConfigInstall
+from blender.bpy.render.color.spaces import config_of, ConfigInstall
 from blender.bpy.settings.properties import Choices
 from blender.imaging.chain import Effect, Stage
 from blender.imaging.color.authoring import Formation
-from blender.imaging.color.config import admitted
 from blender.imaging.color.luts import Bake, Exact, Lattice, LutFormat, LutOutput, written
 from blender.imaging.color.processors import applied, processor
 from blender.imaging.faults import accumulated, paired
@@ -257,9 +256,8 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True):
             )
 
         with self.staged(call.identity) as made, TemporaryDirectory(dir=bpy.app.tempdir) as folder:
-            config: BlenderResult[PyOpenColorIO.Config] = admitted(PyOpenColorIO.GetCurrentConfig(), (space,)).map_error(BlenderImagingFault.lifted)
             return (
-                paired(paired(made, config), call.record.output())
+                paired(paired(made, config_of((space,))), call.record.output())
                 .bind(lambda parts: rendered(*parts[0], Path(folder)).bind(lambda look: tabled(parts[0][1], look)).map(lambda built: (parts[1], built)))
                 .bind(lambda pair: written(pair[0], {str(call.paths[0]): pair[1]}).map_error(BlenderImagingFault.lifted))
                 .map(Done.wrote)

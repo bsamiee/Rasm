@@ -1,20 +1,19 @@
 """BT.2390 peak compression and black adaptation over formed PQ codes."""
 
 import bpy
-from expression import Nothing, Option, Result, Some
+from expression import Nothing, Option, Some
 import msgspec
 import numpy as np
-import PyOpenColorIO
 
 from blender.bpy.commands.operators import Done, Operator
 from blender.bpy.data.rna.conditions import AllOf, HdrWindow, Job
 from blender.bpy.extension.identity import Identity
-from blender.bpy.faults import BlenderFaults, BlenderImagingFault, BlenderResult
+from blender.bpy.faults import BlenderImagingFault, BlenderResult
 from blender.bpy.nodes.graphs import End, ended, Fragment, math, node, vector
+from blender.bpy.render.color.spaces import config_of
 from blender.bpy.render.effects.stack import CompositorEffect, Named, Shell, viewed
 from blender.bpy.render.effects.viewers import ViewerRead
 from blender.imaging.analysis import metering
-from blender.imaging.color.config import admitted
 from blender.imaging.color.processors import DisplayView
 from blender.imaging.effects.tone.peak import PeakMapping
 from blender.imaging.faults import accumulated, paired
@@ -103,11 +102,7 @@ def formed_view(context: bpy.types.Context) -> Option[DisplayView]:
 
 def measured(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]) -> BlenderResult[Option[str]]:
     """Writes the observed PQ peak while preserving mapping parameters and blend, naming an undo step where the peak changed."""
-    config: BlenderResult[PyOpenColorIO.Config] = admitted(PyOpenColorIO.GetCurrentConfig(), ()).map_error(BlenderImagingFault.lifted)
-
-    found: BlenderResult[Option[float]] = Result[PyOpenColorIO.Config, BlenderFaults].bind(
-        config, lambda config: metering.samples_of(config, file.pixels).map(metering.peak).map_error(BlenderImagingFault.lifted)
-    )
+    found = config_of().bind(lambda config: metering.samples_of(config, file.pixels).map(metering.peak).map_error(BlenderImagingFault.lifted))
     return (
         paired(found, peak_mapping.read(identity, entry))
         .bind(

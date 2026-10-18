@@ -87,7 +87,7 @@ public sealed record Metering(AxisFraction Low, AxisFraction High, AxisFraction 
         : new ArraySegment<(double Key, float Weight)>(samples)[LuminanceSamples.Slice(samples.Length, Low, High)]
             .Aggregate((Sum: 0d, Weight: 0d), static (total, sample) =>
                 (total.Sum + (sample.Weight * double.Log2(double.Max(sample.Key, LuminanceSamples.Floor))), total.Weight + sample.Weight)) switch {
-                    (var sum, > 0d and var weight) => (Fin<float>)(float)(double.Log2(Exposure.MiddleGrey) - (sum / weight)),
+                    (var sum, > 0d and var weight) => (float)(double.Log2(Exposure.MiddleGray) - (sum / weight)),
                     _ => Error.New($"metered center of {window} holds no kept sample at full center weight"),
                 };
 }

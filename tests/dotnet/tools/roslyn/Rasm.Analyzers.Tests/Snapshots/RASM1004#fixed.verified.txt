@@ -1,0 +1,28 @@
+using LanguageExt;
+using LanguageExt.Common;
+
+internal static class ValidationRoundTrip {
+    internal static Fin<int> Positive(int value) => value > 0 ? value : Error.New("negative");
+    internal static Fin<int> Sum(int left, int right) =>
+        (Positive(left), Positive(right))
+            .Apply(static (first, second) => first + second)
+            .As();
+    internal static Fin<Seq<int>> All(Seq<int> values) => values.Traverse(static value => Positive(value)).As();
+    internal static Fin<int> Nested(Seq<int> values, int last) =>
+        (values.Traverse(static value => Positive(value)).As(), Positive(last)).Apply(static (all, one) => all.Count + one).As();
+    internal static Fin<int> Single(int value) => Positive(value);
+    internal static Fin<int> Grouped(bool held, int value) => held ? Positive(value) : Positive(-value);
+    internal static Fin<Seq<int>> Queried(Seq<int> values) =>
+        values.Traverse(value =>
+            from first in Positive(value)
+            from second in Positive(first)
+            select second).As();
+    internal static Fin<int> Paired(bool held, int left, int right) =>
+        (held ? Positive(left) : Positive(right), Positive(right)).Apply(static (first, second) => first + second).As();
+}
+
+internal static class ValidationKept {
+    internal static Fin<int> Positive(int value) => value > 0 ? value : Error.New("negative");
+    internal static Validation<Error, int> Kept(int left, int right) => (Positive(left).ToValidation(), Positive(right).ToValidation()).Apply(static (first, second) => first + second).As();
+    internal static Fin<int> Mixed(Validation<Error, int> held, int right) => (held, Positive(right).ToValidation()).Apply(static (first, second) => first + second).As().ToFin();
+}

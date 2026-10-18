@@ -9,10 +9,10 @@ import PyOpenColorIO
 from blender.bpy.extension.identity import Identity
 from blender.bpy.faults import BlenderFaults, BlenderImagingFault, BlenderResult, BlenderUnmetFault
 from blender.bpy.nodes.graphs import End, ended, Fragment, node
+from blender.bpy.render.color.spaces import config_of
 from blender.bpy.render.effects.stack import CompositorEffect, Coverage, Shell
 from blender.bpy.render.effects.viewers import Unread, ViewerRead
 from blender.imaging.analysis.metering import samples_of
-from blender.imaging.color.config import admitted
 from blender.imaging.color.white import White
 from blender.imaging.compositing.blending import Entry
 from blender.imaging.effects.grade.white_balance import WhiteBalance
@@ -32,7 +32,6 @@ def balanced(shell: Shell[WhiteBalance]) -> BlenderResult[tuple[Fragment, End]]:
 
 def consumed(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]) -> BlenderResult[Option[str]]:
     """Sets the source white from the covered mean of the entering region, naming an undo step where the white changed."""
-    config: BlenderResult[PyOpenColorIO.Config] = admitted(PyOpenColorIO.GetCurrentConfig(), ()).map_error(BlenderImagingFault.lifted)
 
     def solved(config: PyOpenColorIO.Config, held: Entry[WhiteBalance]) -> BlenderResult[Option[str]]:
         found: BlenderResult[Option[White]] = (
@@ -48,7 +47,7 @@ def consumed(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneC
             .map(lambda changed: Some("Set Neutral") if changed else Nothing)
         )
 
-    reading: BlenderResult[tuple[PyOpenColorIO.Config, Entry[WhiteBalance]]] = paired(config, white_balance.read(identity, entry))
+    reading: BlenderResult[tuple[PyOpenColorIO.Config, Entry[WhiteBalance]]] = paired(config_of(), white_balance.read(identity, entry))
     return Result[tuple[PyOpenColorIO.Config, Entry[WhiteBalance]], BlenderFaults].bind(reading, lambda pair: solved(*pair))
 
 

@@ -3,6 +3,8 @@
         <ArtifactsPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '.artifacts', 'dotnet'))</ArtifactsPath>
         <Authors>Bardia Samiee</Authors>
         <SixLaborsLicenseFile>$(MSBuildThisFileDirectory).config/sixlabors.lic</SixLaborsLicenseFile>
+        <Verify_SponsorshipExemption>OpenSource</Verify_SponsorshipExemption>
+        <Verify_SponsorshipExemptionUntil>2027-10</Verify_SponsorshipExemptionUntil>
     </PropertyGroup>
 
     <PropertyGroup Label="Project Classification">

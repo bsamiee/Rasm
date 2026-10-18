@@ -3,7 +3,7 @@ use core::ops::ControlFlow;
 use clippy_utils::{
     SpanlessHash,
     diagnostics::span_lint_hir_and_then,
-    peel_blocks, peel_hir_expr_while,
+    peel_blocks, peel_hir_expr_refs, peel_hir_expr_while,
     res::MaybeQPath as _,
     visitors::{for_each_expr, is_const_evaluatable},
 };
@@ -20,7 +20,7 @@ use rustc_middle::ty::{self, Clause, FnSig, GenericArg, Interner as _, Ty, TyCtx
 use rustc_span::kw;
 
 use super::{equal_bodies, substitute_types};
-use crate::{any_expr, awaited_output, constructed, derived_impl, expanded_externally, impl_owner, is_error, item_path, literal_or_const, upcast};
+use crate::{any_expr, awaited_output, constructed, derived_impl, expanded_externally, impl_owner, is_error, item_path, literal_or_const, parameter, upcast};
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -121,11 +121,13 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     .then(|| called.iter().filter(|&&(node, _)| receives(node)).filter_map(|&(_, item)| tcx.trait_of_assoc(item)).unique().collect::<Vec<_>>())
             };
             let traits = generic_calls(earlier, from)?;
-            let body = peel_blocks(&tcx.hir_body_owned_by(earlier).value);
+            let owned = tcx.hir_body_owned_by(earlier);
+            let body = peel_blocks(&owned.value);
             let typeck = tcx.typeck(earlier);
+            let passed = |argument: &Expr<'_>| parameter(owned, argument).is_some();
             let direct = match body.kind {
-                ExprKind::Call(&Expr { kind: ExprKind::Path(qpath), hir_id, .. }, _) => typeck.qpath_res(&qpath, hir_id).opt_def_id(),
-                ExprKind::MethodCall(..) => typeck.type_dependent_def_id(body.hir_id),
+                ExprKind::Call(&Expr { kind: ExprKind::Path(qpath), hir_id, .. }, arguments) if arguments.iter().all(passed) => typeck.qpath_res(&qpath, hir_id).opt_def_id(),
+                ExprKind::MethodCall(_, receiver, arguments, _) if passed(receiver) && arguments.iter().all(passed) => typeck.type_dependent_def_id(body.hir_id),
                 _ => None,
             }
             .filter(|&called| tcx.trait_of_assoc(called).is_some_and(|implemented| traits.contains(&implemented)));
@@ -186,7 +188,16 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     },
                 );
             }
+            let forwards = |function: LocalDefId| {
+                let read = peel_hir_expr_refs(value(tcx, function)).0;
+                matches!(read.kind, ExprKind::Field(base, _) if parameter(tcx.hir_body_owned_by(function), base) == Some(0))
+                    || matches!(read.kind, ExprKind::Call(callee, _)
+                        if callee.res(tcx.typeck(function)).opt_def_id().is_some_and(|called| tcx.inherent_impl_of_assoc(called).is_some() && impl_owner(tcx, called) == owner(cx, function)))
+            };
             let [first, rest @ ..] = group else { return };
+            if group.iter().all(|&function| forwards(function)) {
+                return;
+            }
             let Some(declaration) = tcx.trait_item_of(*first).filter(|&declaration| group.iter().all(|&function| tcx.trait_item_of(function) == Some(declaration))) else { return };
             let implemented = tcx.parent(declaration);
             let (method, name) = (tcx.item_name(declaration), tcx.item_name(implemented));

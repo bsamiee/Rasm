@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Render.Content;
@@ -28,8 +27,6 @@ public sealed record BackgroundState(
         ScaleBackgroundToFit: false, ReflectionOverride: true, ReflectionEnvironment: None);
 
     public static string Owner => "background";
-
-    public static Option<DocumentEvent<RenderPropertyChangedEvent>> Changed => None;
 
     public static IO<BackgroundState> Read(RenderSettingsScope scope) =>
         IO.lift(() => scope.Settings switch {
@@ -76,7 +73,6 @@ public sealed partial class BackgroundParameter : IStateParameter<BackgroundStat
             BackgroundStyle.WallpaperImage => "Wallpaper",
             BackgroundStyle.Gradient => "Gradient",
             BackgroundStyle.Environment => "360˚ environment",
-            _ => throw new UnreachableException(),
         }),
         new("Background", "What the rendering shows behind the scene"));
     public static readonly BackgroundParameter BackgroundColorTop = new("background-color-top", new StateParameter<BackgroundState>.Color(
@@ -207,9 +203,9 @@ public static class Environments {
             from created in Contents.FreeFloating(doc, ContentUuids.BasicEnvironmentType, retain)
             from environment in IO.lift(Conversions.Cast<RenderEnvironment>(created.Content))
             from slot in IO.lift(() => environment.TextureChildSlotName)
-            from applied in Contents.Apply(doc, environment, RenderContent.ChangeContexts.Program, Seq<ContentEdit>(
+            from applied in Contents.Apply(doc, environment, RenderContent.ChangeContexts.Program, [
                 new ContentEdit.SetName(sky.Name, RenameEvents: false, EnsureNameUnique: false),
-                new ContentEdit.SetChild(ContentUuids.PhysicalSkyTextureType, slot)))
+                new ContentEdit.SetChild(ContentUuids.PhysicalSkyTextureType, slot)])
             from texture in IO.lift(() => Optional(environment.FindChild(slot)).ToFin(new NotFound("child content", $"slot {slot} of {environment.Id}")))
             from configured in Contents.WithinContentChange(texture, RenderContent.ChangeContexts.Program,
                 ContentFields.SetParameter(texture, "use-document-sun", sky.UseDocumentSun).Bind(_ => Gain(texture, sky.Intensity)))

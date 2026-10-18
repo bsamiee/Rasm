@@ -3,31 +3,11 @@ id: no-result-switch-for-bind
 language: swiftlang
 severity: error
 utils:
-    failure-value:
-        any:
-            - matches: swift-failure-call
-            - {kind: control_transfer_statement, has: {field: result, matches: swift-failure-call}}
     failure-return:
-        matches: {swift-single-statement: {first: {matches: failure-value}}}
-    failure-entry:
-        kind: switch_entry
-        all:
-            - has: {kind: switch_pattern, regex: '^(let\s+)?\.failure\b'}
-            - has: {matches: failure-return}
-    success-entry:
-        kind: switch_entry
-        all:
-            - has: {kind: switch_pattern, regex: '^(let\s+)?\.success\b'}
-            - not: {has: {kind: switch_pattern, nthChild: {position: 2, ofRule: {kind: switch_pattern}}}}
-            - not: {has: {kind: statements, has: {nthChild: 1, matches: failure-value}}}
+        matches: {swift-single-statement: {first: {matches: swift-failure-value}}}
 rule:
     any:
-        - kind: switch_statement
-          all:
-            - not: {has: {field: expr, kind: self_expression}}
-            - has: {matches: success-entry}
-            - has: {matches: failure-entry}
-            - not: {has: {kind: switch_entry, nthChild: {position: 3, ofRule: {kind: switch_entry}}}}
+        - matches: swift-result-bind-switch
         - kind: if_statement
           regex: '^if\s+case\s+(let\s+)?\.failure\b'
           has: {matches: failure-return}

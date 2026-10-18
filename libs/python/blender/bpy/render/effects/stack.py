@@ -43,7 +43,7 @@ from blender.bpy.nodes.interface import addresses, described, Interface, Interfa
 from blender.bpy.nodes.trees import active_output, socket_at
 from blender.bpy.render.color.exposure import Gain
 from blender.bpy.render.color.luts import Enabled
-from blender.bpy.render.color.spaces import converted, pointwise
+from blender.bpy.render.color.spaces import config_of, converted, pointwise
 from blender.bpy.render.effects.compositing.blending import mixed_back, product
 from blender.bpy.render.effects.compositing.masks import masked
 from blender.bpy.render.outputs.formats import owners
@@ -54,7 +54,6 @@ from blender.bpy.settings.attachments import Attachment, Stored
 from blender.bpy.settings.properties import RecordGroup, Unit
 from blender.bpy.settings.shapes import bare, vector
 from blender.imaging.chain import Domain, Effect, Stage
-from blender.imaging.color.config import admitted
 from blender.imaging.color.processors import bracketed, DisplayView, Spaced
 from blender.imaging.compositing.blending import Blend, Entry
 from blender.imaging.compositing.masks import Mask
@@ -443,9 +442,6 @@ class CompositorEffect[R: Effect, D: msgspec.Struct = msgspec.Struct](msgspec.St
             else Error((BlenderChoiceFault(path=self.kind, identifier=item_key(type(record.effect)), accepted=(self.kind,)),))
         )
 
-    def _configured(self, record: R) -> BlenderResult[PyOpenColorIO.Config]:
-        return admitted(PyOpenColorIO.GetCurrentConfig(), (record.space,) if isinstance(record, Spaced) else ()).map_error(BlenderImagingFault.lifted)
-
     def ownership(self, record: Entry[Effect]) -> Ownership[bpy.types.NodeTree]:
         """Selects per-entry storage only for graph fields or blend masks."""
         shared, personal = ownerships(self.record)
@@ -531,7 +527,7 @@ class CompositorEffect[R: Effect, D: msgspec.Struct = msgspec.Struct](msgspec.St
                 )
             )
 
-        return editable(scene).bind(lambda _: self._narrowed(record)).bind(lambda typed: self._configured(typed.effect).bind(lambda config: wrote(typed, config)))
+        return editable(scene).bind(lambda _: self._narrowed(record)).bind(lambda typed: configured(typed.effect).bind(lambda config: wrote(typed, config)))
 
     # --- [GROUPS]
 
@@ -714,15 +710,10 @@ class CompositorEffect[R: Effect, D: msgspec.Struct = msgspec.Struct](msgspec.St
         held = tree.filter(lambda group: Mark.read(identity, group).filter(lambda mark: mark.key == own.key and mark.of == owner).is_some()).or_else_with(
             lambda: Option.of_optional(next((group for group, mark in own.held(identity) if mark.of == owner), None)) if own.single else Nothing
         )
-        return self._grouped(identity, scene, record, config, held, context, request, images=images).bind(
-            lambda group: held.map(lambda tree: self._reconciled(identity, group, tree)).default_with(lambda: made(group, identity, of=owner).map(lambda tree: (tree, True)))
-        )
 
-    def _reconciled(self, identity: Identity, group: NodeGroup, tree: bpy.types.NodeTree) -> BlenderResult[tuple[bpy.types.NodeTree, bool]]:
-        marked = {live: mark.key for live in tree.nodes for mark in Mark.read(identity, live).to_list()}
-        viewers = tuple(live for live, key in marked.items() if key == Shell.viewer)
-
-        def retained(keys: Mapping[Key, str]) -> BlenderResult[tuple[bpy.types.NodeTree, bool]]:
+        def refreshed(group: NodeGroup, tree: bpy.types.NodeTree, keys: Mapping[Key, str]) -> BlenderResult[tuple[bpy.types.NodeTree, bool]]:
+            marked = {live: mark.key for live in tree.nodes for mark in Mark.read(identity, live).to_list()}
+            viewers = tuple(live for live, key in marked.items() if key == Shell.viewer)
             semantic = {identifier: key for key, identifier in keys.items()}
 
             def endpoint(socket: bpy.types.NodeSocket) -> End:
@@ -744,7 +735,11 @@ class CompositorEffect[R: Effect, D: msgspec.Struct = msgspec.Struct](msgspec.St
             )
             return reconciled(msgspec.structs.replace(group, graph=graph), tree, identity).map(lambda changes: (tree, changes != Changes()))
 
-        return slot(identity).map(lambda name: addresses(tree, name)).bind(retained)
+        return self._grouped(identity, scene, record, config, held, context, request, images=images).bind(
+            lambda group: held.map(lambda tree: slot(identity).bind(lambda name: refreshed(group, tree, addresses(tree, name)))).default_with(
+                lambda: made(group, identity, of=owner).map(lambda tree: (tree, True))
+            )
+        )
 
     # --- [PLACEMENT_AND_REFRESH]
 
@@ -767,7 +762,7 @@ class CompositorEffect[R: Effect, D: msgspec.Struct = msgspec.Struct](msgspec.St
 
             return self._met(identity, scene, typed.effect, Nothing, context).bind(lambda request: self._made(identity, scene, typed, config, context, request)).bind(lambda built: appended(built[0]))
 
-        return editable(scene).bind(lambda _: self._narrowed(record)).bind(lambda typed: self._configured(typed.effect).bind(lambda config: created(typed, config)))
+        return editable(scene).bind(lambda _: self._narrowed(record)).bind(lambda typed: configured(typed.effect).bind(lambda config: created(typed, config)))
 
     def refreshed(self, identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect) -> BlenderResult[bool]:
         """Writes frame and row-derived values and applies changed keyed channels, answering whether any of them changed."""
@@ -809,7 +804,7 @@ class CompositorEffect[R: Effect, D: msgspec.Struct = msgspec.Struct](msgspec.St
         ).default_value(Ok(False))
         return accumulated((frame, values, channels)).map(any)
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
         """Returns both original ownership declarations and non-page registrations."""
         return Ok((*ownerships(self.record), *(row for row in self.registrables if all(row is not placed for placed in self.page_rows))))
 
@@ -858,7 +853,7 @@ class EffectStack[E: Effect = Effect]:
                 if isinstance(value, str)
             )
         )
-        return admitted(PyOpenColorIO.GetCurrentConfig(), spaces).map_error(BlenderImagingFault.lifted)
+        return config_of(spaces)
 
     def offering(self, kind: type[Effect]) -> BlenderResult[Placeable[E | DisplayView]]:
         """Finds the row of an exact native effect type."""
@@ -934,7 +929,7 @@ class EffectStack[E: Effect = Effect]:
                         ).bind(lambda entry: paired(written(entry, "enable_for_render", value.render), written(entry, "enable_for_preview", value.preview)).map(lambda _: (entry, row)))
 
                     def arranged(written_entries: tuple[tuple[bpy.types.SceneCompositorEffect, Placeable], ...]) -> BlenderResult[None]:
-                        live = dict(zip(requested, (entry for entry, _ in written_entries), strict=True))
+                        live = dict(zip(requested, (entry for entry, _ in written_entries)))
                         selected = iter(native.get(name, live[name]) if name in live else native[name] for name in desired)
                         target = tuple(next(selected) if entry.name in current else entry for entry in order) + tuple(selected)
                         owned = frozenset(native[name] for name in current) | frozenset(live.values())
@@ -948,14 +943,12 @@ class EffectStack[E: Effect = Effect]:
                                 .bind(lambda row: self.release(identity, scene, row))
                                 .bind(
                                     lambda _: (
-                                        self._displayed(scene, next(value.record.effect for value in current.values() if isinstance(value.record.effect, DisplayView)))
-                                        if kind is DisplayView
-                                        else Ok(None)
+                                        displayed(scene, next(value.record.effect for value in current.values() if isinstance(value.record.effect, DisplayView))) if kind is DisplayView else Ok(None)
                                     )
                                 )
                                 for kind in retired
                             )
-                            .bind(lambda _: accumulated(self.hold(identity, scene, row) for _, row in written_entries))
+                            .bind(lambda _: accumulated(hold(identity, scene, row) for _, row in written_entries))
                             .bind(lambda _: accumulated(relocated(scene, entry, index) for index, entry in enumerate(target) if entry in owned))
                             .bind(lambda _: initial.map(lambda view: self.placed(identity, scene, formation, Entry(effect=view), context=context).map(lambda _: None)).default_value(Ok(None)))
                             .map(lambda _: None)
@@ -964,7 +957,7 @@ class EffectStack[E: Effect = Effect]:
                     with ExitStack() as scope, bpy.context.temp_override(scene=scene):
                         if prior is not None:
                             scope.callback(setattr, prior, "is_active", True)
-                        return accumulated(written_entry(name, value, row) for (name, value), row in zip(requested.items(), rows, strict=True)).bind(arranged)
+                        return accumulated(written_entry(name, value, row) for (name, value), row in zip(requested.items(), rows)).bind(arranged)
 
                 initial = next(
                     (
@@ -1018,8 +1011,7 @@ class EffectStack[E: Effect = Effect]:
                 .bind(lambda _: row.appended(identity, scene, record, context=context))
                 .bind(
                     lambda entry: (
-                        self
-                        .hold(identity, scene, row)
+                        hold(identity, scene, row)
                         .bind(lambda _: self.moved(identity, scene, Shift(name=entry.name)))
                         .bind(lambda _: prior.map(lambda active: written(active, "is_active", True).map(lambda _: None)).default_value(Ok(None)))
                         .map(lambda _: entry)
@@ -1083,7 +1075,7 @@ class EffectStack[E: Effect = Effect]:
                                 catch(lambda: scene.compositor_effects.remove(held.entry), exception=RuntimeError)().map_error(lambda error: (BlenderEditFault(request=repr(scene), error=error),)),
                                 lambda _: self.release(identity, scene, row) if not entries(identity, scene, row.record) else Ok(None),
                             )
-                            .bind(lambda _: record.map(lambda view: self._displayed(scene, view)).default_value(Ok(None)))
+                            .bind(lambda _: record.map(lambda view: displayed(scene, view)).default_value(Ok(None)))
                         )
                     )
                     .bind(lambda _: accumulated(owner.removed(identity) for owner in ownerships(row.record)))
@@ -1112,29 +1104,6 @@ class EffectStack[E: Effect = Effect]:
 
         return self.gain.map(folded).default_value(Ok(None))
 
-    def hold(self, identity: Identity, scene: bpy.types.Scene, row: Placeable) -> BlenderResult[None]:
-        """Captures native settings and applies arrangement defaults once."""
-
-        def held(pair: tuple[str, dict[Key, Snapshot]], descriptors: tuple[Descriptor, ...]) -> BlenderResult[None]:
-            slot, values = pair
-            prior = Option.of_optional(values.get(row.kind))
-
-            def captured(snapshot: Snapshot) -> BlenderResult[None]:
-                if prior.is_none():
-                    scene[slot] = msgspec.json.encode(values | {row.kind: snapshot}, order="deterministic").decode()
-                return (
-                    (Snapshot.of(bpy.types.Scene, dict(row.holds)).apply(scene).outcome if prior.is_none() else Ok(None))
-                    .bind(lambda _: cameras.required(Snapshot.of(bpy.types.Camera, dict(row.cameras)), scene, identity))
-                    .bind(lambda _: self._raw(scene) if row.record is DisplayView else Ok(None))
-                    .map(lambda _: None)
-                )
-
-            return prior.map(Ok).default_with(lambda: Snapshot.capture(scene, Some(descriptors))).bind(captured)
-
-        return paired(stored(identity, scene, "held", dict[Key, Snapshot]), accumulated(Descriptor.resolve(bpy.types.Scene, path, bpy.types.Property) for path in row.holds)).bind(
-            lambda pair: held(*pair)
-        )
-
     def release(self, identity: Identity, scene: bpy.types.Scene, row: Placeable) -> BlenderResult[None]:
         """Restores the final held settings and reapplies remaining camera requirements."""
 
@@ -1162,24 +1131,6 @@ class EffectStack[E: Effect = Effect]:
             )
 
         return stored(identity, scene, "held", dict[Key, Snapshot]).bind(released)
-
-    def _raw(self, scene: bpy.types.Scene) -> BlenderResult[None]:
-        return accumulated(
-            Snapshot.of(bpy.types.ColorManagedViewSettings, {path.removeprefix("view_settings."): value for path, value in formation.holds.items()}).apply(owner.view_settings).outcome  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-            for owner in owners(scene)
-            if owner.color_management == "OVERRIDE"
-        ).map(lambda _: None)
-
-    def _displayed(self, scene: bpy.types.Scene, view: DisplayView) -> BlenderResult[None]:
-        def written_view(holder: bpy.types.Scene | bpy.types.ImageFormatSettings) -> BlenderResult[None]:
-            return (
-                written(holder.display_settings, "display_device", view.display)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                .bind(lambda _: written(holder.view_settings, "view_transform", view.view))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                .bind(lambda _: written(holder.view_settings, "look", view.look.value if view.look.enabled else "None"))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                .map(lambda _: None)
-            )
-
-        return paired(written_view(scene), accumulated(written_view(owner) for owner in owners(scene) if owner.color_management == "OVERRIDE")).map(lambda _: None)
 
     # --- [REFRESH]
 
@@ -1378,10 +1329,7 @@ class EffectStack[E: Effect = Effect]:
 
             def loaded(_path: object) -> BlenderResult[None]:
                 return accumulated(
-                    self
-                    .refreshed(identity, scene)
-                    .bind(lambda _: rendered(scene))
-                    .bind(lambda _: accumulated(self.hold(identity, scene, row) for row in self.rows if entries(identity, scene, row.record)))
+                    self.refreshed(identity, scene).bind(lambda _: rendered(scene)).bind(lambda _: accumulated(hold(identity, scene, row) for row in self.rows if entries(identity, scene, row.record)))
                     for source in bpy.data.scenes
                     for scene in editable(source).to_option().to_list()
                 ).map(lambda _: None)
@@ -1599,7 +1547,7 @@ def rows(
 
     def walked(record: type[msgspec.Struct], path: KeyPath, held: Option[object]) -> Iterator[tuple[KeyPath, msgspec.structs.FieldInfo, native.Type]]:
         fields = msgspec.structs.fields(record)
-        for field, shape in zip(fields, native.multi_type_info(field.type for field in fields), strict=False):
+        for field, shape in zip(fields, native.multi_type_info(field.type for field in fields)):
             if (typing.get_origin(record) or record) is Gated and field.name == "enabled":
                 continue
             yield from member(field, shape, (*path, field.name), held.map(lambda record: getattr(record, field.name)))
@@ -1739,6 +1687,54 @@ def editable(scene: bpy.types.Scene) -> BlenderResult[bpy.types.Scene]:
     return Ok(scene) if scene.override_library is None else Error((BlenderEditFault(request=repr(scene.override_library), error=AttributeError(name="compositor_effects")),))
 
 
+def configured(record: Effect) -> BlenderResult[PyOpenColorIO.Config]:
+    """Returns Blender's live OCIO configuration resolving the space a spaced record reads."""
+    return config_of((record.space,) if isinstance(record, Spaced) else ())
+
+
+def hold(identity: Identity, scene: bpy.types.Scene, row: Placeable) -> BlenderResult[None]:
+    """Captures a row's native scene settings once and applies its arrangement defaults."""
+
+    def raw() -> BlenderResult[None]:
+        return accumulated(
+            Snapshot.of(bpy.types.ColorManagedViewSettings, {path.removeprefix("view_settings."): value for path, value in formation.holds.items()}).apply(owner.view_settings).outcome  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            for owner in owners(scene)
+            if owner.color_management == "OVERRIDE"
+        ).map(lambda _: None)
+
+    def held(pair: tuple[str, dict[Key, Snapshot]], descriptors: tuple[Descriptor, ...]) -> BlenderResult[None]:
+        slot, values = pair
+        prior = Option.of_optional(values.get(row.kind))
+
+        def captured(snapshot: Snapshot) -> BlenderResult[None]:
+            if prior.is_none():
+                scene[slot] = msgspec.json.encode(values | {row.kind: snapshot}, order="deterministic").decode()
+            return (
+                (Snapshot.of(bpy.types.Scene, dict(row.holds)).apply(scene).outcome if prior.is_none() else Ok(None))
+                .bind(lambda _: cameras.required(Snapshot.of(bpy.types.Camera, dict(row.cameras)), scene, identity))
+                .bind(lambda _: raw() if row.record is DisplayView else Ok(None))
+                .map(lambda _: None)
+            )
+
+        return prior.map(Ok).default_with(lambda: Snapshot.capture(scene, Some(descriptors))).bind(captured)
+
+    return paired(stored(identity, scene, "held", dict[Key, Snapshot]), accumulated(Descriptor.resolve(bpy.types.Scene, path, bpy.types.Property) for path in row.holds)).bind(lambda pair: held(*pair))
+
+
+def displayed(scene: bpy.types.Scene, view: DisplayView) -> BlenderResult[None]:
+    """Writes a display, view, and look onto the scene and every output that overrides its color management."""
+
+    def written_view(holder: bpy.types.Scene | bpy.types.ImageFormatSettings) -> BlenderResult[None]:
+        return (
+            written(holder.display_settings, "display_device", view.display)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            .bind(lambda _: written(holder.view_settings, "view_transform", view.view))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            .bind(lambda _: written(holder.view_settings, "look", view.look.value if view.look.enabled else "None"))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            .map(lambda _: None)
+        )
+
+    return paired(written_view(scene), accumulated(written_view(owner) for owner in owners(scene) if owner.color_management == "OVERRIDE")).map(lambda _: None)
+
+
 def entry_input(identity: Identity, entry: bpy.types.SceneCompositorEffect, key: Key) -> "BlenderResult[bpy.types.bpy_struct[object]]":
     """Resolves one live entry input after any group-interface reconstruction."""
     return (
@@ -1864,7 +1860,7 @@ def inputs[T: msgspec.Struct](
         fields = msgspec.structs.fields(kind)
         return accumulated(
             read((*at, field.name), field, bare(shape), field.type).map(lambda value: (field.encode_name, value))
-            for field, shape in zip(fields, native.multi_type_info(field.type for field in fields), strict=False)
+            for field, shape in zip(fields, native.multi_type_info(field.type for field in fields))
         ).map(dict)
 
     return lowered(record, prefix).bind(

@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Eto.Drawing;
 using Grasshopper2.Components;
 using Grasshopper2.Framework;
@@ -95,10 +94,7 @@ public sealed class DataParameter<T> : Parameter<T>, GrasshopperIO.ICustomIoId {
     public DataParameter(GrasshopperIO.IReader reader) : base(reader) { }
 
     // --- [PERSISTENCE]
-    Guid GrasshopperIO.ICustomIoId.CustomIoId => TypeAssistant switch {
-        GrasshopperIO.ICustomIoId assistant => assistant.CustomIoId,
-        _ => throw new UnreachableException(),
-    };
+    Guid GrasshopperIO.ICustomIoId.CustomIoId => ((GrasshopperIO.ICustomIoId)TypeAssistant).CustomIoId;
 
     protected override IIcon IconInternal => TypeAssistant.Icon;
 }
@@ -122,7 +118,7 @@ public static class ParameterField {
             return parameter;
         }, presets),
             (access, index) => Callbacks.Found(access.GetItem(index, out TData held), held)
-                .Traverse(value => admit.Match(Some: accept => accept(value), None: () => Fin.Succ(value))).As()
+                .Traverse(admit.IfNone(static value => value)).As()
                 .Map(found => found.Match<Func<TRecord, TRecord>>(Some: value => record => lens.Set(value, record), None: static () => identity)));
 
     // --- [SOLVE]
@@ -139,13 +135,13 @@ public static class ParameterField {
             where TValue : notnull
             where TKey : struct, System.Numerics.INumber<TKey> =>
             Typed(lens, [], (plugin, id, name) =>
-                DataTypes.Number(id, name, plugin.Icon, domain.Create, domain.Key)(plugin), Some(domain.Admit));
+                DataTypes.Number(id, name, plugin.Icon, domain.Create, domain.Key)(plugin), Some(domain.Checked));
 
         public ParameterField<TRecord> OptionalNumeric<TValue, TKey>(Lens<TRecord, Gated<TValue>> lens, NumericDomain<TValue, TKey> domain)
             where TValue : notnull
             where TKey : struct, System.Numerics.INumber<TKey> =>
             Typed(lens, [], (plugin, id, name) => DataTypes.OptionalNumber(id, name, plugin.Icon, domain.Create, domain.Key)(plugin),
-                Some<Func<Gated<TValue>, Fin<Gated<TValue>>>>(gate => domain.Admit(gate.Value).Map(_ => gate)));
+                Some<Func<Gated<TValue>, Fin<Gated<TValue>>>>(gate => domain.Checked(gate.Value).Map(_ => gate)));
 
         public ParameterField<TRecord> Choice<TValue>(Lens<TRecord, TValue> lens)
             where TValue : ISmartEnum<string, TValue, ValidationError>, ICaptioned =>

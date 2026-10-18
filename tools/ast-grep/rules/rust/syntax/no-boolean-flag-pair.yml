@@ -41,7 +41,7 @@ rule:
         - kind: 'function_item, function_signature_item'
           all:
             - has: {field: name, pattern: $NAME}
-            - has: {field: parameters, matches: flag-pair}
+            - any: [{has: {field: parameters, matches: flag-pair}}, {has: {field: return_type, any: [{kind: tuple_type, matches: packed-type}, {has: {stopBy: end, kind: tuple_type, matches: packed-type}}], pattern: $FIRST}}]
             - not: {matches: rust-trait-or-extern-function}
         - kind: struct_item
           all:
@@ -49,7 +49,7 @@ rule:
             - has: {field: body, matches: flag-pair}
             - not: {matches: rust-serde-record}
 labels:
-    NAME: {style: primary, message: 'Takes both flags'}
+    NAME: {style: primary, message: 'Holds the flags'}
     FIRST: {style: secondary, message: 'First flag'}
     SECOND: {style: secondary, message: 'Second flag'}
 message: '`$NAME` spreads one choice over `bool`, `&bool`, `Option<bool>`, or `Option<()>` flags'

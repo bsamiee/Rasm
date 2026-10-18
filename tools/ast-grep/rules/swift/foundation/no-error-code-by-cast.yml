@@ -52,7 +52,7 @@ rule:
         - kind: equality_expression
           all:
             - has: {kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^rawValue$'}}}
-            - has: {kind: simple_identifier, regex: '^E[A-Z0-9]+$', not: {regex: '^ENOENT$'}}
+            - has: {kind: simple_identifier, regex: '^E[A-Z0-9]+$'}
         - kind: equality_expression
           has: {matches: code-read}
         - kind: switch_statement

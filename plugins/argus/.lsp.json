@@ -39,8 +39,8 @@
         "diagnostics": false
     },
     "java": {
-        "command": "jdtls",
-        "args": [ "-data", "${CLAUDE_PROJECT_DIR}/.cache/jdtls/workspace", "--jvm-arg=-Dosgi.configuration.area=${CLAUDE_PROJECT_DIR}/.cache/jdtls/configuration" ],
+        "command": "mise",
+        "args": [ "exec", "--", "jdtls", "-data", "${CLAUDE_PROJECT_DIR}/.cache/jdtls/workspace", "--jvm-arg=-Dosgi.configuration.area=${CLAUDE_PROJECT_DIR}/.cache/jdtls/configuration" ],
         "extensionToLanguage": { ".java": "java" },
         "diagnostics": false,
         "workspaceFolder": "${CLAUDE_PROJECT_DIR}/.claude/skills/use-ghidra/scripts",

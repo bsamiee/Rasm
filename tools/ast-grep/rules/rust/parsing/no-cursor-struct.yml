@@ -18,6 +18,21 @@ utils:
         all:
             - has: {field: value, kind: self}
             - has: {field: field, pattern: $POS}
+    input-field:
+        kind: field_expression
+        all:
+            - has: {field: value, kind: self}
+            - has: {field: field, pattern: $INPUT}
+    positioned-read:
+        any:
+            - kind: index_expression
+              all:
+                - has: {nthChild: 1, any: [{matches: input-field}, {has: {stopBy: end, matches: input-field}}]}
+                - has: {nthChild: 2, any: [{matches: self-field}, {has: {stopBy: end, matches: self-field}}]}
+            - kind: call_expression
+              all:
+                - has: {field: function, has: {stopBy: end, matches: input-field}}
+                - has: {field: arguments, has: {stopBy: end, matches: self-field}}
 rule:
     kind: struct_item
     all:
@@ -33,5 +48,6 @@ rule:
                 all:
                     - has: {field: type, any: [{pattern: $NAME}, {kind: generic_type, has: {field: type, pattern: $NAME}}]}
                     - has: {field: body, has: {stopBy: end, kind: 'compound_assignment_expr, assignment_expression', has: {field: left, matches: self-field}}}
+                    - has: {field: body, has: {stopBy: end, matches: positioned-read}}
 message: '`$NAME` walks `$INPUT` by hand through index `$POS`'
 note: 'Parse through a `winnow` stream its parsers advance (`&str`, `winnow::LocatingSlice` where spans matter, `winnow::Partial` for incremental input), and read binary layouts through `binrw` `#[derive(BinRead)]`'

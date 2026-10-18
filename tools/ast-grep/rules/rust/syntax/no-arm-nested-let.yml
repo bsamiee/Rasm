@@ -52,20 +52,7 @@ rule:
                     - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
         - precedes: {matches: fallback, pattern: $FALLBACK}
         - not: {has: {field: value, any: [{matches: binding-test}, {has: {stopBy: end, matches: binding-test}}]}}
-        - not:
-            has:
-                field: value
-                has:
-                    stopBy: end
-                    kind: else_clause
-                    has:
-                        stopBy: end
-                        kind: identifier
-                        pattern: $NAME
-                        inside:
-                            kind: match_arm
-                            stopBy: end
-                            has: {field: pattern, has: {stopBy: end, kind: identifier, pattern: $NAME, not: {inside: {kind: tuple_struct_pattern, field: type}}}}
+        - not: {matches: rust-else-reads-arm-binding}
 transform:
     COMMA: {replace: {source: $A, replace: '^[\s\S]+$', by: ','}}
 fix: '$P if $COND => $A$AB$COMMA'

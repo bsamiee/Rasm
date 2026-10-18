@@ -7,7 +7,12 @@ rule:
     any:
         - pattern: $I.collect::<$SET<$_>>().len() == $N
         - pattern: $N == $I.collect::<$SET<$_>>().len()
+        - pattern: $I.collect::<$SET<$_>>().len() != $N
+        - pattern: $N != $I.collect::<$SET<$_>>().len()
+        - pattern: $I.collect::<$SET<$_>>().len() < $N
+        - pattern: $N > $I.collect::<$SET<$_>>().len()
 constraints:
     SET: {regex: '^(Fx|Unord)?(Hash|BTree|Index)Set$'}
+    N: {kind: call_expression, regex: '\.(len|count)\(\)$'}
 message: '`$I` collects into a `$SET` only to compare its size with `$N`'
-note: 'Call `Itertools::all_unique()` on the iterator when the compared size counts its items (`use itertools::Itertools as _;`)'
+note: 'Call `Itertools::all_unique()` on the iterator (`use itertools::Itertools as _;`), negated where the comparison tests for a duplicate'

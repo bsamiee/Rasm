@@ -2,17 +2,29 @@
 id: no-conditional-removal
 language: rust
 severity: error
-rule:
-    kind: if_expression
-    all:
-        - pattern: 'if $R.$PEEK().is_some_and($P) { $R.$TAKE() } else { None }'
-        - any:
+utils:
+    paired:
+        any:
             - pattern: 'if $_R.as_ref().is_some_and($_P) { $_R.take() } else { None }'
             - pattern: 'if $_R.last().is_some_and($_P) { $_R.pop() } else { None }'
             - pattern: 'if $_R.back().is_some_and($_P) { $_R.pop_back() } else { None }'
             - pattern: 'if $_R.front().is_some_and($_P) { $_R.pop_front() } else { None }'
+            - pattern: 'if $_R.as_ref().is_some_and($_P) { $_R.take(); }'
+            - pattern: 'if $_R.last().is_some_and($_P) { $_R.pop(); }'
+            - pattern: 'if $_R.back().is_some_and($_P) { $_R.pop_back(); }'
+            - pattern: 'if $_R.front().is_some_and($_P) { $_R.pop_front(); }'
+rule:
+    kind: if_expression
+    all:
+        - any:
+            - pattern: 'if $R.$PEEK().is_some_and($P) { $R.$TAKE() } else { None }'
+            - all:
+                - pattern: 'if $R.$PEEK().is_some_and($P) { $R.$TAKE(); }'
+                - pattern: $STATEMENT
+        - matches: paired
 transform:
     METHOD: {replace: {source: $TAKE, replace: '^([\s\S]+)$', by: '${1}_if'}}
-fix: $R.$METHOD($P)
+    END: {replace: {source: $STATEMENT, replace: '^[\s\S]*$', by: ';'}}
+fix: $R.$METHOD($P)$END
 message: '`$R.$TAKE()` runs under a test of the same element through `$PEEK`'
 note: 'Call `<option>.take_if(<predicate>)`, `<vec>.pop_if(<predicate>)`, `<deque>.pop_back_if`, or `pop_front_if`, each passes the element to the predicate as `&mut T`'

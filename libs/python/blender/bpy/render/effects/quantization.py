@@ -17,10 +17,10 @@ from blender.bpy.faults import BlenderFaults, BlenderImagingFault, BlenderResult
 from blender.bpy.nodes.coordinates import gridded
 from blender.bpy.nodes.graphs import End, ended, Fragment, Generated, math, menu, mixed, node, switched, vector
 from blender.bpy.render.color.luts import Enabled
-from blender.bpy.render.color.spaces import space_item
+from blender.bpy.render.color.spaces import config_of, space_item
 from blender.bpy.render.effects.stack import CompositorEffect, Coverage, Derived, entries, formation, precise, Shell
 from blender.bpy.render.effects.viewers import inspection
-from blender.bpy.render.outputs.exports import config_of, displayed
+from blender.bpy.render.outputs.exports import displayed
 from blender.bpy.render.outputs.finishing import Finish, stamped, Written
 from blender.bpy.render.outputs.formats import Kind
 from blender.bpy.settings.attachments import Attachment

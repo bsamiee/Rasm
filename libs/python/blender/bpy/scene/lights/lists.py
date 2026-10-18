@@ -82,11 +82,8 @@ class LightList(msgspec.Struct, frozen=True, kw_only=True):
         ),
     )
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
         """Answers the solo attachment, the four operators, and the emissive select menu entry.
-
-        Args:
-            identity: Extension placing the row.
 
         Returns:
             `Ok` of the attachment, operators, append, and section declarations.
@@ -121,7 +118,7 @@ class LightList(msgspec.Struct, frozen=True, kw_only=True):
                         Property(target=Member(root=bpy.types.Object, path="hide_render"), text=Some(""), icon_only=True),
                         SearchField(target=Member(root=bpy.types.Object, path="lightgroup"), collection=Member(root=bpy.types.ViewLayer, path="lightgroups"), text=Some("")),
                     ),
-                    where=Some(lambda context, item: emitting(item)),
+                    where=Some(lambda _context, item: emitting(item)),
                     order=Some("type"),
                     side=(OperatorButton(target=solo), OperatorButton(target=unsolo)),
                 ),

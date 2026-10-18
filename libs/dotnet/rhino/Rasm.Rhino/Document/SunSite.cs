@@ -107,22 +107,20 @@ public sealed record SunSite(GeoCoordinate Place, NorthAngle North, StandardOffs
     public Offset Wall => Standard.ToValue() + Saving.Map(static saving => saving.ToValue()).IfNone(Offset.Zero);
 
     public static Fin<SunSite> Read(Sun sun) =>
-        (GeoCoordinate.From(sun.Latitude, sun.Longitude).ToValidation(),
-         NorthAngle.Validated(sun.North).ToValidation(),
-         ValidationResults.Validated<StandardOffset, double>(sun.TimeZone).ToValidation(),
-         Callbacks.Found(sun.DaylightSavingOn, sun.DaylightSavingMinutes).Traverse(static minutes => DaylightSaving.Validated(minutes)).As().ToValidation())
+        (GeoCoordinate.From(sun.Latitude, sun.Longitude),
+         NorthAngle.Validated(sun.North),
+         ValidationResults.Validated<StandardOffset, double>(sun.TimeZone),
+         Callbacks.Found(sun.DaylightSavingOn, sun.DaylightSavingMinutes).Traverse(static minutes => DaylightSaving.Validated(minutes)).As())
             .Apply(static (place, north, standard, saving) => new SunSite(place, north, standard, saving))
-            .As()
-            .ToFin();
+            .As();
 
     public static Fin<SunSite> Placed(GeoCoordinate place, NorthAngle north, SunMoment moment) =>
         from interval in Zone(place).Map(zone => zone.MapLocal((LocalDateTime)moment).EarlyInterval)
         let positive = Some(interval.Savings).Filter(static offset => offset > Offset.Zero)
-        from site in (ValidationResults.Validated<StandardOffset, Offset>(interval.WallOffset - positive.IfNone(Offset.Zero)).ToValidation(),
-                      positive.Traverse(static offset => Conversions.Whole(Duration.FromSeconds(offset.Seconds), Duration.FromMinutes(1)).Bind(static minutes => DaylightSaving.Validated(minutes))).As().ToValidation())
+        from site in (ValidationResults.Validated<StandardOffset, Offset>(interval.WallOffset - positive.IfNone(Offset.Zero)),
+                      positive.Traverse(static offset => Conversions.Whole(Duration.FromSeconds(offset.Seconds), Duration.FromMinutes(1)).Bind(static minutes => DaylightSaving.Validated(minutes))).As())
             .Apply((standard, saving) => new SunSite(place, north, standard, saving))
             .As()
-            .ToFin()
         select site;
 
     public static Fin<SunSite> FromAnchor(EarthAnchor anchor, SunMoment moment) =>
@@ -156,7 +154,7 @@ public sealed record SunSite(GeoCoordinate Place, NorthAngle North, StandardOffs
 
     public SunDay Day(LocalDate date) =>
         new SolarTerms(new SolarTerms(InstantOf(date.At(LocalTime.Noon))).Transit(Place.Longitude)).Transit(Place.Longitude) switch {
-            var noon => Horizon(new SolarTerms(noon).Declination, SunriseZenith) switch {
+            var noon => Horizon(new SolarTerms(noon).Declination, zenith: SunriseZenith) switch {
                 <= -1d => new SunDay.PolarDay(noon),
                 >= 1d => new SunDay.PolarNight(noon),
                 var cosine => Duration.FromDays(Math.Acos(cosine) / double.Tau) switch {
@@ -184,15 +182,14 @@ public sealed record SunSite(GeoCoordinate Place, NorthAngle North, StandardOffs
 
     private Fin<Vector3d> Direction(Sun sun, DateTimeZone computer, Instant at) =>
         at.InZone(computer) switch {
-            var held => (ValidationResults.Validated<SunMoment, LocalDateTime>(held.LocalDateTime).ToValidation(),
-                         ValidationResults.Validated<StandardOffset, Offset>(held.Offset).ToValidation())
+            var held => (ValidationResults.Validated<SunMoment, LocalDateTime>(held.LocalDateTime),
+                         ValidationResults.Validated<StandardOffset, Offset>(held.Offset))
                 .Apply((_, offset) => {
                     SunMapper.Update(this with { Standard = offset, Saving = None }, sun);
                     sun.SetDateTime(at.ToDateTimeUtc(), DateTimeKind.Local);
                     return sun.Vector;
                 })
-                .As()
-                .ToFin(),
+                .As(),
         };
 
     private static Fin<DateTimeZone> Zone(GeoCoordinate place) =>
@@ -358,10 +355,12 @@ public abstract partial record SunWindow : IConvertible<string> {
             _ => Option<SunWindow>.None,
         };
 
-    public static ValidationError? Validate(string? value, IFormatProvider? provider, out SunWindow? item) =>
-        (item = Optional(value).Bind(static text => Parsed(text.Split('/'))).ValueUnsafe()) is null && value is not null
+    public static ValidationError? Validate(string? value, IFormatProvider? provider, out SunWindow? item) {
+        item = Optional(value).Bind(static text => Parsed(text.Split('/'))).ValueUnsafe();
+        return item is null && value is not null
             ? new ValidationError($"{value} is no day/<date>/<from>/<until>/<minutes> or season/<from>/<until>/<at>/<days> sun window")
             : null;
+    }
 
     public string ToValue() =>
         Switch(
@@ -398,16 +397,14 @@ public abstract partial record SunWindow : IConvertible<string> {
     private static Option<T> Succeeded<T>(ParseResult<T> result) where T : struct => Callbacks.Found(result.TryGetValue(default, out T value), value);
 
     private static Fin<TWindow> Bounded<TWindow>(LocalDateTime start, LocalDateTime end, Period step, Duration grain, Func<LocalDateTime, LocalDateTime, int, TWindow> window) =>
-        (ValidationResults.Validated<SunMoment, LocalDateTime>(start).ToValidation(),
-         ValidationResults.Validated<SunMoment, LocalDateTime>(end).ToValidation(),
-         (start <= end ? Fin.Succ(unit) : Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"sun study starts at {start} after its end {end}"))).ToValidation(),
+        (ValidationResults.Validated<SunMoment, LocalDateTime>(start),
+         ValidationResults.Validated<SunMoment, LocalDateTime>(end),
+         start <= end ? Fin.Succ(unit) : Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"sun study starts at {start} after its end {end}")),
          Some(step).Filter(held => held.Years is 0 && held.Months is 0 && held.ToDuration() >= grain)
              .ToFin(Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"sun study step {step} is no positive count of {grain}")))
-             .Bind(held => Conversions.Whole(held.ToDuration(), grain))
-             .ToValidation())
+             .Bind(held => Conversions.Whole(held.ToDuration(), grain)))
             .Apply((_, _, _, count) => window(start, end, count))
-            .As()
-            .ToFin();
+            .As();
 
     public sealed record Day : SunWindow {
         private Day(LocalDateTime start, LocalDateTime end, int minutesBetweenFrames) : base(start, end) => MinutesBetweenFrames = minutesBetweenFrames;

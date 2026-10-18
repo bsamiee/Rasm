@@ -105,7 +105,7 @@ public abstract partial record QueueEvent {
 internal sealed record NtfyMessage(string Topic, string Title, string Message, int Priority, string[] Tags);
 
 [JsonSerializable(typeof(NtfyMessage))]
-[JsonSourceGenerationOptions(JsonSerializerDefaults.Web)]
+[JsonSourceGenerationOptions(JsonSerializerDefaults.Web, RespectNullableAnnotations = true, RespectRequiredConstructorParameters = true)]
 internal sealed partial class NtfyContext : JsonSerializerContext;
 
 // --- [SERVICES] ------------------------------------------------------------------------

@@ -14,10 +14,31 @@ utils:
                     - kind: class_definition
                     - kind: function_definition
                     - {kind: generic_type, inside: {kind: type, inside: {kind: type_alias_statement, field: left}}}
+    unpacked-body:
+        kind: ERROR
+        any:
+            - has: {kind: identifier, regex: '^for$'}
+              inside:
+                stopBy: {kind: 'list_splat, dictionary_splat'}
+                any:
+                    - kind: list_splat
+                      inside:
+                        stopBy: {kind: &starred 'list, set, tuple, parenthesized_expression, argument_list, list_comprehension, set_comprehension, generator_expression'}
+                        kind: *starred
+                    - {kind: dictionary_splat, inside: {kind: &mapped 'dictionary, dictionary_comprehension'}}
+            - has: {nthChild: 1, kind: identifier, regex: '^for$'}
+              any:
+                - {follows: {kind: list_splat}, inside: {kind: *starred}}
+                - {follows: {kind: dictionary_splat}, inside: {kind: *mapped}}
+    unpacked-clause:
+        kind: ERROR
+        follows: {stopBy: end, any: [{matches: unpacked-body}, {has: {stopBy: end, matches: unpacked-body}}]}
     unreported:
         any:
             - inside: {kind: ERROR, stopBy: end}
             - matches: type-parameter-default
+            - matches: unpacked-body
+            - matches: unpacked-clause
 rule:
     any:
         - kind: ERROR
@@ -27,4 +48,4 @@ rule:
 labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
 message: 'Grammar failed to parse the span'
-note: 'Write a form tree-sitter-python parses, every other rule skips constructs inside a parse error. Unreported tree-sitter-python grammar gaps are type parameter defaults (`class Box[T = int]`)'
+note: 'Write a form tree-sitter-python parses, every other rule skips constructs inside a parse error. Unreported tree-sitter-python grammar gaps are type parameter defaults (`class Box[T = int]`) and PEP 798 unpacked comprehension bodies, `**` in a dict comprehension and `*` before an operand other than a name (`{**group for ...}`, `[*(a, b) for ...]`)'

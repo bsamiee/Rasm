@@ -8,7 +8,7 @@ import importlib
 import inspect
 from pathlib import Path
 import sys
-from types import BuiltinFunctionType, ClassMethodDescriptorType, FunctionType, MethodDescriptorType, MethodType, ModuleType, WrapperDescriptorType
+from types import BuiltinFunctionType, ClassMethodDescriptorType, FunctionType, MethodDescriptorType, MethodType, WrapperDescriptorType
 from typing import TypeAliasType
 
 import msgspec
@@ -39,31 +39,18 @@ PACKAGES_UNDER_TEST: pytest.StashKey[frozendict[str, PackageUnderTest]] = pytest
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _record(subject: object) -> PropertyRecord:
-    """Return the subject identity used by public-API coverage."""
-    match subject:
-        case type() | TypeAliasType() | FunctionType() | MethodType() | BuiltinFunctionType():
-            return PropertyRecord(subject=subject.__qualname__, subject_module=subject.__module__)
-        case MethodDescriptorType() | WrapperDescriptorType() | ClassMethodDescriptorType():
-            return PropertyRecord(subject=subject.__qualname__, subject_module=subject.__objclass__.__module__)
-        case _:
-            return PropertyRecord(subject=str(subject), subject_module=None)
-
-
 def is_automatically_exempt(subject: object) -> bool:
     """Return whether public-API test coverage excludes a value-only symbol."""
     match subject:
         case type() if issubclass(subject, enum.StrEnum):
             return True
         case type() if issubclass(subject, msgspec.Struct):
-            declared = any(
-                callable(member) or isinstance(member, property | classmethod | staticmethod | functools.cached_property)
+            return subject.__struct_config__.frozen and not any(
+                callable(member) or isinstance(member, property | classmethod | functools.cached_property)
                 for klass in subject.__mro__
-                if klass not in {msgspec.Struct, object}
                 for name, member in vars(klass).items()
                 if name == "__post_init__" or not name.startswith("__")
             )
-            return bool(subject.__struct_config__.frozen) and not declared
         case type():
             return False
         case TypeAliasType():
@@ -72,40 +59,16 @@ def is_automatically_exempt(subject: object) -> bool:
             return type(subject).__module__ == "typing" or not callable(subject)
 
 
-def _public_api(package_name: str) -> tuple[dict[str, object], tuple[tuple[str, str], ...]]:
-    """Collect public names and module-import failures for a package."""
-    root = importlib.import_module(package_name)
-    exports: list[tuple[ModuleType, list[str]]] = []
-    failures: list[tuple[str, str]] = []
-    paths = (py.relative_to(base) for base in root.__path__ for py in sorted(Path(base).rglob("*.py")))
-    stems = (path.parent if path.stem == "__init__" else path.with_suffix("") for path in paths)
-    for mod_name in (".".join((package_name, *stem.parts)) for stem in stems if not any(part.startswith("_") for part in stem.parts)):
-        try:
-            module = importlib.import_module(mod_name)
-        except (ImportError, SyntaxError) as exc:
-            failures.append((mod_name, repr(exc)))
-        else:
-            match vars(module).get("__all__"):
-                case None:
-                    failures.append((mod_name, "the module defines no __all__"))
-                case names:
-                    exports.append((module, names))
-
-    public_api: dict[str, object] = {}
-    for mod, names in exports:
-        members = dict(inspect.getmembers(mod))
-        for name in names:
-            if name not in members:
-                failures.append((mod.__name__, f"__all__ names {name!r} but the module never defines it"))
-            elif not inspect.ismodule(member := members[name]):
-                public_api.setdefault(name, member)
-
-    return public_api, tuple(failures)
-
-
 def property_test(subject: object) -> pytest.MarkDecorator:
-    """Return a property mark recording the covered subject."""
-    return pytest.mark.property(record=_record(subject))
+    """Return a property mark recording the covered subject's public-API identity."""
+    match subject:
+        case type() | TypeAliasType() | FunctionType() | MethodType() | BuiltinFunctionType():
+            record = PropertyRecord(subject=subject.__qualname__, subject_module=subject.__module__)
+        case MethodDescriptorType() | WrapperDescriptorType() | ClassMethodDescriptorType():
+            record = PropertyRecord(subject=subject.__qualname__, subject_module=subject.__objclass__.__module__)
+        case _:
+            record = PropertyRecord(subject=str(subject), subject_module=None)
+    return pytest.mark.property(record=record)
 
 
 def covers(*subjects: object) -> list[pytest.MarkDecorator]:
@@ -115,9 +78,9 @@ def covers(*subjects: object) -> list[pytest.MarkDecorator]:
 
 def register_package(stash: pytest.Stash, package: str, *, suite: Path, exempt: frozenset[str] = frozenset()) -> None:
     """Register a package for public-API test coverage on the session stash, a repeat call merging exemptions and keeping the first test directory."""
-    packages = stash.setdefault(PACKAGES_UNDER_TEST, frozendict())
-    registration = replace(prior, exempt=exempt | prior.exempt) if (prior := packages.get(package)) is not None else PackageUnderTest(exempt, suite)
-    stash[PACKAGES_UNDER_TEST] = packages | {package: registration}
+    packages = stash.get(PACKAGES_UNDER_TEST, frozendict())
+    prior = packages.get(package, PackageUnderTest(frozenset(), suite))
+    stash[PACKAGES_UNDER_TEST] = packages | {package: replace(prior, exempt=prior.exempt | exempt)}
 
 
 def register_package_tree(stash: pytest.Stash, module_root: Path, suite_root: Path) -> None:
@@ -128,34 +91,39 @@ def register_package_tree(stash: pytest.Stash, module_root: Path, suite_root: Pa
 
 def uncollected_test_modules(config: pytest.Config, packages: Mapping[str, PackageUnderTest]) -> dict[str, tuple[str, ...]]:
     """Return the package test modules pytest did not import during collection."""
-    gaps = {
-        package: tuple(
-            sorted(
-                name
-                for pattern in config.getini("python_files")
-                for py in registration.suite.rglob(pattern)
-                if (name := ".".join((py.relative_to(config.rootpath) if py.is_relative_to(config.rootpath) else py).with_suffix("").parts)) not in sys.modules
-            )
-        )
+    names = {
+        package: tuple(sorted(".".join(py.relative_to(config.rootpath).with_suffix("").parts) for pattern in config.getini("python_files") for py in registration.suite.rglob(pattern)))
         for package, registration in packages.items()
     }
-    return {package: missing for package, missing in gaps.items() if missing}
+    return {package: missing for package, modules in names.items() if (missing := tuple(module for module in modules if module not in sys.modules))}
 
 
-def assert_property_coverage(records: tuple[PropertyRecord, ...], packages: Mapping[str, PackageUnderTest], *, only: frozenset[str] | None = None) -> None:
-    """Assert every registered public API in the ``only`` packages, or in every package when ``None``, has a property test or an exemption."""
-    global_covered = frozenset(record.subject.rsplit(".", 1)[-1] for record in records if record.subject_module is None)
+def assert_property_coverage(records: tuple[PropertyRecord, ...], packages: Mapping[str, PackageUnderTest]) -> None:
+    """Assert every public API of each registered package has a property test or an exemption, and every public module imports and states ``__all__``."""
+
+    def surveyed(module: str) -> tuple[dict[str, object], tuple[str, ...]]:
+        try:
+            members = dict(inspect.getmembers(loaded := importlib.import_module(module)))
+        except (ImportError, SyntaxError) as error:
+            return {}, (repr(error),)
+        match vars(loaded).get("__all__"):
+            case None:
+                return {}, ("the module defines no __all__",)
+            case names:
+                return {name: members[name] for name in names if name in members and not inspect.ismodule(members[name])}, tuple(
+                    f"__all__ names {name!r} but the module never defines it" for name in names if name not in members
+                )
 
     for package, registration in packages.items():
-        if only is not None and package not in only:
-            continue
-        public_api, failures = _public_api(package)
-        covered = global_covered | frozenset(
-            record.subject.rsplit(".", 1)[-1] for record in records if record.subject_module is not None and (record.subject_module == package or record.subject_module.startswith(f"{package}."))
+        modules = (
+            ".".join((package, *py.relative_to(base).with_suffix("").parts)).removesuffix(".__init__") for base in importlib.import_module(package).__path__ for py in sorted(Path(base).rglob("*.py"))
         )
-        uncovered = frozenset(name for name, member in public_api.items() if name not in covered and name not in registration.exempt and not is_automatically_exempt(member))
-        gaps = [*(f"  - {name}" for name in sorted(uncovered)), *(f"  ! {mod}: {err}" for mod, err in failures)]
-        assert not gaps, f"Property-test coverage gap in '{package}': {len(uncovered)} public symbol(s) are untested and {len(failures)} module(s) failed to import:\n" + "\n".join(gaps)
+        surveys = {module: surveyed(module) for module in modules if not any(part.startswith("_") for part in module.removeprefix(package).split("."))}
+        failures = [f"  ! {module}: {failure}" for module, (_, faults) in surveys.items() for failure in faults]
+        covered = registration.exempt | {record.subject.rsplit(".", 1)[-1] for record in records if record.subject_module is None or f"{record.subject_module}.".startswith(f"{package}.")}
+        uncovered = sorted({f"  - {name}" for exports, _ in surveys.values() for name, member in exports.items() if name not in covered and not is_automatically_exempt(member)})
+        gaps = uncovered + failures
+        assert not gaps, f"Property-test coverage gap in '{package}': {len(uncovered)} untested public symbol(s) and {len(failures)} module fault(s):\n{'\n'.join(gaps)}"
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

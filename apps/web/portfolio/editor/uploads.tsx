@@ -1,43 +1,50 @@
 import { useAtom, useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import { useUppyEvent, useUppyState } from '@uppy/react';
 import Dashboard from '@uppy/react/dashboard';
-import { Match, Option, Schema, Struct } from 'effect';
+import { Schema, Struct } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
-import { type ReactNode, useState } from 'react';
+import { useState } from 'react';
 import '@uppy/core/css/style.min.css';
 import '@uppy/dashboard/css/style.min.css';
-import { byteSize, entryTitle } from '../media/display.ts';
-import { type AssetCollection, PdfAsset, uploadLimit } from '../model/asset.ts';
+import { byteSize, entryKind, entryTitle } from '../media/display.ts';
+import type { PendingUpload } from '../model/api.ts';
+import { type AssetCollection, mediaTypes, PdfAsset, uploadLimit } from '../model/asset.ts';
 import type { Entry } from '../model/document.ts';
 import { ConfirmDialog, MenuButton, RequestAlert, SelectField } from './controls.tsx';
 import { discardRequest, pendingRequest } from './services.ts';
-import { type Destination, destination, pendingUploads, queuedFiles, uploads } from './uploader.ts';
+import { type Destination, destination, pendingUploads, queue, uploads } from './uploader.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-function Uploads({ assets, entries, onChoose }: { assets: typeof AssetCollection.Type; entries: readonly (typeof Entry.Type)[]; onChoose: (entryId: string, assetId: string) => void }): ReactNode {
-    const dashboardHeight = { empty: 200, queue: 350 };
+const Uploads = ({ assets, entries, onChoose }: { assets: typeof AssetCollection.Type; entries: readonly (typeof Entry.Type)[]; onChoose: (entryId: string, assetId: string) => void }) => {
     const uploader = useAtomValue(uploads);
-    const files = useAtomValue(queuedFiles);
+    const files = Object.values(useAtomValue(queue));
     const pending = useAtomValue(pendingUploads);
-    const refreshFiles = useAtomRefresh(queuedFiles);
     const recovery = useAtomValue(pendingRequest);
     const refreshRecovery = useAtomRefresh(pendingRequest);
     const [discarded, discard] = useAtom(discardRequest);
     useUppyEvent(uploader, 'complete', refreshRecovery);
-    useUppyEvent(uploader, 'file-removed', (file): void => {
+    useUppyEvent(uploader, 'file-removed', (file) => {
         if (file.meta.prepared !== undefined && file.progress.uploadComplete !== true) {
             refreshRecovery();
         }
     });
     const batches = useUppyState(uploader, Struct.get('currentUploads'));
+    const notices = useUppyState(uploader, Struct.get('info'));
     const [selected, setSelected] = useState<string>();
     const [target, setTarget] = useAtom(destination);
-    const options: readonly { readonly id: string; readonly label: string; readonly target: Destination }[] = [
-        { id: 'library', label: 'Private file library', target: { kind: 'library' } },
-        { id: 'hero', label: 'Hero placement — one file', target: { kind: 'hero' } },
-        ...entries.map((entry) => ({ id: entry.id, label: `${entryTitle(entry)} · ${entry.kind}`, target: { kind: 'entry', id: entry.id } satisfies Destination })),
-    ];
+    const key = (value: Destination) => (value.kind === 'entry' ? value.id : value.kind);
+    const options = [{ target: { kind: 'library' } as const, label: 'Private file library' }, { target: { kind: 'hero' } as const, label: 'Hero placement — one file' }, ...entries.map((entry) => ({ target: { kind: 'entry', id: entry.id } as const, label: `${entryTitle(entry)} · ${entryKind[entry.kind]}` }))].map(
+        (option) => ({
+            ...option,
+            id: key(option.target),
+        }),
+    );
+    const actions = {
+        incomplete: { label: 'Discard incomplete upload', description: 'Discard the incomplete upload and its stored data. Add the original file again to upload it.' },
+        cleanup: { label: 'Clean up upload data', description: 'Remove leftover upload data. The completed source file and its placements are kept.' },
+        removing: { label: 'Finish removal', description: 'Finish removing this source file and its remaining stored data.' },
+    } satisfies Record<(typeof PendingUpload.Type)['status'], { readonly label: string; readonly description: string }>;
     const documents = files.flatMap((file) => {
         const asset = file.meta.prepared === undefined ? undefined : assets[file.meta.prepared.asset.id];
         const entry = entries.find((item) => file.meta.destination.kind === 'entry' && item.id === file.meta.destination.id);
@@ -47,39 +54,44 @@ function Uploads({ assets, entries, onChoose }: { assets: typeof AssetCollection
     const queuedUploads = new Set(files.flatMap((file) => (file.meta.prepared !== undefined && file.progress.uploadComplete !== true ? [file.meta.prepared.asset.id] : [])));
     return (
         <>
-            <SelectField label="Destination for new files" onChange={(option): void => setTarget(option.target)} options={options} value={target.kind === 'entry' ? target.id : target.kind} />
+            <SelectField label="Destination for new files" onChange={(option) => setTarget(option.target)} options={options} value={key(target)} />
             {files.length > 0 && (
-                <MenuButton label="File destinations" onAction={(item): void => setSelected(item.id)} options={files.map((item) => ({ id: item.id, label: item.name }))}>
+                <MenuButton label="File destinations" onAction={(item) => setSelected(item.id)} options={files.map((item) => ({ id: item.id, label: item.name }))}>
                     File destinations
                 </MenuButton>
             )}
-            {selectedFile && (
+            {selectedFile !== undefined && (
                 <div className="min-w-0">
                     <p className="hint wrap-anywhere mb-2">{selectedFile.name}</p>
                     {selectedFile.progress.uploadStarted === null && selectedFile.meta.prepared === undefined && !Object.values(batches).some((batch) => batch.fileIDs.includes(selectedFile.id)) ? (
                         <SelectField
                             label="File destination"
-                            onChange={(option): void => {
-                                uploader.setFileMeta(selectedFile.id, { destination: option.target });
-                                refreshFiles();
-                            }}
+                            onChange={(option) => uploader.setFileMeta(selectedFile.id, { destination: option.target })}
                             options={options.filter((option) => option.target.kind !== 'hero' || !files.some((item) => item.id !== selectedFile.id && item.meta.destination.kind === 'hero' && item.progress.uploadComplete !== true))}
-                            value={selectedFile.meta.destination.kind === 'entry' ? selectedFile.meta.destination.id : selectedFile.meta.destination.kind}
+                            value={key(selectedFile.meta.destination)}
                         />
                     ) : (
                         <p className="hint">
-                            Destination: {options.find((option) => option.id === (selectedFile.meta.destination.kind === 'entry' ? selectedFile.meta.destination.id : selectedFile.meta.destination.kind))?.label ?? 'Removed entry'} ·{' '}
-                            {selectedFile.progress.uploadComplete === true ? 'Uploaded' : 'Fixed after processing starts'}
+                            Destination: {options.find((option) => option.id === key(selectedFile.meta.destination))?.label ?? 'Removed entry'} · {selectedFile.progress.uploadComplete === true ? 'Uploaded' : 'Fixed after processing starts'}
                         </p>
                     )}
                 </div>
             )}
-            <div className="min-w-0 [&_.uppy-Dashboard-inner]:rounded-none [&_.uppy-Dashboard-inner]:bg-background">
-                <p className="hint mb-3">JPEG, PNG, WebP, AVIF, PDF, MP4 or WebM · Up to {byteSize.format(uploadLimit)} per file</p>
-                <Dashboard doneButtonHandler={(): void => uploader.removeFiles(uploader.getFiles().map(Struct.get('id')))} height={files.length > 0 ? dashboardHeight.queue : dashboardHeight.empty} proudlyDisplayPoweredByUppy={false} uppy={uploader} width="100%" />
+            <div className="upload-dashboard min-w-0">
+                <p className="hint mb-3">
+                    {new Intl.ListFormat('en', { type: 'disjunction' }).format(mediaTypes.flatMap((type) => type.split('/').slice(1)).map((subtype) => subtype.toUpperCase()))} · Up to {byteSize.format(uploadLimit)} per file
+                </p>
+                <div className={files.length > 0 ? 'h-88' : 'h-50'}>
+                    <Dashboard disableInformer={true} doneButtonHandler={() => uploader.removeFiles(files.map(Struct.get('id')))} height="100%" proudlyDisplayPoweredByUppy={false} uppy={uploader} width="100%" />
+                </div>
+                {notices.map(({ message }) => (
+                    <p className="hint wrap-anywhere mt-3" key={message} role="alert">
+                        {message}
+                    </p>
+                ))}
                 {documents.length > 0 && (
                     <div className="mt-3">
-                        <MenuButton label="Choose uploaded sheets" onAction={({ entryId, assetId }): void => onChoose(entryId, assetId)} options={documents}>
+                        <MenuButton label="Choose uploaded sheets" onAction={({ entryId, assetId }) => onChoose(entryId, assetId)} options={documents}>
                             Choose uploaded sheets
                         </MenuButton>
                     </div>
@@ -106,56 +118,44 @@ function Uploads({ assets, entries, onChoose }: { assets: typeof AssetCollection
                         Removing upload data…
                     </p>
                 )}
-                {Option.match(AsyncResult.error(discarded), {
-                    onNone: (): ReactNode => null,
-                    onSome: ({ upload, error }): ReactNode => (
+                {AsyncResult.builder(discarded)
+                    .onError(({ upload, error }) => (
                         <div className="mt-3">
                             <p className="hint wrap-anywhere mb-2">{upload.name}</p>
                             <RequestAlert conflict="This upload changed in another request. Refresh the list before trying again." error={error} />
                         </div>
-                    ),
-                })}
-                {AsyncResult.matchWithError(recovery, {
-                    onInitial: (): ReactNode => (
+                    ))
+                    .orNull()}
+                {AsyncResult.builder(recovery)
+                    .onInitial(() => (
                         <p className="hint mt-3" role="status">
                             Checking incomplete uploads…
                         </p>
-                    ),
-                    onError: (error): ReactNode => <RequestAlert conflict="Upload recovery could not be loaded." error={error} />,
-                    onDefect: (defect): never => {
-                        throw defect;
-                    },
-                    onSuccess: ({ value }): ReactNode =>
+                    ))
+                    .onError((error) => <RequestAlert error={error} />)
+                    .onSuccess((value) =>
                         value.length === 0 ? (
                             <p className="hint mt-3">No incomplete uploads.</p>
                         ) : (
                             <>
                                 <p className="hint mt-3">Files interrupted before completion stay private. If this tab no longer has the file, discard its incomplete upload and add the original again.</p>
                                 <ul className="mt-3 divide-y divide-line">
-                                    {value.map((upload) => {
-                                        const action = Match.value(upload.status).pipe(
-                                            Match.when('incomplete', () => ({ label: 'Discard incomplete upload', description: 'Discard the incomplete upload and its stored data. Add the original file again to upload it.' })),
-                                            Match.when('cleanup', () => ({ label: 'Clean up upload data', description: 'Remove leftover upload data. The completed source file and its placements are kept.' })),
-                                            Match.when('removing', () => ({ label: 'Finish removal', description: 'Finish removing this source file and its remaining stored data.' })),
-                                            Match.exhaustive,
-                                        );
-                                        const queued = queuedUploads.has(upload.id);
-                                        return (
-                                            <li className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-3" key={upload.id}>
-                                                <span className="wrap-anywhere min-w-0 flex-1 text-sm">{upload.name}</span>
-                                                <ConfirmDialog description={`${upload.name}: ${action.description}`} disabled={discarded.waiting || queued} label={action.label} onConfirm={(): void => discard(upload)} />
-                                                {queued && <p className="hint w-full">Retry or remove this file in the upload queue before discarding its stored data.</p>}
-                                            </li>
-                                        );
-                                    })}
+                                    {value.map((upload) => (
+                                        <li className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-3" key={upload.id}>
+                                            <span className="wrap-anywhere min-w-0 flex-1 text-sm">{upload.name}</span>
+                                            <ConfirmDialog description={`${upload.name}: ${actions[upload.status].description}`} disabled={discarded.waiting || queuedUploads.has(upload.id)} label={actions[upload.status].label} onConfirm={() => discard(upload)} />
+                                            {queuedUploads.has(upload.id) && <p className="hint w-full">Retry or remove this file in the upload queue before discarding its stored data.</p>}
+                                        </li>
+                                    ))}
                                 </ul>
                             </>
                         ),
-                })}
+                    )
+                    .render()}
             </section>
         </>
     );
-}
+};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

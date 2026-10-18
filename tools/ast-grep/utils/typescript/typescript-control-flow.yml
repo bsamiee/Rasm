@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: typescript-control-flow
+language: tsx
+rule:
+    any:
+        - kind: for_statement, for_in_statement, while_statement, do_statement, switch_statement
+        - kind: if_statement
+          not: {inside: {kind: else_clause}}
+        - kind: ternary_expression
+          not: {inside: {kind: ternary_expression, field: alternative, stopBy: {not: {matches: typescript-expression-wrapper}}}}

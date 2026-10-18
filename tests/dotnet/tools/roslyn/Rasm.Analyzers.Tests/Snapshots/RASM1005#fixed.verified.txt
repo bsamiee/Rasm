@@ -1,0 +1,16 @@
+using LanguageExt;
+using static LanguageExt.Prelude;
+
+internal static class AccumulatorSpread {
+    internal static Seq<int> Folded(Seq<int> values) => values.Fold(Seq<int>(), static (held, value) => held.Add(value * 2));
+    internal static Seq<int> Looped(int[] values) {
+        Seq<int> held = [];
+        foreach (int value in values)
+            held = held.Add(value);
+        return held;
+    }
+}
+
+internal static class OneTimeSpread {
+    internal static Seq<int> Joined(Seq<int> head, int tail) => [.. head, tail];
+}

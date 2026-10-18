@@ -42,6 +42,4 @@ transform:
     FIXED: {replace: {source: $RIGHT, replace: '@@', by: '"'}}
 fix: $FIXED
 message: '`$CONDITION` compares an operand outside single quotes'
-labels:
-    CONDITION: {style: primary, message: 'Condition with an unquoted operand'}
 note: 'Quote both operands, `Condition="''$(<Property>)'' == ''<value>''"`'

@@ -16,11 +16,11 @@ lint-commented-code                          = true       # `collapsible_if` and
 
 # --- [NAMING]
 upper-case-acronyms-aggressive = true                 # `upper_case_acronyms` covers every all-caps run in a type or variant name (`HTTPServer` becomes `HttpServer`)
-allow-exact-repetitions        = false                # `module_name_repetitions` covers public items named exactly as their public module
 allowed-idents-below-min-chars = ["w", "x", "y", "z"] # Coordinate axes keep one-letter names, `i`, `j`, and `n` name no domain value
 enum-variant-name-threshold    = 2                    # Two variants are the fewest that share an affix
 struct-field-name-threshold    = 2                    # Two fields are the fewest that share an affix
 allow-renamed-params-for       = []                   # `renamed_function_params` covers `From`, `TryFrom`, and `FromStr` impls
+pub-underscore-fields-behavior = "AllPubFields"       # `pub_underscore_fields` covers `pub _name` fields of types the crate does not export
 
 # --- [GRAPH]
 allowed-duplicate-crates = [
@@ -31,6 +31,9 @@ allowed-duplicate-crates = [
     "r-efi",                 # 5 under `getrandom` 0.3 beside 6 under `getrandom` 0.4
     "matchit",               # 0.8.4 pinned exactly by newest `axum` 0.8.9 beside 0.9 for resource URI routes
     "bitflags",              # 1 under newest `defmt` 1.2.0, which `cargo metadata` resolves through the weak `defmt?/alloc` of every `jiff` 0.2.38 and `jiff-core` 0.1.1 build though no build compiles it (rust-clippy#16440), beside 2 under `nix`, `rustix`, and `tower-http`
+    "base64",                # 0.22 under newest `bollard` 0.21.1, `docker_credential` 1.4.0, `tonic` 0.14.6, and `opentelemetry-proto` 0.33.1 beside 0.23 under newest `hyper-util` 0.1.21 system proxy
+    "core-foundation",       # 0.9 under `system-configuration` 0.7, which newest `hyper-util` 0.1.21 system proxy pins, beside 0.10 under `security-framework` and `rustls-platform-verifier`
+    "cpufeatures",           # 0.2 under newest `const-hex` 1.19.3 that `opentelemetry-proto` serde reads beside 0.3 under `chacha20` for `rand` 0.10
     "windows-sys",           # 0.52 under newest `ring` 0.17.14, which `cargo metadata` resolves through the weak `ring?/alloc` of every `rustls-webpki` 0.103.15 build though no build compiles it (rust-clippy#16440), beside 0.61 under `tokio`, `mio`, `socket2`, and `rustls-platform-verifier`
 ]
 
@@ -45,10 +48,10 @@ disallowed-methods          = [
     { path = "uuid::Uuid::now_v7", replacement = "uuid::Uuid::new_v7", reason = "Reads the wall clock beside `jiff`, a `uuid::Timestamp` built from a `jiff::Timestamp` feeds `new_v7`" },
     { path = "std::time::Instant::now", replacement = "tokio::time::Instant::now", reason = "`tokio::time::Instant` owns monotonic time, tokio timers take it and its paused test clock drives it" },
     { path = "std::time::Instant::elapsed", replacement = "tokio::time::Instant::elapsed", reason = "`tokio::time::Instant` owns monotonic time, tokio timers take it and its paused test clock drives it" },
-    { path = "std::env::var", reason = "Domain code takes each setting as an argument" },
-    { path = "std::env::var_os", reason = "Domain code takes each setting as an argument" },
-    { path = "std::env::vars", reason = "Domain code takes each setting as an argument" },
-    { path = "std::env::vars_os", reason = "Domain code takes each setting as an argument" },
+    { path = "std::env::var", reason = "Domain code takes each setting as an argument, `clap` reads a variable into a typed argument through `#[arg(env)]`" },
+    { path = "std::env::var_os", reason = "Domain code takes each setting as an argument, `clap` reads a variable into a typed argument through `#[arg(env)]`" },
+    { path = "std::env::vars", reason = "Domain code takes each setting as an argument, `clap` reads a variable into a typed argument through `#[arg(env)]`" },
+    { path = "std::env::vars_os", reason = "Domain code takes each setting as an argument, `clap` reads a variable into a typed argument through `#[arg(env)]`" },
     { path = "std::env::current_dir", reason = "Domain code takes each path as an argument" },
     { path = "std::env::home_dir", reason = "Domain code takes each path as an argument" },
     { path = "std::env::temp_dir", reason = "Domain code takes each path as an argument" },
@@ -148,8 +151,8 @@ disallowed-methods          = [
     { path = "std::fs::File::create", replacement = "fs_err::File::create", reason = "`io::Error` names no path, fs-err names operation and path" },
     { path = "std::fs::File::create_new", replacement = "fs_err::File::create_new", reason = "`io::Error` names no path, fs-err names operation and path" },
     { path = "std::fs::OpenOptions::open", replacement = "fs_err::OpenOptions::open", reason = "`io::Error` names no path, fs-err names operation and path" },
-    { path = "std::fs::File::open_buffered", replacement = "fs_err::File::open", reason = "`io::Error` names no path, fs-err names operation and path" },
-    { path = "std::fs::File::create_buffered", replacement = "fs_err::File::create", reason = "`io::Error` names no path, fs-err names operation and path" },
+    { path = "std::fs::File::open_buffered", replacement = "fs_err::File::open", reason = "`io::Error` names no path, `BufReader::new(fs_err::File::open(..)?)` names it and buffers" },
+    { path = "std::fs::File::create_buffered", replacement = "fs_err::File::create", reason = "`io::Error` names no path, `BufWriter::new(fs_err::File::create(..)?)` names it and buffers" },
     { path = "std::fs::DirBuilder::create", replacement = "fs_err::create_dir_all", reason = "`io::Error` names no path, fs-err names operation and path" },
     { path = "std::path::Path::metadata", replacement = "fs_err::PathExt::fs_err_metadata", reason = "`io::Error` names no path, fs-err names operation and path" },
     { path = "std::path::Path::symlink_metadata", replacement = "fs_err::PathExt::fs_err_symlink_metadata", reason = "`io::Error` names no path, fs-err names operation and path" },
@@ -194,7 +197,6 @@ disallowed-methods          = [
     { path = "serde_json::from_slice", replacement = "serde_path_to_error::deserialize", reason = "Decode errors name line and column alone, serde_path_to_error names the failing field path" },
     { path = "serde_json::from_reader", replacement = "serde_path_to_error::deserialize", reason = "Decode errors name line and column alone, serde_path_to_error names the failing field path" },
     { path = "serde_json::from_value", replacement = "serde_path_to_error::deserialize", reason = "Decode errors name line and column alone, serde_path_to_error names the failing field path" },
-    { path = "serde::de::Deserialize::deserialize", replacement = "serde_path_to_error::deserialize", reason = "Decode errors name line and column alone, serde_path_to_error names the failing field path" },
     { path = "serde_json::Deserializer::into_iter", replacement = "serde_path_to_error::deserialize", reason = "Decode errors name line and column alone, serde_path_to_error names the failing field path" },
     { path = "serde_urlencoded::from_str", replacement = "serde_path_to_error::deserialize", reason = "Decode errors name no field, serde_path_to_error names the failing field path" },
     { path = "serde_urlencoded::from_bytes", replacement = "serde_path_to_error::deserialize", reason = "Decode errors name no field, serde_path_to_error names the failing field path" },
@@ -245,8 +247,6 @@ disallowed-methods          = [
 disallowed-macros           = [
     { path = "tokio::try_join", replacement = "tokio::join", reason = "Short-circuits on first error and drops other results, the replacement keeps every result for accumulation" },
     { path = "futures::try_join", replacement = "futures::join", reason = "Short-circuits on first error and drops other results, the replacement keeps every result for accumulation" },
-    { path = "futures::pin_mut", replacement = "core::pin::pin", reason = "`core` owns the operation" },
-    { path = "tokio::pin", replacement = "core::pin::pin", reason = "`core` owns the operation" },
     { path = "scopeguard::defer", replacement = "core::mem::DropGuard", reason = "`core` owns the operation" },
     { path = "async_trait::async_trait", reason = "Boxes every trait future, native `async fn` in traits returns it unboxed and return-type notation bounds `Send` at the use site" },
     { path = "trait_variant::make", reason = "Generates a second trait to state `Send` futures, return-type notation bounds `Send` at the use site" },
@@ -256,7 +256,6 @@ disallowed-types            = [
     { path = "std::sync::RwLock", replacement = "std::sync::nonpoison::RwLock", reason = "Poisoning wraps every guard in a `LockResult`, `tokio::sync::RwLock` serves a guard held across an `.await` alone" },
     { path = "std::sync::Condvar", replacement = "std::sync::nonpoison::Condvar", reason = "Poisoning wraps every wait in a `LockResult`, `nonpoison::Mutex` guards pair with it" },
     { path = "std::hash::DefaultHasher", replacement = "xxhash_rust::xxh3::Xxh3Default", reason = "SipHash keys and algorithm are unspecified across Rust releases, content identity needs a stable hash" },
-    { path = "std::hash::RandomState", replacement = "xxhash_rust::xxh3::Xxh3DefaultBuilder", reason = "Hashes vary per instance, result order and identity stay deterministic" },
     { path = "rand::rngs::SysRng", reason = "Seeds from the OS, domain code takes its generator as an argument, the path resolves under `rand` 0.10", allow-invalid = true },
     { path = "rand::rngs::ThreadRng", reason = "Seeds a thread-local generator from the OS, domain code takes its generator as an argument, the path resolves where `rand` builds with `thread_rng`", allow-invalid = true },
     { path = "once_cell::sync::OnceCell", replacement = "std::sync::OnceLock", reason = "`std` owns the type, a `static` holds a `LazyLock` or takes its value from `main`" },
@@ -264,6 +263,18 @@ disallowed-types            = [
     { path = "once_cell::sync::Lazy", replacement = "std::sync::LazyLock", reason = "`std` owns the type" },
     { path = "once_cell::unsync::Lazy", replacement = "core::cell::LazyCell", reason = "`core` owns the type" },
     { path = "sync_wrapper::SyncWrapper", replacement = "core::sync::SyncView", reason = "`core` owns the type" },
+    { path = "core::num::NonZeroU8", replacement = "core::num::NonZero", reason = "`NonZero<T>` names every width, the alias restates one" },
+    { path = "core::num::NonZeroU16", replacement = "core::num::NonZero", reason = "`NonZero<T>` names every width, the alias restates one" },
+    { path = "core::num::NonZeroU32", replacement = "core::num::NonZero", reason = "`NonZero<T>` names every width, the alias restates one" },
+    { path = "core::num::NonZeroU64", replacement = "core::num::NonZero", reason = "`NonZero<T>` names every width, the alias restates one" },
+    { path = "core::num::NonZeroU128", replacement = "core::num::NonZero", reason = "`NonZero<T>` names every width, the alias restates one" },
+    { path = "core::num::NonZeroUsize", replacement = "core::num::NonZero", reason = "`NonZero<T>` names every width, the alias restates one" },
+    { path = "core::num::NonZeroI8", replacement = "core::num::NonZero", reason = "`NonZero<T>` names every width, the alias restates one" },
+    { path = "core::num::NonZeroI16", replacement = "core::num::NonZero", reason = "`NonZero<T>` names every width, the alias restates one" },
+    { path = "core::num::NonZeroI32", replacement = "core::num::NonZero", reason = "`NonZero<T>` names every width, the alias restates one" },
+    { path = "core::num::NonZeroI64", replacement = "core::num::NonZero", reason = "`NonZero<T>` names every width, the alias restates one" },
+    { path = "core::num::NonZeroI128", replacement = "core::num::NonZero", reason = "`NonZero<T>` names every width, the alias restates one" },
+    { path = "core::num::NonZeroIsize", replacement = "core::num::NonZero", reason = "`NonZero<T>` names every width, the alias restates one" },
 ]
 await-holding-invalid-types = [
     { path = "tracing::span::Entered", reason = "Spans entered across an `.await` cover every task the worker polls meanwhile, instrument futures through `tracing::Instrument`" },

@@ -6,7 +6,7 @@ rule:
     kind: type_item
     all:
         - has: {field: name, pattern: $ALIAS}
-        - has: {field: type, pattern: $TARGET}
+        - has: {field: type, pattern: $TARGET, not: {kind: abstract_type}}
         - not: {inside: {kind: declaration_list, inside: {kind: 'trait_item, impl_item'}}}
         - not: {matches: {rust-attributed: {attribute: {matches: rust-cfg-attribute}}}}
 message: '`$ALIAS` is another name for `$TARGET`'

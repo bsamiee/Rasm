@@ -43,21 +43,8 @@ rewriters:
 rule:
     kind: 'expression_statement, let_declaration, call_expression, try_expression'
     all:
-        - inside: {kind: block}
         - follows: {matches: pushed}
-        - any:
-            - all:
-                - follows: {has: {nthChild: 1, pattern: $V.push($X)}}
-                - any: [{pattern: $V.last_mut()}, {has: {stopBy: &pass {kind: 'closure_expression, for_expression, while_expression, loop_expression'}, pattern: $V.last_mut()}}]
-            - all:
-                - follows: {has: {nthChild: 1, pattern: $V.push_back($X)}}
-                - any: [{pattern: $V.back_mut()}, {has: {stopBy: *pass, pattern: $V.back_mut()}}]
-            - all:
-                - follows: {has: {nthChild: 1, pattern: $V.push_front($X)}}
-                - any: [{pattern: $V.front_mut()}, {has: {stopBy: *pass, pattern: $V.front_mut()}}]
-            - all:
-                - follows: {has: {nthChild: 1, pattern: '$V.insert($I, $X)'}}
-                - has: {stopBy: *pass, pattern: '&mut $V[$I]'}
+        - matches: {rust-pushed-element-lookup: {boundary: {matches: rust-conditional-scope}}}
         - pattern: $NEXT
 transform:
     REWRITTEN: {rewrite: {source: $NEXT, rewriters: [unwrapped, back-unwrapped, front-unwrapped, wrapped, back-wrapped, front-wrapped, indexed]}}

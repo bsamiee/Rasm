@@ -6,7 +6,7 @@ utils:
     order-sensitive-aggregate:
         kind: function_call
         all:
-            - any: [{matches: sql-string-aggregate}, {has: {field: name, regex: '(?i)^(json_group_array|json_group_object|jsonb_group_array|jsonb_group_object|array_agg|list|first|last)$'}}]
+            - any: [{matches: sql-string-aggregate}, {has: {field: name, regex: '(?i)^(json_group_array|json_group_object|jsonb_group_array|jsonb_group_object)$'}}]
             - has: {field: arguments, kind: normal_function_arguments, not: {has: {kind: order_by_clause}}}
             - not: {has: {field: over, kind: over_clause}}
     ordered-subquery:
@@ -81,4 +81,4 @@ transform:
     FIXED: {rewrite: {source: $FIXABLE, rewriters: [ordered, unwrapped]}}
 fix: $FIXED$KEPT
 message: '`$AGGREGATE` relies on a row order `$SUBQUERY` sets and the aggregate ignores'
-note: 'Move `order by` from the subquery or common table expression into the aggregate call as `<aggregate>(<arguments> order by <key>)`, SQLite and DuckDB order aggregate input by an in-call `order by` alone'
+note: 'Move `order by` from the subquery or common table expression into the aggregate call as `<aggregate>(<arguments> order by <key>)`, SQLite and PostgreSQL order aggregate input by an in-call `order by` alone'

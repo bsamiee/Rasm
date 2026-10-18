@@ -8,7 +8,7 @@ import typing
 from typing import ClassVar, overload, Self, TYPE_CHECKING
 
 import bpy
-from expression import Error, Nothing, Ok, Option, Some
+from expression import Error, Nothing, Ok, Option, Result, Some
 from expression.extra.result import catch
 import msgspec
 import msgspec.inspect as native
@@ -267,21 +267,16 @@ class Unit(msgspec.Struct, frozen=True, kw_only=True):
         """Returns native float32 storage or a value outside its declared interval."""
 
         def converted(interval: tuple[float, float]) -> BlenderResult[float | tuple[float, ...]]:
+            bounded = typing.Annotated[float, msgspec.Meta(ge=interval[0], le=interval[1])]
             try:
-                low, high = interval
-                limits = msgspec.Meta(ge=low, le=high)
                 source = np.asarray(value, dtype=np.float64)
-                match kind:
-                    case native.FloatType():
-                        with np.errstate(over="ignore"):
-                            scaled = float(np.float32(float(source) * self.scale))
-                        return Ok(msgspec.convert(scaled, typing.Annotated[float, limits]))
-                    case native.TupleType() | native.StructType():
-                        with np.errstate(over="ignore"):
-                            scaled_items = tuple(map(float, np.asarray(tuple(float(item) * self.scale for item in source), dtype=np.float32)))
-                        return Ok(msgspec.convert(scaled_items, tuple[typing.Annotated[float, limits], ...]))
             except (TypeError, ValueError) as error:
                 return Error((BlenderReadFault(request=repr(kind), error=error),))
+            with np.errstate(over="ignore"):
+                scaled = (source * self.scale).astype(np.float32).tolist()
+            return catch(
+                lambda: msgspec.convert(scaled, bounded) if isinstance(kind, native.FloatType) else msgspec.convert(scaled, tuple[bounded, ...]), exception=msgspec.ValidationError
+            )().map_error(lambda error: (BlenderReadFault(request=repr(kind), error=error),))
 
         return self.bounds(kind).bind(converted)
 
@@ -295,19 +290,19 @@ class Unit(msgspec.Struct, frozen=True, kw_only=True):
         """Returns native numeric storage in domain units or a storage-range fault."""
 
         def converted(interval: tuple[float, float]) -> BlenderResult[float | tuple[float, ...]]:
+            bounded = typing.Annotated[float, msgspec.Meta(ge=interval[0], le=interval[1])]
             try:
-                low, high = interval
-                limits = msgspec.Meta(ge=low, le=high)
-                source = np.asarray(value, dtype=np.float64)
-                match kind:
-                    case native.FloatType():
-                        return Ok(msgspec.convert(float(source), typing.Annotated[float, limits]) / self.scale)
-                    case native.TupleType() | native.StructType():
-                        items = kind.item_types if isinstance(kind, native.TupleType) else tuple(field.type for field in kind.fields)
-                        admitted = msgspec.convert(tuple(map(float, source)), typing.Annotated[tuple[typing.Annotated[float, limits], ...], msgspec.Meta(min_length=len(items), max_length=len(items))])
-                        return Ok(tuple(item / self.scale for item in admitted))
+                source = np.asarray(value, dtype=np.float64).tolist()
             except (TypeError, ValueError) as error:
                 return Error((BlenderReadFault(request=repr(kind), error=error),))
+            admitted: Result[float | tuple[float, ...], msgspec.ValidationError]
+            match kind:
+                case native.FloatType():
+                    admitted = catch(lambda: msgspec.convert(source, bounded) / self.scale, exception=msgspec.ValidationError)()
+                case native.TupleType(item_types=items) | native.StructType(fields=items):
+                    sized = typing.Annotated[tuple[bounded, ...], msgspec.Meta(min_length=len(items), max_length=len(items))]
+                    admitted = catch(lambda: tuple(item / self.scale for item in msgspec.convert(source, sized)), exception=msgspec.ValidationError)()
+            return admitted.map_error(lambda error: (BlenderReadFault(request=repr(kind), error=error),))
 
         return self.bounds(kind).bind(converted)
 

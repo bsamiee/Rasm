@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-array-ensure-by-hand
+language: tsx
+severity: error
+rule:
+    kind: call_expression
+    pattern: $UNION
+    all:
+        - has: {field: function, matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^Union$'}}}}
+        - any:
+            - pattern: $S.Union([$X, $S.Array($X)])
+            - pattern: $S.Union([$S.Array($X), $X])
+message: '`$UNION` decodes one `$X` or an array of them into a union every reader normalizes'
+note: 'Decode with `Schema.ArrayEnsure(<schema>)`, which accepts one element or an array and decodes to the array'

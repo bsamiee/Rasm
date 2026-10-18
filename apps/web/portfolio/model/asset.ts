@@ -28,8 +28,8 @@ const mediaTypes = Asset.members.flatMap((member) => member.fields.mime.literals
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const sheets = ({ pages }: PdfAsset): Array.NonEmptyArray<typeof Sheet.Type> => Array.map(pages, (page, index) => ({ ...page, number: index + 1 }));
+const sheets = ({ pages }: PdfAsset) => Array.map(pages, (page, index) => ({ ...page, number: index + 1 }));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Asset, AssetCollection, Dimensions, Id, ImageAsset, mediaTypes, Page, PdfAsset, Sheet, sheets, uploadLimit, VideoAsset };
+export { Asset, AssetCollection, Id, ImageAsset, mediaTypes, PdfAsset, Sheet, sheets, uploadLimit, VideoAsset };

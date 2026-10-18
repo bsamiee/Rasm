@@ -140,7 +140,7 @@ public static class Meshing {
                 (Objects: rhinoObjects, Parameters: parameters),
                 unattended: static (state, unattended) => (
                     Result: RhinoObject.MeshObjects(state.Objects, state.Parameters, out Mesh[] meshes, out ObjectAttributes[] attributes, unattended.WorkerThread),
-                    Meshes: meshes, Attributes: attributes, Interface: Fin.Succ(MeshInterface.NoInterface)),
+                    Meshes: meshes, Attributes: attributes, Interface: MeshInterface.NoInterface),
                 styled: static (state, styled) => {
                     int style = styled.Interface.Key;
                     return (

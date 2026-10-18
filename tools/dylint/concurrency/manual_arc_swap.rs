@@ -58,10 +58,12 @@ impl Pass {
             &[
                 ("std::sync::nonpoison::RwLock::read", (Method::Read, Holder::Lock)),
                 ("std::sync::nonpoison::RwLock::with", (Method::Read, Holder::Lock)),
+                ("std::sync::nonpoison::RwLock::get_cloned", (Method::Read, Holder::Lock)),
                 ("std::sync::nonpoison::RwLock::write", (Method::Guard, Holder::Lock)),
                 ("std::sync::nonpoison::RwLock::set", (Method::Replace, Holder::Lock)),
                 ("std::sync::nonpoison::RwLock::replace", (Method::Replace, Holder::Lock)),
                 ("std::sync::nonpoison::Mutex::lock", (Method::Guard, Holder::Lock)),
+                ("std::sync::nonpoison::Mutex::get_cloned", (Method::Read, Holder::Lock)),
                 ("std::sync::nonpoison::Mutex::set", (Method::Replace, Holder::Lock)),
                 ("std::sync::nonpoison::Mutex::replace", (Method::Replace, Holder::Lock)),
                 ("tokio::sync::watch::Sender::borrow", (Method::Read, Holder::Watch)),

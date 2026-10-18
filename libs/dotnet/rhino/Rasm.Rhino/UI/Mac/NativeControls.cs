@@ -30,7 +30,7 @@ public static class NativeControls {
             let view = handler.EventControl
             let site = new CallbackSite(sink, typeof(NativeControls), nameof(Events))
             from responder in IO.lift(() => EventViews.TryGetValue(view, out EventResponder? existing)
-                ? Fin.Succ(existing)
+                ? existing
                 : new EventResponder(SafeNativeMethods.object_getClass(view.Handle)).Attach(view))
             from id in IO.lift(Guid.NewGuid)
             from attached in Subscriptions.Attach(
@@ -106,10 +106,9 @@ public static class NativeControls {
     internal static IO<Unit> Lifetime(Control control, Func<Action<IDisposable>, IO<Unit>> acquire, CallbackSite site, Action<IDisposable> retain) =>
         IO.lift(static () => Ref(Option<IDisposable>.None)).Bind(mounted =>
             DisposalOps.Acquire(owned =>
-                from unload in IO.pure(Callbacks.Handler<EventArgs>(_ => Freed(mounted), site))
                 from subscription in Subscriptions.Attach(
-                    handler => control.UnLoad += handler, handler => control.UnLoad -= handler, unload, owned)
-                from acquired in IO.pure(owned).Bind(acquire)
+                    handler => control.UnLoad += handler, handler => control.UnLoad -= handler, Callbacks.Handler<EventArgs>(_ => Freed(mounted), site), owned)
+                from acquired in acquire(owned)
                 select unit,
                 lease => {
                     _ = atomic(() => mounted.Value = Some(lease));

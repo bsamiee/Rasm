@@ -204,10 +204,21 @@ class AppliedArrangement:
                 case _:
                     self.waiting = Nothing
 
+        def undone(placed: _ArrangedArea) -> BlenderResult[None]:
+            """Restores a surviving editor or closes a created area, retaining every refusal."""
+
+            def restored(at: Located) -> BlenderResult[None]:
+                """Reverts the editor type even when a display member refuses restoration."""
+                return placed.prior.map(lambda ui_type: accumulated((placed.restore.applied(at.area).map(lambda _: None), written(at.area, "ui_type", ui_type))).map(lambda _: None)).default_with(
+                    lambda: at.run(bpy.ops.screen.area_close, {})
+                )
+
+            return Located.found(self.window, placed.area).map(restored).default_value(Ok(None))
+
         def entered(at: Located, prior: Option[str], ui_type: str, state: EditorState) -> BlenderResult[None]:
             """Owns release before changing the editor and defers its state to the next pass."""
             placed = _ArrangedArea(area=at.area.as_pointer(), prior=prior)
-            self.releases.callback(lambda: self.results.append(self._undone(placed)))
+            self.releases.callback(lambda: self.results.append(undone(placed)))
             self.waiting = Some((placed, state))
             return written(at.area, "ui_type", ui_type).map(lambda _: None)
 
@@ -253,17 +264,6 @@ class AppliedArrangement:
                         )
                         self.full = Nothing
                         return Ok(Nothing)
-
-    def _undone(self, placed: _ArrangedArea) -> BlenderResult[None]:
-        """Restores a surviving editor or closes a created area, retaining every refusal."""
-
-        def restored(at: Located) -> BlenderResult[None]:
-            """Reverts the editor type even when a display member refuses restoration."""
-            return placed.prior.map(lambda ui_type: accumulated((placed.restore.applied(at.area).map(lambda _: None), written(at.area, "ui_type", ui_type))).map(lambda _: None)).default_with(
-                lambda: at.run(bpy.ops.screen.area_close, {})
-            )
-
-        return Located.found(self.window, placed.area).map(restored).default_value(Ok(None))
 
     def released(self) -> BlenderResult[None]:
         """Releases in reverse acquisition order and returns every native restore refusal."""

@@ -55,7 +55,7 @@ class LayerStack[S: Case, E: Effect](msgspec.Struct, frozen=True, kw_only=True):
         soloed = any(layer.solo for layer in self.layers)
         beneath: tuple[Option[Layer[S, E]], ...] = (Nothing, *map(Some, self.layers))
         consumed = (*(layer.matte.enabled for layer in self.layers[1:]), False)
-        return tuple((layer, below) for layer, below, matte in zip(self.layers, beneath, consumed, strict=False) if layer.visible and not matte and (layer.solo or not soloed))
+        return tuple((layer, below) for layer, below, matte in zip(self.layers, beneath, consumed) if layer.visible and not matte and (layer.solo or not soloed))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

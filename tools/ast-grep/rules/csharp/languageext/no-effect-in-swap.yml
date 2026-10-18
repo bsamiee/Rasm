@@ -2,6 +2,7 @@
 id: no-effect-in-swap
 language: csharp
 severity: error
+ignores: ['tools/roslyn/**']
 utils:
     transition-scope:
         kind: 'lambda_expression, anonymous_method_expression, local_function_statement, method_declaration'

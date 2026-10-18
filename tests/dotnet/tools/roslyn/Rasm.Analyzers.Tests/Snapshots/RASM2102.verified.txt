@@ -1,0 +1,2 @@
+#0 `doc.Views.Redraw()` controls view redraw outside `Commits`
+#1 `doc.Views.Redraw` controls view redraw outside `Commits`

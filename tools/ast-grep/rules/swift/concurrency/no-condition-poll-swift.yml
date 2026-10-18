@@ -33,6 +33,10 @@ rule:
     any:
         - kind: 'while_statement, repeat_while_statement'
           all:
+            - not:
+                all:
+                    - has: {field: bound_identifier, kind: simple_identifier}
+                    - has: {any: [{pattern: $_.next()}, {kind: 'await_expression, try_expression', has: {stopBy: end, pattern: $_.next()}}]}
             - has: {stopBy: end, matches: timed-wait}
             - any:
                 - has: {matches: tested-state}

@@ -10,7 +10,7 @@ utils:
             - {kind: string_literal, regex: '^"(/|/[^/"][^"]*|[^"]*[^:/"]/)"$'}
             - {kind: char_literal, regex: '^''/''$'}
     path-name:
-        regex: '(?i)(path|dir|file|root|folder)$'
+        regex: '(?i)(^|_)(path|dir|directory|file|root|folder)$'
     joined:
         any:
             - matches: rust-interpolating-format
@@ -26,7 +26,13 @@ utils:
                 - has: {field: arguments, has: {nthChild: 1, matches: slash}, not: {has: {nthChild: 2}}}
     path-call:
         kind: call_expression
-        has: {field: function, regex: '(Path(Buf)?::(new|from)|\.join|\.push|fs::\w+|File::(open|create|create_new)|OpenOptions|\.open|\.exists|\.is_file|\.is_dir|\.read_dir|\.metadata|\.canonicalize)$'}
+        has:
+            field: function
+            any:
+                - regex: '(Path(Buf)?::(new|from)|fs::\w+|File::(open|create|create_new))$'
+                - regex: 'OpenOptions[\s\S]*\.open$'
+                - kind: field_expression
+                  all: [{has: {field: field, regex: '^(join|push)$'}}, {has: {field: value, matches: path-name}}]
     pushed-slash:
         kind: call_expression
         all:

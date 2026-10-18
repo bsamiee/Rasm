@@ -9,7 +9,7 @@ utils:
             - regex: "^'_$"
             - inside:
                 stopBy: end
-                kind: 'function_item, function_signature_item'
+                kind: 'function_item, function_signature_item, impl_item, trait_item'
                 has: {field: type_parameters, has: {kind: lifetime_parameter, has: {field: name, pattern: $L}}}
 rule:
     kind: bounded_type

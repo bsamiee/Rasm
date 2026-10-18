@@ -110,7 +110,7 @@ class SolarCaption(Line, frozen=True, kw_only=True):
             return paired(SolarDay.of(site, start.date, zone).map_error(BlenderRenderingFault.lifted), positions(msgspec.structs.replace(setup, timing=Moment(start=start)), zone)).map(text)
 
         def draw(attached: Attached[SunSetup]) -> RowDraw:
-            def shown(layout: bpy.types.UILayout, holder: Native, context: bpy.types.Context) -> None:
+            def shown(layout: bpy.types.UILayout, _holder: Native, context: bpy.types.Context) -> None:
                 for text in root_in(bpy.types.Scene, context).bind(identity.reports.reported(lambda scene: attached.read(scene).bind(lines))).default_value(()):
                     layout.label(text=text)
 
@@ -360,13 +360,14 @@ def drawn(setup: SunSetup, scene: bpy.types.Scene, identity: Identity) -> Blende
     )
 
     def curved(curve: bpy.types.Curve, loops: tuple[tuple[npt.NDArray[np.float32], bool], ...]) -> BlenderResult[None]:
-        def current(spline: bpy.types.Spline, points: npt.NDArray[np.float32], cyclic: bool) -> bool:
+        def current(spline: bpy.types.Spline, loop: tuple[npt.NDArray[np.float32], bool]) -> bool:
+            points, cyclic = loop
             live = np.empty(len(spline.points) * 4, np.float32)
             spline.points.foreach_get("co", live)
             return spline.type == "POLY" and spline.use_cyclic_u == cyclic and np.array_equal(live.view(np.uint32), points.ravel().view(np.uint32))
 
         def rebuilt() -> None:
-            if len(curve.splines) != len(loops) or not all(current(spline, *loop) for spline, loop in zip(curve.splines, loops)):
+            if len(curve.splines) != len(loops) or not all(map(current, curve.splines, loops)):
                 curve.splines.clear()
                 for points, cyclic in loops:
                     spline = curve.splines.new("POLY")

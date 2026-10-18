@@ -12,7 +12,7 @@ namespace Rasm.Grasshopper;
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record KeyedText(
     string Owner,
-    Func<string, IO<Option<string>>> Read,
+    Func<string, Fin<Option<string>>> Read,
     Func<Seq<(string Key, Option<string> Text)>, IO<Unit>> Write,
     Option<HostEvent<KeyValueEventArgs>> Changed) : ISettingReader {
     // --- [KEYS]
@@ -20,15 +20,20 @@ public sealed record KeyedText(
 
     public string Key(string name) => EntryKey.Name(Seq(Owner, name));
 
-    public IO<TValue> Current<TValue, TRaw>(PlugInSetting<TValue, TRaw> row)
+    public Fin<TValue> Current<TValue, TRaw>(PlugInSetting<TValue, TRaw> row)
         where TValue : notnull
         where TRaw : notnull =>
-        GrasshopperStores.Of(this, row.Value).Read.Map(held => held.IfNone(row.Value.Default));
+        Current(row.Value);
+
+    public Fin<TValue> Current<TValue, TRaw>(ValueKey<TValue, TRaw> key)
+        where TValue : notnull
+        where TRaw : notnull =>
+        Read(Key(key.Name)).Bind(stored => stored.Traverse(value => EntryKey.Named(Owner, key.Name).Read(value, key.Read)).As()).Map(held => held.IfNone(key.Default));
 
     // --- [HOSTS]
     public static KeyedText Of(KeyedValues values, string owner) =>
         new(owner,
-            key => IO.lift(() => Optional(values.Get(key, @default: null))),
+            key => Optional(values.Get(key, @default: null)),
             entries => IO.lift(() => entries.Iter(entry => entry.Text.Match(
                 Some: text => values.Set(entry.Key, text),
                 None: () => values.Delete(entry.Key)))),
@@ -36,7 +41,7 @@ public sealed record KeyedText(
 
     public static KeyedText Of(SettingsFile file, string owner) =>
         new(owner,
-            key => IO.lift(() => Optional(file.Node.FindItem(key)).Traverse(item => Conversions.Typed<string>(item.RawData, key)).As()),
+            key => Optional(file.Node.FindItem(key)).Traverse(item => Conversions.Typed<string>(item.RawData, key)).As(),
             entries =>
                 from set in IO.lift(() => entries.Iter(entry => entry.Text.Match(
                     Some: text => file.Set(entry.Key, text),
@@ -71,12 +76,9 @@ public static class GrasshopperStores {
         where TValue : notnull
         where TRaw : notnull {
         string host = text.Key(key.Name);
-        EntryKey entry = EntryKey.Named(text.Owner, key.Name);
         string factory = key.Text(key.Default);
         return ValueStore.Defaulted(
-                from stored in text.Read(host)
-                from held in IO.lift(() => stored.Traverse(value => entry.Read(value, key.Read)).As())
-                select held.IfNone(key.Default),
+                IO.lift(() => text.Current(key)),
                 IO.pure(key.Default),
                 value => text.Write(Seq((host, Some(key.Text(value)).Filter(stored => !string.Equals(stored, factory, StringComparison.Ordinal))))),
                 EqualityComparer<TValue>.Default.Equals,
@@ -87,7 +89,7 @@ public static class GrasshopperStores {
     // --- [RECORDS]
     public static ValueStore<TRecord> Of<TRecord>(KeyedText text, TRecord fallback) where TRecord : IStateRecord<TRecord> =>
         ValueStore.Defaulted(
-            FieldTexts.Recalled(text.Owner, TRecord.Parameters, path => text.Read(text.Key(EntryKey.Name(path))), fallback),
+            FieldTexts.Recalled(text.Owner, TRecord.Parameters, path => IO.lift(() => text.Read(text.Key(EntryKey.Name(path)))), fallback),
             IO.pure(fallback),
             value => text.Write(
                 from item in FieldTexts.Items<TRecord>()

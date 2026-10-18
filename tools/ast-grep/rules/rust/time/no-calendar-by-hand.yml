@@ -112,4 +112,4 @@ rule:
         - matches: factor-chain
         - matches: date-format
 message: '`$SITE` restates a calendar fact by hand'
-note: 'Hold the value as a `jiff::civil::Date`, `jiff::civil::Time`, `jiff::Timestamp`, or `jiff::SignedDuration` and call `in_leap_year`, `days_in_month`, `day_of_year`, `as_hours`, `SignedDuration::from_hours`, `Span::total(Unit::Day)`, or format it through `Display` or `strftime("<format>")`'
+note: 'Hold the value as a `jiff::civil::Date`, `jiff::civil::Time`, `jiff::Timestamp`, or `jiff::SignedDuration` and call `in_leap_year`, `days_in_month`, `day_of_year`, `as_hours`, `SignedDuration::from_hours`, `Span::total((Unit::Day, <date>))`, or format it through `Display` or `strftime("<format>")`'

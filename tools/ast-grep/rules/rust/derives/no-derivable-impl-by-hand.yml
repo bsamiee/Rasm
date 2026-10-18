@@ -119,6 +119,8 @@ rule:
         - has: {field: type, any: [{kind: generic_type, has: {field: type, pattern: $T}}, {kind: type_identifier, pattern: $T}]}
         - has: {field: body, all: [{has: {matches: derivable-method, pattern: $METHOD}}, {not: {has: {kind: function_item, nthChild: {position: 2, ofRule: {kind: function_item}}}}}]}
         - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: struct_item, all: [{has: {field: name, pattern: $T}}, {not: {has: {field: body, has: {matches: uncovered-field}}}}]}}
+        - not: {has: {field: body, has: {stopBy: end, kind: call_expression, all: [{has: {field: function, kind: field_expression, has: {field: field, regex: '^debug_struct$'}}}, {not: {has: {field: arguments, has: {nthChild: 1, pattern: '"$T"'}}}}]}}}
+        - not: {has: {field: body, has: {stopBy: end, kind: call_expression, all: [{pattern: '$_.field("$L", $_V)'}, {not: {has: {field: arguments, has: {nthChild: 2, any: [{pattern: 'self.$L'}, {pattern: '&self.$L'}]}}}}]}}}
         - not:
             all:
                 - has: {field: trait, regex: '(^|::)Clone$'}

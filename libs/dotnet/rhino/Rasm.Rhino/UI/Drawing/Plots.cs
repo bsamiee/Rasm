@@ -188,10 +188,10 @@ public abstract partial record MarkShape {
         protected override void AddTo(IGraphicsPath path) => path.AddRectangle(Bounds);
     }
 
-    public sealed record Disc(PointF Centre, float Diameter) : MarkShape {
+    public sealed record Disc(PointF Center, float Diameter) : MarkShape {
         public override bool Closed => true;
 
-        protected override void AddTo(IGraphicsPath path) => path.AddEllipse(RectangleF.FromCenter(Centre, new SizeF(Diameter, Diameter)));
+        protected override void AddTo(IGraphicsPath path) => path.AddEllipse(RectangleF.FromCenter(Center, new SizeF(Diameter, Diameter)));
     }
 }
 
@@ -220,12 +220,10 @@ public sealed partial class LabelSide {
 
     public RectangleF Box(RectangleF plot, PointF tick, SizeF size) =>
         Position(tick) switch {
-            var place => (place - ((place - Position(plot.Location)) / Span(plot.Size) * Span(size)), Edge(plot) - (Far ? Cross(size) : 0f)) switch {
+            var place => (place - ((place - Position(plot.Location)) / Span(plot.Size) * Span(size)), Edge(plot) - (Far ? Span(new SizeF(size.Height, size.Width)) : 0f)) switch {
                 var (along, across) => Along is Orientation.Horizontal ? new(along, across, size.Width, size.Height) : new(across, along, size.Width, size.Height),
             },
         };
-
-    private float Cross(SizeF size) => Along is Orientation.Horizontal ? size.Height : size.Width;
 
     private float Edge(RectangleF plot) =>
         Along is Orientation.Horizontal ? (Far ? plot.Bottom : plot.Top) : (Far ? plot.Right : plot.Left);

@@ -50,7 +50,29 @@ utils:
         kind: binary_expression
         all:
             - has: {field: operator, regex: '^(<|<=)$'}
-            - has: {field: left, kind: call_expression, all: [{has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^max$'}}, {has: {field: value, matches: low-extent, pattern: $A}}]}}, {has: {field: arguments, has: {nthChild: 1, matches: low-extent, pattern: $B}}}]}
+            - has:
+                field: left
+                kind: call_expression
+                all:
+                    - has:
+                        field: function
+                        kind: field_expression
+                        all:
+                            - has: {field: field, regex: '^max$'}
+                            - has:
+                                field: value
+                                matches: low-extent
+                                any:
+                                    - {regex: '\.mins?\.\w+$', has: {field: value, has: {field: value, pattern: $A}}}
+                                    - {not: {regex: '\.mins?\.\w+$'}, has: {field: value, pattern: $A}}
+                    - has:
+                        field: arguments
+                        has:
+                            nthChild: 1
+                            matches: low-extent
+                            any:
+                                - {regex: '\.mins?\.\w+$', has: {field: value, has: {field: value, pattern: $B}}}
+                                - {not: {regex: '\.mins?\.\w+$'}, has: {field: value, pattern: $B}}
             - has: {field: right, kind: call_expression, all: [{has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^min$'}}, {has: {field: value, matches: high-extent}}]}}, {has: {field: arguments, has: {nthChild: 1, matches: high-extent}}}]}
 rule:
     kind: binary_expression

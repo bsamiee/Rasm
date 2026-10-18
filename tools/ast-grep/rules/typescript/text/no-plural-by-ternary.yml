@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-plural-by-ternary
+language: tsx
+severity: error
+utils:
+    one:
+        kind: number
+        regex: '^1$'
+    count-test:
+        kind: binary_expression
+        any:
+            - all: [{has: {field: operator, regex: '^(===|!==|==|!=)$'}}, {any: [{has: {field: left, matches: one}}, {has: {field: right, matches: one}}]}]
+            - all: [{has: {field: operator, regex: '^(>|<=)$'}}, {has: {field: right, matches: one}}]
+            - all: [{has: {field: operator, regex: '^(<|>=)$'}}, {has: {field: left, matches: one}}]
+    text:
+        kind: string, template_string
+rule:
+    kind: ternary_expression
+    pattern: $TERNARY
+    all:
+        - has: {field: condition, matches: count-test}
+        - has: {field: consequence, matches: text}
+        - has: {field: alternative, matches: text}
+message: '`$TERNARY` picks a plural form by comparing a count with 1'
+note: 'Select the form by the category `new Intl.PluralRules(<locale>).select(<count>)` returns, which follows the plural rules of the locale'

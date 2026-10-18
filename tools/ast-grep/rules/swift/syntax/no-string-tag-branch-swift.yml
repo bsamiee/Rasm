@@ -31,7 +31,7 @@ rule:
         - kind: if_statement
           all:
             - not: {inside: {kind: if_statement}}
-            - has: {field: condition, matches: tag-test, has: {field: rhs, pattern: $FIRST}}
-            - has: {kind: if_statement, has: {field: condition, matches: tag-test, not: {has: {field: rhs, pattern: $FIRST}}}}
+            - has: {matches: tag-test, has: {field: rhs, pattern: $FIRST}}
+            - has: {kind: if_statement, has: {matches: tag-test, not: {has: {field: rhs, pattern: $FIRST}}}}
 message: 'Branch over `$SUBJECT` selects its arm by string literal'
 note: 'Declare the tokens as cases of an enum with `String` raw values, convert the text once at the boundary through its `Decodable` conformance or `init(rawValue:)`, and switch over the cases'

@@ -229,8 +229,7 @@ def read(image: bpy.types.Image, config: PyOpenColorIO.Config) -> BlenderResult[
         image.pixels.foreach_get(flat)
         plane = np.ascontiguousarray(flat.reshape(height, width, channels)[::-1])
         if _associated(image):
-            alpha = plane[..., 3:]
-            np.multiply(plane[..., :3], alpha, out=plane[..., :3], where=alpha != 0.0)
+            np.multiply(plane[..., :3], plane[..., 3:], out=plane[..., :3], where=plane[..., 3:] != 0.0)
     except MemoryError as error:
         return Error((BlenderReadFault(request=repr(image), error=error),))
     return Ok(ImageFile(pixels=plane, colorspace=config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName() if image.is_float and not settings.is_data else settings.name))  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]

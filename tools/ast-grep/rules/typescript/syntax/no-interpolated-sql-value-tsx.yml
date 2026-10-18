@@ -32,6 +32,10 @@ rule:
             pattern: $VALUE
             any:
                 - follows: {kind: string_fragment, regex: "'$"}
+                - all:
+                    - follows: {kind: string_fragment, regex: '(?i)(?:[=<>]|\bvalues\s*\(|\blimit|\boffset)\s*$'}
+                    - not: {precedes: {kind: string_fragment, regex: '^\.'}}
+                    - inside: {kind: template_string, regex: '(?i)^`\s*(insert|update|delete|select|with|replace|values)\b'}
                 - has: {stopBy: end, matches: quoting}
-message: '`$VALUE` splices a value into a quoted SQL literal'
+message: '`$VALUE` splices a value into SQL text'
 note: 'Keep the statement constant and bind each value as a parameter through the Effect SQL client tagged template'

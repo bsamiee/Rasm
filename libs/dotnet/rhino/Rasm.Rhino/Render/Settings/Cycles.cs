@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Persistence;
 using Rasm.Rhino.Persistence.Settings;
@@ -34,18 +33,16 @@ public sealed partial class CyclesPreset {
             AntialiasLevel.Draft => 50,
             AntialiasLevel.Good => 500,
             AntialiasLevel.High => 1500,
-            _ => throw new UnreachableException(),
         };
 
     public IO<Unit> Apply(RenderSettingsSource source) =>
         RenderSettingsSources.Dictionary(source).Edit(target =>
-            (ArchivableDictionaries.Set(target, CyclesKey.RenderPreset.Key, Key).ToValidation(),
-             ArchivableDictionaries.Set(target, CyclesKey.FilterGlossy.Key, FilterGlossy).ToValidation(),
-             ArchivableDictionaries.Set(target, CyclesKey.SampleClampIndirect.Key, SampleClampIndirect).ToValidation(),
-             ArchivableDictionaries.Set(target, CyclesKey.AdaptiveMinSamples.Key, AdaptiveMinSamples).ToValidation())
+            (ArchivableDictionaries.Set(target, CyclesKey.RenderPreset.Key, Key),
+             ArchivableDictionaries.Set(target, CyclesKey.FilterGlossy.Key, FilterGlossy),
+             ArchivableDictionaries.Set(target, CyclesKey.SampleClampIndirect.Key, SampleClampIndirect),
+             ArchivableDictionaries.Set(target, CyclesKey.AdaptiveMinSamples.Key, AdaptiveMinSamples))
                 .Apply(static (_, _, _, _) => unit)
-                .As()
-                .ToFin());
+                .As());
 
     public static CyclesPreset Inferred(double filter, double indirect, int minimum) =>
         (filter, indirect, minimum) switch {
@@ -60,11 +57,10 @@ public sealed partial class CyclesPreset {
              Stored(dictionary, CyclesKey.SampleClampIndirect, CyclesKey.Amounts.Create), Stored(dictionary, CyclesKey.AdaptiveMinSamples, CyclesKey.Counts.Create))
                 .Apply(static (preset, filter, indirect, minimum) => preset.IfNone(() =>
                     Inferred(filter.IfNone(Architecture.FilterGlossy), indirect.IfNone(Architecture.SampleClampIndirect), minimum.IfNone(Architecture.AdaptiveMinSamples))))
-                .As()
-                .ToFin()));
+                .As()));
 
-    private static Validation<Error, Option<T>> Stored<T, TRaw>(ArchivableDictionary dictionary, CyclesKey key, Func<TRaw, Fin<T>> admit) where TRaw : notnull =>
-        ArchivableDictionaries.Find<TRaw>(dictionary, key.Key).Bind(raw => raw.Traverse(admit).As()).ToValidation();
+    private static Fin<Option<T>> Stored<T, TRaw>(ArchivableDictionary dictionary, CyclesKey key, Func<TRaw, Fin<T>> accept) where TRaw : notnull =>
+        ArchivableDictionaries.Find<TRaw>(dictionary, key.Key).Bind(raw => raw.Traverse(accept).As());
 }
 
 [SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]

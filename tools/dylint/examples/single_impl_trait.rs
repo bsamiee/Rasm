@@ -152,5 +152,22 @@ fn main() {
     let _memory = marked(&Memory::default());
     let first = first(&Borrowed(&BTreeMap::new())).unwrap_or(0);
     let read = built.store.get(1).map_or(0, |value| built.on_change.call(value).doubled());
-    black_box(&(tick_twice(&Fixed(2)), [read, first, sink!(Relay(|value: u32| value.strict_add(1))).put(1)], built.views.iter().map(|view| view.render()).collect::<Vec<_>>(), rank(&Grid)));
+    black_box(&(tick_twice(&Fixed(2)), [read, first, sink!(Relay(|value: u32| value.strict_add(1))).put(1)], built.views.iter().map(|view| view.render()).collect::<Vec<_>>(), rank(&Grid), ran()));
 }
+
+trait Handler {
+    fn handle(&self, key: u32) -> u32;
+}
+
+impl<F> Handler for F
+where F: Fn(u32) -> u32
+{
+    fn handle(&self, key: u32) -> u32 { self(key) }
+}
+
+fn run<H>(handler: &H) -> u32
+where H: Handler {
+    handler.handle(1)
+}
+
+fn ran() -> u32 { run(&|key: u32| key.strict_add(1)) }

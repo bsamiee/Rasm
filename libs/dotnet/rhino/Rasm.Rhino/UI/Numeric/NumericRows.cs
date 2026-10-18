@@ -88,7 +88,7 @@ public static class NumericRows {
         select (new RowLine(Some(caption), cell.Value, pick, Some(cell.Fit)), (Func<Option<TRecord>, IO<Unit>>)(held => cell.Show(held.Map(lens.Get))));
 
     // --- [REALIZE]
-    private static Func<TValue, TRecord, Fin<TRecord>> Into<TRecord, TValue>(Lens<TRecord, TValue> lens) => (value, held) => Fin.Succ(lens.Set(value, held));
+    private static Func<TValue, TRecord, Fin<TRecord>> Into<TRecord, TValue>(Lens<TRecord, TValue> lens) => (value, held) => lens.Set(value, held);
 
     private static Func<RowEdit<TRecord>, EventHandler<EditEventArgs<TValue>>> Handled<TRecord, TValue>(Lens<TRecord, TValue> lens, CallbackSite site)
         where TRecord : notnull

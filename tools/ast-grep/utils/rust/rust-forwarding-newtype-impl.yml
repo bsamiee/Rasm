@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-forwarding-newtype-impl
+language: rust
+utils:
+    tuple-field:
+        not: {kind: 'visibility_modifier, attribute_item, line_comment, block_comment'}
+    newtype:
+        kind: struct_item
+        all:
+            - has: {field: name, pattern: $WRAPPER}
+            - has:
+                field: body
+                any:
+                    - kind: field_declaration_list
+                      all: [{has: {kind: field_declaration}}, {not: {has: {nthChild: {position: 2, ofRule: {kind: field_declaration}}}}}]
+                    - kind: ordered_field_declaration_list
+                      all: [{has: {matches: tuple-field}}, {not: {has: {nthChild: {position: 2, ofRule: {matches: tuple-field}}}}}]
+    one-statement:
+        kind: block
+        not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
+    self-field:
+        any:
+            - {kind: field_expression, has: {field: value, kind: self}}
+            - {kind: reference_expression, has: {field: value, kind: field_expression, has: {field: value, kind: self}}}
+    passed-argument:
+        any:
+            - kind: identifier
+            - {kind: reference_expression, has: {field: value, kind: identifier}}
+    same-name-call:
+        kind: call_expression
+        any:
+            - all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, pattern: $FORWARDED}}, {has: {field: value, matches: self-field}}]}
+                - has: {field: arguments, not: {has: {pattern: $_, not: {matches: passed-argument}}}}
+            - all:
+                - has: {field: function, kind: scoped_identifier, has: {field: name, pattern: $FORWARDED}}
+                - has: {field: arguments, all: [{has: {nthChild: 1, matches: self-field}}, {not: {has: {pattern: $_, not: {any: [{matches: passed-argument}, {matches: self-field}]}}}}]}
+    same-name-forward:
+        kind: function_item
+        all:
+            - has: {field: name, pattern: $FORWARDED}
+            - has: {field: body, matches: one-statement, has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, any: [{matches: same-name-call}, {kind: expression_statement, has: {matches: same-name-call}}]}}
+    constructor:
+        kind: function_item
+        all:
+            - not: {has: {field: parameters, has: {kind: self_parameter}}}
+            - has:
+                field: body
+                matches: one-statement
+                has:
+                    nthChild: {position: 1, ofRule: {matches: rust-statement}}
+                    any:
+                        - pattern: Self($ARGUMENT)
+                        - pattern: $WRAPPER($ARGUMENT)
+                        - {kind: struct_expression, has: {field: name, regex: '^Self$'}}
+                        - {kind: struct_expression, has: {field: name, pattern: $WRAPPER}}
+    wrapper-type:
+        any:
+            - {kind: type_identifier, pattern: $WRAPPER}
+            - {kind: generic_type, has: {field: type, pattern: $WRAPPER}}
+    trait-impl-method:
+        kind: impl_item
+        all:
+            - has: {field: trait, pattern: $_}
+            - has: {field: type, matches: wrapper-type}
+            - has: {field: body, has: {kind: function_item}}
+rule:
+    kind: impl_item
+    all:
+        - not: {has: {field: trait, pattern: $_}}
+        - has: {field: type, matches: wrapper-type}
+        - inside: {kind: source_file, stopBy: end, all: [{has: {stopBy: end, matches: newtype}}, {not: {has: {stopBy: end, matches: trait-impl-method}}}]}
+        - has: {field: body, all: [{not: {has: {kind: function_item, not: {any: [{matches: same-name-forward}, {matches: constructor}]}}}}, {has: {kind: function_item, matches: same-name-forward}}]}

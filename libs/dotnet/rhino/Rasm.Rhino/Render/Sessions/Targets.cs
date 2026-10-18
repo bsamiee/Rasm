@@ -108,7 +108,7 @@ public abstract partial class TargetFile : ICaptioned {
         public override TargetWrite Write(OutputTarget target) =>
             target.Reader.Match<TargetWrite>(
                 Some: reader => new TargetWrite.Layers(Layout(target), reader),
-                None: () => new TargetWrite.Raw((frame, _) => Layout(target).Bind(layout => StillFormat.ExrRaster.From(frame, layout, target.Alpha, None).ToFin())));
+                None: () => new TargetWrite.Raw((frame, _) => Layout(target).Bind(layout => StillFormat.ExrRaster.From(frame, layout, target.Alpha, None))));
 
         public override Option<TargetVerdict> Verdict(TargetParameter parameter, OutputTarget target) =>
             parameter.Map(
@@ -127,7 +127,7 @@ public abstract partial class TargetFile : ICaptioned {
     private sealed class DngFile(string key, string extension, string caption) : TargetFile(key, extension, caption) {
         public override TargetWrite Write(OutputTarget target) =>
             new TargetWrite.Raw(static (frame, framing) => StillFormat.Dng.From(frame, EffectPipeline.Working, None,
-                framing.Bind(static held => held.FocalLength), framing.Bind(static held => held.Aperture)).ToFin());
+                framing.Bind(static held => held.FocalLength), framing.Bind(static held => held.Aperture)));
 
         public override Option<TargetVerdict> Verdict(TargetParameter parameter, OutputTarget target) =>
             parameter.Map<Option<TargetVerdict>>(
@@ -309,8 +309,8 @@ public static class TargetRows {
     // --- [PAGE]
     public static Seq<ControlRow> Formation { get; } = SectionRows.Of(Chosen, toSeq(TargetParameter.Items).Filter(static parameter => parameter.Formation), None, Rules);
 
-    public static Seq<ControlRow> Page { get; } =
-        Seq(ListRows.List("Targets", "Files each save writes from one rendering", new ListRow<(OutputTarget Target, int Index), int>(
+    public static Seq<ControlRow> Page { get; } = [
+        ListRows.List("Targets", "Files each save writes from one rendering", new ListRow<(OutputTarget Target, int Index), int>(
                 IterableNE.create<ListColumn<(OutputTarget Target, int Index)>>(
                     new ListColumn<(OutputTarget Target, int Index)>.Label(None, static row => row.Target.FileFormat.Caption, None, None),
                     new ListColumn<(OutputTarget Target, int Index)>.Label(None, static row => row.Target.FileFormat.Verdict(TargetParameter.ColorDepth, row.Target).Map(_ => row.Target.ColorDepth.Caption).IfNone(""), None, None)),
@@ -332,24 +332,24 @@ public static class TargetRows {
                         from written in Write(doc, book with { Targets = kept, Current = kept.IsEmpty ? None : Some(0) })
                         select written))),
         },
-            RowRules.Always))
-        + SectionRows.Of(Chosen, toSeq(TargetParameter.Items).Filter(static parameter => !parameter.Formation), None, Rules)
-        + Seq<ControlRow>(new ControlRow.Group("Written as", RowRules.Always))
-        + toSeq(TargetParameter.Items).Filter(static parameter => !parameter.Formation).Map(static parameter => TextRows.Readout(
+            RowRules.Always),
+        .. SectionRows.Of(Chosen, toSeq(TargetParameter.Items).Filter(static parameter => !parameter.Formation), None, Rules),
+        new ControlRow.Group("Written as", RowRules.Always),
+        .. toSeq(TargetParameter.Items).Filter(static parameter => !parameter.Formation).Map(static parameter => TextRows.Readout(
             parameter.Text.Caption, parameter.Text.Help, new ReadoutSource<OutputTarget>.Model(Shown),
             target => target.FileFormat.Verdict(parameter, target).Match(Some: VerdictText, None: static () => ""),
-            Rules(parameter)))
-        + SectionRows.Of(Destined, Destined.Fields, None, static _ => RowRules.Always)
-        + Seq(
-            ListRows.List("Paths", "Files the next save writes", new ListRow<(OutputName Name, OutputPath Path), string>(
-                    IterableNE.create<ListColumn<(OutputName Name, OutputPath Path)>>(new ListColumn<(OutputName Name, OutputPath Path)>.Label(None, static row => row.Path, None, None)),
-                    static row => row.Path,
-                    RowSource.Opaque(Owner, "paths", Seq<(OutputName Name, OutputPath Path)>(), static scope => ValueStore.Readout(
-                        from doc in scope.DocumentIO
-                        from book in Book(doc)
-                        from listed in Saves.Preview(doc, book)
-                        select listed,
-                        Signal(scope))),
-                    RowSource.Opaque(Owner, "path-picked", LanguageExt.HashSet<string>.Empty)),
-                RowRules.Always));
+            Rules(parameter))),
+        .. SectionRows.Of(Destined, Destined.Fields, None, static _ => RowRules.Always),
+        ListRows.List("Paths", "Files the next save writes", new ListRow<(OutputName Name, OutputPath Path), string>(
+                IterableNE.create<ListColumn<(OutputName Name, OutputPath Path)>>(new ListColumn<(OutputName Name, OutputPath Path)>.Label(None, static row => row.Path, None, None)),
+                static row => row.Path,
+                RowSource.Opaque(Owner, "paths", Seq<(OutputName Name, OutputPath Path)>(), static scope => ValueStore.Readout(
+                    from doc in scope.DocumentIO
+                    from book in Book(doc)
+                    from listed in Saves.Preview(doc, book)
+                    select listed,
+                    Signal(scope))),
+                RowSource.Opaque(Owner, "path-picked", LanguageExt.HashSet<string>.Empty)),
+            RowRules.Always),
+    ];
 }

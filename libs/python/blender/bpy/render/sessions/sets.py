@@ -108,6 +108,24 @@ class Setup[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
     layers: dict[str, Snapshot]
     effects: dict[EffectName, Configured[E | DisplayView]]
 
+    def projected(self, scene: bpy.types.Scene, current: "Setup[E]", locks: "SetupLocks", layers: tuple[bpy.types.ViewLayer, ...]) -> "BlenderResult[tuple[Setup[E], Setup[E]]]":
+        """Projects this sparse recipe's settings and effect fields over captured current values, answering the sparse writes and the projected whole."""
+        return paired(
+            self.scene.projected(scene, current.scene, locks.scene),
+            accumulated(
+                self.layers[layer.name].projected(layer, current.layers[layer.name], locks.layers.get(layer.name, frozenset())).map(lambda pair: (layer.name, pair))
+                for layer in layers
+                if layer.name in self.layers
+            ),
+        ).map(
+            lambda values: (
+                msgspec.structs.replace(self, scene=values[0][0], layers={name: pair[0] for name, pair in values[1]}),
+                Setup(
+                    scene=values[0][1], layers=current.layers | {name: pair[1] for name, pair in values[1]}, effects=projected(current.effects, self.effects, locked=locks.effects, fields=locks.fields)
+                ),
+            )
+        )
+
 
 class SetupLocks(msgspec.Struct, frozen=True, kw_only=True):
     """Native setting paths, entry order, and effect fields retained by setup presets."""
@@ -250,7 +268,7 @@ class Members(msgspec.Struct, frozen=True, kw_only=True):
         def locked(owner: bpy.types.Scene | bpy.types.ViewLayer) -> BlenderResult[bool]:
             return (self.scenes.read(owner) if isinstance(owner, bpy.types.Scene) else self.layers.read(owner)).map(lambda member: member.locked)
 
-        return accumulated(map(locked, owners)).map(lambda locks: tuple(owner for owner, lock in zip(owners, locks, strict=True) if not lock))
+        return accumulated(map(locked, owners)).map(lambda locks: tuple(owner for owner, lock in zip(owners, locks) if not lock))
 
     def unlocked(self, context: bpy.types.Context) -> BlenderResult[tuple[bpy.types.Scene | bpy.types.ViewLayer, ...]]:
         """Returns unlocked members after reading the native file form."""
@@ -264,7 +282,7 @@ class Members(msgspec.Struct, frozen=True, kw_only=True):
                 case Copies():
                     return self.copies(context).bind(
                         lambda scenes: accumulated(self.scenes.read(scene) for scene in scenes).map(
-                            lambda records: tuple((scene, Nothing) for scene, record in zip(scenes, records, strict=True) if record.rendered)
+                            lambda records: tuple((scene, Nothing) for scene, record in zip(scenes, records) if record.rendered)
                         )
                     )
                 case Layers():
@@ -366,32 +384,12 @@ class SetupScope[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
             ),
         )
 
-    def projected(self, scene: bpy.types.Scene, recipe: Setup[E], current: Setup[E], locks: SetupLocks, layers: tuple[bpy.types.ViewLayer, ...]) -> BlenderResult[tuple[Setup[E], Setup[E]]]:
-        """Projects sparse settings and effect fields over captured current values."""
-        return paired(
-            recipe.scene.projected(scene, current.scene, locks.scene),
-            accumulated(
-                recipe.layers[layer.name].projected(layer, current.layers[layer.name], locks.layers.get(layer.name, frozenset())).map(lambda pair: (layer.name, pair))
-                for layer in layers
-                if layer.name in recipe.layers
-            ),
-        ).map(
-            lambda values: (
-                msgspec.structs.replace(recipe, scene=values[0][0], layers={name: pair[0] for name, pair in values[1]}),
-                Setup(
-                    scene=values[0][1],
-                    layers=current.layers | {name: pair[1] for name, pair in values[1]},
-                    effects=projected(current.effects, recipe.effects, locked=locks.effects, fields=locks.fields),
-                ),
-            )
-        )
-
     def applied(self, context: bpy.types.Context, recipe: Setup[E]) -> BlenderResult[Outcome]:
         """Applies sparse recipes across unlocked members whose projection differs, sharing scene writes under layers, or answers why no member changes."""
 
         def planned(scene: bpy.types.Scene) -> BlenderResult[Option[tuple[bpy.types.Scene, SetupLocks, Setup[E]]]]:
             return paired(self.captured(scene), self.held(scene)).bind(
-                lambda held: self.projected(scene, recipe, held[0], *held[1]).map(lambda pair: Some((scene, held[1][0], pair[0])) if pair[1] != held[0] else Nothing)
+                lambda held: recipe.projected(scene, held[0], *held[1]).map(lambda pair: Some((scene, held[1][0], pair[0])) if pair[1] != held[0] else Nothing)
             )
 
         def written(scene: bpy.types.Scene, locks: SetupLocks, sparse: Setup[E]) -> BlenderResult[None]:
@@ -424,7 +422,7 @@ class SetupScope[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
             case bpy.types.Scene() as scene, Option(tag="some"):
                 return (
                     paired(self.captured(scene), self.held(scene))
-                    .bind(lambda held: self.projected(scene, recipe, held[0], *held[1]))
+                    .bind(lambda held: recipe.projected(scene, held[0], *held[1]))
                     .map(lambda pair: Chain(head=head, offered=pair[1].effects, initial_view=Some(viewed(scene))))
                 )
             case None, _:
@@ -449,7 +447,7 @@ class SetupScope[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
                 return paired(self.captured(scene), self.held(scene)).map(
                     lambda held: (
                         (content_hash(SetupScope, held[0], held[1][0]), tuple(layer.name for layer in held[1][1])),
-                        lambda recipes: accumulated(self.projected(scene, recipe, held[0], *held[1]).map(lambda pair: pair[1] == held[0]) for recipe in recipes),
+                        lambda recipes: accumulated(recipe.projected(scene, held[0], *held[1]).map(lambda pair: pair[1] == held[0]) for recipe in recipes),
                     )
                 )
             case None:

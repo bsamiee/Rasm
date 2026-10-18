@@ -118,19 +118,16 @@ public sealed class DefinitionThumbnails : IDisposable {
         from definition in TableOps.Find(doc.InstanceDefinitions, address, includeDeleted: false)
         from pixels in HostTheme.Device(extent)
         let key = new Key(doc.RuntimeSerialNumber, definition.Index, method, pixels)
-        from cached in atomicIO(() => held.Value.Match(
-            Some: cache => cache.Find(key), None: static () => throw Errors.Cancelled.ToException()))
-        from raster in cached.Match(Some: static found => IO.pure(found), None: () => Rendered(doc, address, key))
+        from cache in IO.lift(() => held.Value.ToFin(Errors.Cancelled))
+        from raster in cache.Find(key).Match(Some: static found => IO.pure(found), None: () => Rendered(doc, address, key))
         select raster;
 
     private IO<Thumbnail.Raster> Rendered(RhinoDoc doc, ComponentRef<InstanceDefinition> address, Key key) =>
-        from raster in Definitions.Preview(doc, address, key.Method, key.Pixels, bitmap => Thumbnails.Owned(bitmap, raster => {
-            if (!atomic(() => {
-                Option<HashMap<Key, Thumbnail.Raster>> prior = held.Value;
-                held.Value = prior.Map(cache => cache.Add(key, raster));
-                return prior.IsSome;
-            })) throw Errors.Cancelled.ToException();
-        }))
+        from raster in Definitions.Preview(doc, address, key.Method, key.Pixels, bitmap => Thumbnails.Owned(bitmap, raster => atomicIO(() => {
+            Option<HashMap<Key, Thumbnail.Raster>> prior = held.Value;
+            held.Value = prior.Map(cache => cache.Add(key, raster));
+            return guard(prior.IsSome, Errors.Cancelled).ToFin();
+        }).Bind(IO.lift)))
         select raster;
 
     // --- [RELEASE]
@@ -181,12 +178,12 @@ public static class Thumbnails {
         from raster in Lent(() => Refused.UnlessFound(style.CreatePreviewBitmap(pixels.Width, pixels.Height, transparent), nameof(DimensionStyle.CreatePreviewBitmap)).ThrowIfFail(), retain)
         select raster;
 
-    internal static IO<Thumbnail.Raster> Owned(System.Drawing.Bitmap lent, Action<Thumbnail.Raster> retain) =>
-        DisposalOps.Acquire(acquired => DisposalOps.Within(() => lent.ToEto(), shown => DisposalOps.Acquire(IO.lift(() => new Thumbnail.Raster(new Bitmap(shown))), static raster => IO.lift(raster.Pixels.Dispose), raster => acquired(raster.Pixels))),
-            (raster, _) => retain(raster));
+    internal static IO<Thumbnail.Raster> Owned(System.Drawing.Bitmap lent, Func<Thumbnail.Raster, IO<Unit>> publish) =>
+        DisposalOps.Replace(acquired => DisposalOps.Within(() => lent.ToEto(), shown => DisposalOps.Acquire(IO.lift(() => new Thumbnail.Raster(new Bitmap(shown))), static raster => IO.lift(raster.Pixels.Dispose), raster => acquired(raster.Pixels))),
+            (raster, _) => publish(raster));
 
     private static IO<Disposal<Thumbnail>> Lent(Func<System.Drawing.Bitmap> render, Action<Disposal<Thumbnail>> retain) =>
-        DisposalOps.Acquire(acquired => DisposalOps.Within(render, bitmap => Owned(bitmap, raster => acquired(raster.Pixels))
+        DisposalOps.Acquire(acquired => DisposalOps.Within(render, bitmap => Owned(bitmap, raster => IO.lift(() => acquired(raster.Pixels)))
             .Map(static raster => new Disposal<Thumbnail>(raster, Thumbnail.Release))),
             (lease, _) => retain(lease));
 

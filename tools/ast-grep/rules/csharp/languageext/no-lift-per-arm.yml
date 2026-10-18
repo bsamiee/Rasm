@@ -2,6 +2,7 @@
 id: no-lift-per-arm
 language: csharp
 severity: error
+ignores: ['tools/roslyn/**']
 utils:
     direct-lift:
         kind: invocation_expression
@@ -64,8 +65,6 @@ utils:
             - matches: lift-thunk
             - kind: invocation_expression
               has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^(pure|Pure|fail|Fail)$'}}}}
-            - kind: member_access_expression
-              matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^(pure|Pure)$'}}}
             - matches: lifted-conditional
             - matches: lifted-switch-expression
             - matches: lifted-call

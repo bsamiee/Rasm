@@ -125,7 +125,7 @@ public static class Contents {
             nativeFactory: static (state, factory) => Created(factory.Create, state.Retain));
 
         static IO<(RenderContent Content, Disposal<RenderContent> Ownership)> Created(Func<Fin<RenderContent>> acquire, Action<IDisposable> retain) =>
-            DisposalOps.Acquire(IO.lift(() => acquire().Map(static content => (Content: content, Ownership: new Disposal<RenderContent>(content, static held => held.Dispose()))).ThrowIfFail()),
+            DisposalOps.Acquire(IO.lift(() => acquire().Map(static content => (Content: content, Ownership: new Disposal<RenderContent>(content, static held => held.Dispose())))),
                 static held => IO.lift(held.Ownership.Dispose), held => retain(held.Ownership));
     }
 
@@ -145,7 +145,7 @@ public static class Contents {
             .Map(_ => { content.Ownership.Relinquish(); return unit; })).Uninterruptible();
 
     public static IO<RenderContent> Detach(RhinoDoc doc, RenderContent content, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(IO.lift(() => Refused.Unless(Conversions.ByKind(content, doc.RenderMaterials.Remove, doc.RenderEnvironments.Remove, doc.RenderTextures.Remove), content, nameof(RenderMaterialTable.Remove)).ThrowIfFail()), held => retain(new Disposal<RenderContent>(held, static detached => detached.Dispose())));
+        DisposalOps.Acquire(IO.lift(() => Refused.Unless(Conversions.ByKind(content, doc.RenderMaterials.Remove, doc.RenderEnvironments.Remove, doc.RenderTextures.Remove), content, nameof(RenderMaterialTable.Remove))), held => retain(new Disposal<RenderContent>(held, static detached => detached.Dispose())));
 
     public static IO<Unit> Replace(RenderContent target, RenderContent replacement) =>
         IO.lift(() => (target.DocumentOwner is not null ? Fin.Succ(unit) : Error.New($"Content {target.Id} belongs to no document"))
@@ -215,7 +215,7 @@ public static class Contents {
     public static IO<Bitmap> Icon(RenderContent content, Size size, Option<DynamicIconUsage> usage, Action<IDisposable> retain) =>
         DisposalOps.Acquire(IO.lift(() => usage.Match(
             Some: dynamic => content.DynamicIcon(size, out Bitmap bitmap, dynamic) ? Fin.Succ(bitmap) : new Refused(nameof(RenderContent.DynamicIcon), Refused.Absent),
-            None: () => content.Icon(size, out Bitmap bitmap) ? Fin.Succ(bitmap) : new Refused(nameof(RenderContent.Icon), Refused.Absent)).ThrowIfFail()), bitmap => retain(bitmap));
+            None: () => content.Icon(size, out Bitmap bitmap) ? bitmap : new Refused(nameof(RenderContent.Icon), Refused.Absent))), bitmap => retain(bitmap));
 
     // --- [FILES]
     public static IO<Unit> SaveToFile(RenderContent content, string fileName, RenderContent.EmbedFilesChoice embed) =>

@@ -3,11 +3,18 @@ id: no-url-path-concatenation
 language: swiftlang
 severity: error
 utils:
+    path-member:
+        kind: navigation_expression
+        has: {field: suffix, has: {field: suffix, regex: '^path$'}}
     url-path:
         kind: call_expression
         all:
-            - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^path$'}}}
+            - has: {nthChild: 1, any: [{matches: path-member}, {kind: additive_expression, has: {field: rhs, matches: path-member}}]}
             - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: name, regex: '^percentEncoded$'}}}}
+    joined-path:
+        any:
+            - {kind: additive_expression, has: {field: lhs, stopBy: end, matches: url-path}}
+            - {matches: url-path, has: {nthChild: 1, kind: additive_expression}}
     labeled:
         kind: value_argument
         has: {field: name, regex: '^(filePath|string|atPath)$'}
@@ -23,13 +30,13 @@ rule:
                 any:
                     - all:
                         - has: {field: name, regex: '^filePath$'}
-                        - has: {field: value, kind: additive_expression, has: {field: lhs, stopBy: end, matches: url-path}}
+                        - has: {field: value, matches: joined-path}
                     - all:
                         - has: {field: name, regex: '^string$'}
-                        - has: {field: value, any: [{kind: line_string_literal, regex: '^"file://'}, {kind: additive_expression, has: {field: lhs, stopBy: end, kind: line_string_literal, regex: '^"file://'}}]}
+                        - has: {field: value, regex: '^"file://'}
                     - all:
                         - has: {field: name, regex: '^atPath$'}
-                        - has: {field: value, matches: url-path}
+                        - has: {field: value, any: [{matches: url-path}, {matches: joined-path}]}
                         - inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, regex: '\bcontentsOfDirectory$'}}}}
 message: '`$SITE` builds a file location from path text in place of the URL members that join components'
 note: 'Call `<directory>.appending(path: <name>)`, `appendingPathExtension(<extension>)`, or `deletingLastPathComponent().appending(path: <name> + <suffix>)` on the URL, `URL(filePath:)` for a path string, and `contentsOfDirectory(at:includingPropertiesForKeys:)` for a listing'

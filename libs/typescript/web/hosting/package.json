@@ -1,20 +1,38 @@
 {
     "name": "@rasm/hosting",
     "private": true,
-    "description": "Foundation for web apps served from an edge Worker: server-rendered pages with schema-encoded hydration data, OpenAI Sites sign-in, R2 object storage, and HTTP API boundaries",
+    "description": "Foundation for web apps served from an edge Worker or a Node server: server-rendered pages with schema-encoded hydration data, one signed-in user header contract served by OpenAI Sites, Cloudflare Access, or an authenticating proxy, R2 or S3 object storage, the Worker binding schema every hosting target maps, and HTTP API boundaries",
     "type": "module",
     "exports": {
         "./*": "./*"
     },
     "dependencies": {
+        "@aws-sdk/client-s3": "catalog:",
+        "@aws-sdk/s3-request-presigner": "catalog:",
+        "@effect/platform-node": "catalog:",
+        "cf": "catalog:",
+        "cheerio": "catalog:",
         "effect": "catalog:",
+        "jose": "catalog:",
         "partial-content": "catalog:",
         "react": "catalog:",
-        "react-dom": "catalog:"
+        "react-dom": "catalog:",
+        "vite": "catalog:"
     },
     "devDependencies": {
-        "@cloudflare/workers-types": "catalog:",
+        "@cloudflare/vitest-plugin": "catalog:",
+        "@effect/vitest": "catalog:",
+        "@rasm/test-support": "workspace:*",
+        "@types/node": "catalog:",
         "@types/react": "catalog:",
-        "@types/react-dom": "catalog:"
+        "@types/react-dom": "catalog:",
+        "testcontainers": "catalog:",
+        "vitest": "catalog:"
+    },
+    "nx": {
+        "targets": {
+            "test": { "options": { "args": [ "--project=!s3" ] } },
+            "test:integration": { "options": { "args": [ "--project=s3" ] } }
+        }
     }
 }

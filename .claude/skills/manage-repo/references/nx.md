@@ -7,6 +7,8 @@ Nx infers projects through plugins, orders targets through `dependsOn`, caches o
 - Plugins infer a project from each file matching their glob, a matching file that defines no project yields none
 - Plugins export `createDependencies` beside `createNodes` for undeclared edges, a static edge names its `sourceFile`
 - Nx merges inferred projects sharing a root, each file of one directory adds its targets to one project
+- Workspace plugin markers match a base name, an extension, or `<directory>/<base>` for a generic name (`.storybook/main.ts`)
+- Cargo `[package.metadata.nx]` merges over a package's inferred targets as a later layer of its project, a target one package owns sits there
 - Task hashing reads files by project directory, a root naming a file owns none and its tasks fail to hash
 - Keep native daemon and graph reuse; maintenance clears workspace data after toolchain changes
 - `package.json` `scripts` entries infer as `nx:run-script` targets with no inputs, outputs, or cache, `nx.targets` holds targets with them
@@ -53,6 +55,7 @@ Use JSON discovery from workspace root:
 - `configurations` holds named option sets merged over `options`, `--configuration <name>` selects one, `defaultConfiguration` the default
 - Configurations differing in arguments alone set `args` over one `command`
 - `cache: true` alone caches a target, `cache: false` overrides a `targetDefaults` entry setting it for the name
+- `test:integration` alone starts containers, its default sets `cache: false` and `parallelism: false`, container and service state are no task input
 - `parallelism: false` runs a target writing shared files or directories with no other task of its `nx` process
 - `--output-style=static-failures-only` prints failing tasks and a single-project run in full, agent default `summary` names failing task log files
 

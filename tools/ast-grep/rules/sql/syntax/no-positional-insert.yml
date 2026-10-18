@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-positional-insert
+language: sql
+severity: error
+rule:
+    kind: insert_statement
+    all:
+        - has: {field: source, kind: 'values_clause, select_clause'}
+        - not: {has: {field: columns, kind: column_name_list}}
+        - has: {field: target, pattern: _TABLE}
+message: 'Insert into `$TABLE` assigns values by column position'
+note: 'Name the columns in `insert into <table> (<column>, ...)`, and values bind by name through added and reordered columns'

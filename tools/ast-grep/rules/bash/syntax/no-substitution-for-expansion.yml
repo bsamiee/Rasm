@@ -91,4 +91,4 @@ transform:
     VARIABLE: {replace: {source: $USER, replace: '^(?:\S+/)?(hostname|uname)$', by: HOSTNAME}}
 fix: $OPEN$NAME$OPERATOR$VARIABLE$CLOSE$READ
 message: '`$SUB` forks `$PROGRAM` for a value bash reads itself'
-note: 'Read the value through bash, `${<name>@U}`, `${<name>@L}`, `$EPOCHSECONDS`, `$PWD`, `$EUID`, `$HOSTNAME`, or `$(<<file>)`'
+note: 'Read the value through bash, `${<name>@U}`, `${<name>@L}`, `$EPOCHSECONDS`, `$PWD`, `$EUID`, `$HOSTNAME`, or `$(< <file>)`'

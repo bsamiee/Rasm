@@ -198,26 +198,26 @@ rule:
         - kind: type_parameter
           pattern: $PARAMETERS
           all:
-            - inside: {kind: generic_type, has: {kind: identifier, matches: annotated}}
-            - has: {kind: type, not: {any: [{nthChild: 1}, {has: {matches: identity-metadata}}]}}
             - has: {kind: type, not: {nthChild: 1}, has: {matches: identity-metadata}}
+            - has: {kind: type, not: {any: [{nthChild: 1}, {has: {matches: identity-metadata}}]}}
+            - inside: {kind: generic_type, has: {kind: identifier, matches: annotated}}
         - kind: type
           has:
             kind: generic_type
             all:
-                - has: {kind: identifier, matches: annotated}
                 - has: {kind: type_parameter, all: [{has: {kind: type, nthChild: 1, pattern: $BASE}}, {has: {kind: type, nthChild: 2, has: {matches: identity-metadata}}}], not: {has: {kind: type, not: {any: [{nthChild: 1}, {has: {matches: identity-metadata}}]}}}}
+                - has: {kind: identifier, matches: annotated}
         - kind: subscript
           pattern: $OWNER[$$$ITEMS]
           all:
-            - has: {field: value, matches: annotated}
-            - has: {pattern: $_, not: {any: [{nthChild: 1}, {nthChild: 2}, {matches: identity-metadata}, {kind: comment}]}}
             - has: {matches: identity-metadata, not: {nthChild: 2}}
+            - has: {pattern: $_, not: {any: [{nthChild: 1}, {nthChild: 2}, {matches: identity-metadata}, {kind: comment}]}}
+            - has: {field: value, matches: annotated}
         - kind: subscript
           all:
-            - has: {field: value, matches: annotated}
-            - has: {nthChild: 2, pattern: $BASE}
             - has: {nthChild: 3, matches: identity-metadata}
+            - has: {nthChild: 2, pattern: $BASE}
+            - has: {field: value, matches: annotated}
             - not: {has: {pattern: $_, not: {any: [{nthChild: 1}, {nthChild: 2}, {matches: identity-metadata}, {kind: comment}]}}}
 rewriters:
     - id: kept-metadata

@@ -13,6 +13,35 @@ fn debug_main_error(found: &str) {
     ");
 }
 
+fn decode_without_path(found: &str) {
+    insta::assert_snapshot!(found, @"
+    warning: `Deserialize::deserialize` decodes `&mut Deserializer<StrRead<'_>>` without tracking the field path
+      --> tools/dylint/examples/decode_without_path.rs:30:61
+       |
+    30 | fn decoded(text: &str) -> Result<Port, serde_json::Error> { Port::deserialize(&mut serde_json::Deserializer::from_str(text)) }
+       |                                                             ^^^^^^^^^^^^^^^^^
+       |
+       = help: decode through `serde_path_to_error::deserialize`, whose error names the failing field path
+       = note: `#[warn(decode_without_path)]` on by default
+
+    warning: `Deserialize::deserialize` decodes `&mut Deserializer<StrRead<'_>>` without tracking the field path
+      --> tools/dylint/examples/decode_without_path.rs:32:64
+       |
+    32 | fn qualified(text: &str) -> Result<Reply, serde_json::Error> { <Reply as Deserialize>::deserialize(&mut serde_json::Deserializer::fr...
+       |                                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: decode through `serde_path_to_error::deserialize`, whose error names the failing field path
+
+    warning: `Deserialize::deserialize` decodes `Value` without tracking the field path
+      --> tools/dylint/examples/decode_without_path.rs:34:77
+       |
+    34 | fn converted(value: serde_json::Value) -> Result<Port, serde_json::Error> { Port::deserialize(value) }
+       |                                                                             ^^^^^^^^^^^^^^^^^
+       |
+       = help: decode through `serde_path_to_error::deserialize`, whose error names the failing field path
+    ");
+}
+
 fn discarded_error(found: &str) {
     insta::assert_snapshot!(found, @r#"
     warning: `unwrap_or` replaces `ParseIntError` with a fallback value
@@ -238,31 +267,31 @@ fn discarded_error(found: &str) {
     110 |     (texts.iter().map(|text| parse(text)).flatten().collect(), parse(texts[0]).into_iter().collect(), parse(texts[0]).iter().count(...
         |                                           ^^^^^^^^^
         |
-        = help: collect into `Result<Vec<_>, _>`, or call `Itertools::partition_result` to keep every error
+        = help: collect into `validated::Validated<Vec<_>, _>` and call `.ok()` to keep every error
 
-    warning: `into_iter` iterates results and skips each `ParseIntError`
+    warning: `into_iter` iterates the `Result` and skips its `ParseIntError`
        --> tools/dylint/examples/discarded_error.rs:110:80
         |
     110 |     (texts.iter().map(|text| parse(text)).flatten().collect(), parse(texts[0]).into_iter().collect(), parse(texts[0]).iter().count(...
         |                                                                                ^^^^^^^^^^^
         |
-        = help: collect into `Result<Vec<_>, _>`, or call `Itertools::partition_result` to keep every error
+        = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
-    warning: `iter` iterates results and skips each `ParseIntError`
+    warning: `iter` iterates the `Result` and skips its `ParseIntError`
        --> tools/dylint/examples/discarded_error.rs:110:119
         |
     110 |     (texts.iter().map(|text| parse(text)).flatten().collect(), parse(texts[0]).into_iter().collect(), parse(texts[0]).iter().count(...
         |                                                                                                                       ^^^^^^
         |
-        = help: collect into `Result<Vec<_>, _>`, or call `Itertools::partition_result` to keep every error
+        = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
-    warning: `iter_mut` iterates results and skips each `ParseIntError`
+    warning: `iter_mut` iterates the `Result` and skips its `ParseIntError`
        --> tools/dylint/examples/discarded_error.rs:110:151
         |
     110 | ...collect(), parse(texts[0]).iter().count(), parse(texts[0]).iter_mut().count())
         |                                                               ^^^^^^^^^^
         |
-        = help: collect into `Result<Vec<_>, _>`, or call `Itertools::partition_result` to keep every error
+        = help: match the `Result`, handle each error the caller acts on, and return the rest with `?`
 
     warning: `is_ok_and` tests the `Result` and drops `ParseIntError`
        --> tools/dylint/examples/discarded_error.rs:113:71
@@ -890,7 +919,7 @@ fn foreign_error_return(found: &str) {
 }
 
 fn independent_question_marks(found: &str) {
-    insta::assert_snapshot!(found, @"
+    insta::assert_snapshot!(found, @r#"
     warning: `?` on `first` returns before independent `second` is computed
      --> tools/dylint/examples/independent_question_marks.rs:8:5
       |
@@ -898,7 +927,7 @@ fn independent_question_marks(found: &str) {
     9 | |     let second = parse(right)?;
       | |_______________________________^
       |
-      = help: evaluate both and accumulate their errors through `validated::Validated` before combining
+      = help: collect each result into `validated::Validated`, combine them through `map2`..`map4`, and call `.ok()`
       = note: `#[warn(independent_question_marks)]` on by default
 
     warning: `?` on `first` returns before independent `second` is computed
@@ -908,7 +937,7 @@ fn independent_question_marks(found: &str) {
     15 | |     let second = parse(right)?;
        | |_______________________________^
        |
-       = help: evaluate both and accumulate their errors through `validated::Validated` before combining
+       = help: collect each result into `validated::Validated`, combine them through `map2`..`map4`, and call `.ok()`
 
     warning: `?` on `first` returns before independent `second` is computed
       --> tools/dylint/examples/independent_question_marks.rs:20:5
@@ -917,7 +946,7 @@ fn independent_question_marks(found: &str) {
     21 | |     let second = parse(right)?;
        | |_______________________________^
        |
-       = help: evaluate both and accumulate their errors through `validated::Validated` before combining
+       = help: collect each result into `validated::Validated`, combine them through `map2`..`map4`, and call `.ok()`
 
     warning: `?` on `start` returns before independent `end` is computed
       --> tools/dylint/examples/independent_question_marks.rs:26:5
@@ -926,8 +955,51 @@ fn independent_question_marks(found: &str) {
     27 | |     let end = parse(right)?;
        | |____________________________^
        |
-       = help: evaluate both and accumulate their errors through `validated::Validated` before combining
-    ");
+       = help: collect each result into `validated::Validated`, combine them through `map2`..`map4`, and call `.ok()`
+
+    warning: `?` on `parse(left)` returns before independent `parse(right)` is computed
+      --> tools/dylint/examples/independent_question_marks.rs:62:78
+       |
+    62 | fn summed_inline(left: &str, right: &str) -> Result<u32, ParseIntError> { Ok(parse(left)?.strict_add(parse(right)?)) }
+       |                                                                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: collect each result into `validated::Validated`, combine them through `map2`..`map4`, and call `.ok()`
+
+    warning: `?` on `parse(left)` returns before independent `parse(right)` is computed
+      --> tools/dylint/examples/independent_question_marks.rs:64:99
+       |
+    64 | fn built_inline(left: &str, right: &str) -> Result<Range<u32>, ParseIntError> { Ok(Range { start: parse(left)?, end: parse(right)? }) }
+       |                                                                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: collect each result into `validated::Validated`, combine them through `map2`..`map4`, and call `.ok()`
+
+    warning: `?` on `parse(left.trim())` returns before independent `parse(right)` is computed
+      --> tools/dylint/examples/independent_question_marks.rs:66:81
+       |
+    66 | ...ult<(usize, u32), ParseIntError> { Ok((parse(left.trim())?.to_string().len(), parse(right)?.strict_add(1))) }
+       |                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: collect each result into `validated::Validated`, combine them through `map2`..`map4`, and call `.ok()`
+
+    warning: `?` on `spelled(text)` returns before independent `borrowed(text)` is computed
+       --> tools/dylint/examples/untyped_error.rs:339:9
+        |
+    339 | /         spelled(text)?,
+    340 | |         borrowed(text)?,
+        | |______________________^
+        |
+        = help: collect each result into `validated::Validated`, combine them through `map2`..`map4`, and call `.ok()`
+        = note: `#[warn(independent_question_marks)]` on by default
+
+    warning: `?` on `loaded("port")` returns before independent `reported("port").map_err(projected)` is computed
+       --> tools/dylint/examples/untyped_error.rs:377:9
+        |
+    377 | /         loaded("port")?,
+    378 | |         reported("port").map_err(projected)?,
+        | |___________________________________________^
+        |
+        = help: collect each result into `validated::Validated`, combine them through `map2`..`map4`, and call `.ok()`
+    "#);
 }
 
 fn io_error_without_context(found: &str) {
@@ -1186,7 +1258,7 @@ fn source_in_error_message(found: &str) {
     8 |     #[error("cannot read {path}: {source}")]
       |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
       |
-      = help: delete `source` from the message, reporters print it through `source()`
+      = help: delete field `source` from the message, reporters print it through `source()`
       = note: `#[warn(source_in_error_message)]` on by default
 
     warning: `Parse` message prints its source field `0`
@@ -1195,7 +1267,7 @@ fn source_in_error_message(found: &str) {
     10 |     #[error("cannot parse the port: {0}")]
        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: delete `0` from the message, reporters print it through `source()`
+       = help: delete field `0` from the message, reporters print it through `source()`
 
     warning: `Wrapped` message prints its source field `0`
       --> tools/dylint/examples/source_in_error_message.rs:12:5
@@ -1203,7 +1275,7 @@ fn source_in_error_message(found: &str) {
     12 |     #[error("{0}")]
        |     ^^^^^^^^^^^^^^^
        |
-       = help: write `#[error(transparent)]` to forward the source's message and source
+       = help: state the failure in the message in place of field `0`, reporters print the source through `source()`
 
     warning: `Write` message prints its source field `cause`
       --> tools/dylint/examples/source_in_error_message.rs:20:5
@@ -1211,7 +1283,7 @@ fn source_in_error_message(found: &str) {
     20 |     #[error("cannot write {cause:?}")]
        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: delete `cause` from the message, reporters print it through `source()`
+       = help: delete field `cause` from the message, reporters print it through `source()`
 
     warning: `Sync` message prints its source field `source`
       --> tools/dylint/examples/source_in_error_message.rs:25:5
@@ -1219,7 +1291,7 @@ fn source_in_error_message(found: &str) {
     25 |     #[error("cannot sync {}: {}", .path, .source)]
        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: delete `source` from the message, reporters print it through `source()`
+       = help: delete field `source` from the message, reporters print it through `source()`
 
     warning: `Flush` message prints its source field `0`
       --> tools/dylint/examples/source_in_error_message.rs:27:5
@@ -1227,7 +1299,7 @@ fn source_in_error_message(found: &str) {
     27 |     #[error("cannot flush {reason}", reason = .0)]
        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: delete `0` from the message, reporters print it through `source()`
+       = help: delete field `0` from the message, reporters print it through `source()`
 
     warning: `LoadError` message prints its source field `source`
       --> tools/dylint/examples/source_in_error_message.rs:36:1
@@ -1235,7 +1307,7 @@ fn source_in_error_message(found: &str) {
     36 | #[error("cannot load the settings: {source}")]
        | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: delete `source` from the message, reporters print it through `source()`
+       = help: delete field `source` from the message, reporters print it through `source()`
     "#);
 }
 
@@ -1879,6 +1951,7 @@ fn untyped_error(found: &str) {
 
 snapshots!(
     debug_main_error,
+    decode_without_path,
     discarded_error,
     discarded_error_source,
     foreign_error_return,

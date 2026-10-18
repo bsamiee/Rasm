@@ -14,7 +14,7 @@ public static class DefinitionPlans {
     // --- [PROGRAM]
     public static IO<Seq<DefinitionOp>> Plan(RhinoDoc doc, TableSpec<PlannedDefinition> spec) =>
         from live in TableOps.Rows(doc.InstanceDefinitions)
-        from plan in IO.lift(TableOps.Plan(live, spec).ToFin())
+        from plan in IO.lift(TableOps.Plan(live, spec))
         from upserts in plan.Upserts.TraverseM(Upserted).As()
         from nesting in DefinitionGraph.Read(doc)
         select upserts.Flatten() + nesting.Removable(toHashSet(plan.Prunes.Map(static row => row.Id)))

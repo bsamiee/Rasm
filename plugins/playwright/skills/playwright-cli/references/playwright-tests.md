@@ -1,11 +1,11 @@
 # [PLAYWRIGHT_TESTS]
 
 `playwright test -c <project>` runs the tests of the `playwright.config.ts` in directory `<project>` from any directory:
-- `webServer` of the config starts the served app before the tests run
+- Suite fixtures start one app instance per worker and set `baseURL`
 - Filter arguments are regular expressions over absolute test file paths, `<file>:<line>` selects one test
 - Runs write `.last-run.json` and the traces, screenshots, and videos `use` turns on under the config's `outputDir`
 - Failures write `error-context.md` there with the error, the failing locator's aria snapshot, and the source
-- `trace: 'retain-on-failure'` in the suite's `use` keeps `<outputDir>/<test>/trace.zip` of each failed test for playwright-trace
+- `trace: 'retain-on-failure'` in the suite's `use` keeps `<outputDir>/<test>/trace.zip` of each failed test, read through playwright-trace
 - List reporter prints each failure as `<file>:<line>:<column> › <describe> › <test>` with the error, call log, and `Error Context` path
 - `--shuffle [seed]` runs test files in random order and prints the seed in the run header, the seed repeats one order
 - `--last-failed` reruns the failures the previous run recorded in `.last-run.json`, after a run without failures it exits `No tests found`

@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-thrown-failure-in-lift
+language: csharp
+severity: error
+ignores: ['tools/roslyn/**']
+utils:
+    thrown:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, pattern: $VALUE}}, {has: {field: name, regex: '^ThrowIfFail$'}}]}
+            - has: {field: arguments, not: {has: {kind: argument}}}
+    thunk:
+        kind: lambda_expression
+        all:
+            - has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
+            - inside: {kind: argument, inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^lift$'}}}}}}}
+rule:
+    matches: thrown
+    any:
+        - inside: {field: body, matches: thunk}
+        - inside: {kind: return_statement, inside: {kind: block, inside: {matches: thunk}}}
+fix: $VALUE
+message: '`$VALUE.ThrowIfFail()` throws the failure `IO.lift` carries from a returned `Fin`'
+note: Return the `Fin`, `IO.lift(Func<Fin<A>>)` puts its failure on the effect channel with its type kept

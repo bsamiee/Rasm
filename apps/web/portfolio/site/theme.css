@@ -8,6 +8,7 @@
 }
 @theme {
     --animate-fade: fade 200ms;
+    --animate-fade-out: fade 200ms reverse;
     --breakpoint-md: 850px;
     --breakpoint-sm: 600px;
     --breakpoint-xl: 1900px;
@@ -20,8 +21,21 @@
     --color-line: rgb(215 215 210);
     --color-muted: rgb(105 105 101);
     --color-surface: rgb(240 240 237);
+    --container-intro: 60rem;
     --font-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
     --font-sans: Arial, Helvetica, sans-serif;
+    --grid-template-columns-leading: max-content minmax(0, 1fr);
+    --grid-template-columns-trailing: minmax(0, 1fr) auto;
+    --grid-template-columns-trailing-pair: minmax(0, 1fr) auto auto;
+    --leading-body: 1.55;
+    --leading-prose: 1.6;
+    --shadow-panel: -20px 0 70px rgb(24 24 22 / 0.13);
+    --spacing-overview: min(36rem, 65dvh);
+    --spacing-quarter-screen: 25svh;
+    --text-caption: 13px;
+    --text-heading: 26px;
+    --tracking-display: -0.035em;
+    --tracking-label: 0.045em;
     @keyframes fade {
         from {
             opacity: 0;
@@ -31,16 +45,25 @@
         }
     }
 }
+@theme inline {
+    --spacing-viewport-inset: calc(var(--visual-viewport-height) - 2rem);
+}
 
 /* --- [VARIANTS] ---------------------------------------------------------------------- */
 
 @custom-variant landscape-short (@media (max-height: 500px) and (orientation: landscape));
+@custom-variant aria-current (&[aria-current]:not([aria-current="false"]));
 
 /* --- [BASE] -------------------------------------------------------------------------- */
 
 @layer base {
     #portfolio {
-        @apply [--index-gap:clamp(2rem,4vw,3.5rem)] [--index-width:clamp(11rem,12vw,18rem)] [--page-gutter:38px] max-md:[--page-gutter:22px];
+        --index-gap: clamp(2rem, 4vw, 3.5rem);
+        --index-width: clamp(11rem, 12vw, 18rem);
+        --page-gutter: --spacing(9.5);
+        @media (width < theme(--breakpoint-md)) {
+            --page-gutter: --spacing(5.5);
+        }
     }
     html {
         scroll-padding-top: calc(var(--sticky-height, 0px) + 24px);
@@ -76,40 +99,156 @@
 /* --- [UTILITIES] --------------------------------------------------------------------- */
 
 @utility site-header {
-    @apply mx-(--page-gutter) flex min-h-[92px] items-center justify-between gap-7 border-line border-b py-[18px] max-md:min-h-[76px] max-md:gap-5;
+    @apply mx-(--page-gutter) flex min-h-23 items-center justify-between gap-7 border-line border-b py-4.5 max-md:min-h-19 max-md:gap-5;
 }
 @utility site-name {
-    @apply wrap-anywhere flex min-w-0 max-w-[45%] items-center gap-5 text-[27px] leading-[1.1] tracking-[-0.04em] max-md:max-w-[65%];
+    font-size: 27px;
+    line-height: 1.1;
+    letter-spacing: -0.04em;
+    @apply wrap-anywhere flex min-w-0 max-w-9/20 items-center gap-5 max-md:max-w-13/20;
 }
 @utility site-content {
-    @apply @container mr-(--page-gutter) ml-[calc(var(--page-gutter)+var(--index-width)+var(--index-gap))] max-w-[1800px] max-md:mx-(--page-gutter) xl:mr-[6%];
+    margin-left: calc(var(--page-gutter) + var(--index-width) + var(--index-gap));
+    @apply @container mr-(--page-gutter) max-w-450 max-md:mx-(--page-gutter);
+    @variant xl {
+        margin-right: 6%;
+    }
 }
 @utility site-introduction {
-    @apply @container grid @min-[60rem]:grid-cols-2 grid-cols-1 items-end gap-8 pt-12 max-md:pt-[30px];
+    @apply @container grid grid-cols-1 items-end gap-8 pt-12 @intro:grid-cols-2 max-md:pt-7.5;
 }
 @utility site-title {
-    @apply wrap-anywhere mb-8 font-medium @min-[60rem]:text-[clamp(4rem,8cqw,7.5rem)] text-[clamp(4rem,calc(2rem+12cqw),11.5rem)] leading-[0.91] tracking-[-0.055em];
+    font-size: clamp(4rem, calc(2rem + 12cqw), 11.5rem);
+    line-height: 0.91;
+    letter-spacing: -0.055em;
+    @apply wrap-anywhere mb-8 font-medium;
+    @variant @intro {
+        font-size: clamp(4rem, 8cqw, 7.5rem);
+    }
 }
 @utility site-work {
-    @apply pt-[82px] pb-[72px] outline-none max-md:py-[60px];
+    @apply pt-20.5 pb-18 outline-none max-md:py-15;
 }
 @utility site-footer {
     @apply flex items-center justify-between gap-6 border-line border-t pt-6 pb-8 text-sm max-sm:flex-wrap max-sm:gap-x-6 max-sm:gap-y-2;
 }
+@utility work-title {
+    [data-populated="true"] & {
+        @apply font-medium text-sm;
+    }
+    [data-populated="false"] & {
+        font-size: clamp(1.875rem, calc(1rem + 3cqw), 4rem);
+        line-height: 1.05;
+        letter-spacing: -0.045em;
+    }
+}
+@utility hero-placeholder {
+    height: clamp(280px, 36vw, 580px);
+    @apply relative flex items-center justify-center border border-line bg-surface;
+    &::before,
+    &::after {
+        content: "";
+        @apply absolute size-5.5 border-accent;
+    }
+    &::before {
+        @apply -top-px -left-px border-t border-l;
+    }
+    &::after {
+        @apply -right-px -bottom-px border-r border-b;
+    }
+    @variant max-md {
+        height: clamp(240px, 52vw, 420px);
+    }
+}
 @utility project-index {
-    @apply fixed top-[157px] bottom-[35px] left-(--page-gutter) flex w-(--index-width) flex-col max-md:hidden;
+    @apply fixed top-39.25 bottom-8.75 left-(--page-gutter) flex w-(--index-width) flex-col max-md:hidden;
+}
+@utility index-list {
+    scrollbar-width: thin;
+    @apply -mx-1 grid grid-cols-leading overflow-auto overscroll-contain px-1 pb-1;
 }
 @utility index-link {
-    @apply col-span-full grid min-h-11 grid-cols-subgrid items-baseline gap-x-3 border-line border-t py-[13px] text-sm leading-[1.45] focus-visible:-outline-offset-2;
+    font-size: var(--text-sm);
+    line-height: 1.45;
+    @apply col-span-full grid min-h-11 grid-cols-subgrid items-baseline gap-x-3 border-line border-t py-3.25 focus-visible:-outline-offset-2;
 }
 @utility chapter {
     @apply border-line border-b pt-14 pb-16 last:border-b-0 max-md:pt-10 max-md:pb-12;
 }
 @utility chapter-heading {
-    @apply mb-8 grid grid-cols-1 items-start gap-x-8 gap-y-6 @min-[48rem]:has-[>div>figure]:grid-cols-[minmax(0,1fr)_auto];
+    @apply mb-8 grid grid-cols-1 items-start gap-x-8 gap-y-6;
+    @variant @3xl {
+        &:has(> div > figure) {
+            @apply grid-cols-trailing;
+        }
+    }
 }
 @utility chapter-title {
-    @apply wrap-anywhere col-start-1 row-start-2 min-w-0 text-balance text-[clamp(2.25rem,calc(1.25rem+3.6cqw),4.5rem)] leading-[1.05] tracking-[-0.035em] outline-none;
+    font-size: clamp(2.25rem, calc(1.25rem + 3.6cqw), 4.5rem);
+    line-height: 1.05;
+    @apply wrap-anywhere col-start-1 row-start-2 min-w-0 text-balance tracking-display outline-none;
+}
+@utility chapter-lead {
+    text-align-last: start;
+    @apply lead col-span-full max-w-prose hyphens-auto text-justify leading-body;
+    @supports (hyphenate-limit-chars: 7 3 3) {
+        hyphenate-limit-chars: 7 3 3;
+    }
+}
+@utility media-h-* {
+    --media-height: --spacing(--value(number));
+}
+@utility media-h-hero {
+    --media-height: 75svh;
+}
+@utility media-figure {
+    width: min(100%, var(--media-height) * var(--media-ratio));
+    @apply min-w-0;
+}
+@utility viewer-dialog {
+    @apply fixed inset-x-4 top-4 z-51 flex h-viewport-inset flex-col gap-1.5 bg-background px-6 py-5 outline-none;
+    @variant max-sm {
+        padding-top: max(--spacing(2.5), env(safe-area-inset-top));
+        padding-bottom: max(--spacing(3), env(safe-area-inset-bottom));
+        @apply inset-x-0 top-0 h-(--visual-viewport-height) px-3.5;
+    }
+    @variant landscape-short {
+        grid-template-rows: auto auto minmax(0, 1fr) auto;
+        @apply inset-x-0 top-0 grid h-(--visual-viewport-height) grid-cols-trailing gap-x-4 gap-y-0 px-4 py-2;
+    }
+}
+@utility viewer-heading {
+    max-height: calc(var(--visual-viewport-height) * 0.25);
+    @apply wrap-anywhere min-w-0 overflow-y-auto text-lg leading-tight max-sm:text-base landscape-short:col-start-1 landscape-short:row-start-1;
+    @variant landscape-short {
+        font-size: 15px;
+    }
+}
+@utility viewer-hint {
+    max-height: calc(var(--visual-viewport-height) * 0.15);
+    @apply wrap-anywhere shrink-0 overflow-y-auto text-caption text-muted landscape-short:hidden;
+}
+@utility viewer-controls {
+    max-height: calc(var(--visual-viewport-height) * 0.4);
+    @apply flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 overflow-y-auto border-line border-y py-2 landscape-short:col-span-full landscape-short:row-start-2 landscape-short:py-1;
+}
+@utility viewer-toolbar {
+    @apply flex w-fit max-w-full items-center;
+    & > button {
+        @apply min-w-11 selected:bg-transparent selected:text-foreground selected:decoration-accent-text;
+    }
+}
+@utility viewer-stage {
+    @apply min-h-0 flex-1 overflow-hidden bg-surface landscape-short:col-span-full landscape-short:row-start-3;
+}
+@utility sheet-scroller {
+    @apply absolute inset-0 overflow-auto overscroll-contain;
+    &[data-pan] {
+        @apply cursor-grab touch-none select-none;
+        & .textLayer {
+            pointer-events: none;
+        }
+    }
 }
 @utility editor-tab {
     @apply min-h-11 cursor-pointer px-3.5 py-2.5 text-sm selected:text-accent-text selected:underline selected:decoration-2 selected:underline-offset-8 max-sm:p-2 max-sm:text-xs;
@@ -122,7 +261,7 @@
     @apply flex flex-wrap items-center gap-2;
 }
 @utility button {
-    @apply inline-flex min-h-11 items-center justify-center gap-2 bg-foreground px-4 py-2.5 text-sm whitespace-nowrap text-background hover:brightness-[0.92] disabled:opacity-45 aria-disabled:text-muted;
+    @apply inline-flex min-h-11 items-center justify-center gap-2 bg-foreground px-4 py-2.5 text-sm whitespace-nowrap text-background hover:brightness-92 disabled:opacity-45 aria-disabled:text-muted;
 }
 @utility button-ghost {
     @apply bg-transparent text-inherit selected:bg-foreground selected:text-background selected:underline selected:underline-offset-4;
@@ -134,28 +273,29 @@
     @apply min-h-11 w-full border border-control-line bg-background px-3 py-2.5 text-base text-foreground;
 }
 @utility eyebrow {
-    @apply font-mono text-xs leading-[1.55] tracking-[0.045em] uppercase tabular-nums;
+    @apply font-mono text-xs leading-body tracking-label uppercase tabular-nums;
 }
 @utility field {
-    @apply flex min-w-0 flex-col gap-[7px] text-[13px] text-muted;
+    @apply flex min-w-0 flex-col gap-1.75 text-caption text-muted;
 }
 @utility field-pair {
-    @apply grid grid-cols-2 gap-[18px] max-sm:grid-cols-1 max-sm:gap-4;
+    @apply grid grid-cols-2 gap-4.5 max-sm:grid-cols-1 max-sm:gap-4;
 }
 @utility hint {
-    @apply text-sm leading-[1.6] text-muted;
+    @apply text-sm leading-prose text-muted;
 }
 @utility lead {
-    @apply min-w-0 max-w-[55ch] wrap-anywhere text-lg leading-[1.6] whitespace-pre-line max-sm:text-base;
+    max-width: 55ch;
+    @apply min-w-0 wrap-anywhere text-lg leading-prose whitespace-pre-line max-sm:text-base;
 }
 @utility meta-line {
-    @apply mt-[5px] block text-xs text-muted;
+    @apply mt-1.25 block text-xs text-muted;
 }
 @utility plain-link {
     @apply inline-flex min-h-11 shrink-0 items-center hover:text-accent-text;
 }
 @utility quiet-link {
-    @apply plain-link text-sm underline underline-offset-[5px];
+    @apply plain-link text-sm underline underline-offset-5;
 }
 @utility text-link {
     @apply flex min-h-11 items-center underline underline-offset-4;
@@ -176,10 +316,11 @@
             @apply justify-end;
         }
         &[data-presentation="thumbnail"] {
-            @apply aspect-[4/3];
+            @apply aspect-4/3;
         }
         &[data-presentation="expandable"] {
-            @apply min-h-[32svh] py-3 max-sm:min-h-0;
+            min-height: 32svh;
+            @apply py-3 max-sm:min-h-0;
         }
         &[data-presentation="preview"] {
             @apply border border-line bg-surface p-5 max-sm:p-3;
@@ -192,8 +333,12 @@
         --scale: 1;
         --composition-gap: clamp(20px, 3cqi, 30px);
         --media-height: calc(64svh * var(--scale));
-        width: min(calc(100% * var(--scale)), var(--stack-width));
+        --gaps: 0;
+        width: min(100% * var(--scale), var(--media-height) * var(--ratio-max));
         @apply grid grid-cols-1 items-start gap-(--composition-gap);
+        &:has(> figure + figure) {
+            --gaps: 1;
+        }
         [data-align="left"] > & {
             @apply justify-items-start;
         }
@@ -226,12 +371,57 @@
         }
         @container (width >= 600px) {
             grid-template-columns: var(--pair-columns);
-            width: min(calc(100% * var(--scale)), var(--spread-width));
+            width: min(100% * var(--scale), var(--media-height) * var(--ratio-sum) + var(--composition-gap) * var(--gaps));
         }
         [data-presentation="thumbnail"] > & {
             --composition-gap: 0.5rem;
             --media-height: 75cqw;
             grid-template-columns: var(--pair-columns);
         }
+    }
+}
+
+/* --- [EDITOR] ------------------------------------------------------------------------ */
+
+@theme {
+    --breakpoint-editor: 800px;
+    --content-ordinal: "[" counter(ordinal, decimal-leading-zero) "]";
+    --grid-template-columns-sequence: 15rem minmax(0, 1fr);
+    --grid-template-columns-sheets: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
+}
+@utility editor-popover {
+    max-width: min(--spacing(120), 100vw - --spacing(8));
+    max-height: 50vh;
+    @apply overflow-auto border border-control-line bg-background;
+}
+@utility editor-option {
+    @apply min-h-11 cursor-pointer wrap-anywhere px-4 py-2.5 focus:bg-foreground focus:text-background;
+}
+@utility editor-choice {
+    @apply grid min-h-11 min-w-14 place-items-center px-2 text-sm peer-checked:text-accent-text peer-checked:underline peer-checked:underline-offset-4 peer-focus-visible:outline-2 peer-focus-visible:outline-accent-text;
+}
+@utility editor-checkbox {
+    @apply grid size-5 shrink-0 place-items-center border border-control-line group-selected:border-accent-text group-selected:bg-accent-text group-selected:text-background;
+}
+@utility editor-check {
+    @apply size-3.5 opacity-0 group-selected:opacity-100;
+}
+@utility editor-scroll {
+    max-height: 65dvh;
+    @apply overflow-y-auto pr-4;
+}
+@utility editor-sequence {
+    counter-reset: ordinal;
+}
+@utility editor-sequence-item {
+    counter-increment: ordinal;
+}
+@utility pb-safe {
+    padding-bottom: max(--spacing(9), env(safe-area-inset-bottom));
+}
+@utility upload-dashboard {
+    & .uppy-Dashboard-inner {
+        background-color: var(--color-background);
+        border-radius: 0;
     }
 }

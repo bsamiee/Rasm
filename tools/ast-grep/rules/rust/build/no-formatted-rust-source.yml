@@ -8,8 +8,8 @@ utils:
         regex: |-
             (?x)^r?\#*"(\\n|\s)*((\#\[[^\]"]*\]|\{[\w:]*\})(\\n|\s)*)*(pub(\([\w\s]+\))?\s+)?((async|const|unsafe)\s+)*(
                 fn\s+[\w{}:]+\s*[(<]
-                |(struct|enum|trait|union)\s+[\w{}:]+\s*(\{|<|\(|;)
-                |mod\s+[\w{}:]+\s*(\{|;)
+                |(struct|enum|trait|union)\s+[\w{}:]+\s*(\{([{}\s"]|\\n)|<|\(|;)
+                |mod\s+[\w{}:]+\s*(\{([{}\s"]|\\n)|;)
                 |impl\b[^"]*\{
                 |impl(<[^>"]*>)?\s+[\w{}:<>]+\s+for\s+[\w{}:]+
                 |(const|static)\s+[\w{}:]+\s*:

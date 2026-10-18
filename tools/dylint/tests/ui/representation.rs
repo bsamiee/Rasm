@@ -56,13 +56,13 @@ fn formatted_tracing_value(found: &str) {
        |
        = help: record the value itself with `%value` or `?value`, the subscriber formats it
 
-    warning: tracing message interpolates values into text
+    warning: tracing field records a value rendered to text
       --> tools/dylint/examples/formatted_tracing_value.rs:22:31
        |
     22 |     tracing::info!(summary = %format_args!("handled {count}"), "done");
        |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: record each value as its own field (`name = %value` or `name = ?value`) beside a constant message
+       = help: record the value itself with `%value` or `?value`, the subscriber formats it
     "#);
 }
 
@@ -136,7 +136,7 @@ fn forwarding_newtype(found: &str) {
     12 | impl Deref for Names {
        | ^^^^^^^^^^^^^^^^^^^^
        |
-       = help: give `Names` named methods for the operations its callers use
+       = help: use `Vec<String>` in place of `Names`, or give `Names` methods that keep an invariant of its own
        = note: `#[warn(forwarding_newtype)]` on by default
 
     warning: `impl DerefMut for Names` exposes every method of the wrapped `Vec<String>` on `Names`
@@ -145,7 +145,7 @@ fn forwarding_newtype(found: &str) {
     18 | impl DerefMut for Names {
        | ^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: give `Names` named methods for the operations its callers use
+       = help: use `Vec<String>` in place of `Names`, or give `Names` methods that keep an invariant of its own
 
     warning: `impl Deref for Scores` exposes every method of the wrapped `Vec<u32>` on `Scores`
       --> tools/dylint/examples/forwarding_newtype_deref.rs:22:26
@@ -153,7 +153,7 @@ fn forwarding_newtype(found: &str) {
     22 | #[derive(Debug, Default, derive_more::Deref)]
        |                          ^^^^^^^^^^^^^^^^^^
        |
-       = help: give `Scores` named methods for the operations its callers use
+       = help: use `Vec<u32>` in place of `Scores`, or give `Scores` methods that keep an invariant of its own
 
     warning: `impl Deref for Exported` exposes every method of the wrapped `Vec<u8>` on `Exported`
       --> tools/dylint/examples/forwarding_newtype_deref.rs:50:1
@@ -161,7 +161,7 @@ fn forwarding_newtype(found: &str) {
     50 | impl Deref for Exported {
        | ^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: give `Exported` named methods for the operations its callers use
+       = help: use `Vec<u8>` in place of `Exported`, or give `Exported` methods that keep an invariant of its own
     ");
 }
 
@@ -181,6 +181,14 @@ fn manual_enum_map(found: &str) {
        |
     22 |     let collected = [(Unit::Meter, 1_u32), (Unit::Foot, 2)].into_iter().collect::<BTreeMap<_, _>>();
        |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: build the map with `enum_map::enum_map!` over `#[derive(enum_map::Enum)]` on `Unit`
+
+    warning: `HashMap` built with one entry per variant of `Unit`
+      --> tools/dylint/examples/manual_enum_map.rs:27:37
+       |
+    27 | fn hashed() -> HashMap<Unit, u32> { HashMap::from([(Unit::Meter, 0_u32), (Unit::Foot, 0)]) }
+       |                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
        = help: build the map with `enum_map::enum_map!` over `#[derive(enum_map::Enum)]` on `Unit`
 
@@ -275,13 +283,21 @@ fn manual_serialization(found: &str) {
 fn manual_slot_map(found: &str) {
     insta::assert_snapshot!(found, @"
     warning: `Store` tracks reusable indexes of `items` in free list `next` by hand
-     --> tools/dylint/examples/manual_slot_map.rs:6:1
+     --> tools/dylint/examples/manual_slot_map.rs:7:1
       |
-    6 | struct Store<T> {
+    7 | struct Store<T> {
       | ^^^^^^^^^^^^^^^
       |
       = help: hold `slotmap::SlotMap<K, T>`, `insert` returns a generational key and `remove` frees its slot
       = note: `#[warn(manual_slot_map)]` on by default
+
+    warning: `Pool` tracks reusable indexes of `entries` in free list `vacant` by hand
+      --> tools/dylint/examples/manual_slot_map.rs:36:1
+       |
+    36 | struct Pool {
+       | ^^^^^^^^^^^
+       |
+       = help: hold `slotmap::SlotMap<K, T>`, `insert` returns a generational key and `remove` frees its slot
     ");
 }
 
@@ -378,15 +394,6 @@ fn needless_reference_field(found: &str) {
 
 fn needless_struct(found: &str) {
     insta::assert_snapshot!(found, @"
-    warning: `Interval` has no impl beyond `Debug`, and every use builds or destructures it whole
-     --> tools/dylint/examples/needless_struct.rs:6:1
-      |
-    6 | struct Interval {
-      | ^^^^^^^^^^^^^^^
-      |
-      = help: replace `Interval` with the tuple `(u32, u32)`
-      = note: `#[warn(needless_struct)]` on by default
-
     warning: `Label` has no impl beyond `Debug`, and every use builds or destructures it whole
       --> tools/dylint/examples/needless_struct.rs:11:1
        |
@@ -394,30 +401,7 @@ fn needless_struct(found: &str) {
        | ^^^^^^^^^^^^
        |
        = help: replace `Label` with its field type `std::string::String`
-
-    warning: `Span` has no impl beyond `Debug`, and every use builds or destructures it whole
-      --> tools/dylint/examples/needless_struct.rs:50:1
-       |
-    50 | pub struct Span {
-       | ^^^^^^^^^^^^^^^
-       |
-       = help: replace `Span` with the tuple `(std::string::String, u32)`
-
-    warning: `Bounds` has no impl beyond `Debug`, and every use builds or destructures it whole
-      --> tools/dylint/examples/needless_struct.rs:57:9
-       |
-    55 |   macro_rules! record {
-    56 |       ($name:ident) => {
-    57 | /         struct $name {
-    58 | |             low: u32,
-    59 | |             high: u32,
-    60 | |         }
-       | |_________^
-    ...
-    64 |   record!(Bounds);
-       |   --------------- in this macro invocation
-       |
-       = help: replace `Bounds` with the tuple `(u32, u32)`
+       = note: `#[warn(needless_struct)]` on by default
     ");
 }
 
@@ -554,7 +538,7 @@ fn primitive_domain_binding(found: &str) {
     38 |     let length_mm = base * 2.0;
        |         ^^^^^^^^^
        |
-       = help: bind a `uom::si::f64` quantity (`Length`, `Mass`, `Angle`, `Pressure`, `Power`, `Energy`, `ThermodynamicTemperature`, `Frequency`)
+       = help: bind a `uom::si::f64` quantity (`Length`, `Mass`, `Angle`, `Pressure`, `Power`, `Energy`, `ThermodynamicTemperature`, `Frequency`, `Ratio`)
 
     warning: `angle_degrees` holds a physical quantity as `f64`
       --> tools/dylint/examples/primitive_domain_binding.rs:39:9
@@ -562,7 +546,39 @@ fn primitive_domain_binding(found: &str) {
     39 |     let angle_degrees = length_mm / 3.0;
        |         ^^^^^^^^^^^^^
        |
-       = help: bind a `uom::si::f64` quantity (`Length`, `Mass`, `Angle`, `Pressure`, `Power`, `Energy`, `ThermodynamicTemperature`, `Frequency`)
+       = help: bind a `uom::si::f64` quantity (`Length`, `Mass`, `Angle`, `Pressure`, `Power`, `Energy`, `ThermodynamicTemperature`, `Frequency`, `Ratio`)
+
+    warning: `declared_ms` holds a duration as `u64`
+      --> tools/dylint/examples/primitive_domain_binding.rs:45:9
+       |
+    45 |     let declared_ms: u64 = base;
+       |         ^^^^^^^^^^^
+       |
+       = help: bind a `core::time::Duration` and convert where a protocol or API takes the number
+
+    warning: `total_bytes` holds a byte size as `u64`
+      --> tools/dylint/examples/primitive_domain_binding.rs:60:9
+       |
+    60 |     let total_bytes = base.saturating_mul(2);
+       |         ^^^^^^^^^^^
+       |
+       = help: bind a `bytesize::ByteSize`
+
+    warning: `load_percent` holds a physical quantity as `f64`
+      --> tools/dylint/examples/primitive_domain_binding.rs:66:9
+       |
+    66 |     let load_percent = base / 2.0;
+       |         ^^^^^^^^^^^^
+       |
+       = help: bind a `uom::si::f64` quantity (`Length`, `Mass`, `Angle`, `Pressure`, `Power`, `Energy`, `ThermodynamicTemperature`, `Frequency`, `Ratio`)
+
+    warning: `retry_delay` holds a duration as `u64`
+      --> tools/dylint/examples/primitive_domain_binding.rs:71:9
+       |
+    71 |     let retry_delay: u64 = 500;
+       |         ^^^^^^^^^^^
+       |
+       = help: bind a `core::time::Duration` and convert where a protocol or API takes the number
     "#);
 }
 
@@ -625,125 +641,74 @@ fn redundant_option_flag(found: &str) {
 
 fn sentinel_default(found: &str) {
     insta::assert_snapshot!(found, @r#"
-    warning: `unwrap_or_default` turns an absent `u32` into a default that callers cannot tell from a present value
-       --> tools/dylint/examples/manual_retain_back.rs:106:37
-        |
-    106 |         total += recent.pop_front().unwrap_or_default();
-        |                                     ^^^^^^^^^^^^^^^^^^^
-        |
-        = help: keep the `Option` and match it where a consumer acts on absence
-        = note: `#[warn(sentinel_default)]` on by default
-
-    warning: `unwrap_or_default` turns an absent `u16` into a default that callers cannot tell from a present value
-      --> tools/dylint/examples/option_fields_as_result.rs:61:80
+    warning: `unwrap_or` turns `None` into a `u32` default that a later test reads as absence
+      --> tools/dylint/examples/sentinel_default.rs:47:23
        |
-    61 | fn port(attempt: &Attempt) -> u16 { if attempt.error.is_none() { attempt.value.unwrap_or_default() } else { 0 } }
-       |                                                                                ^^^^^^^^^^^^^^^^^^^
+    47 |     let count = value.unwrap_or(0);
+       |                       ^^^^^^^^^^^^
        |
-       = help: keep the `Option` and match it where a consumer acts on absence
+    note: tested here
+      --> tools/dylint/examples/sentinel_default.rs:48:8
+       |
+    48 |     if count == 0 { "none" } else { "some" }
+       |        ^^^^^^^^^^
+       = help: keep the `Option` and match `None` where the test acts on absence
        = note: `#[warn(sentinel_default)]` on by default
 
-    warning: `unwrap_or_default` turns an absent `u16` into a default that callers cannot tell from a present value
-      --> tools/dylint/examples/redundant_option_flag.rs:76:79
+    warning: `unwrap_or_default` turns `None` into a `Vec<u32>` default that a later test reads as absence
+      --> tools/dylint/examples/sentinel_default.rs:51:58
        |
-    76 | fn settings(settings: &Settings) -> u16 { if settings.verbose { settings.port.unwrap_or_default() } else { 0 } }
-       |                                                                               ^^^^^^^^^^^^^^^^^^^
+    51 | fn listed_empty(value: Option<Vec<u32>>) -> bool { value.unwrap_or_default().is_empty() }
+       |                                                          ^^^^^^^^^^^^^^^^^^^
        |
-       = help: keep the `Option` and match it where a consumer acts on absence
-       = note: `#[warn(sentinel_default)]` on by default
+    note: tested here
+      --> tools/dylint/examples/sentinel_default.rs:51:52
+       |
+    51 | fn listed_empty(value: Option<Vec<u32>>) -> bool { value.unwrap_or_default().is_empty() }
+       |                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       = help: keep the `Option` and match `None` where the test acts on absence
 
-    warning: `unwrap_or_default` turns an absent `&str` into a default that callers cannot tell from a present value
-     --> tools/dylint/examples/sentinel_default.rs:6:71
-      |
-    6 | fn viewed(value: Option<&String>) -> &str { value.map(String::as_str).unwrap_or_default() }
-      |                                                                       ^^^^^^^^^^^^^^^^^^^
-      |
-      = help: keep the `Option` and match it where a consumer acts on absence
-      = note: `#[warn(sentinel_default)]` on by default
-
-    warning: `unwrap_or_default` turns an absent `String` into a default that callers cannot tell from a present value
-     --> tools/dylint/examples/sentinel_default.rs:8:85
-      |
-    8 | fn cloned(map: &BTreeMap<u32, String>, key: u32) -> String { map.get(&key).cloned().unwrap_or_default() }
-      |                                                                                     ^^^^^^^^^^^^^^^^^^^
-      |
-      = help: keep the `Option` and match it where a consumer acts on absence
-
-    warning: `unwrap_or_default` turns an absent `u32` into a default that callers cannot tell from a present value
-      --> tools/dylint/examples/sentinel_default.rs:10:47
+    warning: `unwrap_or` turns `None` into a `&str` default that a later test reads as absence
+      --> tools/dylint/examples/sentinel_default.rs:55:16
        |
-    10 | fn counted(value: Option<u32>) -> u32 { value.unwrap_or_default() }
-       |                                               ^^^^^^^^^^^^^^^^^^^
+    53 | macro_rules! tested {
+    54 |     ($value:expr) => {
+    55 |         $value.unwrap_or("") == ""
+       |                ^^^^^^^^^^^^^
+    ...
+    59 | fn both(left: Option<&str>, right: Option<&str>) -> bool { tested!(left) && tested!(right) }
+       |                                                            ------------- in this macro invocation
        |
-       = help: keep the `Option` and match it where a consumer acts on absence
+    note: tested here
+      --> tools/dylint/examples/sentinel_default.rs:55:9
+       |
+    55 |         $value.unwrap_or("") == ""
+       |         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...
+    59 | fn both(left: Option<&str>, right: Option<&str>) -> bool { tested!(left) && tested!(right) }
+       |                                                            ------------- in this macro invocation
+       = help: keep the `Option` and match `None` where the test acts on absence
 
-    warning: `unwrap_or_default` turns an absent `bool` into a default that callers cannot tell from a present value
-      --> tools/dylint/examples/sentinel_default.rs:12:49
+    warning: `unwrap_or` turns `None` into a `&str` default that a later test reads as absence
+      --> tools/dylint/examples/sentinel_default.rs:55:16
        |
-    12 | fn flagged(value: Option<bool>) -> bool { value.unwrap_or_default() }
-       |                                                 ^^^^^^^^^^^^^^^^^^^
+    53 | macro_rules! tested {
+    54 |     ($value:expr) => {
+    55 |         $value.unwrap_or("") == ""
+       |                ^^^^^^^^^^^^^
+    ...
+    59 | fn both(left: Option<&str>, right: Option<&str>) -> bool { tested!(left) && tested!(right) }
+       |                                                                             -------------- in this macro invocation
        |
-       = help: keep the `Option` and match it where a consumer acts on absence
-
-    warning: `unwrap_or_default` turns an absent `char` into a default that callers cannot tell from a present value
-      --> tools/dylint/examples/sentinel_default.rs:14:49
+    note: tested here
+      --> tools/dylint/examples/sentinel_default.rs:55:9
        |
-    14 | fn initial(value: Option<char>) -> char { value.unwrap_or_default() }
-       |                                                 ^^^^^^^^^^^^^^^^^^^
-       |
-       = help: keep the `Option` and match it where a consumer acts on absence
-
-    warning: `unwrap_or_default` turns an absent `String` into a default that callers cannot tell from a present value
-       --> tools/dylint/examples/stringified_error.rs:178:32
-        |
-    178 |     let texts = [closure(text).unwrap_or_default(), kind(&denied), attempt.label, messages.concat()];
-        |                                ^^^^^^^^^^^^^^^^^^^
-        |
-        = help: keep the `Option` and match it where a consumer acts on absence
-        = note: `#[warn(sentinel_default)]` on by default
-
-    warning: `unwrap_or_default` turns an absent `usize` into a default that callers cannot tell from a present value
-       --> tools/dylint/examples/stringly_typed_value.rs:151:30
-        |
-    151 |     tally.get("ok").copied().unwrap_or_default().strict_add(tally["err"])
-        |                              ^^^^^^^^^^^^^^^^^^^
-        |
-        = help: keep the `Option` and match it where a consumer acts on absence
-        = note: `#[warn(sentinel_default)]` on by default
-
-    warning: `unwrap_or_default` turns an absent `String` into a default that callers cannot tell from a present value
-       --> tools/dylint/examples/untyped_error.rs:381:49
-        |
-    381 |         text.parse::<u16>().err().map(rendered).unwrap_or_default(),
-        |                                                 ^^^^^^^^^^^^^^^^^^^
-        |
-        = help: keep the `Option` and match it where a consumer acts on absence
-        = note: `#[warn(sentinel_default)]` on by default
-
-    warning: `unwrap_or_default` turns an absent `String` into a default that callers cannot tell from a present value
-       --> tools/dylint/examples/untyped_error.rs:382:50
-        |
-    382 |         text.parse::<u16>().err().map(explained).unwrap_or_default(),
-        |                                                  ^^^^^^^^^^^^^^^^^^^
-        |
-        = help: keep the `Option` and match it where a consumer acts on absence
-
-    warning: `unwrap_or_default` turns an absent `&str` into a default that callers cannot tell from a present value
-      --> tools/dylint/examples/untyped_json_access.rs:24:82
-       |
-    24 |     fn index(&self, key: &str) -> &str { self.0.get(key).and_then(Value::as_str).unwrap_or_default() }
-       |                                                                                  ^^^^^^^^^^^^^^^^^^^
-       |
-       = help: keep the `Option` and match it where a consumer acts on absence
-       = note: `#[warn(sentinel_default)]` on by default
-
-    warning: `unwrap_or_default` turns an absent `u64` into a default that callers cannot tell from a present value
-      --> tools/dylint/examples/untyped_json_access.rs:54:43
-       |
-    54 |     Ok(document["size"]["bytes"].as_u64().unwrap_or_default())
-       |                                           ^^^^^^^^^^^^^^^^^^^
-       |
-       = help: keep the `Option` and match it where a consumer acts on absence
+    55 |         $value.unwrap_or("") == ""
+       |         ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...
+    59 | fn both(left: Option<&str>, right: Option<&str>) -> bool { tested!(left) && tested!(right) }
+       |                                                                             -------------- in this macro invocation
+       = help: keep the `Option` and match `None` where the test acts on absence
     "#);
 }
 
@@ -755,7 +720,7 @@ fn single_impl_trait(found: &str) {
     5 | trait Small {
       | ^^^^^^^^^^^
       |
-      = help: delete the trait and write each method's body at its call sites on `Result<u8, ParseIntError>`
+      = help: delete the trait and declare each method as a function taking the `Result<u8, ParseIntError>`
       = note: `#[warn(single_impl_trait)]` on by default
 
     warning: trait `Store` is implemented only for `Memory`
@@ -799,7 +764,15 @@ fn single_impl_trait(found: &str) {
     46 | trait Doubled {
        | ^^^^^^^^^^^^^
        |
-       = help: delete the trait and write each method's body at its call sites on `u32`
+       = help: delete the trait and declare each method as a function taking the `u32`
+
+    warning: trait `Handler` is implemented only for `F`
+       --> tools/dylint/examples/single_impl_trait.rs:158:1
+        |
+    158 | trait Handler {
+        | ^^^^^^^^^^^^^
+        |
+        = help: replace `Handler` with the bound on `F`, named as `trait Handler = <bound>;` under `#![feature(trait_alias)]`
 
     warning: trait `Source` is implemented only for `Port`
        --> tools/dylint/examples/untyped_error.rs:21:1
@@ -825,7 +798,7 @@ fn stringified_uuid(found: &str) {
     26 | fn account(name: &str) -> Account { Account { user_id: Uuid::new_v4().to_string(), name: name.to_owned() } }
        |                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: declare `user_id` as `uuid::Uuid`, its `Display` and serde impls render it where it leaves the program
+       = help: declare `user_id` as `newtype_uuid::TypedUuid<<Kind>>` for an entity identifier or `uuid::Uuid` otherwise, `Display` and serde render either
        = note: `#[warn(stringified_uuid)]` on by default
 
     warning: field `key` holds a `Uuid` rendered to text
@@ -834,7 +807,7 @@ fn stringified_uuid(found: &str) {
     28 | fn session(id: Uuid) -> Session { Session { key: format!("session-{id}") } }
        |                                                  ^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: declare `key` as `uuid::Uuid`, its `Display` and serde impls render it where it leaves the program
+       = help: declare `key` as `newtype_uuid::TypedUuid<<Kind>>` for an entity identifier or `uuid::Uuid` otherwise, `Display` and serde render either
 
     warning: field `key` holds a `Uuid` rendered to text
       --> tools/dylint/examples/stringified_uuid.rs:32:19
@@ -842,7 +815,7 @@ fn stringified_uuid(found: &str) {
     32 |     session.key = fresh.hyphenated().to_string();
        |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: declare `key` as `uuid::Uuid`, its `Display` and serde impls render it where it leaves the program
+       = help: declare `key` as `newtype_uuid::TypedUuid<<Kind>>` for an entity identifier or `uuid::Uuid` otherwise, `Display` and serde render either
     "#);
 }
 
@@ -865,23 +838,6 @@ fn stringly_typed_value(found: &str) {
        | |_____^
        = help: declare an enum deriving `strum::EnumString` with a variant per value, parse the text once where it enters, and match the variants
        = note: `#[warn(stringly_typed_value)]` on by default
-
-    warning: `name` holds one of `"c"`, `"d"`, `" c "` as text
-      --> tools/dylint/examples/manual_deref_pattern.rs:58:12
-       |
-    58 | fn trimmed(name: &str) -> u8 {
-       |            ^^^^
-       |
-    note: branched on here
-      --> tools/dylint/examples/manual_deref_pattern.rs:59:5
-       |
-    59 | /     match name.trim() {
-    60 | |         "c" => 1,
-    61 | |         "d" => 2,
-    62 | |         _ => 0,
-    63 | |     }
-       | |_____^
-       = help: declare an enum deriving `strum::EnumString` with a variant per value, parse the text once where it enters, and match the variants
 
     warning: `level` holds one of `"warn"`, `"info"` as text
       --> tools/dylint/examples/stringly_typed_value.rs:14:22
@@ -1138,7 +1094,7 @@ fn unparsed_field(found: &str) {
        |
     31 | fn verbosity(options: &Options) -> Result<u8, ParseIntError> { options.level.parse() }
        |                                                                ^^^^^^^^^^^^^^^^^^^^^
-       = help: declare `level` as `u8` and parse the text where it enters, through clap's `value_parser` or serde's `DisplayFromStr`
+       = help: declare `level` as `u8` and parse the text where it enters, through clap's `value_parser` or `serde_with::DisplayFromStr`
        = note: `#[warn(unparsed_field)]` on by default
 
     warning: field `level` holds text every read parses into `u8`
@@ -1152,7 +1108,7 @@ fn unparsed_field(found: &str) {
        |
     43 | pub fn exported(exported: &Exported) -> Result<u8, ParseIntError> { exported.level.parse() }
        |                                                                     ^^^^^^^^^^^^^^^^^^^^^^
-       = help: declare `level` as `u8` and parse the text where it enters, through clap's `value_parser` or serde's `DisplayFromStr`
+       = help: declare `level` as `u8` and parse the text where it enters, through clap's `value_parser` or `serde_with::DisplayFromStr`
     ");
 }
 
@@ -1204,14 +1160,6 @@ fn untyped_json_access(found: &str) {
        |
     64 | fn constant_name(object: &Map<String, Value>) -> Option<&Value> { Map::get(object, NAME) }
        |                                                                   ^^^^^^^^^^^^^^^^^^^^^^
-       |
-       = help: decode the document into a struct deriving `serde::Deserialize`
-
-    warning: `Map::insert` accesses an untyped JSON document by a fixed key
-      --> tools/dylint/examples/untyped_json_access.rs:66:71
-       |
-    66 | fn renamed(object: &mut Map<String, Value>) -> Option<Value> { object.insert("name".to_owned(), Value::Null) }
-       |                                                                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
        = help: decode the document into a struct deriving `serde::Deserialize`
 

@@ -30,8 +30,8 @@ Registration runs under host conditions a release stack answers:
 from contextlib import ExitStack
 from sys import platform
 
-import bpy
 from bl_keymap_utils.platform_helpers import keyconfig_data_oskey_from_ctrl_for_macos
+import bpy
 from expression import identity
 import msgspec
 
@@ -42,12 +42,12 @@ unregister = held.close
 
 
 def register() -> None:
-    def unregistered(cls: type[bpy.types.bpy_struct]) -> None:
-        if cls.is_registered:
+    def unregistered(cls: type[bpy.types.PropertyGroup | bpy.types.Operator | bpy.types.Panel]) -> None:
+        if cls.is_registered:  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
             bpy.utils.unregister_class(cls)
 
-    keyconfigs: bpy.types.KeyConfigurations = bpy.context.window_manager.keyconfigs
-    keymaps: Keymaps = (keyconfig_data_oskey_from_ctrl_for_macos if platform == "darwin" else identity)(
+    keyconfigs: bpy.types.KeyConfigurations = bpy.context.window_manager.keyconfigs  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+    keymaps: Keymaps = (keyconfig_data_oskey_from_ctrl_for_macos if platform == "darwin" else identity)(  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
         [("Object Mode", {}, {"items": [(ITEM_OT_run.bl_idname, {"type": "J", "value": "PRESS", "ctrl": 1}, Run(amount=2))]})]
     )
     with ExitStack() as stack:
@@ -55,12 +55,12 @@ def register() -> None:
         for cls in (Settings, ITEM_OT_run, ITEM_PT_settings):
             stack.callback(unregistered, cls)
             bpy.utils.register_class(cls)
-        bpy.types.Scene.item_settings = bpy.props.PointerProperty(type=Settings)
+        bpy.types.Scene.item_settings = bpy.props.PointerProperty(type=Settings)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
         stack.callback(delattr, bpy.types.Scene, "item_settings")
         bpy.app.handlers.load_post.append(loaded)
         stack.callback(bpy.app.handlers.load_post.remove, loaded)
-        for keymap, (operator, event, values) in ((keyconfigs.addon.keymaps.new(name, **params), entry) for name, params, content in keymaps for entry in content["items"]):
-            item: bpy.types.KeyMapItem = keymap.keymap_items.new(operator, **event)
+        for keymap, (operator, event, values) in ((keyconfigs.addon.keymaps.new(name, **params), entry) for name, params, content in keymaps for entry in content["items"]):  # type: ignore[union-attr, arg-type]  # ty: ignore[unresolved-attribute, invalid-argument-type]
+            item: bpy.types.KeyMapItem = keymap.keymap_items.new(operator, **event)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
             stack.callback(keymap.keymap_items.remove, item)
             for field, value in msgspec.structs.asdict(values).items():
                 setattr(item.properties, field, value)
@@ -84,10 +84,12 @@ Acquisitions follow host dependency order, and releases run in reverse, a group 
 
 Registered classes take the forms Blender checks at `register_class` and at each call:
 - Operator `bl_idname` takes `<category>.<name>` in lowercase letters, digits, and underscores, one dot, at most 60 characters, else `RuntimeError`
+- Callbacks declaring another positional parameter count than the host passes raise `ValueError` at `register_class`, `*args` counting none (Panel `draw` takes 2)
 - `__init__` overrides take `*args, **kwargs` and pass them to `super().__init__` first, a narrower signature reaching callers as `RuntimeError`
 - Blender builds a new operator, panel, and menu instance per call, and instance attributes reach no later call
 - Classes registered under a held `bl_idname` replace the earlier class with an `Info` line
 - Second `register_class` calls on one class raise `ValueError`
+- Unregistering an operator class while it runs modal leaves its `window.modal_operators` entry reading `None` until the next event removes it
 
 `bpy.types.<Type>.<name> = bpy.props.PointerProperty(type=<group>)` attaches a group, and `delattr(bpy.types.<Type>, "<name>")` releases it:
 - Releases remove the attachment alone, stored values staying on IDs, saving with the file, and reading back when the group attaches again
@@ -268,11 +270,11 @@ class Previous(msgspec.Struct, frozen=True, kw_only=True):
 
 
 def migrated(preferences: bpy.types.Preferences, package: str) -> Option[Result[Previous, msgspec.ValidationError]]:
-    match preferences.addons.get(package):
-        case bpy.types.Addon(preferences=ItemPreferences() as prefs) if any(name in prefs.bl_system_properties_get() for name in Previous.__struct_fields__):
-            stored: bpy.types.PropertyGroup = prefs.bl_system_properties_get()
+    held: bpy.types.Addon | None = preferences.addons.get(package)
+    match held:
+        case bpy.types.Addon(preferences=ItemPreferences() as prefs) if (stored := prefs.bl_system_properties_get()) is not None and any(name in stored for name in Previous.__struct_fields__):  # type: ignore[operator]
             previous: Result[Previous, msgspec.ValidationError] = catch(msgspec.convert, exception=msgspec.ValidationError)(
-                {name: stored.pop(name) for name in Previous.__struct_fields__ if name in stored}, type=Previous
+                {name: stored.pop(name) for name in Previous.__struct_fields__ if name in stored}, type=Previous  # type: ignore[operator]
             )
             for record in previous.to_option().to_list():
                 prefs.amount = record.count
@@ -315,9 +317,9 @@ def placed(package: str) -> Path:
 
 
 def recalled(package: str) -> Result[Recent, OSError | msgspec.DecodeError]:
-    return catch(exception=msgspec.DecodeError)(catch(lambda: msgspec.json.decode(placed(package).read_bytes(), type=Recent), exception=OSError))().or_else_with(
-        lambda error: Ok(Recent()) if isinstance(error, FileNotFoundError) else Error(error)
-    )
+    return Result[bytes, OSError | msgspec.DecodeError].bind(
+        catch(placed(package).read_bytes, exception=OSError)(), lambda data: catch(lambda: msgspec.json.decode(data, type=Recent), exception=msgspec.DecodeError)()
+    ).or_else_with(lambda error: Ok(Recent()) if isinstance(error, FileNotFoundError) else Error(error))
 
 
 def kept(package: str, recent: Recent) -> Result[Recent, OSError]:

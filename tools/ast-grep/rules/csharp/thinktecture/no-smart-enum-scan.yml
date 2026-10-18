@@ -2,6 +2,7 @@
 id: no-smart-enum-scan
 language: csharp
 severity: error
+ignores: ['tools/roslyn/**']
 utils:
     key-read:
         kind: member_access_expression

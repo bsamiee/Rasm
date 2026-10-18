@@ -1,4 +1,4 @@
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 pub(crate) mod needless_import_rename;
-pub(crate) mod single_caller;
+pub(crate) mod single_reader;

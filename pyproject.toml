@@ -84,7 +84,6 @@ workspace = [
     "pyroscope-io",                                                               # Profiling agent feeding pyroscope-otel span-link exporter
     "pyroscope-otel",                                                             # Continuous-profiling span links beside OTLP exporters
     "regex",                                                                      # Emoji and pictograph property classes `re` lacks
-    "result",                                                                     # Selective synchronous and asynchronous error composition
     "ruamel-yaml",                                                                # Round-trip YAML with comments and layout kept
     "structlog",                                                                  # Structured logging with processors and typed events
     "tblib",                                                                      # Cross-process traceback fidelity for worker exceptions
@@ -355,17 +354,14 @@ dev       = [
     "mypy",                                                                       # Type checker rasm:typecheck runs
     "pydantic",                                                                   # Model strategies in test support and pydantic.mypy plugin
     "refurb",                                                                     # Modernization checker over a mypy build rasm:lint runs
-    "ruff",                                                                       # Linter and formatter rasm:lint and rasm:format run
+    "ruff",                                                                       # Linter and formatter rasm:lint and rasm:format run, import graph the Nx plugin reads for Python project edges
     "ty",                                                                         # Type checker rasm:typecheck runs
     "yamllint",                                                                   # YAML linter rasm:lint runs
 
-    # --- [TESTS]
+    # --- [TESTING]
     "anyio",                                                                      # Structured concurrency in tools, a required pytest plugin
-    "asyncssh",                                                                   # SSH server double in test environment fixture
     "coverage",                                                                   # Coverage engine pytest-cov drives, configured by [tool.coverage]
-    "fsspec",                                                                     # Memory and directory filesystems in test environment fixture
     "hypothesis",                                                                 # Property-based tests, a required pytest plugin
-    "moto[server]",                                                               # Threaded AWS server in test environment fixture
     "opentelemetry-api",                                                          # Tracer access in test runtime plugin
     "opentelemetry-sdk",                                                          # Tracer provider and span processor in test runtime plugin
     "pydantic-core",                                                              # Core schema strategies in test support
@@ -376,8 +372,6 @@ dev       = [
     "pytest-socket",                                                              # Socket blocking, a required pytest plugin
     "pytest-timeout",                                                             # Per-test timeout, a required pytest plugin
     "pytest-xdist",                                                               # Parallel test workers, a required pytest plugin
-    "s3fs",                                                                       # S3 filesystem for tests over moto
-    "sniffio",                                                                    # Asynchronous runtime detection for test environment fixture
     "structlog",                                                                  # Log capture in test runtime plugin
     "trio",                                                                       # AnyIO Trio backend with autojumping clock for test doubles
 
@@ -394,7 +388,6 @@ dev       = [
     "psutil",                                                                     # Blender identity, use-ghidra process lookup, benchmark readings
     "pygments",                                                                   # Lexer aliases and filename patterns for clean-prose fence languages
     "regex",                                                                      # DEFINE groups and pictograph property classes `re` lacks for clean-prose
-    "result",                                                                     # Typed error composition for Blender assembly and installation
     "shapely",                                                                    # Filled-region geometry for Blender tool icons
     "skia-pathops",                                                               # Glyph stroke expansion and filled-region unions
     "tomlkit",                                                                    # Comment-preserving Blender extension manifest assembly
@@ -431,7 +424,7 @@ environments             = [
     "sys_platform == 'win32' and platform_machine == 'AMD64'",
 ]
 prerelease               = "allow"
-no-build-package         = ["epdx"]                                                                                                                                                  # Sdist omits `project.version`
+no-build-package         = ["epdx", "numpy"]                                                                                                                                         # `epdx` sdist omits `project.version`, numpy sdists fail under Xcode Clang (`std::ptrdiff_t` in `string_fastsearch.h`) where a pin outruns its wheels
 constraint-dependencies  = ["numpy==2.3.4; python_full_version < '3.15'", "opencolorio==2.5.0; python_full_version < '3.15'", "openimageio==3.1.16.0; python_full_version < '3.15'"] # Versions Blender 5.4 bundles in the interpreter running host code
 extra-build-dependencies = { pyroscope-io = ["cmake"] }                                                                                                                              # `pyroscope-io` build.rs runs cmake its sdist leaves undeclared
 build-backend            = { module-name = ["blender"], module-root = "libs/python", namespace = true, wheel-exclude = ["pyproject.toml"] }
@@ -482,7 +475,7 @@ PDAL_ROOT            = "$CONDA_PREFIX"
 no-default-feature = true
 
 [tool.pixi.environments.hdf5.dependencies]
-hdf5 = "*"
+hdf5 = "2.2.*"
 
 [tool.pixi.environments.hdf5.target.unix.activation.env]
 HDF5_DIR = "$CONDA_PREFIX"
@@ -500,40 +493,33 @@ format         = { exclude = ["*.md"], line-ending = "lf", docstring-code-format
 [tool.ruff.lint]
 select                    = ["ALL"]
 ignore                    = [
-    "missing-trailing-comma",
-    "too-many-public-methods",
-    "too-many-return-statements",
-    "too-many-branches",
-    "too-many-locals",
-    "too-many-statements",
-    "complex-structure",
-    "raw-string-in-exception",
-    "f-string-in-exception",
-    "raise-vanilla-args",
-    "typing-only-first-party-import",
-    "typing-only-third-party-import",
-    "typing-only-standard-library-import",
-    "suspicious-subprocess-import",
-    "implicit-namespace-package",
-    "missing-copyright-notice",
-    "commented-out-code",
-    "float-equality-comparison",
-    "non-pep695-generic-class",
-    "no-self-use",
-    "unused-method-argument",
-    "zip-without-explicit-strict",
-    "batched-without-explicit-strict",
-    "boolean-positional-value-in-call",
-    "too-many-statements-in-try-clause",
-    "subprocess-without-shell-equals-true",
-    "function-uses-loop-variable",
-    "import-private-name",
-    "reimplemented-operator",
-    "lambda-assignment",
-    "boolean-type-hint-positional-argument",
-    "non-empty-init-module",
-    "unused-function-argument",
-    "unused-lambda-argument",
+    "missing-trailing-comma",                                                                                                                                                                                        # Ruff format `skip-magic-trailing-comma` removes the commas COM812 adds
+    "too-many-public-methods",                                                                                                                                                                                       # Member counts push one-caller helper extraction
+    "too-many-return-statements",                                                                                                                                                                                    # Return counts push one-caller helper extraction, `match` arms return per case
+    "too-many-branches",                                                                                                                                                                                             # Branch counts push one-caller helper extraction, ast-grep `no-fourth-nesting-level-python` bounds nesting
+    "too-many-locals",                                                                                                                                                                                               # Local counts push one-caller helper extraction
+    "too-many-statements",                                                                                                                                                                                           # Statement counts push one-caller helper extraction
+    "complex-structure",                                                                                                                                                                                             # Complexity scores push one-caller helper extraction, ast-grep `no-fourth-nesting-level-python` bounds nesting
+    "raw-string-in-exception",                                                                                                                                                                                       # Moves the message into a local the raise alone reads
+    "f-string-in-exception",                                                                                                                                                                                         # Moves the message into a local the raise alone reads
+    "raise-vanilla-args",                                                                                                                                                                                            # Pushes an exception class per message, raises stay for defects
+    "typing-only-first-party-import",                                                                                                                                                                                # Fixes add `lazy` to modules every run loads and move multi-name imports into `TYPE_CHECKING` blocks, which raise `NameError` where cyclopts `App.command` reads annotations
+    "typing-only-third-party-import",                                                                                                                                                                                # Fixes add `lazy` to modules every run loads and move multi-name imports into `TYPE_CHECKING` blocks, which raise `NameError` where cyclopts `App.command` reads annotations
+    "typing-only-standard-library-import",                                                                                                                                                                           # Fixes add `lazy` to modules every run loads and move multi-name imports into `TYPE_CHECKING` blocks, which raise `NameError` where cyclopts `App.command` reads annotations
+    "suspicious-subprocess-import",                                                                                                                                                                                  # Reports every `subprocess` import, process boundaries call it
+    "implicit-namespace-package",                                                                                                                                                                                    # Import roots under backend `module-root` are namespace packages
+    "missing-copyright-notice",                                                                                                                                                                                      # Files carry no license header
+    "commented-out-code",                                                                                                                                                                                            # Reads `# --- [<FAMILY>]` subsection dividers as code
+    "float-equality-comparison",                                                                                                                                                                                     # Compares authored controls with their exact identity value (`0.0`, `1.0`) and guards division by exact zero
+    "non-pep695-generic-class",                                                                                                                                                                                      # ty reads frozen `msgspec.Struct` fields as invariant, covariant records keep `TypeVar` variance
+    "zip-without-explicit-strict",                                                                                                                                                                                   # `strict=True` asserts lengths the code constructs
+    "batched-without-explicit-strict",                                                                                                                                                                               # `strict=True` asserts lengths the code constructs
+    "subprocess-without-shell-equals-true",                                                                                                                                                                          # Reports every argument-vector `subprocess` call
+    "start-process-with-partial-path",                                                                                                                                                                               # Commands name tools mise places on `PATH`
+    "os-path-abspath",                                                                                                                                                                                               # `os.path.abspath` drops `..` without following symlinks, a combination no `pathlib` member has
+    "function-uses-loop-variable",                                                                                                                                                                                   # Reports closures `Result` and `Option` combinators call before the loop advances
+    "reimplemented-operator",                                                                                                                                                                                        # Rewrites to `operator` functions typeshed types as returning `Any`, `banned-api` rejects the getters
+    "lambda-assignment",                                                                                                                                                                                             # Pushes a `def` statement for a callback each `match` arm binds
     "compare-with-tuple",                                                                                                                                                                                            # PLR1714 reports the form as a set membership PLR6201 accepts
     "blocking-http-call-in-async-function",                                                                                                                                                                          # banned-api rejects every client it names
     "blocking-http-call-httpx-in-async-function",                                                                                                                                                                    # banned-api rejects `httpx`
@@ -554,9 +540,8 @@ ignore                    = [
     "hashlib-digest-hex",                                                                                                                                                                                            # refurb FURB181 reports the form on attribute receivers too
     "list-reverse-copy",                                                                                                                                                                                             # refurb FURB187 reports the form on attribute receivers too
 ]
-per-file-ignores          = { "tests/**" = ["assert"] }
 flake8-bandit             = { check-typed-exception = true }
-flake8-import-conventions = { extend-aliases = { "dask.array" = "da", "dask.dataframe" = "dd", datetime = "datetime", scipy = "sp", sympy = "sym", xarray = "xr" } }
+flake8-import-conventions = { extend-aliases = { "dask.array" = "da", "dask.dataframe" = "dd", datetime = "datetime", scipy = "sp", sympy = "sym", xarray = "xr" }, banned-from = ["builtins"] }
 flake8-pytest-style       = { parametrize-names-type = "csv", raises-extend-require-match-for = ["AttributeError", "KeyError", "RuntimeError", "TypeError", "msgspec.ValidationError", "pydantic.ValidationError"] }
 flake8-type-checking      = { runtime-evaluated-base-classes = ["msgspec.Struct"] }
 isort                     = { combine-as-imports = true, force-sort-within-sections = true, order-by-type = false, split-on-trailing-comma = false }
@@ -564,6 +549,16 @@ pycodestyle               = { max-line-length = 300 }
 pydocstyle                = { convention = "google" }
 pydoclint                 = { ignore-one-line-docstrings = true }
 pylint                    = { allow-magic-value-types = ["str", "bytes", "int"], allow-dunder-method-names = ["__array__"], max-args = 8 }
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**"                                      = ["assert"]
+"{libs/python/blender,apps/blender}/**"         = [
+    "boolean-positional-value-in-call",                                                     # bpy, gpu, and RNA writes take booleans as values (`path_resolve(path, False)`, `gpu.state.scissor_test_set(True)`, `written(owner, "value", True)`), as do `Ok(True)` and `default_value(False)`
+    "import-private-name",                                                                  # Blender supplies `_bpy_internal` and `_blendfile_header`, and Windows `_winapi`, with no public module
+    "no-self-use",                                                                          # Structural `Row`, `Part`, and `Effect` protocol methods read no `self`, and `@override` rejects a method with no base class
+]
+"apps/blender/**"                               = ["non-empty-init-module"]                 # Extension `__init__.py` composes the `register` and `unregister` entry points Blender imports
+"libs/python/blender/bpy/ui/layout/sections.py" = ["boolean-type-hint-positional-argument"] # `Enum` unpacks each `Verb` member tuple into `__init__` positionally
 
 [tool.ruff.lint.flake8-tidy-imports]
 require-lazy = [
@@ -596,6 +591,7 @@ require-lazy = [
 "contextlib.suppress".msg          = "Return an expression.Result from the suppressed call"
 "dataclasses.dataclass".msg        = "Declare a frozen msgspec.Struct"
 "dataclasses.make_dataclass".msg   = "Declare a frozen msgspec.Struct"
+"expression.effect".msg            = "Chain Result.bind and Result.map, an effect builder returns its zero value for a RuntimeError its body raises"
 "http.client".msg                  = "Use httpx2.Client or httpx2.AsyncClient"
 "httpx".msg                        = "Use httpx2.Client or httpx2.AsyncClient"
 "json.JSONDecoder".msg             = "Use msgspec.json.decode with type="
@@ -606,10 +602,30 @@ require-lazy = [
 "json.encoder.JSONEncoder".msg     = "Use msgspec.json.encode"
 "json.load".msg                    = "Use msgspec.json.decode with type="
 "json.loads".msg                   = "Use msgspec.json.decode with type="
+"nt.environ".msg                   = "Validate os.environ once at the boundary with a frozen settings model"
+"ntpath.expandvars".msg            = "Read a typed settings field validated once from the mapping the boundary passes"
+"operator.attrgetter".msg          = "Use a lambda, typeshed types the getter's result as Any"
+"operator.itemgetter".msg          = "Use a lambda, typeshed types the getter's result as Any"
+"operator.methodcaller".msg        = "Use a lambda, typeshed types the caller's result as Any"
+"os.getenv".msg                    = "Read a typed settings field validated once from the mapping the boundary passes"
+"os.getenvb".msg                   = "Read a typed settings field validated once from the mapping the boundary passes"
+"os.path.expandvars".msg           = "Read a typed settings field validated once from the mapping the boundary passes"
+"posix.environ".msg                = "Validate os.environ once at the boundary with a frozen settings model"
+"posixpath.expandvars".msg         = "Read a typed settings field validated once from the mapping the boundary passes"
 "requests".msg                     = "Use httpx2.Client or httpx2.AsyncClient"
+"sys.__excepthook__".msg           = "Log the exception through a configured logger with exc_info="
+"threading.__excepthook__".msg     = "Log the exception through a configured logger with exc_info="
 "time.sleep".msg                   = "Use await anyio.sleep"
+"traceback.print_exc".msg          = "Log through a configured logger with exception() in a handler"
+"traceback.print_exception".msg    = "Log the exception through a configured logger with exc_info="
+"traceback.print_last".msg         = "Log the exception through a configured logger with exc_info="
+"traceback.print_list".msg         = "Log the captured stack's exception through a configured logger with exc_info="
+"traceback.print_stack".msg        = "Log through a configured logger with stack_info=True"
+"traceback.print_tb".msg           = "Log the exception through a configured logger with exc_info="
 "typing.NamedTuple".msg            = "Declare a frozen msgspec.Struct"
+"typing.cast".msg                  = "Type the value where it is produced, or narrow it with a TypeIs function"
 "typing_extensions.NamedTuple".msg = "Declare a frozen msgspec.Struct"
+"typing_extensions.cast".msg       = "Type the value where it is produced, or narrow it with a TypeIs function"
 "typing_extensions.deprecated".msg = "Delete the replaced API"
 "urllib.request".msg               = "Use httpx2.Client or httpx2.AsyncClient"
 "urllib3".msg                      = "Use httpx2.Client or httpx2.AsyncClient"
@@ -621,11 +637,16 @@ require-lazy = [
 
 [tool.ty]
 environment = { python-version = "3.15", python-platform = "all", root = [".", "libs/python"] }
-analysis    = { respect-type-ignore-comments = false, replace-imports-with-any = ["AppKit", "CoreFoundation", "Foundation", "Grasshopper", "Grasshopper2.**", "Rhino.**", "System.**"] }
-rules       = { all = "error", unsound-assignment = "ignore", unsound-return-statement = "ignore" }
+analysis    = { respect-type-ignore-comments = false }
+rules       = { all = "error", unsound-assignment = "ignore", unsound-return-statement = "ignore" } # `expression` `Ok` and `Error` build `Result[T, Any]`, each return and assignment of one reads as unsound
+
+[[tool.ty.overrides]]
+include  = ["libs/python/blender/**", "apps/blender/**"]
+analysis = { replace-imports-with-any = ["cycles.**"] }  # Blender supplies `cycles` with no typings package
 
 # --- [MYPY] -----------------------------------------------------------------------------
 
+# --- [CHECKER]
 [tool.mypy]
 files                   = [".", ".claude"]
 mypy_path               = ["libs/python"]
@@ -639,13 +660,9 @@ disallow_any_explicit   = true
 disallow_any_unimported = true
 plugins                 = ["pydantic.mypy"]
 enable_error_code       = ["exhaustive-match", "explicit-override", "ignore-without-code", "redundant-self", "truthy-bool", "truthy-iterable", "unused-awaitable"]
-overrides               = [
-    { module = ["fontTools.*", "pathops.*"], follow_untyped_imports = true },
-    { module = ["AppKit", "CoreFoundation", "Foundation", "Grasshopper", "Grasshopper2.*", "PyObjCTools", "Rhino", "Rhino.*", "System", "System.*", "fsspec.*", "s3fs"], ignore_missing_imports = true },
-]
+overrides               = [{ module = ["fontTools.*", "pathops.*"], follow_untyped_imports = true }, { module = ["cycles.*"], ignore_missing_imports = true }]
 
-# --- [PYDANTIC_MYPY] --------------------------------------------------------------------
-
+# --- [PYDANTIC]
 [tool.pydantic-mypy]
 init_typed                    = true
 init_forbid_extra             = true
@@ -671,9 +688,9 @@ disable    = [
     "FURB114",                # Ruff SIM208 reports the form
     "FURB116",                # Ruff runs FURB116
     "FURB117",                # Ruff PTH123 reports the form
-    "FURB118",                # `operator.itemgetter` returns `Any` under typeshed, the lambda keeps its element type
+    "FURB118",                # Rewrites to `operator` functions typeshed types as returning `Any`, `banned-api` rejects the getters
     "FURB119",                # Ruff RUF010 reports the form
-    "FURB120",                # Reads defaults from stubs, `fake-bpy-module` defaults differ from Blender's native behavior
+    "FURB120",                # Crashes on argument lists the mypy cache drops (`'FuncItem' arguments undefined`), RASM102 reports same-module restated defaults
     "FURB121",                # Ruff SIM101 reports the form
     "FURB124",                # Chaining `x is y is z` compares the outer operands, which mypy comparison-overlap rejects when their types differ
     "FURB125",                # Ruff PLR1711 reports the form
@@ -795,10 +812,6 @@ enabled = false
 [tool.tombi.schema.format.rules]
 table-keys-order.enabled   = false
 array-values-order.enabled = false
-
-[[tool.tombi.schemas]]
-path    = "tombi://www.schemastore.org/cargo.json"
-include = ["Cargo.toml"]
 
 [[tool.tombi.schemas]]
 root    = "profile.*"

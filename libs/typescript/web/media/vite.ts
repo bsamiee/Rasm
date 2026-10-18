@@ -6,7 +6,7 @@ import { base, directories } from './pdfjs.ts';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const pdfjs = (): ReturnType<typeof viteStaticCopy> => {
+const pdfjs = () => {
     const root = dirname(createRequire(import.meta.url).resolve('pdfjs-dist/package.json'));
     return viteStaticCopy({ targets: Object.values(directories).map((directory) => ({ src: normalizePath(join(root, directory, '*')), dest: `${base}/${directory}`, rename: { stripBase: true } })) });
 };

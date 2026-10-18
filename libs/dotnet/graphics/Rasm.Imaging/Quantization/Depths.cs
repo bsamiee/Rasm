@@ -70,11 +70,11 @@ public abstract partial class OutputDepth : ICaptioned {
         };
 
     public void Encode(ReadOnlySpan<Vector4> row, bool alpha, Span<byte> destination) {
-        int lanes = alpha ? 4 : 3;
-        using SpanOwner<float> samples = SpanOwner<float>.Allocate((lanes * row.Length) + 4 - lanes);
+        int channels = alpha ? 4 : 3;
+        using SpanOwner<float> samples = SpanOwner<float>.Allocate((channels * row.Length) + 4 - channels);
         for (int x = 0; x < row.Length; x++)
-            Sample(row[x]).CopyTo(samples.Span[(lanes * x)..]);
-        Store(samples.Span[..(lanes * row.Length)], destination);
+            Sample(row[x]).CopyTo(samples.Span[(channels * x)..]);
+        Store(samples.Span[..(channels * row.Length)], destination);
     }
 
     public void ToBigEndian(Span<byte> words) {

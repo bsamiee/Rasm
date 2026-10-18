@@ -4,10 +4,6 @@ language: python
 severity: error
 utils:
     log-method: {regex: '^a?(log|debug|info|warning|warn|error|critical|fatal|exception|msg)$'}
-    printer:
-        any:
-            - matches: {python-member-use: {module: {regex: '^traceback$'}, name: {regex: '^print_'}}}
-            - matches: {python-member-use: {module: {regex: '^(sys|threading)$'}, name: {regex: '^__excepthook__$'}}}
     exception-class: {matches: {python-member-use: {module: {regex: '^traceback$'}, name: {regex: '^TracebackException$'}}}}
     stack-class: {matches: {python-member-use: {module: {regex: '^traceback$'}, name: {regex: '^StackSummary$'}}}}
     exception-source:
@@ -103,20 +99,10 @@ rule:
     pattern: $USE
     any:
         - kind: attribute
-          all:
-            - matches: printer
-            - not: {inside: {kind: 'import_statement, import_from_statement', stopBy: end}}
-        - kind: identifier
-          all:
-            - inside: {kind: module, stopBy: end, regex: '\bfrom\s+(traceback|sys|threading)\s+import\b'}
-            - matches: printer
-            - not: {inside: {kind: 'import_statement, import_from_statement', stopBy: end}}
-        - kind: attribute
           all: [{has: {field: attribute, regex: '^print$'}}, {has: {field: object, matches: exception}}]
-        - kind: identifier, call
+        - matches: sink
           all:
-            - inside: {kind: module, stopBy: end, regex: '\b(format_|TracebackException|StackSummary|extract_(tb|stack)|format(Exception|Stack))'}
-            - inside: {stopBy: {not: {matches: content}}, kind: argument_list, inside: {matches: sink}}
-            - matches: text
+            - inside: {kind: module, stopBy: end, regex: '\b(traceback|format(Exception|Stack))\b'}
+            - has: {field: arguments, has: {stopBy: {not: {matches: content}}, kind: 'identifier, call', matches: text}}
 message: '`$USE` writes rendered exception or stack text by hand'
 note: 'Log through a configured logger with `exception(<event>)` in handlers, `exc_info=<exception>` for captured exceptions, or `stack_info=True` for current stacks, passing the exception a captured `TracebackException` or `StackSummary` came from'

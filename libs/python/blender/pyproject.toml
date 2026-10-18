@@ -14,3 +14,6 @@ managed = false
 
 [tool.ruff]
 extend = "../../../pyproject.toml"
+
+[tool.ruff.lint.flake8-self]
+extend-ignore-names = ["_PropertyDeferred"] # Blender names deferred `bpy.props` definitions by this class alone

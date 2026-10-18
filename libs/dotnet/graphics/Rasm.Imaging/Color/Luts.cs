@@ -224,7 +224,7 @@ public sealed partial class CdlStyle {
 
     private static Vector3 Raised(Vector3 color, Vector3 power) => new(Raised(color.X, power.X), Raised(color.Y, power.Y), Raised(color.Z, power.Z));
 
-    private static float Raised(float lane, float power) => float.IsNaN(lane) ? 0f : lane < 0f ? lane : float.Pow(lane, power);
+    private static float Raised(float value, float power) => float.IsNaN(value) ? 0f : value < 0f ? value : float.Pow(value, power);
 
     private static Vector3 Reciprocal(Vector3 value) => Vector3.One / Vector3.Max(value, new Vector3(0.01f));
 }
@@ -236,8 +236,8 @@ public abstract partial record LutTable {
 
     public sealed record Cube(Lut3D Lattice, LutInterpolation Interpolation) : LutTable {
         public override void Apply(Span<Vector4> row) {
-            Span<float> lanes = MemoryMarshal.Cast<Vector4, float>(row);
-            Lattice.Apply(lanes, lanes, 4, Interpolation);
+            Span<float> components = MemoryMarshal.Cast<Vector4, float>(row);
+            Lattice.Apply(components, components, 4, Interpolation);
         }
         public override Fin<LutTable> Inverse() => Error.New("3D lattice step has no exact inverse");
     }

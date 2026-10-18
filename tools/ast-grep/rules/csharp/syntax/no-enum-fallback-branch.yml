@@ -38,7 +38,8 @@ utils:
         any:
             - kind: constant_pattern
               has: {matches: member-access}
-            - has: {stopBy: end, kind: constant_pattern, has: {matches: member-access}}
+            - kind: 'or_pattern, parenthesized_pattern, negated_pattern'
+              has: {matches: member-pattern}
     catch-all-pattern:
         any:
             - kind: discard
@@ -51,7 +52,7 @@ utils:
             - kind: constant_pattern
               has: {kind: identifier, pattern: $ENUM}
             - kind: recursive_pattern
-              not: {has: {kind: property_pattern_clause, has: {kind: subpattern}}}
+              not: {has: {kind: 'property_pattern_clause, positional_pattern_clause', has: {kind: subpattern}}}
     fallback-arm:
         kind: switch_expression_arm
         all:

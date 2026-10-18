@@ -3,8 +3,6 @@ id: no-accumulator-copy
 language: swiftlang
 severity: error
 utils:
-    scope:
-        kind: 'function_declaration, lambda_literal, init_declaration, computed_property'
     fold:
         kind: navigation_expression
         has: {field: suffix, has: {field: suffix, regex: '^reduce$'}}
@@ -57,12 +55,13 @@ rule:
         - all:
             - has: {kind: simple_identifier, pattern: $ACC, inside: {kind: lambda_literal, stopBy: end, has: {kind: lambda_function_type, has: {stopBy: end, kind: lambda_parameter, has: {field: name, pattern: $ACC}}}}}
             - inside: {stopBy: end, matches: fold-closure}
-        - inside:
+        - has: {field: lhs, kind: array_literal}
+          inside:
             kind: assignment
             field: result
             all:
                 - has: {field: operator, regex: '^=$'}
                 - has: {field: target, has: {pattern: $ACC}}
-                - inside: {stopBy: {matches: scope}, kind: 'for_statement, while_statement, repeat_while_statement'}
+                - inside: {stopBy: {matches: swift-function-scope}, kind: 'for_statement, while_statement, repeat_while_statement'}
 message: 'Each pass copies `$ACC` whole to add elements, quadratic in the input'
 note: 'Append in place through `reduce(into:)` with `append(_:)` or `append(contentsOf:)` or `+=` on the loop''s own buffer, or derive every element in one `map`, `flatMap`, or `compactMap`'

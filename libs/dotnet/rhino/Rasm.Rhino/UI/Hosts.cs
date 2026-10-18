@@ -215,7 +215,7 @@ public abstract class DefinedOptionsPage : OptionsDialogPage {
 
     public override object? PageControl => Realized.Map(static object (held) => held.Frame).ValueUnsafe();
 
-    public override bool ShowApplyButton => commit.Map(immediate: false, revertible: false, deferred: true, targets: false, contents: false);
+    public override bool ShowApplyButton => commit.Drafts;
 
     public override bool ShowDefaultsButton => row.Store.IsSome;
 
@@ -225,13 +225,13 @@ public abstract class DefinedOptionsPage : OptionsDialogPage {
 
     // --- [EDGES]
     public override bool OnActivate(bool active) =>
-        Callbacks.Succeeded((active ? Realized : page.Value).Traverse(held => held.Body.Shown(active)).As().Map(ignore), CallbackSite.Of(this));
+        Callbacks.Succeeded((active ? Realized : page.Value).Traverse(held => held.Body.Shown(active)).As(), CallbackSite.Of(this));
 
     public override void OnHelp() => Callbacks.Run(row.Help.Map(static topic => topic.Show), CallbackSite.Of(this));
 
     // --- [COMMITS]
     public override bool OnApply() =>
-        Callbacks.Succeeded(page.Value.Traverse(static held => held.Body.Scope.Apply(held.Body.Group)).As().Map(ignore), CallbackSite.Of(this));
+        Callbacks.Succeeded(page.Value.Traverse(static held => held.Body.Scope.Apply(held.Body.Group)).As(), CallbackSite.Of(this));
 
     public override void OnCancel() =>
         Callbacks.Run(page.Value.Map(static held => held.Body.Scope.Revert(held.Body.Group)), CallbackSite.Of(this));
@@ -314,7 +314,7 @@ public abstract class DefinedPropertiesPage(View.PropertiesPage row) : ObjectPro
         Callbacks.Run(page.Value.Map(static held => held.Body.Reread), CallbackSite.Of(this));
 
     public override bool OnActivate(bool active) =>
-        Callbacks.Succeeded((active ? Realized : page.Value).Traverse(held => held.Body.Shown(active)).As().Map(ignore), CallbackSite.Of(this));
+        Callbacks.Succeeded((active ? Realized : page.Value).Traverse(held => held.Body.Shown(active)).As(), CallbackSite.Of(this));
 
     public override void OnHelp() => Callbacks.Run(row.Help.Map(static topic => topic.Show), CallbackSite.Of(this));
 
@@ -352,7 +352,6 @@ public abstract class DefinedPropertiesPage(View.PropertiesPage row) : ObjectPro
                         EventKind.ModifyObjectAttributes.In(document.RuntimeSerialNumber).Choose(static _ => Some((unit, unit))),
                         EventKind.ReplaceRhinoObject.In(document.RuntimeSerialNumber).Choose(static _ => Some((unit, unit)))))
                     .TraverseM(signal => signal.Through(Subscriptions.Idle<Unit, Unit>(_ => body.Reread), body.Scope.Sink, retain)).As().Map(unit));
-
 }
 
 public abstract class DefinedTab(View.Tab row) : ViewPanel(row, Optional(RhinoDoc.ActiveDoc)) {

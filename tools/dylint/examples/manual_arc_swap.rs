@@ -70,6 +70,11 @@ struct Unpacked {
     snapshot: RwLock<Arc<Config>>,
 }
 
+#[derive(Debug, Default)]
+struct Accessed {
+    snapshot: RwLock<Arc<Config>>,
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 impl Registry {
@@ -148,6 +153,12 @@ impl Unpacked {
     }
 }
 
+impl Accessed {
+    fn update(&self, next: Config) { self.snapshot.set(Arc::new(next)); }
+
+    fn current(&self) -> Arc<Config> { self.snapshot.get_cloned() }
+}
+
 fn shared() -> u16 {
     let lock = Arc::new(Mutex::new(Arc::new(Config::default())));
     let writer = Arc::clone(&lock);
@@ -179,10 +190,11 @@ fn main() {
     lent.update(Config { port: 84 });
     overwritten.update(Config { port: 85 });
     tweaked.retune(86);
-    let (plain, unpacked) = (Plain::default(), Unpacked::default());
+    let (plain, unpacked, accessed) = (Plain::default(), Unpacked::default(), Accessed::default());
     plain.update(Config { port: 90 });
     unpacked.update(Config { port: 91 });
-    black_box(&(plain.port(), unpacked.into_snapshot()));
+    accessed.update(Config { port: 92 });
+    black_box(&(plain.port(), unpacked.into_snapshot(), accessed.current()));
     black_box([published.update(Config { port: 87 }), watched.update(Config { port: 88 }), paired.update(Config { port: 89 })]);
     black_box(&(watched.watch(), receiver));
     black_box([registry.current().port, cache.port(), tuned.port(), lent.lock().lock().port, shared(), published.port(), overwritten.port(), tweaked.port(), local(), channel()]);

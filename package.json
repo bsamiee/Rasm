@@ -13,9 +13,13 @@
         "@aws-sdk/client-s3": "catalog:",
         "@aws-sdk/lib-storage": "catalog:",
         "@aws-sdk/s3-request-presigner": "catalog:",
+        "@axe-core/playwright": "catalog:",
         "@biomejs/biome": "catalog:",
         "@bufbuild/protobuf": "catalog:",
         "@bufbuild/protovalidate": "catalog:",
+        "@cloudflare/build-output-utils": "catalog:",
+        "@cloudflare/vite-plugin": "catalog:",
+        "@cloudflare/vitest-plugin": "catalog:",
         "@cloudflare/workers-types": "catalog:",
         "@connectrpc/connect": "catalog:",
         "@connectrpc/connect-node": "catalog:",
@@ -28,7 +32,6 @@
         "@deck.gl/mesh-layers": "catalog:",
         "@dnd-kit/helpers": "catalog:",
         "@dnd-kit/react": "catalog:",
-        "@dopplerhq/node-sdk": "catalog:",
         "@duckdb/duckdb-wasm": "catalog:",
         "@duckdb/node-api": "catalog:",
         "@effect/ai-anthropic": "catalog:",
@@ -147,6 +150,7 @@
         "@pulumi/gcp": "catalog:",
         "@pulumi/github": "catalog:",
         "@pulumi/kubernetes": "catalog:",
+        "@pulumi/minio": "catalog:",
         "@pulumi/policy": "catalog:",
         "@pulumi/postgresql": "catalog:",
         "@pulumi/pulumi": "catalog:",
@@ -155,20 +159,25 @@
         "@pulumi/synced-folder": "catalog:",
         "@pulumi/tls": "catalog:",
         "@pulumiverse/acme": "catalog:",
-        "@pulumiverse/doppler": "catalog:",
         "@pulumiverse/grafana": "catalog:",
         "@pyroscope/nodejs": "catalog:",
         "@qualithm/arrow-flight-client": "catalog:",
+        "@rasm/hosting": "workspace:*",
         "@react-aria/live-announcer": "catalog:",
+        "@renovatebot/pep440": "catalog:",
         "@simplewebauthn/browser": "catalog:",
         "@simplewebauthn/server": "catalog:",
         "@solana/codecs": "catalog:",
+        "@storybook/addon-a11y": "catalog:",
+        "@storybook/addon-docs": "catalog:",
+        "@storybook/addon-vitest": "catalog:",
         "@stryker-mutator/core": "catalog:",
         "@swc/cli": "catalog:",
         "@swc/core": "catalog:",
         "@tanstack/react-table": "catalog:",
         "@tanstack/react-virtual": "catalog:",
         "@tanstack/store": "catalog:",
+        "@testcontainers/postgresql": "catalog:",
         "@tree-sitter-grammars/tree-sitter-xml": "catalog:",
         "@turf/turf": "catalog:",
         "@tus/s3-store": "catalog:",
@@ -194,6 +203,9 @@
         "@visx/responsive": "catalog:",
         "@visx/scale": "catalog:",
         "@visx/shape": "catalog:",
+        "@vitejs/plugin-react": "catalog:",
+        "@vitest/browser": "catalog:",
+        "@vitest/browser-playwright": "catalog:",
         "@vitest/coverage-v8": "catalog:",
         "@webgpu/types": "catalog:",
         "@xmldom/xmldom": "catalog:",
@@ -252,6 +264,7 @@
         "parse5": "catalog:",
         "partial-content": "catalog:",
         "pdfjs-dist": "catalog:",
+        "playwright": "catalog:",
         "plist": "catalog:",
         "prosemirror-collab": "catalog:",
         "prosemirror-commands": "catalog:",
@@ -276,13 +289,14 @@
         "react-zoom-pan-pinch": "catalog:",
         "regjsparser": "catalog:",
         "rfc6902": "catalog:",
-        "rimraf": "catalog:",
         "scheduler": "catalog:",
         "sharp": "catalog:",
         "shell-quote": "catalog:",
         "smol-toml": "catalog:",
+        "storybook": "catalog:",
         "tailwind-merge": "catalog:",
         "tailwindcss": "catalog:",
+        "testcontainers": "catalog:",
         "three": "catalog:",
         "three-mesh-bvh": "catalog:",
         "tree-sitter-sqlite3": "catalog:",
@@ -297,9 +311,11 @@
         "unicode-property-value-aliases": "catalog:",
         "uplot": "catalog:",
         "validator": "catalog:",
+        "verkit": "catalog:",
         "vite": "catalog:",
         "vite-plugin-static-copy": "catalog:",
         "vitest": "catalog:",
+        "vitest-browser-react": "catalog:",
         "vscode-languageserver-protocol": "catalog:",
         "vscode-languageserver-textdocument": "catalog:",
         "watlas": "catalog:",
@@ -320,21 +336,25 @@
             "grammar": {
                 "executor": "nx:run-commands",
                 "cache": true,
-                "inputs": [ { "externalDependencies": [ "@tree-sitter-grammars/tree-sitter-xml", "tree-sitter-sqlite3", "tree-sitter-swift" ] }, { "runtime": "tree-sitter --version" } ],
-                "outputs": [ "{workspaceRoot}/.cache/ast-grep/xml.so", "{workspaceRoot}/.cache/ast-grep/sql.so", "{workspaceRoot}/.cache/ast-grep/swift.so" ],
+                "inputs": [ "{workspaceRoot}/tools/ast-grep/grammars/**/grammar.js", { "externalDependencies": [ "@tree-sitter-grammars/tree-sitter-xml", "tree-sitter-sqlite3", "tree-sitter-swift" ] }, { "runtime": "tree-sitter --version" }, { "runtime": "node --version" } ],
+                "outputs": [ "{workspaceRoot}/.cache/ast-grep/xml.so", "{workspaceRoot}/.cache/ast-grep/sql", "{workspaceRoot}/.cache/ast-grep/sql.so", "{workspaceRoot}/.cache/ast-grep/swift.so" ],
                 "options": {
-                    "commands": [ "tree-sitter build --output .cache/ast-grep/xml.so node_modules/@tree-sitter-grammars/tree-sitter-xml/xml", "tree-sitter build --output .cache/ast-grep/sql.so node_modules/tree-sitter-sqlite3", "tree-sitter build --output .cache/ast-grep/swift.so node_modules/tree-sitter-swift" ],
+                    "commands": [
+                        "tree-sitter build --output .cache/ast-grep/xml.so node_modules/@tree-sitter-grammars/tree-sitter-xml/xml",
+                        "tree-sitter generate --output .cache/ast-grep/sql/src tools/ast-grep/grammars/sql/grammar.js",
+                        "cp node_modules/tree-sitter-sqlite3/src/scanner.c .cache/ast-grep/sql/src/scanner.c",
+                        "tree-sitter build --output .cache/ast-grep/sql.so .cache/ast-grep/sql",
+                        "tree-sitter build --output .cache/ast-grep/swift.so node_modules/tree-sitter-swift"
+                    ],
                     "parallel": false
                 }
             },
             "rewrite": { "dependsOn": [ "grammar" ], "parallelism": false },
             "outline": {
-                "command": "ast-grep outline --custom-languages allow --outline-rules tools/ast-grep/outline/typescript.yml --outline-rules tools/ast-grep/outline/javascript.yml --outline-rules tools/ast-grep/outline/python.yml --outline-rules tools/ast-grep/outline/java.yml --outline-rules tools/ast-grep/outline/bash.yml --outline-rules tools/ast-grep/outline/rust.yml",
-                "options": { "env": { "NO_COLOR": "1" } },
+                "command": "ast-grep outline --custom-languages allow --color never --outline-rules tools/ast-grep/outline/typescript.yml --outline-rules tools/ast-grep/outline/javascript.yml --outline-rules tools/ast-grep/outline/python.yml --outline-rules tools/ast-grep/outline/java.yml --outline-rules tools/ast-grep/outline/bash.yml --outline-rules tools/ast-grep/outline/rust.yml",
                 "dependsOn": [ "grammar" ]
             },
             "lint:ast-grep": {
-                "cache": true,
                 "dependsOn": [ "grammar" ],
                 "inputs": [
                     "pythonFiles",
@@ -358,119 +378,105 @@
             },
             "lint:biome": {
                 "command": "biome check --error-on-warnings",
-                "cache": true,
                 "inputs": [ "{workspaceRoot}/.editorconfig", "{workspaceRoot}/**/.{gitignore,ignore}", "{workspaceRoot}/pnpm-workspace.yaml", "{workspaceRoot}/**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,json,jsonc,css,graphql,html,vue,svelte,astro,svg,grit}", { "externalDependencies": [] }, { "runtime": "biome --version" } ]
             },
             "lint:ruff": {
                 "executor": "nx:run-commands",
-                "cache": true,
                 "inputs": [ "pythonFiles", "{workspaceRoot}/**/*.{pyw,ipynb}", "{workspaceRoot}/**/pyproject.toml", { "externalDependencies": [] }, { "runtime": "ruff --version" } ],
-                "options": { "commands": [ "ruff check", "ruff format --check" ], "parallel": false }
+                "options": { "commands": [ "ruff check", "ruff format --check" ] }
             },
-            "lint:refurb": { "cache": true, "inputs": [ "python", "pythonFiles", { "runtime": "refurb --version" } ] },
-            "lint:deptry": { "command": "deptry libs/python apps", "cache": true, "inputs": [ "python", "pythonFiles", { "runtime": "deptry --version" } ] },
-            "lint:yamllint": { "command": "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamllint --strict", "cache": true, "inputs": [ "yamlFiles", { "externalDependencies": [] }, { "runtime": "yamllint --version" } ] },
-            "lint:yamlfmt": { "command": "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamlfmt -lint", "cache": true, "inputs": [ "yamlFiles", { "externalDependencies": [] }, { "runtime": "yamlfmt -version" } ] },
+            "lint:refurb": { "inputs": [ "python", "pythonFiles" ] },
+            "lint:deptry": { "command": "deptry libs/python apps", "inputs": [ "python", "pythonFiles" ] },
+            "lint:yamllint": { "command": "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamllint --strict", "inputs": [ "yamlFiles", { "externalDependencies": [] }, { "runtime": "yamllint --version" } ] },
+            "lint:yamlfmt": { "command": "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamlfmt -lint", "inputs": [ "yamlFiles", { "externalDependencies": [] }, { "runtime": "yamlfmt -version" } ] },
             "lint:tombi": {
                 "executor": "nx:run-commands",
-                "cache": true,
                 "inputs": [ "{workspaceRoot}/**/*.toml", { "externalDependencies": [] }, { "runtime": "tombi --version" } ],
                 "options": { "commands": [ "tombi lint --error-on-warnings", "tombi format --check" ], "parallel": false }
             },
             "lint:actionlint": {
                 "command": "actionlint",
-                "cache": true,
                 "inputs": [ "{workspaceRoot}/.github/actionlint.yaml", "{workspaceRoot}/.github/workflows/*.{yml,yaml}", "{workspaceRoot}/.github/actions/*/action.{yml,yaml}", { "externalDependencies": [] }, { "runtime": "actionlint --version" }, { "runtime": "shellcheck --version" } ]
             },
-            "lint:google-java-format": { "command": "fd --hidden --extension java --exec-batch google-java-format --aosp --dry-run --set-exit-if-changed", "cache": true, "inputs": [ "javaFiles", { "externalDependencies": [] }, { "runtime": "google-java-format --version" } ] },
+            "lint:google-java-format": { "command": "fd --hidden --extension java --exec-batch google-java-format --aosp --dry-run --set-exit-if-changed", "inputs": [ "javaFiles", { "externalDependencies": [] }, { "runtime": "google-java-format --version" } ] },
             "lint:pmd": {
                 "executor": "nx:run-commands",
-                "cache": true,
-                "inputs": [ "javaFiles", "{workspaceRoot}/**/*.{py,swift}", "{workspaceRoot}/pmd.xml", { "externalDependencies": [] }, { "runtime": "pmd --version" }, { "env": "GHIDRA_INSTALL_DIR" }, { "runtime": "cat \"$GHIDRA_INSTALL_DIR/Ghidra/application.properties\"" } ],
+                "inputs": [ "javaFiles", "{workspaceRoot}/**/*.{py,swift}", "{workspaceRoot}/pmd.xml", { "externalDependencies": [] }, { "runtime": "pmd --version" }, { "env": "GHIDRA_INSTALL_DIR" } ],
                 "outputs": [ "{workspaceRoot}/.cache/pmd/java" ],
                 "options": {
                     "commands": [
-                        { "command": "mkdir -p .cache/pmd", "forwardAllArgs": false },
-                        { "command": "{ printf '%s\\n' \"$JAVA_HOME/lib/jrt-fs.jar\"; fd --type f --extension jar --absolute-path . \"$GHIDRA_INSTALL_DIR/Ghidra\"; } > .cache/pmd/classpath.txt", "forwardAllArgs": false },
-                        { "command": "fd --hidden --extension java --exec-batch pmd check --rulesets pmd.xml --cache .cache/pmd/java --aux-classpath \"file:$PWD/.cache/pmd/classpath.txt\" --no-progress", "forwardAllArgs": false },
+                        {
+                            "command": "fd --hidden --extension java --exec-batch pmd check --rulesets pmd.xml --cache .cache/pmd/java --aux-classpath \"$JAVA_HOME/lib/jrt-fs.jar:$(fd --type f --full-path --glob '**/lib/*.jar' --absolute-path \"$GHIDRA_INSTALL_DIR/Ghidra\" | paste -sd: -)\" --no-progress",
+                            "forwardAllArgs": false
+                        },
                         "fd --hidden --extension java --exec-batch pmd cpd --language java",
                         "fd --hidden --extension py --exec-batch pmd cpd --language python",
                         "fd --hidden --extension swift --exec-batch pmd cpd --language swift"
                     ],
-                    "args": [ "--minimum-tokens", "100" ],
-                    "parallel": false
+                    "args": [ "--minimum-tokens", "100" ]
                 }
             },
-            "lint:rustfmt": { "command": "cargo fmt --check", "cache": true, "inputs": [ "rustFiles", "{workspaceRoot}/**/Cargo.toml", "{workspaceRoot}/rustfmt.toml", { "externalDependencies": [] }, { "runtime": "rustfmt --version" } ] },
-            "lint:dylint": { "dependsOn": [ { "projects": [ "tag:language:rust" ], "target": "lint:dylint" } ] },
-            "lint:cargo-modules": { "dependsOn": [ { "projects": [ "tag:language:rust" ], "target": "lint:cargo-modules" } ] },
+            "lint:rustfmt": { "command": "cargo fmt --check", "inputs": [ "rustFiles", "{workspaceRoot}/**/Cargo.toml", "{workspaceRoot}/rustfmt.toml", "{workspaceRoot}/rust-toolchain.toml", { "externalDependencies": [] } ] },
             "lint:dotnet-format": {
                 "options": { "args": [ "Workspace.slnx", "--no-restore", "--verify-no-changes" ] },
-                "cache": false,
-                "dependsOn": [ "...", "restore", { "projects": [ "tag:language:dotnet" ], "target": "lint", "params": "forward" } ],
+                "dependsOn": [ "...", "restore" ],
                 "inputs": [ "dotnet", "{workspaceRoot}/.editorconfig", "{workspaceRoot}/Workspace.slnx", "{workspaceRoot}/**/*.{cs,csproj}" ],
-                "outputs": [ "{workspaceRoot}/.artifacts/dotnet/binlog/{projectName}/lint:dotnet-format.binlog" ]
+                "outputs": [ "{workspaceRoot}/.artifacts/dotnet/binlog/{projectName}/lint-dotnet-format.binlog" ]
             },
             "lint": { "dependsOn": [ "lint:*" ] },
             "format": { "executor": "./:format", "parallelism": false, "dependsOn": [ "format:dotnet-format", { "projects": [ "tag:language:dotnet" ], "target": "format" } ] },
-            "format:files": { "executor": "./:format-files" },
-            "format:biome": { "command": "biome check --write --error-on-warnings --no-errors-on-unmatched" },
-            "format:ruff": { "executor": "nx:run-commands", "options": { "commands": [ "ruff check --fix", "ruff format" ], "parallel": false } },
-            "format:yamlfmt": { "command": "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamlfmt", "configurations": { "files": { "command": "yamlfmt" } } },
-            "format:tombi": { "command": "tombi format" },
-            "format:google-java-format": { "command": "fd --hidden --extension java --exec-batch google-java-format --aosp --replace", "configurations": { "files": { "command": "google-java-format --aosp --replace" } } },
-            "format:swiftlint": { "command": "fd --hidden --extension swift --exec-batch swiftlint lint --fix --quiet", "configurations": { "files": { "command": "swiftlint lint --fix --quiet" } } },
-            "format:swift-format": { "command": "fd --hidden --extension swift --exec-batch xcrun swift-format format --in-place --parallel", "configurations": { "files": { "command": "xcrun swift-format format --in-place --parallel" } } },
-            "format:shfmt": { "command": "fd --hidden --extension sh --exec-batch shfmt -w --", "configurations": { "files": { "command": "shfmt -w --" } } },
-            "lint:shfmt": { "command": "fd --hidden --extension sh --exec-batch shfmt -d --", "cache": true, "inputs": [ "{workspaceRoot}/**/*.sh", "{workspaceRoot}/**/.editorconfig", { "externalDependencies": [] }, { "runtime": "shfmt --version" } ] },
-            "lint:shellcheck": { "command": "fd --hidden --extension sh --exec-batch shellcheck --", "cache": true, "inputs": [ "{workspaceRoot}/**/*.sh", { "externalDependencies": [] }, { "runtime": "shellcheck --version" } ] },
-            "lint:swift-format": { "command": "fd --hidden --extension swift --exec-batch xcrun swift-format lint --strict --parallel", "cache": true, "inputs": [ "{workspaceRoot}/**/*.swift", "{workspaceRoot}/.swift-format", { "externalDependencies": [] }, { "runtime": "xcrun swift-format --version" } ] },
-            "lint:swiftlint": { "command": "fd --hidden --extension swift --exec-batch swiftlint lint --quiet", "cache": true, "inputs": [ "{workspaceRoot}/**/*.swift", "{workspaceRoot}/.swiftlint.yml", { "externalDependencies": [] }, { "runtime": "swiftlint version" } ] },
-            "format:rustfmt": { "command": "cargo fmt", "configurations": { "files": { "command": "rustfmt" } } },
-            "format:dotnet-format": { "options": { "args": [ "Workspace.slnx", "--no-restore" ] }, "dependsOn": [ "...", "restore" ], "outputs": [ "{workspaceRoot}/.artifacts/dotnet/binlog/{projectName}/format:dotnet-format.binlog" ] },
+            "format:files": { "executor": "./:format" },
+            "format:biome": { "command": "biome check --write --error-on-warnings --no-errors-on-unmatched", "metadata": { "extensions": null } },
+            "format:ruff": { "executor": "nx:run-commands", "options": { "commands": [ "ruff check --fix", "ruff format" ], "parallel": false }, "metadata": { "extensions": [ ".py", ".pyi", ".pyw", ".ipynb" ] } },
+            "format:yamlfmt": { "command": "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamlfmt", "configurations": { "files": { "command": "yamlfmt" } }, "metadata": { "extensions": [ ".yaml", ".yml" ] } },
+            "format:tombi": { "command": "tombi format", "metadata": { "extensions": [ ".toml" ] } },
+            "format:google-java-format": { "command": "fd --hidden --extension java --exec-batch google-java-format --aosp --replace", "configurations": { "files": { "command": "google-java-format --aosp --replace" } }, "metadata": { "extensions": [ ".java" ] } },
+            "format:swiftlint": { "command": "fd --hidden --extension swift --exec-batch swiftlint lint --fix --quiet", "configurations": { "files": { "command": "swiftlint lint --fix --quiet" } }, "metadata": { "extensions": [ ".swift" ] } },
+            "format:swift-format": { "command": "fd --hidden --extension swift --exec-batch xcrun swift-format format --in-place --parallel", "configurations": { "files": { "command": "xcrun swift-format format --in-place --parallel" } }, "metadata": { "extensions": [ ".swift" ] } },
+            "format:shfmt": { "command": "fd --hidden --extension sh --exec-batch shfmt -w --", "configurations": { "files": { "command": "shfmt -w --" } }, "metadata": { "extensions": [ ".sh" ] } },
+            "lint:shfmt": { "command": "fd --hidden --extension sh --exec-batch shfmt -d --", "inputs": [ "{workspaceRoot}/**/*.sh", "{workspaceRoot}/**/.editorconfig", { "externalDependencies": [] }, { "runtime": "shfmt --version" } ] },
+            "lint:shellcheck": { "command": "fd --hidden --extension sh --exec-batch shellcheck --", "inputs": [ "{workspaceRoot}/**/*.sh", { "externalDependencies": [] }, { "runtime": "shellcheck --version" } ] },
+            "lint:swift-format": { "command": "fd --hidden --extension swift --exec-batch xcrun swift-format lint --strict --parallel", "inputs": [ "{workspaceRoot}/**/*.swift", "{workspaceRoot}/.swift-format", { "externalDependencies": [] }, { "runtime": "xcrun swift-format --version" } ] },
+            "lint:swiftlint": { "command": "fd --hidden --extension swift --exec-batch swiftlint lint --quiet", "inputs": [ "{workspaceRoot}/**/*.swift", "{workspaceRoot}/.swiftlint.yml", { "externalDependencies": [] }, { "runtime": "swiftlint version" } ] },
+            "format:rustfmt": { "command": "cargo fmt", "configurations": { "files": { "command": "rustfmt" } }, "metadata": { "extensions": [ ".rs" ] } },
+            "format:dotnet-format": { "options": { "args": [ "Workspace.slnx", "--no-restore" ] }, "dependsOn": [ "...", "restore" ], "outputs": [ "{workspaceRoot}/.artifacts/dotnet/binlog/{projectName}/format-dotnet-format.binlog" ] },
             "typecheck:tsc": {
                 "command": "tsc --pretty false",
-                "cache": true,
                 "inputs": [ "typescript", "^default", "{workspaceRoot}/**/*.{ts,json}" ]
             },
-            "typecheck:ty": { "cache": true, "inputs": [ "python", "pythonFiles", { "runtime": "ty --version" } ], "options": { "env": { "TY_UV": "1", "UV_LOCKED": "1" } } },
-            "typecheck:mypy": { "cache": true, "inputs": [ "python", "pythonFiles", { "runtime": "mypy --version" } ] },
+            "typecheck:ty": { "inputs": [ "python", "pythonFiles" ], "options": { "env": { "TY_UV": "1", "UV_LOCKED": "1" } } },
+            "typecheck:mypy": { "inputs": [ "python", "pythonFiles" ] },
+            "typecheck:javac": {
+                "command": "fd --hidden --extension java --exec-batch javac -Xlint:all,-path -Werror -proc:none -d .cache/javac -cp \"$(fd --type f --full-path --glob '**/lib/*.jar' --absolute-path \"$GHIDRA_INSTALL_DIR/Ghidra\" | paste -sd: -)\"",
+                "inputs": [ "javaFiles", { "externalDependencies": [] }, { "env": "JAVA_HOME" }, { "env": "GHIDRA_INSTALL_DIR" } ],
+                "outputs": [ "{workspaceRoot}/.cache/javac" ]
+            },
             "typecheck": { "dependsOn": [ "typecheck:*" ] },
             "check": { "dependsOn": [ "lint", "typecheck" ] },
-            "infra": { "command": "doppler run --project rasm --config dev_repo --no-fallback --attempts 1 -- node infra/cli.ts", "parallelism": false, "configurations": { "up": { "args": "up" }, "refresh": { "args": "refresh" } } },
+            "infra": {
+                "command": "doppler run --project agent-runtime --config dev --only-secrets GITHUB_TOKEN --no-fallback --attempts 1 -- node infra/main.ts repository",
+                "parallelism": false,
+                "configurations": { "preview": { "args": "preview" }, "up": { "args": "up" }, "refresh": { "args": "refresh" } }
+            },
+            "hosting": { "command": "doppler run --project agent-runtime --config dev --only-secrets CLOUDFLARE_API_TOKEN,CLOUDFLARE_ACCOUNT_ID,OWNER_EMAIL --no-exit-on-missing-only-secrets --no-fallback --attempts 1 -- node infra/main.ts hosting", "parallelism": false },
             "clean": { "command": "node eng/typescript/cleanup/main.ts", "parallelism": false },
-            "upgrade": { "command": "mise bootstrap macos launchd-agents apply --yes", "dependsOn": [ "upgrade:*", { "projects": [ "tag:language:rust" ], "target": "upgrade:cargo" }, { "projects": [ "tag:language:swift" ], "target": "upgrade" } ], "parallelism": false },
+            "docker": { "command": "mise daemons start docker" },
+            "upgrade": { "command": "node eng/typescript/upgrade/main.ts .cache/upgrade", "dependsOn": [ "upgrade:*", { "projects": [ "tag:language:rust" ], "target": "upgrade:cargo" }, { "projects": [ "tag:language:swift" ], "target": "upgrade" } ], "parallelism": false },
+            "upgrade:actions": { "command": "actions-up --yes --style preserve --min-age 0" },
+            "upgrade:baseline": { "executor": "nx:run-commands", "options": { "commands": [ "mkdir -p .cache/upgrade", "cp Cargo.lock uv.lock pnpm-lock.yaml .cache/upgrade" ], "parallel": false } },
+            "upgrade:docker": { "command": "mise run docker:update" },
             "upgrade:dotnet": { "command": "dotnet run --project eng/dotnet/Rasm.Upgrade -- Directory.Packages.props" },
-            "upgrade:python": {
-                "executor": "nx:run-commands",
-                "parallelism": false,
-                "options": {
-                    "parallel": false,
-                    "commands": [
-                        "pixi update --no-install",
-                        "pixi install --all --locked",
-                        "uv cache clean h5py pdal pyicu small-gicp pyarrow",
-                        "pixi run --locked -e hdf5 pixi run --locked -e default uv sync --upgrade --reinstall-package h5py --reinstall-package pdal --reinstall-package pyicu --reinstall-package small-gicp --reinstall-package pyarrow"
-                    ]
-                }
-            },
-            "upgrade:rust": {
-                "executor": "nx:run-commands",
-                "options": {
-                    "commands": [ "rustup toolchain install --no-self-update --no-update", "mise install http:rustc-source", "cargo upgrade --incompatible", "cargo update", "tombi format" ],
-                    "parallel": false
-                }
-            },
+            "upgrade:python": { "dependsOn": [ "upgrade:baseline" ], "executor": "nx:run-commands", "options": { "commands": [ "pixi update", "pixi run --locked -e hdf5 pixi run --locked -e default uv sync --upgrade" ], "parallel": false } },
+            "upgrade:rust": { "dependsOn": [ "upgrade:baseline" ], "executor": "nx:run-commands", "options": { "commands": [ "cargo upgrade --incompatible", "cargo update", "tombi format Cargo.toml" ], "parallel": false } },
             "upgrade:typescript": {
+                "dependsOn": [ "upgrade:baseline" ],
                 "executor": "nx:run-commands",
-                "parallelism": false,
                 "options": {
                     "commands": [
                         "ncu --workspaces --target newest --upgrade --install never --reject typescript,tree-sitter-swift",
                         "sd '^(\\s+typescript: )\\S+' \"\\${1}$(curl -fsSL https://raw.githubusercontent.com/Effect-TS/tsgo/@effect/tsgo@$(yq '.catalog[\"@effect/tsgo\"]' pnpm-workspace.yaml)/_packages/tsgo/upstream.json | jq -r .tags.typescript.next)\" pnpm-workspace.yaml",
                         "sd '^(\\s+tree-sitter-swift: github:[^#\\s]+#)\\S+' \"\\${1}$(git ls-remote --tags --refs --sort=-v:refname https://github.com/$(yq '.catalog[\"tree-sitter-swift\"] | sub(\"github:|#.*\", \"\")' pnpm-workspace.yaml) | rg -m1 -or '$1' 'refs/tags/(\\d+\\.\\d+\\.\\d+-with-generated-files)$')\" pnpm-workspace.yaml",
-                        "pnpm install",
-                        "playwright install chromium"
+                        "pnpm install"
                     ],
                     "parallel": false
                 }

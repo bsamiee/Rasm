@@ -41,16 +41,15 @@ public sealed record SafeFrameState(
 
     public static IO<SafeFrameState> Read(RenderSettingsScope scope) =>
         RenderSettingsSources.SubOwner(scope, static settings => settings.SafeFrame, static frame => IO.lift(() =>
-            (FrameFraction.Validated(frame.ActionFrameXScale).ToValidation(),
-             FrameFraction.Validated(frame.ActionFrameYScale).ToValidation(),
-             FrameFraction.Validated(frame.TitleFrameXScale).ToValidation(),
-             FrameFraction.Validated(frame.TitleFrameYScale).ToValidation())
+            (FrameFraction.Validated(frame.ActionFrameXScale),
+             FrameFraction.Validated(frame.ActionFrameYScale),
+             FrameFraction.Validated(frame.TitleFrameXScale),
+             FrameFraction.Validated(frame.TitleFrameYScale))
                 .Apply((actionX, actionY, titleX, titleY) => new SafeFrameState(
                     frame.Enabled, frame.PerspectiveOnly, frame.FieldsOn, frame.LiveFrameOn,
                     frame.ActionFrameOn, frame.ActionFrameLinked, actionX, actionY,
                     frame.TitleFrameOn, frame.TitleFrameLinked, titleX, titleY))
-                .As()
-                .ToFin()));
+                .As()));
 
     public static IO<SafeFrameState> Write(RenderSettingsScope scope, SafeFrameState state) =>
         RenderSettingsSources.SubOwner(scope, static settings => settings.SafeFrame, frame => IO.lift(() => { SafeFrameMapper.Update(state, frame); return state; }));
@@ -217,11 +216,9 @@ public static class Framing {
         (Length.FromInches(final.Width / (double)output.ImageDpi), Length.FromInches(final.Height / (double)output.ImageDpi));
 
     public static Fin<ImageOutputState> Sized(ImageOutputState held, Size size) =>
-        (PixelDimension.Validated(size.Width).ToValidation(),
-         PixelDimension.Validated(size.Height).ToValidation())
+        (PixelDimension.Validated(size.Width), PixelDimension.Validated(size.Height))
             .Apply((width, height) => held with { ImageWidth = width, ImageHeight = height })
-            .As()
-            .ToFin();
+            .As();
 
     // --- [EXTENT]
     public static ReadModel<Eto.Drawing.Size> Extent { get; } = new(

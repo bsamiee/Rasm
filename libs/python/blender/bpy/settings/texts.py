@@ -39,18 +39,6 @@ class TextRecord[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
         return Option.of_optional(bpy.data.texts.get(attached.name)).map(decoded).default_with(lambda: Ok(self.form())).bind(lambda value: attached.write(manager, value))
 
-    def saved(self, session: tuple[Attached[T], bpy.types.WindowManager]) -> BlenderResult[None]:
-        """Persists actual session values in the file or returns native read faults."""
-        attached, manager = session
-
-        def stored(record: T) -> None:
-            """Writes a fake-user text from the single native record read."""
-            text: bpy.types.Text = Option.of_optional(bpy.data.texts.get(attached.name)).default_with(lambda: bpy.data.texts.new(attached.name))
-            text.use_fake_user = True
-            text.from_string(msgspec.json.encode(record, order="deterministic").decode())
-
-        return attached.read(manager).map(stored)
-
     # --- [REGISTRATION]
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
@@ -65,10 +53,21 @@ class TextRecord[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
             """Recovers an unset session when Blender exposes the current file."""
             return session().bind(lambda pair: Ok(None) if pair[0].stored(pair[1]) else self.loaded(pair)).map(lambda _: Nothing)
 
+        def saved(pair: tuple[Attached[T], bpy.types.WindowManager]) -> BlenderResult[None]:
+            """Persists actual session values in a fake-user text or returns native read faults."""
+            attached, manager = pair
+
+            def stored(record: T) -> None:
+                text: bpy.types.Text = Option.of_optional(bpy.data.texts.get(attached.name)).default_with(lambda: bpy.data.texts.new(attached.name))
+                text.use_fake_user = True
+                text.from_string(msgspec.json.encode(record, order="deterministic").decode())
+
+            return attached.read(manager).map(stored)
+
         return Ok((
             attachment,
             PathHandler(handlers=bpy.app.handlers.load_post, body=lambda _: session().bind(self.loaded)),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-            PathHandler(handlers=bpy.app.handlers.save_pre, body=lambda _: session().bind(self.saved)),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            PathHandler(handlers=bpy.app.handlers.save_pre, body=lambda _: session().bind(saved)),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
             Timer(body=loaded),
         ))
 

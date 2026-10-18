@@ -42,8 +42,8 @@ class Homography(msgspec.Struct, frozen=True, kw_only=True):
     def of(cls, quad: Quad) -> Option[Self]:
         """Returns the map or absence for a nonconvex quad."""
         corners = tuple(tuple(Fraction(value) for value in corner) for corner in msgspec.structs.astuple(quad))
-        edges = tuple((following[0] - corner[0], following[1] - corner[1]) for corner, following in zip(corners, corners[1:] + corners[:1], strict=False))
-        turns = tuple(edge[0] * following[1] - edge[1] * following[0] for edge, following in zip(edges, edges[1:] + edges[:1], strict=False))
+        edges = tuple((following[0] - corner[0], following[1] - corner[1]) for corner, following in zip(corners, corners[1:] + corners[:1]))
+        turns = tuple(edge[0] * following[1] - edge[1] * following[0] for edge, following in zip(edges, edges[1:] + edges[:1]))
         return Some(cls(quad=quad)) if all(turn > 0 for turn in turns) or all(turn < 0 for turn in turns) else Nothing
 
     @property
@@ -72,7 +72,7 @@ class Homography(msgspec.Struct, frozen=True, kw_only=True):
             )
             for row in range(3)
         )
-        determinant = sum((value * cofactor for value, cofactor in zip(matrix[0], cofactors[0], strict=False)), start=Fraction())
+        determinant = sum((value * cofactor for value, cofactor in zip(matrix[0], cofactors[0])), start=Fraction())
         sign = 1 if determinant > 0 else -1
         inverse = tuple(tuple(cofactors[column][row] * sign for column in range(3)) for row in range(3))
         return projected(inverse, samples)

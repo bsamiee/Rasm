@@ -222,8 +222,15 @@ public abstract class ComponentControl<TState, TPart, TValue>(IPlugInSink sink, 
     public override IO<Unit> Move(SizeF size, float scale, MouseEventArgs e) =>
         IO.lift(() => grip.Match(Some: held => Dragging(size, scale, e, held), None: () => Tracked(size, scale, () => Pointer = e.Location)));
 
-    public override IO<Unit> Release(SizeF size, float scale, MouseEventArgs e) =>
-        IO.lift(() => e.Buttons is MouseButtons.None ? Abandon(size, scale) : grip.Match(Some: held => Releasing(size, scale, e, held), None: static () => unit));
+    public override IO<Unit> Release(SizeF size, float scale, MouseEventArgs e) {
+        return IO.lift(() => e.Buttons is MouseButtons.None ? Abandon(size, scale) : grip.Match(Some: Releasing, None: static () => unit));
+
+        Unit Releasing(Grip held) {
+            _ = Apply(size, scale, Released(State, size, scale, held.Part, e));
+            _ = grip.Bind(static current => current.Open).Iter(open => Closed(size, scale, new Edit<TValue>.Commit(open)));
+            return Tracked(size, scale, () => grip = None);
+        }
+    }
 
     public override IO<Unit> DoubleClick(SizeF size, float scale, MouseEventArgs e) =>
         IO.lift(() => Claimed(size, scale, DoubleClicked(State, size, scale, Hit(size, scale, e.Location), e), () => {
@@ -303,12 +310,6 @@ public abstract class ComponentControl<TState, TPart, TValue>(IPlugInSink sink, 
         Pointer = e.Location;
         grip = held with { Last = dragging ? e.Location : held.Last, Dragging = dragging };
         return Apply(size, scale, next);
-    }
-
-    private Unit Releasing(SizeF size, float scale, MouseEventArgs e, Grip held) {
-        _ = Apply(size, scale, Released(State, size, scale, held.Part, e));
-        _ = grip.Bind(static current => current.Open).Iter(open => Closed(size, scale, new Edit<TValue>.Commit(open)));
-        return Tracked(size, scale, () => grip = None);
     }
 
     private Unit Abandon(SizeF size, float scale) {

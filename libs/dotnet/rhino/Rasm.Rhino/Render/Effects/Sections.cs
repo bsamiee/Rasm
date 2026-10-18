@@ -47,9 +47,9 @@ public sealed record HistorySettingRows(PlugInSetting<int, int> Capacity, PlugIn
     ];
 
     public IO<HistoryLimits> Limits(ISettingReader reader) =>
-        (reader.Current(Capacity), reader.Current(Window))
+        IO.lift(() => (reader.Current(Capacity), reader.Current(Window))
             .Apply(static (capacity, seconds) => new HistoryLimits(capacity, Duration.FromSeconds(seconds)))
-            .As();
+            .As());
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -315,7 +315,7 @@ public static class SectionRows {
                 stage.Map(input => CurveRows.Graph(tone, "Response", "Display code the stage answers over scene stops", input, RowRules.Always)).ToSeq()
                     + Of(tone, toSeq(ToneMappingParameter.Items), stage, item => Formed(tone, item.Formations))
                     .Add(ChartRows.RampKey(
-                        "False color key", "Stops above middle grey each false color band marks", scope => scope.Read(tone).Map(static held => held.Look),
+                        "False color key", "Stops above middle gray each false color band marks", scope => scope.Read(tone).Map(static held => held.Look),
                         Formed(tone, [Formation.AgXFalseColor]))),
             RowSource<ExposureState> exposure =>
                 Meter(exposure, stage).Cons(Of(exposure, exposure.Fields, stage, static _ => RowRules.Always)),
@@ -359,7 +359,7 @@ public static class SectionRows {
                     None: static () => IO.pure(unit)))(new CallbackSite(scope.Sink, typeof(ExposureState), nameof(ExposureState.Metered)), retain)
             from command in IO.lift(static () => new Eto.Forms.Command {
                 MenuText = RowText.Localize("Meter").Local, ToolBarText = RowText.Localize("Meter").Local,
-                ToolTip = RowText.Localize("Write the exposure that sets the stage input's trimmed mean luminance at middle grey").Local,
+                ToolTip = RowText.Localize("Write the exposure that sets the stage input's trimmed mean luminance at middle gray").Local,
             })
             let show = stage.Match(Some: static input => input.Read, None: static () => IO.pure(Option<PixelFrame>.None))
                 .Bind(available => IO.lift(() => command.Enabled = available.IsSome)).Map(unit)
@@ -385,7 +385,10 @@ public static class SectionRows {
             new CommandFace("cdl-open", "Open CDL...", "Read a correction from an ASC .cc, .ccc, or .cdl file", None, None) { Wording = Wording.Library },
             None,
             scope => (
-                from paths in HostDialogs.ShowOpenDialog(new OpenFileDialog { Title = RowText.Localize("Open CDL").Local, Filter = HostDialogs.Filter(Readable) })
+                from paths in HostDialogs.ShowOpenDialog(new OpenFileDialog {
+                    Title = RowText.Localize("Open CDL").Local,
+                    Filter = HostDialogs.Filter([(RowText.Localize("ASC color corrections").Local, Corrections.Bind(static row => row.Extensions)), .. Corrections]),
+                })
                 from path in IO.lift(paths.Head.ToFin(Errors.Cancelled))
                 from text in IO.liftAsync(env => File.ReadAllTextAsync(path, env.Token))
                 from read in IO.lift(CdlState.Read(text))
@@ -407,9 +410,8 @@ public static class SectionRows {
                 from chosen in HostDialogs.ShowSaveDialog(new SaveFileDialog {
                     Title = RowText.Localize("Save CDL").Local, Filter = HostDialogs.Filter(Corrections), DefaultExt = CdlFormat.Correction.Extension,
                 })
-                from target in IO.lift((CdlFormat.Validated(Path.GetExtension(chosen)).ToValidation(),
-                        OutputPath.Validated(chosen).ToValidation())
-                    .Apply(static (format, path) => (Format: format, Path: path)).As().ToFin())
+                from target in IO.lift((CdlFormat.Validated(Path.GetExtension(chosen)), OutputPath.Validated(chosen))
+                    .Apply(static (format, path) => (Format: format, Path: path)).As())
                 from written in FilePublication.Write(target.Path, CdlState.Write(held, None, target.Format))
                 select written).Catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure(unit))));
 
@@ -417,9 +419,6 @@ public static class SectionRows {
         toSeq(CdlFormat.Items).Map<(string Description, Seq<string> Extensions)>(static format => (
             RowText.Localize(format.Map(correction: "ASC color correction", collection: "ASC color correction collection", decisionList: "ASC color decision list")).Local,
             [format.Extension]));
-
-    private static Seq<(string Description, Seq<string> Extensions)> Readable =>
-        (Description: RowText.Localize("ASC color corrections").Local, Extensions: Corrections.Bind(static row => row.Extensions)).Cons(Corrections);
 
     public static ControlRow Pushed(CommandRow.Run run) =>
         new ControlRow.Readout(RowShape.Unlabeled, (scope, retain) =>

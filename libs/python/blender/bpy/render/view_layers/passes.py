@@ -620,7 +620,7 @@ class PassRouting(msgspec.Struct, frozen=True, kw_only=True):
                 layers = self.used(scene)
 
                 def chosen(current: tuple[PassPreset, ...]) -> BlenderResult[Outcome]:
-                    if not (differing := tuple(layer for layer, preset in zip(layers, current, strict=True) if not same(preset, value))):
+                    if not (differing := tuple(layer for layer, preset in zip(layers, current) if not same(preset, value))):
                         return Ok(Unchanged(reason=f"No used view layer of {scene.name} differs from the preset"))
                     return tallied(tuple(paired(value.flags.apply(layer).outcome, self.routing.write(layer, value.routing)) for layer in differing))
 

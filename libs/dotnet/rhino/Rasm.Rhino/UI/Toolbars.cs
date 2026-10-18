@@ -136,7 +136,7 @@ public static class Toolbars {
     private const string RuiCache = "Rhino.UI.Internal.TabPanels.IO.RuiCache, Rhino.UI";
     private const string RuiFile = "Rhino.UI.Internal.TabPanels.IO.RuiFile";
     private const string NewToolBar = "Rhino.UI.Internal.TabPanels.IO.Structures.NewToolBar";
-    private const string ToolbarItem = "Rhino.UI.Internal.TabPanels.IO.Structures.ToolbarItem";
+    private const string ToolbarItem = "Rhino.UI.Internal.TabPanels.IO.Structures.ToolbarItem, Rhino.UI";
     private const string ToolbarMacro = "Rhino.UI.Internal.TabPanels.IO.Structures.ToolbarMacro, Rhino.UI";
     private const string LocaleText = "Rhino.UI.Internal.TabPanels.IO.LocaleText, Rhino.UI";
     private const string ToolbarNode = "Rhino.UI.Internal.TabPanels.IO.Structures.IToolbarNode, Rhino.UI";
@@ -155,14 +155,14 @@ public static class Toolbars {
     private static extern bool TryGetToolbar([UnsafeAccessorType(RuiFile + ", Rhino.UI")] object file, Guid id, [UnsafeAccessorType(NewToolBar + "&, Rhino.UI")] out object toolbar);
 
     [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "get_Items")]
-    [return: UnsafeAccessorType("System.Collections.Generic.IReadOnlyList`1[[" + ToolbarItem + ", Rhino.UI]]")]
+    [return: UnsafeAccessorType("System.Collections.Generic.IReadOnlyList`1[[" + ToolbarItem + "]]")]
     private static extern object Items([UnsafeAccessorType(NewToolBar + ", Rhino.UI")] object toolbar);
 
     [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "get_Id")]
-    private static extern Guid Id([UnsafeAccessorType(ToolbarItem + ", Rhino.UI")] object item);
+    private static extern Guid Id([UnsafeAccessorType(ToolbarItem)] object item);
 
     [UnsafeAccessor(UnsafeAccessorKind.Method)]
-    private static extern bool TryAdd([UnsafeAccessorType(NewToolBar + ", Rhino.UI")] object toolbar, [UnsafeAccessorType(ToolbarItem + ", Rhino.UI")] object item);
+    private static extern bool TryAdd([UnsafeAccessorType(NewToolBar + ", Rhino.UI")] object toolbar, [UnsafeAccessorType(ToolbarItem)] object item);
 
     [UnsafeAccessor(UnsafeAccessorKind.Method)]
     private static extern bool TryRemove([UnsafeAccessorType(NewToolBar + ", Rhino.UI")] object toolbar, [UnsafeAccessorType(ToolbarNode)] object item);
@@ -171,11 +171,11 @@ public static class Toolbars {
     private static extern bool TryInsertAt([UnsafeAccessorType(NewToolBar + ", Rhino.UI")] object toolbar, [UnsafeAccessorType(ToolbarNode)] object item, int index);
 
     [UnsafeAccessor(UnsafeAccessorKind.StaticMethod)]
-    [return: UnsafeAccessorType(ToolbarItem + ", Rhino.UI")]
-    private static extern object CreateSeparator([UnsafeAccessorType(ToolbarItem + ", Rhino.UI")] object? owner);
+    [return: UnsafeAccessorType(ToolbarItem)]
+    private static extern object CreateSeparator([UnsafeAccessorType(ToolbarItem)] object? owner);
 
     [UnsafeAccessor(UnsafeAccessorKind.Constructor)]
-    [return: UnsafeAccessorType(ToolbarItem + ", Rhino.UI")]
+    [return: UnsafeAccessorType(ToolbarItem)]
     private static extern object NewItem(Guid id);
 
     [UnsafeAccessor(UnsafeAccessorKind.Constructor)]
@@ -190,7 +190,7 @@ public static class Toolbars {
     private static extern void Text([UnsafeAccessorType(LocaleText)] object text, string value);
 
     [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "set_Name")]
-    private static extern void Name([UnsafeAccessorType(ToolbarItem + ", Rhino.UI")] object item, [UnsafeAccessorType(LocaleText)] object text);
+    private static extern void Name([UnsafeAccessorType(ToolbarItem)] object item, [UnsafeAccessorType(LocaleText)] object text);
 
     [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "set_MenuText")]
     private static extern void MenuText([UnsafeAccessorType(ToolbarMacro)] object macro, [UnsafeAccessorType(LocaleText)] object text);
@@ -202,7 +202,7 @@ public static class Toolbars {
     private static extern void Script([UnsafeAccessorType(ToolbarMacro)] object macro, string script);
 
     [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "set_Left")]
-    private static extern void Left([UnsafeAccessorType(ToolbarItem + ", Rhino.UI")] object item, [UnsafeAccessorType(ToolbarMacro)] object macro);
+    private static extern void Left([UnsafeAccessorType(ToolbarItem)] object item, [UnsafeAccessorType(ToolbarMacro)] object macro);
 
     [UnsafeAccessor(UnsafeAccessorKind.StaticMethod)]
     private static extern void RefreshToolbars([UnsafeAccessorType("Rhino.UI.Internal.TabPanels.OldCodeExtensions, Rhino.UI")] object? owner);

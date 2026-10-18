@@ -188,7 +188,7 @@ public static class DataTypes {
     public static Fin<Option<Transfer>> Encoding(Pear<PixelFrame> pear) =>
         pear.Meta is { } meta && meta.Get(ImageEncoding, out string text)
             ? Transfer.Validated(text).Map(Some)
-            : Fin.Succ(Option<Transfer>.None);
+            : Option<Transfer>.None;
 
     // --- [ROWS]
     public static Func<DefinedGrasshopperPlugin, IO<Unit>> Of<T>(Guid parameterId, string name, IIcon icon, Func<T, T> copy, Func<T, string> describe) =>
@@ -238,15 +238,16 @@ public static class DataTypes {
         where TKey : struct, System.Numerics.INumber<TKey> =>
         plugin => Registered(
             new NumericDataAssistant<TValue, TKey>(parameterId, name, plugin, icon, describe, create, key),
-            Seq(
+            [
                 Converted<double, TValue>(NumberConversions<TValue, TKey>.Inbound),
                 Converted<TValue, double>(NumberConversions<TValue, TKey>.Outbound),
                 Converted<int, TValue>(NumberConversions<TValue, TKey>.Inbound),
-                Converted<TValue, int>(NumberConversions<TValue, TKey>.Outbound))
-            .Concat(arithmetic ? Seq<(string, Func<bool>)>(
-                (nameof(Arithmetic.AddRepository), static () => Arithmetic.AddRepository(typeof(ValueArithmetic<TValue, TKey>)) > 0),
-                (nameof(Arithmetic.AddRepository), static () => Arithmetic.AddRepository(typeof(OperandArithmetic<TValue, TKey, double>)) > 0),
-                (nameof(Arithmetic.AddRepository), static () => Arithmetic.AddRepository(typeof(OperandArithmetic<TValue, TKey, int>)) > 0)) : []));
+                Converted<TValue, int>(NumberConversions<TValue, TKey>.Outbound),
+                .. arithmetic
+                    ? Seq(typeof(ValueArithmetic<TValue, TKey>), typeof(OperandArithmetic<TValue, TKey, double>), typeof(OperandArithmetic<TValue, TKey, int>))
+                        .Map<(string, Func<bool>)>(static repository => (nameof(Arithmetic.AddRepository), () => Arithmetic.AddRepository(repository) > 0))
+                    : [],
+            ]);
 
     internal static (Type Type, Func<DefinedGrasshopperPlugin, IO<Unit>> Register) Field<T>(Func<DefinedGrasshopperPlugin, Guid, string, IO<Unit>> create) =>
         (typeof(T), plugin =>
@@ -264,9 +265,8 @@ public static class DataTypes {
         Func<TData, string> capture = value => new ValueSet(toHashMap(rooted.Capture(value).AsIterable()
             .Map(entry => (new EntryKey(owner, entry.Key), entry.Value)))).Text();
         return Stored(parameterId, name, icon, identity, capture, capture,
-            text => ValueSet.Read(text).Bind(set => Try.lift(() =>
-                rooted.Recall(toHashMap(set.Entries.AsIterable().Filter(entry => string.Equals(entry.Key.Owner, owner, StringComparison.Ordinal))
-                    .Map(static entry => (entry.Key.Path, entry.Value)))).Run()).Run()));
+            text => ValueSet.Read(text).Bind(set => rooted.Recall(toHashMap(set.Entries.AsIterable().Filter(entry => string.Equals(entry.Key.Owner, owner, StringComparison.Ordinal))
+                .Map(static entry => (entry.Key.Path, entry.Value)))).RunSafe()));
     }
 
     private static (string Member, Func<bool> Accepted) Converted<TSource, TTarget>(ConversionDelegate<TSource, TTarget> conversion) =>

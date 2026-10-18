@@ -68,18 +68,18 @@ public static class Hatches {
     // --- [CREATION]
     public static IO<Seq<Hatch>> Create(RhinoDoc doc, HatchFill fill, HatchForm form, Action<Seq<Hatch>, IDisposable> retain) =>
         DisposalOps.Acquire(held =>
-        from row in TableOps.Find(doc.HatchPatterns, fill.Pattern, includeDeleted: false)
-        from hatches in form.Switch(
-            (row.Index, Fill: fill, Retain: held),
-            loops: static (state, loops) =>
-                Copies.Acquire(() => Hatch.Create(loops.Plane, loops.Outer, loops.Inner, state.Index, state.Fill.Rotation, state.Fill.Scale), nameof(Hatch.Create), state.Retain)
-                    .Map(static hatch => Seq(hatch)),
-            boundaries: static (state, boundaries) =>
-                Copies.AcquireNonEmpty(() => Hatch.Create(boundaries.Curves, state.Index, state.Fill.Rotation, state.Fill.Scale, boundaries.Tolerances.Absolute), nameof(Hatch.Create), state.Retain),
-            onFace: static (state, face) =>
-                Copies.Acquire(() => Hatch.CreateFromBrep(face.Face.Brep, face.Face.FaceIndex, state.Index, state.Fill.Rotation, state.Fill.Scale, face.BasePoint), nameof(Hatch.CreateFromBrep), state.Retain)
-                    .Map(static hatch => Seq(hatch)))
-        select hatches, retain);
+            from row in TableOps.Find(doc.HatchPatterns, fill.Pattern, includeDeleted: false)
+            from hatches in form.Switch(
+                (row.Index, Fill: fill, Retain: held),
+                loops: static (state, loops) =>
+                    Copies.Acquire(() => Hatch.Create(loops.Plane, loops.Outer, loops.Inner, state.Index, state.Fill.Rotation, state.Fill.Scale), nameof(Hatch.Create), state.Retain)
+                        .Map(static hatch => Seq(hatch)),
+                boundaries: static (state, boundaries) =>
+                    Copies.AcquireNonEmpty(() => Hatch.Create(boundaries.Curves, state.Index, state.Fill.Rotation, state.Fill.Scale, boundaries.Tolerances.Absolute), nameof(Hatch.Create), state.Retain),
+                onFace: static (state, face) =>
+                    Copies.Acquire(() => Hatch.CreateFromBrep(face.Face.Brep, face.Face.FaceIndex, state.Index, state.Fill.Rotation, state.Fill.Scale, face.BasePoint), nameof(Hatch.CreateFromBrep), state.Retain)
+                        .Map(static hatch => Seq(hatch)))
+            select hatches, retain);
 
     // --- [EDITS]
     public static IO<Unit> Revise(RhinoDoc doc, Guid id, Seq<HatchEdit> edits) =>

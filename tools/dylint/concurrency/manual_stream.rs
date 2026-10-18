@@ -38,7 +38,6 @@ impl Pass {
                     ("tokio::task::JoinSet::join_next", "JoinSetStream"),
                     ("tokio::io::Lines::next_line", "LinesStream"),
                     ("tokio::io::Split::next_segment", "SplitStream"),
-                    ("tokio::fs::ReadDir::next_entry", "ReadDirStream"),
                     ("tokio::net::TcpListener::accept", "TcpListenerStream"),
                     ("tokio::net::UnixListener::accept", "UnixListenerStream"),
                     ("tokio::signal::unix::Signal::recv", "SignalStream"),

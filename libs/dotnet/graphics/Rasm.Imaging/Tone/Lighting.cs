@@ -450,5 +450,4 @@ public static class Lighting {
         new((((2f * column) + 1f) / width) - 1f, 1f - (((2f * row) + 1f) / height));
 
     private static Vector2 Saturated(Vector2 cue) => cue * float.Min(1f, 1f / cue.Length());
-
 }

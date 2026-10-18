@@ -76,7 +76,7 @@ class Document[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True
         height, width = self.composite.shape[:2]
         canvas, void = psdtags.PsdRectangle(0, 0, height, width), psdtags.PsdRectangle(0, 0, 0, 0)
         ids = (*(psdtags.PsdChannelId(index) for index in range(3)), psdtags.PsdChannelId.TRANSPARENCY_MASK)
-        empty = tuple(zip(ids, (np.zeros((0, 0), dtype=self.composite.dtype),) * 4, strict=True))
+        empty = tuple(zip(ids, (np.zeros((0, 0), dtype=self.composite.dtype),) * 4))
 
         def record(
             name: str,
@@ -102,11 +102,11 @@ class Document[D: np.uint8 | np.uint16 | np.float32](msgspec.Struct, frozen=True
         def records(node: Raster[D] | Adjustment[D] | Group[D]) -> tuple[psdtags.PsdLayer, ...]:
             match node:
                 case Raster():
-                    channels = (*zip(ids, (*(node.color[..., index] for index in range(3)), node.alpha), strict=True), *((psdtags.PsdChannelId.USER_LAYER_MASK, mask) for mask in node.mask.to_list()))
+                    channels = (*zip(ids, (*(node.color[..., index] for index in range(3)), node.alpha)), *((psdtags.PsdChannelId.USER_LAYER_MASK, mask) for mask in node.mask.to_list()))
                     mask = node.mask.map(lambda _: psdtags.PsdLayerMask(rectangle=canvas)).to_optional()
                     return (record(node.name, blend=(node.mode.photoshop, node.opacity), visible=node.visible, channels=channels, rectangle=canvas, mask=mask, info=()),)
                 case Adjustment():
-                    channels = tuple(zip(ids, (*(node.color[..., index] for index in range(3)), node.alpha), strict=True))
+                    channels = tuple(zip(ids, (*(node.color[..., index] for index in range(3)), node.alpha)))
                     return (record(node.name, blend=(psdtags.PsdBlendMode.NORMAL, 1.0), visible=node.visible, channels=channels, rectangle=canvas, mask=None, info=()),)
                 case Group():
                     blend = (node.mode.map(lambda mode: mode.photoshop).default_value(psdtags.PsdBlendMode.PASS_THROUGH), node.opacity)

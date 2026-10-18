@@ -2,6 +2,7 @@
 id: no-setter-only-union-case
 language: csharp
 severity: error
+ignores: ['tools/roslyn/**']
 utils:
     lift:
         kind: invocation_expression

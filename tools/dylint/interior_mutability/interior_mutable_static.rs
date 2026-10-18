@@ -1,6 +1,6 @@
 use core::mem;
 
-use clippy_utils::{diagnostics::span_lint_hir_and_then, is_in_test, paths::PathNS, res::MaybeDef as _, source::snippet, sym, ty::InteriorMut};
+use clippy_utils::{diagnostics::span_lint_hir_and_then, paths::PathNS, res::MaybeDef as _, source::snippet, sym, ty::InteriorMut};
 use rustc_data_structures::fx::{FxHashMap, FxIndexMap};
 use rustc_hir::{
     Expr, ExprKind, Item, ItemKind,
@@ -57,7 +57,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
                 _ => None,
             }
             && let Some(link) = self.interior.interior_mut_ty_chain(cx, held).and_then(|chain| chain.iter().find(|&link| held.walk().any(|written| written.as_type() == Some(link))))
-            && !is_in_test(cx.tcx, item.hir_id())
+            && !cx.tcx.sess.is_test_crate()
         {
             self.statics.insert(item.owner_id.def_id, (ident, declared, held, link));
         }

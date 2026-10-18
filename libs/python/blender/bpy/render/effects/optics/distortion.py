@@ -14,10 +14,10 @@ from blender.bpy.nodes import coordinates
 from blender.bpy.nodes.coordinates import framed, FrameSpace, pixels, shorter
 from blender.bpy.nodes.graphs import compared, End, ended, Fragment, INPUTS, masked, math, menu, mixed, nested, node, NodeGroup, Operand, summed, switched, vector
 from blender.bpy.nodes.interface import Interface, Socket
+from blender.bpy.render.color.spaces import config_of
 from blender.bpy.render.effects.optics.defocus import iris
 from blender.bpy.render.effects.stack import CompositorEffect, Coverage, Named, Shell
 from blender.bpy.render.outputs.framing import FrameSize
-from blender.imaging.color.config import admitted
 from blender.imaging.compositing.blending import Entry
 from blender.imaging.effects.optics.distortion import Aberration, Direction, Distortion
 from blender.imaging.faults import accumulated, paired
@@ -304,10 +304,9 @@ def exported(call: Call[Named]) -> BlenderResult[Done]:
 
     def ready(scene: bpy.types.Scene) -> BlenderResult[Done]:
         entry = distortion.named(call.identity, scene, call.record.name).bind(lambda held: distortion.read(call.identity, held))
-        config: BlenderResult[PyOpenColorIO.Config] = admitted(PyOpenColorIO.GetCurrentConfig(), ()).map_error(BlenderImagingFault.lifted)
         framing = FrameSize().bound(call.identity).bind(lambda framed: framed.read(scene, Some(Whole())))
         return Result[tuple[tuple[PyOpenColorIO.Config, Entry[Distortion]], Framing], BlenderFaults].bind(
-            paired(paired(config, entry), framing), lambda parts: written(parts[0][0], parts[0][1].effect, parts[1])
+            paired(paired(config_of(), entry), framing), lambda parts: written(parts[0][0], parts[0][1].effect, parts[1])
         )
 
     return call.root(bpy.types.Scene).bind(ready)

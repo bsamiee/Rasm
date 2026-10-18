@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: swift-failure-value
+language: swiftlang
+rule:
+    any:
+        - matches: swift-failure-call
+        - {kind: control_transfer_statement, has: {field: result, matches: swift-failure-call}}

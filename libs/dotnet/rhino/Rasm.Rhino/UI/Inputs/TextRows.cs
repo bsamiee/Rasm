@@ -198,14 +198,12 @@ public static class TextRows {
         IO.lift(read).Bind(current => when(!string.Equals(current, shown, StringComparison.Ordinal), IO.lift(() => write(shown))).As());
 
     private static IO<Unit> Indicated(Eto.Forms.ProgressBar bar, WorkState state) =>
-        from shown in IO.pure(state.Switch(
-            inactive: static _ => (Visible: false, Indeterminate: false, Maximum: 1, Value: 0),
-            indeterminate: static _ => (Visible: true, Indeterminate: true, Maximum: 1, Value: 0),
-            counted: static counted => counted.Meter switch {
-                var meter => (Visible: true, Indeterminate: false, Maximum: meter.Total, Value: meter.Done),
-            }))
-        from written in IO.lift(() => { (bar.Visible, bar.Indeterminate, bar.MaxValue, bar.Value) = shown; })
-        select written;
+        IO.lift(() => {
+            (bar.Visible, bar.Indeterminate, bar.MaxValue, bar.Value) = state.Switch(
+                inactive: static _ => (false, false, 1, 0),
+                indeterminate: static _ => (true, true, 1, 0),
+                counted: static counted => (true, false, counted.Meter.Total, counted.Meter.Done));
+        });
 
     private static IO<Unit> Pressed(Eto.Forms.KeyEventArgs args, HashMap<Eto.Forms.Keys, IO<Unit>> answers) =>
         answers.Find(args.KeyData)
@@ -241,7 +239,6 @@ public static class TextRows {
                     from document in scope.DocumentIO
                     from picked in HostDialogs.ShowSelectFolderDialog(document, title, Conversions.Present(current))
                     select Some(picked),
-                _ => throw new UnreachableException(nameof(FileAction)),
             }).Catch(static error => error.Count is 1 && error.Is(Errors.Cancelled), static _ => IO.pure(Option<string>.None)),
         };
 

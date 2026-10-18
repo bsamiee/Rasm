@@ -6,19 +6,10 @@ use rustc_ast::BinOpKind;
 use rustc_hir::{Body, Expr, ExprKind, HirId, Mutability, Node, UnOp, def_id::DefId};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::adjustment::{Adjust, AutoBorrow};
-use rustc_span::{Span, Symbol};
+use rustc_span::Span;
 
 use super::iterator_method;
 use crate::{expanded_externally, fn_item_value, method_call_on, parameter_bindings};
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-#[derive(Clone, Copy)]
-enum Consumption {
-    Exhausting,
-    ShortCircuiting,
-    Unconsumed,
-}
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -30,23 +21,21 @@ enum Predicate<'tcx> {
 struct Split<'tcx> {
     site: &'tcx Expr<'tcx>,
     span: Span,
-    adapter: Symbol,
     source: &'tcx Expr<'tcx>,
     negated: bool,
     predicate: Predicate<'tcx>,
-    consumption: Consumption,
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-lint!(MANUAL_PARTITION: "two `filter` or `find` passes splitting one collection on a predicate and its negation");
+lint!(MANUAL_PARTITION: "two `filter` passes collecting one collection split on a predicate and its negation");
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_body(&mut self, cx: &LateContext<'tcx>, body: &'tcx Body<'tcx>) {
         fn split<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) -> Option<Split<'tcx>> {
             let typeck = cx.typeck_results();
             if let ExprKind::MethodCall(segment, source, [predicate], _) = expr.kind
-                && let adapter @ (sym::filter | sym::find) = segment.ident.name
+                && segment.ident.name == sym::filter
                 && !expanded_externally(cx, expr.span)
                 && iterator_method(cx, expr)
                 && let root = peel_hir_expr_while(source, |step| if let ExprKind::MethodCall(_, receiver, ..) = step.kind { Some(receiver) } else { None })
@@ -61,46 +50,16 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     }
                     _ => fn_item_value(cx, predicate).map(|function| (false, Predicate::Path(function))),
                 }
-            {
-                let consumer = iter::successors(Some(expr), |&current| method_call_on(cx, current).map(|(call, _)| call).filter(|call| iterator_method(cx, call)))
+                && iter::successors(Some(expr), |&current| method_call_on(cx, current).map(|(call, _)| call).filter(|call| iterator_method(cx, call)))
                     .skip(1)
                     .filter_map(Expr::method_ident)
                     .map(|step| step.name)
                     .find(|&name| {
                         !matches!(name, sym::map | sym::cloned | sym::copied | sym::rev | sym::enumerate | sym::inspect | sym::filter | sym::filter_map | sym::flat_map | sym::flatten | sym::chain)
-                    });
-                let consumption = match (adapter, consumer) {
-                    (sym::find, _)
-                    | (
-                        _,
-                        Some(
-                            sym::next | sym::next_back | sym::nth | sym::any | sym::all | sym::find | sym::find_map | sym::position | sym::take | sym::take_while | sym::map_while | sym::try_for_each,
-                        ),
-                    ) => Consumption::ShortCircuiting,
-                    (
-                        _,
-                        Some(
-                            sym::collect
-                            | sym::count
-                            | sym::for_each
-                            | sym::fold
-                            | sym::sum
-                            | sym::product
-                            | sym::unzip
-                            | sym::last
-                            | sym::max
-                            | sym::min
-                            | sym::max_by
-                            | sym::min_by
-                            | sym::max_by_key
-                            | sym::min_by_key
-                            | sym::partition
-                            | sym::reduce,
-                        ),
-                    ) => Consumption::Exhausting,
-                    (_, Some(_) | None) => Consumption::Unconsumed,
-                };
-                Some(Split { site: expr, span: segment.ident.span.to(expr.span.shrink_to_hi()), adapter, source, negated, predicate, consumption })
+                    })
+                    == Some(sym::collect)
+            {
+                Some(Split { site: expr, span: segment.ident.span.to(expr.span.shrink_to_hi()), source, negated, predicate })
             } else {
                 None
             }
@@ -130,12 +89,6 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
 
             let ctxt = left.site.span.ctxt();
             left.negated != right.negated
-                && match (left.consumption, right.consumption) {
-                    (Consumption::ShortCircuiting, Consumption::ShortCircuiting | Consumption::Unconsumed) | (Consumption::Unconsumed, Consumption::ShortCircuiting) => false,
-                    (Consumption::ShortCircuiting, Consumption::Exhausting)
-                    | (Consumption::Exhausting, Consumption::ShortCircuiting)
-                    | (Consumption::Exhausting | Consumption::Unconsumed, Consumption::Exhausting | Consumption::Unconsumed) => true,
-                }
                 && SpanlessEq::new(cx).eq_expr(ctxt, left.source, right.source)
                 && match (&left.predicate, &right.predicate) {
                     (Predicate::Closure(left_bindings, left_value), Predicate::Closure(right_bindings, right_value)) =>
@@ -165,7 +118,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 MANUAL_PARTITION,
                 right.site.hir_id,
                 right.span,
-                format!("`{}` and `{}` split `{}` on one predicate and its negation in two passes", left.adapter, right.adapter, snippet(cx, right.source.span, "..")),
+                format!("two `filter` passes split `{}` on one predicate and its negation", snippet(cx, right.source.span, "..")),
                 |diag| {
                     diag.span_note(left.span, "other pass here");
                     diag.help("split once with `Iterator::partition` and read each side from its half");

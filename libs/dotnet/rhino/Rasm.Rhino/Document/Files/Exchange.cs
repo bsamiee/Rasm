@@ -67,7 +67,11 @@ public static class Exchange {
     public static IO<Unit> Export<TOptions>(
         RhinoDoc doc, string path, Func<string, RhinoDoc, TOptions, WriteFileResult> writer, Func<FileWriteOptions, TOptions> options,
         [CallerArgumentExpression(nameof(writer))] string member = "") =>
-        Written(doc, path, (target, carrier) => FromWriteFileResult(writer(target, doc, options(carrier)), member));
+        Written(doc, path, (target, carrier) => writer(target, doc, options(carrier)) switch {
+            WriteFileResult.Success => unit,
+            WriteFileResult.Cancel => Errors.Cancelled,
+            WriteFileResult.Failure => new Refused(member, Refused.Declined),
+        });
 
     public static IO<Unit> WriteFile(RhinoDoc doc, string path, Action<FileWriteOptions> channels) =>
         Written(doc, path, (target, carrier) => {
@@ -81,7 +85,7 @@ public static class Exchange {
     public static IO<Option<string>> Save(RhinoDoc doc) =>
         IO.lift(() => doc.Modified || doc.IsHeadless
                 ? Writable(doc, doc.Path).Bind(path => Refused.Unless(doc.Save(), Some(path), nameof(RhinoDoc.Save)))
-                : Fin.Succ(Option<string>.None));
+                : Option<string>.None);
 
     // --- [SCOPES]
     private static IO<Committed<Unit>> Recorded(RhinoDoc doc, string path, RedrawPolicy redraw, Func<string, IO<Unit>> read) =>
@@ -97,11 +101,4 @@ public static class Exchange {
     // --- [ANSWERS]
     private static Fin<string> Writable(RhinoDoc doc, string target) =>
         doc.IsReadOnly && string.Equals(target, doc.Path, StringComparison.OrdinalIgnoreCase) ? new FileRefused(target, "is open read-only") : target;
-
-    private static Fin<Unit> FromWriteFileResult(WriteFileResult result, string member) =>
-        result switch {
-            WriteFileResult.Success => unit,
-            WriteFileResult.Cancel => Errors.Cancelled,
-            WriteFileResult.Failure => new Refused(member, Refused.Declined),
-        };
 }

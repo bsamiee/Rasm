@@ -1,43 +1,21 @@
 # [TESTS]
 
-Shared test support per language and suites that do not sit beside their source.
-
-## [01]-[LAYOUT]
-
-```text
-tests/
-├── dotnet/
-│   └── Rasm.TestSupport/   # Reusable .NET test support
-├── python/
-│   ├── conftest.py         # Package registration for public-API coverage
-│   └── support/            # Reusable Python test support and the pytest runtime plugin
-└── typescript/
-    ├── e2e/                # Playwright suite over served web apps
-    └── support/            # Reusable TypeScript test support and the Vitest setup file
-```
-
-[PLACEMENT]:
-- Each language area holds its reusable fixtures, generators, assertions, and doubles in one support project or directory, `libs/` holds none
-- .NET and Python suites mirror `libs/<language>/` under `tests/<language>/libs/<group>/<package>/`
-- TypeScript tests sit beside their source, a suite outside `libs/typescript` is a package under `tests/typescript/`
-- Rust tests sit in a `#[cfg(test)]` module of the file they test, integration tests in one `[[test]]` target of their member
-- Test files are `test_<module>.py`, `<module>.spec.ts`, and `<Subject>.Tests.cs`, PascalCase begins at a C# project directory
-
-## [02]-[CLASSIFICATION]
+## [01]-[CLASSIFICATION]
 
 Classify each test by scope, technique, and execution mode, and apply every classification that fits.
 
-| [INDEX] | [AXIS]    | [VALUE]        | [DEFINITION]                           | [ROUTE]                                                                            |
-| :-----: | :-------- | :------------- | :------------------------------------- | :--------------------------------------------------------------------------------- |
-|  [01]   | Scope     | Unit           | Behavior with controlled collaborators | Default `test` run per language                                                    |
-|  [02]   | Scope     | Integration    | Real components or external boundary   | Python `network` marker                                                            |
-|  [03]   | Scope     | End-to-end     | Served app driven through a browser    | Playwright `e2e` target                                                            |
-|  [04]   | Technique | Property-based | Generated examples exercise invariants | `TestAssertions.ForAll`, Hypothesis `@given`, `it.effect.prop`, `#[property_test]` |
-|  [05]   | Mode      | Benchmark      | Timing outside functional test session | `benchmark` fixture, Vitest `*.bench.ts` file, Criterion `[[bench]]` target        |
+| [INDEX] | [AXIS]    | [VALUE]        | [DEFINITION]                           | [ROUTE]                                                    |
+| :-----: | :-------- | :------------- | :------------------------------------- | :--------------------------------------------------------- |
+|  [01]   | Scope     | Unit           | Behavior with controlled collaborators | Default `test` run per language                            |
+|  [02]   | Scope     | Integration    | Real components or external boundary   | `test:integration` per project, Python `network` marker    |
+|  [03]   | Scope     | Component      | Component rendered in a browser        | Vitest browser project and Storybook stories in `test`     |
+|  [04]   | Scope     | End-to-end     | Served app driven through a browser    | Playwright `e2e` target                                    |
+|  [05]   | Technique | Property-based | Generated examples exercise invariants | `ForAll`, `@given`, `it.effect.prop`, `#[property_test]`   |
+|  [06]   | Mode      | Benchmark      | Timing outside functional test session | `benchmark` fixture, `*.bench.ts` file, `[[bench]]` target |
 
 Python `@property_test(subject)` records public-API coverage.
 
-## [03]-[EXPECTED_BEHAVIOR]
+## [02]-[EXPECTED_BEHAVIOR]
 
 Every test asserts observable behavior against evidence independent of the implementation under test.
 
@@ -52,6 +30,6 @@ Every test asserts observable behavior against evidence independent of the imple
 
 Treat a failing test as evidence until triage identifies a production defect, an obsolete requirement, or invalid reference evidence. Fix a production defect in its code, retire the test of a retired requirement or invalid reference evidence.
 
-## [04]-[OWNERS]
+## [03]-[OWNERS]
 
 Use root `README.md` for test dependency, target, tool, and output owners.

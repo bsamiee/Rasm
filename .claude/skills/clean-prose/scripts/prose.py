@@ -11,6 +11,8 @@ import subprocess
 import sys
 from typing import Self
 
+from cyclopts import App
+from cyclopts.types import ExistingPath
 from editorconfig import get_properties
 import msgspec
 from pygments.lexers import get_all_lexers
@@ -144,28 +146,24 @@ class Block(msgspec.Struct, frozen=True):
 
     def rewrite(self, texts: Iterable[str]) -> Block:
         """Block with every line's text replaced, one text per line."""
-        return replace(self, lines=tuple(replace(line, text=t) for line, t in zip(self.lines, texts, strict=True)))
+        return replace(self, lines=tuple(replace(line, text=t) for line, t in zip(self.lines, texts)))
 
     def retext(self, text: str) -> Block:
         """Block with its first line's text replaced."""
         return replace(self, lines=(replace(self.head, text=text), *self.lines[1:]))
 
 
-class Finding(msgspec.Struct, frozen=True):
-    """One line a report names, with the problem."""
-
-    path: Path
-    line: int
-    message: str
-
-
 class Doc(msgspec.Struct, frozen=True):
-    """Blocks of a file, the count of blocks fixes changed, and the findings reports made."""
+    """Blocks of a file and the count of blocks fixes changed."""
 
     path: Path
     blocks: list[Block]
     fixed: int = 0
-    found: list[Finding] = []
+
+    def renumbered(self) -> Doc:
+        """Doc with every line numbered by its place in the file its blocks write."""
+        starts = accumulate((len(b.lines) for b in self.blocks), initial=1)
+        return replace(self, blocks=[replace(b, lines=tuple(Line(start + i, line.text) for i, line in enumerate(b.lines))) for b, start in zip(self.blocks, starts)])
 
 
 class Fix(msgspec.Struct, frozen=True):
@@ -187,10 +185,9 @@ class Report(msgspec.Struct, frozen=True):
     message: str
     fn: Callable[[Doc], list[Line]]
 
-    def apply(self, doc: Doc) -> Doc:
-        """Add one finding per line the report names over the masked blocks, blocks untouched."""
-        lines = self.fn(replace(doc, blocks=[b for b in doc.blocks if b.kind in self.mask]))
-        return replace(doc, found=[*doc.found, *(Finding(doc.path, line.n, self.message.format(line.text)) for line in lines)])
+    def apply(self, doc: Doc) -> list[Line]:
+        """Each line the report names over the masked blocks, its text replaced by the message."""
+        return [replace(line, text=self.message.format(line.text)) for line in self.fn(replace(doc, blocks=[b for b in doc.blocks if b.kind in self.mask]))]
 
 
 class Number(msgspec.Struct, frozen=True):
@@ -225,11 +222,9 @@ def parts(kind: Kind, text: str) -> regex.Match[str]:
     return next(kind.rx.finditer(text))
 
 
-def splice(text: str, spans: list[tuple[int, int]], fn: Callable[[str], str]) -> str:
-    """Text with `fn` run over each span."""
-    for a, b in reversed(spans):
-        text = text[:a] + fn(text[a:b]) + text[b:]
-    return text
+def spliced(kind: Kind, text: str, fn: Callable[[str], str]) -> str:
+    """Text with `fn` run over each `t` span the kind's pattern captures in it."""
+    return reduce(lambda done, span: done[: span[0]] + fn(done[span[0] : span[1]]) + done[span[1] :], reversed(parts(kind, text).spans("t")), text)
 
 
 def opaque(fn: Callable[[str], str]) -> Callable[[str], str]:
@@ -240,18 +235,14 @@ def opaque(fn: Callable[[str], str]) -> Callable[[str], str]:
 # --- [LIFTS]
 
 
-def lift_text(fn: Callable[[str], str]) -> Callable[[Kind, list[Block]], list[Block]]:
-    """Lift a text transform over every `t` span of every masked block."""
-
-    def over(block: Block) -> Block:
-        return block.rewrite(splice(block.text, parts(block.kind, block.text).spans("t"), fn).split("\n"))
-
-    return lambda mask, blocks: [over(b) if b.kind in mask else b for b in blocks]
-
-
 def lift_block(fn: Callable[[Block], Block]) -> Callable[[Kind, list[Block]], list[Block]]:
     """Lift a block transform over every masked block."""
     return lambda mask, blocks: [fn(b) if b.kind in mask else b for b in blocks]
+
+
+def lift_text(fn: Callable[[str], str]) -> Callable[[Kind, list[Block]], list[Block]]:
+    """Lift a text transform over every `t` span of every masked block."""
+    return lift_block(lambda block: block.rewrite(spliced(block.kind, block.text, fn).split("\n")))
 
 
 def lift_sequence(fn: Callable[[list[Block]], list[Block]]) -> Callable[[Kind, list[Block]], list[Block]]:
@@ -261,12 +252,8 @@ def lift_sequence(fn: Callable[[list[Block]], list[Block]]) -> Callable[[Kind, l
 
 def opening_matches(pattern: str) -> Callable[[Doc], list[Line]]:
     """Lift a text pattern to a report over the opening of every text span, the span its subject."""
-
-    def opening(b: Block) -> list[Line]:
-        hits = [(a, e) for a, e in parts(b.kind, b.text).spans("t") if regex.match(pattern, b.text, pos=a, endpos=e)]
-        return [Line(b.head.n + b.text.count("\n", 0, a), b.text[a:e]) for a, e in hits]
-
-    return lambda d: [line for b in d.blocks for line in opening(b)]
+    rx = regex.compile(pattern)
+    return lambda d: [Line(b.head.n + b.text.count("\n", 0, a), b.text[a:e]) for b in d.blocks for a, e in parts(b.kind, b.text).spans("t") if rx.match(b.text, a, e)]
 
 
 # --- [TEXT]
@@ -298,7 +285,7 @@ def cards(blocks: list[Block]) -> list[Block]:
     def renumber(items: list[Block]) -> list[Block]:
         matches = [parts(b.kind, b.head.text) for b in items]
         counts = accumulate(int(m["path"] is not None) for m in matches)
-        return [b.retext(f"{m['bullet']}[{n:02}]-{token(Path(m['path']).stem)}({m['path']}): {m['t']}") if m["path"] is not None else b for b, m, n in zip(items, matches, counts, strict=True)]
+        return [b.retext(f"{m['bullet']}[{n:02}]-{token(Path(m['path']).stem)}({m['path']}): {m['t']}") if m["path"] is not None else b for b, m, n in zip(items, matches, counts)]
 
     return [b for listed, run in groupby(blocks, key=lambda b: b.kind is Kind.LIST_ITEM) for b in (renumber(list(run)) if listed else run)]
 
@@ -330,7 +317,7 @@ def piped(row: Iterable[str]) -> str:
 
 def header(block: Block) -> Block:
     """Header cells as `[UPPER_SNAKE]`, in place, a cell that is a code span kept."""
-    return block.retext(splice(block.head.text, parts(Kind.TABLE, block.head.text).spans("t"), opaque(token)))
+    return block.retext(spliced(Kind.TABLE, block.head.text, opaque(token)))
 
 
 def index(grid: list[list[str]]) -> list[list[str]]:
@@ -349,11 +336,11 @@ def render(block: Block) -> Block:
     """Table with its index column, alignment row rebuilt with the index column centered, every cell padded to its column's widest cell by its alignment."""
     match index(cells(block)):
         case [_, _, *_] as grid:
-            head, marks, *body = zip(*zip_longest(*grid, fillvalue=""), strict=True)
-            aligns = [Align.CENTER if h == "[INDEX]" else Align.of(m) for h, m in zip(head, marks, strict=True)]
-            widths = [max(len(a.mark), *map(wcswidth, column)) for a, column in zip(aligns, zip(head, *body, strict=True), strict=True)]
-            rows = [head, [a.rule(w) for a, w in zip(aligns, widths, strict=True)], *body]
-            return block.rewrite(piped(a.pad(c, w) for a, c, w in zip(aligns, row, widths, strict=True)) for row in rows)
+            head, marks, *body = zip(*zip_longest(*grid, fillvalue=""))
+            aligns = [Align.CENTER if h == "[INDEX]" else Align.of(m) for h, m in zip(head, marks)]
+            widths = [max(len(a.mark), *map(wcswidth, column)) for a, column in zip(aligns, zip(head, *body))]
+            rows = [head, [a.rule(w) for a, w in zip(aligns, widths)], *body]
+            return block.rewrite(piped(a.pad(c, w) for a, c, w in zip(aligns, row, widths)) for row in rows)
         case _:
             return block
 
@@ -373,7 +360,7 @@ def headings(blocks: list[Block]) -> list[Block]:
     """Number `##` from 01 in file order and `###` restarting under each `##`."""
     levels = [len(parts(b.kind, b.text)["level"]) if b.kind is Kind.HEADING else 0 for b in blocks]
     numbers = list(accumulate(levels, Number.step, initial=Number()))[1:]
-    return [numbered(b, n) if level in {2, 3} else b for b, level, n in zip(blocks, levels, numbers, strict=True)]
+    return [numbered(b, n) if level in {2, 3} else b for b, level, n in zip(blocks, levels, numbers)]
 
 
 # --- [SPACING]
@@ -381,11 +368,13 @@ def headings(blocks: list[Block]) -> list[Block]:
 
 def gap(a: Block, b: Block, blanks: int) -> int:
     """Blank lines between adjacent non-blank blocks: one after a heading, one around a table, none after `:` before a list item, at most one elsewhere."""
-    if a.kind is Kind.HEADING or Kind.TABLE in a.kind | b.kind:
-        return 1
-    if a.text.endswith(":") and b.kind is Kind.LIST_ITEM:
-        return 0
-    return min(blanks, 1)
+    match a.kind, b.kind:
+        case (Kind.HEADING | Kind.TABLE, _) | (_, Kind.TABLE):
+            return 1
+        case (_, Kind.LIST_ITEM) if a.text.endswith(":"):
+            return 0
+        case _:
+            return min(blanks, 1)
 
 
 def spacing(blocks: list[Block]) -> list[Block]:
@@ -429,7 +418,7 @@ def unlabeled(blocks: list[Block]) -> list[Block]:
         return blocks[i].kind is Kind.DIVIDER and not any(b.kind in SOURCE & ~(Kind.DIVIDER | Kind.PREAMBLE) for b in takewhile(lambda b: not stop(b), blocks[i + 1 :]))
 
     drops = list(accumulate(range(len(blocks)), lambda prior, i: bare(i) or (prior and blocks[i].kind is Kind.BLANK), initial=False))[1:]
-    kept = [b for b, drop in zip(blocks, drops, strict=True) if not drop]
+    kept = [b for b, drop in zip(blocks, drops) if not drop]
     return kept if kept == blocks else kept[: len(kept) - len(list(takewhile(lambda b: b.kind is Kind.BLANK, reversed(kept))))]
 
 
@@ -449,12 +438,12 @@ def ranked(sections: list[str]) -> Callable[[Doc], list[Line]]:
 
     def late(d: Doc) -> list[Line]:
         named = [(line, sections.index(line.text)) for b in d.blocks if full(b) and (line := subject(b)).text in sections]
-        return [line for (line, rank), peak in zip(named, accumulate((rank for _, rank in named), max, initial=-1), strict=False) if rank < peak]
+        return [line for (line, rank), peak in zip(named, accumulate((rank for _, rank in named), max, initial=-1)) if rank < peak]
 
     return late
 
 
-def overs(d: Doc) -> list[Line]:
+def premature(d: Doc) -> list[Line]:
     """Dividers before the last preamble block."""
     last = max((i for i, b in enumerate(d.blocks) if b.kind is Kind.PREAMBLE), default=0)
     return [subject(b) for b in d.blocks[:last] if b.kind is Kind.DIVIDER]
@@ -469,14 +458,14 @@ def h1s(d: Doc) -> list[Line]:
     return [line for line, title in ones[:1] if title != token(title)] + [line for line, _ in ones[1:]]
 
 
-def spoken(text: str) -> str:
+def prose(text: str) -> str:
     """Text with its code spans dropped."""
     return regex.sub(SPAN, "", text)
 
 
 def dead(d: Doc) -> list[Line]:
     """Relative link targets that resolve to no file from the file's directory, code spans opaque."""
-    targets = [(line, t) for b in d.blocks for line in b.lines for t in regex.findall(r"\]\(([^)#:]+)[)#]", spoken(line.text))]
+    targets = [(line, t) for b in d.blocks for line in b.lines for t in regex.findall(r"\]\(([^)#:]+)[)#]", prose(line.text))]
     return [Line(line.n, t) for line, t in targets if not (d.path.parent / t).exists()]
 
 
@@ -488,15 +477,18 @@ def wide(view: Callable[[str], str]) -> Callable[[Doc], list[Line]]:
 def counted(words: list[str]) -> Callable[[Doc], list[Line]]:
     """Lift the words to a report over every line of the masked blocks, code spans, hyphenated compounds, and the noun after `a` opaque, each hit named by the word."""
     rx = regex.compile(rf"(?i)(?<!\ba )\b(?:{'|'.join(map(regex.escape, words))})\b(?!-\w)")
-    return lambda d: [Line(line.n, m[0]) for b in d.blocks for line in b.lines for m in rx.finditer(spoken(line.text))]
+    return lambda d: [Line(line.n, m[0]) for b in d.blocks for line in b.lines for m in rx.finditer(prose(line.text))]
 
 
 @cache
 def narrow(path: Path, info: str) -> range:
     """Indent steps below the `.editorconfig` space indent size of the info string's language beside the path, none for plain text or an unknown language."""
-    names = [patterns[0].replace("*", path.stem) for _, aliases, patterns, _ in get_all_lexers() if info in aliases and info not in TextLexer.aliases and patterns]
-    props = [get_properties(str(path.with_name(name))) for name in names[:1]]
-    return next((range(2, int(p["indent_size"])) for p in props if p.get("indent_style") == "space"), range(0))
+    match [patterns[0] for name, aliases, patterns, _ in get_all_lexers() if info in aliases and patterns and name != TextLexer.name]:
+        case [pattern, *_]:
+            props = get_properties(str(path.with_name(pattern.replace("*", path.stem))))
+            return range(2, int(props["indent_size"])) if props.get("indent_style") == "space" else range(0)
+        case _:
+            return range(0)
 
 
 def shallow(d: Doc) -> list[Line]:
@@ -504,7 +496,7 @@ def shallow(d: Doc) -> list[Line]:
 
     def opened(b: Block) -> list[Line]:
         steps = narrow(d.path.resolve(), parts(b.kind, b.text)["info"])
-        solid = [(line, n, n + 2 if body.startswith("- ") else n) for line in b.lines[1:-1] if (body := line.text.lstrip(" ")).strip() for n in (len(line.text) - len(body),)]
+        solid = [(line, (n := len(line.text) - len(body)), n + 2 if body.startswith("- ") else n) for line in b.lines[1:-1] if (body := line.text.lstrip(" ")).strip()]
         return [Line(line.n, line.text.strip()) for i, (line, n, _) in enumerate(solid) if n - next((depth for _, _, depth in reversed(solid[:i]) if depth <= n), 0) in steps]
 
     return [line for b in d.blocks for line in opened(b)]
@@ -512,9 +504,7 @@ def shallow(d: Doc) -> list[Line]:
 
 # --- [REGISTRY] -------------------------------------------------------------------------
 
-WORD_MAP = (Path(__file__).parents[1] / "references" / "word-map.md").read_text(encoding="utf-8")
-STANDARDS = (Path(__file__).parents[4] / "CLAUDE.md").read_text(encoding="utf-8")
-RULES: tuple[Fix | Report, ...] = (
+FIXES = (
     Fix(TEXT | Kind.BLANK, lift_block(lambda b: b.rewrite(line.text.rstrip(" \t") for line in b.lines))),
     Fix(TEXT & MARKDOWN, lift_text(opaque(lambda s: regex.sub(r"(?<!\w)(\*\*|__|\*|_)(?=\S)(.+?)(?<=\S)\1(?!\w)", r"\2", s)))),
     Fix(TEXT, lift_text(opaque(emoji))),
@@ -529,25 +519,35 @@ RULES: tuple[Fix | Report, ...] = (
     Fix(Kind.LIST_ITEM | Kind.TABLE | Kind.COMMENT, lift_text(lambda s: regex.sub(r"(?<=[^\s.,;!?])[.,;!?]+$", "", s))),
     Fix(Kind.TABLE, lift_block(render)),
     Fix(MARKDOWN, lift_sequence(spacing)),
+)
+REPORTS = (
     Report(Kind.HEADING, "`{}` is not the one `[TOKEN]` H1", h1s),
     Report(TEXT, "Text opens with an article", opening_matches(r"(?i)(?:a|an|the)\s+\S")),
     Report(Kind.LIST_ITEM | Kind.TABLE | Kind.COMMENT, "Text opens with a lowercase letter", opening_matches(r"\p{Ll}")),
     Report(TEXT & MARKDOWN, "`{}` resolves to no file", dead),
-    Report(TEXT, "Text counts visible items with `{}`", counted(regex.findall(r"(?<=^\| *\[\d+\] *\| Enumeration .*)`([^`]+)`", WORD_MAP, regex.MULTILINE))),
-    Report(Kind.LIST_ITEM, "List item runs past column 150", wide(spoken)),
+    Report(
+        TEXT,
+        "Text counts visible items with `{}`",
+        counted(regex.findall(r"(?<=^\| *\[\d+\] *\| Enumeration .*)`([^`]+)`", (Path(__file__).parents[1] / "references" / "word-map.md").read_text(encoding="utf-8"), regex.MULTILINE)),
+    ),
+    Report(Kind.LIST_ITEM, "List item runs past column 150", wide(prose)),
     Report(Kind.TABLE, "Table runs past column 150", wide(str)),
     Report(Kind.DIVIDER, "Divider `{}` repeats an earlier full divider", repeats),
     Report(Kind.DIVIDER, "Sub divider `{}` precedes the first full divider", orphans),
-    Report(Kind.DIVIDER, "Section `{}` follows a section the table places after it", ranked(regex.findall(r"^\| +\[\d+\] +\| `(\[[A-Z_]+\])`", STANDARDS, regex.MULTILINE))),
-    Report(Kind.DIVIDER | Kind.PREAMBLE, "Divider `{}` sits over the preamble", overs),
+    Report(
+        Kind.DIVIDER,
+        "Section `{}` follows a section the table places after it",
+        ranked(regex.findall(r"^\| +\[\d+\] +\| `(\[[A-Z_]+\])`", (Path(__file__).parents[4] / "CLAUDE.md").read_text(encoding="utf-8"), regex.MULTILINE)),
+    ),
+    Report(Kind.DIVIDER | Kind.PREAMBLE, "Divider `{}` sits over the preamble", premature),
     Report(Kind.FENCE, "Fence line `{}` indents by fewer columns than `.editorconfig` sets for its language", shallow),
 )
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-def lex(path: Path, marker: Marker) -> list[Block]:
-    """Blocks of the file in one pass over the marker's kinds, the kinds before the last as `claimed`, none for an empty file."""
+def lint(path: Path, marker: Marker) -> Doc:
+    """Fold every fix with a mask meeting the marker's kinds over the file's blocks, lexed in one pass with the kinds before the last as `claimed`, none for an empty file."""
     src = path.read_text(encoding="utf-8").removesuffix("\n")
     kinds = {name: k for name, k in Kind.__members__.items() if k in marker.kinds}
     *claimed, rest = (f"(?P<{name}>{k.pattern})" for name, k in kinds.items())
@@ -558,21 +558,19 @@ def lex(path: Path, marker: Marker) -> list[Block]:
         kind = next(k for name, k in kinds.items() if m[name] is not None)
         return Block(kind, tuple(Line(first + i, t) for i, t in enumerate(m[0].split("\n"))))
 
-    return [claim(m) for m in lexer.finditer(src)] if src else []
+    return reduce(lambda d, f: f.apply(d), (f for f in FIXES if f.mask & marker.kinds), Doc(path, [claim(m) for m in lexer.finditer(src)] if src else []))
 
 
-def lint(path: Path, marker: Marker) -> Doc:
-    """Fold every rule with a mask meeting the marker's kinds over the file, findings in line order."""
-    rules = [r for r in RULES if r.mask & marker.kinds]
-    done = reduce(lambda d, r: r.apply(d), rules, Doc(path, lex(path, marker)))
-    return replace(done, found=sorted(done.found, key=lambda f: f.line))
+def findings(doc: Doc) -> list[str]:
+    """`path:line: message` line of each finding every report makes, in line order."""
+    return [f"{doc.path}:{line.n}: {line.text}\n" for line in sorted((line for r in REPORTS for line in r.apply(doc)), key=lambda line: line.n)]
 
 
-def files(paths: list[Path]) -> dict[Path, Marker]:
+def files(paths: tuple[Path, ...]) -> dict[Path, Marker]:
     """Every named file and every file under the named folders, the working directory when no path is named, that git tracks or leaves unignored and is no symlink, with its marker, markdown files first."""
     named, folders = [p for p in paths if p.is_file()], [p for p in paths if p.is_dir()]
     listed = (
-        subprocess.run(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--deduplicate", "--", *folders], capture_output=True, check=True, text=True).stdout  # ruff: ignore[start-process-with-partial-path]
+        subprocess.run(["git", "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--deduplicate", "--", *folders], capture_output=True, check=True, text=True).stdout
         if folders or not named
         else ""
     )
@@ -580,47 +578,33 @@ def files(paths: list[Path]) -> dict[Path, Marker]:
     return {f: m for m in Marker for f in found if f.suffix in m.suffixes and f.is_file() and not f.is_symlink()}
 
 
-def show(found: list[Finding]) -> str:
-    """One `path:line: message` line per finding."""
-    return "".join(f"{f.path}:{f.line}: {f.message}\n" for f in found)
-
-
-def check(paths: list[Path]) -> int:
+def check(*paths: ExistingPath) -> int:
     """Print one line per file with fixable blocks naming the fix command, then every report as `path:line: message`, exit 1 on any."""
     docs = list(starmap(lint, files(paths).items()))
     fixable = "".join(f"{d.path}: {d.fixed} fixable, python {sys.argv[0]} fix {d.path}\n" for d in docs if d.fixed)
-    found = [f for d in docs for f in d.found]
+    found = [f for d in docs for f in findings(d)]
     total = sum(d.fixed for d in docs)
-    sys.stdout.write(fixable + show(found) + f"Found {len(found) + total} findings, {total} fixable\n")
+    sys.stdout.write(fixable + "".join(found) + f"Found {len(found) + total} findings, {total} fixable\n")
     return int(bool(found or total))
 
 
-def fix(paths: list[Path]) -> int:
+def fix(*paths: ExistingPath) -> int:
     """Write every file a fix changed, print the reports that remain at their lines in the written files, exit 1 on any report."""
-    targets = files(paths)
-    docs = list(starmap(lint, targets.items()))
+    docs = list(starmap(lint, files(paths).items()))
     for d in (d for d in docs if d.fixed):
         d.path.write_text("".join(f"{b.text}\n" for b in d.blocks), encoding="utf-8")
-    left = [f for d in docs for f in (lint(d.path, targets[d.path]).found if d.fixed else d.found)]
-    sys.stdout.write(show(left) + f"Fixed {sum(d.fixed for d in docs)}, {len(left)} remaining\n")
+    left = [f for d in docs for f in findings(d.renumbered())]
+    sys.stdout.write("".join(left) + f"Fixed {sum(d.fixed for d in docs)}, {len(left)} remaining\n")
     return int(bool(left))
 
 
-def main() -> int:
-    """Run the command the arguments name, usage and 2 for any other form."""
-    match sys.argv[1:]:
-        case ["check", *paths]:
-            return check([Path(p) for p in paths])
-        case ["fix", *paths]:
-            return fix([Path(p) for p in paths])
-        case _:
-            sys.stdout.write("prose.py check|fix <path>...\n")
-            return 2
-
+app = App(help=__doc__)
+app.command(check)
+app.command(fix)
 
 if __name__ == "__main__":
-    sys.exit(main())
+    app()
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["check", "fix", "main"]
+__all__ = ["app"]

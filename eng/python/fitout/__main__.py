@@ -4,8 +4,8 @@ import subprocess
 import sys
 
 from cyclopts import App
+from expression import Result
 from mcp.types import CallToolResult
-from result import Err, Ok, Result
 import structlog
 
 from eng.python.fitout.assembly import pack, site
@@ -15,23 +15,23 @@ from eng.python.fitout.install import install, RemoteFailure
 
 
 def _reported[E](result: Result[int, E]) -> int:
-    """Return native status or render a filesystem or process launch failure."""
+    """Return the native status, or render the failure and return the failed child's status or 1."""
     match result:
-        case Ok(status):
+        case Result(tag="ok", ok=status):
             return status
-        case Err(ExceptionGroup() as errors):
+        case Result(error=ExceptionGroup() as errors):
             structlog.get_logger(__name__).error("Extension operation failed", exc_info=errors)
             return 1
-        case Err(CallToolResult() as error):
+        case Result(error=CallToolResult() as error):
             sys.stderr.write(f"{error.model_dump_json(by_alias=True)}\n")
             return 1
-        case Err(RemoteFailure(message=message)):
+        case Result(error=RemoteFailure(message=message)):
             sys.stderr.write(f"{message}\n")
             return 1
-        case Err(subprocess.CalledProcessError(returncode=status) as error):
+        case Result(error=subprocess.CalledProcessError(returncode=status) as error):
             sys.stderr.write(f"{error}\n")
             return status
-        case Err(error):
+        case Result(error=error):
             sys.stderr.write(f"{error}\n")
             return 1
 

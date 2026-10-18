@@ -1,0 +1,162 @@
+using System;
+using System.Collections.Frozen;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text.RegularExpressions;
+
+internal static class NamedConstants {
+    private const int {|#0:Retries|} = 3;
+    private const string {|#1:Prefix|} = "tag:";
+    private const double Tolerance = -0.5;
+    private const int DefaultWidth = 80;
+    private const double Break = 0.5;
+    private const int Limit = 3;
+
+    internal static int Run() => Attempt(Retries) + Attempt(retries: 1);
+
+    internal static string Tagged(string name) {
+        string prefix = Prefix;
+        return prefix + name;
+    }
+
+    internal static bool Near(double value) => Close(value, Tolerance);
+
+    internal static int Wide() => Attempt(DefaultWidth);
+
+    internal static bool High(double value) => value > Break;
+
+    internal static int Clamped(int value) => value > Limit ? Limit : value;
+
+    private static int Attempt(int retries) => retries;
+
+    private static bool Close(double value, double tolerance) => Math.Abs(value) < tolerance;
+}
+
+internal static class ContainedSets {
+    private static readonly string[] {|#3:Known|} = ["png", "jpg"];
+    private static readonly FrozenSet<char> {|#4:Separators|} = new[] { ',', ';' }.ToFrozenSet();
+    private static readonly int[] Weights = [1, 2, 4];
+    private static readonly HashSet<string> Folded = new(StringComparer.OrdinalIgnoreCase) { "a" };
+
+    internal static bool Unsupported(string extension) => !Known.Contains(extension);
+
+    internal static bool Split(char letter) => Separators.Contains(letter);
+
+    internal static int Weighted(int index) => Weights[index] * Weights.Length;
+
+    internal static bool Seen(string text) => Folded.Contains(text);
+}
+
+internal static class Substituted {
+    internal static int Head(int value) => Middle(value) + 1;
+
+    internal static int Run(int value) => Combined(value, 2) + 1;
+
+    internal static int Twofold(int value) {
+        int doubled = Substituted.Doubled(value);
+        return doubled + 1;
+    }
+
+    internal static int Squared(int value) => Square(value + 1);
+
+    internal static double Halved(int count) => Half(count);
+
+    internal static int Started(int value) => Ping(value) + Pong(value);
+
+    internal static int Blocked(int value) => Block(value);
+
+    internal static T First<T>(T[] values) => Head(values);
+
+    private static int Middle(int value) => Tail(value) * 2;
+
+    private static int Tail(int value) => value - 1;
+
+    private static int Combined(int value, int factor) =>
+        (value * factor)
+        + value;
+
+    private static int {|#5:Doubled|}(int value) => value * 2;
+
+    private static int Square(int value) => value * value;
+
+    private static double Half(double value) => value / 2;
+
+    private static int Ping(int value) => value > 0 ? Pong(value - 1) : value;
+
+    private static int Pong(int value) => value > 0 ? Ping(value - 1) : value;
+
+    private static int Block(int value) {
+        int doubled = value * 2;
+        return doubled + 1;
+    }
+
+    private static T Head<T>(T[] values) => values[0];
+}
+
+internal sealed class Grouped(int offset, int width, int height) {
+    private static readonly Func<int, int>[] Steps = [Doubled, Halved];
+
+    internal int[] Shifted(int[] values) {
+        Func<int, int> moved = Moved;
+        return [.. values.Select(moved)];
+    }
+
+    internal int[] Raised(int[] values) => [.. values.Select(Lifted)];
+
+    internal int Size() {
+        int area = Area;
+        return area + offset;
+    }
+
+    internal int Volume() => Depth * offset;
+
+    internal static int Applied(int value) => Steps[0](value);
+
+    private int {|#6:Area|} => width * height;
+
+    private int Depth => width - height;
+
+    private int {|#7:Moved|}(int value) => value + offset;
+
+    private int Lifted(int value) => value - offset;
+
+    private static int Doubled(int value) => value * 2;
+
+    private static int Halved(int value) => value / 2;
+}
+
+internal sealed class Kept {
+    private const string Marked = "held";
+    private static readonly Regex Digits = new("[0-9]+");
+
+    [Obsolete(Marked)]
+    internal static string Note() => "note";
+
+    internal static bool Numeric(string text) => Digits.IsMatch(text);
+
+    private static readonly int factor = 4;
+
+    internal static int Shadowed(int factor) => Scaled(2) + factor;
+
+    private static int Scaled(int value) => value * factor;
+
+    private static int Outer(int value) => value + 1;
+
+    internal static class Nested {
+        internal static int Read(int value) => Outer(value);
+    }
+}
+
+internal readonly struct Grid(int width) {
+    internal int Shifted(int row) => Offset(row) + 1;
+
+    private int Offset(int row) => row * width;
+}
+
+internal static class Pointers {
+    internal static int First(int[] values) => Read(values);
+
+    private static unsafe int Read(int[] values) {
+        fixed (int* start = values) return *start;
+    }
+}

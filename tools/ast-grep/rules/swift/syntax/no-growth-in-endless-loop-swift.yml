@@ -3,22 +3,23 @@ id: no-growth-in-endless-loop-swift
 language: swiftlang
 severity: error
 utils:
-    scope:
-        kind: 'function_declaration, lambda_literal, init_declaration, computed_property'
     loop:
         kind: 'for_statement, while_statement, repeat_while_statement, switch_statement'
+    endless-condition:
+        has: {field: condition, regex: '^(true|!Task\.isCancelled)$'}
+        not: {has: {regex: '^,$'}}
     endless:
         kind: 'while_statement, repeat_while_statement'
-        has: {field: condition, regex: '^(true|!Task\.isCancelled)$'}
+        matches: endless-condition
         not:
             has:
-                stopBy: {matches: scope}
+                stopBy: {matches: swift-function-scope}
                 any:
                     - {kind: control_transfer_statement, regex: '^(return|throw)\b'}
                     - {kind: control_transfer_statement, regex: '^break\s+\S'}
                     - kind: control_transfer_statement
                       regex: '^break$'
-                      inside: {stopBy: {matches: loop}, matches: loop, has: {field: condition, regex: '^(true|!Task\.isCancelled)$'}}
+                      inside: {stopBy: {matches: loop}, matches: loop, all: [{matches: endless-condition}]}
                     - kind: try_operator
                       regex: '^try$'
                       not: {inside: {kind: do_statement, stopBy: {kind: 'while_statement, repeat_while_statement'}}}
@@ -47,15 +48,15 @@ rule:
                 - has: {field: target, has: {kind: simple_identifier, pattern: $GROWN}}
                 - has: {field: result, kind: additive_expression, has: {field: lhs, pattern: $GROWN}}
         - inside:
-            stopBy: {matches: scope}
+            stopBy: {matches: swift-function-scope}
             matches: endless
             not: {has: {stopBy: end, kind: property_declaration, has: {field: name, has: {field: bound_identifier, pattern: $GROWN}}}}
         - inside:
-            stopBy: {matches: scope}
-            matches: scope
+            stopBy: {matches: swift-function-scope}
+            matches: swift-function-scope
             all:
                 - has:
-                    stopBy: {matches: scope}
+                    stopBy: {matches: swift-function-scope}
                     kind: property_declaration
                     matches: sequence-type
                     all:

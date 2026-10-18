@@ -47,10 +47,10 @@ public sealed record DictionaryCodec<T>(string Name, int Version, Func<T, Fin<Ar
 
     public Fin<StoredRecord<T>> FromDictionary(ArchivableDictionary stored) =>
         stored.Version == Version ? Decode(stored).Map(Hold)
-        : stored.Version > Version ? Fin.Succ<StoredRecord<T>>(new StoredRecord<T>.Newer(stored))
-        : Upgrade.Filter(_ => stored.Version == Version - 1).Match(
-            Some: upgrade => upgrade.Read(stored).Map(Hold),
-            None: static () => Fin.Succ<StoredRecord<T>>(new StoredRecord<T>.Absent()));
+            : stored.Version > Version ? new StoredRecord<T>.Newer(stored)
+            : Upgrade.Filter(_ => stored.Version == Version - 1).Match(
+                Some: upgrade => upgrade.Read(stored).Map(Hold),
+                None: static () => new StoredRecord<T>.Absent());
 
     public Error Refusal(ArchivableDictionary stored) =>
         Error.New(string.Create(CultureInfo.InvariantCulture, $"record {Name} version {stored.Version} comes from a newer plug-in; version {Version} leaves it in place"));
@@ -152,10 +152,7 @@ public static class ArchivableDictionaries {
 
     public static Fin<ArchivableDictionary> Nested(Seq<(string Key, Fin<ArchivableDictionary> Value)> rows) =>
         from target in Fin.Succ(new ArchivableDictionary())
-        from stored in rows.Traverse(row =>
-            (from child in row.Value
-             from written in Set(target, row.Key, child)
-             select written).ToValidation()).As().ToFin()
+        from stored in rows.Traverse(row => row.Value.Bind(child => Set(target, row.Key, child))).As()
         select target;
 
     private static class Setter<T> {
@@ -182,7 +179,7 @@ public static class ArchivableDictionaries {
         from record in IO.lift(() => codec.ToDictionary(value))
         from written in owner.Edit(target =>
             from held in Find<ArchivableDictionary>(target, codec.Name)
-            from current in held.Filter(stored => stored.Version > codec.Version).Match(Some: stored => Fin.Fail<Unit>(codec.Refusal(stored)), None: static () => Fin.Succ(unit))
+            from current in held.Filter(stored => stored.Version > codec.Version).Match(Some: stored => Fin.Fail<Unit>(codec.Refusal(stored)), None: static () => unit)
             from set in Set(target, codec.Name, record)
             select Earlier(codec).Iter(name => ignore(target.Remove(name))))
         select written;
@@ -196,10 +193,10 @@ public static class ArchivableDictionaries {
         select unit;
 
     private static Fin<(StoredRecord<T> Record, bool Older)> Stored<T>(ArchivableDictionary source, DictionaryCodec<T> codec) =>
-        from found in (Find<ArchivableDictionary>(source, codec.Name).ToValidation(),
-                       Earlier(codec).Match(Some: name => Find<ArchivableDictionary>(source, name), None: static () => Fin.Succ(Option<ArchivableDictionary>.None)).ToValidation())
-            .Apply(static (current, earlier) => (Current: current, Earlier: earlier)).As().ToFin()
-        from record in (found.Current | found.Earlier).Match(Some: codec.FromDictionary, None: static () => Fin.Succ<StoredRecord<T>>(new StoredRecord<T>.Absent()))
+        from found in (Find<ArchivableDictionary>(source, codec.Name),
+                       Earlier(codec).Traverse(name => Find<ArchivableDictionary>(source, name)).As().Map(static earlier => earlier.Flatten()))
+            .Apply(static (current, earlier) => (Current: current, Earlier: earlier)).As()
+        from record in (found.Current | found.Earlier).Match(Some: codec.FromDictionary, None: static () => new StoredRecord<T>.Absent())
         select (record, found.Current.Match(Some: held => held.Version < codec.Version, None: () => found.Earlier.IsSome));
 
     private static Option<string> Earlier<T>(DictionaryCodec<T> codec) =>
@@ -249,7 +246,7 @@ public static class DictionaryCodec {
         new(name, version,
             static value =>
                 from bytes in Try.lift(() => JsonSerializer.SerializeToUtf8Bytes(value, Options)).Run()
-                from target in Fin.Succ(new ArchivableDictionary())
+                let target = new ArchivableDictionary()
                 from written in ArchivableDictionaries.Set<IEnumerable<byte>>(target, Payload, bytes)
                 select target,
             stored =>

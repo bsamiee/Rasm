@@ -112,7 +112,7 @@ public static class HostDialogs {
     private static IO<(TValue Min, TValue Max)> Ranged<TValue>(RhinoDoc doc, LocalizeStringPair title, (TValue Min, TValue Max) range, (bool Min, bool Max) editable, int decimals, Func<TValue, double> shown, Func<double, Fin<TValue>> entered) =>
         from attended in Attended
         from ends in DisposalOps.Within(() => new RangeDialog(shown(range.Min), shown(range.Max), decimals, decimals, editable.Min, editable.Max) { Title = title.Local }, dialog => IO.lift(() => Accepted(dialog.ShowSemiModal(doc, RhinoEtoApp.MainWindowForDocument(doc)), (dialog.Min, dialog.Max))))
-        from chosen in IO.lift((entered(ends.Min).ToValidation(), entered(ends.Max).ToValidation()).Apply(static (low, high) => (Min: low, Max: high)).As().ToFin())
+        from chosen in IO.lift((entered(ends.Min), entered(ends.Max)).Apply(static (low, high) => (Min: low, Max: high)).As())
         select chosen;
 
     // --- [TABLES]
@@ -185,7 +185,7 @@ public static class HostDialogs {
         views.Listed<View.Dialog>().Choose(static dialog => dialog.Suppression);
 
     public static IO<Suppressible<T>> Suppressing<T>(SettingsNode node, PlugInSetting<bool, bool> row, Func<Eto.Forms.CheckBox, IO<(T Value, bool Suppress)>> show) =>
-        from shows in node.Current(row)
+        from shows in IO.lift(() => node.Current(row))
         from asked in shows
             ? DisposalOps.Within(static () => new Eto.Forms.CheckBox { Text = RowText.Localize("Do not show this dialog again").Local }, box =>
                 from answer in show(box)

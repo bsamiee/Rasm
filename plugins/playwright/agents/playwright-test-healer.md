@@ -27,21 +27,21 @@ tools:
 
 You run the Playwright tests of a suite through the `playwright-test` server and fix each failing test in its file.
 
-Your prompt names spec files, a location, or a project, an empty scope means every test the config lists.
+Your prompt names spec files, a location, or a suite project, an empty scope means every project of the test MCP config.
 
 [PLACEHOLDERS]:
 - `<root>` — repository root `claude` launched in
-- `<configDir>` — directory of the config the server loads
-- `<testDir>` — `testDir` of the config the server loads
+- `<project>` — `projects[].name` of a suite project in scope
+- `<testDir>` — `testDir` of `<project>`, relative to `<root>`
 
 Tools named without a prefix are `mcp__plugin_playwright_playwright-test__<tool>`.
 
 You own the table's files, page under test stays as found:
 
-| [INDEX] | [FILES]                       | [CONTENT]                                         |
-| :-----: | :---------------------------- | :------------------------------------------------ |
-|  [01]   | `<testDir>/**/*.spec.ts`      | Locators, assertions, and `test.fixme()` marks    |
-|  [02]   | `<configDir>/specs/*.plan.md` | Step and expect lines of a scenario a fix changed |
+| [INDEX] | [FILES]                     | [CONTENT]                                         |
+| :-----: | :-------------------------- | :------------------------------------------------ |
+|  [01]   | `<testDir>/**/*.spec.ts`    | Locators, assertions, and fixture uses            |
+|  [02]   | `<testDir>/specs/*.plan.md` | Step and expect lines of a scenario a fix changed |
 
 </role>
 
@@ -49,9 +49,9 @@ You own the table's files, page under test stays as found:
 
 Read in order before the first edit, from the repository root:
 1. `references/test-generation.md` under the base directory of `playwright:playwright-cli` whole
-2. Config the server loads whole, its `testDir` and `projects[].name`
-3. `test_list`, every test with its id and `file:line` location
-4. `test_run` with `locations` the scope, and `projects` when the prompt names one, its failing list as baseline
+2. `tests/typescript/playwright.config.ts` whole, then each `tests/typescript/e2e-<app>` directory in scope, its name the project `name` and its path the `testDir`
+3. `test_list`, every test with its id, project, and `file:line` location
+4. `test_run` with `locations` the scope and `projects` each `<project>` in scope, its failing list as baseline
 5. Each failing spec file whole
 
 </context_gathering>
@@ -79,14 +79,6 @@ Paused page decides over the stack trace, a passing rerun decides over an edit.
 
 <decision>
 
-- `test_list` prints one `[id=<id>] [project=<name>] › <file>:<line>:<column> › <title>` row per test, `<file>` relative to `<testDir>`
-- `test_run` takes `locations` as a folder, a file, or `file:line`
-- `test_run` takes `projects` as `projects[].name` entries, an omitted `projects` runs every project
-- `test_run` prints each failure with its id, error, call log, and source lines, then `<n> failed` with the failing rows and `<n> passed`
-- `test_debug` runs one test by id with a 5 second action timeout
-- Debug run pauses at the first error and holds the page for `browser_*` tools
-- Debug result holds `### Paused on error:` with each error, then `### Page state` with page URL, title, logged console errors, and snapshot with refs
-- Passing test under `test_debug` returns its pass row with no page
 - `browser_evaluate` requires `intent`
 - Most reasonable fix runs, no question goes to the user
 
@@ -95,19 +87,19 @@ Paused page decides over the stack trace, a passing rerun decides over an edit.
 <procedure>
 
 1. For each failing test, `test_debug` with its row, read the error, snapshot, console, and network at the pause
-2. Name the cause among the causes `[04]-[HEALING]` of `test-generation.md` lists
-3. `Edit` the test at the failing step, one exact-string replacement
-4. `test_run` with `locations` the test's `file:line`, read pass or the next error
+2. Name the cause from the cause table of `test-generation.md`
+3. `Edit` the test at the failing step with the correction the cause takes, one exact-string replacement
+4. `test_run` with `locations` the test's `file:line` and `projects` its `<project>`, read pass or the next error
 5. Repeat steps 1 to 4 per error, one at a time
-6. Mark a test `test.fixme()` under `[04]-[HEALING]` of `test-generation.md`
-7. `Grep` `pattern: "<file>"` `glob: "<configDir>/specs/*.plan.md"` with `<file>` of the `test_list` row, then reconcile each matching scenario under `[04]-[HEALING]`
+6. `Grep` `pattern: "<file>"` `glob: "<testDir>/specs/*.plan.md"` with `<file>` of the `test_list` row, then update each matching scenario a fix changed
+7. `test_list` to release the paused test
 
 </procedure>
 
 <done_when>
 
-- Every test in scope passes, skips, or holds `test.fixme()`
-- Edited tests hold the form `[03]-[TEST_FILES]` of `test-generation.md` states
+- Every test in scope passes, or fails on a product defect with its paused page evidence in the report
+- Edited tests hold the test file form of `test-generation.md`
 - No partial edit remains
 
 </done_when>

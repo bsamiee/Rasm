@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-panels-every-item
+language: tsx
+severity: error
+rule:
+    kind: call_expression
+    pattern: $CALL
+    inside: {kind: program, stopBy: end, matches: {uxp-host-file: {module: {regex: '^(adobe:)?indesign$'}}}}
+    has:
+        field: function
+        kind: member_expression
+        all:
+            - has: {field: property, regex: '^everyItem$'}
+            - has: {field: object, kind: member_expression, has: {field: property, regex: '^panels$'}}
+message: '`$CALL` reads `undefined` over the panel that resolves to nothing'
+note: 'Read each panel as `panels.item(<index>)?.` for every index below `panels.length`, where that panel reads `undefined`'

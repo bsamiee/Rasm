@@ -150,7 +150,7 @@ public static partial class Archives {
         from target in IO.lift(() => Exchange.QualifiedPath(folder))
         let candidates = from file in Conversions.Rows(archive.EmbeddedFiles)
                          select (File: file, Path: Path.Combine(target, Path.GetFileName(file.Filename.Replace('\\', Path.AltDirectorySeparatorChar))))
-        from rows in IO.lift(() => Callbacks.Unique(candidates.Strict(), static row => row.Path, nameof(File3dmEmbeddedFile.SaveToFile), StringComparer.OrdinalIgnoreCase).ToFin())
+        from rows in IO.lift(() => Callbacks.Unique(candidates.Strict(), static row => row.Path, nameof(File3dmEmbeddedFile.SaveToFile), StringComparer.OrdinalIgnoreCase))
         from saved in IO.lift(() => Callbacks.Each(rows, static row => row.File.SaveToFile(row.Path), nameof(File3dmEmbeddedFile.SaveToFile)))
         select rows.Map(static row => row.Path);
 

@@ -30,8 +30,7 @@ from importlib import import_module
 
 import bpy
 
-pkg = "bl_ext.user_default.CAD_Sketcher"
-add_sketch, workplane, curves, solver, curve_data, body_of = (import_module(f"{pkg}.{name}") for name in ("operators.add_sketch", "utilities.workplane", "model.curve_ref", "curve_solver", "utilities.curve_data", "utilities.body"))
+add_sketch, workplane, curves, solver, curve_data, body_of = (import_module(f"bl_ext.user_default.CAD_Sketcher.{name}") for name in ("operators.add_sketch", "utilities.workplane", "model.curve_ref", "curve_solver", "utilities.curve_data", "utilities.body"))
 context = bpy.context
 workplane.ensure_origin_workplane_empties(context)
 sketch = add_sketch.build_sketch_on_workplane(context, context.scene.sketcher.wp_xy)
@@ -60,7 +59,7 @@ result = {"solved": solved, "dof": sketch.dof, "state": sketch.solver_state, "bo
 - `add_distance(init=True, curve_id_1=, curve_id_2=)` with `.value` written after keeps the point's side
 - `add_angle(init=True, value=<v>)` takes degrees and `init=False` radians
 - With constraint values reading and writing through `bpy.context.scene`, sketch work runs with the sketch's scene as context scene
-- Extrusion assigns `import_module(f"{pkg}.utilities.extrude_nodes").build_extrude_node_group()` to a new `NODES` modifier on the body
+- Extrusion assigns `import_module("bl_ext.user_default.CAD_Sketcher.utilities.extrude_nodes").build_extrude_node_group()` to a new `NODES` modifier on the body
 - Extrusion writes the modifier's `Size` input through `operators.modifiers.set_modifier_input`, then `body.update_tag()`
 - Sketches become sweep profiles with convert modifier's `Fill` input off, then `bpy.data.meshes.new_from_object` of the evaluated body
 - `object.convert(target="CURVE")` converts the new mesh's object to the profile curve
@@ -140,14 +139,13 @@ Sheets are orthographic cameras with a frame spanning paper at 1:N, Per-Camera R
 ```python
 import bpy
 
-inch = 0.0254
 paper_in, scale = (<long_in>, <short_in>), <N>
 scene = bpy.context.scene
 camera = bpy.data.objects.new("<Sheet>", bpy.data.cameras.new("<Sheet>"))
 scene.collection.objects.link(camera)
 scene.camera = camera
 camera.data.type = "ORTHO"
-camera.data.ortho_scale = paper_in[0] * inch * scale * (1 - 1e-6)
+camera.data.ortho_scale = paper_in[0] * 0.0254 * scale * (1 - 1e-6)
 camera.location, camera.rotation_euler = <location>, <rotation>
 paper = camera.data.per_camera_resolution
 paper.use_custom_resolution = True
@@ -205,12 +203,10 @@ Line Art draws a collection as one camera sees it into a Grease Pencil object, r
 ```python
 import bpy
 
-scene = bpy.context.scene
 bpy.ops.object.grease_pencil_add(type="LINEART_COLLECTION")
-lines = bpy.context.view_layer.objects.active
-art = lines.modifiers[0]
+art = bpy.context.view_layer.objects.active.modifiers[0]
 art.source_collection = bpy.data.collections["<Model>"]
-art.use_custom_camera, art.source_camera = True, scene.camera
+art.use_custom_camera, art.source_camera = True, bpy.context.scene.camera
 art.radius = <pen_mm> / 1000 * <N>
 art.use_clip_plane_boundaries = True
 ```
@@ -233,8 +229,7 @@ from importlib import import_module
 import bpy
 from mathutils import Vector
 
-pkg = "bl_ext.user_default.dimensions"
-collections, anchors, geometry, sync = (import_module(f"{pkg}.{name}") for name in ("collections", "anchors", "dimension_geometry", "scene_sync"))
+collections, anchors, geometry, sync = (import_module(f"bl_ext.user_default.dimensions.{name}") for name in ("collections", "anchors", "dimension_geometry", "scene_sync"))
 target = bpy.data.objects["<Object>"]
 dimension = collections.create_dimension_object(bpy.context, "<Label>")
 props = dimension.dimension_props
@@ -257,6 +252,8 @@ sync.sync_scene_objects(bpy.context.scene)
 Sheet output bakes every visible annotation facing the scene camera into `Dimensions Output` collection, replacing it on each run:
 
 ```python
+import bpy
+
 settings = bpy.context.scene.dimensions_settings
 settings.dimension_color = (0, 0, 0, 1)
 settings.output_sizing_mode = "WORLD"
@@ -291,22 +288,27 @@ bpy.ops.wm.grease_pencil_export_svg(filepath="<sheet>.svg", selected_object_type
 Annotation sheets with a border and title block come from Dimensions' export:
 
 ```python
+import bpy
+
 settings = bpy.context.scene.dimensions_settings
-settings.vector_paper_size, settings.vector_orientation, settings.vector_scale_denominator = "LETTER", "LANDSCAPE", <N>
+settings.vector_paper_size, settings.vector_orientation = "LETTER", "LANDSCAPE"
 settings.sheet_border_enabled = settings.sheet_title_block_enabled = True
 settings.sheet_drawing_title, settings.sheet_drawing_number = "<title>", "<number>"
+bpy.ops.dimensions.sheet_sync_scale()
 bpy.ops.dimensions.sheet_populate_date()
 bpy.ops.dimensions.export_pdf(filepath="<annotations>.pdf")
 ```
 
 - Paper sizes are `A4`, `A3`, and `LETTER`, and only annotations draw
-- Border and title block shrink the printable area the frame at 1:N fits
-- `dimensions.sheet_sync_scale()` writes the smallest denominator that fits the frame
+- Border and title block shrink the printable area, and a sheet camera spanning the paper at 1:N exports only at the larger denominator `sheet_sync_scale()` writes
 - `export_pdf` and `export_svg` answer CANCELLED with a warning naming the cause
 
 Raster sheets render per camera, each camera's paper applying:
 
 ```python
+import bpy
+
+scene = bpy.context.scene
 for camera in <cameras>:
     scene.camera = camera
     scene.render.filepath = f"<folder>/{camera.name}.png"
@@ -332,7 +334,7 @@ dimension.dimObjectA = dimension.dimObjectB = target
 dimension.dimPointA, dimension.dimPointB = <vertex_a>, <vertex_b>
 dimension.name, dimension.itemType, dimension.textAlignment, dimension.dimViewPlane = "<Label>", "alignedDimensions", "C", "<XY|XZ|YZ>"
 style = bpy.context.scene.MeasureItArchProps.default_dimension_style
-dimension.style, dimension.uses_style = style, style != ""
+dimension.style, dimension.uses_style = style, bool(style)
 wrapper = generator.wrapper.add()
 wrapper.itemType, wrapper.itemIndex = "alignedDimensions", len(generator.alignedDimensions) - 1
 generator.measureit_arch_num += 1

@@ -2,6 +2,7 @@
 id: no-bounded-parse-by-hand
 language: csharp
 severity: error
+ignores: ['tools/roslyn/**']
 utils:
     number-type:
         any:

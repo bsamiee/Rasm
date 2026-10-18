@@ -22,8 +22,9 @@ rule:
         - pattern: $I.map(String::as_str).collect::<Vec<$_>>().join($S)
         - pattern: '$I.map(|$X| $X.to_string()).collect::<Vec<$_>>().join($S)'
         - pattern: '$I.map(|$X| $X.to_owned()).collect::<Vec<$_>>().join($S)'
-        - pattern: '$I.map(|$X| $X.as_str()).collect::<Vec<$_>>().join($S)'
+        - all: [{pattern: '$I.collect::<Vec<$_>>().join($S)'}, {has: {stopBy: end, pattern: '$_.map(|$X| $X.as_str())'}}]
         - pattern: '$J.map(|$P| format!($$$A)).collect::<Vec<$_>>().join($T)'
+        - all: [{pattern: '$I.collect::<Vec<$_>>().join($S)'}, {matches: literal-separator}]
 constraints:
     S: {not: {regex: '^""$'}}
     T: {not: {regex: '^""$'}}

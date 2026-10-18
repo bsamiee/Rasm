@@ -80,29 +80,27 @@ public sealed record ValueHistory {
     private static Fin<HashMap<Guid, ValueHistory>> Histories(ArchivableDictionary source) =>
         from rows in ArchivableDictionaries.Children(source)
         from pairs in Callbacks.Each(rows, static (row, _) =>
-            (StoredText.Parse<Guid>(row.Key).ToValidation(), History(row.Value).ToValidation())
-                .Apply(static (id, history) => history.Map(held => (id, held))).As().ToFin())
+            (StoredText.Parse<Guid>(row.Key), History(row.Value))
+                .Apply(static (id, history) => history.Map(held => (id, held))).As())
         select toHashMap(pairs.Somes());
 
     private static Fin<Option<ValueHistory>> History(ArchivableDictionary source) =>
-        (ArchivableDictionaries.Required<ArchivableDictionary>(source, DoneKey).Bind(Entries).ToValidation(),
-         ArchivableDictionaries.Required<ArchivableDictionary>(source, UndoneKey).Bind(Entries).ToValidation())
+        (ArchivableDictionaries.Required<ArchivableDictionary>(source, DoneKey).Bind(Entries),
+         ArchivableDictionaries.Required<ArchivableDictionary>(source, UndoneKey).Bind(Entries))
             .Apply(static (done, undone) => (done, undone).Apply(static (finished, reverted) => new ValueHistory(
                 toSeq(finished.OrderByDescending(static entry => entry.Serial)), toSeq(reverted.OrderBy(static entry => entry.Serial)),
                 finished.Concat(reverted).Fold(BigInteger.Zero, static (next, entry) => BigInteger.Max(next, entry.Serial + BigInteger.One)))).As())
-            .As().ToFin();
+            .As();
 
     private static Fin<Option<Seq<HistoryEntry>>> Entries(ArchivableDictionary source) =>
         from rows in ArchivableDictionaries.Children(source)
         from entries in Callbacks.Each(rows, static (row, _) =>
-            ((from serial in StoredText.Parse<BigInteger>(row.Key)
-              from accepted in serial >= BigInteger.Zero ? Fin.Succ(serial) : Fin.Fail<BigInteger>(Errors.ParseError($"{row.Key} reads as no {nameof(BigInteger)}"))
-              select accepted).ToValidation(),
-             ArchivableDictionaries.Required<long>(row.Value, AtKey).ToValidation(),
-             Nested(row.Value, BeforeKey).ToValidation(),
-             Nested(row.Value, AfterKey).ToValidation())
+            (StoredText.Parse<BigInteger>(row.Key).Bind(serial => serial >= BigInteger.Zero ? Fin.Succ(serial) : Errors.ParseError($"{row.Key} reads as no {nameof(BigInteger)}")),
+             ArchivableDictionaries.Required<long>(row.Value, AtKey),
+             Nested(row.Value, BeforeKey),
+             Nested(row.Value, AfterKey))
                 .Apply(static (serial, at, before, after) =>
-                    (before, after).Apply((held, next) => new HistoryEntry(serial, held.Diff(next), Instant.FromUnixTimeTicks(at))).As()).As().ToFin())
+                    (before, after).Apply((held, next) => new HistoryEntry(serial, held.Diff(next), Instant.FromUnixTimeTicks(at))).As()).As())
         select entries.Traverse(static entry => entry).As();
 
     private static Fin<Option<ValueSet>> Nested(ArchivableDictionary source, string key) =>

@@ -669,8 +669,7 @@ file sealed record GridLattice(ERational Height, ERational Span, ERational Shift
 file readonly record struct BoltPiece((double X, double Y) Start, (double X, double Y) End, double From, double To) {
     public FieldSample Sample((double X, double Y) point, EContext math) =>
         ShapeFields.Offset((point.X, point.Y), (Start.X, Start.Y), (End.X, End.Y), math) switch {
-            var (offset, along) =>
-            (EFloat.FromDouble(From) + ((EFloat.FromDouble(To) - From) * along)) switch { var radius => new(ShapeFields.Length(offset, math) - radius, 2 * radius) },
+            var (offset, along) => (EFloat.FromDouble(From) + ((EFloat.FromDouble(To) - From) * along)) switch { var radius => new(ShapeFields.Length(offset, math) - radius, 2 * radius) },
         };
 
     public static BoltPiece[] Path((double X, double Y) start, (double X, double Y) direction, double length, int levels, Lightning bolt, Func<int, float> draw, Func<double, double> radius) {

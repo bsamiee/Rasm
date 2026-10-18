@@ -1,13 +1,13 @@
 """Native working-space changes, compositor color coordinates, and OCIO installation."""
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 import functools
 import math as numeric
 from pathlib import Path
 from typing import Annotated, ClassVar, Self
 
 import bpy
-from expression import Ok, Option, Result, Some
+from expression import Ok, Option, Some
 import msgspec
 import numpy as np
 import PyOpenColorIO
@@ -18,7 +18,7 @@ from blender.bpy.data.rna.conditions import Setting
 from blender.bpy.data.rna.descriptors import Descriptor, struct_at
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderImagingFault, BlenderResult
+from blender.bpy.faults import BlenderAbsentFault, BlenderImagingFault, BlenderResult
 from blender.bpy.nodes.graphs import compared, End, ended, Fragment, INPUTS, masked, math, mixed, node, NodeGroup, Operand
 from blender.bpy.nodes.interface import Interface, Socket
 from blender.bpy.settings.properties import Choices
@@ -105,6 +105,11 @@ class ConfigInstall(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
+def config_of(spaces: Iterable[str] = ()) -> BlenderResult[PyOpenColorIO.Config]:
+    """Returns Blender's live OCIO configuration once it resolves the required roles and a caller's spaces, or the imaging fault naming each unresolved one."""
+    return admitted(PyOpenColorIO.GetCurrentConfig(), spaces).map_error(BlenderImagingFault.lifted)
+
+
 def changed(call: Call[WorkingSpace]) -> BlenderResult[Outcome]:
     """Changes native working space, then converts compositor effect color inputs the native conversion leaves, or answers the space already current."""
     source, record = bpy.data.colorspace.working_space, call.record
@@ -137,15 +142,12 @@ def changed(call: Call[WorkingSpace]) -> BlenderResult[Outcome]:
             cpu.applyRGB(values[:3])
         return accumulated(descriptor.write(item, tuple(values.tolist())) for item, descriptor, values in inputs).map(lambda priors: sum(prior.is_some() for prior in priors))
 
-    cpu: BlenderResult[PyOpenColorIO.CPUProcessor] = (
-        admitted(PyOpenColorIO.GetCurrentConfig(), (source, record.space))
-        .bind(lambda config: processor(config, PyOpenColorIO.ColorSpaceTransform(src=source, dst=record.space)))
-        .map(PyOpenColorIO.Processor.getDefaultCPUProcessor)
-        .map_error(BlenderImagingFault.lifted)
-    )
     return (
-        Result[PyOpenColorIO.CPUProcessor, BlenderFaults]
-        .bind(cpu, lambda held: called(bpy.ops.wm.set_working_color_space, {"working_space": record.space, "convert_colors": record.convert}).bind(lambda _: recolored(held)))
+        config_of((source, record.space))
+        .bind(
+            lambda config: processor(config, PyOpenColorIO.ColorSpaceTransform(src=source, dst=record.space)).map(PyOpenColorIO.Processor.getDefaultCPUProcessor).map_error(BlenderImagingFault.lifted)
+        )
+        .bind(lambda held: called(bpy.ops.wm.set_working_color_space, {"working_space": record.space, "convert_colors": record.convert}).bind(lambda _: recolored(held)))
         .map(lambda count: Done(notes=(("INFO", f"Working space {record.space}, {count} effect colors converted"),)))
     )
 
@@ -371,4 +373,20 @@ change = Operator(
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["COLOR_INPUT", "COLOR_RESULT", "ConfigInstall", "FilmView", "WorkingSpace", "change", "changed", "configured", "converted", "hsy", "logarithmic", "pointwise", "space_item", "working"]
+__all__ = [
+    "COLOR_INPUT",
+    "COLOR_RESULT",
+    "ConfigInstall",
+    "FilmView",
+    "WorkingSpace",
+    "change",
+    "changed",
+    "config_of",
+    "configured",
+    "converted",
+    "hsy",
+    "logarithmic",
+    "pointwise",
+    "space_item",
+    "working",
+]

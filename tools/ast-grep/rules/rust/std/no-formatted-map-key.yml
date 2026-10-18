@@ -22,9 +22,19 @@ utils:
                     - all:
                         - has: {field: function, has: {field: field, regex: '^concat$'}}
                         - has: {field: arguments, not: {has: {pattern: $_}}}
-    keyed-call:
+    owned-key-call:
         kind: call_expression
-        has: {field: function, kind: field_expression, has: {field: field, regex: '^(insert|get|get_mut|entry|contains_key|remove)$'}}
+        has: {field: function, kind: field_expression, has: {field: field, regex: '^(insert|entry)$'}}
+    borrowed-key-call:
+        kind: call_expression
+        has: {field: function, kind: field_expression, has: {field: field, regex: '^(get|get_mut|get_key_value|contains_key|remove)$'}}
+    bound-key-call:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^(insert|entry|get|get_mut|get_key_value|contains_key|remove)$'}}
+            - any:
+                - all: [{matches: owned-key-call}, {has: {field: arguments, has: {nthChild: 1, pattern: $BOUND}}}]
+                - all: [{matches: borrowed-key-call}, {has: {field: arguments, has: {nthChild: 1, kind: reference_expression, has: {pattern: $BOUND}}}}]
     key-name:
         regex: '(?i)(^|_)(id|key)$'
 rule:
@@ -32,13 +42,13 @@ rule:
     pattern: $KEY
     any:
         - nthChild: 1
-          inside: {kind: arguments, inside: {matches: keyed-call}}
-        - inside: {kind: reference_expression, nthChild: 1, inside: {kind: arguments, inside: {matches: keyed-call}}}
+          inside: {kind: arguments, inside: {matches: owned-key-call}}
+        - inside: {kind: reference_expression, nthChild: 1, inside: {kind: arguments, inside: {matches: borrowed-key-call}}}
         - inside: {kind: let_declaration, has: {field: pattern, kind: identifier, regex: '(?i)(^|_)id$'}}
         - inside:
             kind: let_declaration
             has: {field: pattern, kind: identifier, pattern: $BOUND}
-            precedes: {stopBy: end, has: {stopBy: end, matches: keyed-call, has: {field: arguments, has: {nthChild: 1, any: [{pattern: $BOUND}, {kind: reference_expression, has: {pattern: $BOUND}}]}}}}
+            precedes: {stopBy: end, any: [{matches: bound-key-call}, {has: {stopBy: end, matches: bound-key-call}}]}
         - inside: {kind: field_initializer, has: {field: field, matches: key-name}}
         - inside: {kind: assignment_expression, has: {field: left, matches: key-name}}
         - nthChild: 1

@@ -1,3 +1,5 @@
+use core::iter;
+
 use clippy_utils::{
     diagnostics::span_lint_hir_and_then,
     paths::{PathNS, lookup_path},
@@ -46,7 +48,7 @@ impl Pass {
         let prelude = preludes
             .flat_map(|prelude| {
                 let exported = tcx.module_children(prelude.krate.as_def_id()).iter().filter(|child| child.res.ns() == Some(Namespace::MacroNS));
-                tcx.module_children(prelude).iter().chain(exported).map(binding)
+                iter::chain(tcx.module_children(prelude), exported).map(binding)
             })
             .chain(
                 tcx.crates(())
@@ -110,8 +112,12 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 .chain(cx.tcx.module_children_local(module.to_local_def_id()).iter().map(binding))
                 .chain(self.prelude.iter().copied())
                 .collect::<Vec<_>>();
-            let collides =
-                |rename: &Rename| scope.iter().any(|&(name, res)| name == rename.original.name && res.ns().is_none_or(|namespace| rename.imported[namespace].is_some_and(|imported| imported != res)));
+            let collides = |rename: &Rename| {
+                scope.iter().any(|&(name, res)| {
+                    (name == rename.original.name || res.opt_def_id().and_then(|declared| cx.tcx.opt_item_name(declared)) == Some(rename.original.name))
+                        && res.ns().is_none_or(|namespace| rename.imported[namespace].is_some_and(|imported| imported != res))
+                })
+            };
             for rename in renames.iter().filter(|rename| !collides(rename)) {
                 span_lint_hir_and_then(
                     cx,

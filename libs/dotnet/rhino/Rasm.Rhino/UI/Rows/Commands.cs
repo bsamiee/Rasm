@@ -97,7 +97,7 @@ public abstract partial record CommandRow {
 
         public Seq<Check> Members => field.Map(member => new Check(
             member.Face,
-            Enabled.Match(Some: parent => Some(member.Enabled.Match(Some: own => parent & own, None: () => parent)), None: () => member.Enabled),
+            Enabled.Map(parent => member.Enabled.Map(own => parent & own).IfNone(parent)) | member.Enabled,
             member.Read, member.Write));
 
         public IO<Realized<Seq<(RadioCommand Command, CommandFace Face)>>> Realize(RowScope scope, Action<IDisposable> retain) =>

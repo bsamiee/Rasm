@@ -12,7 +12,7 @@ use crate::expanded_externally;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-lint!(DUPLICATE_TRAIT_CONSTANT: "trait constants with no default that every impl sets to the same value");
+lint!(DUPLICATE_TRAIT_CONSTANT: "trait constants that every impl sets to the same value");
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_crate_post(&mut self, cx: &LateContext<'tcx>) {
@@ -28,7 +28,6 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         );
         let shared = provided.into_iter().filter(|(declared, constants)| {
             matches!(tcx.associated_item(*declared).kind, AssocKind::Const { .. })
-                && !tcx.defaultness(*declared).has_value()
                 && constants.len() > 1
                 && tcx.all_impls(tcx.parent(declared.to_def_id())).count() == constants.len()
                 && constants.array_windows().all(|&[earlier, later]| equal_bodies(cx, earlier, later, |_, _, _, _| false).is_some())
@@ -43,7 +42,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 format!("every `{owner}` impl sets `{name}` to the same value"),
                 |diag| {
                     diag.span_note(constants.iter().map(|&constant| tcx.def_span(constant)).collect::<Vec<_>>(), "set here");
-                    diag.help(format!("declare the value as the default of `{owner}::{name}` and delete `{name}` from each impl"));
+                    diag.help(format!("set the default of `{owner}::{name}` to the value and delete `{name}` from each impl"));
                 },
             );
         }

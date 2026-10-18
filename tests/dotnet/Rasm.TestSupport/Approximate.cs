@@ -6,9 +6,8 @@ namespace Rasm.TestSupport;
 public readonly record struct Tolerance(double AbsoluteError, double RelativeError, Option<long> Ulps = default) {
     public static Tolerance Absolute(double epsilon) => new(epsilon, RelativeError: 0.0);
     public static Tolerance Relative(double epsilon) => new(AbsoluteError: 0.0, epsilon);
-    public static Tolerance Combined(double absolute, double relative) => new(absolute, relative);
     public static Tolerance WithinUlps(long units) => new(AbsoluteError: 0.0, RelativeError: 0.0, Some(units));
-    public static Tolerance Default { get; } = Combined(absolute: 1.0e-12, relative: 1.0e-9);
+    public static Tolerance Default { get; } = new(AbsoluteError: 1.0e-12, RelativeError: 1.0e-9);
 
     public bool Matches(double left, double right) =>
         left.Equals(right)

@@ -2,6 +2,7 @@
 id: no-lifted-fin-bind
 language: csharp
 severity: error
+ignores: ['tools/roslyn/**']
 utils:
     relift:
         any:

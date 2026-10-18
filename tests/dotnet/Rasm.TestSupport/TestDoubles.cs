@@ -48,10 +48,10 @@ public sealed class CallSpy<TArgs> {
         new(bind(Stub(member, behavior)));
 }
 
-public sealed class Timeline(DateTimeOffset? start = null) {
+public sealed class Timeline(Option<DateTimeOffset> start = default) {
     private readonly Atom<Seq<TimerEvent>> events = Atom(Seq<TimerEvent>());
 
-    public FakeTimeProvider Clock { get; } = start is DateTimeOffset instant ? new FakeTimeProvider(instant) : new FakeTimeProvider();
+    public FakeTimeProvider Clock { get; } = start.Match(static instant => new FakeTimeProvider(instant), static () => new FakeTimeProvider());
 
     public Seq<TimerEvent> Events => events.Value;
 

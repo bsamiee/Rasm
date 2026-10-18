@@ -126,31 +126,30 @@ internal static class ProgressMapper {
     internal static Fin<QueueProgress> FromRecord(ProgressRecord record) =>
         (
             Parsed(InstantPattern.ExtendedIso.Parse(record.ProcessStart), record.ProcessStart),
-            RetryCount.Validated(record.Retries).ToValidation(),
-            RetryDelay.Validated(record.Delay).ToValidation(),
-            Optional(record.Ended).Traverse(static end => RunEnd.Validated(end).ToValidation()).As(),
+            RetryCount.Validated(record.Retries),
+            RetryDelay.Validated(record.Delay),
+            Optional(record.Ended).Traverse(static end => RunEnd.Validated(end)).As(),
             toSeq(record.Entries).Traverse(Entry).As()
         )
             .Apply((start, retries, delay, end, entries) => new QueueProgress(Optional(record.Job), record.ProcessId, start, retries, delay, end, toHashMap(entries)))
-            .As()
-            .ToFin();
+            .As();
 
-    internal static Validation<Error, T> Parsed<T>(ParseResult<T> parsed, string text) =>
+    internal static Fin<T> Parsed<T>(ParseResult<T> parsed, string text) =>
         parsed.Success ? parsed.Value : Unparsed(text);
 
     private static Error Unparsed(string text) => Errors.ParseError($"Render queue record text {text} is unreadable");
 
-    private static Validation<Error, (ContentKey Key, EntryProgress Progress)> Entry(ProgressRecord.Entry entry) =>
+    private static Fin<(ContentKey Key, EntryProgress Progress)> Entry(ProgressRecord.Entry entry) =>
         (
-            Invariant.Number<UInt128>(entry.Key, NumberStyles.HexNumber).ToFin(Unparsed(entry.Key)).Bind(ContentKey.Validated).ToValidation(),
-            Optional(entry.Last).Traverse(static last => SequenceNumber.Validated(last).ToValidation()).As(),
+            Invariant.Number<UInt128>(entry.Key, NumberStyles.HexNumber).ToFin(Unparsed(entry.Key)).Bind(ContentKey.Validated),
+            Optional(entry.Last).Traverse(static last => SequenceNumber.Validated(last)).As(),
             toSeq(entry.Times).Traverse(static time => Parsed(DurationPattern.Roundtrip.Parse(time), time)).As(),
             toSeq(entry.Versions).Traverse(Version).As()
         ).Apply(static (key, last, times, versions) => (key, new EntryProgress(last, times, toHashMap(versions)))).As();
 
-    private static Validation<Error, (Seq<NamePart> Scope, OutputVersion Version)> Version(ProgressRecord.Version row) =>
+    private static Fin<(Seq<NamePart> Scope, OutputVersion Version)> Version(ProgressRecord.Version row) =>
         (
-            toSeq(row.Scope).Traverse(static part => NamePart.Validated(part).ToValidation()).As(),
-            OutputVersion.Validated(row.Number).ToValidation()
+            toSeq(row.Scope).Traverse(NamePart.Validated).As(),
+            OutputVersion.Validated(row.Number)
         ).Apply(static (scope, version) => (scope, version)).As();
 }

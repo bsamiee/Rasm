@@ -1,0 +1,1 @@
+#0 `Count.Validate(value, null, out _)` validates outside `Validated` and returns no `Fin`

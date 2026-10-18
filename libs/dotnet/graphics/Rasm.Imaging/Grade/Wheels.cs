@@ -46,14 +46,14 @@ public readonly record struct WheelOffset(WheelHue Hue, AxisFraction Strength, W
         new Unicolour(gamut.Configuration, ColourSpace.RgbLinear, multiplier.X, multiplier.Y, multiplier.Z).ConvertToConfiguration(Configuration.Default).Oklab switch {
             { L: <= 0d } => Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"wheel multiplier {multiplier} must have positive lightness")),
             var lab => new Vector2((float)(lab.A / lab.L), (float)(lab.B / lab.L)) switch {
-                var chroma => (chroma.Length() < 1e-6f ? Fin.Succ(hue) : WheelHue.Validated((float.Atan2(chroma.Y, chroma.X) + float.Tau) % float.Tau),
+                var chroma => (chroma.Length() < 1e-6f ? hue : WheelHue.Validated((float.Atan2(chroma.Y, chroma.X) + float.Tau) % float.Tau),
                                AxisFraction.Validated(2f * chroma.Length()),
                                WheelLuma.Validated(3f * float.Log2((float)lab.L)))
                     .Apply(static (h, s, l) => new WheelOffset(h, s, l)).As(),
             },
         };
 
-    public static (Vector3 Low, Vector3 High) LaneBounds(Gamut gamut) =>
+    public static (Vector3 Low, Vector3 High) ChannelBounds(Gamut gamut) =>
         toSeq(Range(0, 360))
             .Map(static step => float.DegreesToRadians(step))
             .Map(angle => Tint(gamut, 0.5f * new Vector2(float.Cos(angle), float.Sin(angle))))

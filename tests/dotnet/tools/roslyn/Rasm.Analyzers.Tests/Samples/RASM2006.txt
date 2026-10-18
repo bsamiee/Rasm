@@ -1,0 +1,17 @@
+using System;
+using Eto.Forms;
+
+namespace Rasm.Rhino {
+    internal static class Callbacks {
+        internal static void Marshaled() => Application.Instance.Invoke(static () => { });
+    }
+}
+
+internal static class SingleInvoke {
+    internal static void Marshaled() => {|#0:Application.Instance.Invoke(static () => { })|};
+    internal static Action<Action> Deferred() => {|#1:Application.Instance.AsyncInvoke|};
+}
+
+internal static class InvokeNamed {
+    internal static string Named() => nameof(Application.Instance.Invoke);
+}

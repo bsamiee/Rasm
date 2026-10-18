@@ -1,6 +1,6 @@
 """Declared keyframes, drivers, modifiers, and sampling of RNA channels."""
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
 from typing import Annotated, TYPE_CHECKING
 
 import bpy
@@ -163,57 +163,83 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
             return accumulated(map(added, self.modifiers)).map(lambda _: None)
 
         def replaced(data: bpy.types.AnimData, source: NDArray[np.float32] | Driven) -> BlenderResult[bool]:
-            try:
-                held = (
-                    Option.of_optional(anim_utils.animdata_get_channelbag_for_assigned_slot(data)).bind(lambda bag: Option.of_optional(bag.fcurves.find(path, index=index)))
-                    if isinstance(self.source, Keys)
-                    else Option.of_optional(data.drivers.find(path, index=index))
-                ).to_list()
-                for curve in held:
-                    match matching(curve, source):
-                        case Result(tag="ok", ok=matched):
-                            if matched:
-                                return Ok(False)
-                        case Result(error=faults):
-                            return Error(faults)
+            held = (
+                Option.of_optional(anim_utils.animdata_get_channelbag_for_assigned_slot(data)).bind(lambda bag: Option.of_optional(bag.fcurves.find(path, index=index)))
+                if isinstance(self.source, Keys)
+                else Option.of_optional(data.drivers.find(path, index=index))
+            )
+
+            def native[T](call: Callable[[], T]) -> BlenderResult[T]:
+                return catch(call, exception=RuntimeError)().map_error(lambda error: (BlenderEditFault(request=f"{owner!r}.{path}", error=error),))
+
+            def stored() -> BlenderResult[bpy.types.ActionChannelbagFCurves | bpy.types.AnimDataDrivers]:
+                return (
+                    Ok(data.drivers)
+                    if isinstance(source, Driven)
+                    else Option
+                    .of_optional(data.action)
+                    .map(Ok)
+                    .default_with(lambda: Ok(bpy.data.actions.new(f"{owner.name}Action")).bind(lambda action: written(data, "action", action).map(lambda _: action)))
+                    .bind(
+                        lambda action: (
+                            Option
+                            .of_optional(data.action_slot)
+                            .map(Ok)
+                            .default_with(lambda: native(lambda: action.slots.new(id_type=owner.id_type, name=owner.name)).bind(lambda slot: written(data, "action_slot", slot).map(lambda _: slot)))
+                            .bind(lambda slot: native(lambda: anim_utils.action_ensure_channelbag_for_slot(action, slot)))
+                        )
+                    )
+                    .map(lambda bag: bag.fcurves)
+                )
+
+            def filled(curve: bpy.types.FCurve) -> BlenderResult[bool]:
                 match source:
                     case np.ndarray() as points:
-                        if (action := data.action) is None:
-                            action = bpy.data.actions.new(f"{owner.name}Action")
-                            data.action = action
-                        if (slot := data.action_slot) is None:
-                            slot = action.slots.new(id_type=owner.id_type, name=owner.name)
-                            data.action_slot = slot
-                        bag = anim_utils.action_ensure_channelbag_for_slot(action, slot)
-                        for curve in held:
-                            bag.fcurves.remove(curve)
-                        curve = bag.fcurves.new(path, index=index)
                         curve.keyframe_points.add(len(points))
                         curve.keyframe_points.foreach_set("co", points.ravel())
                         curve.update_autoflags(owner)
                         curve.update()
                         return modified(curve).map(lambda _: True)
                     case Driven(expression=expression, variables=variables):
-                        for curve in held:
-                            data.drivers.remove(curve)
-                        curve = data.drivers.new(path, index=index)
                         curve.update_autoflags(owner)
-                        match curve.driver:
-                            case bpy.types.Driver() as driver:
-                                driver.type = "SCRIPTED"
-                                driver.expression = expression
-                                for row in variables:
-                                    variable = driver.variables.new()
-                                    variable.name = row.name
-                                    target = variable.targets[0]
-                                    target.id_type = owner.id_type
-                                    target.id = owner
-                                    target.data_path = row.path
-                                return modified(curve).map(lambda _: True)
-                            case None:
-                                return Error((BlenderAbsentFault(owner=repr(curve), key="driver"),))
-            except (AttributeError, ReferenceError, RuntimeError, TypeError, ValueError) as error:
-                return Error((BlenderEditFault(request=f"{owner!r}.{path}", error=error),))
+                        return (
+                            Option
+                            .of_optional(curve.driver)
+                            .map(
+                                lambda driver: (
+                                    accumulated((written(driver, "type", "SCRIPTED"), written(driver, "expression", expression)))
+                                    .bind(
+                                        lambda _: accumulated(
+                                            accumulated((
+                                                written(variable, "name", row.name),
+                                                written(variable, "targets[0].id_type", owner.id_type).bind(lambda _: written(variable, "targets[0].id", owner)),
+                                                written(variable, "targets[0].data_path", row.path),
+                                            ))
+                                            for row in variables
+                                            for variable in (driver.variables.new(),)
+                                        )
+                                    )
+                                    .bind(lambda _: modified(curve))
+                                    .map(lambda _: True)
+                                )
+                            )
+                            .default_with(lambda: Error((BlenderAbsentFault(owner=repr(curve), key="driver"),)))
+                        )
+
+            return (
+                held
+                .map(lambda curve: matching(curve, source))
+                .default_value(Ok(False))
+                .bind(
+                    lambda matched: (
+                        Ok(False)
+                        if matched
+                        else stored()
+                        .bind(lambda curves: held.map(lambda curve: native(lambda: curves.remove(curve))).default_value(Ok(None)).bind(lambda _: native(lambda: curves.new(path, index=index))))
+                        .bind(filled)
+                    )
+                )
+            )
 
         def read(variable: Variable) -> BlenderResult[None]:
             return catch(lambda: owner.path_resolve(variable.path), exception=ValueError)().map_error(lambda _: (BlenderAbsentFault(owner=repr(owner), key=variable.path),)).map(lambda _: None)
@@ -239,20 +265,17 @@ class Animation(msgspec.Struct, frozen=True, kw_only=True):
         path, index = self.path, Option.of_optional(self.index).default_value(0)
 
         def cleared(_: bpy.types.Property) -> BlenderResult[None]:
-            try:
-                data = _animation_data(owner)
-                collections: Option[bpy.types.ActionChannelbagFCurves | bpy.types.AnimDataDrivers]
-                match self.source:
-                    case Keys():
-                        collections = data.bind(lambda held: Option.of_optional(anim_utils.animdata_get_channelbag_for_assigned_slot(held))).map(lambda bag: bag.fcurves)
-                    case Driven():
-                        collections = data.map(lambda held: held.drivers)
-                for curves in collections.to_list():
-                    for curve in Option.of_optional(curves.find(path, index=index)).to_list():
-                        curves.remove(curve)
-                return Ok(None)
-            except ReferenceError as error:
-                return Error((BlenderEditFault(request=f"{owner!r}.{path}", error=error),))
+            data = _animation_data(owner)
+            collections: Option[bpy.types.ActionChannelbagFCurves | bpy.types.AnimDataDrivers]
+            match self.source:
+                case Keys():
+                    collections = data.bind(lambda held: Option.of_optional(anim_utils.animdata_get_channelbag_for_assigned_slot(held))).map(lambda bag: bag.fcurves)
+                case Driven():
+                    collections = data.map(lambda held: held.drivers)
+            for curves in collections.to_list():
+                for curve in Option.of_optional(curves.find(path, index=index)).to_list():
+                    curves.remove(curve)
+            return Ok(None)
 
         return self.channel(owner).bind(cleared)
 

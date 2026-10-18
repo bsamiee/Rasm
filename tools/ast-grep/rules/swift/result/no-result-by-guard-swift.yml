@@ -9,8 +9,8 @@ utils:
         matches: swift-nesting-level
         inside:
             matches: swift-nesting-level
-            stopBy: {matches: swift-nesting-boundary}
-            inside: {matches: swift-nesting-level, stopBy: {matches: swift-nesting-boundary}}
+            stopBy: {matches: swift-function-scope}
+            inside: {matches: swift-nesting-level, stopBy: {matches: swift-function-scope}}
     deepened-tail:
         precedes: {kind: control_transfer_statement, has: {stopBy: end, matches: third-level}}
     deepened:
@@ -217,10 +217,12 @@ rule:
         - not: {kind: if_statement, inside: {kind: if_statement}}
         - not:
             any:
+                - matches: {swift-boolean-match: {matched: {kind: boolean_literal}, other: {kind: boolean_literal}}}
                 - regex: '^(if|guard)\s+case\s+(let\s+)?\.success\b'
                 - kind: if_statement
                   regex: '^if\s+case\s+(let\s+)?\.failure\b'
                   has: {kind: statements, nthChild: {position: 1, ofRule: {kind: statements}}, has: {nthChild: 1, matches: failure-return}}
+                - matches: swift-result-bind-switch
     any:
         - matches: bool-guard
         - matches: bool-if

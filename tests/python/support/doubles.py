@@ -36,7 +36,8 @@ class Factory[R](msgspec.Struct, frozen=True):
 
 type Stub[R] = Sync[R] | Async[R] | Factory[R]
 
-# --- [CALL_RECORDING] -------------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
+# --- [RECORDING]
 
 
 def install(monkeypatch: pytest.MonkeyPatch, target: object, stubs: Mapping[str, Stub[object]]) -> Sequence[CallRecord]:
@@ -44,36 +45,27 @@ def install(monkeypatch: pytest.MonkeyPatch, target: object, stubs: Mapping[str,
     calls: list[CallRecord] = []
 
     def runner(member: str, stub: Stub[object]) -> object:
-        match stub:
-            case Sync(value):
-
-                def sync(*args: object, **kwargs: object) -> object:
-                    calls.append((member, args, kwargs))
-                    return value
-
-                return sync
-            case Async(value):
-
-                async def coroutine(*args: object, **kwargs: object) -> object:
-                    calls.append((member, args, kwargs))
-                    await anyio.lowlevel.checkpoint()
-                    return value
-
-                return coroutine
-            case Factory(value):
-
-                def factory(*args: object, **kwargs: object) -> object:
-                    calls.append((member, args, kwargs))
+        def sync(*args: object, **kwargs: object) -> object:
+            calls.append((member, args, kwargs))
+            match stub:
+                case Factory(value):
                     return runner(f"{member}()", Sync(value))
+                case Sync(value) | Async(value):
+                    return value
 
-                return factory
+        async def coroutine(*args: object, **kwargs: object) -> object:
+            value = sync(*args, **kwargs)
+            await anyio.lowlevel.checkpoint()
+            return value
+
+        return coroutine if isinstance(stub, Async) else sync
 
     for member, stub in stubs.items():
         monkeypatch.setattr(target, member, runner(member, stub))
     return calls
 
 
-# --- [VIRTUAL_TIME] ---------------------------------------------------------------------
+# --- [CLOCKS]
 
 
 def autojump_backend() -> tuple[str, dict[str, object]]:
@@ -81,7 +73,7 @@ def autojump_backend() -> tuple[str, dict[str, object]]:
     return ("trio", {"clock": trio.testing.MockClock(autojump_threshold=0)})
 
 
-# --- [FIXTURE_WRITERS] ------------------------------------------------------------------
+# --- [FIXTURES]
 
 
 def write_fixtures(directory: Path, files: Mapping[str, object], encode: Callable[[object], bytes] = msgspec.json.encode) -> dict[str, Path]:
@@ -93,7 +85,7 @@ def write_fixtures(directory: Path, files: Mapping[str, object], encode: Callabl
     return paths
 
 
-# --- [DECODE_ASSERTIONS] ----------------------------------------------------------------
+# --- [DECODING]
 
 
 def decoded_lines[T](decoder: msgspec.json.Decoder[T], raw: bytes | str, count: int) -> list[T]:

@@ -162,7 +162,7 @@ public static class AppSettings {
         entry => IO.lift(() => entry.Match(
             Some: row => {
                 CommandAliasList.Update([new CommandAlias(name, row.Macro, row.Instant)], replaceAll: false);
-                return Fin.Succ(unit);
+                return unit;
             },
             None: () => Refused.Unless(CommandAliasList.Delete(name), nameof(CommandAliasList.Delete)))));
 

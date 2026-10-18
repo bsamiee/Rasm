@@ -9,10 +9,11 @@ UXP runs each plug-in and script in one V8 context inside an Adobe host, with ho
 
 [REFERENCES]:
 - [01]-[INDESIGN](references/indesign.md): InDesign's synchronous DOM, from its object model and transactions to GREP, export, and plug-in load
-- [02]-[PHOTOSHOP](references/photoshop.md): Photoshop's modal scopes, descriptors, DOM members, and plug-in load
-- [03]-[PREMIERE](references/premiere.md): Premiere Pro's transactions, reads, events, projects, and object model
-- [04]-[REWRITING](references/rewriting.md): Supplied source compiled through positional splices, with thrown lines mapped back
-- [05]-[TRANSPORT](references/transport.md): Typed calls a plug-in serves over a socket it dials
+- [02]-[PHOTOSHOP](references/photoshop.md): Photoshop's modal scopes, history, descriptors, DOM members, events, export, fonts, and plug-in load
+- [03]-[PREMIERE](references/premiere.md): Premiere Pro's members, reads, transactions, events, projects, export, and Media Encoder
+- [04]-[ILLUSTRATOR](references/illustrator.md): Illustrator's ExtendScript calls, object model, undo steps, export, and plug-in load
+- [05]-[REWRITING](references/rewriting.md): Supplied source compiled through positional splices, with thrown lines mapped back
+- [06]-[TRANSPORT](references/transport.md): Typed calls a plug-in serves over a socket it dials
 
 ## [01]-[CONTEXTS]
 
@@ -34,15 +35,14 @@ osascript -e 'on run argv' -e 'tell application id "<bundle id>"' \
     -e '«event miscDjxM» (item 1 of argv) given «class JArg»:(rest of argv)' \
     -e 'end tell' -e 'end run' "$(cat <file>.jsx)" <argument>...
 osascript -e 'tell application id "com.adobe.Acrobat.Pro"' \
-    -e '«event miscdosc» "try { JSON.stringify(<expression>) } catch (error) { JSON.stringify({ failed: error.message }) }"' \
+    -e '«event miscdosc» "try { encodeURIComponent(JSON.stringify(<expression>)) } catch (error) { encodeURIComponent(JSON.stringify({ failed: error.message })) }"' \
     -e 'end tell'
 ```
 
-- Illustrator source is ES3 ExtendScript with `const`, `try`, and `finally`, and no `let`, arrow function, `JSON`, or `Array.prototype.map`
-- Illustrator replies with its last expression as text, `arguments` holds the event's arguments, and `getByName` throws 1302 for an absent name
-- Illustrator runs under `userInteractionLevel` `DONTDISPLAYALERTS` and closes documents with `SaveOptions.DONOTSAVECHANGES`
-- Acrobat source runs privileged in its front document with `JSON` and `util` and no `$`, `File`, or `reflect`
-- Acrobat replies in Mac Roman and reports a throw as error -1096 with no text, and source catches inside itself and escapes non-ASCII characters
+- Acrobat source runs privileged with `this` naming the front document, and `global` members persist between calls
+- Acrobat JavaScript holds `JSON`, `util`, `eval`, `new Function`, and arrow functions, and no `let`, `$`, `File`, or `reflect`
+- Acrobat answers an uncaught throw or a syntax error with -1708 and no text, and source catches inside itself
+- Acrobat replies in Mac Roman with `.` for a character it lacks, and `decodeURIComponent` restores the `encodeURIComponent` JSON source replies
 
 Context decides what code can hold across time:
 
@@ -53,28 +53,24 @@ Context decides what code can hold across time:
 
 - Work that finishes after its call returns belongs to a plug-in
 - State a script needs in a later run is host state: a document, a file, or a stored value
-- `main` builds every state a panel reads, since a host can run `main` at launch with no panel shown
 
 ## [02]-[RUNTIME]
 
-Each difference from a browser or Node has one owner:
+Each difference from a browser or Node holds in InDesign, Photoshop, and Premiere Pro, and has one owner:
 
-| [INDEX] | [DIFFERENCE]                                  | [HOSTS]  | [OWNER]             | [FORM]                                      |
-| :-----: | :-------------------------------------------- | :------- | :------------------ | :------------------------------------------ |
-|  [01]   | Global constructed at load (`TextEncoder`)    | InDesign | `@rasm/uxp/runtime` | Package implementation assigned before load |
-|  [02]   | Member of another type (`hrtime.bigint`)      | InDesign | `@rasm/uxp/runtime` | `Clock` layer over `performance.now()`      |
-|  [03]   | Absent global or module (`Worker`, `node:*`)  | Every    | Bundle              | Dependencies reading one stay out           |
-|  [04]   | Module typed as Node's (`fs`, `path`)         | Every    | Read site           | Value decoded where read                    |
-|  [05]   | Feature with a missing part (`Response.body`) | Every    | Call site           | Whole-body read, flag on whole pattern      |
+| [INDEX] | [DIFFERENCE]                                  | [OWNER]              | [FORM]                                      |
+| :-----: | :-------------------------------------------- | :------------------- | :------------------------------------------ |
+|  [01]   | Global constructed at load (`TextEncoder`)    | `@rasm/uxp/encoding` | Package implementation assigned before load |
+|  [02]   | Member of another type (`hrtime.bigint`)      | `@rasm/uxp/runtime`  | `Clock` layer over `performance.now()`      |
+|  [03]   | Absent global or module (`Worker`, `node:*`)  | Bundle               | Dependencies reading one stay out           |
+|  [04]   | Module typed as Node's (`fs`, `path`)         | Read site            | Value decoded where read                    |
+|  [05]   | Feature with a missing part (`Response.body`) | Call site            | Whole-body read, flag on whole pattern      |
 
-`@rasm/uxp/runtime` assigns the encoding globals at import and exports `HostClock`, and each entry file imports it first.
-
-Imports evaluate before module bodies, and Effect's `Clock`, `Duration`, `Effect`, and `Layer` modules construct no encoder at load where the barrel does. Effect's default clock reads `process.hrtime.bigint`, a `number` in InDesign, at each span start, span end, and log inside a span, and throws "Cannot mix BigInt and other types". Every runtime and `run*` call in every host provides `HostClock`, and a `run*With` inside a host callback passes the caller's services on.
+Imports evaluate before the body of the module importing them, and Effect 4.0.5 constructs a `TextEncoder` while `encoding/Base64` loads, through the barrel and deep imports alike. `@rasm/uxp/encoding` imports nothing from Effect and assigns the encoding globals in its body, and each entry file imports it first as a bare import, which Biome import sorting keeps in place. Effect's default clock reads `process.hrtime.bigint`, a `number` in UXP, at each span start, span end, and log inside a span, and throws "Cannot mix BigInt and other types". Every runtime and `run*` call provides `HostClock` from `@rasm/uxp/runtime`, and a `run*With` inside a host callback passes the caller's services on.
 
 - Effect decodes with `{ stream: true }`, which an encoding package must implement
 - `structuredClone`, `Buffer`, `MessageChannel`, and `Worker` are absent in every host, and `require` of `util`, `buffer`, or a `node:` name throws
-- `fs` holds synchronous reads, writes, and `lstatSync` without `existsSync`, `appendFileSync`, `mkdirSync`, or `statSync`
-- `writeFileSync` reads its receiver, and code calls it on the module's default import
+- `fs` holds synchronous reads, writes, and `lstatSync` without `existsSync`, `appendFileSync`, `mkdirSync`, or `statSync`, and `writeFileSync` reads its receiver, called on the module's default import
 - `path` is a function with `resolve` and `basename`
 
 Bundles keep one form:
@@ -134,15 +130,19 @@ const bytes = (path: string): Effect.Effect<Uint8Array, FileError> =>
 
 Class, property, method, parameter, and enumeration facts come from the owner that states them for the installed build, and source holds no copy:
 
-| [INDEX] | [HOST]      | [OWNER]                                          | [READ]                                     |
-| :-----: | :---------- | :----------------------------------------------- | :----------------------------------------- |
-|  [01]   | Illustrator | `reflect` of the running host, `types-for-adobe` | `reflect.properties` rows, methods by name |
-|  [02]   | Acrobat     | `acrohelp` argument to a native method           | `HelpError.extMessage` per parameter       |
+| [INDEX] | [HOST]       | [OWNER]                                             | [READ]                                          |
+| :-----: | :----------- | :-------------------------------------------------- | :---------------------------------------------- |
+|  [01]   | InDesign     | `$.dictionary` of the running host                  | `getClass(<name>).toXML()` rows                 |
+|  [02]   | Photoshop    | `app.js` of the installed build, `@types/photoshop` | Syntax-tree read joined with its declaration    |
+|  [03]   | Premiere Pro | `ScriptingAPIManifest.json` and `api_config.json`   | `jq` read of the classes the allow-list exposes |
+|  [04]   | Illustrator  | `reflect` of the running host, `types-for-adobe`    | `reflect.properties` rows, methods by name      |
+|  [05]   | Acrobat      | `acrohelp` argument to a native method              | `HelpError.extMessage` per parameter            |
 
 - Acrobat's `extMessage` lists parameters as `name: type`, optional ones in brackets
 - AppleScript dictionaries hold AppleScript names and forms with method parameters missing or changed, and serve Apple event encoding alone
 - Typings can predate the installed build and rename parameters a host names by reserved words, and renamed parameters call correctly by position
 - Rejected calls complete each model: host errors name a parameter with its expected type and range, and whether a member applies now
+- Probes run as a preview or undoable unit, return failures as data, and leave no host dialog, test plug-in, registry row, or test document behind
 - Use `Skill(search-code)` for a declaration in `types-for-adobe` or `@types/photoshop`
 
 ## [05]-[HOST_ERRORS]
@@ -157,7 +157,7 @@ const Reason = Schema.TaggedUnion({
 class HostError extends Schema.TaggedError<HostError, { readonly brand: unique symbol }>()('HostError', { reason: Reason }) {
     override get message(): string {
         return Reason.match(this.reason, {
-            Absent: ({ subject, candidates }) => Array.join([`No ${subject}`, ...candidates], ', '),
+            Absent: ({ subject, candidates }) => [`No ${subject}`, ...candidates].join(', '),
             Rejected: ({ field, cause }) => `${field}: ${Formatter.format(cause)}`,
         });
     }
@@ -184,7 +184,7 @@ const lenient = flow(
 );
 ```
 
-Decode, lookup, and write stop at their first failure, while field writes run to their last element and fail with `NonEmptyArray<HostError>`, one `Rejected` per refused field. `names` runs on the failure path alone. `Object.assign` sets through the host's setter and throws on a refusal that `Reflect.set` returns as `false`. `catchReason` in `lenient` recovers `Absent` alone, and `SchemaError` and `Rejected` stay on the error channel.
+Decode, lookup, and write stop at their first failure, while field writes run to their last element and fail with `NonEmptyArray<HostError>`, one `Rejected` per refused field. `names` runs on the failure path alone. `Object.assign` throws for every refused write, where `Reflect.set` returns `false` for a getter-only member and `true` for a key the object lacks. `catchReason` in `lenient` recovers `Absent` alone, and `SchemaError` and `Rejected` stay on the error channel.
 
 - `catch` builds its reason from arguments of the failed call, and `Schema.Defect()` keeps the thrown value typed until a view renders it
 - `message` is a getter over the reason, a stored `message` field replaces the rendered text and drops every other field from it
@@ -235,7 +235,8 @@ Each host groups changes into one undo step through one primitive, and every sta
 
 - One primitive call holds one user-visible change, and its name is the text a user reads in the undo menu
 - Bodies hold host calls alone, and network, file, and decode work finishes before a body starts and enters as values
-- Values and typed failures leave a body as data, and a throw inside an InDesign or Photoshop body selects its host's rollback
+- Values and typed failures leave a body as data, and a throw rolls back an InDesign body
+- Photoshop rolls back a throwing body under an open history suspension alone, and Premiere Pro executes the actions added before the throw
 - Awaited work inside a synchronous body runs after its unit closed, where a later rejection rolls back no change
 - Reads that need no undo step run outside every primitive where their host allows
 
@@ -245,12 +246,12 @@ Each host entry translates one `Exit` into that entry's host form:
 
 | [INDEX] | [ENTRY]                        | [HOST_FORM]                                                   |
 | :-----: | :----------------------------- | :------------------------------------------------------------ |
-|  [01]   | Plug-in `main` module          | Builds one `ManagedRuntime`, runs no effect at import         |
+|  [01]   | Plug-in `main` module          | Forks `Layer.launch` at load or builds one `ManagedRuntime`   |
 |  [02]   | `entrypoints.setup`            | One call per plug-in with `plugin`, `panels`, and `commands`  |
 |  [03]   | Panel `create`, `show`, `hide` | Forks its work and returns inside a 300 ms default timeout    |
 |  [04]   | Command `run`                  | Promise resolved on success, rejected with the squashed cause |
 
-Hosts log a rejected command and show nothing. One registration runs every command through one runtime and renders each outcome:
+Hosts show nothing for a rejected command, and Photoshop logs nothing for it. One registration runs every command through one runtime and renders each outcome:
 
 ```ts
 import { entrypoints } from 'adobe:uxp';
@@ -277,23 +278,28 @@ const registered = <R, ER, E>(
 
 `@adobe-uxp-types/uxp` merges the `setup` parameter with `entrypoints`, which a handler record fails for lacking `getCommand`, `getPanel`, `setup`, and `_pluginInfo`. `satisfies` checks each handler against the declared `plugin` and `commands` members, and `Reflect.apply` calls the untyped overload with `entrypoints` as receiver. `Effect.onExit` renders every failed `Exit` through `Cause.pretty` before `runPromise` rejects with the squashed cause. `create` builds every layer at load, and `dispose` closes every scope they opened.
 
-- `setup` throws for a `plugin` record without `create` and for a command or panel key its manifest lacks
+- Session plug-ins run `Layer.launch(<layer>).pipe(Effect.provide(HostClock), Effect.runFork)` at load, the layer rendering its state into `document.body`
+- `setup` throws for a `plugin` record without `create`, for a command or panel key its manifest lacks, and after one successful call
 - Panel handlers receive their root node: `create(rootNode)`, `show(rootNode, data)`, `hide(rootNode, data)`, `destroy(rootNode)`
-- `show` renders from state `main` built, and `hide` and `destroy` release nothing a later `show` needs, since hosts skip either
+- `main` builds every state a panel reads, since a host can run `main` at launch with no panel shown
+- `show` renders from state `main` built, and panel visibility reaches `document` as a `uxpcommand` event
 
 ## [09]-[MANIFESTS]
 
 One manifest serves one host application: `host.app` takes `ID`, `PS`, `premierepro`, or `ame` with a `minVersion`, `entrypoints` rows name a `panel` or `command` `id` with `label.default`, and each `requiredPermissions` key is a boundary its host enforces:
 
-| [INDEX] | [KEY]                             | [GRANTS]                                | [WITHOUT]                        |
-| :-----: | :-------------------------------- | :-------------------------------------- | :------------------------------- |
-|  [01]   | `network.domains`                 | Dial and fetch to each listed origin    | Dial throws a manifest denial    |
-|  [02]   | `localFileSystem: "fullAccess"`   | `fs` on absolute paths and `file:` URLs | `fs` throws "Route not found"    |
-|  [03]   | `allowCodeGenerationFromStrings`  | `new Function` over supplied source     | String compilation stays off     |
-|  [04]   | `featureFlags.unhandledRejection` | `unhandledrejection` events             | Rejection logged, no caller told |
+| [INDEX] | [KEY]                             | [GRANTS]                                | [WITHOUT]                                      |
+| :-----: | :-------------------------------- | :-------------------------------------- | :--------------------------------------------- |
+|  [01]   | `network.domains`                 | Dial and fetch to each listed origin    | Dial throws a manifest denial                  |
+|  [02]   | `localFileSystem: "fullAccess"`   | `fs` on absolute paths and `file:` URLs | `fs` throws "Route not found"                  |
+|  [03]   | `allowCodeGenerationFromStrings`  | `eval` and `new Function` in Photoshop  | `EvalError`, InDesign and Premiere Pro compile |
+|  [04]   | `featureFlags.unhandledRejection` | `unhandledrejection` events             | Rejection logged, no caller told               |
 
 - `plugin-temp:` reads and writes the folder `getTemporaryFolder()` returns under every permission level, and `plugin:` is read-only
 - Storage providers hold no `unlinkSync`, and code releases a temporary file by overwriting it
 - Host-native writes take a folder's `nativePath`, and `fs` reads that file back under its scheme
 - `domains` entries name a host with a top-level domain or `localhost`, and an IP literal entry is discarded
-- Packaged plug-ins are `.ccx` zips, one per host, with `manifest.json` at their root
+
+Packaged plug-ins are `.ccx` zips, one per host, with `manifest.json` at their root. `UnifiedPluginInstallerAgent --install <file>.ccx` installs into the release hosts Adobe's installer serves, and a Beta host loads a plug-in folder through a registry row written beside it:
+- Row `path` reads `$localPlugins/External/<folder>`, a folder under `UXP/Plugins/External`
+- Plug-in data sits under `UXP/PluginsStorage/<product>/<major>/External/<pluginId>/PluginData`

@@ -4,16 +4,23 @@ language: python
 arguments: [name]
 utils:
     builtin-names:
-        regex: '\b(getattr|setattr|delattr|hasattr|dir)\b'
+        regex: '^(getattr|setattr|delattr|hasattr|dir)$'
     inspect-names:
-        regex: '\b(getattr_static|getmembers(_static)?)\b'
+        regex: '^(getattr_static|getmembers(_static)?)$'
     reference:
         any:
             - matches: {python-builtin-name: {name: {all: [{matches: builtin-names}, {matches: name}]}}}
-            - matches: {python-member-use: {module: {regex: '^inspect$'}, name: {all: [{matches: inspect-names}, {matches: name}]}}}
+            - all:
+                - any:
+                    - {kind: attribute, has: {field: attribute, all: [{matches: inspect-names}, {matches: name}]}}
+                    - {kind: identifier, all: [{matches: inspect-names}, {matches: name}]}
+                - inside: {kind: module, stopBy: end, regex: '\binspect\b'}
+                - matches: {python-member-use: {module: {regex: '^inspect$'}, name: {all: [{matches: inspect-names}, {matches: name}]}}}
+            - matches: {python-import-alias: {module: {regex: '^inspect$'}, name: {all: [{matches: inspect-names}, {matches: name}]}, source: {regex: '\b(getattr_static|getmembers(_static)?)\s+as\s'}}}
 rule:
-    all:
-        - inside: {kind: module, stopBy: end, any: [{matches: builtin-names}, {matches: inspect-names}]}
-        - any:
-            - matches: reference
+    any:
+        - matches: reference
+        - all:
+            - kind: identifier
+            - inside: {kind: module, stopBy: end, regex: '(?m)=\s*(?:\w+\.)?(getattr|setattr|delattr|hasattr|dir|getattr_static|getmembers(_static)?)\b\s*(?:[^\s(]|$)'}
             - matches: {python-assigned-name: {value: {matches: reference}}}

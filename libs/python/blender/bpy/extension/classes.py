@@ -34,7 +34,7 @@ class Classes(msgspec.Struct, frozen=True, kw_only=True):
                 frozenset(
                     prop.keywords["type"]
                     for prop in get_type_hints(cls).values()
-                    if isinstance(prop, bpy.props._PropertyDeferred) and prop.function in {bpy.props.PointerProperty, bpy.props.CollectionProperty}  # ruff: ignore[private-member-access]
+                    if isinstance(prop, bpy.props._PropertyDeferred) and prop.function in {bpy.props.PointerProperty, bpy.props.CollectionProperty}
                 )
                 | frozenset(Option.of_optional(vars(cls).get("bl_parent_id")).bind(lambda parent: Option.of_optional(panels.get(parent))).to_list())
             ]

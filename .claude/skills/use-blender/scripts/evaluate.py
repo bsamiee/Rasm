@@ -1,6 +1,6 @@
 """Run Blender with given arguments in a fresh `.artifacts/blender/evaluate/<name>/` tree of relocated user folders."""
 
-from itertools import chain
+from itertools import takewhile
 import os
 from pathlib import Path
 import shutil
@@ -9,6 +9,7 @@ import sys
 from typing import Annotated
 
 from cyclopts import App, Parameter
+from cyclopts.types import ResolvedExistingFile
 from expression import Result
 from expression.extra.result import catch
 
@@ -38,7 +39,7 @@ def tree(name: str) -> Result[Path, Failure]:
         folder = ROOT / ".artifacts" / "blender" / "evaluate" / name
         shutil.rmtree(folder, ignore_errors=True)
         for child in FOLDERS.values():
-            (folder / child).mkdir(parents=True, exist_ok=True)
+            (folder / child).mkdir(parents=True)
         return folder
 
     return catch(made, exception=OSError)()
@@ -51,57 +52,56 @@ def recorded(folder: Path, done: subprocess.CompletedProcess[bytes]) -> subproce
     return done
 
 
-def launched(folder: Path, command: tuple[str, ...]) -> Result[subprocess.CompletedProcess[bytes], Failure]:
-    """One windowless child process from the repository root with every `FOLDERS` variable naming its folder in the tree, its merged output appended to `blender.log`."""
-
-    def run() -> subprocess.CompletedProcess[bytes]:
-        environment = os.environ | {variable: str(folder / child) for variable, child in FOLDERS.items()}
-        return recorded(folder, subprocess.run(command, cwd=ROOT, env=environment, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False))
-
-    return catch(run, exception=OSError)()
+def launched(folder: Path, environment: dict[str, str], command: tuple[str | Path, ...]) -> Result[subprocess.CompletedProcess[bytes], Failure]:
+    """One windowless child process from the repository root with the given variables over the process environment, its merged output appended to `blender.log`."""
+    return catch(lambda: recorded(folder, subprocess.run(command, cwd=ROOT, env=os.environ | environment, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False)), exception=OSError)()
 
 
-def opened(folder: Path, blender: str, arguments: tuple[str, ...]) -> Result[subprocess.CompletedProcess[bytes], Failure]:
+def opened(folder: Path, environment: dict[str, str], blender: Path, arguments: tuple[str, ...]) -> Result[subprocess.CompletedProcess[bytes], Failure]:
     """Start one GUI through `open` as a launchd job of its own and wait for it to quit.
 
     LaunchServices ties an application instance to every process of the launchd job it started in, and Dock's quit of that instance signals them all.
 
     Args:
-        folder: Tree whose `FOLDERS` variables reach the GUI as `--env` values.
+        folder: Tree holding the GUI's merged output.
+        environment: Variables reaching the GUI as `--env` values, `open` passing no other variable of the caller.
         blender: Blender executable inside its application bundle.
         arguments: Blender arguments.
 
     Returns:
         `open`'s exit code with its output and the GUI's merged output, appended to `blender.log`, or the launch or read error.
     """
+    output = folder / "gui.log"
+    pairs = (*("--env", f"{variable}={value}") for variable, value in environment.items())
+    command = ("/usr/bin/open", "-n", "-g", "-W", "-a", str(blender.parents[2]), *pairs, "--stdout", str(output), "--stderr", str(output), "--args", *arguments)
 
-    def run() -> subprocess.CompletedProcess[bytes]:
-        output = folder / "gui.log"
+    def gui() -> subprocess.CompletedProcess[bytes]:
         output.touch()
-        variables = chain.from_iterable(("--env", f"{variable}={folder / child}") for variable, child in FOLDERS.items())
-        command = ("/usr/bin/open", "-n", "-g", "-W", "-a", blender.removesuffix("/Contents/MacOS/Blender"), *variables, "--stdout", str(output), "--stderr", str(output), "--args", *arguments)
         started = subprocess.run(command, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False)
         return recorded(folder, subprocess.CompletedProcess(started.args, started.returncode, started.stdout + output.read_bytes()))
 
-    return catch(run, exception=OSError)()
+    return catch(gui, exception=OSError)()
 
 
-def provisioned(folder: Path, blender: str) -> Result[Path, Failure]:
+def provisioned(folder: Path, environment: dict[str, str], blender: Path) -> Result[Path, Failure]:
     """Tree whose user `scripts/modules` folder, first on Blender's `sys.path` and untouched by its extension wheel sync, holds the distributions `fitout pack` bundles as wheels."""
     return (
-        launched(folder, (sys.executable, "-m", "eng.python.fitout", "site", "--blender", blender, str(folder / FOLDERS["BLENDER_USER_SCRIPTS"] / "modules")))
+        launched(folder, environment, (sys.executable, "-m", "eng.python.fitout", "site", "--blender", blender, folder / FOLDERS["BLENDER_USER_SCRIPTS"] / "modules"))
         .bind(lambda done: catch(done.check_returncode, exception=subprocess.CalledProcessError)())
         .map(lambda _: folder)
     )
 
 
-def run(name: str, /, *arguments: str, blender: Annotated[str, Parameter(env_var="BLENDER_PATH")] = "blender") -> Result[int, Failure]:
-    """Run one Blender process with the arguments in a fresh tree, a headless child with `--background` and a GUI through `open` without it.
+def run(
+    name: str, /, *arguments: str, blender: Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")], pycache: Annotated[Path, Parameter(env_var="PYTHONPYCACHEPREFIX")]
+) -> Result[int, Failure]:
+    """Run one Blender process with `--python-use-system-env` ahead of the arguments in a fresh tree, a headless child with `-b` or `--background` before any `--` and a GUI through `open` without it.
 
     Args:
         name: Tree folder under `.artifacts/blender/evaluate/`.
         arguments: Blender arguments, after `--` when one opens with `-`.
         blender: Blender executable, supplied by BLENDER_PATH.
+        pycache: Bytecode cache folder for Blender's Python, supplied by PYTHONPYCACHEPREFIX.
 
     Returns:
         Exit code of a headless Blender or of a GUI's `open` with the merged output printed, or the filesystem, launch, or package install error.
@@ -112,9 +112,12 @@ def run(name: str, /, *arguments: str, blender: Annotated[str, Parameter(env_var
         return done.returncode
 
     def started(folder: Path) -> Result[subprocess.CompletedProcess[bytes], Failure]:
-        return launched(folder, (blender, *arguments)) if "--background" in arguments or "-b" in arguments else opened(folder, blender, arguments)
+        environment = {variable: str(folder / child) for variable, child in FOLDERS.items()} | {"PYTHONPYCACHEPREFIX": str(pycache)}
+        given = ("--python-use-system-env", *arguments)
+        background = not {"-b", "--background"}.isdisjoint(takewhile(lambda argument: argument != "--", arguments))
+        return provisioned(folder, environment, blender).bind(lambda _: launched(folder, environment, (blender, *given)) if background else opened(folder, environment, blender, given))
 
-    return tree(name).bind(lambda folder: provisioned(folder, blender)).bind(started).map(shown)
+    return tree(name).bind(started).map(shown)
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
@@ -126,7 +129,7 @@ def exited(result: Result[int, Failure]) -> int:
         case Result(tag="ok", ok=code):
             return code
         case Result(error=error):
-            sys.stderr.write(f"{error!r}\n")
+            sys.stderr.write(f"{error}\n")
             return 1
 
 

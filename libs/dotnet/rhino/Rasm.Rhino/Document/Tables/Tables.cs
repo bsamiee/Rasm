@@ -251,11 +251,11 @@ public static class TableOps {
     public static IO<T> Find<T>(RhinoDocCommonTable<T> table, ComponentRef<T> address, bool includeDeleted) where T : ModelComponent =>
         IO.lift(() => address.Switch(
                 table,
-                byId: static (rows, byId) => Fin.Succ(Optional(rows.Document.Manifest.FindId<T>(byId.Id))),
-                byIndex: static (rows, byIndex) => Fin.Succ(Optional(rows.Document.Manifest.FindIndex<T>(byIndex.Index))),
-                byName: static (rows, byName) =>
+                byId: static (rows, byId) => Optional(rows.Document.Manifest.FindId<T>(byId.Id)),
+                byIndex: static (rows, byIndex) => Optional(rows.Document.Manifest.FindIndex<T>(byIndex.Index)),
+                byName: static Fin<Option<T>> (rows, byName) =>
                     ModelComponent.ModelComponentTypeRequiresUniqueName(rows.ComponentType) && !ModelComponent.ModelComponentTypeIncludesParent(rows.ComponentType)
-                        ? Fin.Succ(Optional(rows.Document.Manifest.FindName<T>(byName.Name, Guid.Empty)))
+                        ? Optional(rows.Document.Manifest.FindName<T>(byName.Name, Guid.Empty))
                         : Error.New($"{rows.ComponentType} names do not identify one row"))
             .Bind(found => found.Filter(row => includeDeleted || !row.IsDeleted).ToFin(new NotFound($"{table.ComponentType}", $"{address}"))));
 
@@ -285,8 +285,8 @@ public static class TableOps {
         from modified in DisposalOps.Within(() => kind.Copy(live), staged => edit(staged).Bind(_ => Modified(doc, kind, staged, live.Index)))
         select modified;
 
-    public static Validation<Error, TablePlan<T, TSpec>> Plan<T, TSpec>(Seq<T> rows, TableSpec<TSpec> spec) where T : ModelComponent =>
-        from names in Success<Error, IEqualityComparer<string>>(Names<T>())
+    public static Fin<TablePlan<T, TSpec>> Plan<T, TSpec>(Seq<T> rows, TableSpec<TSpec> spec) where T : ModelComponent =>
+        from names in Fin.Succ(Names<T>())
         from named in Callbacks.Unique(spec.Rows, static row => row.Name, nameof(ModelComponent.Name), names)
         let held = rows.ToLookup(static row => row.Name, names)
         let wanted = named.ToLookup(static row => row.Name, names)

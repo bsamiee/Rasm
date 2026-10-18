@@ -22,7 +22,7 @@ utils:
                             kind: struct_expression
                             all:
                                 - has: {field: name, regex: '^Self$'}
-                                - has: {field: body, all: [{has: {kind: field_initializer, has: {field: value, matches: stored-value}}}, {has: {kind: base_field_initializer, regex: '^\.\.\s*self$'}}, {not: {has: {nthChild: 3}}}]}
+                                - has: {field: body, all: [{has: {any: [{kind: field_initializer, has: {field: value, matches: stored-value}}, {kind: shorthand_field_initializer, pattern: $V}]}}, {has: {kind: base_field_initializer, regex: '^\.\.\s*self$'}}, {not: {has: {nthChild: 3}}}]}
                         - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
 rule:
     kind: impl_item
@@ -39,4 +39,4 @@ labels:
     B: {style: primary, message: 'Builder written by hand'}
     BUILD: {style: secondary, message: 'Builds the value'}
 message: '`$B` sets each member through a hand-written setter before `$BUILD`'
-note: 'Derive `bon::Builder` on the built type, or put `#[bon::builder]` on its constructor, and delete the builder'
+note: 'Give the built record field defaults (`port: u16 = 8080`) and build it as a struct literal (`Server { host, .. }`), or put `#[bon::builder]` on a function taking several optional arguments, and delete the builder'

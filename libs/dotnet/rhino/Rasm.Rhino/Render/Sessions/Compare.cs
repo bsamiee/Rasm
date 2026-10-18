@@ -67,9 +67,9 @@ public sealed record ComparisonSettingRows(
     public Seq<Child> Children => [new ControlRow.Group("Render comparison", RowRules.Always) { Wording = Wording.Library }, .. Levels.Bind(static row => SectionRows.Setting(row, RowRules.Always))];
 
     public IO<ComparisonBars> Bars(ISettingReader node) =>
-        (node.Current(PsnrAdvisory), node.Current(PsnrRefuse), node.Current(NrmseAdvisory), node.Current(NrmseRefuse))
+        IO.lift(() => (node.Current(PsnrAdvisory), node.Current(PsnrRefuse), node.Current(NrmseAdvisory), node.Current(NrmseRefuse))
             .Apply(static (psnrAdvisory, psnrRefuse, nrmseAdvisory, nrmseRefuse) => new ComparisonBars(new Bar(psnrAdvisory, psnrRefuse), new Bar(nrmseAdvisory, nrmseRefuse)))
-            .As();
+            .As());
 
     private Seq<PlugInSetting<BarLevel, double>> Levels => [PsnrAdvisory, PsnrRefuse, NrmseAdvisory, NrmseRefuse];
 }
@@ -103,7 +103,7 @@ public sealed class RenderingComparison : IDisposable {
             started = new(
                 new(() => new Disposal<ForkIO<Unit>>(
                     IO.liftAsync(environment => Task.Factory.StartNew(() => FrameComparison.Of(reference, test), environment.Token, TaskCreationOptions.None, scheduler))
-                        .Bind(static measured => IO.lift(() => measured))
+                        .Bind(IO.lift)
                         .Bind(measured => Result.SwapIO(_ => Some(measured)))
                         .Map(unit)
                         .Catch(error => IO.lift(() => sink.Report(error, typeof(RenderingComparison), nameof(Measures))))

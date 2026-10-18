@@ -42,8 +42,8 @@ public sealed partial class GlyphRole : IGlyph {
     public static readonly GlyphRole Flip = new("flip");
     public static readonly GlyphRole Grid = new("grid");
     public static readonly GlyphRole List = new("list");
-    public static readonly GlyphRole FavouriteOn = new("favourite-on");
-    public static readonly GlyphRole FavouriteOff = new("favourite-off");
+    public static readonly GlyphRole FavoriteOn = new("favorite-on");
+    public static readonly GlyphRole FavoriteOff = new("favorite-off");
 }
 
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
@@ -146,13 +146,10 @@ public static class Icons {
                 held.Add(bitmap);
                 return new Eto.Drawing.IconFrame(scale, bitmap);
             }).Strict())).Run();
-            return icon.BindFail(error => {
-                Validation<Error, Seq<Unit>> released = toSeq(held).Rev().Traverse(static bitmap => Try.lift(() => {
-                    bitmap.Dispose();
-                    return unit;
-                }).Run().ToValidation()).As();
-                return released.Match<Fin<Eto.Drawing.Icon>>(Fail: fault => error + fault, Succ: _ => error);
-            });
+            return icon.BindFail(error => toSeq(held).Rev()
+                .Traverse(static bitmap => Try.lift(fun(bitmap.Dispose)).Run())
+                .As()
+                .Match<Fin<Eto.Drawing.Icon>>(Succ: _ => error, Fail: fault => error + fault));
         }), static icon => new(icon.Width, icon.Height)));
 
     private static readonly Func<(Assembly Assembly, Eto.Drawing.Color Ink), ResourceImages<Eto.Drawing.Bitmap>> EtoRasters =
@@ -171,10 +168,9 @@ public static class Icons {
     }
 
     public static IO<Unit> Themed(IPlugInSink plugIn, (IGlyph Glyph, int Master) source, IconSlot slot, HostEvent<Unit> changes, Action<Eto.Drawing.Icon> write, Action<IDisposable> retain) =>
-        from written in IO.pure(Frames(source, slot).Bind(icon => IO.lift(() => write(icon))))
-        from _ in written
-        from subscription in changes.Inline(__ => written, plugIn, retain)
-        select subscription;
+        Frames(source, slot).Bind(icon => IO.lift(() => write(icon))) switch {
+            var written => written.Bind(_ => changes.Inline(_ => written, plugIn, retain)),
+        };
 
     public static IO<Cursor> PickCursor(Action<Cursor> retain) =>
         Frames((GlyphRole.Pick, IconSlot.Cursor.Master), IconSlot.Cursor)

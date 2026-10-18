@@ -1,0 +1,50 @@
+using System;
+using LanguageExt;
+using LanguageExt.Common;
+using static LanguageExt.Prelude;
+
+internal static class CallbackReturn {
+    internal static R Switch<R>(int value, Func<int, R> positive, Func<int, R> negative) => value > 0 ? positive(value) : negative(value);
+    internal static Fin<int> Switched(int value) => Switch(value, static held => Fin.Succ(held), static _ => Error.New("negative"));
+    internal static Fin<int> Matched(Option<int> value) => value.Match(Some: static held => Fin.Succ(held), None: static () => Error.New("none"));
+}
+
+internal static class ConvertedArm {
+    internal static Validation<Error, Unit> Checked(bool held) => held ? unit : Error.New("refused");
+    internal static Fin<int> Arm(int count) => count switch { > 0 => count, _ => Error.New("empty") };
+    internal static Validation<Error, int> Paired(bool held, int value) => (held ? Fin.Succ(value) : Error.New("refused")).ToValidation();
+    internal static Validation<Error, int> Resolved(bool held, Fin<int> value) => (held ? value : Error.New("refused")).ToValidation();
+    internal static Validation<Error, int> Armed(int count, Fin<int> value) => (count switch { > 0 => value, _ => count }).ToValidation();
+}
+
+internal static class SiblingArm {
+    internal static Fin<Option<int>> Split(int count, Fin<Option<int>> valid, bool cancelled) =>
+        (count switch {
+            0 when cancelled => Error.New("cancelled"),
+            0 => Option<int>.None,
+            1 => new Expected("absent", 1, None),
+            _ => valid,
+        }).Map(static held => held);
+    internal static Fin<int> Pinned(bool held, int pinned, Fin<int> found) => (held ? pinned : found.Map(static value => value + 1)).Map(static value => value * 2);
+    internal static Fin<int> Merged(Fin<int> solved, Fin<int> value) =>
+        solved.Match(Succ: _ => value, Fail: error => value.Match(Succ: _ => Fin.Fail<int>(error), Fail: fault => error + fault));
+}
+
+internal static class DefaultedArm {
+    internal static Fin<int> Unset(int count) => count switch { > 0 => (Fin<int>)count, _ => default };
+    internal static Validation<Error, int> Typed(bool held, int value) => (held ? Fin.Succ(value) : Error.New("refused")).ToValidation();
+    internal static Validation<Error, int> Defaulted(int count) => (count switch { > 0 => default, _ => Fin.Succ(count) }).ToValidation();
+}
+
+internal static class InferredCallback {
+    internal static IO<Unit> Lifted(bool held) => IO.lift(() => held ? Fin.Succ(unit) : Error.New("refused"));
+    internal static Func<int, Fin<int>> Wrapped() => fun(static (int held) => Fin.Succ(held));
+}
+
+internal static class InferredLocal {
+    internal static Fin<int> Held(int value) {
+        var held = Fin.Succ(value);
+        return held;
+    }
+    internal static Fin<int> Inferred(Fin<int> start) => start.Bind(value => Fin.Succ(value + 1));
+}

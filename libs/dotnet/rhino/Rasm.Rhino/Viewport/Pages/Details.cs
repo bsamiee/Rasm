@@ -107,7 +107,7 @@ public static class Details {
             distribute: static (state, distribute) => Spaced(distribute.Axis, state.Region, distribute.Ids.Map(id => (Id: id, Frame: state.Frames[id]))));
 
     public static IO<Seq<Guid>> Arrange(RhinoDoc doc, BoundingBox region, Arrangement arrangement) =>
-        from ids in IO.lift(Callbacks.Unique(arrangement.Details, identity, nameof(Arrange)).ToFin())
+        from ids in IO.lift(Callbacks.Unique(arrangement.Details, identity, nameof(Arrange)))
         from frames in ids.TraverseM(id => Viewports.ResolveDetail(doc, id).Bind(detail => IO.lift(() => Geometry(detail).Map(geometry => (Key: id, Value: geometry.GetBoundingBox(accurate: true)))))).As()
         from moved in Offsets(region, arrangement, toHashMap(frames)).Filter(static row => !row.Offset.IsZero).TraverseM(row =>
             TableOps.Apply(doc, new TableOp.Move(new ObjectTarget.Ids(Seq(row.Id)), Transform.Translation(row.Offset), new TransformMode.Move(DeleteOriginal: true)))).As()

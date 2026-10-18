@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-cause-only-error
+language: tsx
+severity: error
+utils:
+    cause-type:
+        kind: object_type
+        all:
+            - has: {kind: property_signature, has: {field: name, regex: '^cause$'}}
+            - not: {has: {nthChild: 2}}
+    cause-fields:
+        kind: object
+        all:
+            - has: {any: [{kind: pair, has: {field: key, regex: '^cause$'}}, {kind: shorthand_property_identifier, regex: '^cause$'}]}
+            - not: {has: {nthChild: 2}}
+    cause-heritage:
+        matches: effect-error-heritage
+        any:
+            - has: {field: type_arguments, has: {nthChild: 1, matches: cause-type}, not: {has: {nthChild: 2}}}
+            - has:
+                field: value
+                kind: call_expression
+                all:
+                    - has: {field: function, kind: call_expression}
+                    - has: {field: arguments, has: {nthChild: {position: 1, reverse: true}, any: [{matches: cause-fields}, {matches: cause-reason}]}}
+    cause-reason:
+        kind: object
+        all:
+            - has: {kind: pair, all: [{has: {field: key, regex: '^reason$'}}, {has: {field: value, kind: identifier, pattern: $REASON}}]}
+            - not: {has: {nthChild: 2}}
+            - inside:
+                kind: program
+                stopBy: end
+                has:
+                    kind: lexical_declaration
+                    has:
+                        kind: variable_declarator
+                        all:
+                            - has: {field: name, pattern: $REASON}
+                            - has:
+                                field: value
+                                kind: call_expression
+                                all:
+                                    - has: {field: function, matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^TaggedUnion$'}}}}
+                                    - has: {field: arguments, has: {nthChild: 1, kind: object, all: [{has: {kind: pair, has: {field: value, matches: cause-fields}}}, {not: {has: {nthChild: 2}}}]}}
+    message-getter:
+        kind: method_definition
+        all:
+            - has: {regex: '^get$'}
+            - has: {field: name, regex: '^message$'}
+    value-reference:
+        kind: identifier
+        pattern: $NAME
+        not:
+            any:
+                - inside: {kind: new_expression, field: constructor}
+                - inside: {kind: member_expression, field: object, has: {field: property, regex: '^make$'}}
+rule:
+    kind: class_declaration
+    all:
+        - has: {field: name, pattern: $NAME}
+        - has: {field: body, not: {has: {pattern: $_, not: {matches: message-getter}}}}
+        - has: {kind: class_heritage, has: {matches: cause-heritage}}
+        - has: {kind: class_heritage, has: {stopBy: end, kind: string_fragment, pattern: $TAG}}
+        - not: {inside: {kind: export_statement}}
+        - not:
+            inside:
+                kind: program
+                stopBy: end
+                has:
+                    stopBy: end
+                    any:
+                        - matches: value-reference
+                        - {kind: string_fragment, pattern: $TAG, not: {inside: {kind: class_heritage, stopBy: end}}}
+message: '`$NAME` adds a tag to the `cause` it holds and nothing else'
+note: 'Pass the thunk alone to `Effect.tryPromise` or `Effect.try`, which fail with `Cause.UnknownError` holding the rejection as `cause`, and let a typed failure through unwrapped'
+labels: {NAME: {style: primary}}

@@ -71,10 +71,9 @@ public sealed partial class FrameSpan {
     public Option<TimeSpan> Time(SequenceNumber frame) => Named(frame).Map(static number => TimeSpan.FromSeconds((int)number / Rate));
 
     public static Fin<FrameSpan> Of(int first, int last) =>
-        (SequenceNumber.Validated(first).ToValidation(), SequenceNumber.Validated(last).ToValidation())
+        (SequenceNumber.Validated(first), SequenceNumber.Validated(last))
             .Apply(static (from, until) => (From: from, Until: until))
             .As()
-            .ToFin()
             .Bind(static span => ValidationResults.ToFin(Validate(span.From, span.Until, out FrameSpan? spanned), spanned));
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref SequenceNumber first, ref SequenceNumber last) =>
@@ -132,7 +131,7 @@ public sealed class QueuePlan {
     public Seq<QueueEntry<Unit>> Entries { get; }
 
     public static Fin<Seq<QueueEntry<TPath>>> Unique<TPath>(Seq<QueueEntry<TPath>> entries) =>
-        Callbacks.Unique(entries, static entry => entry.Key, nameof(QueuePlan)).ToFin();
+        Callbacks.Unique(entries, static entry => entry.Key, nameof(QueuePlan));
 
     public static Fin<QueuePlan> Create(Destination destination, Seq<QueueEntry<Unit>> entries) =>
         Unique(entries).Map(unique => new QueuePlan(destination, unique));
@@ -168,7 +167,7 @@ public sealed record QueueSettingRows(
         ShutDownAfterSuccess: new(ValueKey.Raw("ShutDownAfterSuccess", "Shut down when done", "Shuts the computer down 60 seconds after every queued render succeeds",
             QueueSettings.Default.ShutDownAfterSuccess), SettingType.Bool),
         HeartbeatInterval: new(ValueKey.Numeric("QueueHeartbeatInterval", "Heartbeat interval", "Time between queue heartbeat updates", QueueHeartbeat.Default.Interval,
-            new NumericDomain<Duration, double>(static seconds => Fin.Succ(Duration.FromSeconds(seconds)), static value => value.TotalSeconds,
+            new NumericDomain<Duration, double>(static seconds => Duration.FromSeconds(seconds), static value => value.TotalSeconds,
                 (QueueHeartbeat.Intervals.Low.TotalSeconds, QueueHeartbeat.Intervals.High.TotalSeconds), new() { Form = NumberForm.Field, Unit = Quantity.GetUnitInfo(DurationUnit.Second) })),
             SettingType.Double),
         HeartbeatMisses: new(ValueKey.Numeric("QueueHeartbeatMisses", "Missed heartbeats", "Missed heartbeat intervals before a queue is considered crashed", QueueHeartbeat.Default.Misses,
@@ -197,16 +196,16 @@ public sealed record QueueSettingRows(
     ];
 
     public IO<QueueSettings> Settings(ISettingReader reader) =>
-        (reader.Current(Retries), reader.Current(Delay), reader.Current(SampleEstimate),
-         reader.Current(KeepAwake), reader.Current(ShutDownAfterSuccess), reader.Current(HeartbeatInterval), reader.Current(HeartbeatMisses))
+        IO.lift(() => (reader.Current(Retries), reader.Current(Delay), reader.Current(SampleEstimate),
+                reader.Current(KeepAwake), reader.Current(ShutDownAfterSuccess), reader.Current(HeartbeatInterval), reader.Current(HeartbeatMisses))
             .Apply(static (retries, delay, sampled, awake, shutdown, interval, misses) =>
                 ValidationResults.ToFin(QueueHeartbeat.Validate(interval, misses, out QueueHeartbeat? heartbeat), heartbeat)
                     .Map(held => new QueueSettings(retries, delay, sampled, awake, shutdown, held)))
-            .As().Bind(IO.lift);
+            .As()
+            .Bind(static settings => settings));
 
     public IO<NoticeSettings> Notices(ISettingReader reader) =>
-        (reader.Current(Server), reader.Current(Topic))
-            .Apply(static (server, topic) => new NoticeSettings(server, topic)).As();
+        IO.lift(() => (reader.Current(Server), reader.Current(Topic)).Apply(static (server, topic) => new NoticeSettings(server, topic)).As());
 }
 
 public sealed record QueueContext(
@@ -311,58 +310,56 @@ public static class Queues {
     public static Fin<QueuePlan> Plan(OutputBook outputs, Option<string> savedDocument, Seq<(QueuedEntry Entry, RenderOverride Override)> entries) =>
         Destinations.Resolved(outputs.Destination, savedDocument).Bind(destination =>
             entries.Traverse(item =>
-                    item.Entry.Name.Traverse(NamePart.Validated).As().ToValidation()
+                    item.Entry.Name.Traverse(NamePart.Validated).As()
                         .Bind(part => outputs.Named.Traverse(target =>
-                                FileExtension.Validated(target.Target.FileFormat.Extension).ToValidation()
+                                FileExtension.Validated(target.Target.FileFormat.Extension)
                                     .Map(extension => new QueueOutput<Unit>(target.Target, new OutputName(part.ToSeq(), new OutputVersioning.NextFree(), target.Parts, None, extension), unit)))
                             .As())
                         .Map(named => new QueueEntry<Unit>(item.Override, item.Entry.Source, item.Entry.Frames, item.Entry.Extent, item.Entry.Overscan,
                             item.Entry.Region, item.Entry.Sun, destination, named)))
-                .As().ToFin())
+                .As())
             .Bind(planned => QueuePlan.Create(outputs.Destination, planned));
 
     public static IO<QueuePlan> Plan(QueueContext context, RhinoDoc doc) =>
         from book in Book(doc)
         from outputs in TargetRows.Book(doc)
         from saved in IO.lift(() => Conversions.Present(doc.Path))
-        from entries in book.Entries.TraverseM(entry =>
-                Override(context, doc, entry.Set, entry.Clay).Map(held => (Entry: entry, Override: held)))
-            .As()
+        from entries in Callbacks.Each(book.Entries.Map(entry => Override(context, doc, entry.Set, entry.Clay).Map(held => (Entry: entry, Override: held))))
         from plan in IO.lift(Plan(outputs, saved, entries))
         select plan;
 
     // --- [RUN]
     public static IO<Unit> Run(QueueContext context, RhinoDoc doc, RenderBatch queue, Option<string> job, Option<QueueProgress> resumed) =>
         DisposalOps.Within<IDisposable, Unit>(retain =>
-        from lease in QueueProgress.Acquire(context.Record, retain)
-        from observed in QueueProgress.Observed(context)
-        let settings = observed.Settings
-        from free in IO.lift(observed.State.Switch(
-            absent: static _ => Fin.Succ(unit),
-            active: static active => Fin.Fail<Unit>(new PreflightFinding.QueueActive(active.ProcessId).Error),
-            ended: static _ => Fin.Succ(unit),
-            crashed: static _ => Fin.Succ(unit)))
-        from started in QueueProgress.Started(job, queue, resumed, settings)
-        from held in atomIO(started)
-        from began in IO.lift(context.Sink.Clock.GetTimestamp)
-        from ran in DisposalOps.OnFailure(
-                    from written in QueueProgress.Write(context.Record, started)
-                    from now in IO.lift(context.Sink.Clock.GetCurrentInstant)
-                    from shown in context.Estimate.SwapIO(_ => QueueEstimate.Running(queue, started, None, now))
-                    from noticed in unless(resumed.IsSome, context.Notify(new QueueEvent.Started(queue.Entries.Count, queue.Frames))).As()
-                    from rendered in DisposalOps.Within<IDisposable, Unit>(acquired =>
-                        from beat in Heartbeat(context, settings.Heartbeat, acquired)
-                        from frames in Frames(context, doc, queue, held, resumed.IsNone && settings.SampleEstimate && queue.Entries.Count > 1)
-                        select frames, DisposalOps.Release) switch {
-                            var run => settings.KeepAwake ? MachinePower.HeldAwake(run) : run,
-                        }
-                    from closed in Closed(context, held, began, RunEnd.Succeeded, static (record, elapsed) => new QueueEvent.Complete(record.Landed, elapsed))
-                    select rendered,
-                error => Stopping(error)
-                    ? Closed(context, held, began, RunEnd.Stopped, static (record, _) => new QueueEvent.Stopped(record.Landed))
-                    : Closed(context, held, began, RunEnd.Failed, (_, _) => new QueueEvent.Failed(error)))
-            .Bind(_ => when(settings.ShutDownAfterSuccess, MachinePower.ShutDown).As())
-        select unit, DisposalOps.Release);
+            from lease in QueueProgress.Acquire(context.Record, retain)
+            from observed in QueueProgress.Observed(context)
+            let settings = observed.Settings
+            from free in IO.lift(observed.State.Switch(
+                absent: static _ => Fin.Succ(unit),
+                active: static active => new PreflightFinding.QueueActive(active.ProcessId).Error,
+                ended: static _ => unit,
+                crashed: static _ => unit))
+            from started in QueueProgress.Started(job, queue, resumed, settings)
+            from held in atomIO(started)
+            from began in IO.lift(context.Sink.Clock.GetTimestamp)
+            from ran in DisposalOps.OnFailure(
+                        from written in QueueProgress.Write(context.Record, started)
+                        from now in IO.lift(context.Sink.Clock.GetCurrentInstant)
+                        from shown in context.Estimate.SwapIO(_ => QueueEstimate.Running(queue, started, None, now))
+                        from noticed in unless(resumed.IsSome, context.Notify(new QueueEvent.Started(queue.Entries.Count, queue.Frames))).As()
+                        from rendered in DisposalOps.Within<IDisposable, Unit>(acquired =>
+                            from beat in Heartbeat(context, settings.Heartbeat, acquired)
+                            from frames in Frames(context, doc, queue, held, resumed.IsNone && settings.SampleEstimate && queue.Entries.Count > 1)
+                            select frames, DisposalOps.Release) switch {
+                                var run => settings.KeepAwake ? MachinePower.HeldAwake(run) : run,
+                            }
+                        from closed in Closed(context, held, began, RunEnd.Succeeded, static (record, elapsed) => new QueueEvent.Complete(record.Landed, elapsed))
+                        select rendered,
+                    error => Stopping(error)
+                        ? Closed(context, held, began, RunEnd.Stopped, static (record, _) => new QueueEvent.Stopped(record.Landed))
+                        : Closed(context, held, began, RunEnd.Failed, (_, _) => new QueueEvent.Failed(error)))
+                .Bind(_ => when(settings.ShutDownAfterSuccess, MachinePower.ShutDown).As())
+            select unit, DisposalOps.Release);
 
     internal static bool Stopping(Error error) =>
         error.Is(Errors.Cancelled) || error.FoldM(static cause => cause is Ended ended ? Seq(ended.Result) : Seq<Result>()).As().Exists(static result => result is Result.ExitRhino);
@@ -403,13 +400,14 @@ public static class Queues {
         select ran, static owned => DisposalOps.Release(owned).OnUiThread());
 
     private static Seq<Func<Action<IDisposable>, IO<Unit>>> Listened(QueueContext context, Guid render, Atom<Heard> heard) =>
-        Seq<Func<Action<IDisposable>, IO<Unit>>>(
+        [
             retain => EventKind.BeginCommand.Inline(args => when(args.CommandId == render,
                 IO.lift(context.Sink.Clock.GetTimestamp).Bind(at => heard.SwapIO(_ => Heard.Empty with { Began = Some(at) })).Map(unit)).As(), context.Sink, retain),
             retain => EventKind.ImageFileSaved.Inline(args =>
                 IO.lift(context.Sink.Clock.GetTimestamp).Bind(at => heard.SwapIO(was => was with { Saved = Some((args, at)) })).Map(unit), context.Sink, retain),
             retain => EventKind.EndCommand.Inline(args => when(args.CommandId == render,
-                heard.SwapIO(was => was with { Ended = Some(args.CommandResult) }).Map(unit)).As(), context.Sink, retain));
+                heard.SwapIO(was => was with { Ended = Some(args.CommandResult) }).Map(unit)).As(), context.Sink, retain),
+        ];
 
     private static IO<Unit> Mailed(RunScope scope, bool sampled) =>
         DisposalOps.Within<IDisposable, Unit>(retain =>
@@ -570,11 +568,11 @@ public static class Queues {
             from record in IO.lift(() => OutputPath.Validated(Path.Combine(Directory.CreateDirectory(sink.PlugIn.SettingsDirectory).FullName, "render-queue.json")))
             from history in RenderHistory.Current.Of(sink)
             from commands in IO.lift(() => toSeq(sink.PlugIn.GetCommands()))
-            from named in IO.lift((Named<QueueJobCommand>(commands).ToValidation(), Named<QueueFarmJobCommand>(commands).ToValidation())
-                .Apply(static (job, farm) => (Job: job, Farm: $"_-{farm}")).As().ToFin())
+            from named in IO.lift((Named<QueueJobCommand>(commands), Named<QueueFarmJobCommand>(commands))
+                .Apply(static (job, farm) => (Job: job, Farm: $"_-{farm}")).As())
             from context in Acquire(record, settings.Settings(sink.Settings), sink, history.Bindings, Some(history),
-                new TrayRow(reveal.Caption, icon, Seq(Seq<MenuEntry>(new MenuEntry.Listed(reveal.Caption, IO.pure(Seq<MenuPick>(
-                    new MenuPick.Item(reveal.Caption, Marked: false, Showing.Open(reveal)))))))),
+                new TrayRow(reveal.Caption, icon, [[new MenuEntry.Listed(reveal.Caption, IO.pure(Seq<MenuPick>(
+                    new MenuPick.Item(reveal.Caption, Marked: false, Showing.Open(reveal)))))]]),
                 new NoticeOptions(settings.Notices(sink.Settings), Some(icon), Some(reveal)),
                 named.Job, named.Farm, acquired)
             from filled in QueueContext.Current.Publish(sink, context)
@@ -591,9 +589,6 @@ public static class Queues {
     private static readonly Func<Destination, IO<QueueTarget>> Local = static _ => IO.pure<QueueTarget>(new QueueTarget.Local());
 
     private static readonly Func<QueueContext, IO<Option<QueueProgress>>> Fresh = static _ => IO.pure(Option<QueueProgress>.None);
-
-    private static readonly Func<QueueContext, IO<Option<QueueProgress>>> Unfinished =
-        static context => QueueProgress.Read(context.Record).Map(static prior => prior.Filter(static record => !record.Succeeded));
 
     private static readonly (RowSource<Seq<QueuedEntry>> Source, RowField<Seq<QueuedEntry>> Field) Listed =
         RowSource.Opaque(Owner, "entries", Seq<QueuedEntry>(), static scope => ValueStore.Readout(scope.DocumentIO.Bind(Book).Map(static book => book.Entries), None));
@@ -626,12 +621,13 @@ public static class Queues {
         const string entryCaption = "Entry";
         const string count = "{0:N0}";
         const string bytes = "{0:N0} bytes";
-        Seq<(string Caption, string Format, Func<Preflight, Option<object>> Value)> measures = Seq<(string, string, Func<Preflight, Option<object>>)>(
+        Seq<(string Caption, string Format, Func<Preflight, Option<object>> Value)> measures = [
             ("Objects", count, static report => Some<object>(report.Statistics.ObjectCount)),
             ("Layer levels", count, static report => Some<object>(report.Statistics.LayerLevelCount)),
             ("Block placements", count, static report => Some<object>(report.Statistics.PlacementCount)),
             ("Geometry memory", bytes, static report => Some<object>(report.Statistics.MemoryEstimate)),
-            ("File size", bytes, static report => report.Statistics.FileLength.Map(static length => (object)length)));
+            ("File size", bytes, static report => report.Statistics.FileLength.Map(static length => (object)length)),
+        ];
         return [
             new ControlRow.Group("Entries", RowRules.Always) { Wording = Wording.Library },
             ListRows.List("Entries", "Renders of this document's queue, in add order", new ListRow<QueuedEntry, QueuedEntry>(
@@ -654,7 +650,7 @@ public static class Queues {
                             from picked in scope.Read(Picked.Source)
                             from removed in Change(doc, RowText.Localize("Remove Entries"), was => was.Removed(picked))
                             select unit))),
-                Commands = _ => Seq<CommandRow>(
+                Commands = _ => [
                     new CommandRow.Run(Face("render-queue-add-named-views", "Add Named Views", "Queue every named view of the document"), None, static scope => Added(scope, NamedViewEntries)),
                     new CommandRow.Run(Face("render-queue-add-snapshots", "Add Snapshots", "Queue every snapshot of the document"), None, static scope => Added(scope, SnapshotEntries)),
                     new CommandRow.Run(Face("render-queue-add-sets", "Add Render Sets", "Queue every render set that renders"), None, static scope => Added(scope, SetEntries)),
@@ -670,11 +666,12 @@ public static class Queues {
                     new CommandRow.Run(Face("render-queue-flamenco", "Submit to Flamenco", "Package the queue and submit it to the configured Flamenco Manager"), Some(ready),
                         scope => Sent(scope, Packaged(package => settings.Flamenco.Target(((IPlugInViews)scope.Sink).Settings, package)), Fresh)),
                     new CommandRow.Run(Face("render-queue-resume", "Resume", "Render the stopped, failed, or crashed queue from its last frame"), Some(resumable),
-                        static scope => Sent(scope, Local, Unfinished)),
+                        static scope => Sent(scope, Local, static context => QueueProgress.Read(context.Record).Map(static prior => prior.Filter(static record => !record.Succeeded)))),
                     new CommandRow.Run(Face("render-queue-test-notice", "Send Test Notice", "Post a test notice to Rhino, the system, and the ntfy topic"), None, static scope =>
                         QueueContext.Current.Of(scope.Sink)
                             .Bind(static context => DisposalOps.Fork(context.Notify(new QueueEvent.Test()), context.Retain))
-                            .Map(unit))),
+                            .Map(unit)),
+                ],
             },
                 RowRules.Always),
             new ControlRow.Group("Run", RowRules.Always) { Wording = Wording.Library },

@@ -59,9 +59,9 @@ type RigAxes = CameraAxes | ViewAxes | TargetAxes | WorldAxes
 
 # --- [CHOICES] --------------------------------------------------------------------------
 
-rigs = Choices(lambda identity, owner, context: ((name, name, "") for name in rig_catalog()))
-references = Choices(lambda identity, owner, context: ((name, name, family.label) for family, recipes in ReferenceImage.catalog().items() for name in recipes))
-gels = Choices(lambda identity, owner, context: ((name, name, "") for name in ReferenceImage.gels()))
+rigs = Choices(lambda _identity, _owner, _context: ((name, name, "") for name in rig_catalog()))
+references = Choices(lambda _identity, _owner, _context: ((name, name, family.label) for family, recipes in ReferenceImage.catalog().items() for name in recipes))
+gels = Choices(lambda _identity, _owner, _context: ((name, name, "") for name in ReferenceImage.gels()))
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -350,13 +350,12 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
     def jobs(self, identity: Identity, context: bpy.types.Context) -> BlenderResult[tuple[Job, ...]]:
         """Requests native catalog images and gray balls under current scene display settings."""
 
-        def requested(
-            carried: tuple[bpy.types.Scene, bpy.types.ColorManagedViewSettings, bpy.types.ColorManagedDisplaySettings, bpy.types.ViewLayer, bpy.types.Object, Attached[RigSetup]],
-        ) -> BlenderResult[tuple[Job, ...]]:
-            scene, view, shown, layer, holder, attached = carried
+        def requested(carried: tuple[bpy.types.Scene, bpy.types.ViewLayer, bpy.types.Object, Attached[RigSetup]]) -> BlenderResult[tuple[Job, ...]]:
+            scene, layer, holder, attached = carried
+            view, shown = scene.view_settings, scene.display_settings
             config, previews = PyOpenColorIO.GetCurrentConfig(), Previews(identity=identity)
-            display = DisplayView(display=shown.display_device, view=view.view_transform, look=Gated(enabled=Option.of_optional(config.getLook(view.look)).is_some(), value=view.look))
-            exposure, gamma = view.exposure, view.gamma
+            display = DisplayView(display=shown.display_device, view=view.view_transform, look=Gated(enabled=Option.of_optional(config.getLook(view.look)).is_some(), value=view.look))  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+            exposure, gamma = view.exposure, view.gamma  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
             display_key = (display, exposure, gamma, config.getCacheID())
 
             def rendered(source: ReferenceImage | tuple[DistantLight, ...], side: int) -> BlenderResult[Option[npt.NDArray[np.float32]]]:
@@ -408,8 +407,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
 
         return (
             root_in(bpy.types.Scene, context)
-            .bind(lambda scene: Option.of_optional(scene.view_settings).bind(lambda view: Option.of_optional(scene.display_settings).map(lambda shown: (scene, view, shown))))
-            .bind(lambda held: root_in(bpy.types.ViewLayer, context).bind(lambda layer: Option.of_optional(layer.objects.active).map(lambda holder: (*held, layer, holder))))
+            .bind(lambda scene: root_in(bpy.types.ViewLayer, context).bind(lambda layer: Option.of_optional(layer.objects.active).map(lambda holder: (scene, layer, holder))))
             .map(lambda held: LightRig.attachment.bound(identity).bind(lambda attached: requested((*held, attached))))
             .default_value(Ok(()))
         )
@@ -461,7 +459,7 @@ class LightRig(msgspec.Struct, frozen=True, kw_only=True):
         with identity.reports.deferred(LightRig.replaced) as deferred:
 
             def referenced(_: bpy.types.Scene, updates: tuple[bpy.types.DepsgraphUpdate, ...]) -> BlenderResult[None]:
-                touched = frozenset(original for update in updates if (block := update.id) is not None and (original := block.original) is not None)
+                touched = frozenset(block.original for update in updates if (block := update.id) is not None)
 
                 def placed(attached: Attached[RigSetup]) -> BlenderResult[None]:
                     return accumulated(

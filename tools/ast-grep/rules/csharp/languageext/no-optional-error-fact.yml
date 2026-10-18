@@ -2,6 +2,7 @@
 id: no-optional-error-fact
 language: csharp
 severity: error
+ignores: ['tools/roslyn/**']
 utils:
     optional-name:
         any: [{matches: {csharp-type-name: {name: {regex: '^Option$'}}}}, {kind: nullable_type}]

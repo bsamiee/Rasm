@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-uuid-v4
+language: tsx
+severity: error
+rule:
+    kind: member_expression
+    pattern: $MEMBER
+    all:
+        - has: {field: property, regex: '^randomUUIDv4$'}
+        - has: {field: object, pattern: $CRYPTO}
+        - inside: {kind: call_expression, field: function}
+fix: $CRYPTO.randomUUIDv7
+message: '`$MEMBER` generates identifiers with no time order'
+note: 'Call `randomUUIDv7()`, a time-ordered prefix keeps new and recent keys in few index pages'

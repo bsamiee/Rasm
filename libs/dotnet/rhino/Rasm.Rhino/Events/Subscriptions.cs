@@ -135,7 +135,7 @@ public static class Subscriptions {
         DisposalOps.Acquire(owned =>
             from conduit in DisposalOps.Acquire(IO.lift(() => Conduit.make(buffer)), static open => open.Complete(), open => owned(new Disposal<Conduit<TItem, TItem>>(open, static held => held.Complete().Run())))
             from forked in conduit.Reduce(unit, (_, item) => IO.pure(item).Bind(consume).Catch(failed).As().Map(Reduced.Continue))
-                .Finally(conduit.Complete()).As().Fork()
+                .Finally(conduit.Complete()).Fork()
             select fun((TItem item) => conduit.Post(item) | @catch(Errors.SinkFull, IO.pure(unit))),
             retain).Uninterruptible();
 }

@@ -111,7 +111,7 @@ swift-format comes from the selected toolchain through `xcrun`:
 - `custom_rules` stays empty, ast-grep rules under `tools/ast-grep/rules/swift` match structure by syntax where SwiftLint matches text by regex
 - `analyzer_rules` run in `lint:swiftlint` over the compilation database `xcodebuild -showBuildSettingsForIndex -json` prints
 - `swiftlint analyze` runs no `--fix`, `unused_import`'s fix breaks builds under `MemberImportVisibility`
-- SwiftPM libraries take no analyzer pass, SwiftPM writes no compilation database and `xcodebuild` prints no index settings for a package
+- SwiftPM libraries take no analyzer pass, `unused_import` over a `swift build -v` log through `--compiler-log-path` reports `System` that a `FilePath` literal needs under `MemberImportVisibility`
 - `deployment_target` holds `MACOSX_DEPLOYMENT_TARGET`, SwiftLint reads no xcconfig
 
 ## [07]-[CI]

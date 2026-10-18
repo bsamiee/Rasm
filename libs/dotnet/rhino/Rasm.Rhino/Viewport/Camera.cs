@@ -70,7 +70,7 @@ public static class Cameras {
         from aimed in Refused.Unless(camera.SetCameraUp(pose.Frame.YAxis), nameof(ViewportInfo.SetCameraUp))
         from half in pose.Lens.Switch(
             (Camera: camera, Distance: pose.Frame.Origin.DistanceTo(pose.Target), Length: camera.Camera35mmLensLength),
-            parallel: static (_, parallel) => Fin.Succ((double)parallel.Extent),
+            parallel: static (_, parallel) => (double)parallel.Extent,
             perspective: static (state, perspective) => Refused.Unless(state.Camera.ChangeToPerspectiveProjection(state.Distance, symmetricFrustum: true, state.Length), state.Camera.FrustumNear * Math.Tan(perspective.Angle), nameof(ViewportInfo.ChangeToPerspectiveProjection)),
             twoPoint: static (state, twoPoint) => Refused.Unless(state.Camera.ChangeToTwoPointPerspectiveProjection(state.Distance, twoPoint.Up, state.Length), state.Camera.FrustumNear * Math.Tan(twoPoint.Angle), nameof(ViewportInfo.ChangeToTwoPointPerspectiveProjection)))
         from located in Refused.Unless(camera.SetCameraLocation(pose.Frame.Origin), nameof(ViewportInfo.SetCameraLocation))
@@ -107,16 +107,16 @@ public static class Cameras {
         aperture.IsSome
             ? focal.Traverse(length => LensDistance.Validated((float)(view.FocalBlurDistance * LengthUnit.Scale(spaceUnit, LengthUnit.Meters)))
                 .Bind(focus => ValidationResults.ToFin(LensFocus.Validate(length, focus, out LensFocus held), held))).As()
-            : Fin.Succ(Option<LensFocus>.None);
+            : Option<LensFocus>.None;
 
     public static Fin<Camera> ToCamera(ViewInfo view, LengthUnit spaceUnit, PixelExtent extent, Option<LensFocus> lens) =>
         (LengthUnit.Scale(spaceUnit, LengthUnit.Meters), view.Viewport.IsParallelProjection, view.Viewport.GetXform(CoordinateSystem.Camera, CoordinateSystem.World)) switch {
-            var (metres, parallel, xform) => (
+            var (meters, parallel, xform) => (
                     Refused.Unless(xform.IsValid, xform, nameof(ViewportInfo.GetXform))
-                        .Bind(frame => ToMatrix(frame with { M03 = frame.M03 * metres, M13 = frame.M13 * metres, M23 = frame.M23 * metres })),
+                        .Bind(frame => ToMatrix(frame with { M03 = frame.M03 * meters, M13 = frame.M13 * meters, M23 = frame.M23 * meters })),
                     Refused.Unless(view.Viewport.GetFrustum(out double left, out double right, out double bottom, out double top, out double near, out _),
-                            (Left: parallel ? left * metres : left / near, Right: parallel ? right * metres : right / near,
-                                Bottom: parallel ? bottom * metres : bottom / near, Top: parallel ? top * metres : top / near), nameof(ViewportInfo.GetFrustum))
+                            (Left: parallel ? left * meters : left / near, Right: parallel ? right * meters : right / near,
+                                Bottom: parallel ? bottom * meters : bottom / near, Top: parallel ? top * meters : top / near), nameof(ViewportInfo.GetFrustum))
                         .Bind(static window => ValidationResults.ToFin(ViewWindow.Validate((window.Left / 2d) + (window.Right / 2d), (window.Bottom / 2d) + (window.Top / 2d), window.Right - window.Left, window.Top - window.Bottom, out ViewWindow held), held)))
                 .Apply((pose, window) => new Camera(pose, parallel ? new Frustum.Parallel(window) : new Frustum.Perspective(window), extent, lens))
                 .As(),
@@ -125,12 +125,12 @@ public static class Cameras {
     public static IO<SceneLights> ToLights(RhinoDoc doc) =>
         IO.lift(Fin<SceneLights> () => (LengthUnit.Scale(doc.ModelUnits, LengthUnit.Meters),
                 Conversions.Rows(doc.Lights).Filter(static light => !light.IsDeleted && light.LightGeometry.IsEnabled).Partition(static light => light.LightGeometry.IsDirectionalLight)) switch {
-                    var (metres, (directional, placed)) => (
+                    var (meters, (directional, placed)) => (
                         (doc.Lights.Sun is { Enabled: true } sun ? Some(-sun.Vector) : None).Traverse(Numeric).As(),
                         (placed.Map(static light => (light.Id, light.LightGeometry.Location))
                                 + Conversions.Rows(doc.Objects.GetObjectsByType<PointObject>()).Map(static point => (point.Id, point.PointGeometry.Location))
                                 + Conversions.Rows(doc.Objects.GetObjectsByType<InstanceObject>()).Map(static block => (block.Id, Location: block.InsertionPoint)))
-                            .Traverse(row => Numeric((Vector3d)(row.Location * metres)).Map(position => (row.Id, position))).As(),
+                            .Traverse(row => Numeric((Vector3d)(row.Location * meters)).Map(position => (row.Id, position))).As(),
                         directional.Traverse(static light => Numeric(-light.LightGeometry.Direction).Map(direction => (light.Id, direction))).As())
                         .Apply(static (sun, points, directions) => new SceneLights(sun, toHashMap(points), toHashMap(directions))).As(),
                 });

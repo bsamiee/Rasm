@@ -72,7 +72,7 @@ public static class CurveRows {
         from chosen in strip.Show(Some(lanes.Head.Key))
         from bound in RowEdit.Bind(
                 source, lanes.Map(static lane => lane.Field), h => editor.Edited += h, h => editor.Edited -= h,
-                edit => Callbacks.Handler<EditEventArgs<PlottedCurve>>(args => edit.Take(args.Edit, (curve, held) => Fin.Succ(keyed[curve.Key].Write(curve, held))).Map(unit), site),
+                edit => Callbacks.Handler<EditEventArgs<PlottedCurve>>(args => edit.Take(args.Edit, (curve, held) => keyed[curve.Key].Write(curve, held)).Map(unit), site),
                 held => held.Match(
                     Some: record => toSeq(lanes).TraverseM(lane => editor.Receive(Some(lane.Curve(record)))).As().Map(unit),
                     None: () => editor.Receive(None)),
@@ -139,7 +139,7 @@ public static class CurveRows {
     // --- [FUNCTION_GRAPHS]
     private static readonly AxisRange Window =
         (LogSpace.AgXLog.Allocation.Inverse(Vector3.Zero), LogSpace.AgXLog.Allocation.Inverse(Vector3.One)) switch {
-            var (low, high) => AxisRange.Create(float.Log2(low.X / Exposure.MiddleGrey), float.Log2(high.X / Exposure.MiddleGrey)),
+            var (low, high) => AxisRange.Create(float.Log2(low.X / Exposure.MiddleGray), float.Log2(high.X / Exposure.MiddleGray)),
         };
 
     public static ControlRow Graph<TStage>(RowSource<TStage> source, string caption, string help, StageInput stage, RowRules rules) where TStage : IPixelStage<TStage> =>
@@ -164,7 +164,7 @@ public static class CurveRows {
             None: static () => Some(Linear));
 
     private static Seq<AxisLabel> Guides(StageInput stage, NumberText<float> text) =>
-        toSeq(Range(-4, 7)).Map(static stop => float.ScaleB(Exposure.MiddleGrey, stop)).Add(1f)
+        toSeq(Range(-4, 7)).Map(static stop => float.ScaleB(Exposure.MiddleGray, stop)).Add(1f)
             .Map(linear => new AxisLabel(Sampled(stage.Context.Display.Encoding.Encode, linear), text.Shown(Some(linear))));
 
     private static float Sampled(Action<Span<Vector4>> kernel, float linear) {
@@ -173,7 +173,7 @@ public static class CurveRows {
         return (pixel[0].X + pixel[0].Y + pixel[0].Z) / 3f;
     }
 
-    private static float Linear(float stops) => float.Exp2(stops) * Exposure.MiddleGrey;
+    private static float Linear(float stops) => float.Exp2(stops) * Exposure.MiddleGray;
 
     // --- [LEVELS]
     public static ControlRow LevelPoints(RowSource<Levels> source, string caption, string help, Option<StageInput> stage, RowRules rules) =>

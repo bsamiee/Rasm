@@ -336,7 +336,7 @@ def relayed(outer: Callable[[Key], Operand], interface: Interface) -> dict[Key, 
 
 
 @functools.cache
-def joined(opening: bool) -> BlenderResult[NodeGroup]:
+def joined(*, opening: bool) -> BlenderResult[NodeGroup]:
     """Returns one mask join, using the operation's identity for the opening mask."""
     key_mask, operation_mask, invert = msgspec.structs.fields(Mask)
     heads = (
@@ -396,7 +396,7 @@ def masked(key: Key, count: int, entering: Operand, aspect: Operand, scale: Oper
         first, rest = groups
         return functools.reduce(lambda done, index: done.bind(lambda pair: joined_at(index, rest, Some(pair))), range(2, count + 1), joined_at(1, first, Nothing)).map(Some)
 
-    return paired(joined(True), joined(False)).bind(chained) if count else Ok(Nothing)
+    return paired(joined(opening=True), joined(opening=False)).bind(chained) if count else Ok(Nothing)
 
 
 def _framed_key(key: Key, name: str, form: type[msgspec.Struct], body: Callable[[FrameSpace], BlenderResult[tuple[Fragment, End]]]) -> BlenderResult[NodeGroup]:

@@ -1,6 +1,7 @@
 use core::{
     hint::{self, black_box},
     sync::atomic::{AtomicBool, Ordering},
+    time::Duration,
 };
 use std::{sync::Arc, thread};
 
@@ -108,6 +109,14 @@ fn handed() {
     watched(&done);
 }
 
+fn slept() {
+    let stop = AtomicBool::new(false);
+    stop.store(true, Ordering::Release);
+    while !stop.load(Ordering::Acquire) {
+        thread::sleep(Duration::ZERO);
+    }
+}
+
 async fn polled() -> u32 {
     let stop = AtomicBool::new(false);
     let mut steps = 0_u32;
@@ -130,6 +139,19 @@ fn main() {
     released(&pair);
     gated(&gate);
     handed();
+    slept();
     watched(&AtomicBool::new(true));
-    black_box(&([worker.run(), worker.idle(), counted(&gate), futures::executor::block_on(polled())], shared(), worker.armed(), pair.left.load(Ordering::Acquire)));
+    black_box(&([worker.run(), worker.idle(), counted(&gate), futures::executor::block_on(polled()), looped()], shared(), worker.armed(), pair.left.load(Ordering::Acquire)));
+}
+
+fn looped() -> u32 {
+    let stop = AtomicBool::new(false);
+    let mut steps = 0_u32;
+    stop.store(true, Ordering::Release);
+    loop {
+        if stop.load(Ordering::Acquire) {
+            break steps;
+        }
+        steps = steps.saturating_add(1);
+    }
 }

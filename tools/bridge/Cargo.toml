@@ -1,5 +1,6 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
+# --- [IDENTITY]
 [package]
 name                 = "rasm-mcp-bridge"
 version.workspace    = true
@@ -10,8 +11,13 @@ license.workspace    = true
 repository.workspace = true
 description          = "Bridges a stdio MCP server to Streamable HTTP"
 
-# --- [BIN] ------------------------------------------------------------------------------
+# --- [NX]
+[package.metadata.nx.targets."test:integration"]
+command = "cargo nextest run --locked --package {projectName} --run-ignored only"
 
+# --- [TARGETS] --------------------------------------------------------------------------
+
+# --- [BIN]
 [[bin]]
 name  = "rasm-mcp-bridge"
 path  = "main.rs"
@@ -25,6 +31,7 @@ workspace = true
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
+# --- [RUNTIME]
 [dependencies]
 futures                            = { workspace = true }
 tokio                              = { workspace = true }
@@ -36,3 +43,17 @@ opentelemetry-semantic-conventions = { workspace = true }
 tracing                            = { workspace = true }
 clap                               = { workspace = true }
 rasm-mcp                           = { workspace = true }
+
+# --- [TESTING]
+[target."cfg(unix)".dev-dependencies]
+process-wrap         = { workspace = true }
+nonempty-collections = { workspace = true }
+validated            = { workspace = true }
+derive_more          = { workspace = true }
+serde                = { workspace = true }
+serde_path_to_error  = { workspace = true }
+serde_json           = { workspace = true }
+reqwest              = { workspace = true }
+opentelemetry        = { workspace = true }
+opentelemetry-proto  = { workspace = true }
+testcontainers       = { workspace = true }

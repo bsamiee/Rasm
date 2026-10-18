@@ -15,7 +15,7 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 
 - Runtime requirements join `[project] dependencies`, dependency groups stay outside wheel requirements
 - Inline version bounds cover package metadata gaps or machine library compatibility, recorded beside each bound
-- `no-build-package` names packages installable from wheels alone
+- `no-build-package` names packages installable from wheels alone, a resolution needing an unbuildable sdist fails at lock time
 - Inline markers exclude platforms with no wheel
 - `default-groups` names groups `uv sync` installs, `"all"` every group, `--only-group <group>` one group without the project
 - `prerelease = "allow"` accepts prereleases for every package
@@ -32,13 +32,14 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 - Packages building their libraries from their own recipes take the setting that forces it, linking none from the machine
 - Machine libraries stay where no package-scoped variable reaches the build, beside the reason in the package row
 - uv keys source-built wheels by package settings and extra build dependencies/variables; ambient native-library changes do not invalidate them
+- Pixi rows a source build links name a soname series, `pixi update` moves within it and leaves built consumers valid
 - Soname series moves update Pixi constraints and each consuming package's build-variable series together
+- Consumers holding no series variable rebuild through `uv sync --reinstall-package <package>`
 - Packages sharing one installed path use root `[tool.uv] exclude-dependencies` to retain one provider throughout resolution
 - `uv run` installs a PEP 723 script's inline dependencies into an ephemeral environment `uv.lock` does not pin
 
 ## [04]-[ENVIRONMENT]
 
-- Shared test support holds no `pyproject.toml` and reaches tests through `[tool.pytest] pythonpath` and `conftest.py` alone
 - `uv sync` installs root editable, exposing backend `module-root` through `.pth` without a `PYTHONPATH` row
 - Target commands find the synced `.venv` on `PATH` through mise `python.uv_venv_auto`, `uv run` syncs before every run
 - Builds reuse objects or a CMake cache an earlier build left in the cached sdist tree, `uv cache clean <package>` precedes a changed row's rebuild
@@ -74,10 +75,8 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 
 ## [06]-[PROJECTS]
 
-- Import roots are top-level `module-root` directories named for a domain or host, a host root holding its imports beside its runtime declaration
 - Concern project names derive from `py.typed` directories relative to root backend `module-root`
 - `blender_manifest.toml` defines an extension project by manifest `id`
-- Python projects acquire `check` and `test` when root pytest file patterns discover tests in the project's mirror under pytest `testpaths`
 - Project dependencies include runtime and type-only static imports between source owners
 
 ## [07]-[HOST_PACKAGING]

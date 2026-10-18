@@ -17,6 +17,8 @@ namespace Rasm.Rhino.UI.Rows;
 // --- [MODELS] --------------------------------------------------------------------------
 [Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
 public abstract partial record CommitMode {
+    public bool Drafts => Map(immediate: false, revertible: false, deferred: true, targets: false, contents: false);
+
     public sealed record Immediate : CommitMode;
 
     public sealed record Revertible(ValueSet Opening) : CommitMode;
@@ -318,7 +320,7 @@ public sealed class RowScope {
             None);
 
     public IO<Seq<ValueStore<TRecord>>> Edited<TRecord>(RowSource<TRecord> source) where TRecord : notnull =>
-        mode.ValueIO.Bind(held => held.Map(immediate: false, revertible: false, deferred: true, targets: false, contents: false)
+        mode.ValueIO.Bind(held => held.Drafts
             ? source.Stores(this).Map(stores => stores.Map(store => Drafted(source, store)))
             : source.Stores(this));
 
@@ -364,7 +366,7 @@ public sealed class RowScope {
     public IO<ValueDiff> Commit(BindingGroup bound, ValueSet incoming) =>
         from locks in Locked
         from held in mode.ValueIO
-        from diff in held.Map(immediate: false, revertible: false, deferred: true, targets: false, contents: false)
+        from diff in held.Drafts
             ? Drafted(bound, incoming, locks)
             : Within(Written(bound, incoming, locks))
         from changed in Changed(toSeq(diff.Changes.Keys))

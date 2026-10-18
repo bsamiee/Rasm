@@ -97,7 +97,7 @@ public static class Histories {
 
     // --- [RECORDS]
     public static IO<T> Record<T>(RhinoDoc doc, Command command, int version, bool copyOnReplace, Seq<HistoryInput> inputs, Func<HistoryRecord, IO<T>> body) =>
-        from unique in IO.lift(Callbacks.Unique(inputs, static input => input.Id, nameof(HistoryRecord)).ToFin())
+        from unique in IO.lift(Callbacks.Unique(inputs, static input => input.Id, nameof(HistoryRecord)))
         from result in DisposalOps.Within(() => new HistoryRecord(command, version) { CopyOnReplaceObject = copyOnReplace }, record =>
             from written in unique.TraverseM(input => input.Write(doc, record)).As()
             from answer in body(record)

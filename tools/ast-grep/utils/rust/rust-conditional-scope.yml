@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-conditional-scope
+language: rust
+rule:
+    any:
+        - kind: 'closure_expression, for_expression, while_expression, loop_expression, match_arm, else_clause'
+        - kind: block
+          inside: {kind: if_expression, field: consequence}
+        - inside: {kind: binary_expression, field: right, has: {field: operator, regex: '^(&&|\|\|)$'}}

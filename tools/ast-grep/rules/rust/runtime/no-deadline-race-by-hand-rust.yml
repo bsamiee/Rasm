@@ -51,15 +51,10 @@ utils:
               has: {field: value, matches: deadline-binding}
             - kind: call_expression
               has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^as_mut$'}}, {has: {field: value, matches: deadline-binding}}]}
-    select-function:
-        any:
-            - regex: '^((::)?futures(_util)?::)?future::select$'
-            - regex: '^select$'
-              inside: {kind: source_file, stopBy: end, has: {kind: use_declaration, regex: 'futures(_util)?::future::(select\b|\{[^}]*\bselect\b)'}}
 rule:
     any:
-        - matches: rust-two-arm-select
-          all:
+        - all:
+            - matches: rust-two-arm-select
             - has: {field: macro, pattern: $RACE}
             - has: {regex: '^!$', pattern: $$BANG}
             - has:
@@ -74,8 +69,8 @@ rule:
                     - not: {has: {stopBy: end, kind: identifier, regex: '^reset$'}}
         - kind: call_expression
           all:
-            - has: {field: function, pattern: $RACE, matches: select-function}
             - has: {field: arguments, all: [{has: {nthChild: 2}}, {not: {has: {nthChild: 3}}}]}
+            - has: {field: function, pattern: $RACE, matches: rust-future-select}
             - has: {field: arguments, has: {matches: deadline-operand}}
 message: '`$RACE$BANG` races one future against `$SLEEP` by hand'
 note: 'Await `tokio::time::timeout(<duration>, <future>)` or `timeout_at(<deadline>, <future>)`, `Err(Elapsed)` at the deadline with the future dropped'

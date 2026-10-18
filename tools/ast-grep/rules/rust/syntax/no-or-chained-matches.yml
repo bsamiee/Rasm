@@ -54,4 +54,4 @@ transform:
     PATTERNS: {rewrite: {source: $CHAIN, rewriters: [field-subject, deref-subject, plain-subject], joinBy: ' | '}}
 fix: '$OPEN, $PATTERNS)'
 message: '`$CHAIN` splits one pattern test into repeated `matches!` over one subject'
-note: 'Join the patterns in one `matches!(<subject>, <a> | <b>)`, negated as `!matches!(<subject>, <a> | <b>)`'
+note: 'Join the patterns in one `matches!(<subject>, <a> | <b>)`, nested as `<ctor>(<a> | <b>)` where they share a constructor and negated as `!matches!(<subject>, <a> | <b>)`'

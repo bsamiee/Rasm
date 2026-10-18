@@ -122,6 +122,14 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
 
     def began(self, operator: bpy.types.Operator, context: bpy.types.Context, event: bpy.types.Event) -> BlenderResult["rna_enums.OperatorReturnItems"]:
         """Returns RUNNING_MODAL after beginning, or begin faults and an absent window before acquiring resources."""
+
+        def started(run: Run[S]) -> "rna_enums.OperatorReturnItems":
+            vars(operator)["running"] = run
+            for cursor in self.gesture.cursor.to_list():
+                run.window.cursor_modal_set(cursor)
+            run.workspace.status_text_set(self._hinted(operator))
+            return "RUNNING_MODAL"
+
         match context:
             case bpy.types.Context(window_manager=bpy.types.WindowManager() as manager, window=bpy.types.Window(workspace=workspace) as window):
                 inputs, system = context.preferences.inputs, context.preferences.system  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
@@ -130,8 +138,7 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
                 x, y = (event.mouse_prev_press_x, event.mouse_prev_press_y) if event.value == "CLICK_DRAG" else (event.mouse_x, event.mouse_y)
                 press = Press(x=x, y=y, threshold=int(threshold * system.ui_scale))
                 return self.begin(context, press.travel(event, snapped=False)).map(
-                    lambda state: self._started(
-                        operator,
+                    lambda state: started(
                         Run(
                             initial=state,
                             state=state,
@@ -142,19 +149,11 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
                             region=Option.of_optional(context.region),
                             press=press,
                             ticking=self.tick.map(lambda tick: (tick, manager.event_timer_add(tick.interval, window=window))),
-                        ),
+                        )
                     )
                 )
             case _:
                 return Error((BlenderAbsentFault(owner=repr(context), key="window"),))
-
-    def _started(self, operator: bpy.types.Operator, run: Run[S]) -> "rna_enums.OperatorReturnItems":
-        """Stores the live run, acquired after begin succeeds, on its instance."""
-        vars(operator)["running"] = run
-        for cursor in self.gesture.cursor.to_list():
-            run.window.cursor_modal_set(cursor)
-        run.workspace.status_text_set(self._hinted(operator))
-        return "RUNNING_MODAL"
 
     def ended(self, operator: bpy.types.Operator, context: bpy.types.Context, *, cancelled: bool) -> BlenderResult[None]:
         """Releases a live run and restores its original snapshot when cancelled."""
@@ -163,27 +162,27 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
         def released(action: Callable[[], None]) -> BlenderResult[None]:
             return catch(action, exception=ReferenceError)().map_error(lambda error: (BlenderEditFault(request=self.ended.__qualname__, error=error),))
 
-        def restored(run: Run[S]) -> BlenderResult[None]:
+        def restored(run: Run[S], live: tuple[bpy.types.Window, ...]) -> BlenderResult[None]:
+            area = next((area for window in live for area in window.screen.areas if area in run.area.to_list()), None)
+            region = next((region for held in Option.of_optional(area).to_list() for region in held.regions if region in run.region.to_list()), None)
             with ExitStack() as scope:
                 try:
-                    window = next((window for window in run.manager.windows if window == run.window), None)
-                    area = next((area for area in window.screen.areas if area in run.area.to_list()), None) if window is not None else None
-                    region = next((region for region in area.regions if region in run.region.to_list()), None) if area is not None else None
-                    scope.enter_context(context.temp_override(window=window, area=area, region=region))
+                    scope.enter_context(context.temp_override(window=next(iter(live), None), area=area, region=region))
                 except TypeError as error:
                     return Error((BlenderEditFault(request="Context.temp_override", error=error),))
                 return self.restore(context, run.initial)
 
         for run in ending.to_list():
+            live = tuple(window for window in run.manager.windows if window == run.window)
             cleanup = accumulated((
                 *(release(context, run.state) for release in self.release.to_list()),
-                *(released(lambda: run.window.cursor_modal_restore()) for _ in self.gesture.cursor.to_list()),  # ruff: ignore[unnecessary-lambda]
+                *(released(window.cursor_modal_restore) for _ in self.gesture.cursor.to_list() for window in live),
                 released(lambda: run.workspace.status_text_set(None)),
                 *(released(lambda: area.header_text_set(None)) for area in run.area.to_list()),
                 *(released(lambda: run.manager.event_timer_remove(timer)) for _, timer in run.ticking.to_list()),
-                *((released(lambda: run.window.cursor_warp(run.press.x, run.press.y)),) if self.gesture.relative else ()),
+                *(released(lambda: window.cursor_warp(run.press.x, run.press.y)) for window in live if self.gesture.relative),
             ))
-            return paired(cleanup, restored(run) if cancelled else Ok(None)).map(lambda _: None)
+            return paired(cleanup, restored(run, live) if cancelled else Ok(None)).map(lambda _: None)
         return Ok(None)
 
     # --- [EVENTS]
@@ -191,6 +190,25 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
     def handled(self, operator: bpy.types.Operator, context: bpy.types.Context, event: bpy.types.Event) -> BlenderResult["rna_enums.OperatorReturnItems"]:
         """Returns an event outcome or preview or timer faults for the operator boundary."""
         run: Run[S] = vars(operator)["running"]
+
+        def previewed(current: Run[S]) -> BlenderResult["rna_enums.OperatorReturnItems"]:
+            vars(operator)["running"] = current
+            result = self.preview(context, current.state, current.press.travel(event, snapped=current.snapped))
+            for text in result.to_option().to_list():
+                for area in current.area.to_list():
+                    area.header_text_set(text.to_optional())
+            return result.map(lambda _: "RUNNING_MODAL")
+
+        def ticked(tick: Tick[S], timer: bpy.types.Timer) -> BlenderResult["rna_enums.OperatorReturnItems"]:
+            elapsed = timer.time_duration
+            return (
+                Ok("PASS_THROUGH")
+                if elapsed == run.elapsed
+                else tick.body(context, run.state, elapsed).bind(
+                    lambda following: following.map(lambda state: previewed(msgspec.structs.replace(run, state=state, elapsed=elapsed))).default_value(Ok("FINISHED"))
+                )
+            )
+
         if context.window != run.window or any(context.area != area for area in run.area.to_list()) or any(context.region != region for region in run.region.to_list()):
             return Ok("CANCELLED")
         run.workspace.status_text_set(self._hinted(operator))
@@ -202,44 +220,22 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
                 return outcome
 
             return handle(context, run.state, event).map(following)
-        action = next((item for config in Option.of_optional(run.manager.keyconfigs.user).to_list() for item in config.keymaps[MODAL_KEYMAP].keymap_items if matched(item, event)), None)
+        action = next((item for item in run.manager.keyconfigs.user.keymaps[MODAL_KEYMAP].keymap_items if matched(item, event)), None)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
         match action, event.type:
             case bpy.types.KeyMapItem(propvalue="CANCEL"), _:
                 return Ok("CANCELLED")  # type: ignore[unreachable]
             case None, "TIMER":
-                return run.ticking.map(lambda ticking: self._ticked(operator, context, run, *ticking, event)).default_value(Ok("PASS_THROUGH"))
+                return run.ticking.map(lambda ticking: ticked(*ticking)).default_value(Ok("PASS_THROUGH"))
             case _ if self.gesture is Gesture.TIMED:
                 return Ok("PASS_THROUGH")
             case bpy.types.KeyMapItem(propvalue="APPLY"), _:
                 return self.preview(context, run.state, run.press.travel(event, snapped=run.snapped)).map(lambda _: "FINISHED")  # type: ignore[unreachable]
             case bpy.types.KeyMapItem(propvalue="SNAP" | "SNAP_OFF") as item, _:
-                return self._previewed(operator, context, msgspec.structs.replace(run, snapped=item.propvalue == "SNAP"), event)  # type: ignore[unreachable]
+                return previewed(msgspec.structs.replace(run, snapped=item.propvalue == "SNAP"))  # type: ignore[unreachable]
             case None, "MOUSEMOVE" | "INBETWEEN_MOUSEMOVE":
-                return self._previewed(operator, context, run, event)
+                return previewed(run)
             case _:
                 return Ok("RUNNING_MODAL")
-
-    def _ticked(
-        self, operator: bpy.types.Operator, context: bpy.types.Context, run: Run[S], tick: Tick[S], timer: bpy.types.Timer, event: bpy.types.Event
-    ) -> BlenderResult["rna_enums.OperatorReturnItems"]:
-        """Steps current state when the acquired timer's elapsed value advances."""
-        elapsed = timer.time_duration
-        return (
-            Ok("PASS_THROUGH")
-            if elapsed == run.elapsed
-            else tick.body(context, run.state, elapsed).bind(
-                lambda following: following.map(lambda state: self._previewed(operator, context, msgspec.structs.replace(run, state=state, elapsed=elapsed), event)).default_value(Ok("FINISHED"))
-            )
-        )
-
-    def _previewed(self, operator: bpy.types.Operator, context: bpy.types.Context, run: Run[S], event: bpy.types.Event) -> BlenderResult["rna_enums.OperatorReturnItems"]:
-        """Stores current state and returns preview faults or RUNNING_MODAL after updating header."""
-        vars(operator)["running"] = run
-        result = self.preview(context, run.state, run.press.travel(event, snapped=run.snapped))
-        for text in result.to_option().to_list():
-            for area in run.area.to_list():
-                area.header_text_set(text.to_optional())
-        return result.map(lambda _: "RUNNING_MODAL")
 
     # --- [STATUS]
 
@@ -251,8 +247,7 @@ class Modal[S](msgspec.Struct, frozen=True, kw_only=True):
             run: Run[S] = vars(operator)["running"]
             items = (
                 item
-                for config in Option.of_optional(run.manager.keyconfigs.user).to_list()
-                for keymap in (config.keymaps[MODAL_KEYMAP],)
+                for keymap in (run.manager.keyconfigs.user.keymaps[MODAL_KEYMAP],)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
                 for action in keymap.modal_event_values
                 if (action.identifier == "CANCEL" if self.gesture is Gesture.TIMED else action.identifier != "SNAP_OFF")
                 for item in Option.of_optional(next((item for item in keymap.keymap_items if item.active and item.propvalue == action.identifier), None)).to_list()  # ty: ignore[truthiness-test-of-none-union]

@@ -100,20 +100,7 @@ utils:
                         - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, any: [{matches: else-branch}, {kind: expression_statement, has: {matches: else-branch}}]}
                         - not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}
             - precedes: {kind: match_arm, all: [{has: {field: pattern, regex: '^_$'}}, {has: {field: value, pattern: $X}}]}
-            - not:
-                has:
-                    field: value
-                    has:
-                        stopBy: end
-                        kind: else_clause
-                        has:
-                            stopBy: end
-                            kind: identifier
-                            pattern: $NAME
-                            inside:
-                                kind: match_arm
-                                stopBy: end
-                                has: {field: pattern, has: {stopBy: end, kind: 'identifier, shorthand_field_identifier', pattern: $NAME, not: {inside: {kind: tuple_struct_pattern, field: type}}}}
+            - not: {matches: rust-else-reads-arm-binding}
     nesting-branch:
         any:
             - matches: valued-if

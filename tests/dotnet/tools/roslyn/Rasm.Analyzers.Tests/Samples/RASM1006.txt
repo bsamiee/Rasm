@@ -1,0 +1,12 @@
+using LanguageExt;
+using LanguageExt.Common;
+
+internal static class LiftedOperands {
+    internal static Fin<int> Read(int value) => value > 0 ? value : Error.New("negative");
+    internal static IO<int> Both(int left, int right) => (IO.lift(() => Read(left)), IO.lift(() => Read(right))).{|#0:Apply(static (first, second) => first + second)|}.As();
+    internal static IO<int> Values(Fin<int> left, Fin<int> right) => (IO.lift(left), IO.lift(right)).{|#1:Apply(static (first, second) => first + second)|}.As();
+}
+
+internal static class EffectOperands {
+    internal static IO<int> Effects(IO<int> left, IO<int> right) => (left, right).Apply(static (first, second) => first + second).As();
+}

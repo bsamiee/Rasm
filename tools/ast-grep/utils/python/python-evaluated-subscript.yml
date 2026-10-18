@@ -2,6 +2,17 @@
 id: python-evaluated-subscript
 language: python
 arguments: [value]
+utils:
+    type-checking-flag:
+        any:
+            - matches: {python-member-use: {module: {regex: '^typing$'}, name: {regex: '^TYPE_CHECKING$'}}}
+            - kind: parenthesized_expression
+              has: {matches: type-checking-flag}
+    type-checking-block:
+        inside:
+            kind: block
+            stopBy: end
+            inside: {kind: 'if_statement, elif_clause', field: consequence, has: {field: condition, matches: type-checking-flag}}
 rule:
     kind: identifier, attribute
     all:
@@ -9,9 +20,9 @@ rule:
             - nthChild: 1
               inside: {kind: generic_type}
             - inside: {kind: subscript, field: value, stopBy: {not: {kind: parenthesized_expression}}}
+        - matches: value
         - not:
             any:
                 - inside: {kind: assignment, field: type, stopBy: end, inside: {kind: function_definition, stopBy: {kind: 'function_definition, class_definition'}}}
-                - matches: typing-type-checking-block
+                - matches: type-checking-block
                 - inside: {kind: type_alias_statement, field: right, stopBy: end}
-        - matches: value

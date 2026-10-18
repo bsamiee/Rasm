@@ -3,46 +3,37 @@ import { none, type Option, some } from '../composition.ts';
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Invocation = readonly [string, ...string[]];
-type Given = readonly [name: string, value: string];
 
 interface Program {
     readonly valued?: readonly string[];
-    readonly arities?: ReadonlyMap<string, number>;
+    readonly arities?: Readonly<Record<string, number>>;
     readonly bodies?: readonly string[];
     readonly leading?: number;
     readonly leadingOptions?: readonly string[];
-    readonly recursive?: readonly string[];
     readonly stdin?: 'default' | 'always';
     readonly stdinless?: readonly string[];
     readonly code?: readonly string[];
+    readonly shell?: readonly string[] | 'joined';
     readonly writes?: readonly string[];
     readonly defaultOperand?: string;
     readonly informational?: readonly string[];
     readonly wholeWords?: true;
-    readonly shell?: true;
     readonly runs?: readonly (readonly string[])[] | '--';
     readonly execs?: readonly string[];
 }
 interface Operands {
     readonly inputs: readonly string[];
     readonly options: readonly string[];
-    readonly values: readonly Given[];
-    readonly positions: readonly { readonly at: number; readonly names: readonly string[]; readonly taken: number }[];
-}
-interface ParsedOption {
-    readonly names: readonly string[];
-    readonly taken: number;
-    readonly joined: readonly string[];
+    readonly values: readonly (readonly [name: string, value: string])[];
+    readonly inner: readonly string[];
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const _ENV_ASSIGN = /^[A-Za-z_][A-Za-z0-9_]*=/u;
-const _QUOTED = /(?:\$?(?<quote>["'])|\\)(?<body>(?<=')[^']*|(?<=")(?:[^"\\]|\\.)*|(?<=\\)[\s\S])\k<quote>/gu;
-const _ESCAPED = /\\(?<char>["\\$`\n])/gu;
+const _ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/u;
 const _TILDE = /^~(?<user>[^/]*)/u;
 const _PYTHON: Program = { valued: ['-W', '-X'], stdin: 'default', stdinless: ['-m'], code: ['-c'], informational: ['-V'] };
-const _SHELL: Program = { valued: ['-o', '-O'], stdin: 'default', code: ['-c'], shell: true };
+const _SHELL: Program = { valued: ['-o', '-O'], stdin: 'default', shell: ['-c'] };
 const _DIRECTORY: Program = { writes: ['PWD'] };
 const _FD: Program = {
     valued: [
@@ -78,6 +69,7 @@ const _FD: Program = {
         '--batch-size',
     ],
     leading: 1,
+    informational: ['-h', '-V'],
     execs: ['-x', '-X', '--exec', '--exec-batch'],
 };
 const _FIND: Program = { wholeWords: true, execs: ['-exec', '-execdir', '-ok', '-okdir'] };
@@ -210,7 +202,7 @@ const _PROGRAMS: ReadonlyMap<string, Program> = new Map(
                 '-n',
                 '--command-name',
             ],
-            arities: new Map(Object.entries({ '-P': 3, '--parameter-scan': 3, '-L': 2, '--parameter-list': 2 })),
+            arities: { '-P': 3, '--parameter-scan': 3, '-L': 2, '--parameter-list': 2 },
             bodies: ['-s', '--setup', '--reference', '-p', '--prepare', '-C', '--conclude', '-c', '--cleanup'],
         },
         fd: _FD,
@@ -269,8 +261,8 @@ const _PROGRAMS: ReadonlyMap<string, Program> = new Map(
             ],
             leading: 1,
             leadingOptions: ['-e', '--regexp', '-f', '--file', '-N', '--neg-regexp'],
-            recursive: ['-r', '-R', '--recursive', '--dereference-recursive'],
             stdin: 'default',
+            stdinless: ['-r', '-R', '--recursive', '--dereference-recursive'],
         },
         cat: { stdin: 'default' },
         wc: { stdin: 'default' },
@@ -288,7 +280,7 @@ const _PROGRAMS: ReadonlyMap<string, Program> = new Map(
         base64: { valued: ['-b', '-i', '-o', '--break', '--input', '--output'], stdin: 'always', stdinless: ['-i', '--input'] },
         sed: { valued: ['-e', '-f'], leading: 1, leadingOptions: ['-e', '-f', '--expression', '--file'], stdin: 'default' },
         awk: { valued: ['-F', '-v', '-f'], leading: 1, leadingOptions: ['-f'], stdin: 'default' },
-        jq: { valued: ['-L', '--library-path', '--indent'], arities: new Map(Object.entries({ '--arg': 2, '--argjson': 2, '--slurpfile': 2, '--rawfile': 2 })), leading: 1, stdin: 'default', stdinless: ['-n', '--null-input'] },
+        jq: { valued: ['-L', '--library-path', '--indent'], arities: { '--arg': 2, '--argjson': 2, '--slurpfile': 2, '--rawfile': 2 }, leading: 1, stdin: 'default', stdinless: ['-n', '--null-input'] },
         yq: { valued: ['-o', '-p', '-I', '--output-format', '--input-format', '--indent', '--from-file'], leading: 1, leadingOptions: ['--from-file'], stdin: 'default', stdinless: ['-n', '--null-input'] },
         sd: {
             valued: ['-f', '-n', '--flags', '--max-replacements'],
@@ -299,6 +291,7 @@ const _PROGRAMS: ReadonlyMap<string, Program> = new Map(
         node: { stdin: 'default', stdinless: ['--test', '--run'], code: ['-e', '-p', '--eval', '--print'], informational: ['-v'] },
         perl: { valued: ['-I'], stdin: 'default', code: ['-e', '-E'], informational: ['-v', '-V', '-h'] },
         ruby: { valued: ['-I', '-r', '-C', '-E'], stdin: 'default', code: ['-e'], informational: ['-v', '-h', '--copyright'] },
+        eval: { shell: 'joined' },
         cd: { ..._DIRECTORY, defaultOperand: '~' },
         pushd: _DIRECTORY,
         popd: _DIRECTORY,
@@ -320,17 +313,21 @@ const _PROGRAMS: ReadonlyMap<string, Program> = new Map(
 
 const declared = (program: string): Program => _PROGRAMS.get(program) ?? {};
 
-const _arity = (row: Program, name: string): number => row.arities?.get(name) ?? ([row.valued, row.bodies, row.code].some((names) => names?.includes(name) === true) ? 1 : 0);
-
-const _option = (row: Program, word: string): ParsedOption => {
+const _option = (row: Program, word: string) => {
+    const arity = (name: string): number => row.arities?.[name] ?? ([row.valued, row.bodies, row.code].some((listed) => listed?.includes(name) === true) ? 1 : 0);
     const cut = word.indexOf('=');
     const given = cut < 0 ? word : word.slice(0, cut);
     const head = row.wholeWords === true && given.startsWith('--') ? given.slice(1) : given;
-    const names = head.startsWith('--') || row.wholeWords === true || _arity(row, head) > 0 ? [head] : [...head.slice(1)].map((letter) => `${head.charAt(0)}${letter}`);
-    const arities = names.map((name) => _arity(row, name));
-    const at = arities.findIndex((arity) => arity > 0);
-    const [taken = 0] = at === names.length - 1 && cut < 0 ? arities.slice(at) : [];
-    return { names: at < 0 ? names : names.slice(0, at + 1), taken, joined: cut < 0 ? [] : [word.slice(cut + 1)] };
+    if (head.startsWith('--') || row.wholeWords === true || arity(head) > 0) {
+        return { names: [head], taken: cut < 0 ? arity(head) : 0, joined: cut < 0 ? [] : [word.slice(cut + 1)] };
+    }
+    const [, ...letters] = [...word];
+    const names = letters.map((letter) => `-${letter}`);
+    const arities = names.map(arity);
+    const at = arities.findIndex((count) => count > 0);
+    const attached = at < 0 ? '' : letters.slice(at + 1).join('');
+    const [taken = 0] = attached === '' ? arities.slice(at) : [];
+    return { names: at < 0 ? names : names.slice(0, at + 1), taken, joined: attached === '' ? [] : [attached] };
 };
 
 const firstOperand = (invocation: Invocation, index: number): number => {
@@ -339,27 +336,36 @@ const firstOperand = (invocation: Invocation, index: number): number => {
     return word === undefined || word === '-' || word === '--' || !word.startsWith('-') ? index : firstOperand(invocation, index + 1 + _option(declared(program), word).taken);
 };
 
-const _split = (program: string, args: readonly string[], at: number): Operands => {
-    const empty: Operands = { inputs: [], options: [], values: [], positions: [] };
-    const row = declared(program);
-    const [head, ...rest] = args;
-    const flagged = head !== undefined && head !== '-' && head !== '--' && head.startsWith('-');
-    const { names, taken, joined } = flagged ? _option(row, head) : { names: [], taken: 0, joined: [] };
-    const tail = head === undefined || head === '--' ? empty : _split(program, rest.slice(taken), at + 1 + taken);
-    return head === '--'
-        ? { ...empty, inputs: rest }
-        : {
-              inputs: [...(head === undefined || flagged ? [] : [head]), ...tail.inputs],
-              options: [...names, ...tail.options],
-              values: [...names.slice(-1).flatMap((name) => [...joined, ...rest.slice(0, taken)].map((value): Given => [name, value])), ...tail.values],
-              positions: [...(names.length === 0 ? [] : [{ at, names, taken }]), ...tail.positions],
-          };
+const _split = (row: Program, [head, ...rest]: readonly string[]): Operands => {
+    if (head === undefined || head === '--') {
+        return { inputs: rest, options: [], values: [], inner: [] };
+    }
+    if (head === '-' || !head.startsWith('-')) {
+        const tail = _split(row, rest);
+        return { ...tail, inputs: [head, ...tail.inputs] };
+    }
+    const { names, taken, joined } = _option(row, head);
+    const launches = names.some((name) => row.execs?.includes(name) === true);
+    const end = rest.findIndex((word) => word === ';' || word === '+');
+    const launched = launches ? rest.slice(0, end < 0 ? rest.length : end) : [];
+    const tail = _split(row, rest.slice(launches ? launched.length + 1 : taken));
+    return {
+        inputs: tail.inputs,
+        options: [...names, ...tail.options],
+        values: [...names.slice(-1).flatMap((name) => [...joined, ...rest.slice(0, taken)].map((value) => [name, value] as const)), ...tail.values],
+        inner: launches ? launched : tail.inner,
+    };
 };
 
-const operands = ([program, ...args]: Invocation): Operands => {
+const operands = ([program, ...args]: Invocation) => {
     const row = declared(program);
-    const split = _split(program, args, 1);
-    return { ...split, inputs: split.inputs.slice(split.options.some((name) => row.leadingOptions?.includes(name) === true) ? 0 : (row.leading ?? 0)) };
+    const split = _split(row, args);
+    const inputs = split.inputs.slice(split.options.some((name) => row.leadingOptions?.includes(name) === true) ? 0 : (row.leading ?? 0));
+    return {
+        ...split,
+        inputs,
+        bodies: [...(row.shell === 'joined' ? [args.join(' ')] : inputs.slice(0, Number(split.options.some((name) => row.shell?.includes(name) === true)))), ...(row.bodies === undefined ? [] : inputs), ...split.values.filter(([name]) => row.bodies?.includes(name) === true).map(([, value]) => value)],
+    };
 };
 
 // --- [STDIN]
@@ -368,73 +374,58 @@ const informational = (program: string, options: readonly string[]): boolean => 
 
 const waits = (invocation: Invocation): boolean => {
     const [program] = invocation;
-    const { stdin, stdinless = [], code = [], recursive = [] } = declared(program);
+    const { stdin, stdinless = [], code = [] } = declared(program);
     const { inputs, options } = operands(invocation);
-    return stdin !== undefined && !informational(program, options) && !options.some((name) => [...stdinless, ...code, ...recursive].includes(name)) && (stdin === 'always' || inputs.length === 0 || inputs.includes('-'));
+    return stdin !== undefined && !informational(program, options) && !options.some((name) => [...stdinless, ...code].includes(name)) && (stdin === 'always' || inputs.length === 0 || inputs.includes('-'));
 };
 
 // --- [INVOCATIONS]
 
 const basename = (path: string): string => path.slice(path.lastIndexOf('/') + 1);
 
-const segments = (path: string): readonly string[] =>
-    path
-        .split('/')
-        .filter((part) => part !== '' && part !== '.')
-        .reduce<readonly string[]>((kept, part) => (part === '..' ? kept.slice(0, -1) : kept.concat(part)), []);
-
 const placed = (word: string, cwd: Option<string>, home: Option<string>): Option<string> => {
-    const user = _TILDE.exec(word)?.groups?.user;
-    const expanded = user === undefined || home.kind === 'none' ? word : `${user === '' ? home.value : `${home.value.slice(0, home.value.lastIndexOf('/'))}/${user}`}${word.slice(user.length + 1)}`;
-    if (!expanded.startsWith('/') && cwd.kind === 'none') {
-        return none;
-    }
-    return some(`/${segments(expanded.startsWith('/') || cwd.kind === 'none' ? expanded : `${cwd.value}/${expanded}`).join('/')}`);
+    const expanded = home.kind === 'none' ? word : word.replace(_TILDE, (_match, user: string) => (user === '' ? home.value : `${home.value.slice(0, home.value.lastIndexOf('/'))}/${user}`));
+    const absolute = cwd.kind === 'some' && !expanded.startsWith('/') ? `${cwd.value}/${expanded}` : expanded;
+    return absolute.startsWith('/')
+        ? some(
+              `/${absolute
+                  .split('/')
+                  .filter((part) => part !== '' && part !== '.')
+                  .reduce<readonly string[]>((kept, part) => (part === '..' ? kept.slice(0, -1) : kept.concat(part)), [])
+                  .join('/')}`,
+          )
+        : none;
 };
 
 const within = (path: string, folder: string): boolean => path === folder || path.startsWith(folder === '/' ? '/' : `${folder}/`);
 
-const unquoted = (word: string): string => word.replace(_QUOTED, (_match, quote: string | undefined, body: string) => (quote === '"' ? body.replace(_ESCAPED, '$<char>') : body));
-
-const _wrapped = (program: string, words: readonly string[], pending: readonly (readonly string[])[]): readonly string[] => {
-    const row = declared(program);
-    const [head, ...rest] = words;
-    if (head?.startsWith('-') === true) {
-        return _wrapped(program, rest.slice(_option(row, head).taken), pending);
-    }
-    const deeper = pending.flatMap(([first, ...more]) => (first !== undefined && first === head ? [more] : []));
-    if (deeper.length > 0) {
-        return _wrapped(program, rest, deeper);
-    }
-    return pending.some((path) => path.length === 0) ? words.slice(row.leading ?? 0) : [];
-};
-
-const _chain = (program: string, args: readonly string[]): readonly Invocation[] => {
-    const { runs = [] } = declared(program);
-    const launched = args.slice(args.includes('--') ? args.indexOf('--') + 1 : args.length);
-    const inner = runs === '--' ? launched : _wrapped(program, args, runs);
-    return [[program, ...args.slice(0, args.length - inner.length)], ...invocations(inner)];
-};
+const unquoted = (word: string): string => word.replace(/(?:\$?(?<quote>["'])|\\)(?<body>(?<=')[^']*|(?<=")(?:[^"\\]|\\.)*|(?<=\\)[\s\S])\k<quote>/gu, (_match, quote: string | undefined, body: string) => (quote === '"' ? body.replace(/\\(?<char>["\\$`\n])/gu, '$<char>') : body));
 
 const invocations = ([head, ...rest]: readonly string[]): readonly Invocation[] => {
     if (head === undefined) {
         return [];
     }
-    return _ENV_ASSIGN.test(head) ? invocations(rest) : _chain(basename(head), rest);
-};
-
-const _exec = (invocation: Invocation): number => {
-    const { execs = [] } = declared(invocation[0]);
-    return operands(invocation).positions.find(({ names }) => names.some((name) => execs.includes(name)))?.at ?? invocation.length;
-};
-
-const inner = (invocation: Invocation): readonly string[] => {
-    const rest = invocation.slice(_exec(invocation) + 1);
-    const end = rest.findIndex((word) => word === ';' || word === '+');
-    return end < 0 ? rest : rest.slice(0, end);
+    if (_ASSIGNMENT.test(head)) {
+        return invocations(rest);
+    }
+    const program = basename(head);
+    const row = declared(program);
+    const wrapped = (words: readonly string[], pending: readonly (readonly string[])[]): readonly string[] => {
+        const [first, ...more] = words;
+        const deeper = pending.flatMap(([step, ...steps]) => (step !== undefined && step === first ? [steps] : []));
+        if (first?.startsWith('-') === true) {
+            return wrapped(more.slice(_option(row, first).taken), pending);
+        }
+        if (deeper.length > 0) {
+            return wrapped(more, deeper);
+        }
+        return pending.some((path) => path.length === 0) ? words.slice(row.leading ?? 0) : [];
+    };
+    const inner = row.runs === '--' ? rest.slice(rest.includes('--') ? rest.indexOf('--') + 1 : rest.length) : wrapped(rest, row.runs ?? []);
+    return [[program, ...rest.slice(0, rest.length - inner.length)], ...invocations(inner)];
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export type { Invocation };
-export { basename, declared, firstOperand, informational, inner, invocations, operands, placed, segments, unquoted, waits, within };
+export { basename, declared, firstOperand, informational, invocations, operands, placed, unquoted, waits, within };

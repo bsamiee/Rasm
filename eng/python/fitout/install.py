@@ -6,14 +6,15 @@ from typing import Annotated
 
 import anyio
 from cyclopts import Parameter
-from cyclopts.types import ResolvedExistingFile, ResolvedPath
+from cyclopts.types import ResolvedExistingFile
+from expression import Error, Ok, Result
+from expression.extra.result import catch
 import httpx2
 from mcp import Client, MCPError
 from mcp.types import CallToolResult
 import msgspec
 import psutil
 from pydantic import ValidationError
-from result import Err, Ok, Result
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -46,7 +47,7 @@ type InstallError = OSError | msgspec.ValidationError | ExceptionGroup[OSError |
 
 
 async def install(
-    archive: ResolvedPath, /, *, endpoint: Annotated[str, Parameter(env_var="BLENDER_MCP_URL")], blender: Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")]
+    archive: ResolvedExistingFile, /, *, endpoint: Annotated[str, Parameter(env_var="BLENDER_MCP_URL")], blender: Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")]
 ) -> Result[int, InstallError]:
     """Install and enable a Blender extension in the user repository.
 
@@ -59,26 +60,34 @@ async def install(
         The native handler's status, or a process, transport,
         response-decoding, or remote execution error. Native output is forwarded.
     """
-    executable = anyio.Path(blender)
     profile = {name: value for name, value in os.environ.items() if name.startswith("BLENDER_USER_")}
-    try:
-        pids = [
+    pids = await anyio.to_thread.run_sync(
+        lambda: [
             process.pid
-            for process in await anyio.to_thread.run_sync(tuple, psutil.process_iter(("exe", "cmdline", "environ")))
+            for process in psutil.process_iter(("exe", "cmdline", "environ"))
             if (path := process.info["exe"])
-            and not {"-b", "--background", "-c", "--command"} & set(process.info["cmdline"] or ())
-            and {name: value for name, value in (process.info["environ"] or {}).items() if name.startswith("BLENDER_USER_")} == profile
-            and await executable.samefile(path)
+            and (cmdline := process.info["cmdline"]) is not None
+            and not {"-b", "--background", "-c", "--command"} & set(cmdline)
+            and (environ := process.info["environ"]) is not None
+            and {name: value for name, value in environ.items() if name.startswith("BLENDER_USER_")} == profile
+            and catch(lambda: blender.samefile(path), exception=OSError)().default_with(lambda _: False)
         ]
-    except OSError as error:
-        return Err(error)
+    )
     arguments = ["install-file", "--repo", "user_default", "--enable", str(archive)]
     if not pids:
         try:
-            process = await anyio.run_process((executable, "--command", "extension", *arguments), stdout=None, stderr=None, check=False)
+            process = await anyio.run_process((blender, "--command", "extension", *arguments), stdout=None, stderr=None, check=False)
         except OSError as error:
-            return Err(error)
+            return Error(error)
         return Ok(process.returncode)
+
+    def decoded(result: CallToolResult) -> Result[_Completed | RemoteFailure, InstallError]:
+        return Error(result) if result.is_error else catch(lambda: msgspec.convert(result.structured_content, type=_Completed | RemoteFailure), exception=msgspec.ValidationError)()
+
+    def forwarded(response: _Completed | RemoteFailure) -> Result[int, InstallError]:
+        sys.stdout.write(response.stdout)
+        sys.stderr.write(response.stderr)
+        return Error(response) if isinstance(response, RemoteFailure) else Ok(response.result.returncode)
 
     code = (
         f"import os\nif os.getpid() not in {pids!r}:\n    raise RuntimeError('The connected Blender is not a selected running process')\n"
@@ -86,20 +95,12 @@ async def install(
     )
     try:
         async with Client(endpoint) as client:
-            result = await client.call_tool("execute_blender_code", {"code": code})
+            called = await client.call_tool("execute_blender_code", {"code": code})
     except* (OSError, httpx2.HTTPError, MCPError, ValidationError) as errors:
-        failure = Err(errors)
+        failed = Error(errors)
     else:
-        if result.is_error:
-            return Err(result)
-        try:
-            response: _Completed | RemoteFailure = msgspec.convert(result.structured_content, type=_Completed | RemoteFailure)
-        except msgspec.ValidationError as error:
-            return Err(error)
-        sys.stdout.write(response.stdout)
-        sys.stderr.write(response.stderr)
-        return Err(response) if isinstance(response, RemoteFailure) else Ok(response.result.returncode)
-    return failure
+        return decoded(called).bind(forwarded)
+    return failed
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

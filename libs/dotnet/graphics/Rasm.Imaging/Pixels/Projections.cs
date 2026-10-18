@@ -208,6 +208,7 @@ public abstract partial record Frustum {
 
     internal Option<((double X, double Y) Point, float Depth)> Locate(Vector3 view, PixelExtent extent) =>
         -view.Z > 0f ? Window.FramePoint(WindowOf(view), extent).Map(point => (point, -view.Z)) : None;
+
     public sealed record Perspective(ViewWindow Window) : Frustum(Window) {
         internal override Vector3 At((double X, double Y) window, float depth) => new((float)(window.X * depth), (float)(window.Y * depth), -depth);
         internal override (double X, double Y) WindowOf(Vector3 view) => ((double)view.X / -view.Z, (double)view.Y / -view.Z);
@@ -326,10 +327,7 @@ public abstract partial record Projection {
     private protected abstract Option<(double X, double Y)> FramePoint(Vector3 ray);
 
     public Option<(double X, double Y)> Reprojected(Projection target, Quaternion turn, (double X, double Y) point) =>
-        Ray(point) switch {
-            { IsSome: true } ray => target.Pixel(Vector3.Transform((Vector3)ray, turn)),
-            _ => None,
-        };
+        Ray(point).Bind(ray => target.Pixel(Vector3.Transform(ray, turn)));
 
     private double Circle => (double)Extent.ShortSide / Extent.Width;
 

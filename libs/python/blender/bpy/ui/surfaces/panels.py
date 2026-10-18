@@ -161,12 +161,58 @@ class Panels(msgspec.Struct, frozen=True, kw_only=True):
         popovers = {popover.key: Panel(section=popover, at=PopoverPanel()) for popover in reached(roots)}
         panels = (*self.panels, *popovers.values())
 
+        def members(at: Placed, mark: int) -> dict[str, object]:
+            match at:
+                case Tab(tab=tab):
+                    return {"bl_space_type": "PROPERTIES", "bl_region_type": "WINDOW", "bl_context": "particle" if tab == "PARTICLES" else tab.lower()}
+                case Sidebar(space=space, category=category):
+                    return {"bl_space_type": space, "bl_region_type": "UI", "bl_category": category, "bl_icon_value": mark}
+                case Joined(space=space, category=tab):
+                    return {"bl_space_type": space, "bl_region_type": "UI", "bl_category": tab}
+                case Child(parent=parent):
+                    return {
+                        "bl_space_type": parent.bl_space_type,
+                        "bl_region_type": parent.bl_region_type,
+                        "bl_parent_id": parent.bl_rna.identifier,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                        **stated(parent, lambda held: held.bl_category).map(lambda tab: {"bl_category": tab}).default_value({}),
+                    }
+                case EditorRegion(space=space, region=region):
+                    return {"bl_space_type": space, "bl_region_type": region}
+                case PopoverPanel(units=units):
+                    return {"bl_space_type": "TOPBAR", "bl_region_type": "HEADER", "bl_options": set(), **units.map(lambda width: {"bl_ui_units_x": width}).default_value({})}
+
+        def suffix(at: FixedPlacement) -> str:
+            match at:
+                case Tab(tab=words):
+                    text = words
+                case Sidebar(space=space, category=tab) | Joined(space=space, category=tab):
+                    text = f"{space} {tab}"
+                case Child(parent=parent):
+                    text = parent.bl_rna.identifier  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                case EditorRegion(space=space, region=region):
+                    text = f"{space} {region}"
+            return "_".join(re.findall(r"[a-z0-9]+", text.lower()))
+
+        def accepted(at: PanelPlacement) -> BlenderResult[PanelPlacement]:
+            match at:
+                case Joined(space=space, category=tab) if tab not in (listed := sidebars().get(space, ())):
+                    return Error((BlenderChoiceFault(path=space, identifier=tab, accepted=listed),))
+            return Ok(at)
+
+        def preceding(placing: dict[str, object]) -> int:
+            rows = (
+                *(((panel.bl_space_type, panel.bl_region_type, stated(panel, lambda held: held.bl_parent_id)), stated(panel, lambda held: held.bl_order)) for panel in registered()),
+                (("IMAGE_EDITOR", "UI", Nothing), Some(10)),
+            )
+            beside = (placing["bl_space_type"], placing["bl_region_type"], Option.of_optional(placing.get("bl_parent_id")))
+            return max((0, *(order for at, held in rows if at == beside for order in held.filter(lambda order: order < PropertiesAnimationMixin.bl_order).to_list())))
+
         def sited(panel: Panel, drawn: tuple[tuple[Drawn, tuple[tuple[Section, Drawn], ...]], tuple[RowDraw, ...]]) -> BlenderResult[tuple[PanelSite, ...]]:
             (top, children), header = drawn
 
             def site(stem: str, at: PanelPlacement, condition: Option[Condition]) -> BlenderResult[PanelSite]:
                 nested = accumulated(identity.name(Name.PANEL, f"{stem}_{child.key}").map(lambda name: Drawing(name=name, title=child.title, drawn=each)) for child, each in children)
-                return paired(paired(identity.name(Name.PANEL, stem), nested), admitted(at)).map(
+                return paired(paired(identity.name(Name.PANEL, stem), nested), accepted(at)).map(
                     lambda parts: PanelSite(at=at, condition=condition, headed=panel.headed, top=Drawing(name=parts[0][0], title=panel.section.title, drawn=top), children=parts[0][1], header=header)
                 )
 
@@ -267,65 +313,6 @@ class Panels(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def members(at: Placed, mark: int) -> dict[str, object]:
-    """Answers the registration members a placement gives every class it places.
-
-    Args:
-        at: Placement of the classes.
-        mark: Icon value of the product mark, `0` where the package holds none.
-
-    Returns:
-        The space, region, and the case's context, category, parent, icon, width, or options.
-    """
-    match at:
-        case Tab(tab=tab):
-            return {"bl_space_type": "PROPERTIES", "bl_region_type": "WINDOW", "bl_context": "particle" if tab == "PARTICLES" else tab.lower()}
-        case Sidebar(space=space, category=category):
-            return {"bl_space_type": space, "bl_region_type": "UI", "bl_category": category, "bl_icon_value": mark}
-        case Joined(space=space, category=tab):
-            return {"bl_space_type": space, "bl_region_type": "UI", "bl_category": tab}
-        case Child(parent=parent):
-            return {
-                "bl_space_type": parent.bl_space_type,
-                "bl_region_type": parent.bl_region_type,
-                "bl_parent_id": parent.bl_rna.identifier,  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-                **stated(parent, lambda held: held.bl_category).map(lambda tab: {"bl_category": tab}).default_value({}),
-            }
-        case EditorRegion(space=space, region=region):
-            return {"bl_space_type": space, "bl_region_type": region}
-        case PopoverPanel(units=units):
-            return {"bl_space_type": "TOPBAR", "bl_region_type": "HEADER", "bl_options": set(), **units.map(lambda width: {"bl_ui_units_x": width}).default_value({})}
-
-
-def suffix(at: FixedPlacement) -> str:
-    """Answers the key a mirror at a placement adds to its section key."""
-    match at:
-        case Tab(tab=words):
-            text = words
-        case Sidebar(space=space, category=tab) | Joined(space=space, category=tab):
-            text = f"{space} {tab}"
-        case Child(parent=parent):
-            text = parent.bl_rna.identifier  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        case EditorRegion(space=space, region=region):
-            text = f"{space} {region}"
-    return "_".join(re.findall(r"[a-z0-9]+", text.lower()))
-
-
-def admitted(at: PanelPlacement) -> BlenderResult[PanelPlacement]:
-    """Accepts a placement, a stock Sidebar tab against the tabs its editor lists.
-
-    Args:
-        at: Placement a panel or mirror states.
-
-    Returns:
-        `Ok` of the placement, else `Error` of a `choice` fault holding the editor and its tabs.
-    """
-    match at:
-        case Joined(space=space, category=tab) if tab not in (listed := sidebars().get(space, ())):
-            return Error((BlenderChoiceFault(path=space, identifier=tab, accepted=listed),))
-    return Ok(at)
-
-
 def reached(rows: Iterable[RowContent | Registrable]) -> Iterator[Section]:
     """Answers declared section popovers through nested content and its acquired owners."""
     for row in rows:
@@ -357,24 +344,6 @@ def stated[T](panel: type[bpy.types.Panel], member: Callable[[type[bpy.types.Pan
 def registered() -> tuple[type[bpy.types.Panel], ...]:
     """Answers every registered Python panel class, a class deriving from a concrete panel included."""
     return tuple(panel for name in dir(bpy.types) for panel in Option.of_optional(bpy.types.Panel.bl_rna_get_subclass_py(name)).to_list())
-
-
-def preceding(placing: dict[str, object]) -> int:
-    """Answers the greatest order among the panel types a class with these members registers beside.
-
-    Args:
-        placing: Members of the class, holding its space and region and its parent where it states one.
-
-    Returns:
-        The greatest order below Blender's closing Animation and Custom Properties band among the types sharing the class's
-        space, region, and parent, the C-registered image editor Metadata panel included, `0` where none states one.
-    """
-    rows = (
-        *(((panel.bl_space_type, panel.bl_region_type, stated(panel, lambda held: held.bl_parent_id)), stated(panel, lambda held: held.bl_order)) for panel in registered()),
-        (("IMAGE_EDITOR", "UI", Nothing), Some(10)),
-    )
-    beside = (placing["bl_space_type"], placing["bl_region_type"], Option.of_optional(placing.get("bl_parent_id")))
-    return max((0, *(order for at, held in rows if at == beside for order in held.filter(lambda order: order < PropertiesAnimationMixin.bl_order).to_list())))
 
 
 def sidebars() -> dict[str, tuple[str, ...]]:

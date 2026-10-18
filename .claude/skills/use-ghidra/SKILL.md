@@ -8,19 +8,23 @@ description: "Use when reading or annotating a binary through Ghidra, covering h
 `analyzeHeadless` imports and analyzes each binary once into its own Ghidra project under `$GHIDRA_PROJECT_DIR`, program named after its file. Later reads run scripts on the saved program, one file per script. ghidra-cli bridges serve edits of names, comments, and functions alone.
 
 [SCRIPTS]:
-- [01]-[STUBS](scripts/Stubs.java): Every `__objc_stubs` function named after the message it sends and typed as a message send
-- [02]-[CATALOG](scripts/Catalog.java): Every string, import, and function with the functions referencing or calling each
-- [03]-[DECOMPILE](scripts/Decompile.java): Seeds with callers and callees, the globals and types the bodies reference, in one indexed C file
-- [04]-[CALLSITES](scripts/CallSites.java): Every call site of seed functions with the argument text the decompiler resolved there
-- [05]-[HEADERS](scripts/Headers.java): C headers parsed into the program's types, prototypes applied to the named functions
-- [06]-[ARGUMENTS](scripts/Arguments.java): Output path, seed, and setting parser that collects every argument error
-- [07]-[FUNCTIONS](scripts/Functions.java): Call graph walks through thunks and stubs, stub selectors, string referrers, and parallel decompiles
-- [08]-[REPORT](scripts/Report.java): `Result` type with `Success` and `Failure` cases, and the writer of every script's file
-- [09]-[BRIDGES](scripts/bridges.py): Session hook that stops each bridge of an ended Claude Code session and clears files dead bridges left
+- [01]-[ANALYZERS](scripts/Analyzers.java): Prescript turning off the analyzers its arguments name before analysis
+- [02]-[STUBS](scripts/Stubs.java): Every `__objc_stubs` function named after the message it sends and typed as a message send
+- [03]-[CATALOG](scripts/Catalog.java): Every string, import, and function with the functions referencing or calling each
+- [04]-[DECOMPILE](scripts/Decompile.java): Seeds with callers and callees, the globals and types the bodies reference, in one indexed C file
+- [05]-[CALLSITES](scripts/CallSites.java): Every call site of seed functions with the argument text the decompiler resolved there
+- [06]-[HEADERS](scripts/Headers.java): C headers parsed into the program's types, prototypes applied to the named functions
+- [07]-[ARGUMENTS](scripts/Arguments.java): Output path, seed, and setting parser that collects every argument error
+- [08]-[FUNCTIONS](scripts/Functions.java): Call graph walks through thunks and stubs, stub selectors, string referrers, and parallel decompiles
+- [09]-[REPORT](scripts/Report.java): `Result` type with `Success` and `Failure` cases, and the writer of every script's file
+- [10]-[BRIDGES](scripts/bridges.py): Session hook that stops each bridge of an ended Claude Code session and clears files dead bridges left
 
 [FACTS]:
-- Run: Scripts take the output path as their first argument after the script name
+- Run: Postscripts take the output path as their first argument after the script name
 - Run: Runs exit 0 after a script error, `REPORT SCRIPT ERROR` in output and a missing `<out>` mark failure
+- Run: A decompiler that cannot open the program fails `Decompile.java` and `CallSites.java` with its message, one function's failure stays a row
+- Install: Releases ship no macOS arm64 decompiler, the `mise.toml` Ghidra row's `postinstall` builds it and creates `$GHIDRA_PROJECT_DIR`
+- Install: `mise install --force github:NationalSecurityAgency/ghidra` reruns `postinstall`, imports abort on a missing project folder
 - Help: `$GHIDRA_INSTALL_DIR/support/analyzeHeadlessREADME.html` lists every headless flag, `ghidra <group> --help` every ghidra-cli flag
 - Project: `mise.toml` names `$GHIDRA_PROJECT_DIR` outside the repository, Ghidra rejects a project path with a dot-prefixed component
 - Project: `-deleteProject` on an `-import` deletes the project that run created with its analysis
@@ -68,13 +72,13 @@ find "$GHIDRA_PROJECT_DIR" -maxdepth 1 -name '*.gpr' -exec basename -s .gpr -a {
 ```
 
 Imports:
-- Analysis, stubs, then catalog
-- One architecture of a universal Mach-O as the file the first line imports
+- Analysis with the Objective-C message analyzer off, stubs, then catalog
+- One architecture `lipo -archs <binary>` lists of a universal Mach-O as the file the first line imports
 - Headerless bytes, loader, base address without `0x`, and language named, then catalog
 
 ```bash
-<headless> -import <binary> -postScript Stubs.java <stubs> -postScript Catalog.java <catalog>
-lipo -thin arm64 <binary> -output <main>/.artifacts/ghidra/<name>/<file>.arm64
+<headless> -import <binary> -preScript Analyzers.java 'Objective-C Message Analyzer' -postScript Stubs.java <stubs> -postScript Catalog.java <catalog>
+lipo -thin <arch> <binary> -output <main>/.artifacts/ghidra/<name>/<file>.<arch>
 <headless> -import <file> -loader BinaryLoader -loader-baseAddr <hex> -processor <languageID> -postScript Catalog.java <catalog>
 ```
 
@@ -198,6 +202,9 @@ Behaviors of the Ghidra API that decide how a script reads or writes a program:
 - Addresses: `AddressFactory.getAddress` parses hex with or without `0x` and returns null for text holding no address
 - Decompile: `ParallelDecompiler.decompileFunctions` returns results in completion order, null for a cancelled item, and rethrows a callback exception
 - Decompile: `DecompilerCallback.setTimeout` sets the timeout passed per function, `DecompileOptions.setDefaultTimeout` changes nothing under it
+- Decompile: `DecompilerCallback` drops a failed `openProgram` and returns results with no message, the configurer opens the program
+- Analysis: `Objective-C Message Analyzer` recurses through every p-code input to depth 10 with no cancellation check, past `-analysisTimeoutPerFile`
+- Analysis: `Objective-C Message Analyzer` registers no option on a Mach-O without Objective-C, `setAnalysisOptions` logs an unregistered name
 - Globals: `getGlobalSymbolMap` holds a fraction of the globals a body names, the C markup tokens hold every one
 - Preprocessor: `PreProcessor` takes a `DefineTable` through package-private field `defs` alone, `Headers.java` sets it by reflection
 - Preprocessor: `-D` takes no macro arguments, a prelude through `ReInit` and `Input()` defines a function-like macro
@@ -217,4 +224,4 @@ Behaviors of the Ghidra API that decide how a script reads or writes a program:
 
 ## [06]-[EXTEND]
 
-Each new script is one `GhidraScript` file in the bundle, seeds through `Arguments.parse`, lines through `Report.write`. Finished scripts compile against the install's jars with no `-Xlint:all` warning and hold zero Java checker findings.
+Each new postscript is one `GhidraScript` file in the bundle, seeds through `Arguments.parse`, lines through `Report.write`. Finished scripts pass `nx run rasm:typecheck:javac` against the install's jars and hold zero Java checker findings.

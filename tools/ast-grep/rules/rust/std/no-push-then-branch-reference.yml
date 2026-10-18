@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-push-then-branch-reference
+language: rust
+severity: error
+utils:
+    pushed:
+        kind: expression_statement
+        has: {nthChild: 1, pattern: $V.$PUSH($$$ARGS)}
+rule:
+    kind: 'expression_statement, let_declaration, call_expression, try_expression'
+    all:
+        - follows: {matches: pushed}
+        - matches: {rust-pushed-element-lookup: {boundary: {kind: 'closure_expression, for_expression, while_expression, loop_expression'}}}
+        - not: {matches: {rust-pushed-element-lookup: {boundary: {matches: rust-conditional-scope}}}}
+message: '`$V.$PUSH` adds an element a branch of the next statement borrows back through a second lookup'
+note: 'Bind the `&mut T` that `push_mut(<value>)`, `insert_mut(<index>, <value>)`, `push_back_mut`, or `push_front_mut` returns in place of the push and read it in the branch'

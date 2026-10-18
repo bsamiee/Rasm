@@ -1,4 +1,4 @@
-use core::{hint::black_box, num::ParseIntError};
+use core::{fmt::Write as _, hint::black_box, num::ParseIntError};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -61,5 +61,53 @@ fn direct(value: Option<u32>) -> u32 { value.unwrap() }
 fn main() {
     checked(2);
     printed(3);
-    black_box(&(unwrapped(Some(1)), expected("2".parse()), debugged(4), total(&[5]), direct(Some(6)), unfinished as fn() -> u32));
+    black_box(&(
+        unwrapped(Some(1)),
+        expected("2".parse()),
+        debugged(4),
+        total(&[5]),
+        direct(Some(6)),
+        unfinished as fn() -> u32,
+        (showing(7), ignoring(Ok(8)), keeping(Ok(9)), writing(&mut String::new(), 10)),
+    ));
 }
+
+macro_rules! shown {
+    ($value:expr) => {
+        format!("{:?}", $value)
+    };
+}
+
+macro_rules! written {
+    ($out:expr, $value:expr) => {
+        write!($out, "{:?}", $value)
+    };
+}
+
+macro_rules! ignored {
+    ($value:expr) => {
+        $value.map_err(|_| Refused)
+    };
+}
+
+macro_rules! kept {
+    ($value:expr) => {
+        $value.map_err(|error| Unreadable(error))
+    };
+}
+
+#[derive(Debug, thiserror::Error)]
+#[error("count is refused")]
+struct Refused;
+
+#[derive(Debug, thiserror::Error)]
+#[error("count is unreadable")]
+struct Unreadable(#[source] ParseIntError);
+
+fn showing(value: u32) -> String { shown!(value) }
+
+fn writing(out: &mut String, value: u32) -> core::fmt::Result { written!(out, value) }
+
+fn ignoring(value: Result<u32, ParseIntError>) -> Result<u32, Refused> { ignored!(value) }
+
+fn keeping(value: Result<u32, ParseIntError>) -> Result<u32, Unreadable> { kept!(value) }

@@ -146,7 +146,7 @@ public static class Navigation {
             isometric: static (port, isometric) => Refused.Unless(port.SetProjection(isometric.Camera, Conversions.Unset(isometric.ViewName), isometric.UpdateConstructionPlane), nameof(RhinoViewport.SetProjection)),
             lens: static (port, lens) => {
                 port.Camera35mmLensLength = lens.Length;
-                return Fin.Succ(unit);
+                return unit;
             });
 
     // --- [VIEWPORTS]

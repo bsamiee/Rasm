@@ -1,38 +1,27 @@
-import { all, bind, decoded, map, none, type Option, type Result, some } from '../composition.ts';
-import { declared, type Invocation, inner, invocations, operands, unquoted, waits } from './invocation.ts';
+import { all, bind, fault, map, ok, type Result } from '../composition.ts';
+import { basename, declared, type Invocation, invocations, operands, unquoted, waits } from './invocation.ts';
+import type { System } from './policies.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Scanner = (text: string) => Promise<Result<string>>;
 
-interface Context {
-    readonly fed: boolean;
-    readonly nested: boolean;
-}
 interface Span {
     readonly start: number;
     readonly end: number;
 }
-interface Command extends Context {
+interface Command {
     readonly source: string;
-    readonly words: readonly string[];
-    readonly spans: readonly Span[];
+    readonly words: readonly { readonly text: string; readonly span: Span }[];
     readonly invocations: readonly Invocation[];
-    readonly stdin: Option<string>;
-}
-interface Step {
-    readonly programs: readonly string[];
-    readonly writes: readonly string[];
-    readonly reads: readonly string[];
-}
-interface Deletion {
-    readonly program: string;
-    readonly message: string;
+    readonly bodies: readonly string[];
+    readonly fed: boolean;
+    readonly nested: boolean;
 }
 interface Script {
     readonly commands: readonly Command[];
-    readonly sequences: readonly (readonly Step[])[];
-    readonly deletes: readonly Deletion[];
+    readonly sequences: readonly (readonly { readonly programs: readonly string[]; readonly writes: readonly string[]; readonly reads: readonly string[] }[])[];
+    readonly deletes: readonly { readonly program: string; readonly message: string }[];
 }
 interface Capture {
     readonly text: string;
@@ -58,7 +47,7 @@ const _OWNER = `    owner: {any: [{inside: {kind: command, pattern: $BODY}}, {in
     value: {kind: 'word, string, raw_string, concatenation, simple_expansion, expansion, command_substitution, number'}`;
 const _SCOPE = `    scope: {kind: 'program, subshell, command_substitution, process_substitution, pipeline'}
     scoped: {any: [{inside: {stopBy: {matches: scope}, kind: program}}, {inside: {stopBy: {matches: scope}, matches: scope, not: {kind: program}, pattern: $SCOPE}}]}`;
-const SCAN: Invocation = [
+const _SCAN = [
     'ast-grep',
     'scan',
     '--stdin',
@@ -156,93 +145,83 @@ rule:
             - has: {all: [{matches: searcher}, {pattern: $PROGRAM}]}
             - has: {kind: word, regex: '^-delete$', pattern: $SOURCE}`,
     ].join('\n---\n'),
-];
+] as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// --- [WORDS]
+// --- [SCAN]
 
-const _script = (hits: readonly Hit[], context: Context, source: string): Script => {
-    const sorted = hits.toSorted((left, right) => left.range.byteOffset.start - right.range.byteOffset.start);
-    const key = (capture: Capture | undefined): string => (capture === undefined ? '' : `${capture.range.byteOffset.start}:${capture.range.byteOffset.end}`);
-    const owned = Map.groupBy(sorted, (hit) => (hit.ruleId === 'operand' || hit.ruleId === 'heredoc' || hit.ruleId === 'herestring' ? hit.metaVariables.single.BODY : hit).range.byteOffset.start)
-        .values()
-        .flatMap((own) => {
-            const hit = own.find((other) => other.ruleId === 'command');
-            if (hit === undefined) {
-                return [];
+const scanner = async ({ run, root, cwd }: System): Promise<Scanner> => {
+    const folder = root.kind === 'some' ? root.value : cwd;
+    const exited = (argv: Invocation, stdin: string): Promise<Result<string>> =>
+        run(argv, { cwd: folder, stdin }).then(
+            ({ exitCode, stdout, stderr }) => (exitCode === 0 ? ok(stdout) : fault({ kind: 'exited', subject: basename(argv[0]), code: exitCode, output: stderr.trim() })),
+            (cause: unknown) => fault({ kind: 'unstarted', subject: basename(argv[0]), cause }),
+        );
+    const [program, ...args] = _SCAN;
+    const resolved = map(await exited(['mise', 'which', program], ''), (path) => [path.trim(), ...args] as const);
+    return async (text) => bind(resolved, (argv) => exited(argv, text));
+};
+
+// --- [PARSE]
+
+const parse = async (scan: Scanner, source: string, { fed, nested }: Pick<Command, 'fed' | 'nested'>): Promise<Result<Script>> =>
+    bind(
+        bind(await scan(source), (printed): Result<readonly Hit[]> => {
+            try {
+                return ok(JSON.parse(printed));
+            } catch (cause) {
+                return fault({ kind: 'undecoded', subject: _SCAN[0], cause });
             }
-            const tokens = [hit.metaVariables.single.CMD, ...(hit.metaVariables.multi.ARGS ?? []), ...own.filter((other) => other.ruleId === 'operand')].filter(({ text }) => _WORD.test(text));
-            const words = tokens.map(({ text }) => unquoted(text));
-            const given = own.findLast((other) => other.ruleId === 'heredoc' || other.ruleId === 'herestring');
-            const command: Command = {
-                source,
-                words,
-                spans: tokens.map(({ range }) => range.byteOffset),
-                invocations: invocations(words),
-                nested: context.nested,
-                fed: context.fed || own.some((other) => other.ruleId === 'fed'),
-                stdin: given === undefined ? none : some(given.ruleId === 'herestring' ? unquoted(given.text) : given.text),
-            };
-            return [{ command, hit }];
-        })
-        .toArray();
-    const steps = sorted.flatMap((hit) => (hit.ruleId === 'step' ? [hit] : []));
-    return {
-        commands: owned.map(({ command }) => command),
-        sequences: Map.groupBy(steps, ({ metaVariables }) => key(metaVariables.single.SEQ))
-            .values()
-            .map((held) =>
-                held.map(({ range: { byteOffset }, metaVariables }): Step => {
+        }),
+        async (hits) => {
+            const sorted = hits.toSorted((left, right) => left.range.byteOffset.start - right.range.byteOffset.start);
+            const key = (capture: Capture | undefined): string => (capture === undefined ? '' : `${capture.range.byteOffset.start}:${capture.range.byteOffset.end}`);
+            const owned = Map.groupBy(sorted, (hit) => (hit.ruleId === 'operand' || hit.ruleId === 'heredoc' || hit.ruleId === 'herestring' ? hit.metaVariables.single.BODY : hit).range.byteOffset.start)
+                .values()
+                .flatMap((own) => {
+                    const hit = own.find((other) => other.ruleId === 'command');
+                    if (hit === undefined) {
+                        return [];
+                    }
+                    const words = [hit.metaVariables.single.CMD, ...(hit.metaVariables.multi.ARGS ?? []), ...own.filter((other) => other.ruleId === 'operand')].filter(({ text }) => _WORD.test(text)).map(({ text, range }) => ({ text: unquoted(text), span: range.byteOffset }));
+                    const given = own.findLast((other) => other.ruleId === 'heredoc' || other.ruleId === 'herestring');
+                    const stdin = given === undefined ? [] : [given.ruleId === 'herestring' ? unquoted(given.text) : given.text];
+                    const chain = invocations(words.map(({ text }) => text));
+                    const last = chain.slice(-1);
+                    const bodies = [...last, ...last.flatMap((invocation) => invocations(operands(invocation).inner))].flatMap((invocation) => [...operands(invocation).bodies, ...(declared(invocation[0]).shell !== undefined && waits(invocation) ? stdin : [])]);
+                    return [{ command: { source, words, invocations: chain, bodies, nested, fed: fed || own.some((other) => other.ruleId === 'fed') }, hit }];
+                })
+                .toArray();
+            const steps = sorted
+                .filter((hit) => hit.ruleId === 'step')
+                .map(({ range: { byteOffset }, metaVariables }) => {
                     const inside = ({ range }: Capture): boolean => range.byteOffset.start >= byteOffset.start && range.byteOffset.end <= byteOffset.end;
                     const scope = key(metaVariables.single.SCOPE);
                     const contained = owned.filter(({ hit }) => inside(hit));
                     return {
-                        programs: contained.flatMap(({ command }) => command.invocations.slice(-1).map(([program]) => program)),
+                        sequence: key(metaVariables.single.SEQ),
+                        programs: contained.flatMap(({ command }) => command.invocations.slice(-1)).map(([program]) => program),
                         writes: [
                             ...sorted.flatMap((hit) => (hit.ruleId === 'write' && inside(hit) && key(hit.metaVariables.single.SCOPE) === scope ? [hit.metaVariables.single.NAME.text] : [])),
-                            ...contained.flatMap(({ command, hit }) => (key(hit.metaVariables.single.SCOPE) === scope ? command.invocations.flatMap(([program]) => declared(program).writes ?? []) : [])),
+                            ...contained
+                                .filter(({ hit }) => key(hit.metaVariables.single.SCOPE) === scope)
+                                .flatMap(({ command }) => command.invocations)
+                                .flatMap(([program]) => declared(program).writes ?? []),
                         ],
                         reads: ['PWD', ...sorted.flatMap((hit) => (hit.ruleId === 'read' && inside(hit) ? [hit.text] : []))],
                     };
-                }),
-            )
-            .toArray(),
-        deletes: sorted.flatMap((hit) => (hit.ruleId === 'delete' ? [{ program: hit.metaVariables.single.PROGRAM.text, message: hit.message }] : [])),
-    };
-};
-
-const _bodies = (command: Command): readonly string[] =>
-    command.invocations
-        .slice(-1)
-        .flatMap((invocation) => [invocation, ...invocations(inner(invocation))])
-        .flatMap((invocation) => {
-            const [program, ...rest] = invocation;
-            const { bodies, shell, code = [] } = declared(program);
-            const { inputs, values } = operands(invocation);
-            const named = [...(bodies ?? []), ...(shell === true ? code : [])];
-            return [...(program === 'eval' ? [rest.join(' ')] : []), ...(bodies === undefined ? [] : inputs), ...values.flatMap(([name, value]) => (named.includes(name) ? [value] : [])), ...(shell === true && waits(invocation) && command.stdin.kind === 'some' ? [command.stdin.value] : [])];
-        });
-
-// --- [PARSE]
-
-const _parse = async (scanner: Scanner, text: string, context: Context): Promise<Result<Script>> =>
-    bind(decoded<readonly Hit[]>('ast-grep', await scanner(text)), async (hits): Promise<Result<Script>> => {
-        const script = _script(hits, context, text);
-        const expanded = await Promise.all(script.commands.map(async (command) => map(all(await Promise.all(_bodies(command).map((body) => _parse(scanner, body, { fed: command.fed, nested: true })))), (nested) => ({ command, nested }))));
-        return map(all(expanded), (held): Script => {
-            const nested = held.flatMap(({ nested: scripts }) => scripts);
-            return { commands: held.flatMap(({ command, nested: scripts }) => [command, ...scripts.flatMap(({ commands }) => commands)]), sequences: [...script.sequences, ...nested.flatMap(({ sequences }) => sequences)], deletes: [...script.deletes, ...nested.flatMap(({ deletes }) => deletes)] };
-        });
-    });
-
-const parse = (scanner: Scanner, command: string): Promise<Result<Script>> => _parse(scanner, command, { fed: false, nested: false });
-
-// --- [SPANS]
-
-const offset = (command: Command, index: number): number => command.words.length - command.invocations.slice(index).reduce((count, invocation) => count + invocation.length, 0);
+                });
+            const script = { commands: [], sequences: [...Map.groupBy(steps, ({ sequence }) => sequence).values()], deletes: sorted.flatMap((hit) => (hit.ruleId === 'delete' ? [{ program: hit.metaVariables.single.PROGRAM.text, message: hit.message }] : [])) };
+            const expanded = await Promise.all(owned.map(async ({ command }) => map(all(await Promise.all(command.bodies.map((body) => parse(scan, body, { fed: command.fed, nested: true })))), (inner) => [{ commands: [command], sequences: [], deletes: [] }, ...inner])));
+            return map(all(expanded), (lists): Script => {
+                const scripts = [script, ...lists.flat()];
+                return { commands: scripts.flatMap(({ commands }) => commands), sequences: scripts.flatMap(({ sequences }) => sequences), deletes: scripts.flatMap(({ deletes }) => deletes) };
+            });
+        },
+    );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export type { Command, Scanner, Script, Span };
-export { offset, parse, SCAN };
+export { parse, scanner };

@@ -8,7 +8,6 @@ utils:
         all:
             - not: {has: {regex: '^case$'}}
             - not: {kind: if_statement, has: {regex: '^else$'}}
-            - not: {has: {field: condition, kind: value_binding_pattern}}
             - not: {has: {kind: value_binding_pattern, stopBy: {kind: statements}}}
             - has: {kind: statements, matches: {swift-single-statement: {first: {kind: control_transfer_statement, regex: '^(continue|break)$'}}}}
     varying-read:
@@ -23,7 +22,28 @@ utils:
                 stopBy: {kind: for_statement}
                 any:
                     - has: {field: item, has: {stopBy: end, kind: simple_identifier, pattern: $READ}}
-                    - has: {kind: statements, has: {stopBy: end, kind: assignment, has: {field: target, has: {stopBy: end, kind: simple_identifier, pattern: $READ}}}}
+                    - has:
+                        kind: statements
+                        has:
+                            stopBy: end
+                            any:
+                                - {kind: assignment, has: {field: target, has: {stopBy: end, kind: simple_identifier, pattern: $READ}}}
+                                - {kind: call_expression, has: {nthChild: 1, kind: navigation_expression, has: {field: target, pattern: $READ}}}
+                                - {kind: prefix_expression, all: [{has: {field: operation, pattern: µµ_OPERATOR, regex: '^&$'}}, {has: {field: target, pattern: $READ}}]}
+            - kind: simple_identifier
+              pattern: $STATE
+              all:
+                - inside: {kind: for_statement, stopBy: {kind: for_statement}, has: {kind: statements, has: {stopBy: end, kind: 'call_expression, await_expression'}}}
+                - inside:
+                    kind: source_file
+                    stopBy: end
+                    has:
+                        stopBy: end
+                        kind: property_declaration
+                        all:
+                            - has: {kind: value_binding_pattern, has: {field: mutability, regex: '^var$'}}
+                            - has: {field: name, has: {field: bound_identifier, pattern: $STATE}}
+                            - inside: {kind: 'class_body, enum_class_body, source_file'}
 rule:
     kind: for_statement
     all:

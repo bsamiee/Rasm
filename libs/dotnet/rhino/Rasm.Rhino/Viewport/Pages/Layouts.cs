@@ -58,7 +58,7 @@ public static class Layouts {
 
     // --- [TITLES]
     public static IO<Unit> Title(RhinoDoc doc, RhinoPageView page, DraftingConvention convention, HashMap<TitleField, string> entries) =>
-        from accepted in IO.lift(TitleField.Accept(convention, entries).ToFin())
+        from accepted in IO.lift(TitleField.Accept(convention, entries))
         from written in accepted.TraverseM(entry => entry.Field.Source.Switch(
             (Doc: doc, Page: page, entry.Field.Key, entry.Text),
             projectText: static (state, _) => UserStrings.Write(state.Doc, new DocumentKey(KeyName.Create(state.Key)), state.Text).Map(static _ => unit),
@@ -71,8 +71,9 @@ public static class Layouts {
 
     // --- [GROUPS]
     public static IO<PageViewGroup> Ensure(RhinoDoc doc, LayoutGroup grouping) =>
-        from members in IO.lift(() => (Callbacks.Unique(grouping.Members, identity, nameof(LayoutGroup.Members)), grouping.Members.Traverse(name => Find(doc, name).ToValidation<Error>(new NotFound("layout", $"{name}"))).As())
-            .Apply(static (_, pages) => pages).As().ToFin())
+        from members in IO.lift(() => (Callbacks.Unique(grouping.Members, identity, nameof(LayoutGroup.Members)),
+                grouping.Members.Traverse(name => Find(doc, name).ToFin(new NotFound("layout", $"{name}"))).As())
+            .Apply(static (_, pages) => pages).As())
         from row in TableOps.Find(doc.PageViewGroups, new ComponentRef<PageViewGroup>.ByName(grouping.Name), includeDeleted: false)
             .Catch(static error => error.IsType<NotFound>(), _ => Add(doc, grouping.Name))
         from described in IO.lift(() => grouping.Description.Iter(text => Update(row.Description, text, value => row.Description = value)))
@@ -97,9 +98,9 @@ public static class Layouts {
         select placed;
 
     public static IO<Unit> Renumber(RhinoDoc doc, NamingStandard grammar, Seq<RhinoPageView> ordered) =>
-        from numbered in IO.lift(() => ordered.Traverse(page => StandardName.From(grammar, page.PageName).ToValidation().Map(number => (Sheet: page, Number: number))).As().ToFin())
+        from numbered in IO.lift(() => ordered.Traverse(page => StandardName.From(grammar, page.PageName).Map(number => (Sheet: page, Number: number))).As())
         from others in Sheets(doc, grammar).Map(sheets => sheets.Filter(sheet => !ordered.Exists(sheet.Page.Equals)).Map(static sheet => sheet.Number))
-        from renumbered in IO.lift(StandardName.Renumber(numbered, others).ToFin())
+        from renumbered in IO.lift(StandardName.Renumber(numbered, others))
         from named in IO.lift(() => renumbered.Iter(static sheet => Update(sheet.Sheet.PageName, sheet.Number.Text, name => sheet.Sheet.PageName = name)))
         from arranged in Arrange(renumbered.Map(static sheet => sheet.Sheet))
         from counted in Number(doc, grammar)

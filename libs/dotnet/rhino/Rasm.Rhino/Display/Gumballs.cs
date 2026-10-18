@@ -21,16 +21,16 @@ public static partial class Gumballs {
     // --- [SCOPE]
     public static IO<T> Placed<T>(Func<GumballObject, bool> initialize, string member, ActiveSpace space, Option<GumballAppearanceSettings> appearance, Func<GumballDisplayConduit, IO<T>> body) =>
         DisposalOps.Within(() => new GumballDisplayConduit(space), conduit =>
-        from placed in DisposalOps.Within(static () => new GumballObject(), gumball =>
-             from accepted in IO.lift(() => Refused.Unless(initialize(gumball), member))
-             from enabled in IO.lift(() => {
-                 conduit.SetBaseGumball(gumball, appearance.ValueUnsafe());
-                 conduit.Enabled = true;
-             })
-             select enabled)
-        from answer in body(conduit)
-        select answer,
-         static conduit => Callbacks.Each(Seq(IO.lift(() => { conduit.Enabled = false; }), IO.lift(conduit.Dispose))).Map(unit));
+            from placed in DisposalOps.Within(static () => new GumballObject(), gumball =>
+                from accepted in IO.lift(() => Refused.Unless(initialize(gumball), member))
+                from enabled in IO.lift(() => {
+                    conduit.SetBaseGumball(gumball, appearance.ValueUnsafe());
+                    conduit.Enabled = true;
+                })
+                select enabled)
+            from answer in body(conduit)
+            select answer,
+            static conduit => Callbacks.Each(Seq(IO.lift(() => { conduit.Enabled = false; }), IO.lift(conduit.Dispose))).Map(unit));
 
     // --- [DRAG]
     public static IO<Option<GumballMode>> Pick(GumballDisplayConduit conduit, PickContext context, Option<GetPoint> point) =>

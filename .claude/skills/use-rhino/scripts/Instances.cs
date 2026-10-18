@@ -103,8 +103,8 @@ internal static class Program {
     };
 
     private static async Task<int> RunAsync() {
-        Console.WriteLine(await (from http in use(static () => new HttpClient()) from router in Router() from listed in List(http, router) select listed)
-            .Bracket()
+        Console.WriteLine(await Router()
+            .Bind(static router => IO.lift(static () => new HttpClient()).Bracket(Use: http => List(http, router), Fin: static http => IO.lift(http.Dispose)))
             .Catch(Unanswered, static error => IO.pure($"Rhino: unknown, {error.Message}"))
             .RunAsync(CancellationToken.None).ConfigureAwait(false));
         return 0;
@@ -161,9 +161,9 @@ internal static class Program {
     private static Seq<string> Lines(object node) => Fields(node) switch {
         var fields => [
             string.Join(", ", fields.Filter(static field => field.Value is not ICollection).Bind(static field => field.Shown.Text(field.Value).ToSeq())),
-            .. fields.Bind(static field => field.Value is ICollection items ? Section(field.Shown.Text(items), toSeq(items.Cast<object>()).Bind(Lines)) : []).Map(static line => $"  {line}"),
+            .. fields.Bind(static field => field.Value is ICollection items
+                ? field.Shown.Text(items).ToSeq().Bind(text => text.Cons(toSeq(items.Cast<object>()).Bind(Lines).Map(static line => $"  {line}")))
+                : []).Map(static line => $"  {line}"),
         ],
     };
-
-    private static Seq<string> Section(Option<string> header, Seq<string> lines) => header.ToSeq().Bind(text => text.Cons(lines.Map(static line => $"  {line}")));
 }

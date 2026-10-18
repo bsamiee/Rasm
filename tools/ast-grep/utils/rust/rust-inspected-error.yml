@@ -1,6 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: rust-inspected-error
-language: rust
-rule:
-    kind: call_expression
-    has: {field: function, kind: field_expression, has: {field: field, regex: '^inspect_err$'}}

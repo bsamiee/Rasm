@@ -37,11 +37,11 @@ enum Request: Decodable {
     case execute(application: URL, command: String, arguments: [String: Descriptor])
     case contentType(url: URL)
     case windows(application: URL)
-    case capture(window: Int, url: URL, longest: Int)
+    case capture(window: Int, url: URL)
     case faces
 
     private enum Method: String, Decodable { case applications, application, definition, execute, contentType, windows, capture, faces }
-    private enum Key: CodingKey { case method, params, running, application, command, arguments, url, window, longest }
+    private enum Key: CodingKey { case method, params, running, application, command, arguments, url, window }
 
     init(from decoder: any Decoder) throws {
         let call: KeyedDecodingContainer<Key> = try decoder.container(keyedBy: Key.self)
@@ -59,12 +59,7 @@ enum Request: Decodable {
                     )
                 case .contentType: try .contentType(url: params().decode(URL.self, forKey: .url))
                 case .windows: try .windows(application: params().decode(URL.self, forKey: .application))
-                case .capture:
-                    try .capture(
-                        window: params().decode(Int.self, forKey: .window),
-                        url: params().decode(URL.self, forKey: .url),
-                        longest: params().decode(Int.self, forKey: .longest),
-                    )
+                case .capture: try .capture(window: params().decode(Int.self, forKey: .window), url: params().decode(URL.self, forKey: .url))
                 case .faces: .faces
             }
     }
@@ -87,8 +82,8 @@ enum Request: Decodable {
                     .map(\.self)
             case .windows(let url):
                 Application.at(url).flatMap { application in application.runningApplication() }.flatMap(Window.onScreen(of:)).map(\.self)
-            case .capture(let window, let url, let longest):
-                await Window.capture(window, into: url, longest: longest).map(\.self)
+            case .capture(let window, let url):
+                await Window.capture(window, into: url).map(\.self)
             case .faces:
                 .success(Face.installed())
         }

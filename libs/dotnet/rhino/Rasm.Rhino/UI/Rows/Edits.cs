@@ -127,7 +127,7 @@ public sealed class RowEdit<TRecord> : RowEdit where TRecord : notnull {
     internal IO<Unit> Flush =>
         from held in state.ValueIO
         from paced in scope.Paced
-        from written in held.Filter(_ => paced).Traverse(Paced).As()
+        from written in held.Filter(_ => paced).Traverse(open => Callbacks.Each(open.Targets.Map(target => Edit(target.Store, open.Latest))).Map(unit)).As()
         select unit;
 
     internal IO<Unit> Elapsed =>
@@ -186,9 +186,6 @@ public sealed class RowEdit<TRecord> : RowEdit where TRecord : notnull {
          from history in scope.History
          select history.Commit(diff))
         .Match(Some: static record => record.Map(unit), None: static () => IO.pure(unit));
-
-    private IO<Unit> Paced(OpenEdit<TRecord> open) =>
-        Callbacks.Each(open.Targets.Map(target => Edit(target.Store, open.Latest))).Map(unit);
 
     private IO<(TRecord Value, Option<IO<Unit>> Owed)> Edit(ValueStore<TRecord> store, TRecord value) =>
         DisposalOps.Transacted(

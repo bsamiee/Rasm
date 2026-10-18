@@ -108,15 +108,11 @@ public static class HostTheme {
                             handler => parent.LogicalPixelSizeChanged -= handler,
                             nameof(Window.LogicalPixelSizeChanged))
                         .Choose(static _ => Some(unit)).Inline(deliver, site.Sink, windowOwned)).As()).Map(unit),
-                    (_, lease) => {
-                        Option<IDisposable> prior = atomic(() => mounted.Value.Match(
-                            Some: current => {
-                                mounted.Value = Some(Some(lease));
-                                return current;
-                            },
-                            None: static () => throw Errors.Cancelled.ToException()));
-                        return IO.lift(() => prior.Iter(static held => held.Dispose()));
-                    })
+                    (_, lease) => atomicIO(() => {
+                        Option<Option<IDisposable>> prior = mounted.Value;
+                        mounted.Value = prior.Map(_ => Some(lease));
+                        return prior.ToFin(Errors.Cancelled);
+                    }).Bind(IO.lift).Bind(static prior => IO.lift(() => prior.Iter(static held => held.Dispose()))))
                 from lifetime in DisposalOps.Acquire(IO.lift(() => new Disposal<Ref<Option<Option<IDisposable>>>>(mounted, _ => exchange(None).Run())), owned)
                 from changed in Changed.Inline(deliver, site.Sink, owned)
                 from loaded in Subscriptions.Attach(

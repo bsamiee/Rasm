@@ -7,27 +7,31 @@ utils:
         any:
             - matches: python-identifier-string
             - matches: python-relayed-identifier-string
+    relayed-callee:
+        any:
+            - kind: attribute
+            - regex: '^(getattr(_static)?|setattr|delattr)$'
+            - inside: {kind: module, stopBy: end, regex: '(?m)\b(getattr(_static)?|setattr|delattr)\s+as\s|=\s*(?:\w+\.)?(getattr(_static)?|setattr|delattr)\b\s*(?:[^\s(]|$)'}
     reader:
         kind: 'identifier, attribute'
-        matches: {builtins-attribute-function: {name: {regex: '^getattr(_static)?$'}}}
+        matches: relayed-callee
+        all: [{matches: {builtins-attribute-function: {name: {regex: '^getattr(_static)?$'}}}}]
     writer:
         kind: 'identifier, attribute'
-        matches: {builtins-attribute-function: {name: {regex: '^(setattr|delattr)$'}}}
+        matches: relayed-callee
+        all: [{matches: {builtins-attribute-function: {name: {regex: '^(setattr|delattr)$'}}}}]
     object-dunder:
         kind: attribute
         regex: '^object\.__(getattribute|setattr|delattr)__$'
-    getter:
-        kind: 'identifier, attribute'
-        matches: {python-member-use: {module: {regex: '^operator$'}, name: {regex: '^(attrgetter|methodcaller)$'}}}
     reached:
         kind: call
         any:
             - all:
-                - has: {field: arguments, has: {nthChild: 2, matches: python-relayed-identifier-string}}
                 - any:
                     - all: [{has: {field: function, matches: reader}}, {not: {has: {field: arguments, has: {nthChild: 3}}}}]
                     - has: {field: function, matches: writer}
                     - has: {field: function, matches: object-dunder}
+                - has: {field: arguments, has: {nthChild: 2, matches: python-relayed-identifier-string}}
             - all:
                 - has: {field: arguments, has: {nthChild: 2, matches: python-identifier-string}}
                 - any:
@@ -39,42 +43,22 @@ utils:
                         - not: {all: [{inside: {kind: expression_statement}}, {has: {field: function, matches: {python-builtin-name: {name: {regex: '^(setattr|delattr)$'}}}}}]}
                     - has: {field: function, matches: object-dunder}
             - all:
+                - inside: {kind: module, stopBy: end, regex: '\bpartial\(\s*(?:\w+\.)*(?:getattr|setattr|delattr|__getattribute__|__setattr__|__delattr__)\b'}
                 - has: {field: function, matches: functools-partial-callee}
                 - has: {field: arguments, has: {nthChild: 1, any: [{matches: reader}, {matches: writer}, {matches: object-dunder}]}}
                 - has: {field: arguments, has: {nthChild: 3, matches: member-name}}
-            - all:
-                - has: {field: function, matches: getter}
-                - has:
-                    field: arguments
-                    has:
-                        nthChild: 1
-                        any:
-                            - {kind: string, regex: '^[rRuU]?("|'')[A-Za-z_]\w*(\.[A-Za-z_]\w*)*("|'')$'}
-                            - matches: python-relayed-identifier-string
     indexed:
         kind: subscript
         all:
+            - inside: {kind: module, stopBy: end, regex: '\bgetmembers'}
             - has: {field: value, matches: inspect-member-mapping}
             - has: {field: subscript, matches: member-name}
             - not: {matches: python-key-catch}
 rule:
     kind: 'call, subscript'
     pattern: $ACCESS
-    all:
-        - any:
-            - matches: reached
-            - matches: indexed
-        - any:
-            - all:
-                - has: {field: function, matches: {python-member-use: {module: {regex: '^operator$'}, name: {regex: '^attrgetter$'}}}}
-                - has: {field: arguments, kind: argument_list, has: {nthChild: 1, kind: string, pattern: $READ}, not: {has: {any: [{nthChild: 2}, {kind: comment}]}}}
-            - all:
-                - has: {field: function, matches: {python-member-use: {module: {regex: '^operator$'}, name: {regex: '^methodcaller$'}}}}
-                - has: {field: arguments, kind: argument_list, has: {nthChild: 1, matches: python-identifier-string, pattern: $INVOKED}, not: {has: {any: [{nthChild: 2}, {kind: comment}]}}}
-            - pattern: $KEPT
-transform:
-    READ_LAMBDA: {replace: {source: $READ, replace: '^[rRuU]?["'']([\w.]+)["'']$', by: 'lambda owner: owner.$1'}}
-    INVOKED_LAMBDA: {replace: {source: $INVOKED, replace: '^[rRuU]?["''](\w+)["'']$', by: 'lambda owner: owner.$1()'}}
-fix: $READ_LAMBDA$INVOKED_LAMBDA$KEPT
+    any:
+        - matches: reached
+        - matches: indexed
 message: '`$ACCESS` reaches a member by a name string'
-note: 'Read the member on its owner, a lambda for a deferred read or call, or a nested `def` for a deferred assignment, type checkers reading a member reached by name as `Any`. A `vars` or `__dict__` read of one namespace''s stored descriptor stays'
+note: 'Read the member on its owner, a lambda for a deferred read or call, or a nested `def` for a deferred assignment, type checkers reading a member reached by name as `Any`. A `vars` or `__dict__` read of one namespace''s stored descriptor stays, and ruff `banned-api` reports `operator.attrgetter` and `operator.methodcaller`'

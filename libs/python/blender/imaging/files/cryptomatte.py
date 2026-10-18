@@ -96,7 +96,7 @@ class Matte(msgspec.Struct, frozen=True, kw_only=True):
         def joined(terms: tuple[tuple[npt.NDArray[np.uint32], npt.NDArray[np.float64]], ...]) -> dict[str, float]:
             codes, inverse = np.unique(np.concatenate((np.empty(0, dtype=np.uint32), *(codes for codes, _ in terms))), return_inverse=True)
             sums = np.bincount(inverse, weights=np.concatenate((np.empty(0), *(sums for _, sums in terms))), minlength=codes.size)
-            found = dict(zip(codes.tolist(), (sums / (self.file.parts[0].width * self.file.parts[0].height)).tolist(), strict=True))
+            found = dict(zip(codes.tolist(), (sums / (self.file.parts[0].width * self.file.parts[0].height)).tolist()))
             return {entity: found.get(code, 0.0) for entity, code in self.ids.items()}
 
         return accumulated(self.file.plane(rank, rank.channels).map(counted) for rank in self.ranks).map(joined)

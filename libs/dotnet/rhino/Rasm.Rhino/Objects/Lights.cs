@@ -209,12 +209,12 @@ public static class Lights {
         Unicolour peaked = Adaptation.Peaked(color);
         Span<System.Numerics.Vector4> light = [new((float)peaked.RgbLinear.R, (float)peaked.RgbLinear.G, (float)peaked.RgbLinear.B, 1f)];
         transfer.Encode(light, Nits.ReferenceWhite);
-        return (Color.FromArgb(Lane(light[0].X), Lane(light[0].Y), Lane(light[0].Z)), 1d / peaked.Xyz.Y);
+        return (Color.FromArgb(Channel(light[0].X), Channel(light[0].Y), Channel(light[0].Z)), 1d / peaked.Xyz.Y);
 
-        static int Lane(float encoded) => (int)MathF.Round(byte.MaxValue * encoded, MidpointRounding.ToEven);
+        static int Channel(float encoded) => (int)MathF.Round(byte.MaxValue * encoded, MidpointRounding.ToEven);
     }
 
-    private static Validation<Error, (LightColor Color, LightIntensity Intensity)> Emission(Light light, Transfer transfer) =>
+    private static Fin<(LightColor Color, LightIntensity Intensity)> Emission(Light light, Transfer transfer) =>
         Conversions.Present(light.GetUserString(LightKey.Kelvin.Key))
             .Bind(static text => Invariant.Number<double>(text))
             .Bind(static kelvin => ColorTemperature.Validated(kelvin).ToOption())
@@ -223,7 +223,7 @@ public static class Lights {
             .Match(
                 Some: static held => ((LightColor)held.Kelvin, held.Emitted.Gain),
                 None: () => ((LightColor)light.Diffuse, 1d)) switch {
-                    var (color, gain) => LightIntensity.Validated(light.Intensity / gain).ToValidation().Map(intensity => (color, intensity)),
+                    var (color, gain) => LightIntensity.Validated(light.Intensity / gain).Map(intensity => (color, intensity)),
                 };
 
     // --- [ADDRESSES]
@@ -257,27 +257,26 @@ public static class Lights {
 
     public static Fin<LightState> State(Light light, Transfer transfer) =>
         (Shape(light), Emission(light, transfer),
-         LightPower.Validated(light.PowerWatts).ToValidation(),
-         ShadowIntensity.Validated(light.ShadowIntensity).ToValidation())
+         LightPower.Validated(light.PowerWatts),
+         ShadowIntensity.Validated(light.ShadowIntensity))
             .Apply((shape, emission, watts, shadow) => new LightState(light.Id, new LightSpec(
                 Conversions.Present(light.Name), light.IsEnabled, shape, emission.Color, emission.Intensity, watts, shadow, light.AttenuationVector)))
             .As()
-            .ToFin()
             .MapFail(error => Error.New(ErrorCodes.ValidationFailed, $"light {light.Id} holds a value outside its type", error));
 
-    private static Validation<Error, LightShape> Shape(Light light) =>
+    private static Fin<LightShape> Shape(Light light) =>
         light.LightStyle switch {
             LightStyle.CameraPoint or LightStyle.WorldPoint =>
-                EmitterRadius.Validated(light.Radius).ToValidation()
+                EmitterRadius.Validated(light.Radius)
                     .Map(radius => (LightShape)new LightShape.PointLight(light.Location, radius, light.LightStyle is LightStyle.CameraPoint)),
             LightStyle.CameraSpot or LightStyle.WorldSpot =>
-                (SpotAngle.Validated(light.SpotAngleRadians).ToValidation(),
-                 HotSpot.Validated(light.HotSpot).ToValidation(),
-                 EmitterRadius.Validated(light.Radius).ToValidation())
+                (SpotAngle.Validated(light.SpotAngleRadians),
+                 HotSpot.Validated(light.HotSpot),
+                 EmitterRadius.Validated(light.Radius))
                     .Apply((angle, hotSpot, radius) => (LightShape)new LightShape.SpotLight(light.Location, light.Direction, angle, hotSpot, radius, light.LightStyle is LightStyle.CameraSpot))
                     .As(),
             LightStyle.CameraDirectional or LightStyle.WorldDirectional =>
-                SunAngle.Validated(RhinoMath.ToRadians(light.Radius)).ToValidation()
+                SunAngle.Validated(RhinoMath.ToRadians(light.Radius))
                     .Map(angle => (LightShape)new LightShape.DirectionalLight(light.Location, light.Direction, angle, light.LightStyle is LightStyle.CameraDirectional)),
             LightStyle.WorldLinear => new LightShape.LinearLight(light.Location, light.Length, light.Width),
             LightStyle.WorldRectangular => new LightShape.RectangularLight(light.Location, light.Length, light.Width, light.Direction),

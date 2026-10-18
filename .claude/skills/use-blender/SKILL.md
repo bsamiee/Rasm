@@ -55,7 +55,7 @@ Pictures come from the source that draws current state:
 
 Sessions open in order:
 1. `lsof -a -nP -iTCP:9876-9877 -sTCP:LISTEN` names the GUI pid
-2. With no listener, `/usr/bin/open -n -g -a "${BLENDER_PATH%/Contents/MacOS/Blender}" --env PYTHONUNBUFFERED=1 --stdout <log> --stderr <log> --args --no-window-focus --python-use-system-env` starts a task GUI
+2. With no listener, `/usr/bin/open -n -g -a "${BLENDER_PATH%/Contents/MacOS/Blender}" --env PYTHONUNBUFFERED=1 --env PYTHONPYCACHEPREFIX="$PYTHONPYCACHEPREFIX" --stdout <log> --stderr <log> --args --no-window-focus --python-use-system-env` starts a task GUI
 3. `rg -m1 -q 'BlenderMCP server started' < <(tail -F -n +1 <log> 2>/dev/null)` with `run_in_background: true` completes once port 9876 listens
 4. One `ToolSearch` select line loads every `mcp__blender__*` and `mcp__mcp-for-blender__*` schema
 5. `mcp__blender__get_blendfile_summary_path_info` names the open file and its `is_dirty` state
@@ -77,6 +77,7 @@ result = {"closed": closed}
 Script-driven task GUIs run a runner script:
 - `python .claude/skills/use-blender/scripts/evaluate.py run <name> -- --no-window-focus --python <runner.py>` starts one through `open` and returns once it quits
 - Runners register a persistent `bpy.app.timers` function that runs one step per call, modal jobs and drawing advancing between steps
+- Runners calling `window.event_simulate` launch with `--enable-event-simulate`, the call otherwise raising `RuntimeError`
 - Runners end with the quit call
 
 Configured startup files open with:
@@ -90,6 +91,7 @@ Configured startup files open with:
 `mcp__blender__execute_blender_code` runs Python inside the GUI process:
 - Calls on either server run one at a time on the GUI main thread
 - With each call's namespace holding `result = {}` alone, code imports `bpy` and every module it uses
+- Calls importing checkout code from `libs/python` take Blosm's `blosm/threed_tiles` entry off `sys.path` for the call, its `blender.py` module winning over the `blender` namespace root
 - `result` returns a dict of names, numbers, and lists, IDs and `mathutils` values returning as their `repr`
 - Each call sets `window` and `screen` and leaves `area` and `region` None
 - Operators reading an area, space, node, or material run under a `temp_override` naming them
@@ -120,7 +122,7 @@ Window reads name what Blender shows before a call that depends on it:
 Arguments apply left to right, `--python-exit-code` and the `.blend` before `--python`, and `-o`, `-F`, `-E` before `-f`:
 
 ```bash
-"$BLENDER_PATH" --background <file.blend> -o <absolute path> -E <engine> --python-exit-code 1 --python <absolute script.py> -- <args>
+"$BLENDER_PATH" --python-use-system-env --background <file.blend> -o <absolute path> -E <engine> --python-exit-code 1 --python <absolute script.py> -- <args>
 ```
 
 Background runs follow host rules:
@@ -128,10 +130,8 @@ Background runs follow host rules:
 - Tracebacks exit 0 without `--python-exit-code`, and `sys.exit(<n>)` exits `<n>`
 - Background runs hold no event loop, and `bpy.app.timers` and msgbus callbacks never run
 - Modal operators return `RUNNING_MODAL` without stepping, and invoke-only operators return `PASS_THROUGH`
-- Background runs hold no undo stack until `ed.undo_push()`, and Python writes leave `is_dirty` False
 - Handlers (render and frame handlers included) and update callbacks run on the main thread and accept data writes
 - `load_post` reaches an extension at startup when preferences enable it, or when a `.blend` argument follows `--addons`
-- GPU drawing (`GPUOffScreen`, `batch_for_shader`, `gpu.texture.from_image`, `draw_view3d`) runs after `gpu.init()`
 - Brush strokes and `render.opengl` need a GUI session, and sculpt operators crash a background run in their undo push
 - `wm.read_homefile(use_empty=True)` empties the scene and keeps loaded extensions
 
@@ -178,7 +178,7 @@ Each source writes its log to one place:
 |  [05]   | Crash, Blender    | `blender.crash.txt` in `filepaths.temporary_directory`, else process `TMPDIR`      |
 
 Log reads follow host rules:
-- Blender Python reads `PYTHONUNBUFFERED` under `--python-use-system-env` alone, and prints reach the log per line
+- Blender Python reads Python variables (`PYTHONUNBUFFERED`, `PYTHONPYCACHEPREFIX`) under `--python-use-system-env` alone, prints reaching the log per line and bytecode `.cache/pycache`
 - `--log "<categories>"` selects log categories, and `--log-level trace` prints every level
 - `--log-level trace --log "context"` prints each context member an operator read, tagged with the calling script line
 - Crash reports read before the next run starts, concurrent Blenders sharing one file
@@ -188,6 +188,7 @@ Log reads follow host rules:
 
 Blender resolves a `BLENDER_USER_*` variable naming a missing folder through `BLENDER_USER_RESOURCES` to the user's profile. `scripts/evaluate.py` runs from the repository root, launching Blender with factory settings in a fresh `.artifacts/blender/evaluate/<name>/` tree, every `BLENDER_USER_*` folder and `TMPDIR` created before launch:
 - `python .claude/skills/use-blender/scripts/evaluate.py run <name> -- <arguments>` runs Blender with the arguments and prints its output
+- `run` passes `--python-use-system-env` and the process's `PYTHONPYCACHEPREFIX` ahead of the arguments, and arguments omit them
 - `run` installs the distributions `nx run <id>:pack` bundles into tree folder `scripts/modules` before launch
-- Blender lists `scripts/modules` first on `sys.path` and keeps its packages through factory resets
+- Blender lists `scripts/modules` first on `sys.path` and keeps it through `wm.read_factory_settings`, and `--factory-startup` leaves it off, `run` arguments omitting the flag
 - Crash reports sit in the tree's `tmp`, output in its `blender.log`

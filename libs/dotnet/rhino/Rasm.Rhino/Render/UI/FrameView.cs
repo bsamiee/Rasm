@@ -192,16 +192,17 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
         ActualSize = Titled(new Command { Shortcut = Keys.Alt | Keys.Shift | Keys.Z }, "Actual Size");
         FlipHorizontal = Titled(new Command(), Flipping(Orientation.Horizontal));
         FlipVertical = Titled(new Command(), Flipping(Orientation.Vertical));
-        bindings = Seq<(Command Command, Func<FrameViewState, Transition<FrameViewState, FrameEdit>> Act)>(
-                (Compare, static state => Viewed(state with { Comparing = !state.Comparing })),
-                (Swap, static state => Viewed(state with { Swapped = !state.Swapped })),
-                (Fit, static state => Viewed(state with { Transform = new FrameTransform.Fitted() })),
-                (ActualSize, static state => Viewed(state.Current.Frame
-                    .Map(frame => state with { Transform = new FrameTransform.Placed(FrameZoom.Actual, Centre(state.Transform, Extent(frame))) })
-                    .IfNone(state))),
-                (FlipHorizontal, static state => Flip(state, Orientation.Horizontal)),
-                (FlipVertical, static state => Flip(state, Orientation.Vertical)))
-            + Modes.Map(static pair => (Command: (Command)pair.Command, Act: Selected(pair.Mode)));
+        bindings = [
+            (Compare, static state => Viewed(state with { Comparing = !state.Comparing })),
+            (Swap, static state => Viewed(state with { Swapped = !state.Swapped })),
+            (Fit, static state => Viewed(state with { Transform = new FrameTransform.Fitted() })),
+            (ActualSize, static state => Viewed(state.Current.Frame
+                .Map(frame => state with { Transform = new FrameTransform.Placed(FrameZoom.Actual, Center(state.Transform, Extent(frame))) })
+                .IfNone(state))),
+            (FlipHorizontal, static state => Flip(state, Orientation.Horizontal)),
+            (FlipVertical, static state => Flip(state, Orientation.Vertical)),
+            .. Modes.Map(static pair => (Command: (Command)pair.Command, Act: Selected(pair.Mode))),
+        ];
         _ = bindings.Iter(binding => binding.Command.Executed += Callbacks.Handler<EventArgs>(_ => Advance(binding.Act), Site(nameof(Command.Executed))));
         _ = Commanded(State);
     }
@@ -445,14 +446,14 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
 
     private static Vector2 Extent(PixelFrame frame) => new(frame.Size.Width, frame.Size.Height);
 
-    private static Vector2 Centre(FrameTransform transform, Vector2 extent) =>
+    private static Vector2 Center(FrameTransform transform, Vector2 extent) =>
         transform.Switch(extent, fitted: static (held, _) => held / 2f, placed: static (_, placed) => placed.Center);
 
     private static Option<Placement> Placed(FrameViewState state, RectangleF pane, float scale) =>
         from frame in state.Current.Frame
         let extent = Extent(frame)
         let fit = float.Min(pane.Width * scale / extent.X, pane.Height * scale / extent.Y)
-        select new Placement(pane, scale, extent, frame.Origin, fit, state.Transform.Switch(fit, fitted: static (held, _) => held, placed: static (_, placed) => (float)placed.Zoom), Centre(state.Transform, extent));
+        select new Placement(pane, scale, extent, frame.Origin, fit, state.Transform.Switch(fit, fitted: static (held, _) => held, placed: static (_, placed) => (float)placed.Zoom), Center(state.Transform, extent));
 
     private static Option<Placement> Placed(FrameViewState state, SizeF size, float scale) =>
         Panes(state, size).Head.Bind(pane => Placed(state, pane, scale));
@@ -751,22 +752,21 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
         [.. toSeq(QuadCorner.Items).Map(corner => at.View(corner.Point.Get(corners)))];
 
     private static Seq<(Orientation Axis, RectangleF Band, float Degrees)> Flips(Placement at, QuadCorners corners) {
-        PointF centre = toSeq(QuadCorner.Items).Fold(PointF.Empty, (sum, corner) => sum + at.View(corner.Point.Get(corners))) / QuadCorner.Items.Count;
+        PointF center = toSeq(QuadCorner.Items).Fold(PointF.Empty, (sum, corner) => sum + at.View(corner.Point.Get(corners))) / QuadCorner.Items.Count;
         float glyph = IconSlot.PanelButton.Master;
         return Seq((Axis: Orientation.Horizontal, From: corners.TopLeft, To: corners.TopRight), (Axis: Orientation.Vertical, From: corners.BottomLeft, To: corners.TopLeft))
-            .Map(edge => Flipped(edge.Axis, at.View(edge.From), at.View(edge.To), centre, glyph));
+            .Map(edge => Flipped(edge.Axis, at.View(edge.From), at.View(edge.To), center, glyph));
     }
 
-    private static (Orientation Axis, RectangleF Band, float Degrees) Flipped(Orientation axis, PointF from, PointF to, PointF centre, float glyph) =>
+    private static (Orientation Axis, RectangleF Band, float Degrees) Flipped(Orientation axis, PointF from, PointF to, PointF center, float glyph) =>
         ((to - from).Normal / (to - from).Length, (from + to) / 2f) switch {
             var (normal, middle) => (
                 axis,
-                RectangleF.FromCenter(middle + ((PointF.DotProduct(normal, middle - centre) < 0f ? -normal : normal) * glyph), new SizeF(glyph, glyph)),
+                RectangleF.FromCenter(middle + ((PointF.DotProduct(normal, middle - center) < 0f ? -normal : normal) * glyph), new SizeF(glyph, glyph)),
                 (to - from).Angle),
         };
 
-    private static PlotMark<FramePart> Grip(PointF centre, FramePart part) =>
-        new(new MarkShape.Band(RectangleF.FromCenter(centre, new SizeF(GripSide, GripSide))), Some(Knob), Some(new MarkPart<FramePart>(part, Plots.Reach)));
+    private static PlotMark<FramePart> Grip(PointF center, FramePart part) => new(new MarkShape.Band(RectangleF.FromCenter(center, new SizeF(GripSide, GripSide))), Some(Knob), Some(new MarkPart<FramePart>(part, Plots.Reach)));
 
     private static MarkShape.Rule Ruler(Orientation along, float position, RectangleF bounds) =>
         along is Orientation.Vertical

@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-replace-conflict
+language: sql
+severity: error
+rule:
+    kind: insert_statement, update_statement, column_constraint, table_constraint
+    pattern: _STATEMENT
+    any:
+        - has: {field: kind, regex: '(?i)^replace$'}
+        - has: {field: conflict_resolution, regex: '(?i)^replace$'}
+        - all:
+            - kind: column_constraint, table_constraint
+            - has: {regex: '(?i)^replace$'}
+transform:
+    HEAD: {replace: {source: $STATEMENT, replace: '(?is)^(.*?\breplace\b).*$', by: '$1'}}
+message: '`$HEAD` deletes the conflicting row'
+note: 'Write `on conflict (<key>) do update set <column> = excluded.<column> where <table>.<column> is distinct from excluded.<column>`. Replace deletes cascade `on delete` children, fire no delete trigger, and cost D1 a second written row'

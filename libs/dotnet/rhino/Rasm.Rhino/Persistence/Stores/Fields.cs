@@ -66,9 +66,9 @@ public static class FieldTexts {
         FieldCodec<bool> enabled = Leaf(StoredText.Format, StoredText.Parse<bool>).Under(Gated<TValue>.EnabledEntry.Key);
         FieldCodec<TValue> kept = value.Under(Gated<TValue>.ValueEntry.Key);
         return new(held => enabled.Capture(held.Enabled).Union(kept.Capture(held.Value)), entries =>
-            (enabled.Recall(entries).Try().ToValidation(), kept.Recall(entries).Try().ToValidation())
+            (enabled.Recall(entries).Try(), kept.Recall(entries).Try())
                 .Apply(static (enabled, item) => new Gated<TValue>(enabled, item)).Run().As()
-                .Bind(static held => IO.lift(held.ToFin())));
+                .Bind(IO.lift));
     }
 
     public static FieldCodec<TRecord> Record<TRecord>() where TRecord : IStateRecord<TRecord> =>
@@ -139,7 +139,11 @@ public static class FieldTexts {
         public Seq<FieldText<TRecord>> Numeric<TValue, TKey>(Lens<TRecord, TValue> lens, NumericDomain<TValue, TKey> domain)
             where TValue : notnull
             where TKey : struct, System.Numerics.INumber<TKey> =>
-            [Field(lens, value => StoredText.Capture(value, domain.Key), text => StoredText.Recall(text, domain.Create, domain.Key)) with { Shown = Numbered(domain) }];
+            Number(domain.Presentation, domain.Bounds).Shown switch {
+                var number => [Field(lens, value => StoredText.Capture(value, domain.Key), text => StoredText.Recall(text, domain.Create, domain.Key)) with {
+                    Shown = text => StoredText.Recall(text, domain.Create, domain.Key).Map(value => number(domain.Key(value))).IfFail(text),
+                }],
+            };
 
         public Seq<FieldText<TRecord>> OptionalNumeric<TValue, TKey>(Lens<TRecord, Gated<TValue>> lens, NumericDomain<TValue, TKey> domain)
             where TValue : notnull
@@ -186,7 +190,9 @@ public static class FieldTexts {
             [OptionalField(lens, StoredText.Format, StoredText.Parse<TRaw>)];
 
         public Seq<FieldText<TRecord>> Color(Lens<TRecord, Swatch> lens) =>
-            [Field(lens, StoredText.Capture<Swatch, int>, StoredText.Recall<Swatch, int>) with { Shown = Hex }];
+            [Field(lens, StoredText.Capture<Swatch, int>, StoredText.Recall<Swatch, int>) with {
+                Shown = static text => StoredText.Recall<Swatch, int>(text).Map(Conversions.Hex).IfFail(text),
+            }];
 
         public Seq<FieldText<TRecord>> OptionalColor(Lens<TRecord, Gated<Swatch>> lens) =>
             Gate(lens, static value => new StateParameter<TRecord>.Color(value));
@@ -236,16 +242,6 @@ public static class FieldTexts {
 
         private static FieldText<TRecord> Focused<TFocus>(FieldText<TFocus> field, Lens<TRecord, TFocus> lens) =>
             field.Within(record => Some(lens.Get(record)), lens.Get, (record, focus) => lens.Set(focus, record));
-
-        private static Func<string, string> Numbered<TValue, TKey>(NumericDomain<TValue, TKey> domain)
-            where TValue : notnull
-            where TKey : struct, System.Numerics.INumber<TKey> =>
-            Number(domain.Presentation, domain.Bounds).Shown switch {
-                var number => text => StoredText.Recall(text, domain.Create, domain.Key).Map(value => number(domain.Key(value))).IfFail(text),
-            };
-
-        private static string Hex(string text) =>
-            StoredText.Recall<Swatch, int>(text).Map(Conversions.Hex).IfFail(text);
 
         private static string Listed<TValue>(string text)
             where TValue : IObjectFactory<TValue, string, ValidationError>, IConvertible<Seq<Swatch>> =>

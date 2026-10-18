@@ -162,20 +162,23 @@ fn blocking_call_in_async(found: &str) {
        | |______^
        |
        = help: await an async counterpart, or run the call in `tokio::task::spawn_blocking`
-    ");
-}
 
-fn buffered_join(found: &str) {
-    insta::assert_snapshot!(found, @r#"
-    warning: loop pushes into `parts` only for `join` to read it
-      --> tools/dylint/examples/buffered_join.rs:10:5
+    warning: `std::sync::mpsc::Receiver::iter` blocks the worker thread polling its async body
+      --> tools/dylint/examples/blocking_call_in_async.rs:78:70
        |
-    10 |     parts.join(", ")
-       |     ^^^^^^^^^^^^^^^^
+    78 | async fn drained(received: std::sync::mpsc::Receiver<u8>) -> usize { received.iter().count() }
+       |                                                                      ^^^^^^^^^^^^^^^
        |
-       = help: call `Itertools::join(<iterator>, <separator>)` on an iterator yielding each pushed item (`use itertools::Itertools as _;`)
-       = note: `#[warn(buffered_join)]` on by default
-    "#);
+       = help: await an async counterpart, or run the call in `tokio::task::spawn_blocking`
+
+    warning: `std::net::TcpListener::incoming` blocks the worker thread polling its async body
+      --> tools/dylint/examples/blocking_call_in_async.rs:80:61
+       |
+    80 | async fn served(listener: std::net::TcpListener) -> usize { listener.incoming().take(1).count() }
+       |                                                             ^^^^^^^^^^^^^^^^^^^
+       |
+       = help: await an async counterpart, or run the call in `tokio::task::spawn_blocking`
+    ");
 }
 
 fn detached_task(found: &str) {
@@ -281,6 +284,22 @@ fn manual_abort_on_drop(found: &str) {
        |         ^^^^^^^^^^^^^^^^^^^
        |
        = help: store the `DropGuard` from `CancellationToken::drop_guard` to cancel its token on drop
+
+    warning: `Drop::drop` calls `tokio::task::JoinHandle::abort` on field `task`
+      --> tools/dylint/examples/manual_abort_on_drop.rs:57:13
+       |
+    57 |             task.abort();
+       |             ^^^^^^^^^^^^
+       |
+       = help: store the handle as `tokio_util::task::AbortOnDropHandle` to abort its task on drop
+
+    warning: `Drop::drop` calls `tokio::task::JoinSet::abort_all` on field `tasks`
+      --> tools/dylint/examples/manual_abort_on_drop.rs:67:26
+       |
+    67 |     fn drop(&mut self) { self.tasks.abort_all(); }
+       |                          ^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: delete the call, dropping `JoinSet` aborts every task
     ");
 }
 
@@ -293,9 +312,9 @@ fn manual_arc_swap(found: &str) {
        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
     note: replaced here
-      --> tools/dylint/examples/manual_arc_swap.rs:76:38
+      --> tools/dylint/examples/manual_arc_swap.rs:81:38
        |
-    76 |     fn update(&self, next: Config) { *self.snapshot.write() = Arc::new(next); }
+    81 |     fn update(&self, next: Config) { *self.snapshot.write() = Arc::new(next); }
        |                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        = help: declare `arc_swap::ArcSwap`, read with `load_full()`, and write with `store(Arc::new(..))` or `rcu(..)`
        = note: `#[warn(manual_arc_swap)]` on by default
@@ -307,9 +326,9 @@ fn manual_arc_swap(found: &str) {
        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
     note: replaced here
-      --> tools/dylint/examples/manual_arc_swap.rs:82:38
+      --> tools/dylint/examples/manual_arc_swap.rs:87:38
        |
-    82 |     fn update(&self, next: Config) { self.latest.set(Arc::new(next)); }
+    87 |     fn update(&self, next: Config) { self.latest.set(Arc::new(next)); }
        |                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        = help: declare `arc_swap::ArcSwap`, read with `load_full()`, and write with `store(Arc::new(..))` or `rcu(..)`
 
@@ -320,9 +339,9 @@ fn manual_arc_swap(found: &str) {
         |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
     note: replaced here
-       --> tools/dylint/examples/manual_arc_swap.rs:102:48
+       --> tools/dylint/examples/manual_arc_swap.rs:107:48
         |
-    102 |     fn update(&self, next: Config) -> Config { self.current.send_replace(next) }
+    107 |     fn update(&self, next: Config) -> Config { self.current.send_replace(next) }
         |                                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         = help: declare `arc_swap::ArcSwap`, read with `load()`, and write with `store(Arc::new(..))`
 
@@ -333,35 +352,48 @@ fn manual_arc_swap(found: &str) {
         |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
     note: replaced here
-       --> tools/dylint/examples/manual_arc_swap.rs:110:38
+       --> tools/dylint/examples/manual_arc_swap.rs:115:38
         |
-    110 |     fn update(&self, next: Config) { self.current.send_modify(|current| *current = next); }
+    115 |     fn update(&self, next: Config) { self.current.send_modify(|current| *current = next); }
         |                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         = help: declare `arc_swap::ArcSwap`, read with `load()`, and write with `store(Arc::new(..))`
 
-    warning: every write to `lock` replaces its whole `Arc`
-       --> tools/dylint/examples/manual_arc_swap.rs:152:9
+    warning: every write to `snapshot` replaces its whole `Arc`
+       --> tools/dylint/examples/manual_arc_swap.rs:75:5
         |
-    152 |     let lock = Arc::new(Mutex::new(Arc::new(Config::default())));
+     75 |     snapshot: RwLock<Arc<Config>>,
+        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        |
+    note: replaced here
+       --> tools/dylint/examples/manual_arc_swap.rs:157:38
+        |
+    157 |     fn update(&self, next: Config) { self.snapshot.set(Arc::new(next)); }
+        |                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        = help: declare `arc_swap::ArcSwap`, read with `load_full()`, and write with `store(Arc::new(..))` or `rcu(..)`
+
+    warning: every write to `lock` replaces its whole `Arc`
+       --> tools/dylint/examples/manual_arc_swap.rs:163:9
+        |
+    163 |     let lock = Arc::new(Mutex::new(Arc::new(Config::default())));
         |         ^^^^
         |
     note: replaced here
-       --> tools/dylint/examples/manual_arc_swap.rs:154:5
+       --> tools/dylint/examples/manual_arc_swap.rs:165:5
         |
-    154 |     writer.set(Arc::new(Config { port: 9 }));
+    165 |     writer.set(Arc::new(Config { port: 9 }));
         |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         = help: declare `arc_swap::ArcSwap`, read with `load_full()`, and write with `store(Arc::new(..))` or `rcu(..)`
 
     warning: every write to `sender` replaces its whole value, and no receiver subscribes to it
-       --> tools/dylint/examples/manual_arc_swap.rs:159:9
+       --> tools/dylint/examples/manual_arc_swap.rs:170:9
         |
-    159 |     let sender = watch::Sender::new(Config::default());
+    170 |     let sender = watch::Sender::new(Config::default());
         |         ^^^^^^
         |
     note: replaced here
-       --> tools/dylint/examples/manual_arc_swap.rs:160:5
+       --> tools/dylint/examples/manual_arc_swap.rs:171:5
         |
-    160 |     sender.send_replace(Config { port: 10 });
+    171 |     sender.send_replace(Config { port: 10 });
         |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         = help: declare `arc_swap::ArcSwap`, read with `load()`, and write with `store(Arc::new(..))`
     ");
@@ -369,78 +401,96 @@ fn manual_arc_swap(found: &str) {
 
 fn manual_cancellation_token(found: &str) {
     insta::assert_snapshot!(found, @"
-    warning: every write to `stop` stores `true`, and a `while` loop polls it as a stop flag
-      --> tools/dylint/examples/manual_cancellation_token.rs:11:5
+    warning: every write to `stop` stores `true`, and a loop polls it as a stop flag
+      --> tools/dylint/examples/manual_cancellation_token.rs:12:5
        |
-    11 |     stop: AtomicBool,
+    12 |     stop: AtomicBool,
        |     ^^^^^^^^^^^^^^^^
        |
     note: set here
-      --> tools/dylint/examples/manual_cancellation_token.rs:30:22
+      --> tools/dylint/examples/manual_cancellation_token.rs:31:22
        |
-    30 |     fn halt(&self) { self.stop.store(true, Ordering::Release); }
+    31 |     fn halt(&self) { self.stop.store(true, Ordering::Release); }
        |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     note: polled here
-      --> tools/dylint/examples/manual_cancellation_token.rs:34:16
+      --> tools/dylint/examples/manual_cancellation_token.rs:35:16
        |
-    34 |         while !self.stop.load(Ordering::Acquire) && steps < 8 {
+    35 |         while !self.stop.load(Ordering::Acquire) && steps < 8 {
        |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        = help: declare `tokio_util::sync::CancellationToken`, call `cancel()` in place of each write, and poll `is_cancelled()` in the loop condition
        = note: `#[warn(manual_cancellation_token)]` on by default
 
-    warning: every write to `open` stores `true`, and a `while` loop polls it as a stop flag
-      --> tools/dylint/examples/manual_cancellation_token.rs:23:5
+    warning: every write to `open` stores `true`, and a loop polls it as a stop flag
+      --> tools/dylint/examples/manual_cancellation_token.rs:24:5
        |
-    23 |     open: AtomicBool,
+    24 |     open: AtomicBool,
        |     ^^^^^^^^^^^^^^^^
        |
     note: set here
-      --> tools/dylint/examples/manual_cancellation_token.rs:75:5
+      --> tools/dylint/examples/manual_cancellation_token.rs:76:5
        |
-    75 |     gate.open.store(true, Ordering::Release);
+    76 |     gate.open.store(true, Ordering::Release);
        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     note: polled here
-      --> tools/dylint/examples/manual_cancellation_token.rs:76:12
+      --> tools/dylint/examples/manual_cancellation_token.rs:77:12
        |
-    76 |     while !gate.open.load(Ordering::Acquire) {
+    77 |     while !gate.open.load(Ordering::Acquire) {
        |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        = help: declare `tokio_util::sync::CancellationToken`, call `cancel()` in place of each write, and poll `is_cancelled()` in the loop condition
 
-    warning: every write to `stop` stores `true`, and a `while` loop polls it as a stop flag
-      --> tools/dylint/examples/manual_cancellation_token.rs:82:9
+    warning: every write to `stop` stores `true`, and a loop polls it as a stop flag
+      --> tools/dylint/examples/manual_cancellation_token.rs:83:9
        |
-    82 |     let stop = Arc::new(AtomicBool::new(false));
+    83 |     let stop = Arc::new(AtomicBool::new(false));
        |         ^^^^
        |
     note: set here
-      --> tools/dylint/examples/manual_cancellation_token.rs:92:5
+      --> tools/dylint/examples/manual_cancellation_token.rs:93:5
        |
-    92 |     stop.store(true, Ordering::Release);
+    93 |     stop.store(true, Ordering::Release);
        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     note: polled here
-      --> tools/dylint/examples/manual_cancellation_token.rs:86:16
+      --> tools/dylint/examples/manual_cancellation_token.rs:87:16
        |
-    86 |         while !flag.load(Ordering::Acquire) {
+    87 |         while !flag.load(Ordering::Acquire) {
        |                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        = help: declare `tokio_util::sync::CancellationToken`, call `cancel()` in place of each write, and poll `is_cancelled()` in the loop condition
 
-    warning: every write to `stop` stores `true`, and a `while` loop polls it as a stop flag
-       --> tools/dylint/examples/manual_cancellation_token.rs:112:9
+    warning: every write to `stop` stores `true`, and a loop polls it as a stop flag
+       --> tools/dylint/examples/manual_cancellation_token.rs:121:9
         |
-    112 |     let stop = AtomicBool::new(false);
+    121 |     let stop = AtomicBool::new(false);
         |         ^^^^
         |
     note: set here
-       --> tools/dylint/examples/manual_cancellation_token.rs:114:5
+       --> tools/dylint/examples/manual_cancellation_token.rs:123:5
         |
-    114 |     stop.store(true, Ordering::Release);
+    123 |     stop.store(true, Ordering::Release);
         |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
     note: polled here
-       --> tools/dylint/examples/manual_cancellation_token.rs:115:12
+       --> tools/dylint/examples/manual_cancellation_token.rs:124:12
         |
-    115 |     while !stop.load(Ordering::Acquire) && steps < 8 {
+    124 |     while !stop.load(Ordering::Acquire) && steps < 8 {
         |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         = help: declare `tokio_util::sync::CancellationToken`, call `cancel()` in place of each write, and await `cancelled()` or run the loop through `run_until_cancelled(..)`
+
+    warning: every write to `stop` stores `true`, and a loop polls it as a stop flag
+       --> tools/dylint/examples/manual_cancellation_token.rs:148:9
+        |
+    148 |     let stop = AtomicBool::new(false);
+        |         ^^^^
+        |
+    note: set here
+       --> tools/dylint/examples/manual_cancellation_token.rs:150:5
+        |
+    150 |     stop.store(true, Ordering::Release);
+        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    note: polled here
+       --> tools/dylint/examples/manual_cancellation_token.rs:152:12
+        |
+    152 |         if stop.load(Ordering::Acquire) {
+        |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        = help: declare `tokio_util::sync::CancellationToken`, call `cancel()` in place of each write, and poll `is_cancelled()` in the loop condition
     ");
 }
 
@@ -573,7 +623,7 @@ fn optional_channel_sender(found: &str) {
     29 | |             sent.send_modify(|step| *step = step.saturating_add(1));
     30 | |         }
        | |_________^
-       = help: hold the sender without `Option`, a send with no receiver returns `Err` and blocks nothing
+       = help: hold the sender without `Option`, a sender with no receiver blocks nothing
        = note: `#[warn(optional_channel_sender)]` on by default
 
     warning: every use of `sent` tests its `Option` sender with `if let Some` and no `else`
@@ -589,7 +639,7 @@ fn optional_channel_sender(found: &str) {
     61 | |         sent.send_replace(1);
     62 | |     }
        | |_____^
-       = help: hold the sender without `Option`, a send with no receiver returns `Err` and blocks nothing
+       = help: hold the sender without `Option`, a sender with no receiver blocks nothing
     ");
 }
 
@@ -640,33 +690,6 @@ fn redundant_spawn(found: &str) {
 fn sequential_await(found: &str) {
     insta::assert_snapshot!(found, @"
     warning: `for` loop awaits futures built before it in sequence
-      --> tools/dylint/examples/sequential_await.rs:33:5
-       |
-    33 |     for receiver in receivers {
-       |     ^^^^^^^^^^^^^^^^^^^^^^^^^
-       |
-    note: each future completes here before the next starts
-      --> tools/dylint/examples/sequential_await.rs:34:17
-       |
-    34 |         total = receiver.await?.strict_add(total);
-       |                 ^^^^^^^^^^^^^^
-       = help: await `futures::future::join_all` over the futures, or `futures::stream::iter(..).buffered(n)` to bound concurrency, both keep input order
-       = note: `#[warn(sequential_await)]` on by default
-
-    warning: `for` loop awaits futures built before it in sequence
-      --> tools/dylint/examples/sequential_await.rs:41:5
-       |
-    41 |     for pending in requests {
-       |     ^^^^^^^^^^^^^^^^^^^^^^^
-       |
-    note: each future completes here before the next starts
-      --> tools/dylint/examples/sequential_await.rs:42:17
-       |
-    42 |         total = pending.reply.await?.strict_add(total);
-       |                 ^^^^^^^^^^^^^^^^^^^
-       = help: await `futures::future::join_all` over the futures, or `futures::stream::iter(..).buffered(n)` to bound concurrency, both keep input order
-
-    warning: `for` loop awaits futures built before it in sequence
       --> tools/dylint/examples/sequential_await.rs:49:5
        |
     49 |     for receiver in receivers {
@@ -678,6 +701,7 @@ fn sequential_await(found: &str) {
     50 |         replies.push(time::timeout(Duration::ZERO, receiver).await);
        |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        = help: await `futures::future::join_all` over the futures, or `futures::stream::iter(..).buffered(n)` to bound concurrency, both keep input order
+       = note: `#[warn(sequential_await)]` on by default
 
     warning: `for` loop builds and awaits one independent future per item in sequence
       --> tools/dylint/examples/sequential_await.rs:62:5
@@ -697,55 +721,71 @@ fn sequential_await(found: &str) {
 fn short_circuited_join(found: &str) {
     insta::assert_snapshot!(found, @"
     warning: `futures::future::join` runs futures together, and `?` on its results keeps only the first error
-      --> tools/dylint/examples/short_circuited_join.rs:16:5
+      --> tools/dylint/examples/short_circuited_join.rs:18:5
        |
-    16 |     let (left, right) = future::join(fetch(1), fetch(2)).await;
+    18 |     let (left, right) = future::join(fetch(1), fetch(2)).await;
        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
     note: each `?` returns here before the remaining results are read
-      --> tools/dylint/examples/short_circuited_join.rs:17:8
+      --> tools/dylint/examples/short_circuited_join.rs:19:8
        |
-    17 |     Ok(left?.strict_add(right?))
+    19 |     Ok(left?.strict_add(right?))
        |        ^^^^             ^^^^^
-       = help: accumulate every error before returning, through `validated::Validated` or a non-empty error collection
+       = help: combine the results with `validated::Validated::from(..).map2(..)` and `.ok()`, or race a future that outlives its partner through `select`
        = note: `#[warn(short_circuited_join)]` on by default
 
     warning: `join!` runs futures together, and `?` on its results keeps only the first error
-      --> tools/dylint/examples/short_circuited_join.rs:21:5
+      --> tools/dylint/examples/short_circuited_join.rs:23:5
        |
-    21 |     let (left, right) = tokio::join!(fetch(1), fetch(2));
+    23 |     let (left, right) = tokio::join!(fetch(1), fetch(2));
        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
     note: each `?` returns here before the remaining results are read
-      --> tools/dylint/examples/short_circuited_join.rs:22:8
+      --> tools/dylint/examples/short_circuited_join.rs:24:8
        |
-    22 |     Ok(left?.strict_add(right?))
+    24 |     Ok(left?.strict_add(right?))
        |        ^^^^             ^^^^^
-       = help: accumulate every error before returning, through `validated::Validated` or a non-empty error collection
+       = help: combine the results with `validated::Validated::from(..).map2(..)` and `.ok()`, or race a future that outlives its partner through `select`
 
     warning: `try_collect` after `buffered` stops at the first error of the buffered futures
-      --> tools/dylint/examples/short_circuited_join.rs:30:67
+      --> tools/dylint/examples/short_circuited_join.rs:43:67
        |
-    30 | async fn buffered(ids: Vec<u32>) -> Result<Vec<u32>, io::Error> { stream::iter(ids).map(fetch).buffered(4).try_collect().await }
+    43 | async fn buffered(ids: Vec<u32>) -> Result<Vec<u32>, io::Error> { stream::iter(ids).map(fetch).buffered(4).try_collect().await }
        |                                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: accumulate every error before returning, through `validated::Validated` or a non-empty error collection
+       = help: collect the stream into a `Vec`, then collect its results into `validated::Validated<_, _>` and call `.ok()`
 
     warning: `collect` over `join_all` keeps only the first error of the joined futures
-      --> tools/dylint/examples/short_circuited_join.rs:32:65
+      --> tools/dylint/examples/short_circuited_join.rs:47:65
        |
-    32 | ...sult<Vec<u32>, io::Error> { future::join_all(ids.into_iter().map(fetch)).await.into_iter().collect() }
+    47 | ...sult<Vec<u32>, io::Error> { future::join_all(ids.into_iter().map(fetch)).await.into_iter().collect() }
        |                                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: accumulate every error before returning, through `validated::Validated` or a non-empty error collection
+       = help: collect the results into `validated::Validated<_, _>` and call `.ok()`
 
     warning: `try_collect` over `join_all` keeps only the first error of the joined futures
-      --> tools/dylint/examples/short_circuited_join.rs:34:64
+      --> tools/dylint/examples/short_circuited_join.rs:49:64
        |
-    34 | ...lt<Vec<u32>, io::Error> { future::join_all(ids.into_iter().map(fetch)).await.into_iter().try_collect() }
+    49 | ...lt<Vec<u32>, io::Error> { future::join_all(ids.into_iter().map(fetch)).await.into_iter().try_collect() }
        |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: accumulate every error before returning, through `validated::Validated` or a non-empty error collection
+       = help: collect the results into `validated::Validated<_, _>` and call `.ok()`
+
+    warning: `collect` over `buffered` keeps only the first error of the joined futures
+      --> tools/dylint/examples/short_circuited_join.rs:85:77
+       |
+    85 | ...<u32>, io::Error> { stream::iter(ids).map(fetch).buffered(4).collect::<Vec<_>>().await.into_iter().collect() }
+       |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: collect the results into `validated::Validated<_, _>` and call `.ok()`
+
+    warning: `collect` over `join_all` keeps only the first error of the joined futures
+      --> tools/dylint/examples/short_circuited_join.rs:87:105
+       |
+    87 | ...:Error>>) -> Result<Vec<u32>, io::Error> { set.join_all().await.into_iter().collect() }
+       |                                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: collect the results into `validated::Validated<_, _>` and call `.ok()`
     ");
 }
 
@@ -758,9 +798,9 @@ fn unbounded_pending_map(found: &str) {
        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
     note: inserted here, an entry its caller never removes stays until the map drops
-      --> tools/dylint/examples/unbounded_pending_map.rs:73:9
+      --> tools/dylint/examples/unbounded_pending_map.rs:83:9
        |
-    73 |         self.waiting.lock().insert(key, sender);
+    83 |         self.waiting.lock().insert(key, sender);
        |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        = help: bound the map by age or count at insertion, evict with `retain` or `pop_first`, or remove each entry in `Drop` of a guard its caller holds
        = note: `#[warn(unbounded_pending_map)]` on by default
@@ -772,9 +812,9 @@ fn unbounded_pending_map(found: &str) {
        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
     note: inserted here, an entry its caller never removes stays until the map drops
-      --> tools/dylint/examples/unbounded_pending_map.rs:81:67
+      --> tools/dylint/examples/unbounded_pending_map.rs:91:67
        |
-    81 | ...) -> Option<(Call, u32)> { self.calls.lock().insert(key, (Call { future: async { 0 }.boxed() }, step)) }
+    91 | ...) -> Option<(Call, u32)> { self.calls.lock().insert(key, (Call { future: async { 0 }.boxed() }, step)) }
        |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        = help: bound the map by age or count at insertion, evict with `retain` or `pop_first`, or remove each entry in `Drop` of a guard its caller holds
 
@@ -785,11 +825,75 @@ fn unbounded_pending_map(found: &str) {
        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
     note: inserted here, an entry its caller never removes stays until the map drops
-      --> tools/dylint/examples/unbounded_pending_map.rs:89:9
+      --> tools/dylint/examples/unbounded_pending_map.rs:99:9
        |
-    89 |         waiting.insert(key, sender);
+    99 |         waiting.insert(key, sender);
        |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^
        = help: bound the map by age or count at insertion, evict with `retain` or `pop_first`, or remove each entry in `Drop` of a guard its caller holds
+
+    warning: `waiting` holds `tokio::sync::oneshot::Sender<u32>` entries that only a keyed `remove` deletes
+       --> tools/dylint/examples/unbounded_pending_map.rs:65:5
+        |
+     65 |     waiting: Mutex<BTreeMap<u64, oneshot::Sender<u32>>>,
+        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        |
+    note: inserted here, an entry its caller never removes stays until the map drops
+       --> tools/dylint/examples/unbounded_pending_map.rs:144:126
+        |
+    144 | ...t::Sender<u32>> { self.waiting.with_mut(|waiting| waiting.insert(key, sender)) }
+        |                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        = help: bound the map by age or count at insertion, evict with `retain` or `pop_first`, or remove each entry in `Drop` of a guard its caller holds
+    ");
+}
+
+fn unending_join(found: &str) {
+    insta::assert_snapshot!(found, @"
+    warning: `for_each` drains a `WatchStream` that ends only when every sender drops, and a sender outlives the join
+      --> tools/dylint/examples/unending_join.rs:21:13
+       |
+    21 | /             updates.for_each(|update| {
+    22 | |                 black_box(update);
+    23 | |                 ready(())
+    24 | |             }),
+       | |______________^
+       |
+    note: sender held past the join
+      --> tools/dylint/examples/unending_join.rs:18:40
+       |
+    18 |         let updates = WatchStream::new(self.0.subscribe());
+       |                                        ^^^^^^
+       = help: race the drain against its partner through `future::select` to drop the drain when its partner completes
+       = note: `#[warn(unending_join)]` on by default
+
+    warning: `try_for_each` drains a `WatchStream` that ends only when every sender drops, and a sender outlives the join
+      --> tools/dylint/examples/unending_join.rs:33:23
+       |
+    33 |   ...   let relayed = stream::iter(token.map(|token| updates.map(move |update| Ok::<_, Infallible>((token, update))))).flatten().try...
+       |  _____________________^
+    34 | | ...       black_box(sent);
+    35 | | ...       ready(Ok(()))
+    36 | | ...   });
+       | |________^
+       |
+    note: sender held past the join
+      --> tools/dylint/examples/unending_join.rs:32:49
+       |
+    32 |         let updates = WatchStream::from_changes(self.0.subscribe());
+       |                                                 ^^^^^^
+       = help: race the drain against its partner through `future::select` to drop the drain when its partner completes
+
+    warning: `count` drains a `BroadcastStream` that ends only when every sender drops, and a sender outlives the join
+      --> tools/dylint/examples/unending_join.rs:63:35
+       |
+    63 |     let (seen, ()) = tokio::join!(BroadcastStream::new(received).count(), task::yield_now());
+       |                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+    note: sender held past the join
+      --> tools/dylint/examples/unending_join.rs:62:10
+       |
+    62 |     let (sender, received) = broadcast::channel::<u32>(4);
+       |          ^^^^^^
+       = help: race the drain against its partner through `future::select` to drop the drain when its partner completes
     ");
 }
 
@@ -798,7 +902,6 @@ fn unbounded_pending_map(found: &str) {
 snapshots!(
     async_lock_without_await,
     blocking_call_in_async,
-    buffered_join,
     detached_task,
     manual_abort_on_drop,
     manual_arc_swap,
@@ -809,5 +912,6 @@ snapshots!(
     redundant_spawn,
     sequential_await,
     short_circuited_join,
-    unbounded_pending_map
+    unbounded_pending_map,
+    unending_join
 );

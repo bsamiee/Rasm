@@ -31,6 +31,22 @@ rule:
                 - pattern: ($A < $Y && $B >= $Y) || ($B < $Y && $A >= $Y)
                 - pattern: ($A > $Y && $B <= $Y) || ($B > $Y && $A <= $Y)
                 - pattern: ($A >= $Y && $B < $Y) || ($B >= $Y && $A < $Y)
+    inside:
+        kind: 'function_item, closure_expression'
+        stopBy: {kind: 'function_item, closure_expression'}
+        has:
+            stopBy: end
+            kind: binary_expression
+            all:
+                - has: {field: operator, regex: '^[*/]$'}
+                - any:
+                    - all:
+                        - has: {field: left, has: {stopBy: end, kind: binary_expression, pattern: $Y - $_}}
+                        - has: {field: right, has: {stopBy: end, kind: binary_expression, has: {field: operator, regex: '^-$'}}}
+                    - all:
+                        - has: {field: operator, regex: '^\*$'}
+                        - has: {field: right, has: {stopBy: end, kind: binary_expression, pattern: $Y - $_}}
+                        - has: {field: left, has: {stopBy: end, kind: binary_expression, has: {field: operator, regex: '^-$'}}}
 constraints:
     Y: {not: {kind: 'integer_literal, float_literal, unary_expression'}}
 message: 'Ray-casting crossing test checks by hand whether `$A` and `$B` straddle `$Y`'

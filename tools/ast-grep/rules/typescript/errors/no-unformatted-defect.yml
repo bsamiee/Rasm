@@ -1,0 +1,80 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-unformatted-defect
+language: tsx
+severity: error
+utils:
+    schema-member:
+        kind: member_expression
+        has: {field: object, matches: {effect-module: {name: {regex: '\bSchema$'}}}}
+    message-getter:
+        kind: method_definition
+        all:
+            - has: {regex: '^get$'}
+            - has: {field: name, regex: '^message$'}
+            - inside: {kind: class_body, inside: {kind: 'class_declaration, class', has: {kind: class_heritage, has: {matches: effect-error-heritage}}}}
+    arm:
+        kind: pair
+        all:
+            - has: {field: key, pattern: $ARM}
+            - inside:
+                kind: object
+                inside:
+                    kind: arguments
+                    inside:
+                        kind: call_expression
+                        all:
+                            - has: {field: function, kind: member_expression, all: [{has: {field: property, regex: '^match$'}}, {has: {field: object, kind: identifier, pattern: $UNION}}]}
+                            - inside: {stopBy: end, matches: message-getter}
+    union-arm:
+        kind: pair
+        all:
+            - has: {field: key, pattern: $ARM}
+            - has: {field: value, has: {stopBy: end, kind: pair, all: [{has: {field: key, pattern: $FIELD}}, {has: {field: value, kind: call_expression, has: {field: function, matches: schema-member, has: {field: property, regex: '^Defect$'}}}}]}}
+    union-declaration:
+        kind: variable_declarator
+        all:
+            - has: {field: name, pattern: $UNION}
+            - has:
+                field: value
+                kind: call_expression
+                all:
+                    - has: {field: function, matches: schema-member, has: {field: property, regex: '^TaggedUnion$'}}
+                    - has: {field: arguments, has: {nthChild: 1, kind: object, has: {matches: union-arm}}}
+    formatted:
+        nthChild: 1
+        inside:
+            kind: arguments
+            inside:
+                kind: call_expression
+                has: {field: function, matches: {effect-module-member: {module: {regex: '\bFormatter$'}, member: {regex: '^format$'}}}}
+rule:
+    kind: identifier, member_expression
+    pattern: $TEXT
+    all:
+        - not: {matches: formatted}
+        - any:
+            - kind: identifier
+              pattern: $FIELD
+              inside: {stopBy: end, matches: arm, has: {field: value, has: {stopBy: end, kind: shorthand_property_identifier_pattern, pattern: $FIELD}}}
+            - kind: member_expression
+              all:
+                - has: {field: property, pattern: $FIELD}
+                - has: {field: object, kind: identifier, pattern: $PARAM}
+                - inside:
+                    stopBy: end
+                    matches: arm
+                    has:
+                        field: value
+                        any:
+                            - has: {field: parameter, kind: identifier, pattern: $PARAM}
+                            - has: {field: parameters, has: {kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $PARAM}}}
+        - inside:
+            kind: program
+            stopBy: end
+            has:
+                any:
+                    - {kind: lexical_declaration, has: {matches: union-declaration}}
+                    - {kind: export_statement, has: {kind: lexical_declaration, has: {matches: union-declaration}}}
+message: '`$TEXT` renders a `Schema.Defect()` cause outside `Formatter.format`'
+note: 'Render the cause as `Formatter.format(<cause>)`, which prints any value, circular ones included'
+labels: {TEXT: {style: primary}}

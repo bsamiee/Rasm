@@ -1,0 +1,157 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-single-reader-java
+language: java
+severity: error
+utils:
+    member-list:
+        kind: class_body, interface_body, enum_body, enum_body_declarations, annotation_type_body
+    literal:
+        any:
+            - kind: >-
+                string_literal, character_literal, decimal_integer_literal, hex_integer_literal, octal_integer_literal, binary_integer_literal, decimal_floating_point_literal, hex_floating_point_literal, true, false, class_literal, identifier, method_reference
+            - kind: field_access
+              not: {has: {stopBy: end, kind: method_invocation}}
+            - kind: unary_expression, binary_expression, parenthesized_expression, ternary_expression, array_initializer, argument_list
+              not: {has: {pattern: $_, not: {any: [{matches: literal}, {kind: type_identifier}]}}}
+            - kind: array_creation_expression
+              has: {field: value, matches: literal}
+            - kind: method_invocation
+              all:
+                - has: {field: object, matches: literal}
+                - has: {field: arguments, matches: literal}
+                - not: {matches: java-regex-compile}
+            - kind: object_creation_expression
+              all:
+                - has: {field: arguments, matches: literal}
+                - not: {has: {kind: class_body}}
+    identity:
+        any:
+            - kind: object_creation_expression, array_initializer, array_creation_expression
+            - has: {stopBy: end, kind: object_creation_expression}
+    reference:
+        kind: identifier
+        pattern: $NAME
+        not:
+            any:
+                - inside: {kind: variable_declarator, field: name}
+                - inside: {kind: method_invocation, field: name}
+    state-position:
+        any:
+            - inside: {kind: method_invocation, field: object}
+            - inside: {kind: parenthesized_expression, inside: {kind: synchronized_statement}}
+            - inside: {kind: array_access, field: array, any: [{inside: {kind: assignment_expression, field: left}}, {inside: {kind: update_expression}}]}
+    state-use:
+        matches: reference
+        any:
+            - {not: {inside: {kind: field_access, field: field}}, matches: state-position}
+            - inside: {kind: field_access, field: field, matches: state-position}
+    declares:
+        has:
+            field: body
+            any:
+                - has: {kind: method_declaration, has: {field: name, pattern: $NAME}}
+                - has: {kind: enum_body_declarations, has: {kind: method_declaration, has: {field: name, pattern: $NAME}}}
+    shadowed:
+        inside:
+            stopBy: end
+            kind: &type 'class_declaration, record_declaration, enum_declaration, interface_declaration'
+            not: {has: {field: name, pattern: $OWNER}}
+            matches: declares
+            inside: {stopBy: end, kind: *type, has: {field: name, pattern: $OWNER}}
+    mention:
+        kind: identifier
+        pattern: $NAME
+        any:
+            - inside: {kind: method_invocation, field: name, has: {field: object, pattern: $OWNER}}
+            - inside: {kind: method_reference, has: {nthChild: 1, pattern: $OWNER}}
+            - all:
+                - any:
+                    - inside: {kind: method_invocation, field: name, any: [{not: {has: {field: object, regex: '.'}}}, {has: {field: object, kind: this}}]}
+                    - inside: {kind: method_reference, has: {nthChild: 1, kind: this}}
+                - inside: {stopBy: end, kind: *type, has: {field: name, pattern: $OWNER}}
+                - not: {matches: shadowed}
+    owner:
+        inside:
+            any:
+                - {kind: class_body, inside: {kind: 'class_declaration, record_declaration', has: {field: name, pattern: $OWNER}}}
+                - {kind: enum_body_declarations, inside: {kind: enum_body, inside: {kind: enum_declaration, has: {field: name, pattern: $OWNER}}}}
+                - {kind: interface_body, inside: {kind: interface_declaration, has: {field: name, pattern: $OWNER}}}
+    private:
+        has: {kind: modifiers, has: {regex: '^private$'}, not: {has: {kind: 'marker_annotation, annotation'}}}
+    member:
+        kind: &member >-
+            method_declaration, constructor_declaration, compact_constructor_declaration, static_initializer, block, field_declaration, constant_declaration, enum_constant
+        inside: {matches: member-list}
+    entry:
+        kind: method_declaration
+        all:
+            - has: {field: name, regex: '^main$'}
+            - has: {kind: modifiers, has: {regex: '^static$'}}
+    reader:
+        matches: member
+        pattern: $READER
+        not: {any: [{matches: entry}, {has: {field: name, pattern: $NAME}}, {inside: {stopBy: end, kind: *member, matches: member}}]}
+    caller:
+        matches: member
+        pattern: $READER
+        not: {any: [{matches: entry}, {kind: enum_constant}, {has: {field: name, pattern: $NAME}}, {inside: {stopBy: end, kind: *member, matches: member}}]}
+    holds-mention:
+        any: [{kind: identifier, pattern: $NAME, matches: mention}, {has: {stopBy: end, kind: identifier, pattern: $NAME, matches: mention}}]
+    conditional-try:
+        all:
+            - has: {field: body, has: {stopBy: end, kind: 'try_statement, try_with_resources_statement'}}
+            - inside: {kind: program, stopBy: end, has: {stopBy: end, kind: identifier, pattern: $NAME, matches: mention, inside: {kind: ternary_expression, stopBy: {kind: 'block, lambda_expression'}}}}
+    generic-reused:
+        all:
+            - has: {kind: type_parameters}
+            - inside:
+                kind: program
+                stopBy: end
+                has:
+                    stopBy: end
+                    kind: identifier
+                    pattern: $NAME
+                    all:
+                        - matches: mention
+                        - any:
+                            - precedes: {stopBy: end, matches: holds-mention}
+                            - inside: {stopBy: end, not: {kind: program}, precedes: {stopBy: end, matches: holds-mention}}
+    level:
+        any: [{matches: java-control-flow}, {matches: java-function-boundary}]
+    nests-twice:
+        has: {field: body, has: {stopBy: end, matches: level, has: {stopBy: end, matches: level}}}
+rule:
+    inside: {matches: member-list}
+    any:
+        - kind: field_declaration
+          all:
+            - matches: private
+            - has: {kind: modifiers, has: {regex: '^final$'}}
+            - has: {field: declarator, all: [{has: {field: name, pattern: $NAME}}, {has: {field: value, matches: literal}}]}
+            - inside:
+                kind: program
+                stopBy: end
+                all:
+                    - has: {stopBy: end, kind: identifier, pattern: $NAME, matches: reference, inside: {stopBy: end, kind: *member, matches: reader}}
+                    - not: {has: {stopBy: end, kind: identifier, pattern: $NAME, matches: reference, not: {inside: {stopBy: end, kind: *member, pattern: $READER}}}}
+            - not:
+                all:
+                    - has: {field: declarator, has: {field: value, matches: identity}}
+                    - inside: {kind: program, stopBy: end, has: {stopBy: end, kind: identifier, pattern: $NAME, matches: state-use}}
+        - kind: method_declaration
+          all:
+            - matches: private
+            - not: {has: {kind: modifiers, has: {regex: '^(native|abstract)$'}}}
+            - has: {field: name, pattern: $NAME}
+            - matches: owner
+            - not: {any: [{matches: generic-reused}, {matches: nests-twice}, {matches: conditional-try}]}
+            - inside:
+                kind: program
+                stopBy: end
+                all:
+                    - has: {stopBy: end, kind: identifier, pattern: $NAME, matches: mention, inside: {stopBy: end, kind: *member, matches: caller}}
+                    - not: {has: {stopBy: end, kind: identifier, pattern: $NAME, matches: mention, not: {inside: {stopBy: end, kind: *member, pattern: $READER}}}}
+message: '`$NAME` has one reader'
+note: 'Move the declaration into its reader as a local or lambda where its name states a fact, else inline it'
+labels:
+    READER: {style: secondary, message: Only reader}

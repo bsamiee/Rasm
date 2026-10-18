@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: swift-guarded-branch
+language: swiftlang
+arguments: [condition]
+utils:
+    tested:
+        any: [{matches: condition}, {has: {stopBy: end, matches: condition}}]
+    clause:
+        not: {kind: statements}
+        precedes: {stopBy: end, kind: statements}
+        matches: tested
+    guard-clause:
+        kind: guard_statement
+        has: {matches: clause}
+rule:
+    any:
+        - inside:
+            stopBy: end
+            kind: statements
+            nthChild: {position: 1, ofRule: {kind: statements}}
+            inside: {kind: 'if_statement, while_statement', has: {matches: clause}}
+        - inside: {stopBy: end, kind: ternary_expression, field: if_true, has: {field: condition, matches: tested}}
+        - inside:
+            stopBy: end
+            kind: statements
+            inside: {kind: switch_entry, has: {follows: {kind: where_keyword}, matches: tested}}
+        - follows: {stopBy: end, matches: guard-clause}
+        - inside: {stopBy: end, follows: {stopBy: end, matches: guard-clause}}

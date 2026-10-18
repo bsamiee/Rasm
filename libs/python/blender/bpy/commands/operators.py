@@ -595,7 +595,7 @@ class Stock(msgspec.Struct, frozen=True, kw_only=True):
     operator: Operation
     values: Mapping[str, Value] = msgspec.field(default_factory=dict)
 
-    def invocation(self, identity: Identity, /) -> BlenderResult[tuple[str, Writer]]:
+    def invocation(self, _identity: Identity, /) -> BlenderResult[tuple[str, Writer]]:
         """Resolves native operator properties and returns their write boundary."""
         idname = self.operator.idname_py()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 

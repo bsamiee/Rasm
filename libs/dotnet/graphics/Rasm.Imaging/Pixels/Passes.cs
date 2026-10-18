@@ -320,7 +320,7 @@ public sealed partial class Ramp : IConvertible<string> {
     public (Ramp Ramp, int Index) Moved(int index, RampPosition position) =>
         (Stops.Take(index).Concat(Stops.Skip(index + 1)),
          Stops.Take(index).Filter(stop => stop.Position <= position).Count + Stops.Skip(index + 1).Filter(stop => stop.Position < position).Count) switch {
-             var (rest, at) => (new Ramp(rest.Take(at).Add(Stops[index].At(position)).Concat(rest.Skip(at)), Interpolation), at),
+             var (rest, at) => (new Ramp([.. rest.Take(at), Stops[index].At(position), .. rest.Skip(at)], Interpolation), at),
          };
 
     public RampTable Tabulate(Gamut gamut) => Tables((this, gamut));
@@ -432,7 +432,7 @@ public sealed class NumericDomain<TValue, TKey> where TValue : notnull where TKe
     public (TKey Low, TKey High) Bounds { get; }
     public Presentation<TKey> Presentation { get; }
 
-    public Fin<TValue> Admit(TValue value) => Create(Key(value)).Map(_ => value);
+    public Fin<TValue> Checked(TValue value) => Create(Key(value)).Map(_ => value);
 }
 
 public sealed record Gated<TValue>(bool Enabled, TValue Value) where TValue : notnull {
@@ -782,7 +782,7 @@ public static class NumericDomain {
         where TKey : struct, INumber<TKey> =>
         new(ValidationResults.Validated<TValue, TKey>, static value => value.ToValue(), (TValue.MinValue.ToValue(), TValue.MaxValue.ToValue()), presentation);
 
-    public static NumericDomain<Length, TKey> Metres<TKey>((TKey Low, TKey High) bounds, Presentation<TKey> presentation) where TKey : struct, INumber<TKey> =>
+    public static NumericDomain<Length, TKey> Meters<TKey>((TKey Low, TKey High) bounds, Presentation<TKey> presentation) where TKey : struct, INumber<TKey> =>
         new(static raw => Length.FromMeters(double.CreateChecked(raw)), static length => TKey.CreateChecked(length.Meters.ToDouble()), bounds, presentation with { Unit = Quantity.GetUnitInfo(LengthUnit.Meter) });
 }
 

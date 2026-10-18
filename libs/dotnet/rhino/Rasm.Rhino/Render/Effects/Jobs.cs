@@ -54,25 +54,25 @@ public abstract class JobEffect<TEffect, TState, TParameter, TResource> : Define
                 from started in RenderRuns.Started(pipeline)
                 from extent in IO.lift(EffectPipeline.Extent(pipeline.Dimensions()))
                 let state = Held.Current
-                let metres = RenderRuns.Find(pipeline.RenderingId).Bind(static run => run.Metres)
+                let meters = RenderRuns.Find(pipeline.RenderingId).Bind(static run => run.Meters)
                 from _ in Opening
-                from queued in Queued(pipeline, rect, state, extent, metres, site)
+                from queued in Queued(pipeline, rect, state, extent, meters, site)
                 select queued,
                 site),
         };
 
-    private IO<Unit> Queued(PostEffectPipeline pipeline, Rectangle rect, TState state, PixelExtent extent, Option<float> metres, CallbackSite site) =>
-        DisposalOps.Within(() => new Job(Rewrite(state, extent, metres, site)), job =>
+    private IO<Unit> Queued(PostEffectPipeline pipeline, Rectangle rect, TState state, PixelExtent extent, Option<float> meters, CallbackSite site) =>
+        DisposalOps.Within(() => new Job(Rewrite(state, extent, meters, site)), job =>
             DisposalOps.Found(pipeline.ThreadEngine, nameof(PostEffectPipeline.ThreadEngine), engine => IO.lift(() => Refused.Unless(
                 engine.RunPostEffect(job, pipeline, this, rect, EffectPipeline.Ids(TResource.Channels(state))), nameof(PostEffectThreadEngine.RunPostEffect)))));
 
     // --- [JOBS]
-    private Func<Rectangle, PostEffectJobChannels, bool> Rewrite(TState state, PixelExtent extent, Option<float> metres, CallbackSite site) =>
+    private Func<Rectangle, PostEffectJobChannels, bool> Rewrite(TState state, PixelExtent extent, Option<float> meters, CallbackSite site) =>
         (rect, access) => Callbacks.Succeeded(
             opened.Value.Bind(static held => held).Bind(static cell => cell.Held).Map(resource => DisposalOps.Within(() => new WorkProgress(work, rect.Height), rows =>
                 from started in work.SwapIO(static _ => new WorkState.Indeterminate())
                 from color in EffectPipeline.Read(access.GetChannel, extent, RenderWindow.StandardChannels.RGBA, rect)
-                from guides in EffectPipeline.Guides(access.GetChannel, extent, rect, TResource.Channels(state), metres)
+                from guides in EffectPipeline.Guides(access.GetChannel, extent, rect, TResource.Channels(state), meters)
                 from result in resource.Run(state, color, guides, rows)
                 from written in EffectPipeline.Opened(access.GetChannel, RenderWindow.ChannelId(RenderWindow.StandardChannels.RGBA), (_, cpu) => EffectPipeline.Put(cpu, result))
                 select unit)),

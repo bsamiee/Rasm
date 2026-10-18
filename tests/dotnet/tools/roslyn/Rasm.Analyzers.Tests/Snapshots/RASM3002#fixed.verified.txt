@@ -1,0 +1,29 @@
+using System;
+
+internal enum Mode {
+    First,
+    Second,
+}
+
+[Flags]
+internal enum Marks {
+    None = 0,
+    Left = 1,
+}
+
+internal static class CoveredEnum {
+    internal static int Of(Mode mode) => mode switch {
+        Mode.First => 1,
+        Mode.Second => 2,
+    };
+
+    internal static int Bare(Mode mode) => mode switch { Mode.First or Mode.Second => 1 };
+}
+
+internal static class FlagsEnum {
+    internal static int Flagged(Marks marks) => marks switch {
+        Marks.None => 0,
+        Marks.Left => 1,
+        _ => throw new InvalidOperationException(),
+    };
+}

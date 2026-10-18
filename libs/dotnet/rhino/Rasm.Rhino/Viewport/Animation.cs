@@ -59,12 +59,11 @@ public sealed record AnimationOutput {
         Exchange.QualifiedPath(folder).Map(qualified => new AnimationOutput(qualified, extension, name));
 
     internal static Fin<AnimationOutput> From(string folder, string extension, string name) =>
-        (Exchange.QualifiedPath(folder).ToValidation(),
-         FileExtension.Validated($"{FileExtension.Mark}{extension}").ToValidation(),
-         NamePart.Validated(name).ToValidation())
+        (Exchange.QualifiedPath(folder),
+         FileExtension.Validated($"{FileExtension.Mark}{extension}"),
+         NamePart.Validated(name))
             .Apply(static (qualified, dotted, part) => new AnimationOutput(qualified, dotted, part))
-            .As()
-            .ToFin();
+            .As();
 }
 
 public sealed record AnimationSequence(AnimationKind Kind, FrameCount Frames, string ViewportName, Option<Guid> DisplayMode, Option<AnimationOutput> Output, Option<AnimationQuality> Quality);
@@ -88,11 +87,10 @@ public static partial class Animations {
         })));
 
     private static Fin<AnimationSettings> Settings(AnimationProperties copy) =>
-        (FrameCount.Validated(copy.FrameCount).ToValidation(),
-         Conversions.Present(copy.FolderName).Traverse(folder => AnimationOutput.From(folder, copy.FileExtension, copy.AnimationName)).As().ToValidation())
+        (FrameCount.Validated(copy.FrameCount),
+         Conversions.Present(copy.FolderName).Traverse(folder => AnimationOutput.From(folder, copy.FileExtension, copy.AnimationName)).As())
             .Apply((frames, output) => ToSettings(copy, frames, output))
-            .As()
-            .ToFin();
+            .As();
 
     [MapperRequiredMapping(RequiredMappingStrategy.Target)]
     [MapProperty(nameof(AnimationProperties.Images), nameof(AnimationSettings.Images), Use = nameof(@Conversions.Rows))]

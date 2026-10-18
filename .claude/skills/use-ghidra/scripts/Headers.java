@@ -9,7 +9,6 @@ import ghidra.app.util.cparser.CPP.TokenMgrError;
 import ghidra.framework.Application;
 import ghidra.program.model.data.DataType;
 import ghidra.program.model.data.FunctionDefinition;
-import ghidra.program.model.listing.Function;
 import ghidra.program.model.symbol.SourceType;
 import ghidra.program.model.symbol.Symbol;
 
@@ -26,15 +25,16 @@ import java.lang.reflect.Field;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.regex.MatchResult;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Gatherers;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -61,63 +61,146 @@ public class Headers extends GhidraScript {
 
     // --- [ARGUMENTS]
 
-    sealed interface Argument permits Header, Include, Define, Macros {}
+    sealed interface Argument permits Header, Include, Define, Macros {
+        static Report.Result<Argument> of(String token) {
+            return switch (token) {
+                case String include when include.startsWith("-I") ->
+                        Optional.of(Path.of(include.substring(2)).toAbsolutePath().normalize())
+                                .filter(Files::isDirectory)
+                                .<Report.Result<Argument>>map(
+                                        path -> new Report.Success<>(new Include(path)))
+                                .orElseGet(
+                                        () ->
+                                                new Report.Failure<>(
+                                                        "Include `%s` names no directory"
+                                                                .formatted(include)));
+                case String define when DEFINE.matcher(define).matches() ->
+                        new Report.Success<>(new Define(define));
+                case String header when !header.startsWith("-") ->
+                        Optional.of(Path.of(header).toAbsolutePath().normalize())
+                                .filter(Files::isRegularFile)
+                                .<Report.Result<Argument>>map(
+                                        path -> new Report.Success<>(new Header(path)))
+                                .orElseGet(
+                                        () ->
+                                                new Report.Failure<>(
+                                                        "Header `%s` names no file"
+                                                                .formatted(header)));
+                default ->
+                        new Report.Failure<>(
+                                ("Argument `%s` is no header, `-I<dir>`,"
+                                                + " `-D<name>[=<value>]`, or `-imacros <file>`")
+                                        .formatted(token));
+            };
+        }
+    }
 
-    record Header(Path file) implements Argument {}
+    record Header(Path file) implements Argument {
+        Report.Result<String> parse(Path source, PreProcessor cpp, CParser parser) {
+            ByteArrayOutputStream output = new ByteArrayOutputStream();
+            cpp.setOutputStream(output);
+            try {
+                if (!cpp.parse(source.toString())) {
+                    return new Report.Failure<>("failed %s\nFile is unreadable".formatted(file));
+                }
+                parser.setParseFileName(file.toString());
+                String pointers =
+                        ARRAY_PARAMETER
+                                .matcher(output.toString(StandardCharsets.ISO_8859_1))
+                                .replaceAll("$1 *");
+                parser.parse(
+                        new ByteArrayInputStream(
+                                FLOAT_SUFFIX
+                                        .matcher(pointers)
+                                        .replaceAll("$1")
+                                        .getBytes(StandardCharsets.ISO_8859_1)));
+                return new Report.Success<>("parsed " + file);
+            } catch (ParseException
+                    | ghidra.app.util.cparser.CPP.ParseException
+                    | TokenMgrError exception) {
+                return new Report.Failure<>("failed " + file + "\n" + exception.getMessage());
+            }
+        }
+    }
 
-    record Include(Path directory) implements Argument {}
+    record Include(Path directory) implements Argument {
+        Path copy(Path overlay, Path file) {
+            return overlay.resolve(directory.relativize(file));
+        }
+
+        Optional<Path> source(Path overlay, Path header) {
+            return Optional.of(header)
+                    .filter(file -> file.startsWith(directory))
+                    .map(file -> copy(overlay, file))
+                    .filter(Files::isRegularFile);
+        }
+
+        void patch(Path overlay, List<Path> includes, List<Path> later) throws IOException {
+            try (Stream<Path> files =
+                    Files.find(directory, Integer.MAX_VALUE, (_, file) -> file.isRegularFile())) {
+                for (Path file : files.toList()) {
+                    String text = Files.readString(file, StandardCharsets.ISO_8859_1);
+                    String resolved =
+                            resolve(
+                                    text,
+                                    Stream.concat(includes.stream(), Stream.of(file.getParent()))
+                                            .toList(),
+                                    later);
+                    if (!resolved.equals(text)) {
+                        Path target = copy(overlay, file);
+                        Files.createDirectories(target.getParent());
+                        Files.writeString(target, resolved, StandardCharsets.ISO_8859_1);
+                    }
+                }
+            }
+        }
+
+        private static String resolve(String text, List<Path> current, List<Path> later) {
+            String checked =
+                    HAS_INCLUDE
+                            .matcher(text)
+                            .replaceAll(
+                                    check -> {
+                                        String name = check.group(2);
+                                        List<Path> searched =
+                                                check.group(1) == null ? current : later;
+                                        boolean found =
+                                                searched.stream()
+                                                        .map(Path::toString)
+                                                        .anyMatch(
+                                                                path ->
+                                                                        CParserUtils.getFile(
+                                                                                        path, name)
+                                                                                != null);
+                                        return found ? "1" : "0";
+                                    });
+            return SCOPED_CONDITION.matcher(checked).replaceAll("$1 0");
+        }
+    }
 
     record Define(String option) implements Argument {}
 
-    record Macros(String defines) implements Argument {}
+    record Macros(String defines) implements Argument {
+        static Report.Result<Argument> read(String file) {
+            try {
+                return new Report.Success<>(new Macros(Files.readString(Path.of(file))));
+            } catch (IOException exception) {
+                return new Report.Failure<>(
+                        "Macros file `%s` is unreadable: %s".formatted(file, exception));
+            }
+        }
+    }
 
     private static Stream<Report.Result<Argument>> arguments(List<String> tokens) {
         return tokens.isEmpty()
                 ? Stream.empty()
                 : "-imacros".equals(tokens.getFirst()) && tokens.size() > 1
                         ? Stream.concat(
-                                Stream.of(macros(tokens.get(1))),
+                                Stream.of(Macros.read(tokens.get(1))),
                                 arguments(tokens.subList(2, tokens.size())))
                         : Stream.concat(
-                                Stream.of(argument(tokens.getFirst())),
+                                Stream.of(Argument.of(tokens.getFirst())),
                                 arguments(tokens.subList(1, tokens.size())));
-    }
-
-    private static Report.Result<Argument> argument(String token) {
-        return switch (token) {
-            case String include when include.startsWith("-I") -> include(include.substring(2));
-            case String define when DEFINE.matcher(define).matches() ->
-                    new Report.Success<>(new Define(define));
-            case String header when !header.startsWith("-") -> header(header);
-            default ->
-                    new Report.Failure<>(
-                            ("Argument `%s` is no header, `-I<dir>`,"
-                                            + " `-D<name>[=<value>]`, or `-imacros <file>`")
-                                    .formatted(token));
-        };
-    }
-
-    private static Report.Result<Argument> header(String file) {
-        Path path = Path.of(file).toAbsolutePath().normalize();
-        return Files.isRegularFile(path)
-                ? new Report.Success<>(new Header(path))
-                : new Report.Failure<>("Header `%s` names no file".formatted(file));
-    }
-
-    private static Report.Result<Argument> include(String directory) {
-        Path path = Path.of(directory).toAbsolutePath().normalize();
-        return Files.isDirectory(path)
-                ? new Report.Success<>(new Include(path))
-                : new Report.Failure<>("Include `-I%s` names no directory".formatted(directory));
-    }
-
-    private static Report.Result<Argument> macros(String file) {
-        try {
-            return new Report.Success<>(new Macros(Files.readString(Path.of(file))));
-        } catch (IOException exception) {
-            return new Report.Failure<>(
-                    "Macros file `%s` is unreadable: %s".formatted(file, exception));
-        }
     }
 
     private static <T extends Argument> Stream<T> select(List<Argument> arguments, Class<T> type) {
@@ -131,138 +214,50 @@ public class Headers extends GhidraScript {
                 Pattern.compile(
                         "\"(?:\\\\.|[^\"\\\\])*\"?|'(?:\\\\.|[^'\\\\])*'?|[(),]|[^\"'(),]+");
 
-        /** Returns macro argument text at {@code start}, remaining text for a variadic argument */
         @Override
         public String getParams(StringBuffer buf, int start, char endChar) {
-            return Optional.of(start)
-                    .filter(index -> index < buf.length())
-                    .map(buf::substring)
-                    .map(
-                            text ->
-                                    endChar == 0 && (start == 0 || buf.charAt(start - 1) == ',')
-                                            ? text
-                                            : argument(text, endChar))
-                    .orElse("");
-        }
-
-        private static String argument(String text, char endChar) {
+            if (start >= buf.length()) {
+                return "";
+            }
+            String text = buf.substring(start);
+            if (endChar == 0 && (start == 0 || buf.charAt(start - 1) == ',')) {
+                return text;
+            }
             List<MatchResult> tokens = TOKEN.matcher(text).results().toList();
-            int[] depths =
+            List<Integer> depths =
                     tokens.stream()
-                            .mapToInt(
+                            .map(
                                     token ->
                                             switch (token.group()) {
                                                 case "(" -> 1;
                                                 case ")" -> -1;
                                                 default -> 0;
                                             })
-                            .toArray();
-            Arrays.parallelPrefix(depths, Integer::sum);
+                            .gather(Gatherers.scan(() -> 0, Integer::sum))
+                            .toList();
             return IntStream.range(0, tokens.size())
-                    .mapToObj(index -> end(tokens.get(index), depths[index], endChar))
+                    .mapToObj(
+                            index -> {
+                                MatchResult token = tokens.get(index);
+                                int depth = depths.get(index);
+                                boolean close = ")".equals(token.group());
+                                return close && depth < 0
+                                                || depth == 0
+                                                        && token.group()
+                                                                .equals(String.valueOf(endChar))
+                                        ? Optional.of(token.start())
+                                        : close && depth == 0 && endChar == 0
+                                                ? Optional.of(token.end())
+                                                : Optional.<Integer>empty();
+                            })
                     .flatMap(Optional::stream)
                     .findFirst()
                     .map(end -> text.substring(0, end))
                     .orElse(text);
         }
-
-        private static Optional<Integer> end(MatchResult token, int depth, char endChar) {
-            boolean close = ")".equals(token.group());
-            return close && depth < 0 || depth == 0 && token.group().equals(String.valueOf(endChar))
-                    ? Optional.of(token.start())
-                    : close && depth == 0 && endChar == 0
-                            ? Optional.of(token.end())
-                            : Optional.empty();
-        }
     }
 
-    private static void patch(List<Path> overlays, List<Path> includes, int index)
-            throws IOException {
-        try (Stream<Path> files =
-                Files.find(
-                        includes.get(index),
-                        Integer.MAX_VALUE,
-                        (_, file) -> file.isRegularFile())) {
-            for (Path file : files.toList()) {
-                String text = Files.readString(file, StandardCharsets.ISO_8859_1);
-                String resolved = resolve(text, file, includes, index);
-                if (!resolved.equals(text)) {
-                    Path copy = copy(overlays, includes, index, file);
-                    Files.createDirectories(copy.getParent());
-                    Files.writeString(copy, resolved, StandardCharsets.ISO_8859_1);
-                }
-            }
-        }
-    }
-
-    private static Path copy(List<Path> overlays, List<Path> includes, int index, Path file) {
-        return overlays.get(index).resolve(includes.get(index).relativize(file));
-    }
-
-    private static Path source(List<Path> overlays, List<Path> includes, Path header) {
-        return IntStream.range(0, includes.size())
-                .filter(index -> header.startsWith(includes.get(index)))
-                .mapToObj(index -> copy(overlays, includes, index, header))
-                .filter(Files::isRegularFile)
-                .findFirst()
-                .orElse(header);
-    }
-
-    private static String resolve(String text, Path file, List<Path> includes, int index) {
-        List<Path> current = Stream.concat(includes.stream(), Stream.of(file.getParent())).toList();
-        List<Path> later = includes.subList(index + 1, includes.size());
-        return SCOPED_CONDITION
-                .matcher(
-                        HAS_INCLUDE
-                                .matcher(text)
-                                .replaceAll(
-                                        check ->
-                                                found(
-                                                                check.group(1) == null
-                                                                        ? current
-                                                                        : later,
-                                                                check.group(2))
-                                                        ? "1"
-                                                        : "0"))
-                .replaceAll("$1 0");
-    }
-
-    private static boolean found(List<Path> directories, String name) {
-        return directories.stream()
-                .anyMatch(directory -> CParserUtils.getFile(directory.toString(), name) != null);
-    }
-
-    // --- [PARSE]
-
-    private static Report.Result<String> parse(
-            Path header, Path file, PreProcessor cpp, CParser parser) {
-        ByteArrayOutputStream source = new ByteArrayOutputStream();
-        cpp.setOutputStream(source);
-        try {
-            if (!cpp.parse(file.toString())) {
-                return new Report.Failure<>("failed %s\nFile is unreadable".formatted(header));
-            }
-            parser.setParseFileName(header.toString());
-            parser.parse(
-                    new ByteArrayInputStream(
-                            FLOAT_SUFFIX
-                                    .matcher(
-                                            ARRAY_PARAMETER
-                                                    .matcher(
-                                                            source.toString(
-                                                                    StandardCharsets.ISO_8859_1))
-                                                    .replaceAll("$1 *"))
-                                    .replaceAll("$1")
-                                    .getBytes(StandardCharsets.ISO_8859_1)));
-            return new Report.Success<>("parsed " + header);
-        } catch (ParseException
-                | ghidra.app.util.cparser.CPP.ParseException
-                | TokenMgrError exception) {
-            return new Report.Failure<>("failed " + header + "\n" + exception.getMessage());
-        }
-    }
-
-    // --- [APPLY]
+    // --- [SIGNATURES]
 
     private Stream<Report.Result<String>> apply(FunctionDefinition definition) {
         return Stream.of(definition.getName(), "_" + definition.getName())
@@ -274,73 +269,27 @@ public class Headers extends GhidraScript {
                 .map(Functions::target)
                 .distinct()
                 .sorted(Functions.BY_ENTRY)
-                .map(function -> apply(function, definition));
-    }
-
-    private Report.Result<String> apply(Function function, FunctionDefinition definition) {
-        ApplyFunctionSignatureCmd command =
-                new ApplyFunctionSignatureCmd(
-                        function.getEntryPoint(), definition, SourceType.USER_DEFINED);
-        return runCommand(command)
-                ? new Report.Success<>(
-                        "applied %s %s"
-                                .formatted(
-                                        function.getEntryPoint(),
-                                        function.getPrototypeString(true, false)))
-                : new Report.Failure<>(
-                        "rejected %s %s: %s"
-                                .formatted(
-                                        function.getEntryPoint(),
-                                        function.getName(true),
-                                        command.getStatusMsg()));
-    }
-
-    // --- [WRITE]
-
-    private String write(
-            Path out,
-            PreProcessor cpp,
-            CParser parser,
-            List<Report.Result<String>> parsed,
-            List<Report.Result<String>> applied,
-            String arguments)
-            throws IOException {
-        long failed = parsed.stream().flatMap(Report.Result::failures).count();
-        long rejected = applied.stream().flatMap(Report.Result::failures).count();
-        int types =
-                Stream.of(parser.getComposites(), parser.getEnums(), parser.getTypes())
-                        .mapToInt(Map::size)
-                        .sum();
-        String counts =
-                "headers=%d failed=%d types=%d functions=%d applied=%d rejected=%d args=%s"
-                        .formatted(
-                                parsed.size(),
-                                failed,
-                                types,
-                                parser.getFunctions().size(),
-                                applied.size() - rejected,
-                                rejected,
-                                arguments);
-        Stream<String> body =
-                Stream.of(
-                                Stream.of(Report.section("HEADERS")),
-                                parsed.stream().flatMap(Headers::rows),
-                                Stream.of(Report.section("PREPROCESSOR")),
-                                comments(cpp.getParseMessages()),
-                                Stream.of(Report.section("PARSER")),
-                                comments(parser.getParseMessages()),
-                                Stream.of(Report.section("APPLIED")),
-                                applied.stream().flatMap(Headers::rows))
-                        .flatMap(section -> section);
-        return Report.write(out, currentProgram, counts, body);
-    }
-
-    private static Stream<String> rows(Report.Result<String> result) {
-        return Stream.concat(result.values(), result.failures()).flatMap(Headers::comments);
-    }
-
-    private static Stream<String> comments(String text) {
-        return text.lines().map("// "::concat);
+                .map(
+                        function -> {
+                            ApplyFunctionSignatureCmd command =
+                                    new ApplyFunctionSignatureCmd(
+                                            function.getEntryPoint(),
+                                            definition,
+                                            SourceType.USER_DEFINED);
+                            return runCommand(command)
+                                    ? new Report.Success<>(
+                                            "applied %s %s"
+                                                    .formatted(
+                                                            function.getEntryPoint(),
+                                                            function.getPrototypeString(
+                                                                    true, false)))
+                                    : new Report.Failure<>(
+                                            "rejected %s %s: %s"
+                                                    .formatted(
+                                                            function.getEntryPoint(),
+                                                            function.getName(true),
+                                                            command.getStatusMsg()));
+                        });
     }
 
     // --- [RUN]
@@ -364,7 +313,8 @@ public class Headers extends GhidraScript {
         Path overlay =
                 Files.createTempDirectory(Application.getUserTempDirectory().toPath(), "headers");
         try {
-            List<Path> includes = select(arguments, Include.class).map(Include::directory).toList();
+            List<Include> includes = select(arguments, Include.class).toList();
+            List<Path> directories = includes.stream().map(Include::directory).toList();
             List<Path> overlays =
                     IntStream.range(0, includes.size())
                             .mapToObj(index -> overlay.resolve(Integer.toString(index)))
@@ -375,9 +325,13 @@ public class Headers extends GhidraScript {
             defines.set(cpp, new Defines());
             cpp.setArgs(select(arguments, Define.class).map(Define::option).toArray(String[]::new));
             for (int index = 0; index < includes.size(); index++) {
-                patch(overlays, includes, index);
+                includes.get(index)
+                        .patch(
+                                overlays.get(index),
+                                directories,
+                                directories.subList(index + 1, directories.size()));
                 cpp.addIncludePath(overlays.get(index).toString());
-                cpp.addIncludePath(includes.get(index).toString());
+                cpp.addIncludePath(directories.get(index).toString());
             }
             cpp.setMonitor(monitor);
             cpp.setOutputStream(OutputStream.nullOutputStream());
@@ -406,12 +360,22 @@ public class Headers extends GhidraScript {
             parser.setMonitor(monitor);
             List<Report.Result<String>> parsed =
                     select(arguments, Header.class)
-                            .map(Header::file)
                             .map(
                                     header ->
-                                            parse(
-                                                    header,
-                                                    source(overlays, includes, header),
+                                            header.parse(
+                                                    IntStream.range(0, includes.size())
+                                                            .mapToObj(
+                                                                    index ->
+                                                                            includes.get(index)
+                                                                                    .source(
+                                                                                            overlays
+                                                                                                    .get(
+                                                                                                            index),
+                                                                                            header
+                                                                                                    .file()))
+                                                            .flatMap(Optional::stream)
+                                                            .findFirst()
+                                                            .orElse(header.file()),
                                                     cpp,
                                                     parser))
                             .toList();
@@ -423,14 +387,39 @@ public class Headers extends GhidraScript {
                             .map(FunctionDefinition.class::cast)
                             .flatMap(this::apply)
                             .toList();
-            println(
-                    write(
-                            Path.of(args.getFirst()),
-                            cpp,
-                            parser,
-                            parsed,
-                            applied,
-                            String.join(" ", args.subList(1, args.size()))));
+            long failed = parsed.stream().flatMap(Report.Result::failures).count();
+            long rejected = applied.stream().flatMap(Report.Result::failures).count();
+            String counts =
+                    "headers=%d failed=%d types=%d functions=%d applied=%d rejected=%d args=%s"
+                            .formatted(
+                                    parsed.size(),
+                                    failed,
+                                    Stream.of(
+                                                    parser.getComposites(),
+                                                    parser.getEnums(),
+                                                    parser.getTypes())
+                                            .mapToInt(Map::size)
+                                            .sum(),
+                                    parser.getFunctions().size(),
+                                    applied.size() - rejected,
+                                    rejected,
+                                    String.join(" ", args.subList(1, args.size())));
+            Function<Report.Result<String>, Stream<String>> text =
+                    result -> Stream.concat(result.values(), result.failures());
+            Stream<String> body =
+                    Stream.of(
+                                    Map.entry("HEADERS", parsed.stream().flatMap(text)),
+                                    Map.entry("PREPROCESSOR", Stream.of(cpp.getParseMessages())),
+                                    Map.entry("PARSER", Stream.of(parser.getParseMessages())),
+                                    Map.entry("APPLIED", applied.stream().flatMap(text)))
+                            .flatMap(
+                                    section ->
+                                            Stream.concat(
+                                                    Stream.of(Report.section(section.getKey())),
+                                                    section.getValue()
+                                                            .flatMap(String::lines)
+                                                            .map("// "::concat)));
+            println(Report.write(Path.of(args.getFirst()), currentProgram, counts, body));
         } finally {
             FileUtilities.deleteDir(overlay);
         }

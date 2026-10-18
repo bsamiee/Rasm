@@ -67,7 +67,7 @@ public static class ClippingPlanes {
             DisposalOps.Within(
                 () => Refused.Unless(open(target.Id, true), opening, index),
                 opened => IO.lift(opened).Bind(_ => body),
-                opened => IO.lift(() => opened.Match(Succ: _ => Refused.Unless(close(target.Id, true), closing, index), Fail: static _ => Fin.Succ(unit))));
+                opened => IO.lift(() => opened.Match(Succ: _ => Refused.Unless(close(target.Id, true), closing, index), Fail: static _ => unit)));
         return target.Attributes.Mode switch {
             ObjectMode.Hidden => Opened(doc.Objects.Show, nameof(ObjectTable.Show), doc.Objects.Hide, nameof(ObjectTable.Hide)),
             ObjectMode.Locked => Opened(doc.Objects.Unlock, nameof(ObjectTable.Unlock), doc.Objects.Lock, nameof(ObjectTable.Lock)),

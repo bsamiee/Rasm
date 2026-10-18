@@ -11,6 +11,7 @@ utils:
                 - pattern: $_..$I + 1
                 - pattern: $I..$_
                 - pattern: $I..=$_
+            - inside: {kind: for_expression, stopBy: {kind: 'function_item, closure_expression'}, has: {field: pattern, pattern: $I}}
             - kind: assignment_expression
               all:
                 - has: {field: left, kind: range_expression, regex: '^\.\.$'}
@@ -50,5 +51,5 @@ rule:
             - all:
                 - has: {field: arguments, has: {nthChild: 2, kind: identifier, pattern: $I}}
                 - has: {field: arguments, has: {nthChild: 1, matches: drawn}}
-message: '`$SWAP` steps a Fisher-Yates shuffle by hand'
+message: '`$SWAP` shuffles values by hand'
 note: 'Call `<values>.shuffle(&mut <rng>)` from `rand::seq::SliceRandom`, or `<values>.partial_shuffle(&mut <rng>, <amount>)` for a prefix'

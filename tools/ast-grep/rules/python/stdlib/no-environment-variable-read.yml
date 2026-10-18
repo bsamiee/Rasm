@@ -5,7 +5,7 @@ severity: error
 utils:
     mapping:
         any:
-            - matches: {python-member-use: {module: {regex: '^(os|posix|nt)$'}, name: {regex: '^environb?$'}}}
+            - matches: {python-member-use: {module: {regex: '^os$'}, name: {regex: '^environb?$'}}}
             - kind: parenthesized_expression
               has: {matches: mapping}
     written:
@@ -55,33 +55,44 @@ utils:
             - kind: parenthesized_expression
               has: {matches: relayed}
             - matches: {python-assigned-name: {value: {matches: copy-source}}}
+    environment-file:
+        inside: {kind: module, stopBy: end, regex: '\benvironb?\b'}
 rule:
     pattern: $READ
-    all:
-        - inside: {kind: module, stopBy: end, regex: '\b(environb?|getenvb?|expandvars)\b'}
-        - any:
-            - kind: call
-              has:
-                field: function
-                any:
-                    - matches: {python-member-use: {module: {regex: '^os$'}, name: {regex: '^getenvb?$'}}}
-                    - matches: {python-member-use: {module: {regex: '^(os\.path|posixpath|ntpath)$'}, name: {regex: '^expandvars$'}}}
-            - kind: identifier, attribute
-              matches: mapping
-              not: {any: [{matches: written}, {matches: forwarded}]}
-            - kind: subscript
-              has: {field: value, matches: relayed}
-              not: {matches: target}
-            - kind: call
-              has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^(get|setdefault|pop|popitem|items|keys|values|__getitem__|__contains__|__iter__)$'}}, {has: {field: object, matches: relayed}}]}
-            - all:
-                - inside: {kind: 'for_statement, for_in_clause', field: right}
-                - matches: relayed
-            - kind: call
-              all:
-                - has: {field: function, matches: {python-builtin-name: {name: {regex: '^(iter|aiter|list|tuple|set|frozenset|sorted|reversed|enumerate|len|any|all|min|max|sum|map|filter|zip)$'}}}}
-                - has: {field: arguments, has: {any: [{matches: copy-source}, {matches: relayed}]}}
-            - kind: comparison_operator
-              all: [{has: {field: operators, regex: '^(not\s+)?in$'}}, {has: {nthChild: 2, matches: relayed}}]
+    any:
+        - kind: identifier, attribute
+          all:
+            - any:
+                - regex: 'environb?$'
+                - all:
+                    - not: {inside: {kind: 'call, keyword_argument, parameters, typed_parameter, default_parameter, typed_default_parameter, import_from_statement, aliased_import, function_definition, class_definition'}}
+                    - matches: {python-import-alias: {module: {regex: '^os$'}, name: {regex: '^environb?$'}, source: {regex: '\benvironb?\s+as\s'}}}
+            - matches: mapping
+            - not: {any: [{matches: written}, {matches: forwarded}]}
+        - kind: subscript
+          all:
+            - matches: environment-file
+            - has: {field: value, matches: relayed}
+            - not: {matches: target}
+        - kind: call
+          all:
+            - has: {field: function, kind: attribute, has: {field: attribute, regex: '^(get|setdefault|pop|popitem|items|keys|values|__getitem__|__contains__|__iter__)$'}}
+            - matches: environment-file
+            - has: {field: function, has: {field: object, matches: relayed}}
+        - all:
+            - inside: {kind: 'for_statement, for_in_clause', field: right}
+            - matches: environment-file
+            - matches: relayed
+        - kind: call
+          all:
+            - has: {field: function, regex: '(^|\.)(iter|aiter|list|tuple|set|frozenset|sorted|reversed|enumerate|len|any|all|min|max|sum|map|filter|zip)$'}
+            - matches: environment-file
+            - has: {field: function, matches: {python-builtin-name: {name: {regex: '^(iter|aiter|list|tuple|set|frozenset|sorted|reversed|enumerate|len|any|all|min|max|sum|map|filter|zip)$'}}}}
+            - has: {field: arguments, has: {any: [{matches: copy-source}, {matches: relayed}]}}
+        - kind: comparison_operator
+          all:
+            - has: {field: operators, regex: '^(not\s+)?in$'}
+            - matches: environment-file
+            - has: {nthChild: 2, matches: relayed}
 message: '`$READ` reads an environment variable in place of a typed settings field passed from the boundary'
 note: 'Validate the passed mapping once with a frozen settings model, `msgspec.convert` in library and extension modules and pydantic `model_validate` or `BaseSettings` elsewhere'

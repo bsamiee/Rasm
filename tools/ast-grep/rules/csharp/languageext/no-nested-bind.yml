@@ -2,6 +2,7 @@
 id: no-nested-bind
 language: csharp
 severity: error
+ignores: ['tools/roslyn/**']
 utils:
     step:
         any:

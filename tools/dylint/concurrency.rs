@@ -127,7 +127,6 @@ fn boxed_future<'tcx>(cx: &LateContext<'tcx>, output: Ty<'tcx>) -> Option<bool> 
 
 pub(crate) mod async_lock_without_await;
 pub(crate) mod blocking_call_in_async;
-pub(crate) mod buffered_join;
 pub(crate) mod detached_task;
 pub(crate) mod manual_abort_on_drop;
 pub(crate) mod manual_arc_swap;
@@ -139,3 +138,4 @@ pub(crate) mod redundant_spawn;
 pub(crate) mod sequential_await;
 pub(crate) mod short_circuited_join;
 pub(crate) mod unbounded_pending_map;
+pub(crate) mod unending_join;

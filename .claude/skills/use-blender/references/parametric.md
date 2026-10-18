@@ -77,6 +77,8 @@ Shader, compositor, and texture math comes from Node Quick Maths composers, its 
 import ast
 import importlib
 
+import bpy
+
 operations = importlib.import_module("bl_ext.blender_org.node_quick_maths.operations")
 composers = importlib.import_module("bl_ext.blender_org.node_quick_maths.node_composers")
 expression = ast.parse("<expression>", mode="exec").body[0]
@@ -93,40 +95,46 @@ composers.ComposeShaderMathNodes(socket_type="GROUP", center_nodes=True, hide_no
 Tree code comes from an RNA walk that writes each node's settings and socket values that differ from a fresh node of the same `bl_idname`:
 
 ```python
+from collections.abc import Sized
+
 import bpy
-
-SKIPPED = {"rna_type", "name", "location", "location_absolute", "width", "height", "dimensions", "select", "show_options", "show_preview", "hide", "color", "use_custom_color", "color_tag", "warning_propagation"}
-
-
-def literal(value: object) -> object:
-    return tuple(value) if hasattr(value, "__len__") and not isinstance(value, str) else value
 
 
 def tree_code(tree: bpy.types.NodeTree) -> str:
+    def literal(value: object) -> object:
+        return tuple(value) if isinstance(value, Sized) and not isinstance(value, str) else value
+
     scratch = bpy.data.node_groups.new("<Scratch>", tree.bl_idname)
     lines = [f"tree = bpy.data.node_groups.new({tree.name!r}, {tree.bl_idname!r})"]
     for item in (i for i in tree.interface.items_tree if i.item_type == "SOCKET"):
         lines.append(f"socket = tree.interface.new_socket({item.name!r}, in_out={item.in_out!r}, socket_type={item.socket_type!r})")
-        lines += [f"socket.default_value = {literal(item.default_value)!r}"] if item.in_out == "INPUT" and hasattr(item, "default_value") else []
+        lines += [f"socket.default_value = {literal(item.default_value)!r}"] if item.in_out == "INPUT" and "default_value" in item.bl_rna.properties else []
     for node in tree.nodes:
         fresh = scratch.nodes.new(node.bl_idname)
-        changed = {p.identifier: literal(getattr(node, p.identifier)) for p in node.bl_rna.properties
-                   if p.identifier not in SKIPPED and not p.is_readonly and p.type in {"BOOLEAN", "INT", "FLOAT", "ENUM", "STRING"}
-                   and literal(getattr(node, p.identifier)) != literal(getattr(fresh, p.identifier))}
+        changed = {
+            p.identifier: literal(getattr(node, p.identifier))
+            for p in node.bl_rna.properties
+            if p.identifier not in {"rna_type", "name", "location", "location_absolute", "width", "height", "dimensions", "select", "show_options", "show_preview", "hide", "color", "use_custom_color", "color_tag", "warning_propagation"}
+            and not p.is_readonly
+            and p.type in {"BOOLEAN", "INT", "FLOAT", "ENUM", "STRING"}
+            and literal(getattr(node, p.identifier)) != literal(getattr(fresh, p.identifier))
+        }
         for key, value in changed.items():
             setattr(fresh, key, value)
         lines += [f"node = tree.nodes.new({node.bl_idname!r})", f"node.name, node.location = {node.name!r}, {tuple(node.location)!r}"]
         lines += [f"node.{key} = {value!r}" for key, value in changed.items()]
-        lines += [f"node.inputs[{s.identifier!r}].default_value = {literal(s.default_value)!r}" for s in node.inputs
-                  if s.enabled and not s.is_linked and hasattr(s, "default_value")
-                  and (fresh.inputs.get(s.identifier) is None or literal(s.default_value) != literal(fresh.inputs[s.identifier].default_value))]
-    lines += [f"tree.links.new(tree.nodes[{l.from_node.name!r}].outputs[{l.from_socket.identifier!r}], tree.nodes[{l.to_node.name!r}].inputs[{l.to_socket.identifier!r}])" for l in tree.links]
+        lines += [
+            f"node.inputs[{index}].default_value = {literal(s.default_value)!r}"
+            for index, s in enumerate(node.inputs)
+            if s.enabled and not s.is_linked and "default_value" in s.bl_rna.properties and (index >= len(fresh.inputs) or literal(s.default_value) != literal(fresh.inputs[index].default_value))
+        ]
+    lines += [f"tree.links.new(tree.path_resolve({link.from_socket.path_from_id()!r}), tree.path_resolve({link.to_socket.path_from_id()!r}))" for link in tree.links]
     bpy.data.node_groups.remove(scratch)
     return "\n".join(lines)
 ```
 
 - With a node declaring only the sockets of its current mode, settings apply to the fresh node before socket comparison
-- Interface items emit in `items_tree` order, the order fixing the `Socket_<n>` identifiers links name
+- Interface items emit in `items_tree` order, the order fixing the socket indices link and default lines name
 - Nested groups emit after their own tree's code and assign `node.node_tree = bpy.data.node_groups[<name>]`
 - Node To Python exports drop node settings, which the walk keeps
 
@@ -197,6 +205,7 @@ Problem setup holds for background runs and GUI sessions:
 GUI solves run `bpy.ops.topopt.solve_3d()`, a modal stepping on a window timer, and later calls read `scene.topopt.is_solving` and `solve_status`, then run `bpy.ops.topopt.generate_mesh()` once solving reads False. With the modal never stepping in a background run, background solves run the solver generator in a Bash call with `run_in_background: true`:
 
 ```python
+from collections import deque
 import importlib
 
 import bpy
@@ -204,10 +213,8 @@ import bpy
 problem, runner, results = (importlib.import_module(f"bl_ext.blender_org.struct_topo_opt.{name}") for name in ("problem", "solver.runner", "results"))
 bpy.ops.topopt.voxelize_preview()
 settings = bpy.context.scene.topopt
-final = None
-for final in runner.solve_3d(problem.gather_problem(bpy.context), penal=settings.penalty, filter_radius=settings.filter_radius_voxels, max_iter=settings.max_iterations, conv_tol=settings.convergence_tol, move_limit=settings.oc_move_limit):
-    pass
-results.cache_density(final.density)
+steps = runner.solve_3d(problem.gather_problem(bpy.context), penal=settings.penalty, filter_radius=settings.filter_radius_voxels, max_iter=settings.max_iterations, conv_tol=settings.convergence_tol, move_limit=settings.oc_move_limit)
+results.cache_density(deque(steps, maxlen=1).pop().density)
 bpy.ops.topopt.generate_mesh()
 bpy.ops.wm.save_mainfile()
 ```

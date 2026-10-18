@@ -40,25 +40,14 @@ class Pupil(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def kernel(self) -> Option[Callable[[PyOpenColorIO.Config, tuple[int, int], tuple[int, int], float], ImagingResult[npt.NDArray[np.float32]]]]:
-        """Optional diffraction computation, absent at zero core or a closed iris."""
-        return Nothing if self.core == 0.0 or self.iris.obstruction == 1.0 else Some(self._kernel)
+        """Spectral diffraction weights over every frame displacement, absent at zero core or a closed iris.
 
-    def _kernel(self, config: PyOpenColorIO.Config, size: tuple[int, int], frame: tuple[int, int], pixel_aspect: Positive) -> ImagingResult[npt.NDArray[np.float32]]:
-        """Returns spectral diffraction weights over every frame displacement.
-
-        Args:
-            config: Config providing an admitted linear scene-RGB spectral basis.
-            size: Positive stored image extent as (height, width).
-            frame: Positive camera frame extent at the same pixel scale.
-            pixel_aspect: Positive finite displayed pixel width over height.
-
-        Returns:
-            Ok with RGB weights of shape (2 * height - 1, 2 * width - 1, 3)
-            and mathematically unit channel sums.
-            Error retains native color, numeric capacity, or allocation refusals.
+        The computation takes the config holding the linear scene-RGB spectral basis, stored extent and camera frame extent as (height, width)
+        at one pixel scale, and displayed pixel width over height. It returns RGB weights of shape (2 * height - 1, 2 * width - 1, 3)
+        with unit channel sums, or native color, numeric capacity, and allocation refusals.
         """
 
-        def computed() -> ImagingResult[npt.NDArray[np.float32]]:
+        def computed(config: PyOpenColorIO.Config, size: tuple[int, int], frame: tuple[int, int], pixel_aspect: Positive) -> ImagingResult[npt.NDArray[np.float32]]:
             shape = (2 * size[0] - 1, 2 * size[1] - 1, 3)
             rows = observer.table()
             side = 2 * next_fast_len(max(frame))
@@ -92,7 +81,11 @@ class Pupil(msgspec.Struct, frozen=True, kw_only=True):
 
             return matching(config, PyOpenColorIO.ROLE_SCENE_LINEAR, rows[:, 1:]).bind(lambda weights: guarded(ImagingNumericFault, self, lambda: integrated(weights)))
 
-        return guarded(ImagingNumericFault, self, computed, frozenset())
+        return (
+            Nothing
+            if self.core == 0.0 or self.iris.obstruction == 1.0
+            else Some(lambda config, size, frame, pixel_aspect: guarded(ImagingNumericFault, self, lambda: computed(config, size, frame, pixel_aspect), frozenset()))
+        )
 
 
 class Specks(msgspec.Struct, frozen=True, kw_only=True):

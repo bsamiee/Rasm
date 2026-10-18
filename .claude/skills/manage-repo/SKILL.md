@@ -9,14 +9,14 @@ Entries state rules a maintainer acts on when adding the next project, tool, plu
 
 [REFERENCES]:
 - [01]-[NX](references/nx.md): Plugin inference, target defaults, run-commands, dependencies, inputs, affected selection
-- [02]-[TOOLING](references/tooling.md): Tool rows, backends, releases, version files, install paths, environment, launchd services, TOML files
-- [03]-[TYPESCRIPT](references/typescript.md): Catalog, overrides, install scripts, compiler projects, execution, Biome rows, type-aware checks
+- [02]-[TOOLING](references/tooling.md): Tool rows, backends, releases, version files, install paths, environment, daemons, TOML files
+- [03]-[TYPESCRIPT](references/typescript.md): Catalog, overrides, install scripts, compiler projects, execution, Vite, Storybook, browser tests, Playwright suites, Biome rows, type-aware checks
 - [04]-[PYTHON](references/python.md): Dependency groups, lock, workspace members, interpreter, checkers
 - [05]-[DOTNET](references/dotnet.md): Central row and SDK upgrades, file-based apps, library groups, BuildCheck, Roslyn analyzers
 - [06]-[SWIFT](references/swift.md): Project files, build settings, compiler policy, packages, checkers, CI, SwiftPM, new projects, language server
 - [07]-[JAVA](references/java.md): Formatter form, PMD ruleset and release tags, clone detection, language server
-- [08]-[RUST](references/rust.md): Workspace root, toolchain, catalog, lints, builds, members, checkers, upgrades, lint libraries
-- [09]-[INFRA](references/infra.md): Automation API, resource options, workflow syntax decisions
+- [08]-[RUST](references/rust.md): Workspace root, toolchain, catalog, lints, builds, members, checkers, upgrades, lint libraries, modules
+- [09]-[INFRA](references/infra.md): Automation API, resource rows and options, workflow syntax decisions
 - [10]-[PLUGINS](references/plugins.md): Plugin folder layout, Claude Code and Codex parity, MCP server rows, converting components
 
 ## [01]-[PLACEMENT]
@@ -38,7 +38,8 @@ Entries state rules a maintainer acts on when adding the next project, tool, plu
 - Skills name the tools they drive, their scripts, and output paths, and hold no target or project row
 - Scripts join their subject's skill, a script an app, target, or workflow consumes joins the repository
 - Capabilities come from tool configuration and extension points, then another tool, then a script or `eng/` project for work no tool or package does
-- Root targets unify check, format, build, test, install, and release of the repository's own code, a wrapper over one mise tool is no target
+- Root targets unify check, format, build, test, install, and release of the repository's own code
+- Wrappers over one mise tool are targets only as a prerequisite other targets name in `dependsOn`
 - Entry points derive their items from declarations, a configuration, script, or README line per item goes
 - Arguments after `--` select an operation's subject (path, app, filter) or pass a one-run switch, checker policy stays in target `options.args`
 - Command prefixes shared across targets (`doppler run`) state no duplicated fact
@@ -47,11 +48,12 @@ Entries state rules a maintainer acts on when adding the next project, tool, plu
 
 [TARGETS]:
 - Projects with their own check hold one `check` target with no per-language name, dry-run variant, or script, a root-checked project holds none
+- `check` and its prerequisites start no container, a checker over files tests write depends on the in-process `test` writing them
 - Checkers, writers, and type checkers run as `lint:<tool>`, `format:<tool>`, and `typecheck:<tool>`, a project `lint` depends on its `lint:*`
 - `<tool>` names the program implementing the command: `dotnet format` is `dotnet-format`, `cargo fmt` is `rustfmt`, `cargo dylint` is `dylint`
 - One target runs a tool's subcommands, languages, and runtimes as one cache entry, a second target stays where its own entry saves reruns
 - Runtime splits stay where the tool's source applies one version per run, a tool taking per-file versions runs once
-- Writers sharing files take `parallelism: false`; `dependsOn` preserves producer prerequisites, not arbitrary checker order
+- Writers sharing files take `parallelism: false`, `dependsOn` names producer prerequisites alone
 - Checkers fail on each finding they print, a tool passing warnings takes its own switch (`--strict`, `--error-on-warnings`, a config deny row)
 - Inputs and cache settings checker targets share sit once in a `targetDefaults` key matching their names
 - Writers take no CI format-and-diff step, each writer's check form or a build diagnostic fails on every change it writes
@@ -76,3 +78,6 @@ Entries state rules a maintainer acts on when adding the next project, tool, plu
 - Rule, checker, or file extension rows join with a tracked file they read and the tree passing them
 - Languages built into ast-grep take no `sgconfig.yml` row until a newer grammar release parses a form the bundled grammar fails
 - Grammars ast-grep lacks or bundles behind a newer release build from a catalog package through root `grammar` into a `customLanguages` row
+- Host syntax a catalog grammar lacks (`${…}` template substitutions) joins `tools/ast-grep/grammars/<language>/grammar.js` extending that grammar
+- Root `grammar` generates each extending grammar and builds every grammar into `.cache/ast-grep/`
+- Embedded SQL injects into `sql` only where its dialect is SQLite, a template under a `pg` key (`sql.onDialectOrElse({ pg: ... })`) or in a `Pg`-named declaration stays out of the SQLite parse

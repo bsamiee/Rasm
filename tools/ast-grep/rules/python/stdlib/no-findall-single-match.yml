@@ -88,6 +88,7 @@ utils:
                         - not: {has: {stopBy: end, kind: identifier, pattern: $MATCHES, not: {any: [{matches: first-read}, {inside: {kind: assignment, field: left}}]}}}
 rule:
     pattern: $CALL
+    regex: '\b(findall|finditer)\b'
     any:
         - kind: call
           all:

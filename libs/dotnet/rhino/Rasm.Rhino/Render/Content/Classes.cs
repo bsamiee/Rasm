@@ -24,12 +24,10 @@ public abstract class DefinedMaterial<TState> : RenderMaterial where TState : IS
     // --- [FIELDS]
     protected DefinedMaterial() => Callbacks.Run(ContentRecords.Declare<TState>(this), CallbackSite.Of(this));
 
-    public sealed override IEnumerable<string> FilesToEmbed => Callbacks.Answer(ContentRecords.Files<TState>(this), static () => Seq<string>(), CallbackSite.Of(this));
+    public sealed override IEnumerable<string> FilesToEmbed => ContentRecords.Files<TState>(this, CallbackSite.Of(this));
 
     protected sealed override uint CalculateRenderHash2(CrcRenderHashFlags flags, string[] excludeParameterNames) =>
-        base.CalculateRenderHash2(flags, excludeParameterNames) switch {
-            var seed => Callbacks.Answer(ContentRecords.Hash<TState>(this, toSeq(excludeParameterNames), seed), () => seed, CallbackSite.Of(this)),
-        };
+        ContentRecords.Hash<TState>(this, toSeq(excludeParameterNames), base.CalculateRenderHash2(flags, excludeParameterNames), CallbackSite.Of(this));
 
     // --- [VALUES]
     protected abstract string Caption { get; }
@@ -45,12 +43,7 @@ public abstract class DefinedMaterial<TState> : RenderMaterial where TState : IS
 
     public sealed override string TypeDescription => RowText.Localize(Help, IPlugInSink.Of(this)).Local;
 
-    public sealed override bool VirtualIcon(Size size, out Bitmap? bitmap) {
-        bitmap = Glyph switch {
-            var glyph => Callbacks.Answer(Icons.Raster(glyph.Glyph, glyph.Master, size).Map(static Bitmap? (image) => image), static () => null, CallbackSite.Of(this)),
-        };
-        return bitmap is not null;
-    }
+    public sealed override bool VirtualIcon(Size size, out Bitmap? bitmap) => (bitmap = ContentRecords.Icon(Glyph, size, CallbackSite.Of(this))) is not null;
 
     // --- [SIMULATION]
     public sealed override void SimulateMaterial(ref Material simulation, RenderTexture.TextureGeneration tg) {
@@ -66,12 +59,10 @@ public abstract class DefinedTexture<TState> : RenderTexture where TState : ISta
     // --- [FIELDS]
     protected DefinedTexture() => Callbacks.Run(ContentRecords.Declare<TState>(this), CallbackSite.Of(this));
 
-    public sealed override IEnumerable<string> FilesToEmbed => Callbacks.Answer(ContentRecords.Files<TState>(this), static () => Seq<string>(), CallbackSite.Of(this));
+    public sealed override IEnumerable<string> FilesToEmbed => ContentRecords.Files<TState>(this, CallbackSite.Of(this));
 
     protected sealed override uint CalculateRenderHash2(CrcRenderHashFlags flags, string[] excludeParameterNames) =>
-        base.CalculateRenderHash2(flags, excludeParameterNames) switch {
-            var seed => Callbacks.Answer(ContentRecords.Hash<TState>(this, toSeq(excludeParameterNames), seed), () => seed, CallbackSite.Of(this)),
-        };
+        ContentRecords.Hash<TState>(this, toSeq(excludeParameterNames), base.CalculateRenderHash2(flags, excludeParameterNames), CallbackSite.Of(this));
 
     // --- [VALUES]
     protected abstract string Caption { get; }
@@ -87,12 +78,7 @@ public abstract class DefinedTexture<TState> : RenderTexture where TState : ISta
 
     public sealed override string TypeDescription => RowText.Localize(Help, IPlugInSink.Of(this)).Local;
 
-    public sealed override bool VirtualIcon(Size size, out Bitmap? bitmap) {
-        bitmap = Glyph switch {
-            var glyph => Callbacks.Answer(Icons.Raster(glyph.Glyph, glyph.Master, size).Map(static Bitmap? (image) => image), static () => null, CallbackSite.Of(this)),
-        };
-        return bitmap is not null;
-    }
+    public sealed override bool VirtualIcon(Size size, out Bitmap? bitmap) => (bitmap = ContentRecords.Icon(Glyph, size, CallbackSite.Of(this))) is not null;
 
     // --- [SIMULATION]
     public sealed override TextureEvaluator? CreateEvaluator(TextureEvaluatorFlags evaluatorFlags) =>
@@ -112,12 +98,10 @@ public abstract class DefinedEnvironment<TState> : RenderEnvironment where TStat
     // --- [FIELDS]
     protected DefinedEnvironment() => Callbacks.Run(ContentRecords.Declare<TState>(this), CallbackSite.Of(this));
 
-    public sealed override IEnumerable<string> FilesToEmbed => Callbacks.Answer(ContentRecords.Files<TState>(this), static () => Seq<string>(), CallbackSite.Of(this));
+    public sealed override IEnumerable<string> FilesToEmbed => ContentRecords.Files<TState>(this, CallbackSite.Of(this));
 
     protected sealed override uint CalculateRenderHash2(CrcRenderHashFlags flags, string[] excludeParameterNames) =>
-        base.CalculateRenderHash2(flags, excludeParameterNames) switch {
-            var seed => Callbacks.Answer(ContentRecords.Hash<TState>(this, toSeq(excludeParameterNames), seed), () => seed, CallbackSite.Of(this)),
-        };
+        ContentRecords.Hash<TState>(this, toSeq(excludeParameterNames), base.CalculateRenderHash2(flags, excludeParameterNames), CallbackSite.Of(this));
 
     // --- [VALUES]
     protected abstract string Caption { get; }
@@ -133,12 +117,7 @@ public abstract class DefinedEnvironment<TState> : RenderEnvironment where TStat
 
     public sealed override string TypeDescription => RowText.Localize(Help, IPlugInSink.Of(this)).Local;
 
-    public sealed override bool VirtualIcon(Size size, out Bitmap? bitmap) {
-        bitmap = Glyph switch {
-            var glyph => Callbacks.Answer(Icons.Raster(glyph.Glyph, glyph.Master, size).Map(static Bitmap? (image) => image), static () => null, CallbackSite.Of(this)),
-        };
-        return bitmap is not null;
-    }
+    public sealed override bool VirtualIcon(Size size, out Bitmap? bitmap) => (bitmap = ContentRecords.Icon(Glyph, size, CallbackSite.Of(this))) is not null;
 
     // --- [SIMULATION]
     public sealed override void SimulateEnvironment(ref SimulatedEnvironment simulation, bool isForDataOnly) {
@@ -163,17 +142,26 @@ public static class ContentRecords {
     public static IO<TState> Read<TState>(RenderContent content) where TState : IStateRecord<TState> =>
         FieldTexts.Recalled(EntryKey.TypeOwner(content.TypeId), TState.Parameters, path => Stored(content, EntryKey.Name(path)), TState.Default);
 
-    public static IO<uint> Hash<TState>(RenderContent content, Seq<string> excluded, uint seed) where TState : IStateRecord<TState> =>
-        Callbacks.Each(FieldTexts.Items<TState>()
-            .Map(static field => EntryKey.Name(field.Path))
-            .Filter(name => !excluded.Exists(held => string.Equals(held, name, StringComparison.Ordinal)))
-            .Map(name => Stored(content, name)))
-            .Map(texts => texts.Somes().Fold(seed, static (sum, text) => RhinoMath.CRC32(sum, Encoding.UTF8.GetBytes(text))));
+    public static uint Hash<TState>(RenderContent content, Seq<string> excluded, uint seed, CallbackSite site) where TState : IStateRecord<TState> =>
+        Callbacks.Answer(
+            Callbacks.Each(FieldTexts.Items<TState>()
+                .Map(static field => EntryKey.Name(field.Path))
+                .Filter(name => !excluded.Exists(held => string.Equals(held, name, StringComparison.Ordinal)))
+                .Map(name => Stored(content, name)))
+                .Map(texts => texts.Somes().Fold(seed, static (sum, text) => RhinoMath.CRC32(sum, Encoding.UTF8.GetBytes(text)))),
+            () => seed,
+            site);
 
-    public static IO<Seq<string>> Files<TState>(RenderContent content) where TState : IStateRecord<TState> =>
-        Callbacks.Each(FieldTexts.Items<TState>().Choose(field => field.File.Map(file =>
-            Stored(content, EntryKey.Name(field.Path)).Map(text => text.Bind(file)))))
-            .Map(static paths => paths.Somes());
+    public static Seq<string> Files<TState>(RenderContent content, CallbackSite site) where TState : IStateRecord<TState> =>
+        Callbacks.Answer(
+            Callbacks.Each(FieldTexts.Items<TState>().Choose(field => field.File.Map(file =>
+                Stored(content, EntryKey.Name(field.Path)).Map(text => text.Bind(file)))))
+                .Map(static paths => paths.Somes()),
+            static () => [],
+            site);
+
+    public static Bitmap? Icon((IGlyph Glyph, int Master) glyph, Size size, CallbackSite site) =>
+        Callbacks.Answer(Icons.Raster(glyph.Glyph, glyph.Master, size).Map(static Bitmap? (image) => image), static () => null, site);
 
     private static IO<Option<string>> Stored(RenderContent content, string name) =>
         ContentFields.Read(content.Fields, name, field => Conversions.Typed<string>(field.ValueAsObject(), name))

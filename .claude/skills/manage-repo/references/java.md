@@ -1,6 +1,6 @@
 # [JAVA]
 
-google-java-format owns formatting, PMD owns lint and clone detection, jdtls owns editor diagnostics.
+google-java-format owns formatting, javac owns compile checks, PMD owns lint and clone detection, jdtls owns editor diagnostics.
 
 ## [01]-[FORMATTER]
 
@@ -9,10 +9,13 @@ google-java-format owns formatting, PMD owns lint and clone detection, jdtls own
 
 ## [02]-[CHECKS]
 
+- `typecheck:javac` compiles every `.java` file at `-Xlint:all -Werror` against the `Ghidra/**/lib/*.jar` set a script loads, the glob PMD and the editor's `java.project.referencedLibraries` read
+- `-Xlint:-path` drops warnings for `Class-Path` entries Ghidra's JAR manifests name and its release omits
 - `pmd check` runs on the mise `java` row's JDK
 - PMD's native auxiliary classpath includes the selected JDK and `${GHIDRA_INSTALL_DIR}` SDK JARs
 - `pmd check` takes files or directories, `--rulesets <file>` names the ruleset, `--use-version java-<n>` Java level, `--cache <file>` cache location
 - Ruleset references each category whole and excludes rules by name, a threshold rule keeps its default or goes
+- Host API checks that need resolved types are XPath rules in `pmd.xml` under `[GHIDRA]`, `pmd-java:matchesSig` names the method
 - PMD release tags take a `pmd_releases/` prefix, and a `-SNAPSHOT` tag follows each release
 
 ## [03]-[CLONES]
@@ -23,8 +26,11 @@ google-java-format owns formatting, PMD owns lint and clone detection, jdtls own
 
 ## [04]-[LANGUAGE_SERVER]
 
-jdtls type-checks scripts a tool loads against that tool's jars on each edit, a check no `rasm:lint` command runs:
+jdtls type-checks scripts a tool loads against that tool's jars on each edit:
 - `workspaceFolder` names the scripts directory, a root workspace refreshes every repository file before the jars attach
 - Nix `jdtls` runs on its own JDK, the default `java.configuration.runtimes` row at `${JAVA_HOME}` sets the project JRE and compliance
+- `jdtls` expands `${NAME}` in runtime and library paths from its own process environment, `mise exec` gives the agent server the `mise.toml` values
 - Nix launcher defaults put workspace data under `~/Library/Caches/jdtls` keyed on the folder basename and OSGi configuration under `~/.eclipse`
 - `-data` and `--jvm-arg=-Dosgi.configuration.area=` move both under `.cache/jdtls`, and the tool's jars outside the scripts folder keep resolving
+- VS Code jdtls at the root imports every Eclipse `.project` under it, `java.import.exclusions` holds `**/.cache/**` so it skips the agent server's projects
+- Maven and Gradle importers stay off, the only builds they find are vendored ones such as the `rustls-platform-verifier` pom under `.cargo/rustc-source`

@@ -3,6 +3,9 @@ id: no-nested-combinator-calls
 language: tsx
 severity: error
 utils:
+    member-call:
+        kind: call_expression
+        has: {field: function, kind: member_expression}
     module-call:
         kind: call_expression
         has:
@@ -31,6 +34,8 @@ utils:
 rule:
     pattern: $CALL
     all:
+        - matches: member-call
+        - has: {field: arguments, has: {nthChild: 1, matches: member-call, has: {field: arguments, has: {nthChild: 1, matches: member-call, has: {field: arguments, has: {nthChild: 1, matches: member-call}}}}}}
         - matches: data-first-step
         - has: {field: function, pattern: $OUTER}
         - has:

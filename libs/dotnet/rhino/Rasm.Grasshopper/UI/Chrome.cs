@@ -121,7 +121,7 @@ public static class CanvasChrome {
         from icon in IconOf(action.Face, scope.Sink)
         from added in DisposalOps.Acquire(IO.lift(() => {
             string info = action.Face.Wording.Shown(action.Face.Help, scope.Sink);
-            Color colour = PaintSlot.ControlBackground.Read();
+            Color color = PaintSlot.ControlBackground.Read();
             IIcon? glyph = icon.ValueUnsafe();
             FloatingButtonHandler click = (button, _) => Callbacks.Answer(
                 scope, at => action.Execute(at)
@@ -130,8 +130,8 @@ public static class CanvasChrome {
                 static () => Response.Handled,
                 new CallbackSite(scope.Sink, typeof(FloatingButton), action.Face.Name));
             _ = row.Command.Placement.Match(
-                Left: position => control.FloatingButtons.Add(position, action.Name, info, colour, glyph, click),
-                Right: anchor => control.FloatingButtons.AddAnchored(anchor, action.Name, info, colour, glyph, click));
+                Left: position => control.FloatingButtons.Add(position, action.Name, info, color, glyph, click),
+                Right: anchor => control.FloatingButtons.AddAnchored(anchor, action.Name, info, color, glyph, click));
             return new Disposal<FloatingButton>(control.FloatingButtons[action.Name], static button => {
                 button.Enabled = false;
                 button.Close();

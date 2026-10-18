@@ -1,0 +1,5 @@
+#0 Type test on `Error` value `error` misses `ManyErrors` leaves
+#1 Type test on `Error` value `error` misses `ManyErrors` leaves
+#2 Type test on `Error` value `error` misses `ManyErrors` leaves
+#3 Type test on `Error` value `error` misses `ManyErrors` leaves
+#4 Type test on `Error` value `error` misses `ManyErrors` leaves

@@ -10,7 +10,7 @@ runs:
           with:
             path: ~/.rustup/toolchains
             key: rustup-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml') }}
-        - uses: jdx/mise-action@v5.1.1
+        - uses: jdx/mise-action@v5.2.0
           with:
             auto_update: true
             minimum_release_age: 0s
@@ -26,13 +26,11 @@ runs:
             path: ${{ steps.uv.outputs.cache }}
             key: uv-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('uv.lock') }}
         - id: pnpm
-          run: printf 'store=%s\ncache=%s\n' "$(pnpm store path)" "$(pnpm cache path)" >> "$GITHUB_OUTPUT"
+          run: printf 'store=%s\n' "$(pnpm store path)" >> "$GITHUB_OUTPUT"
           shell: bash
         - uses: actions/cache@v6
           with:
-            path: |
-                ${{ steps.pnpm.outputs.store }}
-                ${{ steps.pnpm.outputs.cache }}
+            path: ${{ steps.pnpm.outputs.store }}
             key: pnpm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
         - uses: Swatinem/rust-cache@v2.9.2
           with:
@@ -45,6 +43,9 @@ runs:
             path: ~/.dylint_drivers
             key: dylint-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml') }}-${{ steps.dylint.outputs.version }}
         - run: pnpm install
+          shell: bash
+        - run: playwright install --with-deps --only-shell chromium
+          if: runner.os == 'Linux'
           shell: bash
         - run: uv sync --locked --no-default-groups --group dev
           shell: bash

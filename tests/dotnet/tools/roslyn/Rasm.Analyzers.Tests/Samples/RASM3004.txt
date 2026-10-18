@@ -1,0 +1,37 @@
+using System;
+
+internal enum Mode {
+    First,
+    Second,
+    Third,
+}
+
+[Flags]
+internal enum Marks {
+    None = 0,
+    Left = 1,
+}
+
+internal static class PartialEnum {
+    internal static int Thrown(Mode mode) => mode switch {
+        Mode.First => 1,
+        {|#0:_ => throw new InvalidOperationException()|},
+    };
+
+    internal static int Valued(Mode mode) => mode switch { Mode.First or Mode.Second => 1, {|#1:_ => 0|} };
+}
+
+internal static class UnnamedEnum {
+    internal static int Flagged(Marks marks) => marks switch {
+        Marks.None => 0,
+        Marks.Left => 1,
+        _ => throw new InvalidOperationException(),
+    };
+
+    internal static int Guarded(Mode mode, bool held) => mode switch { Mode.First when held => 1, _ => 0 };
+
+    internal static int Named(Mode mode) => mode switch {
+        Mode.First => 1,
+        Mode.Second or Mode.Third => 2,
+    };
+}

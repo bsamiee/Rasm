@@ -28,7 +28,7 @@ public sealed record RenderOutput(Fin<(PixelFrame Frame, ColorEncoding Encoding)
 }
 
 public sealed record RenderRun(
-    Option<Camera> Camera, Option<TimeSpan> Time, Option<SceneLights> Lights, Option<float> Metres, Option<LensDistance> FocalLength, Option<PositiveMagnitude> Aperture,
+    Option<Camera> Camera, Option<TimeSpan> Time, Option<SceneLights> Lights, Option<float> Meters, Option<LensDistance> FocalLength, Option<PositiveMagnitude> Aperture,
     Option<Func<PassContext, Option<PixelPass>>> Formation, Option<PixelFrame> Scene, Seq<Func<PassContext, Option<PixelPass>>> Late, Seq<Guid> NativeLate, Option<RenderOutput> Output, Option<PixelFrame> Formed) {
     public static RenderRun Empty { get; } = new(None, None, None, None, None, None, None, None, [], [], None, None);
 
@@ -96,10 +96,10 @@ public static class RenderRuns {
     public static IO<RenderRun> Framing(RhinoDoc doc, ViewInfo view, PixelExtent extent, Option<TimeSpan> time, Func<Error, IO<Unit>> report) =>
         from optics in IO.lift(() => (view.Viewport.IsParallelProjection, (float)view.FocalBlurAperture) switch {
             var (parallel, aperture) => (
-                    parallel ? Fin.Succ(Option<LensDistance>.None)
+                    parallel ? Option<LensDistance>.None
                         : LensDistance.Validated((float)(view.Viewport.Camera35mmLensLength * LengthUnit.Scale(LengthUnit.Millimeters, LengthUnit.Meters))).Map(Some),
                     parallel || view.FocalBlurMode is not ViewInfoFocalBlurModes.Manual || aperture < ApertureMinimum
-                        ? Fin.Succ(Option<PositiveMagnitude>.None)
+                        ? Option<PositiveMagnitude>.None
                         : PositiveMagnitude.Validated(aperture).Map(Some))
                 .Apply(static (focal, number) => (Focal: focal, Aperture: number)).As(),
         })
@@ -107,7 +107,7 @@ public static class RenderRuns {
             .Catch(static error => error.HasCode(ErrorCodes.ValidationFailed), error => report(error).Map(Option<LensFocus>.None))
         from camera in IO.lift(() => Cameras.ToCamera(view, doc.ModelUnits, extent, lens))
         from lights in Cameras.ToLights(doc)
-        select RenderRun.Empty with { Camera = camera, Time = time, Lights = Some(lights), Metres = (float)LengthUnit.Scale(doc.ModelUnits, LengthUnit.Meters), FocalLength = optics.Focal, Aperture = optics.Aperture };
+        select RenderRun.Empty with { Camera = camera, Time = time, Lights = Some(lights), Meters = (float)LengthUnit.Scale(doc.ModelUnits, LengthUnit.Meters), FocalLength = optics.Focal, Aperture = optics.Aperture };
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -133,8 +133,8 @@ public static class EffectPipeline {
         Opened(open, RenderWindow.ChannelId(channel), (_, cpu) => IO.lift(() => RenderWindows.Frame(cpu, rect, extent)));
 
     public static IO<HashMap<GuideChannel, PixelFrame>> Guides(
-        Func<Guid, PostEffectChannel?> open, PixelExtent extent, Rectangle rect, Seq<GuideChannel> channels, Option<float> metres) =>
-        (Depth: metres.Map<Func<PixelFrame, PixelFrame>>(static held => frame => Metric(frame, held)), Kept: Some<Func<PixelFrame, PixelFrame>>(static frame => frame)) switch {
+        Func<Guid, PostEffectChannel?> open, PixelExtent extent, Rectangle rect, Seq<GuideChannel> channels, Option<float> meters) =>
+        (Depth: meters.Map<Func<PixelFrame, PixelFrame>>(static held => frame => Metric(frame, held)), Kept: Some<Func<PixelFrame, PixelFrame>>(static frame => frame)) switch {
             var forms => channels
                 .Traverse(channel => channel.Map(depth: forms.Depth, normal: forms.Kept, albedo: forms.Kept, objectId: forms.Kept, materialId: forms.Kept)
                     .Traverse(form => Read(open, extent, Channel(channel), rect).Map(frame => (Channel: channel, Frame: form(frame))))
@@ -168,13 +168,13 @@ public static class EffectPipeline {
 
     private static Rectangle Whole(PixelExtent extent) => new(0, 0, extent.Width, extent.Height);
 
-    internal static PixelFrame Metric(PixelFrame frame, float metres) =>
+    internal static PixelFrame Metric(PixelFrame frame, float meters) =>
         new(frame.Origin, frame.Size, frame.Extent, block => {
             const float background = 1e10f;
             ReadOnlySpan<Vector4> depths = MemoryMarshal.Cast<float, Vector4>(frame.Block);
             Span<Vector4> metric = MemoryMarshal.Cast<float, Vector4>(block.AsSpan());
             for (int index = 0; index < depths.Length; index++)
-                metric[index] = new Vector4(new Vector3(depths[index].X == background ? float.PositiveInfinity : depths[index].X * metres), depths[index].W);
+                metric[index] = new Vector4(new Vector3(depths[index].X == background ? float.PositiveInfinity : depths[index].X * meters), depths[index].W);
         });
 
     // --- [GAMMA]
@@ -206,9 +206,6 @@ public static class EffectPipeline {
         channel.GetValue(0, 0, ComponentOrders.Irrelevant, ref value);
         return value[0];
     }
-
-    private static IO<double> Applied(PostEffectPipeline pipeline) =>
-        toSeq(pipeline.ExecutionOrder()).TraverseM(effect => Exposed(pipeline, ExposureChannels(effect))).As().Map(static values => values.Fold(0d, static (held, next) => held + next));
 
     private static IO<double> Exposed(PostEffectPipeline pipeline, (Guid Scale, Guid Amount) identifiers) =>
         Probed(pipeline.GetChannelForRead, identifiers.Scale, (_, cpu) =>
@@ -253,29 +250,29 @@ public static class EffectPipeline {
             : Seq<PixelPass>()
         from _ in when(pass.IsSome || tapped || demanded,
             DisposalOps.Within<PostEffectChannel, Unit>(retain =>
-            from channels in Writable(pipeline, id, exposure, retain)
-            from stored in IO.lift(() => channels.Iter(static held => held.Cpu.SetValue(0, 0, held.Value)))
-            from frame in Read(pipeline.GetChannelForRead, context.Extent, RenderWindow.StandardChannels.RGBA, area)
-            from ___ in normalized.Traverse(held => IO.lift(() => Compensated(held, encode: true).Run(frame, pipeline))).As()
-            let copy = tapped || demanded ? Some(passes.IsEmpty && normalized.IsNone ? frame : frame.Copy()) : None
-            from ____ in passes.TraverseM(held => IO.lift(() => held.Run(frame, pipeline))).As()
-            let formed = tapped ? passes.IsEmpty && display.IsEmpty ? copy : Some(normalized.IsSome || !display.IsEmpty ? frame.Copy() : frame) : None
-            from ____b in formed.Traverse(observed => display.TraverseM(held => IO.lift(() => held.Run(observed, pipeline))).As()).As()
-            from ____a in normalized.Traverse(held => IO.lift(() => Compensated(held).Run(frame, pipeline))).As()
-            from _____ in when(pass.IsSome, Write(pipeline, frame)).As()
-            from committed in IO.lift(() => channels.Iter(static held => held.Channel.Commit()))
-            from auxiliary in tapped && prepared.Run.Channels.IsNone
-                ? Auxiliary(pipeline, whole, context.Extent)
-                : IO.pure(Option<HashMap<RenderWindow.StandardChannels, PixelFrame>>.None)
-            from ______ in IO.lift(() => RenderRuns.Fill(pipeline.RenderingId, run =>
-                (copy.Filter(_ => tapped), formed).Apply((snapshot, observed) => run.Tapped(stage, snapshot, context.Signal, observed,
-                    replay, value.Record is Dither && pass.IsSome, native,
-                    unavailable.IsEmpty ? Fin.Succ(snapshot) : RenderRuns.NativeOutput(pipeline.RenderingId, unavailable))).As().IfNone(run) with {
-                    Formation = stage is PostEffectType.ToneMapping ? replay.Filter(_ => value.Record is ToneMapping) : run.Formation,
-                    Channels = run.Channels | auxiliary,
-                }))
-            from _______ in IO.lift(() => copy.Filter(_ => demanded).Iter(held => StageFrame.Fill(input, held, context)))
-            select unit, DisposalOps.Release)).As()
+                from channels in Writable(pipeline, id, exposure, retain)
+                from stored in IO.lift(() => channels.Iter(static held => held.Cpu.SetValue(0, 0, held.Value)))
+                from frame in Read(pipeline.GetChannelForRead, context.Extent, RenderWindow.StandardChannels.RGBA, area)
+                from encoded in normalized.Traverse(held => IO.lift(() => Compensated(held, encode: true).Run(frame, pipeline))).As()
+                let copy = tapped || demanded ? Some(passes.IsEmpty && normalized.IsNone ? frame : frame.Copy()) : None
+                from staged in passes.TraverseM(held => IO.lift(() => held.Run(frame, pipeline))).As()
+                let formed = tapped ? passes.IsEmpty && display.IsEmpty ? copy : Some(normalized.IsSome || !display.IsEmpty ? frame.Copy() : frame) : None
+                from displayed in formed.Traverse(observed => display.TraverseM(held => IO.lift(() => held.Run(observed, pipeline))).As()).As()
+                from decoded in normalized.Traverse(held => IO.lift(() => Compensated(held).Run(frame, pipeline))).As()
+                from written in when(pass.IsSome, Write(pipeline, frame)).As()
+                from committed in IO.lift(() => channels.Iter(static held => held.Channel.Commit()))
+                from auxiliary in tapped && prepared.Run.Channels.IsNone
+                    ? Auxiliary(pipeline, whole, context.Extent)
+                    : IO.pure(Option<HashMap<RenderWindow.StandardChannels, PixelFrame>>.None)
+                from filled in IO.lift(() => RenderRuns.Fill(pipeline.RenderingId, run =>
+                    (copy.Filter(_ => tapped), formed).Apply((snapshot, observed) => run.Tapped(stage, snapshot, context.Signal, observed,
+                        replay, value.Record is Dither && pass.IsSome, native,
+                        unavailable.IsEmpty ? snapshot : RenderRuns.NativeOutput(pipeline.RenderingId, unavailable))).As().IfNone(run) with {
+                        Formation = stage is PostEffectType.ToneMapping ? replay.Filter(_ => value.Record is ToneMapping) : run.Formation,
+                        Channels = run.Channels | auxiliary,
+                    }))
+                from fed in IO.lift(() => copy.Filter(_ => demanded).Iter(held => StageFrame.Fill(input, held, context)))
+                select unit, DisposalOps.Release)).As()
         select unit;
 
     public static IO<bool> Runs<TState>(
@@ -296,10 +293,11 @@ public static class EffectPipeline {
         from order in toSeq(pipeline.ExecutionOrder()).TraverseM(id => IO.lift(() =>
             Refused.UnlessFound(((IPostEffects)pipeline).PostEffectFromId(id), nameof(IPostEffects.PostEffectFromId)))).As()
         from gamma in stage is PostEffectType.Early ? IO.pure(Option<PositiveMagnitude>.None) : OutputGamma(pipeline)
-        from exposure in Applied(pipeline)
+        from exposure in toSeq(pipeline.ExecutionOrder()).TraverseM(effect => Exposed(pipeline, ExposureChannels(effect))).As()
+            .Map(static values => values.Fold(0d, static (held, next) => held + next))
         let signal = stage is not PostEffectType.Late ? TransferCurve.Linear : run.Formation.IsSome
             ? Display.Encoding.Transfer : gamma.Map<Transfer>(static exponent => new Transfer.Gamma(exponent)).IfNone(TransferCurve.Linear)
-        from guides in Guides(pipeline.GetChannelForRead, extent, Whole(extent), TState.Channels(value.Record), run.Metres)
+        from guides in Guides(pipeline.GetChannelForRead, extent, Whole(extent), TState.Channels(value.Record), run.Meters)
         select (new PassContext(
             Extent: extent, Working: Working, Display: Display, Depth: Depth, Signal: signal,
             Exposure: exposure,
@@ -310,11 +308,7 @@ public static class EffectPipeline {
         exposure.Map(held => ExposureChannels(id) switch {
             var identifiers => Seq((Id: identifiers.Scale, Value: held.Scale), (Id: identifiers.Amount, Value: held.Amount)),
         }).IfNone([]).TraverseM(held =>
-            from channel in IO.lift(() => {
-                PostEffectChannel acquired = Refused.UnlessFound(pipeline.GetChannelForWrite(held.Id), nameof(PostEffectPipeline.GetChannelForWrite)).ThrowIfFail();
-                retain(acquired);
-                return acquired;
-            })
+            from channel in DisposalOps.Acquire(IO.lift(() => Refused.UnlessFound(pipeline.GetChannelForWrite(held.Id), nameof(PostEffectPipeline.GetChannelForWrite))), retain)
             from cpu in IO.lift(() => Refused.UnlessFound(channel.CPU(), nameof(PostEffectChannel.CPU)))
             select (Channel: channel, Cpu: cpu, held.Value)).As();
 

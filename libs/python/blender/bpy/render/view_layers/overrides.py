@@ -19,7 +19,8 @@ from blender.bpy.data.rna.descriptors import Descriptor, IdName, rooted
 from blender.bpy.data.rna.snapshots import Applied, Scenes, Snapshot, ViewLayers
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderImagingFault, BlenderRenderingFault, BlenderResult
+from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderRenderingFault, BlenderResult
+from blender.bpy.render.color.spaces import config_of
 from blender.bpy.render.view_layers.collections import applied, CollectionState, Extent, Flag, flags, isolates
 from blender.bpy.scene.materials import Clay, material, Utility
 from blender.bpy.settings.attachments import Attached, Attachment
@@ -27,7 +28,6 @@ from blender.bpy.settings.presets import copied, pasted
 from blender.bpy.ui.layout.lists import ItemList
 from blender.bpy.ui.layout.rows import Caption, Flow, joined, Line, Matrix, Member, OperatorButton, placed, Property, RowDraw
 from blender.bpy.ui.layout.sections import Single
-from blender.imaging.color.config import admitted
 from blender.imaging.faults import accumulated, paired
 from blender.imaging.parameters import Case, Choice, Rgb
 from blender.rendering.outputs.naming import Count, Fields, OutputName, Word
@@ -158,9 +158,6 @@ class LayerOverride(Line, frozen=True, kw_only=True):
         )
         bound = paired(self.layer.bound(identity), flags())
 
-        def config() -> BlenderResult[PyOpenColorIO.Config]:
-            return admitted(PyOpenColorIO.GetCurrentConfig(), ()).map_error(BlenderImagingFault.lifted)
-
         def built(
             parts: tuple[
                 tuple[tuple[Descriptor[bpy.types.BoolProperty], Descriptor[bpy.types.StringProperty]], tuple[Descriptor[bpy.types.PointerProperty], Descriptor[bpy.types.CollectionProperty]]],
@@ -204,7 +201,7 @@ class LayerOverride(Line, frozen=True, kw_only=True):
                         )
 
             def overriding(setup: Clay | Utility) -> Callable[[Call[Empty]], BlenderResult[Done]]:
-                return lambda call: paired(config(), call.root(bpy.types.ViewLayer)).bind(lambda pair: overridden(pair[1], setup, pair[0], call.identity, attached, override)).map(lambda _: Done())
+                return lambda call: paired(config_of(), call.root(bpy.types.ViewLayer)).bind(lambda pair: overridden(pair[1], setup, pair[0], call.identity, attached, override)).map(lambda _: Done())
 
             def copy(call: Call[Empty]) -> BlenderResult[Done]:
                 layer: BlenderResult[bpy.types.ViewLayer] = call.root(bpy.types.ViewLayer)
@@ -392,7 +389,7 @@ def tinted(scene: bpy.types.Scene, palette: Palette, attached: Attached[Layer]) 
     layers = tuple(scene.view_layers)
 
     def wrote(held: tuple[Layer, ...]) -> BlenderResult[Outcome]:
-        if not (differing := tuple((layer, record, color) for layer, record, color in zip(layers, held, colors(palette, len(layers)), strict=True) if record.color != color)):
+        if not (differing := tuple((layer, record, color) for layer, record, color in zip(layers, held, colors(palette, len(layers))) if record.color != color)):
             return Ok(Unchanged(reason=f"View layers of {scene.name} already hold the palette's tags"))
         return tallied(tuple(attached.write(layer, msgspec.structs.replace(record, color=color)) for layer, record, color in differing))
 

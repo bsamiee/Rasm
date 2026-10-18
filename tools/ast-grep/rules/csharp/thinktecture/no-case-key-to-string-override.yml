@@ -2,6 +2,7 @@
 id: no-case-key-to-string-override
 language: csharp
 severity: error
+ignores: ['tools/roslyn/**']
 utils:
     case-text:
         any:

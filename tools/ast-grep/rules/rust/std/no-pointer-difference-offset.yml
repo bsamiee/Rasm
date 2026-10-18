@@ -3,11 +3,18 @@ id: no-pointer-difference-offset
 language: rust
 severity: error
 rule:
-    kind: binary_expression
-    all:
-        - has: {field: operator, regex: '^-$'}
-        - any:
-            - pattern: $PART.as_ptr() as usize - $WHOLE.as_ptr() as usize
-            - pattern: $PART.as_ptr().addr() - $WHOLE.as_ptr().addr()
+    any:
+        - kind: binary_expression
+          all:
+            - has: {field: operator, regex: '^-$'}
+            - any:
+                - pattern: $PART.as_ptr() as usize - $WHOLE.as_ptr() as usize
+                - pattern: $PART.as_ptr().addr() - $WHOLE.as_ptr().addr()
+        - kind: call_expression
+          all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^((checked|saturating|strict|wrapping|unchecked)_sub|abs_diff)$'}}
+            - any:
+                - pattern: ($PART.as_ptr() as usize).$SUB($WHOLE.as_ptr() as usize)
+                - pattern: $PART.as_ptr().addr().$SUB($WHOLE.as_ptr().addr())
 message: '`$PART` locates itself inside `$WHOLE` by subtracting pointer addresses'
 note: 'Call `<whole>.substr_range(<part>)` for `str` or `<whole>.subslice_range(<part>)` for `[T]` and read `start` of the returned range'

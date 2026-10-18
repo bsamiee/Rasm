@@ -15,7 +15,7 @@ Read one open trace through `playwright trace` subcommands run from one working 
 - Identity: `action`, `snapshot`, `screenshot`, `request`, and `attachment` take the number a listing prints, filters keep each number
 - Output: `screenshot`, `attachment`, and `snapshot` write unnamed files under `.playwright-cli/` of the working directory, `close` leaves them
 - Bodies: `request` prints body paths relative to the working directory, a zip's bodies sit in `.playwright-cli/trace/resources/` until `close`
-- CLI traces: `playwright cli` traces hold the CLI's own reads around each command
+- CLI traces: `playwright cli` traces hold the CLI's own reads (title, console, aria snapshot) around each command and a ref target as `aria-ref=<ref>`
 
 ## [01]-[INVESTIGATION]
 

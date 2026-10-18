@@ -2,6 +2,13 @@
 id: rust-repeated-else
 language: rust
 arguments: [outer, inner, then, fallback]
+utils:
+    inner-if:
+        kind: if_expression
+        all:
+            - has: {field: condition, matches: inner}
+            - has: {field: consequence, matches: then}
+            - has: {field: alternative, kind: else_clause, has: {kind: block, pattern: $ELSE}}
 rule:
     kind: if_expression
     all:
@@ -14,15 +21,6 @@ rule:
                 - has:
                     nthChild: {position: 1, ofRule: {matches: rust-statement}}
                     any:
-                        - kind: if_expression
-                          all:
-                            - has: {field: condition, matches: inner}
-                            - has: {field: consequence, matches: then}
-                            - has: {field: alternative, kind: else_clause, has: {kind: block, pattern: $ELSE}}
+                        - matches: inner-if
                         - kind: expression_statement
-                          has:
-                            kind: if_expression
-                            all:
-                                - has: {field: condition, matches: inner}
-                                - has: {field: consequence, matches: then}
-                                - has: {field: alternative, kind: else_clause, has: {kind: block, pattern: $ELSE}}
+                          has: {matches: inner-if}

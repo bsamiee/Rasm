@@ -2,7 +2,7 @@
 id: no-read-after-write
 language: python
 severity: error
-files: ['**/blender/**', '**/rhino/**']
+files: ['**/blender/**']
 utils:
     plain:
         any:
@@ -70,7 +70,7 @@ rule:
     kind: 'call, attribute, subscript'
     any:
         - pattern: $SIMULATED
-          has: {field: function, kind: attribute, has: {field: attribute, regex: '^(event_simulate|SendKeystrokes)$'}}
+          has: {field: function, kind: attribute, has: {field: attribute, regex: '^event_simulate$'}}
         - all:
             - pattern: $READ
             - inside:

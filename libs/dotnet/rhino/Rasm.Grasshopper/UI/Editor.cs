@@ -48,12 +48,12 @@ public static class Editors {
                 return claimed;
             })
             select editor,
-            editor => editor.TraverseM(found => DisposalOps.Acquire(keep => attach(found, keep), (_, release) =>
-                atomic(() => {
-                    if (state.Value is not Attachment.Attaching) return Fin.Fail<Unit>(Errors.Cancelled);
+            editor => editor.TraverseM(found => DisposalOps.Replace(keep => attach(found, keep), (_, release) =>
+                atomicIO(Fin<Unit> () => {
+                    if (state.Value is not Attachment.Attaching) return Errors.Cancelled;
                     state.Value = new Attachment.Attached(release);
-                    return Fin.Succ(unit);
-                }).ThrowIfFail())).As(),
+                    return unit;
+                }).Bind(IO.lift))).As(),
             _ => atomicIO(() => state.Swap(static _ => new Attachment.Closed())).Map(static _ => unit),
             static (_, _) => unitIO);
 

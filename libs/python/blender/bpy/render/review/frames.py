@@ -28,9 +28,10 @@ from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderReadFault, BlenderResult
 from blender.bpy.render.color.exposure import AutoExposure, Metering
+from blender.bpy.render.color.spaces import config_of
 from blender.bpy.render.effects.stack import EffectName, formation, viewed
 from blender.bpy.render.effects.viewers import EffectViewer, EntryRegion
-from blender.bpy.render.outputs.exports import config_of, displayed, image_type, plane
+from blender.bpy.render.outputs.exports import displayed, image_type, plane
 from blender.bpy.settings.attachments import Attached, Attachment
 from blender.bpy.settings.properties import Definition
 from blender.bpy.ui.drawing.canvas import Align, Canvas, compiled, DECODED, Rect, Shadow
@@ -414,8 +415,15 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True):
                     return Nothing
 
         def rows(attached: Attached[Gated[Compare]], refreshes: tuple[Refresh, ...]) -> tuple[Registrable, ...]:
+            def compared(context: bpy.types.Context) -> BlenderResult[Option[Compare]]:
+                return (
+                    root_in(bpy.types.Screen, context)
+                    .map(lambda screen: attached.read(screen).map(lambda gated: Some(gated).filter(lambda held: held.enabled).map(lambda held: held.value)))
+                    .default_value(Ok(Nothing))
+                )
+
             def place(context: bpy.types.Context) -> BlenderResult[Option[Matrix]]:
-                return held_compare(attached, context).map(
+                return compared(context).map(
                     lambda found: found.bind(lambda compare: root_in(bpy.types.Region, context).bind(lambda region: ruled(region, compare))).map(lambda at: Matrix.Translation((*at, 0.0)))
                 )
 
@@ -424,7 +432,7 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True):
 
             def begin(context: bpy.types.Context, _travel: Travel) -> BlenderResult[tuple[bpy.types.Screen, Compare, Rect]]:
                 return (
-                    held_compare(attached, context)
+                    compared(context)
                     .bind(lambda found: found.filter(lambda compare: compare.mode is not Mode.SIDE).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context.screen), key=self.key),)))
                     .bind(lambda compare: paired(rooted(bpy.types.Screen, context), rooted(bpy.types.Region, context)).map(lambda pair: (pair[0], compare, framed(pair[1]))))
                 )
@@ -448,7 +456,7 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True):
             return (
                 command,
                 Gizmos(key=self.key, title="Compare", space="IMAGE_EDITOR", parts=(handle,), condition=Some(shown)),
-                overlaid(Wipe(identity=identity, source=lambda metrics: self.read(identity, metrics), compare=Some(functools.partial(held_compare, attached))), shown, refreshes),
+                overlaid(Wipe(identity=identity, source=lambda metrics: self.read(identity, metrics), compare=Some(compared)), shown, refreshes),
             )
 
         return paired(self.state.bound(identity), self.refreshes(identity)).map(lambda pair: rows(*pair))
@@ -758,15 +766,6 @@ def edited(space: bpy.types.Space) -> Option[bpy.types.SpaceImageEditor]:
 def editor(context: bpy.types.Context) -> BlenderResult[bpy.types.SpaceImageEditor]:
     """Answers the image editor the context's area shows, `absent` for another editor."""
     return Option.of_optional(context.space_data).bind(edited).to_result_with(lambda: (BlenderAbsentFault(owner=repr(context), key=bpy.types.SpaceImageEditor.__name__),))
-
-
-def held_compare(attached: Attached[Gated[Compare]], context: bpy.types.Context) -> BlenderResult[Option[Compare]]:
-    """Answers the screen's compare while its gate holds."""
-    return (
-        root_in(bpy.types.Screen, context)
-        .map(lambda screen: attached.read(screen).map(lambda gated: Some(gated).filter(lambda held: held.enabled).map(lambda held: held.value)))
-        .default_value(Ok(Nothing))
-    )
 
 
 def overlaid[S](part: Part[S], shown: Setting, refreshes: tuple[Refresh, ...]) -> Overlay[S]:

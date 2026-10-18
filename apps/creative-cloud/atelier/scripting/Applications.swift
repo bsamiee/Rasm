@@ -3,7 +3,6 @@ import ImageIO
 import RasmMacOS
 import Subprocess
 import System
-import UniformTypeIdentifiers
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -180,12 +179,12 @@ struct Window: Encodable {
         let height: Int
     }
 
-    static func capture(_ id: Int, into url: URL, longest: Int) async -> Result<Size, AggregateError<Failure>> {
+    static func capture(_ id: Int, into url: URL) async -> Result<Size, AggregateError<Failure>> {
         let tool: FilePath = "/usr/sbin/screencapture"
         let captured: Result<Void, AggregateError<Failure>> = await ProcessRun.collect(
             ProcessRun.configuration(
                 executable: .path(tool),
-                arguments: ["-x", "-o", "-t", "png", "-l", String(id), url.path(percentEncoded: false)],
+                arguments: ["-x", "-o", "-t", "jpg", "-l", String(id), url.path(percentEncoded: false)],
                 environment: ProcessInfo.processInfo.environment,
                 workingDirectory: url.deletingLastPathComponent(),
             ),
@@ -198,14 +197,9 @@ struct Window: Encodable {
                 : .failure(AggregateError(first: .exited(tool: tool, status: result.terminationStatus, message: result.standardError.trimmingCharacters(in: .newlines))))
         }
         return captured.flatMap { _ in
-            let thumbnail: [CFString: Any] = [kCGImageSourceCreateThumbnailFromImageAlways: true, kCGImageSourceThumbnailMaxPixelSize: longest, kCGImageSourceCreateThumbnailWithTransform: true]
-            guard let source: CGImageSource = CGImageSourceCreateWithURL(url as CFURL, nil), let image: CGImage = CGImageSourceCreateThumbnailAtIndex(source, 0, thumbnail as CFDictionary),
-                let destination: CGImageDestination = CGImageDestinationCreateWithURL(url as CFURL, UTType.jpeg.identifier as CFString, 1, nil)
-            else { return .failure(AggregateError(first: .unreadable(CocoaError(.fileReadCorruptFile, userInfo: [NSURLErrorKey: url])))) }
-            CGImageDestinationAddImage(destination, image, nil)
-            return CGImageDestinationFinalize(destination)
-                ? .success(Size(width: image.width, height: image.height))
-                : .failure(AggregateError(first: .unreadable(CocoaError(.fileWriteUnknown, userInfo: [NSURLErrorKey: url]))))
+            let image: CGImage? = CGImageSourceCreateWithURL(url as CFURL, nil).flatMap { source in CGImageSourceCreateImageAtIndex(source, 0, nil) }
+            let unreadable: AggregateError<Failure> = AggregateError(first: .unreadable(CocoaError(.fileReadCorruptFile, userInfo: [NSURLErrorKey: url])))
+            return image.map { captured in .success(Size(width: captured.width, height: captured.height)) } ?? .failure(unreadable)
         }
     }
 }

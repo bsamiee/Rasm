@@ -48,8 +48,8 @@ public sealed record FlamencoSettingRows(
         Manager: new(new ValueKey<Uri, string>("FlamencoManager", "Manager", "Flamenco Manager address", new Uri("http://localhost:8080"),
             new StateParameter<Uri>.Opaque<Uri>(Lens.identity<Uri>()), Address, static value => value.AbsoluteUri, Address), SettingType.String),
         Scripts: new(new ValueKey<Option<string>, string>("FlamencoScripts", "Scripts folder", "Manager scripts folder the install action writes to; empty for none", None,
-            new StateParameter<Option<string>>.Opaque<Option<string>>(Lens.identity<Option<string>>()), static text => Fin.Succ(Conversions.Present(text)), Conversions.Unset,
-            static text => Fin.Succ(Conversions.Present(text))), SettingType.String),
+            new StateParameter<Option<string>>.Opaque<Option<string>>(Lens.identity<Option<string>>()), static text => Conversions.Present(text), Conversions.Unset,
+            static text => Conversions.Present(text)), SettingType.String),
         WorkerPlatform: new(new ValueKey<OSPlatform, string>("FlamencoWorkerPlatform", "Worker platform", "Operating system of selected Rhino workers; use a matching worker tag for mixed platforms",
             Default: OperatingSystem.IsWindows() ? OSPlatform.Windows : OSPlatform.OSX,
             new StateParameter<OSPlatform>.Opaque<OSPlatform>(Lens.identity<OSPlatform>()), Platform, static value => value.ToString(), Platform), SettingType.String),
@@ -75,16 +75,15 @@ public sealed record FlamencoSettingRows(
                     new CommandFace(nameof(Dispatch.InstallFlamencoCompiler), "Install Flamenco job type",
                         "Write the Rhino job compiler to the configured Manager scripts folder", None, None) { Wording = Wording.Library },
                     Some(RowRule.When(folder.Source, static held => held.IsSome, folder.Field.Parameter)),
-                    scope => ((IPlugInViews)scope.Sink).Settings.Current(Scripts)
-                        .Bind(held => IO.lift(held.ToFin(new Refused(Scripts.Value.Name, Refused.Absent))))
+                    scope => IO.lift(() => ((IPlugInViews)scope.Sink).Settings.Current(Scripts).Bind(held => held.ToFin(new Refused(Scripts.Value.Name, Refused.Absent))))
                         .Bind(Dispatch.InstallFlamencoCompiler))),
             ],
         };
 
     public IO<QueueTarget> Target(ISettingReader reader, Destination package) =>
-        (reader.Current(Manager), reader.Current(WorkerPlatform), reader.Current(Priority), reader.Current(WorkerTag))
+        IO.lift(() => (reader.Current(Manager), reader.Current(WorkerPlatform), reader.Current(Priority), reader.Current(WorkerTag))
             .Apply((manager, platform, priority, tag) => (QueueTarget)new QueueTarget.Flamenco(package, manager, platform, priority, tag))
-            .As();
+            .As());
 
     private static ControlRow Text<TValue>(PlugInSetting<TValue, string> row, RowRules rules, Option<(FileAction Action, Seq<FileTypeRow> Types)> browse = default) where TValue : notnull =>
         SectionRows.Setting(row) switch {
@@ -97,7 +96,7 @@ public sealed record FlamencoSettingRows(
             : Error.New(ErrorCodes.ValidationFailed, $"{text} is no absolute http or https address");
 
     private static Fin<OSPlatform> Platform(string text) =>
-        Conversions.Present(text).Match(Some: static held => Fin.Succ(OSPlatform.Create(held)), None: static () => Error.New(ErrorCodes.ValidationFailed, "worker platform is blank"));
+        Conversions.Present(text).Map(OSPlatform.Create).ToFin(Error.New(ErrorCodes.ValidationFailed, "worker platform is blank"));
 
     private static Fin<Option<Guid>> Tag(string text) => Conversions.Present(text).Traverse(StoredText.Parse<Guid>).As();
 }
@@ -172,9 +171,8 @@ internal sealed partial class PackageFile {
     [UseDelegateFromConstructor]
     public partial IO<Unit> Write(RhinoDoc doc, RenderBatch queue, OutputPath path, OutputPath copy);
 
-    public Validation<Error, OutputName> Name(NamePart stamp) =>
-        (_part.Traverse(static part => NamePart.Validated(part).ToValidation()).As(),
-         FileExtension.Validated(Extension).ToValidation())
+    public Fin<OutputName> Name(NamePart stamp) =>
+        (_part.Traverse(NamePart.Validated).As(), FileExtension.Validated(Extension))
             .Apply((part, extension) => new OutputName(Seq(stamp), new OutputVersioning.Unversioned(), part.ToSeq(), None, extension))
             .As();
 }
@@ -221,38 +219,39 @@ internal static class JobMapper {
             .Bind(static entries => IO.lift(QueuePlan.Unique(entries)))
             .Bind(entries => Queues.Placed(doc, entries, overwrite: true));
 
-    private static Validation<Error, RenderRegion> Region(QueueJob.Region region) =>
-        (Fraction(region.Left), Fraction(region.Top), Fraction(region.Right), Fraction(region.Bottom))
+    private static Fin<RenderRegion> Region(QueueJob.Region region) =>
+        (FrameFraction.Validated(region.Left), FrameFraction.Validated(region.Top), FrameFraction.Validated(region.Right), FrameFraction.Validated(region.Bottom))
             .Apply(static (left, top, right, bottom) => (Left: left, Top: top, Right: right, Bottom: bottom))
             .As()
-            .Bind(static edges => ValidationResults.ToFin(RenderRegion.Validate(edges.Left, edges.Top, edges.Right, edges.Bottom, out RenderRegion? held), held).ToValidation());
+            .Bind(static edges => ValidationResults.ToFin(RenderRegion.Validate(edges.Left, edges.Top, edges.Right, edges.Bottom, out RenderRegion? held), held));
 
-    private static Validation<Error, SunWindow> Window(QueueJob.Study study) =>
+    private static Fin<SunWindow> Window(QueueJob.Study study) =>
         study.Switch(
             day: static day =>
                 (Date(day.Date), Time(day.From), Time(day.Until))
                     .Apply(static (date, from, until) => (Date: date, From: from, Until: until))
                     .As()
-                    .Bind(span => SunWindow.Day.Create(span.Date, span.From, span.Until, Period.FromMinutes(day.Minutes)).Map(static held => (SunWindow)held).ToValidation()),
+                    .Bind(span => SunWindow.Day.Create(span.Date, span.From, span.Until, Period.FromMinutes(day.Minutes)))
+                    .Map(static held => (SunWindow)held),
             season: static season =>
                 (Date(season.From), Date(season.Until), Time(season.At))
                     .Apply(static (from, until, at) => (From: from, Until: until, At: at))
                     .As()
-                    .Bind(span => SunWindow.Season.Create(span.From, span.Until, span.At, Period.FromDays(season.Days)).Map(static held => (SunWindow)held).ToValidation()));
+                    .Bind(span => SunWindow.Season.Create(span.From, span.Until, span.At, Period.FromDays(season.Days)))
+                    .Map(static held => (SunWindow)held));
 
     private static IO<QueueEntry<Unit>> Entry(RhinoDoc doc, QueueJob.Entry entry) =>
         from stored in FieldTexts.Folded(DestinationOwner, entry.Destination.Texts(DestinationOwner), Destination.Default)
         from columns in IO.lift((
-                (stored.Refused.IsEmpty ? Destinations.Resolved(stored.Record, Conversions.Present(doc.Path)) : Fin.Fail<Destination>(Error.Many(stored.Refused))).ToValidation(),
-                Optional(entry.Clay).Traverse(static clay => Albedo.Validated(clay).ToValidation()).As(),
-                FrameSpan.Of(entry.First, entry.Last).ToValidation(),
-                PixelExtent.Validated(entry.Width, entry.Height).ToValidation(),
-                Overscan.Validated(entry.Overscan).ToValidation(),
+                stored.Refused.IsEmpty ? Destinations.Resolved(stored.Record, Conversions.Present(doc.Path)) : Error.Many(stored.Refused),
+                Optional(entry.Clay).Traverse(static clay => Albedo.Validated(clay)).As(),
+                FrameSpan.Of(entry.First, entry.Last),
+                PixelExtent.Validated(entry.Width, entry.Height),
+                Overscan.Validated(entry.Overscan),
                 Optional(entry.Region).Traverse(Region).As(),
                 Optional(entry.Sun).Traverse(Window).As())
             .Apply(static (destination, clay, frames, extent, overscan, region, sun) => (Destination: destination, Clay: clay, Frames: frames, Extent: extent, Overscan: overscan, Region: region, Sun: sun))
-            .As()
-            .ToFin())
+            .As())
         from outputs in Callbacks.Each(toSeq(entry.Outputs).Map(output => Output(columns.Frames, output)))
         select new QueueEntry<Unit>(
             new RenderOverride(entry.Override, entry.Values, columns.Clay),
@@ -262,30 +261,23 @@ internal static class JobMapper {
     private static IO<QueueOutput<Unit>> Output(FrameSpan frames, QueueJob.Output output) =>
         from folded in FieldTexts.Folded(TargetOwner, output.Target.Texts(TargetOwner), OutputTarget.Default)
         from placed in IO.lift((
-                (folded.Refused.IsEmpty ? Fin.Succ(folded.Record) : Fin.Fail<OutputTarget>(Error.Many(folded.Refused))).ToValidation(),
-                Number(output.Frame).Bind(frame => frame >= frames.First && frame <= frames.Last
-                    ? Fin.Succ(frame).ToValidation()
-                    : Error.New(string.Create(CultureInfo.InvariantCulture, $"Job frame {frame} lies outside its entry's {frames.First} to {frames.Last} range"))),
-                toSeq(output.Scope).Traverse(Part).As(),
-                toSeq(output.Parts).Traverse(Part).As(),
-                Optional(output.Version).Traverse(static version => OutputVersion.Validated(version).ToValidation()).As())
+                folded.Refused.IsEmpty ? Fin.Succ(folded.Record) : Error.Many(folded.Refused),
+                SequenceNumber.Validated(output.Frame).Bind(frame => frame >= frames.First && frame <= frames.Last
+                    ? Fin.Succ(frame)
+                    : Error.New(string.Create(CultureInfo.InvariantCulture, $"Job frame {frame} lies outside entry range {frames.First} to {frames.Last}"))),
+                toSeq(output.Scope).Traverse(NamePart.Validated).As(),
+                toSeq(output.Parts).Traverse(NamePart.Validated).As(),
+                Optional(output.Version).Traverse(static version => OutputVersion.Validated(version)).As())
             .Apply((target, frame, scope, parts, version) => FileExtension.Validated(target.FileFormat.Extension)
                 .Map(extension => new QueueOutput<Unit>(target, new OutputName(scope,
                     version.Match<OutputVersioning>(Some: static held => held, None: static () => new OutputVersioning.Unversioned()), parts, frames.Named(frame), extension), unit)))
             .As()
-            .ToFin()
             .Bind(static named => named))
         select placed;
 
-    private static Validation<Error, LocalDate> Date(string text) => ProgressMapper.Parsed(LocalDatePattern.Iso.Parse(text), text);
+    private static Fin<LocalDate> Date(string text) => ProgressMapper.Parsed(LocalDatePattern.Iso.Parse(text), text);
 
-    private static Validation<Error, LocalTime> Time(string text) => ProgressMapper.Parsed(LocalTimePattern.ExtendedIso.Parse(text), text);
-
-    private static Validation<Error, SequenceNumber> Number(int number) => SequenceNumber.Validated(number).ToValidation();
-
-    private static Validation<Error, FrameFraction> Fraction(double edge) => FrameFraction.Validated(edge).ToValidation();
-
-    private static Validation<Error, NamePart> Part(string text) => NamePart.Validated(text).ToValidation();
+    private static Fin<LocalTime> Time(string text) => ProgressMapper.Parsed(LocalTimePattern.ExtendedIso.Parse(text), text);
 }
 
 public static class Dispatch {
@@ -301,7 +293,7 @@ public static class Dispatch {
         Documents.WithDocument(source, doc =>
             from check in Preflight.Check(context, doc, plan, target).OnUiThread()
             from shown in report.Traverse(publish => publish(check).OnUiThread()).As()
-            from verdict in IO.lift(check.Verdict.ToFin())
+            from verdict in IO.lift(check.Verdict)
             from sent in target.Switch(
                 (Context: context, Doc: doc, Plan: plan, Stamp: stamp, Resumed: resumed),
                 local: static (state, _) =>
@@ -321,7 +313,7 @@ public static class Dispatch {
                     : send,
             };
 
-    private static IO<Unit> Reported(QueueContext context, string member, IO<Unit> run) =>
+    private static IO<T> Reported<T>(QueueContext context, string member, IO<T> run) =>
         DisposalOps.OnFailure(run, error => IO.lift(() => context.Sink.Report(error, typeof(Dispatch), member)));
 
     // --- [FLAMENCO]
@@ -341,12 +333,12 @@ public static class Dispatch {
             }));
 
     private static Fin<string[]> FarmArguments(OSPlatform platform, string script) =>
-        platform == OSPlatform.OSX ? Fin.Succ(new[] { "-runscript", script })
-            : platform == OSPlatform.Windows ? Fin.Succ(new[] {
+        platform == OSPlatform.OSX ? new[] { "-runscript", script }
+            : platform == OSPlatform.Windows ? new[] {
                 $"""
                 /runscript="{script}"
                 """,
-            })
+            }
             : Error.New($"Rhino farm workers do not run on {platform}");
 
     public static IO<bool> FarmStartup(string farmScript) =>
@@ -385,7 +377,7 @@ public static class Dispatch {
     private static IO<HashMap<PackageFile, OutputPath>> Packed(RhinoDoc doc, QueuePlan plan, Option<QueueProgress> resumed, Destination package, LocalDateTime stamp) =>
         from queue in Queues.Resolve(doc, plan, resumed)
         from date in IO.lift(NamePart.Validated(LocalDateTimePattern.ExtendedIso.Format(stamp.With(TimeAdjusters.TruncateToSecond))))
-        from names in IO.lift(toSeq(PackageFile.Items).Traverse(file => file.Name(date)).As().ToFin())
+        from names in IO.lift(toSeq(PackageFile.Items).Traverse(file => file.Name(date)).As())
         from placed in Destinations.Resolve(doc, package, names)
         let paths = toHashMap(toSeq(PackageFile.Items).Zip(placed, static (file, row) => (file, row.Path)))
         from written in toSeq(PackageFile.Items).TraverseM(file => file.Write(doc, queue, paths[file], paths[PackageFile.Copy])).As()
@@ -395,22 +387,14 @@ public static class Dispatch {
     private static IO<Unit> Handed(QueueContext context, RhinoDoc doc, QueuePlan plan, LocalDateTime stamp, Option<QueueProgress> resumed, Destination package) =>
         DisposalOps.Within<IDisposable, Unit>(acquired =>
             from lease in QueueProgress.Acquire(context.Record, acquired)
-            from saved in SaveAll.OnUiThread()
+            from saved in IO.lift(static () => Conversions.Rows(RhinoDoc.OpenDocuments())).Bind(static open => open.TraverseM(Exchange.Save).As()).OnUiThread()
             from paths in Packed(doc, plan, resumed, package, stamp).OnUiThread()
             from moved in resumed.Traverse(record => QueueProgress.Write(
                 context.Record, record with { Job = Some((string)paths[PackageFile.Job]), Ended = record.Ended | Some(RunEnd.Stopped) })).As()
-            from relayed in Relay(context, paths[PackageFile.Job], context.JobCommand)
+            from relayed in IO.lift(() => Launch(paths[PackageFile.Job], context.JobCommand, JobVariable(context)))
+                .Bind(static start => DisposalOps.Found(() => Process.Start(start), nameof(Process.Start), static _ => IO.pure(unit)))
             from quit in Quit.OnUiThread()
             select unit, DisposalOps.Release);
-
-    private static IO<Unit> SaveAll =>
-        IO.lift(static () => Conversions.Rows(RhinoDoc.OpenDocuments()))
-            .Bind(static open => open.TraverseM(Exchange.Save).As())
-            .Map(unit);
-
-    private static IO<Unit> Relay(QueueContext context, string job, string command) =>
-        IO.lift(() => Launch(job, command, JobVariable(context)))
-            .Bind(static start => DisposalOps.Found(() => Process.Start(start), nameof(Process.Start), static _ => IO.pure(unit)));
 
     private static Fin<ProcessStartInfo> Launch(string job, string command, string variable) =>
         OperatingSystem.IsMacOS()
@@ -459,11 +443,10 @@ public static class Dispatch {
         select ran;
 
     public static IO<Unit> Relaunched(QueueContext context) =>
-        DisposalOps.Fork(DisposalOps.OnFailure(Queues.Resumable(context),
-                    error => IO.lift(() => context.Sink.Report(error, typeof(Dispatch), nameof(Relaunched))))
-                    .Bind(found => found.Traverse(relaunch =>
-                        Launched(context, nameof(Relaunched), IO.yieldFor(relaunch.Delay.Span.ToTimeSpan()).Bind(_ => Run(context, relaunch.Job)))).As())
-                    .Map(unit), context.Retain).Map(static _ => unit);
+        DisposalOps.Fork(Reported(context, nameof(Relaunched), Queues.Resumable(context))
+            .Bind(found => found.Traverse(relaunch =>
+                Launched(context, nameof(Relaunched), IO.yieldFor(relaunch.Delay.Span.ToTimeSpan()).Bind(_ => Run(context, relaunch.Job)))).As())
+            .Map(unit), context.Retain).Map(static _ => unit);
 
     private static IO<Unit> Launched(QueueContext context, string member, IO<Unit> run) =>
         DisposalOps.Within(static () => unit, _ => Reported(context, member, run), _ => Reported(context, member, Quit.OnUiThread()));

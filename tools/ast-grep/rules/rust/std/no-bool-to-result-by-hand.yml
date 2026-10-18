@@ -58,7 +58,8 @@ transform:
     QW: {replace: {source: $Q, replace: '^([\s\S]+)$', by: '($1)'}}
     NPW: {replace: {source: $NP, replace: '^([\s\S]+)$', by: '(!$1)'}}
     NQW: {replace: {source: $NQ, replace: '^([\s\S]+)$', by: '(!($1))'}}
-    BRANCH_TAIL: {replace: {source: $E, replace: '^([\s\S]+)$', by: '.ok_or_else(|| $1)'}}
+    EAGER_TAIL: {replace: {source: $E, replace: '^([A-Za-z_][\w:]*(?:\.[A-Za-z_]\w*)*|-?[0-9][\w.]*|"(?:[^"\\]|\\.)*"|''(?:[^''\\]|\\.)'')$', by: '.ok_or($1)'}}
+    BRANCH_TAIL: {replace: {source: $EAGER_TAIL, replace: '^([^.][\s\S]*)$', by: '.ok_or_else(|| $1)'}}
     UNIT_TAIL: {replace: {source: $OK, replace: '^(.+)$', by: '.$1'}}
     UNIT_ARGUMENT: {replace: {source: $UE, replace: '^([\s\S]+)$', by: '($1)'}}
     FLAT_TAIL: {replace: {source: $FOK, replace: '^(.+)$', by: '.$1'}}

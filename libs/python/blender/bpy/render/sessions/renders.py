@@ -172,7 +172,7 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True):
 
             scope.callback(lambda: identity.reports.reported(lambda: accumulated(restored(scene) for scene in tuple(pending)).map(lambda _: None))().to_optional())
 
-            def launched(call: Call[Launch], viewport: bool) -> BlenderResult[Done]:
+            def launched(call: Call[Launch], *, viewport: bool) -> BlenderResult[Done]:
                 def scene_render(scene: bpy.types.Scene, layer: bpy.types.ViewLayer) -> BlenderResult[Done]:
                     record = call.record
                     images = tuple(image for image in bpy.data.images if image.type == "RENDER_RESULT")
@@ -293,7 +293,7 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True):
                     form=Launch,
                     invoke=Some(Properties()),
                     undo=False,
-                    run=lambda call: launched(call, False),
+                    run=lambda call: launched(call, viewport=False),
                 ),
                 Operator(
                     key=self.viewport,
@@ -303,7 +303,7 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True):
                     invoke=Some(Properties()),
                     undo=False,
                     condition=Some(viewport),
-                    run=lambda call: launched(call, True),
+                    run=lambda call: launched(call, viewport=True),
                 ),
                 PathHandler(handlers=bpy.app.handlers.load_post, body=loaded),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
                 Timer(body=seeded),

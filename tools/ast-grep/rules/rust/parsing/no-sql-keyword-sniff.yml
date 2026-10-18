@@ -12,25 +12,65 @@ utils:
     cased:
         kind: call_expression
         has: {field: function, kind: field_expression, has: {field: field, regex: '^to_(ascii_)?(upper|lower)case$'}}
+    prefix-range:
+        kind: range_expression
+        regex: '^\.\.=?\s*\w+$'
+    leading-text:
+        any:
+            - kind: call_expression
+              regex: '\.(split_whitespace|split_ascii_whitespace|splitn?|split_once)\('
+            - kind: index_expression
+              has: {nthChild: 2, matches: prefix-range}
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, has: {field: field, regex: '^get$'}}
+                - has: {field: arguments, has: {nthChild: 1, matches: prefix-range}}
+    holds-leading-text:
+        any: [{matches: leading-text}, {has: {stopBy: end, matches: leading-text}}]
+    leading-binding:
+        kind: identifier
+        pattern: $WORD
+        any:
+            - inside:
+                kind: function_item
+                stopBy: {kind: function_item}
+                has:
+                    stopBy: end
+                    kind: 'let_declaration, let_condition'
+                    all:
+                        - has: {field: pattern, any: [{pattern: $WORD}, {has: {stopBy: end, kind: identifier, pattern: $WORD}}]}
+                        - has: {field: value, matches: holds-leading-text}
+            - inside:
+                kind: closure_expression
+                stopBy: {kind: 'closure_expression, function_item'}
+                all:
+                    - has: {field: parameters, has: {stopBy: end, kind: identifier, pattern: $WORD}}
+                    - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: field_expression, has: {field: value, matches: holds-leading-text}}}}
+    first-word:
+        any: [{matches: holds-leading-text}, {matches: leading-binding}, {has: {stopBy: end, matches: leading-binding}}]
 rule:
     kind: 'call_expression, binary_expression'
     pattern: $SNIFF
     any:
         - kind: call_expression
           all:
-            - has: {field: function, kind: field_expression, has: {field: field, regex: '^(starts_with|strip_prefix|eq_ignore_ascii_case)$'}}
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^(starts_with|strip_prefix)$'}}
             - any:
                 - has: {field: arguments, has: {nthChild: 1, matches: keyword}}
                 - all:
-                    - any:
-                        - has: {field: function, kind: field_expression, has: {field: value, matches: cased}}
-                        - has: {field: function, kind: field_expression, has: {field: field, regex: '^eq_ignore_ascii_case$'}}
+                    - has: {field: function, kind: field_expression, has: {field: value, matches: cased}}
                     - has: {field: arguments, has: {nthChild: 1, matches: any-case-keyword}}
+        - kind: call_expression
+          all:
+            - has: {field: function, kind: field_expression, has: {field: field, regex: '^eq_ignore_ascii_case$'}}
+            - has: {field: arguments, has: {nthChild: 1, matches: any-case-keyword}}
+            - has: {field: function, has: {field: value, matches: first-word}}
         - kind: binary_expression
           all:
             - has: {field: operator, regex: '^(==|!=)$'}
             - any:
-                - has: {matches: keyword, not: {regex: '^"DELETE"$'}}
-                - has: {kind: call_expression, regex: '^Some\(', has: {field: arguments, has: {nthChild: 1, matches: keyword, not: {regex: '^"DELETE"$'}}}}
+                - has: {matches: keyword}
+                - has: {kind: call_expression, regex: '^Some\(', has: {field: arguments, has: {nthChild: 1, matches: keyword}}}
+            - has: {matches: first-word}
 message: '`$SNIFF` classifies SQL text by its leading keyword'
 note: 'Parse the text once with `sqlparser::parser::Parser::parse_sql(&<dialect>, <text>)` and match the `sqlparser::ast::Statement` variants (`Query`, `Insert`, `Update`, `Delete`, `CreateTable`)'

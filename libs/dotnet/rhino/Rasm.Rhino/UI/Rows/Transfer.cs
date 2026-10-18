@@ -20,7 +20,7 @@ public static class Transfer {
         from text in IO.lift(static () => Refused.UnlessFound(Clipboard.Instance.Text, nameof(Clipboard.Text)))
         from read in IO.lift(ValueSet.Read(text))
         let scoped = read.Scoped(keys)
-        from matched in IO.lift(bound.Keys().Exists(scoped.Entries.ContainsKey) ? Fin.Succ(unit) : Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"{read.Entries.Count} pasted values match no row")))
+        from matched in IO.lift(guard(bound.Keys().Exists(scoped.Entries.ContainsKey), Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"{read.Entries.Count} pasted values match no row"))).ToFin())
         from diff in scope.Commit(bound, scoped)
         select diff;
 

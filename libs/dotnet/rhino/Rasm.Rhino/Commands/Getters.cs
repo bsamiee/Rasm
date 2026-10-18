@@ -396,6 +396,6 @@ public static class Getters {
                 getter.SetCommandPrompt(prompt);
                 Task<Fin<T>> running = Task.Run(() => Callbacks.Settled(work(getter.Progress), getter.Token), getter.Token);
                 Fin<Unit> waited = Conversions.FromResult(getter.Wait(running, doc), nameof(GetCancel.Wait));
-                return waited is Fin<Unit>.Fail(var error) ? Fin.Fail<T>(error) : await running.ConfigureAwait(false);
+                return waited is Fin<Unit>.Fail(var error) ? error : await running.ConfigureAwait(false);
             }).Bind(IO.lift));
 }

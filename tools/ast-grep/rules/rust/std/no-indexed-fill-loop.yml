@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-indexed-fill-loop
+language: rust
+severity: error
+rule:
+    kind: let_declaration
+    all:
+        - has: {kind: mutable_specifier}
+        - has: {field: pattern, kind: identifier, pattern: $A}
+        - has: {field: value, any: [{kind: array_expression, pattern: '[$X; $N]'}, {kind: macro_invocation, pattern: 'vec![$X; $N]'}], pattern: $FILLED}
+        - precedes:
+            kind: expression_statement
+            has: {kind: for_expression, pattern: 'for ($I, $SLOT) in $A.iter_mut().enumerate() { *$SLOT = $V; }'}
+constraints:
+    V:
+        all:
+            - not: {has: {stopBy: end, kind: identifier, pattern: $A}}
+            - any: [{pattern: $I}, {has: {stopBy: end, kind: identifier, pattern: $I}}]
+message: '`$A` starts as `$FILLED` and a loop then writes each slot from its index'
+note: 'Bind `let <array> = array::from_fn(|<index>| <value>);` with `use core::array;`, or `let <vec> = Vec::from_fn(<length>, |<index>| <value>);` for a `vec!`'

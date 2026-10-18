@@ -57,30 +57,30 @@ public abstract partial record CoordinateMap {
         }
     });
 
-    public static Func<PixelFrame, IProgress<int>, Fin<Unit>> Integrated(GaussLegendreRule quadrature, Func<double, (CoordinateMap Map, Vector4 Lanes)> subframe, params Func<double, (CoordinateMap Map, Vector4 Lanes)>[] additional) =>
+    public static Func<PixelFrame, IProgress<int>, Fin<Unit>> Integrated(GaussLegendreRule quadrature, Func<double, (CoordinateMap Map, Vector4 Gains)> subframe, params Func<double, (CoordinateMap Map, Vector4 Gains)>[] additional) =>
         (frame, progress) => Run(frame, progress, toSeq(
             from path in additional.Prepend(subframe)
             from step in Enumerable.Range(0, quadrature.Order)
             let sample = path(quadrature.GetAbscissa(step))
-            select (sample.Map, Vector256.Create(sample.Lanes.X, sample.Lanes.Y, sample.Lanes.Z, sample.Lanes.W) * quadrature.GetWeight(step))));
+            select (sample.Map, Vector256.Create(sample.Gains.X, sample.Gains.Y, sample.Gains.Z, sample.Gains.W) * quadrature.GetWeight(step))));
 
     public static Func<PixelFrame, IProgress<int>, Fin<Unit>> IntegratedLinear(
         Func<Func<double, Complex>, Complex> integral, WrapMode wrap,
-        (Func<double, Vector4> Lanes, Func<(double X, double Y), double, PixelExtent, ((double X, double Y) Point, float Coverage)> At) path,
-        params (Func<double, Vector4> Lanes, Func<(double X, double Y), double, PixelExtent, ((double X, double Y) Point, float Coverage)> At)[] additional) =>
+        (Func<double, Vector4> Gains, Func<(double X, double Y), double, PixelExtent, ((double X, double Y) Point, float Coverage)> At) path,
+        params (Func<double, Vector4> Gains, Func<(double X, double Y), double, PixelExtent, ((double X, double Y) Point, float Coverage)> At)[] additional) =>
         (frame, progress) => Try.lift(() => {
             PixelFrame source = frame.Copy();
-            (Func<double, Vector4> Lanes, Func<(double X, double Y), double, PixelExtent, ((double X, double Y) Point, float Coverage)> At)[] paths = [path, .. additional];
-            Vector256<double> total = paths.Aggregate(Vector256<double>.Zero, (sum, sample) => sum + Integrated(t => Lanes(sample.Lanes(t))));
+            (Func<double, Vector4> Gains, Func<(double X, double Y), double, PixelExtent, ((double X, double Y) Point, float Coverage)> At)[] paths = [path, .. additional];
+            Vector256<double> total = paths.Aggregate(Vector256<double>.Zero, (sum, sample) => sum + Integrated(t => Widened(sample.Gains(t))));
             _ = Parallel.For(0, frame.Size.Height, row => {
                 Span<Vector4> destination = frame.View.Span.GetRowSpan(row);
                 for (int column = 0; column < destination.Length; column++) {
                     (double X, double Y) point = ((double)frame.Origin.X + column + 0.5d, (double)frame.Origin.Y + row + 0.5d);
                     Vector256<double> associated = Vector256<double>.Zero;
-                    foreach ((Func<double, Vector4> Lanes, Func<(double X, double Y), double, PixelExtent, ((double X, double Y) Point, float Coverage)> At) sample in paths) {
+                    foreach ((Func<double, Vector4> gains, Func<(double X, double Y), double, PixelExtent, ((double X, double Y) Point, float Coverage)> trace) in paths) {
                         associated += Integrated(t => {
-                            ((double X, double Y) at, float coverage) = sample.At(point, t, frame.Extent);
-                            Vector256<double> weights = Lanes(sample.Lanes(t)) * coverage;
+                            ((double X, double Y) at, float coverage) = trace(point, t, frame.Extent);
+                            Vector256<double> weights = Widened(gains(t)) * coverage;
                             Vector256<double> read = source.Sample(at, (wrap, wrap), Vector256<double>.Zero,
                                 static (sum, pixel, weight) => sum + (weight * Vector256.Create((double)pixel.X * pixel.W, (double)pixel.Y * pixel.W, (double)pixel.Z * pixel.W, pixel.W)));
                             return Vector256.ConditionalSelect(Vector256.IsZero(weights), Vector256<double>.Zero, weights * read);
@@ -100,7 +100,7 @@ public abstract partial record CoordinateMap {
                      var (rg, ba) => Vector256.Create(rg.Real, rg.Imaginary, ba.Real, ba.Imaginary),
                  };
 
-            static Vector256<double> Lanes(Vector4 value) => Vector256.Create(value.X, value.Y, value.Z, value.W);
+            static Vector256<double> Widened(Vector4 value) => Vector256.Create(value.X, value.Y, value.Z, value.W);
         }).Run();
 
     internal abstract void Trace(Span<(double X, double Y)> points, Span<float> coverage, PixelExtent output, PixelExtent source);
@@ -121,22 +121,22 @@ public abstract partial record CoordinateMap {
         if (Sampling.Snap.Case is Action<Span<(double X, double Y)>> snap) snap(points);
     }
 
-    private static Fin<Unit> Run(PixelFrame frame, IProgress<int> progress, Seq<(CoordinateMap Map, Vector256<double> Lanes)> subframes) =>
+    private static Fin<Unit> Run(PixelFrame frame, IProgress<int> progress, Seq<(CoordinateMap Map, Vector256<double> Gains)> subframes) =>
         Try.lift(() => {
             Sample(frame.Copy(), frame.Origin, frame.Size, frame.Extent, subframes, frame.View.Span);
             progress.Report(frame.Size.Height);
             return unit;
         }).Run();
 
-    private static unsafe void Sample(PixelFrame original, Point origin, PixelExtent size, PixelExtent output, Seq<(CoordinateMap Map, Vector256<double> Lanes)> subframes, Span2D<Vector4> destination) {
-        Vector256<double> total = subframes.Fold(Vector256<double>.Zero, static (sum, subframe) => sum + subframe.Lanes);
+    private static unsafe void Sample(PixelFrame original, Point origin, PixelExtent size, PixelExtent output, Seq<(CoordinateMap Map, Vector256<double> Gains)> subframes, Span2D<Vector4> destination) {
+        Vector256<double> total = subframes.Fold(Vector256<double>.Zero, static (sum, subframe) => sum + subframe.Gains);
         Vector256<double>[] associated = new Vector256<double>[size.Width];
         for (int row = 0; row < size.Height; row++) {
             associated.AsSpan().Clear();
-            foreach ((CoordinateMap map, Vector256<double> lanes) in subframes) {
+            foreach ((CoordinateMap map, Vector256<double> gains) in subframes) {
                 int stride = map.Sampling == Sampling.Cubic ? 1 : 1024;
                 for (int column = 0; column < size.Width; column += stride)
-                    Accumulate(map, lanes / total, row, column, int.Min(stride, size.Width - column), associated);
+                    Accumulate(map, gains / total, row, column, int.Min(stride, size.Width - column), associated);
             }
             Span<Vector4> written = destination.GetRowSpan(row);
             for (int column = 0; column < size.Width; column++) {
@@ -146,13 +146,13 @@ public abstract partial record CoordinateMap {
             }
         }
 
-        void Accumulate(CoordinateMap map, Vector256<double> lanes, int row, int column, int count, Span<Vector256<double>> destination) {
+        void Accumulate(CoordinateMap map, Vector256<double> gains, int row, int column, int count, Span<Vector256<double>> destination) {
             int reach = map.Sampling.Reach;
             int support = (2 * reach) + 1;
-            (double X, double Y)[] traced = new (double X, double Y)[count];
-            float[] coverage = new float[count];
+            Span<(double X, double Y)> traced = stackalloc (double X, double Y)[count];
+            Span<float> coverage = stackalloc float[count];
             for (int i = 0; i < count; i++) traced[i] = ((double)origin.X + column + i + 0.5d, (double)origin.Y + row + 0.5d);
-            coverage.AsSpan().Fill(1f);
+            coverage.Fill(1f);
             map.Trace(traced, coverage, output, original.Extent);
             map.Prepare(traced, original.Extent);
             using Mat patches = new(support, support * count, DepthType.Cv64F, 4);
@@ -177,7 +177,7 @@ public abstract partial record CoordinateMap {
             }
             ReadOnlySpan<Vector256<double>> read = new((void*)sampled.DataPointer, count);
             for (int i = 0; i < count; i++) {
-                Vector256<double> weights = lanes * coverage[i];
+                Vector256<double> weights = gains * coverage[i];
                 destination[column + i] += Vector256.ConditionalSelect(Vector256.IsZero(weights), Vector256<double>.Zero, weights * read[i]);
             }
 

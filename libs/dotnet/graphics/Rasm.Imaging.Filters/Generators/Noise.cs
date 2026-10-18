@@ -277,13 +277,11 @@ public sealed partial class NoiseDimensions : ICaptioned {
     public string Caption { get; }
     internal Neighborhood Cells { get; }
     internal float Scale { get; }
-    internal float SlopePeak => Enumerable.Range(0, 32).Max(top => CornerSlope((uint)top << 27));
+    internal float SlopePeak => Enumerable.Range(0, 32).Max(top => Cells.Corners.Max(corner => MathF.Abs(Slope((uint)top << 27, ((2f * corner) - Vector4.One) * Cells.Live))));
     internal GaborKernel Gabor { get; }
 
     [UseDelegateFromConstructor]
     internal partial float Slope(uint word, Vector4 offset);
-
-    private float CornerSlope(uint word) => Cells.Corners.Max(corner => MathF.Abs(Slope(word, ((2f * corner) - Vector4.One) * Cells.Live)));
 }
 
 public sealed record Timing(Clock Clock, Magnitude Pace) : IStateRecord<Timing, TimingParameter> {
@@ -411,7 +409,7 @@ public abstract partial record NoiseBasis {
         internal override Func<LatticePoint, uint, NoiseSample<LatticePoint>> Sampler =>
             Distorted(Dimensions, Distortion, (point, hash) => Dimensions.RidgedMultifractal(point, Octaves, Offset, Gain, hash));
 
-        internal override Fin<(float Lower, float Upper)> Range => Fin.Succ((0f, Dimensions.RidgedBound(Octaves, Offset, Gain)));
+        internal override Fin<(float Lower, float Upper)> Range => (0f, Dimensions.RidgedBound(Octaves, Offset, Gain));
     }
 
     public sealed record F1(NoiseDimensions Dimensions, Octaves Octaves, Cellular Cellular) : NoiseBasis, IStateRecord<F1, F1BasisParameter> {
@@ -419,7 +417,7 @@ public abstract partial record NoiseBasis {
 
         internal override Func<LatticePoint, uint, NoiseSample<LatticePoint>> Sampler => (point, hash) => Dimensions.F1(point, Octaves, Cellular, AxisFraction.MinValue, hash);
 
-        internal override Fin<(float Lower, float Upper)> Range => Fin.Succ((0f, Dimensions.CellBound(Octaves, Cellular, 0f, 1f)));
+        internal override Fin<(float Lower, float Upper)> Range => (0f, Dimensions.CellBound(Octaves, Cellular, 0f, 1f));
     }
 
     public sealed record F2(NoiseDimensions Dimensions, Octaves Octaves, Cellular Cellular) : NoiseBasis, IStateRecord<F2, F2BasisParameter> {
@@ -427,7 +425,7 @@ public abstract partial record NoiseBasis {
 
         internal override Func<LatticePoint, uint, NoiseSample<LatticePoint>> Sampler => (point, hash) => Dimensions.F2(point, Octaves, Cellular, hash);
 
-        internal override Fin<(float Lower, float Upper)> Range => Fin.Succ((0f, Dimensions.CellBound(Octaves, Cellular, 0f, 2f)));
+        internal override Fin<(float Lower, float Upper)> Range => (0f, Dimensions.CellBound(Octaves, Cellular, 0f, 2f));
     }
 
     public sealed record SmoothF1(NoiseDimensions Dimensions, Octaves Octaves, Cellular Cellular, AxisFraction Smoothness) : NoiseBasis, IStateRecord<SmoothF1, SmoothF1BasisParameter> {
@@ -446,7 +444,7 @@ public abstract partial record NoiseBasis {
         internal override Func<LatticePoint, uint, NoiseSample<LatticePoint>> Sampler => (point, hash) => new(Dimensions.EdgeDistance(point, Octaves, Randomness, hash), point);
 
         internal override Fin<(float Lower, float Upper)> Range =>
-            Octaves.Degenerate ? Error.New(ErrorCodes.ValidationFailed, "edge-distance noise needs non-degenerate octaves") : Fin.Succ(Dimensions.EdgeRange(Octaves, Randomness));
+            Octaves.Degenerate ? Error.New(ErrorCodes.ValidationFailed, "edge-distance noise needs non-degenerate octaves") : Dimensions.EdgeRange(Octaves, Randomness);
     }
 
     public sealed record Gabor(NoiseDimensions Dimensions, GaborFrequency Frequency, AxisFraction Anisotropy, SignedAngle Orientation) : NoiseBasis, IStateRecord<Gabor, GaborBasisParameter> {
@@ -473,7 +471,7 @@ public abstract partial record NoiseBasis {
         internal override Func<LatticePoint, uint, NoiseSample<LatticePoint>> Sampler =>
             (point, hash) => new(Dimensions.Wave(point, Form, Profile, Phase, Distortion, Octaves, DetailScale, hash), point);
 
-        internal override Fin<(float Lower, float Upper)> Range => Fin.Succ((0f, 1f));
+        internal override Fin<(float Lower, float Upper)> Range => (0f, 1f);
     }
 
     public sealed record White(NoiseDimensions Dimensions) : NoiseBasis, IStateRecord<White, WhiteBasisParameter> {
@@ -482,7 +480,7 @@ public abstract partial record NoiseBasis {
 
         internal override Func<LatticePoint, uint, NoiseSample<LatticePoint>> Sampler => (point, hash) => new(Dimensions.White(point, hash).X, point);
 
-        internal override Fin<(float Lower, float Upper)> Range => Fin.Succ((0f, 1f));
+        internal override Fin<(float Lower, float Upper)> Range => (0f, 1f);
     }
 
     private static Func<LatticePoint, uint, NoiseSample<LatticePoint>> Distorted(NoiseDimensions dimensions, NoiseDistortion distortion, Func<LatticePoint, uint, float> sum) =>
@@ -797,7 +795,7 @@ internal static class NoiseFunctions {
 
     public static (uint X, uint Y, uint Z) Hash(LatticeCell cell, uint field) {
         const int wordBits = sizeof(uint) * 8;
-        (EInteger? x, EInteger? y, EInteger? z, EInteger? w) = (cell.X.ShiftRight(wordBits), cell.Y.ShiftRight(wordBits), cell.Z.ShiftRight(wordBits), cell.W.ShiftRight(wordBits));
+        (EInteger x, EInteger y, EInteger z, EInteger w) = (cell.X.ShiftRight(wordBits), cell.Y.ShiftRight(wordBits), cell.Z.ShiftRight(wordBits), cell.W.ShiftRight(wordBits));
         long bits = long.Max(long.Max(cell.X.GetSignedBitLengthAsInt64(), cell.Y.GetSignedBitLengthAsInt64()), long.Max(cell.Z.GetSignedBitLengthAsInt64(), cell.W.GetSignedBitLengthAsInt64()));
         for (long words = bits / wordBits; words > 0; words--) {
             field = CoordinateHash.Pcg3d(x.ToUInt32Unchecked(), y.ToUInt32Unchecked(), CoordinateHash.Pcg3d(z.ToUInt32Unchecked(), w.ToUInt32Unchecked(), field).X).X;
@@ -838,9 +836,8 @@ internal static class NoiseFunctions {
     public static Vector2 SiteOffset(EInteger column, EInteger line, AxisFraction randomness, uint field) =>
         (CoordinateHash.Uniforms(column, line, field) * randomness).AsVector2();
 
-    public static (float Value, (ERational X, ERational Y) Site, (ERational X, ERational Y) Delta, (EInteger X, EInteger Y) Cell) F1(
-        ERational x, ERational y, Cellular cellular, uint field) {
-        ((EInteger? column, ERational? localX), (EInteger? line, ERational? localY)) = (Split(x), Split(y));
+    public static (float Value, (ERational X, ERational Y) Site, (ERational X, ERational Y) Delta, (EInteger X, EInteger Y) Cell) F1(ERational x, ERational y, Cellular cellular, uint field) {
+        ((EInteger column, ERational localX), (EInteger line, ERational localY)) = (Split(x), Split(y));
         (ERational floorX, ERational floorY) = (ERational.FromEInteger(column), ERational.FromEInteger(line));
         (ERational X, ERational Y) = (localX, localY);
         NoiseDimensions lattice = NoiseDimensions.Two;
@@ -849,8 +846,7 @@ internal static class NoiseFunctions {
             (Column: column, Line: line, cellular.Randomness, Field: field), static (origin, offset) =>
                 offset + new Vector4(SiteOffset(origin.Column.Add((int)offset.X), origin.Line.Add((int)offset.Y), origin.Randomness, origin.Field), 0f, 0f), reach);
         (ERational X, ERational Y) site = (ERational.FromSingle(first.Site.X), ERational.FromSingle(first.Site.Y));
-        return (first.Value, (floorX.Add(site.X), floorY.Add(site.Y)), (site.X.Subtract(X), site.Y.Subtract(Y)),
-            (column.Add((int)selectedOffset.X), line.Add((int)selectedOffset.Y)));
+        return (first.Value, (floorX.Add(site.X), floorY.Add(site.Y)), (site.X.Subtract(X), site.Y.Subtract(Y)), (column.Add((int)selectedOffset.X), line.Add((int)selectedOffset.Y)));
     }
 
     internal static (EInteger Cell, ERational Local) Split(ERational coordinate) => EFloat.FromEInteger(coordinate.Numerator)
@@ -902,7 +898,7 @@ internal static class NoiseFunctions {
     internal static Fin<(float Lower, float Upper)> MagicRange(MagicDepth depth, NoiseDistortion distortion) {
         Vector3 peak = Vector3.Create(depth == MagicDepth.MinValue ? 1f : float.Abs(distortion));
         (float first, float second) = (Vector3.Sum(Magic(peak, distortion)) / 3f, Vector3.Sum(Magic(-peak, distortion)) / 3f);
-        return float.IsFinite(first) && float.IsFinite(second) ? Fin.Succ((float.Min(first, second), float.Max(first, second)))
+        return float.IsFinite(first) && float.IsFinite(second) ? (float.Min(first, second), float.Max(first, second))
             : Error.New(string.Create(CultureInfo.InvariantCulture, $"magic noise at depth {depth} and distortion {distortion} has no finite range"));
     }
 
@@ -1025,21 +1021,18 @@ internal static class NoiseFunctions {
         }
 
         // --- [CELLS]
-        public (float Value, float EdgeDistance, LatticeCell Cell) Voronoi(
-            LatticePoint point, Cellular cellular, uint field) {
+        public (float Value, float EdgeDistance, LatticeCell Cell) Voronoi(LatticePoint point, Cellular cellular, uint field) {
             Span<Vector4> reach = stackalloc Vector4[lattice.Cells.Near.AsSpan().Length];
             (NoiseSample<LatticePoint> First, NoiseSample<LatticePoint> Second, LatticeCell Cell) = lattice.Ranked(point.Masked(lattice.Cells.Live), cellular, field, reach);
             return (First.Value, Edge(reach) / (0.5f + (0.5f * cellular.Randomness)), Cell);
         }
 
-        public NoiseSample<LatticePoint> F1(LatticePoint point,
-            Octaves octaves, Cellular cellular, AxisFraction smoothness, uint field) =>
+        public NoiseSample<LatticePoint> F1(LatticePoint point, Octaves octaves, Cellular cellular, AxisFraction smoothness, uint field) =>
             smoothness == AxisFraction.MinValue
                 ? lattice.Fractal(point, octaves, cellular, 0f, 1f, field, static (dimensions, at, cells, _, draw) => dimensions.Ranked(at, cells, draw).First)
                 : lattice.Fractal(point, octaves, cellular, smoothness / 2f, 1f, field, static (dimensions, at, cells, blend, draw) => dimensions.Smooth(at, cells, blend, draw));
 
-        public NoiseSample<LatticePoint> F2(LatticePoint point,
-            Octaves octaves, Cellular cellular, uint field) =>
+        public NoiseSample<LatticePoint> F2(LatticePoint point, Octaves octaves, Cellular cellular, uint field) =>
             lattice.Fractal(point, octaves, cellular, 0f, 2f, field, static (dimensions, at, cells, _, draw) => dimensions.Ranked(at, cells, draw).Second);
 
         public float EdgeDistance(LatticePoint point, Octaves octaves, AxisFraction randomness, uint field) =>
@@ -1061,8 +1054,7 @@ internal static class NoiseFunctions {
             return distance.Divide(bound).ToSingle();
         }
 
-        private NoiseSample<LatticePoint> Fractal(LatticePoint point,
-            Octaves octaves, Cellular cellular, float smoothness, float span, uint field,
+        private NoiseSample<LatticePoint> Fractal(LatticePoint point, Octaves octaves, Cellular cellular, float smoothness, float span, uint field,
             Func<NoiseDimensions, LatticePoint, Cellular, float, uint, NoiseSample<LatticePoint>> scan) =>
             lattice.Fractal(point.Masked(lattice.Cells.Live), new LatticePoint(ERational.Zero, ERational.Zero, ERational.Zero, ERational.Zero), ERational.One, octaves, cellular, smoothness, span, field,
                 static (at, scale) => at.Scaled(scale), static (scale, lacunarity) => scale.Multiply(ERational.FromSingle(lacunarity)), static (site, next, scale, weight) => site.Lerp(next.Scaled(ERational.One.Divide(scale)), weight), scan);
@@ -1081,19 +1073,16 @@ internal static class NoiseFunctions {
             return new(distance / (total * limit), site);
         }
 
-        private (NoiseSample<LatticePoint> First, NoiseSample<LatticePoint> Second,
-            LatticeCell Cell) Ranked(LatticePoint point, Cellular cellular, uint field) {
+        private (NoiseSample<LatticePoint> First, NoiseSample<LatticePoint> Second, LatticeCell Cell) Ranked(LatticePoint point, Cellular cellular, uint field) {
             Span<Vector4> reach = stackalloc Vector4[lattice.Cells.Near.AsSpan().Length];
             return lattice.Ranked(point, cellular, field, reach);
         }
 
-        private (NoiseSample<LatticePoint> First, NoiseSample<LatticePoint> Second,
-            LatticeCell Cell) Ranked(LatticePoint point, Cellular cellular, uint field, Span<Vector4> reach) {
+        private (NoiseSample<LatticePoint> First, NoiseSample<LatticePoint> Second, LatticeCell Cell) Ranked(LatticePoint point, Cellular cellular, uint field, Span<Vector4> reach) {
             (LatticeCell cell, Vector4 local) = point.Split();
             (NoiseSample<Vector4> first, NoiseSample<Vector4> second, Vector4 offset) = lattice.Ranked(local, cellular, (Cell: cell, Lattice: lattice, cellular.Randomness, Field: field),
                 static (origin, offset) => origin.Lattice.Site(origin.Cell, offset, origin.Randomness, origin.Field), reach);
-            return (new(first.Value, cell.At(first.Site)), new(second.Value, cell.At(second.Site)),
-                cell.Offset(offset));
+            return (new(first.Value, cell.At(first.Site)), new(second.Value, cell.At(second.Site)), cell.Offset(offset));
         }
 
         private (NoiseSample<Vector4> First, NoiseSample<Vector4> Second, Vector4 Offset) Ranked<T>(Vector4 local, Cellular cellular, T origin, Func<T, Vector4, Vector4> locate, Span<Vector4> reach) {

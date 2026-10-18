@@ -86,15 +86,15 @@ rule:
             - has: {field: if_true, has: {matches: operation, stopBy: end}}
         - kind: guard_statement
           all:
-            - has: {field: condition, matches: exists-check}
+            - has: {matches: exists-check}
             - precedes: {has: {matches: operation, stopBy: end}, stopBy: end}
         - kind: if_statement
           all:
-            - has: {field: condition, matches: exists-check}
+            - has: {matches: exists-check}
             - has: {kind: statements, has: {matches: operation, stopBy: end}}
         - kind: if_statement
           all:
-            - has: {field: condition, matches: absent-check}
+            - has: {matches: absent-check}
             - not: {has: {regex: '^else$'}}
             - has: {kind: statements, matches: exit-body}
             - precedes: {has: {matches: operation, stopBy: end}, stopBy: end}

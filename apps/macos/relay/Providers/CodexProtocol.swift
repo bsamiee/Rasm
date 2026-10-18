@@ -329,31 +329,24 @@ nonisolated enum CodexProtocol {
 
     private static func windows(_ limits: RateLimitSnapshot) -> Result<[QuotaWindow], CodexFailure> {
         let reached: Bool = limits.rateLimitReachedType != nil || limits.spendControlReached == true
-        return traverse([limits.primary, limits.secondary].compactMap(\.self)) { window in
-            quotaWindow(window, reached: reached)
+        return traverse([limits.primary, limits.secondary].compactMap(\.self)) { window -> Result<QuotaWindow?, AggregateError<String>> in
+            let kind: QuotaKind? =
+                switch window.windowDurationMins {
+                    case .some(let minutes) where minutes <= 0: nil
+                    case .some(let minutes) where minutes <= 12 * 60: .session
+                    case .some: .weekly
+                    case .none: nil
+                }
+            return kind.map { kind in
+                UsageAmount.make(percent: window.usedPercent)
+                    .mapError { _ in AggregateError(first: "\(kind.name) usage percentage") }
+                    .map { amount in
+                        QuotaWindow(kind: kind, used: amount, resetsAt: window.resetsAt, rejected: reached && amount.isExhausted)
+                    }
+            } ?? .success(nil)
         }
         .map { windows in windows.compactMap(\.self) }
         .mapError { failure in .invalidResponse(field: failure.errors.joined(separator: ", ")) }
-    }
-
-    private static func quotaWindow(
-        _ window: RateLimitWindow,
-        reached: Bool,
-    ) -> Result<QuotaWindow?, AggregateError<String>> {
-        let kind: QuotaKind? =
-            switch window.windowDurationMins {
-                case .some(let minutes) where minutes <= 0: nil
-                case .some(let minutes) where minutes <= 12 * 60: .session
-                case .some: .weekly
-                case .none: nil
-            }
-        return kind.map { kind in
-            UsageAmount.make(percent: window.usedPercent)
-                .mapError { _ in AggregateError(first: "\(kind.name) usage percentage") }
-                .map { amount in
-                    QuotaWindow(kind: kind, used: amount, resetsAt: window.resetsAt, rejected: reached && amount.isExhausted)
-                }
-        } ?? .success(nil)
     }
 
     // --- [GREETING]
@@ -392,7 +385,27 @@ nonisolated enum CodexProtocol {
             .configRead,
             params: ConfigReadParams(includeLayers: false, cwd: FilePath(workingDirectory.path(percentEncoded: false)).string),
         )
-        .map { effective in greetingOverrides(effective.config) }
+        .map { effective -> JSONDocument<GreetingConfig> in
+            let disabledFeatures: [String] = [
+                "features.apps", "features.code_mode", "features.code_mode_only", "features.context_management",
+                "features.current_time_reminder", "features.deferred_executor", "features.enable_fanout",
+                "features.goals", "features.hooks", "features.image_generation", "features.memories",
+                "features.multi_agent", "features.multi_agent_v2", "features.plugins",
+                "features.request_permissions_tool", "features.shell_snapshot", "features.shell_tool",
+                "features.standalone_web_search", "features.token_budget", "features.tool_suggest",
+                "features.unified_exec", "features.view_image", "orchestrator.skills.enabled",
+                "skills.include_instructions", "token_budget.use_history_notes_extension",
+                "tools.experimental_request_user_input.enabled", "tools.update_plan.enabled",
+            ]
+            return JSONDocument(
+                fields: Dictionary(uniqueKeysWithValues: disabledFeatures.map { key in (key, JSONValue.bool(false)) }),
+                known: GreetingConfig(
+                    webSearch: "disabled",
+                    projectDocMaxBytes: 0,
+                    mcpServers: (effective.config.mcpServers ?? [:]).mapValues { _ in GreetingConfig.Server(enabled: false) },
+                ),
+            )
+        }
         .bind { overrides in
             await connection.request(
                 ThreadStarted.self,
@@ -448,28 +461,6 @@ nonisolated enum CodexProtocol {
             return outcome.flatMap { _ in detached }
         }
     }
-
-    private static func greetingOverrides(_ config: EffectiveConfig.Config) -> JSONDocument<GreetingConfig> {
-        let disabledFeatures: [String] = [
-            "features.apps", "features.code_mode", "features.code_mode_only", "features.context_management",
-            "features.current_time_reminder", "features.deferred_executor", "features.enable_fanout",
-            "features.goals", "features.hooks", "features.image_generation", "features.memories",
-            "features.multi_agent", "features.multi_agent_v2", "features.plugins",
-            "features.request_permissions_tool", "features.shell_snapshot", "features.shell_tool",
-            "features.standalone_web_search", "features.token_budget", "features.tool_suggest",
-            "features.unified_exec", "features.view_image", "orchestrator.skills.enabled",
-            "skills.include_instructions", "token_budget.use_history_notes_extension",
-            "tools.experimental_request_user_input.enabled", "tools.update_plan.enabled",
-        ]
-        return JSONDocument(
-            fields: Dictionary(uniqueKeysWithValues: disabledFeatures.map { key in (key, JSONValue.bool(false)) }),
-            known: GreetingConfig(
-                webSearch: "disabled",
-                projectDocMaxBytes: 0,
-                mcpServers: (config.mcpServers ?? [:]).mapValues { _ in GreetingConfig.Server(enabled: false) },
-            ),
-        )
-    }
 }
 
 nonisolated enum CodexAuthFile {
@@ -520,7 +511,47 @@ nonisolated enum CodexAuthFile {
     static let name: String = "auth.json"
 
     static func read(at url: URL) -> Result<(data: Data, identity: AccountIdentity?)?, CodexFailure> {
-        ifPresent { try Data(contentsOf: url) }
+        func claims(_ token: String) -> Result<Claims, CodexFailure> {
+            let components: [Substring] = token.split(separator: ".")
+            let unreadable: CodexFailure = .invalidResponse(field: "account identity token")
+            guard components.count == 3 else { return .failure(unreadable) }
+            let encoded: String = String(components[1]).replacing("-", with: "+").replacing("_", with: "/")
+            let padded: String = encoded + String(repeating: "=", count: (4 - encoded.count % 4) % 4)
+            return Data(base64Encoded: padded).map { data in
+                Result { try JSONDecoder().decode(Claims.self, from: data) }.mapError { _ in unreadable }
+            } ?? .failure(unreadable)
+        }
+        func parse(_ document: Document) -> Result<AccountIdentity?, CodexFailure> {
+            if let mode: String = document.authMode, CodexProtocol.AuthMode(rawValue: mode) != .chatgpt {
+                return .failure(.subscriptionRequired)
+            }
+            return
+                if let tokens: Document.Tokens = document.tokens, let idToken: String = tokens.idToken
+            {
+                claims(idToken)
+                    .flatMap { claims -> Result<(String, String, String, String?), CodexFailure> in
+                        let workspace: Result<String, AggregateError<String>> =
+                            (claims.auth?.chatgptAccountID ?? tokens.accountID)
+                            .map(Result.success) ?? .failure(AggregateError(first: "workspace identifier"))
+                        let user: Result<String, AggregateError<String>> =
+                            (claims.auth?.chatgptUserID ?? claims.auth?.userID)
+                            .map(Result.success) ?? .failure(AggregateError(first: "user identifier"))
+                        let email: Result<String, AggregateError<String>> =
+                            claims.email.map(Result.success) ?? .failure(AggregateError(first: "account email"))
+                        return combine(user, workspace, email)
+                            .mapError { failure in .invalidResponse(field: failure.errors.joined(separator: ", ")) }
+                            .map { user, workspace, email in (user, workspace, email, claims.auth?.chatgptPlanType) }
+                    }
+                    .flatMap { user, workspace, email, plan in
+                        AccountIdentity.make(accountID: user, organizationID: workspace, email: email, plan: plan)
+                            .mapError { _ in .invalidResponse(field: "account identity") }
+                    }
+                    .map(Optional.some)
+            } else {
+                .success(nil)
+            }
+        }
+        return ifPresent { try Data(contentsOf: url) }
             .mapError(CodexFailure.storage)
             .flatMap { data in
                 data.map { data in
@@ -531,47 +562,5 @@ nonisolated enum CodexAuthFile {
                         .map(Optional.some)
                 } ?? .success(nil)
             }
-    }
-
-    private static func parse(_ document: Document) -> Result<AccountIdentity?, CodexFailure> {
-        if let mode: String = document.authMode, CodexProtocol.AuthMode(rawValue: mode) != .chatgpt {
-            return .failure(.subscriptionRequired)
-        }
-        return
-            if let tokens: Document.Tokens = document.tokens, let idToken: String = tokens.idToken
-        {
-            claims(idToken)
-                .flatMap { claims -> Result<(String, String, String, String?), CodexFailure> in
-                    let workspace: Result<String, AggregateError<String>> =
-                        (claims.auth?.chatgptAccountID ?? tokens.accountID)
-                        .map(Result.success) ?? .failure(AggregateError(first: "workspace identifier"))
-                    let user: Result<String, AggregateError<String>> =
-                        (claims.auth?.chatgptUserID ?? claims.auth?.userID)
-                        .map(Result.success) ?? .failure(AggregateError(first: "user identifier"))
-                    let email: Result<String, AggregateError<String>> =
-                        claims.email.map(Result.success) ?? .failure(AggregateError(first: "account email"))
-                    return combine(user, workspace, email)
-                        .mapError { failure in .invalidResponse(field: failure.errors.joined(separator: ", ")) }
-                        .map { user, workspace, email in (user, workspace, email, claims.auth?.chatgptPlanType) }
-                }
-                .flatMap { user, workspace, email, plan in
-                    AccountIdentity.make(accountID: user, organizationID: workspace, email: email, plan: plan)
-                        .mapError { _ in .invalidResponse(field: "account identity") }
-                }
-                .map(Optional.some)
-        } else {
-            .success(nil)
-        }
-    }
-
-    private static func claims(_ token: String) -> Result<Claims, CodexFailure> {
-        let components: [Substring] = token.split(separator: ".")
-        let unreadable: CodexFailure = .invalidResponse(field: "account identity token")
-        guard components.count == 3 else { return .failure(unreadable) }
-        let encoded: String = String(components[1]).replacing("-", with: "+").replacing("_", with: "/")
-        let padded: String = encoded + String(repeating: "=", count: (4 - encoded.count % 4) % 4)
-        return Data(base64Encoded: padded).map { data in
-            Result { try JSONDecoder().decode(Claims.self, from: data) }.mapError { _ in unreadable }
-        } ?? .failure(unreadable)
     }
 }

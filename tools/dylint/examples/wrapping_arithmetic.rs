@@ -24,4 +24,13 @@ const fn expanded(value: u16) -> u16 { bumped!(value) }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-fn main() { black_box(&(stepped(1), flagged(2), wrapped(3), checked(4), saturated(5), offset(core::ptr::null()), expanded(6))); }
+fn main() { black_box(&(stepped(1), flagged(2), wrapped(3), checked(4), saturated(5), offset(core::ptr::null()), expanded(6), (signed(7), accumulated(Wrapping(8)), masked(9)))); }
+
+const fn signed(value: u32) -> u32 { value.wrapping_add_signed(-1) }
+
+fn accumulated(mut total: Wrapping<i8>) -> Wrapping<i8> {
+    total += Wrapping(1);
+    -total
+}
+
+fn masked(value: u8) -> Wrapping<u8> { Wrapping(value) & Wrapping(1) }

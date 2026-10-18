@@ -74,18 +74,19 @@ utils:
                 stopBy: {kind: function_item}
                 has: {stopBy: {kind: function_item}, kind: let_declaration, all: [{has: {field: pattern, pattern: $PASS}}, {has: {field: value, matches: literal-replace}}]}
     char-run:
-        matches: literal-replace
         all:
+            - matches: literal-replace
             - has: {field: arguments, all: [{has: {nthChild: 1, kind: char_literal}}, {has: {nthChild: 2, pattern: $TO}}]}
             - has: {field: function, has: {field: value, any: [{not: {matches: literal-replace}}, {matches: char-run}]}}
     escaped-replace:
         any: [{matches: rust-entity-escape}, {matches: rust-html-tag-scan}, {matches: rust-template-replace}]
     replace-chain:
-        matches: literal-replace
         all:
+            - matches: literal-replace
             - has: {field: function, has: {field: value, matches: replaced-text}}
             - not: {inside: {kind: field_expression, has: {field: field, regex: '^replace$'}, inside: {matches: literal-replace}}}
             - not: {matches: char-run}
+            - not: {any: [{pattern: '$_.replace($_, $FED).replace($FED, $_)'}, {has: {stopBy: end, pattern: '$_.replace($_, $FED).replace($FED, $_)'}}]}
             - not: {any: [{matches: escaped-replace}, {has: {stopBy: end, matches: escaped-replace}}]}
 rule:
     kind: 'call_expression, binary_expression'
@@ -116,4 +117,4 @@ constraints:
     B: {kind: string_literal}
     C: {kind: string_literal}
 message: '`$SCAN` passes over the text once per literal needle'
-note: 'Build `aho_corasick::AhoCorasick::new([<needles>])?` once and call `is_match(<text>)` or `find(<text>)` in place of three or more literal scans, or `replace_all(<text>, &[<replacements>])` in place of two or more literal replaces'
+note: 'Build `aho_corasick::AhoCorasick::new([<needles>])?` once and call `is_match(<text>)` or `find(<text>)` in place of three or more literal scans, or `replace_all(<text>, &[<replacements>])` in place of two or more literal replaces where no replacement holds a later needle'

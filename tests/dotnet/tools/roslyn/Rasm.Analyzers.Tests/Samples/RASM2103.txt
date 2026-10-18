@@ -1,0 +1,16 @@
+using Rhino.Geometry;
+
+namespace Rasm.Rhino.Modeling {
+    internal static class Copies {
+        internal static T Duplicate<T>(T source) where T : GeometryBase => (T)source.Duplicate();
+    }
+}
+
+internal static class CastDuplicate {
+    internal static Curve Copied(Curve curve) => {|#0:(Curve)curve.Duplicate()|};
+    internal static bool Tested(Curve curve) => {|#1:curve.Duplicate() is Curve|};
+}
+
+internal static class UncastDuplicate {
+    internal static GeometryBase Kept(Curve curve) => curve.Duplicate();
+}

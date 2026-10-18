@@ -1,13 +1,13 @@
 import { BrowserCrypto } from '@effect/platform-browser';
-import { Crypto, Effect, Record, Struct } from 'effect';
+import { Crypto, Effect, Option, Record, Schema, Struct } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 import { AsyncResult, Atom, AtomHttpApi } from 'effect/reactivity';
-import { ClientApi, type PendingUpload } from '../model/api.ts';
-import type { PortfolioData } from '../model/document.ts';
+import { Api, type PendingUpload, type Revision } from '../model/api.ts';
+import { Portfolio, type PortfolioData } from '../model/document.ts';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class PortfolioClient extends AtomHttpApi.Service<PortfolioClient>()('PortfolioClient', { api: ClientApi, httpClient: FetchHttpClient.layer }) {}
+class PortfolioClient extends AtomHttpApi.Service<PortfolioClient>()('PortfolioClient', { api: Api, httpClient: FetchHttpClient.layer }) {}
 const draftRequest = PortfolioClient.runtime.atom(PortfolioClient.use((api) => api.content.draft({})));
 const pendingRequest = PortfolioClient.runtime.atom(PortfolioClient.use((api) => api.media.pending({})));
 const draft = Atom.writable(
@@ -17,11 +17,13 @@ const draft = Atom.writable(
 ).pipe(Atom.keepAlive);
 const saveRequest = PortfolioClient.runtime
     .fn(
-        Effect.fnUntraced(function* (input: { readonly snapshot: typeof PortfolioData.Type; readonly publish: boolean; readonly etag: string }) {
+        Effect.fnUntraced(function* ({ snapshot, publish, revision }: { readonly snapshot: typeof PortfolioData.Type; readonly publish: boolean; readonly revision: typeof Revision.Type }) {
             const api = yield* PortfolioClient;
-            const request = { payload: input.snapshot.portfolio, headers: { 'if-match': input.etag } };
-            const response = yield* (input.publish ? api.content.publish(request) : api.content.save(request)).pipe(Effect.mapError((error) => ({ error, portfolio: input.snapshot.portfolio })));
-            return { ...input, etag: response.headers['draft-etag'] };
+            const response = yield* Schema.encodeEffect(Portfolio)(snapshot.portfolio).pipe(
+                Effect.flatMap((payload) => (publish ? api.content.publish : api.content.save)({ payload, headers: { 'if-match': revision } })),
+                Effect.mapError((error) => ({ error, portfolio: snapshot.portfolio })),
+            );
+            return { snapshot, publish, revision: response.headers['draft-etag'] };
         }),
     )
     .pipe(Atom.keepAlive);
@@ -37,6 +39,16 @@ const reloadRequest = PortfolioClient.runtime
         ),
     )
     .pipe(Atom.keepAlive);
+const draftState = Atom.make((get) => {
+    const stored = ({ body, headers }: Atom.Success<typeof draftRequest>) => ({ portfolio: body.portfolio, revision: headers['draft-etag'] });
+    return AsyncResult.all({
+        data: get(draft),
+        saved: Option.match(Option.firstSomeOf([Option.map(AsyncResult.value(get(saveRequest)), ({ snapshot, revision }) => ({ portfolio: snapshot.portfolio, revision })), Option.map(AsyncResult.value(get(reloadRequest)), stored)]), {
+            onNone: () => AsyncResult.map(get(draftRequest), stored),
+            onSome: AsyncResult.success,
+        }),
+    }).pipe(AsyncResult.map(({ data, saved }) => ({ data, revision: saved.revision, changed: data.portfolio !== saved.portfolio })));
+});
 const deleteRequest = PortfolioClient.runtime
     .fn((id: string, get) =>
         PortfolioClient.use((api) => api.media.delete({ params: { id } })).pipe(
@@ -45,7 +57,6 @@ const deleteRequest = PortfolioClient.runtime
         ),
     )
     .pipe(Atom.keepAlive);
-
 const discardRequest = PortfolioClient.runtime
     .fn((upload: typeof PendingUpload.Type, get) =>
         PortfolioClient.use((api) => api.media.discard({ params: { id: upload.id } })).pipe(
@@ -64,8 +75,8 @@ const discardRequest = PortfolioClient.runtime
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const identifier = Crypto.Crypto.use((crypto) => crypto.randomUUIDv4()).pipe(Effect.provide(BrowserCrypto.layer));
+const identifier = Crypto.Crypto.use((crypto) => crypto.randomUUIDv7()).pipe(Effect.provide(BrowserCrypto.layer));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { deleteRequest, discardRequest, draft, draftRequest, identifier, pendingRequest, reloadRequest, saveRequest };
+export { deleteRequest, discardRequest, draft, draftState, identifier, pendingRequest, reloadRequest, saveRequest };

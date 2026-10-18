@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-stored-error-message
+language: tsx
+severity: error
+rule:
+    pattern: $TEXT
+    any:
+        - kind: public_field_definition
+          all:
+            - has: {field: name, regex: '^message$'}
+            - inside: {kind: class_body, inside: {kind: 'class_declaration, class', has: {kind: class_heritage, has: {matches: effect-error-heritage}}}}
+        - kind: pair
+          all:
+            - has: {field: key, regex: '^message$'}
+            - inside: {kind: object, inside: {kind: arguments, inside: {kind: call_expression, inside: {kind: extends_clause, field: value, matches: effect-error-heritage}}}}
+        - kind: property_signature
+          all:
+            - has: {field: name, regex: '^message$'}
+            - inside: {kind: object_type, inside: {kind: type_arguments, inside: {kind: extends_clause, field: type_arguments, matches: effect-error-heritage}}}
+message: '`$TEXT` stores the error message as text'
+note: 'Store typed fields alone and derive the text from the fields in an `override get message()` getter'

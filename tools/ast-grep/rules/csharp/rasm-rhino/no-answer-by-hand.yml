@@ -227,11 +227,6 @@ transform:
             source: $STATIC
             replace: '(?s)^.*$'
             by: 'static '
-    LIFTED:
-        replace:
-            source: $FIN
-            replace: '(?s)^(.+)$'
-            by: IO.lift($1)
     DISCARD:
         replace:
             source: $DISCARDED
@@ -262,6 +257,6 @@ transform:
             source: $MEMBER
             replace: '(?s)^(.+)$'
             by: '$1)'
-fix: Callbacks.Answer($EFFECT$DISCARD$LIFTED, $STATIC_THUNK$UNIT_THUNK() => $UNPARENTHESIZED$LAZY$UNIT_FALLBACK, $SITE$NEW_SITE$SITE_OWNER$SITE_MEMBER)
+fix: Callbacks.Answer($EFFECT$FIN$DISCARD, $STATIC_THUNK$UNIT_THUNK() => $UNPARENTHESIZED$LAZY$UNIT_FALLBACK, $SITE$NEW_SITE$SITE_OWNER$SITE_MEMBER)
 message: '`$EFFECT$FIN` reports its failure through `Sink.Report` by hand'
-note: Use `Callbacks.Answer(<effect>, () => <fallback>, <site>)`, `Answer` runs the effect once and reports its failure at the site
+note: Use `Callbacks.Answer(<effect or fin>, () => <fallback>, <site>)`, which reports the failure at the site

@@ -1,71 +1,59 @@
-import { D1Client } from '@effect/sql-d1';
-import { contentEtag, unavailable } from '@rasm/hosting/http.ts';
-import { Effect, flow, Match, Option, Record, Schema } from 'effect';
+import { table } from '@rasm/database/catalog.ts';
+import { atomic, select } from '@rasm/database/store.ts';
+import { unavailable } from '@rasm/hosting/http.ts';
+import { Array, Effect, flow, Match, Option, Schema, Struct } from 'effect';
 import { HttpApiError } from 'effect/http-api';
-import { findOne, findOneOption } from 'effect/sql/SqlSchema';
-import type { Statement } from 'effect/sql/Statement';
-import { isPreconditionFailure } from 'partial-content';
+import { SqlClient, SqlSchema } from 'effect/sql';
 import { PreconditionFailed } from '../model/api.ts';
 import { ImageAsset, PdfAsset, VideoAsset } from '../model/asset.ts';
 import { PortfolioData, StoredPortfolio } from '../model/document.ts';
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
-const emptyBody = JSON.stringify({ name: '', introduction: '', email: '', entries: [] } satisfies typeof StoredPortfolio.Type);
+const documents = table('documents', { state: Schema.Literals(['draft', 'published']), body: Schema.fromJsonString(StoredPortfolio), revision: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)) }, { key: ['state'], defaults: { revision: 0 } });
+const assets = table(
+    'assets',
+    { id: Schema.String, body: Schema.fromJsonString(Schema.Unknown), objectKey: Schema.NullOr(Schema.String), removing: Schema.NullOr(Schema.BooleanFromBit), uploads: Schema.NullOr(Schema.fromJsonString(Schema.Unknown)) },
+    { key: ['id'], projections: { objectKey: { from: 'body', path: ['objectKey'] }, removing: { from: 'body', path: ['removing'] }, uploads: { from: 'body', path: ['uploads'] } } },
+);
+const owner = table('owner', { email: Schema.String, userId: Schema.String }, { key: ['email'], withoutRowid: true });
+const catalog = { tables: [documents, assets, owner], retired: [] } as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [DOCUMENTS]
-const portfolioReferences = (sql: D1Client.D1Client): Statement<{ state: string; assetId: string }> => sql`SELECT state, j.value ->> '$.assetId' AS asset_id
+const portfolioReferences = (sql: SqlClient.SqlClient) => sql`SELECT state, j.value ->> '$.assetId' AS asset_id
     FROM documents d, json_tree(d.body) j
     WHERE CASE WHEN j.type = 'object' THEN json_type(j.value,'$.assetId') END = 'text'`;
 const readDocument = flow(
-    findOne({
-        Request: Schema.Literals(['draft', 'published']),
+    SqlSchema.findOne({
+        Request: documents.fields.state,
         Result: Schema.Struct({
-            data: Schema.Struct({ portfolio: Schema.fromJsonString(Schema.Unknown), assets: Schema.Record(Schema.String, Schema.fromJsonString(Schema.Unknown)) }).pipe(Schema.decodeTo(PortfolioData)),
-            body: Schema.String,
+            revision: documents.fields.revision,
+            data: Schema.fromJsonString(Schema.Struct({ portfolio: Schema.Unknown, assets: Schema.Record(Schema.String, Schema.Unknown) }).pipe(Schema.decodeTo(PortfolioData))),
         }),
         execute: (selected) =>
-            D1Client.D1Client.use((sql) =>
-                sql.batch([
-                    sql<{ body: string }>`SELECT COALESCE((SELECT body FROM documents WHERE state = ${selected}),${emptyBody}) AS body`,
-                    sql<{ id: string; body: string }>`SELECT a.id,json_set(json_remove(a.body,'$.uploads','$.objectKey','$.removing'),'$.id',a.id) AS body FROM assets a
-                        WHERE a.body ->> '$.objectKey' IS NOT NULL AND COALESCE(a.body ->> '$.removing',0) = 0 AND (
-                            ${selected} = 'draft' OR a.id IN (
-                                SELECT asset_id FROM (${portfolioReferences(sql)}) WHERE state = ${selected}
-                            )
-                        )`,
-                ]),
-            ).pipe(
-                Effect.map(([documents, assets]) => {
-                    const available = Record.fromIterableWith(assets, (asset) => [asset.id, asset.body]);
-                    return documents.map(({ body }) => ({ data: { portfolio: body, assets: available }, body }));
-                }),
+            SqlClient.SqlClient.use(
+                (sql) => sql`SELECT COALESCE(d.revision, 0) AS revision, json_object('portfolio', json(COALESCE(d.body, ${JSON.stringify({ name: '', introduction: '', email: '', entries: [] } satisfies typeof StoredPortfolio.Type)})), 'assets', (
+                    SELECT json_group_object(a.id, json(json_set(json_remove(a.body,'$.uploads','$.objectKey','$.removing'),'$.id',a.id))) FROM assets a
+                    WHERE a.${sql('objectKey')} IS NOT NULL AND a.removing IS NOT TRUE AND (
+                        s.state = 'draft' OR a.id IN (SELECT asset_id FROM (${portfolioReferences(sql)}) WHERE state = s.state)
+                    )
+                )) AS data
+                FROM (SELECT ${selected} AS state) s LEFT JOIN documents d ON d.state = s.state`,
             ),
     }),
-    Effect.flatMap(({ data, body }) => contentEtag(body).pipe(Effect.map((etag) => ({ data, etag })))),
-    Effect.catchTag(['SqlError', 'SchemaError', 'NoSuchElementError', 'PlatformError'], unavailable),
+    Effect.catchTag(['SqlError', 'SchemaError', 'NoSuchElementError'], unavailable),
 );
 const writeDocument = Effect.fn('writeDocument')(
-    function* (portfolio: typeof StoredPortfolio.Type, publish: boolean, etag: string) {
-        const sql = yield* D1Client.D1Client;
-        const previous = yield* findOne({
-            Request: Schema.Void,
-            Result: Schema.Struct({ body: Schema.String }),
-            execute: () => sql`SELECT COALESCE((SELECT body FROM documents WHERE state = 'draft'),${emptyBody}) AS body`,
-        })(undefined);
-        if (isPreconditionFailure(new Headers({ 'if-match': etag }), yield* contentEtag(previous.body), undefined)) {
-            return yield* PreconditionFailed.make();
-        }
-        const body = yield* Schema.encodeEffect(Schema.fromJsonString(StoredPortfolio))(portfolio);
-        const digest = yield* contentEtag(body);
-        const unchanged = sql`COALESCE((SELECT body FROM documents WHERE state = 'draft'),${emptyBody}) = ${previous.body}`;
+    function* (portfolio: typeof StoredPortfolio.Type, publish: boolean, revision: number) {
+        const sql = yield* SqlClient.SqlClient;
+        const body = yield* Schema.encodeEffect(documents.fields.body)(portfolio);
         const references = sql`NOT EXISTS (
             SELECT 1 FROM json_tree(${body}) j LEFT JOIN assets a
                 ON a.id = CASE WHEN j.type = 'object' THEN j.value ->> '$.assetId' END
             WHERE CASE WHEN j.type = 'object' THEN json_type(j.value, '$.assetId') = 'text' AND (
-                a.id IS NULL OR a.body ->> '$.objectKey' IS NULL OR a.body ->> '$.removing' = 1 OR
+                a.id IS NULL OR a.${sql('objectKey')} IS NULL OR a.removing IS TRUE OR
                 CASE
                     WHEN j.key = 'poster' OR j.value ->> '$.kind' = 'image' THEN (a.body ->> '$.mime') NOT IN ${sql.in(ImageAsset.fields.mime.literals)}
                     WHEN j.value ->> '$.kind' = 'video' THEN (a.body ->> '$.mime') NOT IN ${sql.in(VideoAsset.fields.mime.literals)}
@@ -75,46 +63,44 @@ const writeDocument = Effect.fn('writeDocument')(
                 END
             ) END
         )`;
-        const result = yield* findOne({
-            Request: Schema.Void,
-            Result: Schema.Struct({ status: Schema.Literals(['saved', 'stale', 'missing']) }),
-            execute: () =>
-                sql
-                    .batch([
-                        sql`INSERT INTO documents(state,body) SELECT 'draft',${body} WHERE ${unchanged} AND ${references}
-                            ON CONFLICT(state) DO UPDATE SET body = excluded.body`,
-                        sql`SELECT CASE WHEN changes() > 0 THEN 'saved' WHEN NOT (${unchanged}) THEN 'stale' ELSE 'missing' END AS status`,
-                        sql`INSERT INTO documents(state,body) SELECT 'published',${body} WHERE ${publish} AND changes() > 0
-                            ON CONFLICT(state) DO UPDATE SET body = excluded.body`,
-                    ])
-                    .pipe(Effect.map(([, status]) => status)),
-        })(undefined);
-        return yield* Match.value(result.status).pipe(
-            Match.when('saved', () => Effect.succeed(digest)),
-            Match.when('stale', () => Effect.fail(PreconditionFailed.make())),
-            Match.when('missing', () => Effect.fail(HttpApiError.Conflict.make())),
-            Match.exhaustive,
+        const save = sql`INSERT INTO documents (state, body, revision) SELECT 'draft', ${body}, ${revision + 1} WHERE ${references}
+            ON CONFLICT (state) DO UPDATE SET body = excluded.body, revision = excluded.revision
+            WHERE documents.revision = ${revision} AND documents.body IS DISTINCT FROM excluded.body
+            RETURNING revision`;
+        const state = sql`SELECT COALESCE(MAX(revision), 0) AS revision, COALESCE(MAX(body = ${body}), 0) AS unchanged FROM documents WHERE state = 'draft'`;
+        const published = sql`INSERT INTO documents (state, body, revision) SELECT state, body, revision FROM (SELECT 'published' AS state, body, revision FROM documents WHERE state = 'draft' AND body = ${body} AND revision IN (${revision}, ${revision + 1})) WHERE true
+            ON CONFLICT (state) DO UPDATE SET body = excluded.body, revision = excluded.revision
+            WHERE (documents.body, documents.revision) IS DISTINCT FROM (excluded.body, excluded.revision)`;
+        const [saved, [current]] = yield* Effect.flatMap(
+            atomic([save, state, ...(publish ? [published] : [])]),
+            Schema.decodeUnknownEffect(Schema.TupleWithRest(Schema.Tuple([Schema.Array(documents.mapFields(Struct.pick(['revision']))), Schema.Tuple([Schema.Struct({ revision: documents.fields.revision, unchanged: Schema.BooleanFromBit })])]), [Schema.Unknown])),
+        );
+        return yield* Match.value({ saved: Array.head(saved), ...current }).pipe(
+            Match.when({ saved: Option.isSome }, ({ saved: row }) => Effect.succeed(row.value.revision)),
+            Match.when({ revision: (stored: number) => stored !== revision }, () => Effect.fail(PreconditionFailed.make())),
+            Match.when({ unchanged: true }, (row) => Effect.succeed(row.revision)),
+            Match.orElse(() => Effect.fail(HttpApiError.Conflict.make())),
         );
     },
-    Effect.catchTag(['SqlError', 'SchemaError', 'NoSuchElementError', 'PlatformError'], unavailable),
+    Effect.catchTag(['SqlError', 'SchemaError'], unavailable),
 );
 
 // --- [ASSETS]
 const readAsset = flow(
-    findOne({
+    SqlSchema.findOne({
         Request: Schema.Struct({ id: Schema.String, width: Schema.OptionFromNullOr(Schema.Finite) }),
         Result: Schema.Struct({ mime: Schema.String, published: Schema.BooleanFromBit, objectKey: Schema.String }),
         execute: (request) =>
-            D1Client.D1Client.use(
+            SqlClient.SqlClient.use(
                 (sql) => sql`
                 SELECT CASE WHEN ${request.width} IS NULL THEN (a.body ->> '$.mime') ELSE r.value ->> '$.mime' END AS mime,
-                    CASE WHEN ${request.width} IS NULL THEN a.body ->> '$.objectKey' ELSE (a.body ->> '$.objectKey') || '/' || (r.value ->> '$.width') END AS object_key,
+                    CASE WHEN ${request.width} IS NULL THEN a.${sql('objectKey')} ELSE a.${sql('objectKey')} || '/' || (r.value ->> '$.width') END AS ${sql('objectKey')},
                     EXISTS (
                         SELECT 1 FROM (${portfolioReferences(sql)})
                         WHERE state = 'published' AND asset_id = ${request.id}
                     ) AS published
                 FROM assets a LEFT JOIN json_each(a.body, '$.renditions') r ON r.value ->> '$.width' = ${request.width}
-                WHERE a.id = ${request.id} AND a.body ->> '$.objectKey' IS NOT NULL AND COALESCE(a.body ->> '$.removing',0) = 0
+                WHERE a.id = ${request.id} AND a.${sql('objectKey')} IS NOT NULL AND a.removing IS NOT TRUE
                     AND (${request.width} IS NULL OR r.value IS NOT NULL)
             `,
             ),
@@ -124,21 +110,16 @@ const readAsset = flow(
 );
 
 // --- [OWNER]
-const ownerUserId = flow(
-    findOneOption({ Request: Schema.String, Result: Schema.Struct({ userId: Schema.String }), execute: (email) => D1Client.D1Client.use((sql) => sql`SELECT user_id FROM owner WHERE email = ${email}`) }),
-    Effect.map(Option.map(({ userId }) => userId)),
+const ownerUserId = flow(SqlSchema.findOneOption({ Request: owner.fields.email, Result: owner, execute: (email) => Effect.flatten(select(owner, 'email', [email])) }), Effect.map(Option.map(({ userId }) => userId)), Effect.catchTag(['SqlError', 'SchemaError'], unavailable));
+const registerOwner = Effect.fn('registerOwner')(
+    function* (row: typeof owner.Type) {
+        const sql = yield* SqlClient.SqlClient;
+        const [, [stored]] = yield* Effect.flatMap(atomic([sql`INSERT INTO owner ${sql.insert(row)} ON CONFLICT (email) DO NOTHING`, yield* select(owner, 'email', [row.email])]), Schema.decodeUnknownEffect(Schema.Tuple([Schema.Tuple([]), Schema.Tuple([owner])])));
+        return stored.userId;
+    },
     Effect.catchTag(['SqlError', 'SchemaError'], unavailable),
-);
-const registerOwner = flow(
-    findOne({
-        Request: Schema.Struct({ email: Schema.String, userId: Schema.String }),
-        Result: Schema.Struct({ userId: Schema.String }),
-        execute: (owner) => D1Client.D1Client.use((sql) => sql`INSERT INTO owner(email,user_id) VALUES (${owner.email},${owner.userId}) ON CONFLICT(email) DO UPDATE SET user_id = owner.user_id RETURNING user_id`),
-    }),
-    Effect.map(({ userId }) => userId),
-    Effect.catchTag(['SqlError', 'SchemaError', 'NoSuchElementError'], unavailable),
 );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ownerUserId, portfolioReferences, readAsset, readDocument, registerOwner, writeDocument };
+export { catalog, ownerUserId, portfolioReferences, readAsset, readDocument, registerOwner, writeDocument };

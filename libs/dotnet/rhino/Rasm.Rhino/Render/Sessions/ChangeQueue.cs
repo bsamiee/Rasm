@@ -106,7 +106,7 @@ public sealed class DefinedChangeFeed : NativeQueue.ChangeQueue {
                     _ = feed.Swap(static held => held.Map(static value => value with { Pending = (SceneBatch.Empty, Seq<IDisposable>()) }));
                     return Fin.Succ(current.Pending);
                 },
-                None: static () => Fin.Fail<(SceneBatch Batch, Seq<IDisposable> Owned)>(Errors.Cancelled)))),
+                None: static () => Errors.Cancelled))),
             static pending => DisposalOps.Release(pending.Owned),
             pending => retain(new Disposal<SceneBatch>(pending.Batch, _ => DisposalOps.Release(pending.Owned).Run())))
             .Map(static pending => pending.Batch);
@@ -256,16 +256,16 @@ public sealed class DefinedChangeFeed : NativeQueue.ChangeQueue {
 
     // --- [ANSWERS]
     private void Collect(Func<Action<IDisposable>, IO<SceneBatch>> change, [CallerMemberName] string member = "") =>
-        Answer(DisposalOps.Acquire(change, (batch, lease) => atomic(() => feed.Value.Match(
+        Answer(DisposalOps.Replace(change, (batch, lease) => atomicIO(() => feed.Value.Match(
                 Some: current => {
                     _ = feed.Swap(_ => Some(current.Collect(batch, lease)));
                     return Fin.Succ(unit);
                 },
-                None: static () => Fin.Fail<Unit>(Errors.Cancelled))).ThrowIfFail())
+                None: static () => Errors.Cancelled)).Bind(IO.lift))
             .Map(unit), member);
 
     private void Answer(IO<Unit> effect, [CallerMemberName] string member = "") =>
-        Callbacks.Run(effect, new CallbackSite(sink, GetType(), member));
+        Callbacks.Run(effect, new CallbackSite(sink, typeof(DefinedChangeFeed), member));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

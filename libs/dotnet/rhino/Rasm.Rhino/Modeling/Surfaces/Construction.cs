@@ -109,8 +109,8 @@ public static class SurfaceConstruction {
         Copies.Owned(
             () => (Accepted: NurbsSurface.MakeCompatible(a, b, out NurbsSurface first, out NurbsSurface second), A: first, B: second),
             static pair => Refused.Unless(pair.Accepted, pair, nameof(NurbsSurface.MakeCompatible)).Bind(static answer =>
-                (Measurements.Valid(answer.A, nameof(NurbsSurface.MakeCompatible)).ToValidation(), Measurements.Valid(answer.B, nameof(NurbsSurface.MakeCompatible)).ToValidation())
-                    .Apply(static (first, second) => (A: first, B: second)).As().ToFin()),
+                (Measurements.Valid(answer.A, nameof(NurbsSurface.MakeCompatible)), Measurements.Valid(answer.B, nameof(NurbsSurface.MakeCompatible)))
+                    .Apply(static (first, second) => (A: first, B: second)).As()),
             static pair => DisposalOps.Release(pair.A, pair.B), retain);
 
     // --- [EDITS]

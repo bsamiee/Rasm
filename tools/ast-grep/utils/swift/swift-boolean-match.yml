@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: swift-boolean-match
+language: swiftlang
+arguments: [matched, other]
+utils:
+    literal-body:
+        kind: statements
+        all:
+            - has:
+                nthChild: 1
+                any:
+                    - kind: boolean_literal
+                    - kind: control_transfer_statement
+                      regex: '^return\b'
+                      has: {field: result, kind: boolean_literal}
+            - not: {has: {nthChild: 2}}
+    matched-body:
+        matches: literal-body
+        has: {stopBy: end, kind: boolean_literal, pattern: µMATCHED, matches: matched}
+    other-body:
+        matches: literal-body
+        has: {stopBy: end, kind: boolean_literal, pattern: µOTHER, matches: other}
+    matched-return:
+        kind: control_transfer_statement
+        has: {field: result, kind: boolean_literal, matches: matched, not: {pattern: µOTHER}}
+    other-return:
+        kind: control_transfer_statement
+        has: {field: result, kind: boolean_literal, matches: other, not: {pattern: µMATCHED}}
+rule:
+    any:
+        - kind: if_statement
+          regex: '^if\s+case\b'
+          all:
+            - not: {has: {regex: '^else$'}}
+            - has: {kind: statements, matches: matched-body}
+            - precedes: {matches: other-return}
+        - kind: if_statement
+          regex: '^if\s+case\b'
+          all:
+            - has: {regex: '^else$'}
+            - has: {kind: statements, nthChild: {position: 1, ofRule: {kind: statements}}, matches: matched-body}
+            - has: {kind: statements, nthChild: {position: 2, ofRule: {kind: statements}}, matches: literal-body, has: {matches: other-return}}
+            - not: {precedes: {kind: control_transfer_statement}}
+        - kind: guard_statement
+          regex: '^guard\s+case\b'
+          all:
+            - not: {has: {regex: '^,$'}}
+            - has: {kind: statements, matches: other-body}
+            - precedes: {matches: matched-return}

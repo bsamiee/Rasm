@@ -1,0 +1,16 @@
+using Rhino;
+
+internal sealed class ActiveDocWithField(RhinoDoc doc) {
+    internal RhinoDoc Document { get; } = doc;
+
+    internal uint Serial() => {|#0:RhinoDoc.ActiveDoc|}.RuntimeSerialNumber;
+}
+
+internal static class ActiveDocWithParameter {
+    internal static uint Serial(RhinoDoc doc) => {|#1:RhinoDoc.ActiveDoc|}.RuntimeSerialNumber;
+}
+
+internal static class ActiveDocCompared {
+    internal static bool Active(RhinoDoc doc) => doc == RhinoDoc.ActiveDoc;
+    internal static uint Current() => RhinoDoc.ActiveDoc.RuntimeSerialNumber;
+}

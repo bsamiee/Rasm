@@ -47,7 +47,7 @@ public sealed record FilmGrain(
         return Try.lift(() => {
             Fin<(Action<Span<Vector4>, long, long> Draw, Func<Mat, Fin<Unit>> Shape)> draws = state.Scan.Match(
                 Some: scan => context.Derivations.Derived((scan, state.ScanSpan, context.Extent), Scores).Map(tile => (Tiled(tile, field), (Func<Mat, Fin<Unit>>)(static _ => unit))),
-                None: () => Fin.Succ(((Action<Span<Vector4>, long, long>)((row, column, line) => { for (int x = 0; x < row.Length; x++) row[x] = CoordinateHash.Normals(column + x, line, field); }), (Func<Mat, Fin<Unit>>)(header => Normalized(header, sigma)))));
+                None: () => ((row, column, line) => { for (int x = 0; x < row.Length; x++) row[x] = CoordinateHash.Normals(column + x, line, field); }, header => Normalized(header, sigma)));
             return from noise in draws
                    let plane = new PixelFrame(frame.Origin, frame.Size, frame.Extent)
                    from drawn in new PixelPass.Pointwise(noise.Draw).Run(plane, new Progress<int>())
@@ -106,15 +106,15 @@ public sealed record FilmGrain(
                     using Mat header = key.Scan.Frame.Header();
                     using Mat source = new();
                     using Mat resized = new();
-                    using Mat lanes = new();
+                    using Mat mixed = new();
                     using Mat mean = new(4, 4, DepthType.Cv64F, 1);
                     Inter interpolation = footprint < header.Cols ? Inter.Area : Inter.Linear;
                     header.ConvertTo(source, DepthType.Cv64F);
                     CvInvoke.Resize(source, resized, dimensions, 0d, 0d, interpolation);
                     const double third = 1d / 3d;
                     mean.SetTo([1d, 0d, 0d, 0d, 0d, 1d, 0d, 0d, 0d, 0d, 1d, 0d, third, third, third, 0d]);
-                    CvInvoke.Transform(resized, lanes, mean);
-                    ReadOnlySpan<Vector256<double>> texels = new(lanes.DataPointer.ToPointer(), pixels);
+                    CvInvoke.Transform(resized, mixed, mean);
+                    ReadOnlySpan<Vector256<double>> texels = new(mixed.DataPointer.ToPointer(), pixels);
                     for (int lane = 0; lane < 4; lane++) {
                         double[] values = new double[pixels];
                         for (int texel = 0; texel < pixels; texel++) values[texel] = texels[texel][lane];
@@ -168,12 +168,12 @@ public sealed partial class FilmGrainParameter : IStateParameter<FilmGrain> {
 public sealed record SensorNoise(NoiseDeviation Shot, NoiseDeviation Read, AxisFraction Chroma, Seed Seed, Timing Timing, Hold Hold)
     : IStateRecord<SensorNoise, SensorNoiseParameter>, IPixelStage<SensorNoise> {
     public static SensorNoise Default { get; } = new(
-        NoiseDeviation.Create(0.1875f * 0.25f * MathF.Sqrt(Exposure.MiddleGrey)),
+        NoiseDeviation.Create(0.1875f * 0.25f * MathF.Sqrt(Exposure.MiddleGray)),
         NoiseDeviation.Off, AxisFraction.MinValue, Seed.MinValue, Timing.Default, Hold.MinValue);
 
     public static Option<PixelPass> Pass(SensorNoise state, PassContext context) {
         uint field = CoordinateHash.Field(NoiseStream.SensorNoise, state.Seed, state.Hold.Period(state.Timing.At(context)));
-        double shot = double.Log2(state.Shot) - (0.5d * (context.Exposure + double.Log2(Exposure.MiddleGrey)));
+        double shot = double.Log2(state.Shot) - (0.5d * (context.Exposure + double.Log2(Exposure.MiddleGray)));
         double read = double.Log2(state.Read) - context.Exposure;
         Vector4 mix = Draws.Mix(state.Chroma);
         (double X, double Y, double Z) luminance = context.Working.Luminance;

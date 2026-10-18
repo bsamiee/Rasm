@@ -47,23 +47,24 @@ public sealed partial class SetMembership {
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class SetCategory {
-    public static readonly SetCategory Source = new("source", Seq<CyclesKey>(), static _ => Seq(RenderSourceState.Owner));
-    public static readonly SetCategory Resolution = new("resolution", Seq<CyclesKey>(), static _ => Seq(ImageOutputState.Owner, FrameState.Owner));
+    public static readonly SetCategory Source = new("source", [], static _ => [RenderSourceState.Owner]);
+    public static readonly SetCategory Resolution = new("resolution", [], static _ => [ImageOutputState.Owner, FrameState.Owner]);
     public static readonly SetCategory Sampling = new(
         "sampling",
-        Seq(CyclesKey.UseDocumentSamples, CyclesKey.Samples, CyclesKey.UseAdaptiveSampling, CyclesKey.AdaptiveThreshold, CyclesKey.AdaptiveMinSamples,
-            CyclesKey.Seed, CyclesKey.TextureBakeQuality),
-        static _ => Seq<string>());
+        [CyclesKey.UseDocumentSamples, CyclesKey.Samples, CyclesKey.UseAdaptiveSampling, CyclesKey.AdaptiveThreshold, CyclesKey.AdaptiveMinSamples, CyclesKey.Seed, CyclesKey.TextureBakeQuality],
+        static _ => []);
     public static readonly SetCategory LightPaths = new(
         "light-paths",
-        Seq(CyclesKey.RenderPreset, CyclesKey.MaxBounce, CyclesKey.MaxDiffuseBounce, CyclesKey.MaxGlossyBounce, CyclesKey.MaxTransmissionBounce,
+        [
+            CyclesKey.RenderPreset, CyclesKey.MaxBounce, CyclesKey.MaxDiffuseBounce, CyclesKey.MaxGlossyBounce, CyclesKey.MaxTransmissionBounce,
             CyclesKey.MaxVolumeBounce, CyclesKey.TransparentMaxBounce, CyclesKey.AoBounces, CyclesKey.SampleClampDirect, CyclesKey.SampleClampIndirect,
-            CyclesKey.FilterGlossy, CyclesKey.CausticsReflective, CyclesKey.CausticsRefractive, CyclesKey.UseDirectLight, CyclesKey.UseIndirectLight),
-        static _ => Seq<string>());
-    public static readonly SetCategory Channels = new("channels", Seq<CyclesKey>(), static _ => Seq(RenderChannelsState.Owner));
-    public static readonly SetCategory Environment = new("environment", Seq<CyclesKey>(), static _ => Seq(BackgroundState.Owner, LightingState.Owner, SunState.Owner));
+            CyclesKey.FilterGlossy, CyclesKey.CausticsReflective, CyclesKey.CausticsRefractive, CyclesKey.UseDirectLight, CyclesKey.UseIndirectLight,
+        ],
+        static _ => []);
+    public static readonly SetCategory Channels = new("channels", [], static _ => [RenderChannelsState.Owner]);
+    public static readonly SetCategory Environment = new("environment", [], static _ => [BackgroundState.Owner, LightingState.Owner, SunState.Owner]);
     public static readonly SetCategory Color = new(
-        "color", Seq<CyclesKey>(), static effects => Seq(LinearWorkflowState.Owner, DitheringState.Owner) + effects.Bindings.Map(static binding => binding.Owner));
+        "color", [], static effects => [LinearWorkflowState.Owner, DitheringState.Owner, .. effects.Bindings.Map(static binding => binding.Owner)]);
 
     public Seq<CyclesKey> CyclesKeys { get; }
 
@@ -76,8 +77,7 @@ public sealed partial class SetCategory {
 
     public LanguageExt.HashSet<EntryKey> Keys(BindingGroup bindings, BindingGroup effects) =>
         toHashSet(Owners(effects)) switch {
-            var owners => toHashSet(
-                bindings.Keys().Filter(key => owners.Contains(key.Owner)) + CyclesKeys.Map(static item => new EntryKey(CyclesKey.Owner, Seq(item.Key)))),
+            var owners => [.. bindings.Keys().Filter(key => owners.Contains(key.Owner)), .. CyclesKeys.Map(static item => new EntryKey(CyclesKey.Owner, [item.Key]))],
         };
 }
 
@@ -129,7 +129,7 @@ public sealed partial class SetBook {
     public Fin<(SetBook Book, Option<ValueSet> Live)> Spread(Option<SetName> alone, ValueSet incoming) =>
         alone.Match(
             Some: name => Find(name).Map(set => Merged(Map((name, set)), incoming, static _ => [])),
-            None: () => Fin.Succ(Merged(Sets.Filter(static set => set.Membership.Syncs), incoming, static set => set.Locks)));
+            None: () => Merged(Sets.Filter(static set => set.Membership.Syncs), incoming, static set => set.Locks));
 
     private (SetBook Book, Option<ValueSet> Live) Merged(Map<SetName, RenderSet> targets, ValueSet incoming, Func<RenderSet, LanguageExt.HashSet<EntryKey>> locks) =>
         (new SetBook(toSeq(targets.AsIterable()).Fold(Sets, (sets, target) => sets.SetItem(target.Key, target.Value with {
@@ -164,20 +164,18 @@ public sealed partial class SetBook {
         ArchivableDictionaries.Required<ArchivableDictionary>(source, SetsKey)
             .Bind(ArchivableDictionaries.Children)
             .Bind(static rows => Callbacks.Each(rows, static (row, _) =>
-                (SetName.Validated(row.Key).ToValidation(), ArchivedSet(row.Value).ToValidation())
+                (SetName.Validated(row.Key), ArchivedSet(row.Value))
                     .Apply(static (name, set) => (Name: name, Set: set))
-                    .As()
-                    .ToFin()))
-            .Bind(static rows => Callbacks.Unique(rows, static row => row.Name, nameof(ArchiveV1)).ToFin())
+                    .As()))
+            .Bind(static rows => Callbacks.Unique(rows, static row => row.Name, nameof(ArchiveV1)))
             .Bind(static rows => ValidationResults.ToFin(Validate(toMap(rows), out SetBook? book), book));
 
     private static Fin<RenderSet> ArchivedSet(ArchivableDictionary source) =>
-        (ArchivableDictionaries.Required<string>(source, MembershipKey).Bind(SetMembership.Validated).ToValidation(),
-         ArchivableDictionaries.Required<ArchivableDictionary>(source, LocksKey).Bind(ArchivedLocks).ToValidation(),
-         ArchivableDictionaries.Find<ArchivableDictionary>(source, ValuesKey).Bind(static found => found.Traverse(ValueSet.ArchiveV1).As()).ToValidation())
+        (ArchivableDictionaries.Required<string>(source, MembershipKey).Bind(SetMembership.Validated),
+         ArchivableDictionaries.Required<ArchivableDictionary>(source, LocksKey).Bind(ArchivedLocks),
+         ArchivableDictionaries.Find<ArchivableDictionary>(source, ValuesKey).Bind(static found => found.Traverse(ValueSet.ArchiveV1).As()))
             .Apply(static (membership, locks, stored) => new RenderSet(membership, locks, stored))
-            .As()
-            .ToFin();
+            .As();
 
     private static Fin<LanguageExt.HashSet<EntryKey>> ArchivedLocks(ArchivableDictionary source) =>
         ArchivedPaths(source).Map(static paths => toHashSet(paths.Map(static path => new EntryKey(path[0], path.Tail))));
@@ -185,7 +183,7 @@ public sealed partial class SetBook {
     private static Fin<Seq<Seq<string>>> ArchivedPaths(ArchivableDictionary source) =>
         from rows in ArchivableDictionaries.Children(source)
         from paths in Callbacks.Each(rows, static (row, _) =>
-            row.Value.Count is 0 ? Fin.Succ(Seq(Seq(row.Key))) : ArchivedPaths(row.Value).Map(tails => tails.Map(tail => row.Key.Cons(tail))))
+            row.Value.Count is 0 ? Seq(Seq(row.Key)) : ArchivedPaths(row.Value).Map(tails => tails.Map(tail => row.Key.Cons(tail))))
         select paths.Flatten();
 }
 
@@ -328,7 +326,7 @@ public static class RenderSets {
         RowSource.Opaque(Owner, "expanded", LanguageExt.HashSet<BoardKey>.Empty);
 
     public static Seq<Child> Rows() =>
-        Seq<Child>(
+        [
             ListRows.List("Render Sets", "Render sets of this document, the checked set holding the live settings", new ListRow<SetRow, SetName>(
                     IterableNE.create(
                         ListColumn.Named<SetRow, SetName, string>(None, SetRow.Named, None),
@@ -348,7 +346,7 @@ public static class RenderSets {
                     new CommandRow.Run(Face("render-set-remove", "Remove Render Sets", "Remove the selected render sets"), None, static scope =>
                         from held in Served(scope)
                         from picked in scope.Read(Picked.Source)
-                        from removed in toSeq(picked).TraverseM(name => Remove(held.History, held.Doc, name)).As()
+                        from removed in Callbacks.Each(toSeq(picked).Map(name => Remove(held.History, held.Doc, name)))
                         select unit))),
                 Commands = SetCommands,
             },
@@ -371,10 +369,12 @@ public static class RenderSets {
                 Wording = Wording.Library,
                 Commands = BoardCommands,
             },
-                RowRules.Always));
+                RowRules.Always),
+        ];
 
     private static Seq<CommandRow> SetCommands(IO<Seq<SetRow>> selection) =>
-        Seq<CommandRow>(new CommandRow.Radio(
+        [
+            new CommandRow.Radio(
                 Face("render-set-membership", "Membership", "Which writes the selected sets take and whether they render"), None,
                 toSeq(SetMembership.Items).Map(membership => new CommandRow.Check(
                     new CommandFace($"render-set-{membership.Key}", membership.Caption, membership.Help, None, None) { Wording = Wording.Localized }, None,
@@ -382,21 +382,22 @@ public static class RenderSets {
                     (scope, enabled) => when(enabled,
                         from held in Served(scope)
                         from rows in selection
-                        from ruled in rows.TraverseM(row => Rule(held.History, held.Doc, row.Key, Some(membership), None)).As()
-                        select unit).As()))))
-            + toSeq(SetCategory.Items).Map<CommandRow>(category => Writer(
+                        from ruled in Callbacks.Each(rows.Map(row => Rule(held.History, held.Doc, row.Key, Some(membership), None)))
+                        select unit).As()))),
+            .. toSeq(SetCategory.Items).Map(category => Writer(
                 new CommandFace($"render-set-sync-{category.Key}", RowText.Localize("Sync {0}", arguments: [category.Caption]).Local,
                     RowText.Localize("Copy the selected set's {0} settings into every synced set", arguments: [category.Caption]).Local, None, None) { Wording = Wording.Localized },
-                Seq<RowSource>(Picked.Source), selection,
-                (_, held, rows) => rows.Head.Traverse(row => Category(held.History, held.Doc, row.Key, category).Map(Everywhere)).As()))
-                .Add(Writer(Face("render-set-apply-all", "Apply to All Sets", "Write the selected set's settings into every synced set"), Seq<RowSource>(Picked.Source), selection,
-                    static (_, held, rows) => rows.Head.Traverse(row => Values(held.History, held.Doc, row.Key).Map(Everywhere)).As()));
+                [Picked.Source], selection,
+                (_, held, rows) => rows.Head.Traverse(row => Category(held.History, held.Doc, row.Key, category).Map(Everywhere)).As())),
+            Writer(Face("render-set-apply-all", "Apply to All Sets", "Write the selected set's settings into every synced set"), [Picked.Source], selection,
+                static (_, held, rows) => rows.Head.Traverse(row => Values(held.History, held.Doc, row.Key).Map(Everywhere)).As()),
+        ];
 
     private static Seq<CommandRow> BoardCommands(IO<Seq<BoardRow>> selection) =>
-        Seq<CommandRow>(
-            Writer(Face("render-set-board-apply-all", "Apply to All Sets", "Write each selected set value into every synced set"), Seq<RowSource>(Chosen.Source), selection,
+        [
+            Writer(Face("render-set-board-apply-all", "Apply to All Sets", "Write each selected set value into every synced set"), [Chosen.Source], selection,
                 static (_, _, rows) => IO.pure(Incoming(rows).Map(Everywhere))),
-            Writer(Face("render-set-board-apply-set", "Apply to Selected Set", "Write each selected set value into the set selected in the set list"), Seq<RowSource>(Chosen.Source, Picked.Source), selection,
+            Writer(Face("render-set-board-apply-set", "Apply to Selected Set", "Write each selected set value into the set selected in the set list"), [Chosen.Source, Picked.Source], selection,
                 static (scope, _, rows) =>
                     from picked in scope.Read(Picked.Source)
                     select from incoming in Incoming(rows)
@@ -407,8 +408,8 @@ public static class RenderSets {
                 (scope, enabled) =>
                     from held in Served(scope)
                     from rows in selection
-                    from ruled in toSeq(ValueRows(rows).GroupBy(static value => value.Set))
-                        .TraverseM(set => Rule(held.History, held.Doc, set.Key, None, Some((toHashSet(set.Select(static value => value.Entry)), enabled)))).As()
+                    from ruled in Callbacks.Each(toSeq(ValueRows(rows).GroupBy(static value => value.Set))
+                        .Map(set => Rule(held.History, held.Doc, set.Key, None, Some((toHashSet(set.Select(static value => value.Entry)), enabled)))))
                     select unit),
             new CommandRow.Check(Face("render-set-board-lock-section", "Lock for Presets", "Keep the selected settings out of every preset apply, paste, and reset"), None,
                 scope =>
@@ -419,7 +420,8 @@ public static class RenderSets {
                     from rows in selection
                     let keys = SettingKeys(rows)
                     from locked in when(!keys.IsEmpty, scope.Lock(keys, enabled)).As()
-                    select unit));
+                    select unit),
+        ];
 
     private static IO<Change<Seq<SetRow>>> Edited(RenderHistory history, RhinoDoc doc, Seq<SetRow> items) =>
         from book in Book(doc)
@@ -439,7 +441,7 @@ public static class RenderSets {
         CommandFace face, Seq<RowSource> reads, IO<Seq<TItem>> selection, Func<RowScope, (RhinoDoc Doc, RenderHistory History), Seq<TItem>, IO<Option<(Option<SetName> Alone, ValueSet Incoming)>>> plan)
         where TItem : notnull =>
         new(face,
-            Some(new RowRule(Seq<EntryKey>(), reads, scope =>
+            Some(new RowRule([], reads, scope =>
                 from held in Served(scope)
                 from rows in selection
                 from planned in plan(scope, held, rows)

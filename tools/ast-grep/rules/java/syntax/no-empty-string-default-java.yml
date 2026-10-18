@@ -39,14 +39,14 @@ utils:
                 - has: {kind: method_invocation, all: [{has: {field: name, regex: '^length$'}}, {has: {field: object, matches: subject}}]}
                 - has: {kind: decimal_integer_literal, regex: '^0$'}
 rule:
-    matches: empty-default
     all:
+        - matches: empty-default
         - any:
             - inside:
                 kind: variable_declarator
                 field: value
                 has: {field: name, pattern: $NAME}
-                inside: {kind: 'field_declaration, local_variable_declaration', has: {field: type, regex: '^(String|var)$'}}
+                inside: {kind: 'field_declaration, local_variable_declaration', has: {field: type, regex: '^String$'}}
             - inside: {kind: assignment_expression, field: right, all: [{has: {field: operator, pattern: $$_OPERATOR, regex: '^=$'}}, {has: {field: left, matches: subject}}]}
         - inside:
             kind: method_declaration, constructor_declaration, compact_constructor_declaration, lambda_expression, static_initializer, class_body

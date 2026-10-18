@@ -96,12 +96,12 @@ public sealed partial class PassName {
             : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"pass name '{value}' must be non-empty, free of NUL, and at most {NameBytes - 2} UTF-8 bytes"));
 }
 
-public sealed record IdentityLayer(ushort Id, PassName Name, Vector3 Colour) {
+public sealed record IdentityLayer(ushort Id, PassName Name, Vector3 Color) {
     internal static Action<ReadOnlySpan<Vector4>, Span<Vector4>> Fill(Seq<IdentityLayer> entries) {
-        FrozenDictionary<float, Vector4> colours = entries.DistinctBy(static entry => entry.Id).ToFrozenDictionary(static entry => (float)entry.Id, static entry => new Vector4(entry.Colour, 1f));
+        FrozenDictionary<float, Vector4> colors = entries.DistinctBy(static entry => entry.Id).ToFrozenDictionary(static entry => (float)entry.Id, static entry => new Vector4(entry.Color, 1f));
         return (ids, matte) => {
             for (int x = 0; x < ids.Length; x++)
-                matte[x] = colours.GetValueOrDefault(ids[x].X, Vector4.Zero);
+                matte[x] = colors.GetValueOrDefault(ids[x].X, Vector4.Zero);
         };
     }
 }
@@ -214,18 +214,18 @@ public sealed record PassSet {
     public PassLayout Layout { get; }
     internal Seq<ExrLayer> Layers { get; }
 
-    public static Validation<Error, PassSet> From(ReaderConvention convention, Option<Camera> camera, PassLayout layout, Seq<ExrPass> passes) =>
-        from groups in passes.Traverse(pass => pass.Layers(convention, camera).ToValidation()).As()
+    public static Fin<PassSet> From(ReaderConvention convention, Option<Camera> camera, PassLayout layout, Seq<ExrPass> passes) =>
+        from groups in passes.Traverse(pass => pass.Layers(convention, camera)).As()
         let layers = groups.Flatten().Strict()
         from names in toSeq(convention.Beauty.Cons(layers.Map(static layer => layer.Name).Somes()).CountBy(static name => name))
-            .Traverse(static count => count.Value is 1 ? Validation.Success<Error, Unit>(unit) : Error.New($"pass name {count.Key} repeats in one pass set"))
+            .Traverse(static count => count.Value is 1 ? Fin.Succ(unit) : Error.New($"pass name {count.Key} repeats in one pass set"))
             .As()
         select new PassSet(convention, layout, layers);
 
-    internal Validation<Error, Unit> Fits(PixelFrame beauty) =>
+    internal Fin<Unit> Fits(PixelFrame beauty) =>
         Layers.Map(static (layer, index) => (Frame: layer.Source, Index: index + 1))
             .Traverse(entry => entry.Frame.Extent == beauty.Extent && Layout.Map(parts: true, interleaved: entry.Frame.Window == beauty.Window)
-                ? Validation.Success<Error, Unit>(unit)
+                ? Fin.Succ(unit)
                 : Error.New(string.Create(CultureInfo.InvariantCulture, $"pass layer {entry.Index} window {entry.Frame.Window} on {entry.Frame.Extent} differs from the beauty canvas")))
             .As()
             .Map(static _ => unit);
@@ -241,7 +241,7 @@ internal static class ExrParts {
                 layer.Kind.Associate(row);
             });
             return layer.Kind.Channels
-                .Map((letter, lane) => new ChannelBuffer(layer.Name.Match(Some: name => $"{name}.{letter}", None: () => letter), sample.Type, planes[lane]))
+                .Map((letter, channel) => new ChannelBuffer(layer.Name.Match(Some: name => $"{name}.{letter}", None: () => letter), sample.Type, planes[channel]))
                 .Strict();
         }
 

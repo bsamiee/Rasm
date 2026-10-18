@@ -34,6 +34,7 @@ enum Discard {
     Unmatched,
     View,
     Iterated,
+    Flattened,
     Statement,
 }
 
@@ -202,7 +203,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 if segment.ident.name == sym::flatten
                     && let Some(item) = get_iterator_item_ty(cx, typeck.expr_ty_adjusted(items))
                     && let Some((_, error)) = result_parts(cx, item).filter(|&(_, error)| failing(cx, error)) =>
-                Some((segment.ident.span.to(expr.span.shrink_to_hi()), Discard::Iterated, segment.ident.to_string(), error)),
+                Some((segment.ident.span.to(expr.span.shrink_to_hi()), Discard::Flattened, segment.ident.to_string(), error)),
             ExprKind::Call(_, [dropped])
                 if fn_def_id(cx, expr).is_diag_item(cx, sym::mem_drop)
                     && let Some(error) = self.failure(cx, dropped, expr) =>
@@ -232,7 +233,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && match discard {
                 Discard::View => approx_ty_size(cx, error) > 0 && !body_output(cx, cx.tcx.hir_enclosing_body_owner(expr.hir_id)).is_some_and(Ty::is_bool),
                 Discard::Absence => approx_ty_size(cx, error) > 0,
-                Discard::Fallback | Discard::Success | Discard::Unmatched | Discard::Iterated | Discard::Statement =>
+                Discard::Fallback | Discard::Success | Discard::Unmatched | Discard::Iterated | Discard::Flattened | Discard::Statement =>
                     typeck.expr_ty(expr).opt_def_id().is_none_or(|produced| Some(produced) != self.exit_code),
             }
         {
@@ -277,7 +278,8 @@ fn report<'tcx>(cx: &LateContext<'tcx>, node: HirId, span: Span, discard: Discar
         Discard::Absence => (format!("`{label}` turns `{error}` into `None`"), "return the `Result` with `?`, or convert its error into a caller variant with `map_err`"),
         Discard::Unmatched => (format!("pattern of `{label}` leaves `{error}` unmatched"), HANDLED),
         Discard::View => (format!("`{label}` tests the `Result` and drops `{error}`"), "match the `Result` and handle `Err` in place of the test"),
-        Discard::Iterated => (format!("`{label}` iterates results and skips each `{error}`"), "collect into `Result<Vec<_>, _>`, or call `Itertools::partition_result` to keep every error"),
+        Discard::Iterated => (format!("`{label}` iterates the `Result` and skips its `{error}`"), HANDLED),
+        Discard::Flattened => (format!("`{label}` iterates results and skips each `{error}`"), "collect into `validated::Validated<Vec<_>, _>` and call `.ok()` to keep every error"),
         Discard::Statement => (format!("`{label}` drops a `Result` and its unhandled `{error}`"), "match the `Result`, or return it with `?`"),
     };
     span_lint_hir_and_then(cx, DISCARDED_ERROR, node, span, message, |diag| {

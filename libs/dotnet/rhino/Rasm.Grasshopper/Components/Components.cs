@@ -54,29 +54,29 @@ public sealed record ComponentRow<TSelf>(
         Nomen face, IGlyph glyph, int master, SpecialColour accent, Seq<ParameterRow> inputs, Seq<ParameterField<TRecord>> fields, Seq<ParameterRow> outputs,
         Seq<Guid> supportedPins, TRecord fallback, Func<TSelf, IDataAccess, TRecord, IO<Unit>> solve)
         where TRecord : notnull =>
-        new(face, glyph, master, accent, inputs.Concat(fields.Map(static field => field.Input)).Strict(), outputs, supportedPins,
+        new(face, glyph, master, accent, [.. inputs, .. fields.Map(static field => field.Input)], outputs, supportedPins,
             (owner, access) => ParameterField.Read(fields, inputs.Count, access).Bind(set => solve(owner, access, set(fallback))));
 }
 
-public sealed record SolveUnits(Tolerances Tolerances, double UnitsPerMetre) {
+public sealed record SolveUnits(Tolerances Tolerances, double UnitsPerMeter) {
     // --- [READ]
     public static IO<SolveUnits> Read(IDataAccess access) =>
-        from native in IO.lift(Fin<(double Absolute, double Relative, double Angle, double UnitsPerMetre)> () => {
+        from native in IO.lift(Fin<(double Absolute, double Relative, double Angle, double UnitsPerMeter)> () => {
             _ = access.GetTolerance(out double absolute);
             _ = access.GetTolerance(out Angle angle);
-            _ = access.GetUnitScaling(UnitSystem.Meters, out double unitsPerMetre);
+            _ = access.GetUnitScaling(UnitSystem.Meters, out double unitsPerMeter);
             return (access.GetItem(RelativeTolerancePin.Id, out double pinned) && pinned >= 0d
-                    ? Fin.Succ(pinned)
+                    ? pinned
                     : Refused.UnlessFound(RhinoDoc.ActiveDoc, nameof(RhinoDoc.ActiveDoc)).Map(static document => document.ModelRelativeTolerance))
-                .Map(relative => (Absolute: absolute, Relative: Math.Clamp(relative, 1e-12, 1e6), Angle: angle.Radians, UnitsPerMetre: unitsPerMetre));
+                .Map(relative => (Absolute: absolute, Relative: Math.Clamp(relative, 1e-12, 1e6), Angle: angle.Radians, UnitsPerMeter: unitsPerMeter));
         })
         from tolerances in IO.lift(() => ValidationResults.ToFin(Tolerances.Validate(native.Absolute, native.Relative, native.Angle, Intersection.MeshIntersectionsTolerancesCoefficient, out Tolerances? value), value))
-        select new SolveUnits(tolerances, native.UnitsPerMetre);
+        select new SolveUnits(tolerances, native.UnitsPerMeter);
 
     // --- [LENGTHS]
-    public Length From(double value) => Length.FromMeters(value / UnitsPerMetre);
+    public Length From(double value) => Length.FromMeters(value / UnitsPerMeter);
 
-    public double As(Length length) => length.Meters.ToDouble() * UnitsPerMetre;
+    public double As(Length length) => length.Meters.ToDouble() * UnitsPerMeter;
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -167,7 +167,7 @@ public abstract class DefinedComponent<TSelf> : ModularComponent, IPinCushion wh
                     Fin<A> value = Callbacks.Settled(read(access), requested);
                     captured[(access.Solution, access.Index)] = solved.Match(
                         Succ: _ => value,
-                        Fail: error => value.Match(Succ: _ => Fin.Fail<A>(error), Fail: fault => Fin.Fail<A>(error + fault)));
+                        Fail: error => value.Match(Succ: _ => error, Fail: fault => error + fault));
                 }, retain)
             from expiring in Subscriptions.Attach<EventHandler<SolutionIdEventArgs>>(
                 handler => document.Solution.SolutionAboutToStart += handler,

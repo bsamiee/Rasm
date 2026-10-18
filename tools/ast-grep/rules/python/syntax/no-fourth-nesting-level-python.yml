@@ -17,7 +17,6 @@ utils:
     boundary: {any: [{matches: control}, {matches: function}]}
 rule:
     matches: control
-    pattern: $SCOPE
     inside:
         matches: control
         stopBy: {matches: boundary}
@@ -30,5 +29,3 @@ rule:
                 not: {inside: {matches: control, stopBy: {matches: function}}}
 message: Control flow reaches a fourth nesting level
 note: Rebuild nested decisions or loops with a match, comprehension or pipeline over their inputs
-labels:
-    SCOPE: {style: primary}

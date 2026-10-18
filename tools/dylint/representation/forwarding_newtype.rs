@@ -76,7 +76,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     && (derived || tcx.associated_items(implementation).in_definition_order().filter(|associated| associated.is_fn()).all(|associated| returns_field(cx, associated.def_id, inner)))
                 {
                     let message = with_forced_trimmed_paths!(format!("`impl {} for {name}` exposes every method of the wrapped `{held}` on `{name}`", tcx.item_name(implemented)));
-                    Some((implementation, message, format!("give `{name}` named methods for the operations its callers use")))
+                    Some((implementation, message, with_forced_trimmed_paths!(format!("use `{held}` in place of `{name}`, or give `{name}` methods that keep an invariant of its own"))))
                 } else if !derived
                     && matches!(implemented.opt_diag_name(cx), Some(sym::AsRef | sym::AsMut))
                     && let [method] = tcx.associated_item_def_ids(implementation)

@@ -12,8 +12,11 @@ utils:
                 any:
                     - has: {field: function, regex: '^((::)?(tokio::)?time::)?sleep(_until)?$|^((::)?(tokio::)?task::)?yield_now$'}
                     - has: {field: function, kind: field_expression, has: {field: field, regex: '^tick$'}}
+                    - has: {field: function, matches: {rust-imported-name: {source: {regex: '\btokio::(time|task)::'}, name: {regex: '^(sleep(_until)?|yield_now)$'}}}}
             - kind: call_expression
               has: {field: function, regex: '^((::)?std::)?thread::(sleep(_until)?|yield_now|park_timeout)$'}
+            - kind: call_expression
+              has: {field: function, matches: {rust-imported-name: {source: {regex: '\bstd::thread::'}, name: {regex: '^(sleep(_until)?|yield_now|park_timeout)$'}}}}
     loop-exit:
         kind: 'break_expression, return_expression'
 rule:
@@ -26,4 +29,4 @@ rule:
             - kind: 'loop_expression, for_expression'
               has: {field: body, has: {stopBy: *scope, matches: loop-exit}}
 message: '`$SLEEP` re-tests a condition on each wake in place of awaiting its change'
-note: 'Await the change through `Notify::notified`, `watch::Receiver::changed` or `wait_for`, a channel `recv`, a `JoinHandle`, or `CancellationToken::cancelled`, block a thread on `Condvar::wait_while` or `mpsc::Receiver::recv`, and run periodic work as `while token.run_until_cancelled(interval.tick()).await.is_some()`'
+note: 'Await the change through `Notify::notified`, `watch::Receiver::changed` or `wait_for`, a channel `recv`, a `JoinHandle`, or `CancellationToken::cancelled`, block a thread on `nonpoison::Condvar::wait_while` or `mpsc::Receiver::recv`, run periodic work as `while token.run_until_cancelled(interval.tick()).await.is_some()`, and return the error of a failed call in place of retrying it'

@@ -1,128 +1,84 @@
-import type { Vitest } from '@effect/vitest';
-import { type Arbitrary, Data, Effect, type Equivalence, Function, type Order, pipe, Schema } from 'effect';
+import { assert, type Vitest } from '@effect/vitest';
+import { Arbitrary, Array, type Combiner, Effect, type Equivalence, flow, type Order, type Reducer, Schema } from 'effect';
 import fc from 'fast-check';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Values<A extends Vitest.Arbitraries> = { readonly [K in keyof A]: A[K] extends Schema.Schema<infer T> ? T : A[K] extends Arbitrary.Arbitrary<infer T> ? T : never };
-type Binary<A> = (left: A, right: A) => A;
+type Values<A extends Vitest.Arbitraries> = { readonly [K in keyof A]: Vitest.ArbitraryValue<A[K]> };
 type Registration<S, R = never> = (it: Vitest.MethodsNonLive<R>, subject: S) => void;
+
+// --- [MODELS] --------------------------------------------------------------------------
 
 interface Law<S, A extends Vitest.Arbitraries, E, R> {
     readonly name: string;
     readonly arbitraries: A;
-    readonly predicate: (subject: S, args: Values<A>) => Effect.Effect<boolean, E, R>;
+    readonly holds: (subject: S, values: Values<A>) => Effect.Effect<boolean, E, R>;
 }
-interface Counterexample<S, Args> {
+interface Counterexample<S, V> {
     readonly label: string;
     readonly implementation: S;
-    readonly args: Args;
+    readonly values: V;
 }
-
-// --- [ERRORS] --------------------------------------------------------------------------
-
-type PropertyError = Data.TaggedEnum<{
-    readonly counterexampleAccepted: { readonly property: string; readonly label: string };
-    readonly falsified: { readonly property: string; readonly cause: unknown };
-}>;
-
-const PropertyError: Data.TaggedEnum.Constructor<PropertyError> = Data.taggedEnum<PropertyError>();
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const rejects = <S, V, E, R>(it: Vitest.MethodsNonLive<R>, name: string, holds: (subject: S, values: V) => Effect.Effect<boolean, E, R>, { label, implementation, values }: Counterexample<S, V>): void =>
+    it.effect(`${name} rejects ${label}`, () => Effect.map(holds(implementation, values), (held) => assert.isFalse(held)));
+
 const law =
-    <S, const A extends Vitest.Arbitraries, E, R>({ name, arbitraries, predicate }: Law<S, A, E, R>): Registration<S, R> =>
-    (it, subject): void =>
-        it.effect.prop(name, arbitraries, (args) => predicate(subject, args));
+    <S, const A extends Vitest.Arbitraries, E, R>({ name, arbitraries, holds }: Law<S, A, E, R>): Registration<S, R> =>
+    (it, subject) =>
+        it.effect.prop(name, arbitraries, (values) => holds(subject, values));
 
-const rejection =
-    <S, Args, E, R>(property: string, predicate: (subject: S, args: Args) => Effect.Effect<boolean, E, R>, counterexample: Counterexample<S, Args>): ((it: Vitest.MethodsNonLive<R>) => void) =>
-    (it): void =>
-        it.effect(`${property} rejects ${counterexample.label}`, () =>
-            predicate(counterexample.implementation, counterexample.args).pipe(
-                Effect.filterOrFail(Function.identity),
-                Effect.flip,
-                Effect.mapError(() => PropertyError.counterexampleAccepted({ property, label: counterexample.label })),
-            ),
-        );
-
-const define =
-    <S, const A extends Vitest.Arbitraries, E, R>(property: Law<S, A, E, R>, counterexample: Counterexample<S, Values<A>>): Registration<S, R> =>
-    (it, subject): void => {
-        law(property)(it, subject);
-        rejection(property.name, property.predicate, counterexample)(it);
+const property =
+    <S, const A extends Vitest.Arbitraries, E, R>(spec: Law<S, A, E, R>, counterexample: Counterexample<S, Values<A>>): Registration<S, R> =>
+    (it, subject) => {
+        law(spec)(it, subject);
+        rejects(it, spec.name, spec.holds, counterexample);
     };
 
-// --- [LAWS] ----------------------------------------------------------------------------
-
-const associative = <A>(arbitrary: Arbitrary.Arbitrary<A>, equals: Equivalence.Equivalence<A>): Registration<Binary<A>> =>
-    law({
-        name: 'combine is associative',
-        arbitraries: { a: arbitrary, b: arbitrary, c: arbitrary },
-        predicate: (combine, { a, b, c }) => Effect.sync(() => equals(combine(combine(a, b), c), combine(a, combine(b, c)))),
-    });
-
-const commutative = <A>(arbitrary: Arbitrary.Arbitrary<A>, equals: Equivalence.Equivalence<A>): Registration<Binary<A>> => law({ name: 'combine is commutative', arbitraries: { a: arbitrary, b: arbitrary }, predicate: (combine, { a, b }) => Effect.sync(() => equals(combine(a, b), combine(b, a))) });
-const idempotent = <A>(arbitrary: Arbitrary.Arbitrary<A>, equals: Equivalence.Equivalence<A>): Registration<Binary<A>> => law({ name: 'combine is idempotent', arbitraries: { a: arbitrary }, predicate: (combine, { a }) => Effect.sync(() => equals(combine(a, a), a)) });
-const identity = <A>(arbitrary: Arbitrary.Arbitrary<A>, equals: Equivalence.Equivalence<A>, empty: A): Registration<Binary<A>> => law({ name: 'empty is the identity', arbitraries: { a: arbitrary }, predicate: (combine, { a }) => Effect.sync(() => equals(combine(empty, a), a) && equals(combine(a, empty), a)) });
-
-const equivalence = <A>(arbitrary: Arbitrary.Arbitrary<A>): Registration<Equivalence.Equivalence<A>> =>
-    law({
-        name: 'equivalence is reflexive, symmetric, and transitive',
-        arbitraries: { a: arbitrary, b: arbitrary, c: arbitrary },
-        predicate: (equals, { a, b, c }) => Effect.sync(() => pipe(equals(a, b), (related) => equals(a, a) && related === equals(b, a) && (!(related && equals(b, c)) || equals(a, c)))),
-    });
-
-const order = <A>(arbitrary: Arbitrary.Arbitrary<A>): Registration<Order.Order<A>> =>
-    law({
-        name: 'comparison defines a total order',
-        arbitraries: { a: arbitrary, b: arbitrary, c: arbitrary },
-        predicate: (compare, { a, b, c }) => Effect.sync(() => pipe(compare(a, b), (ordering) => compare(a, a) === 0 && ordering === -compare(b, a) && (!(ordering <= 0 && compare(b, c) <= 0) || compare(a, c) <= 0))),
-    });
-
-const inverse = <A, B>(arbitrary: Arbitrary.Arbitrary<A>, equals: Equivalence.Equivalence<A>): Registration<{ readonly to: (value: A) => B; readonly from: (image: B) => A }> =>
-    law({ name: 'decode recovers each encoded value', arbitraries: { a: arbitrary }, predicate: (codec, { a }) => Effect.sync(() => equals(codec.from(codec.to(a)), a)) });
-
-const deterministic = <I, A, E, R>(arbitrary: Arbitrary.Arbitrary<I>, equals: Equivalence.Equivalence<A>): Registration<(input: I) => Effect.Effect<A, E, R>, R> =>
-    law({ name: 'operation is deterministic', arbitraries: { input: arbitrary }, predicate: (subject, { input }) => pipe(subject(input), (run) => Effect.zipWith(run, run, equals)) });
-
-const homomorphic = <A, B>(arbitrary: Arbitrary.Arbitrary<A>, combine: Binary<A>, combineImage: Binary<B>, equals: Equivalence.Equivalence<B>): Registration<(value: A) => B> =>
-    law({ name: 'map commutes with combine', arbitraries: { a: arbitrary, b: arbitrary }, predicate: (map, { a, b }) => Effect.sync(() => equals(map(combine(a, b)), combineImage(map(a), map(b)))) });
-
-const monotone = <A>(arbitrary: Arbitrary.Arbitrary<A>, compare: Order.Order<A>): Registration<(state: A) => A> => law({ name: 'step is monotone', arbitraries: { a: arbitrary }, predicate: (step, { a }) => Effect.sync(() => compare(a, step(a)) <= 0) });
-
-const total = <I, E, R>(arbitrary: Arbitrary.Arbitrary<I>, counterexample: Counterexample<(input: I) => Effect.Effect<unknown, E, R>, { readonly input: I }>): Registration<(input: I) => Effect.Effect<unknown, E, R>, R> =>
-    define({ name: 'operation is total', arbitraries: { input: arbitrary }, predicate: (subject, { input }) => Effect.isSuccess(subject(input)) }, counterexample);
+const laws = <A>(schema: Schema.Schema<A>) => {
+    const equals = Schema.toEquivalence(schema);
+    return {
+        associative: law({ name: 'combine is associative', arbitraries: { a: schema, b: schema, c: schema }, holds: ({ combine }: Combiner.Combiner<A>, { a, b, c }) => Effect.sync(() => equals(combine(combine(a, b), c), combine(a, combine(b, c)))) }),
+        commutative: law({ name: 'combine is commutative', arbitraries: { a: schema, b: schema }, holds: ({ combine }: Combiner.Combiner<A>, { a, b }) => Effect.sync(() => equals(combine(a, b), combine(b, a))) }),
+        idempotent: law({ name: 'combine is idempotent', arbitraries: { a: schema }, holds: ({ combine }: Combiner.Combiner<A>, { a }) => Effect.sync(() => equals(combine(a, a), a)) }),
+        identity: law({ name: 'initial value is the identity', arbitraries: { a: schema }, holds: ({ combine, initialValue }: Reducer.Reducer<A>, { a }) => Effect.sync(() => equals(combine(initialValue, a), a) && equals(combine(a, initialValue), a)) }),
+        equivalence: law({
+            name: 'equivalence is reflexive, symmetric, and transitive',
+            arbitraries: { a: schema, b: schema, c: schema },
+            holds: (relation: Equivalence.Equivalence<A>, { a, b, c }) => Effect.sync(() => relation(a, a) && relation(a, b) === relation(b, a) && (!(relation(a, b) && relation(b, c)) || relation(a, c))),
+        }),
+        order: law({
+            name: 'comparison is a total order',
+            arbitraries: { a: schema, b: schema, c: schema },
+            holds: (compare: Order.Order<A>, { a, b, c }) => Effect.sync(() => compare(a, a) === 0 && compare(a, b) === -compare(b, a) && (compare(a, b) > 0 || compare(b, c) > 0 || compare(a, c) <= 0)),
+        }),
+        inverse: <B>(it: Vitest.MethodsNonLive, codec: { readonly to: (a: A) => B; readonly from: (b: B) => A }): void => law({ name: 'from inverts to', arbitraries: { a: schema }, holds: ({ to, from }: typeof codec, { a }) => Effect.sync(() => equals(from(to(a)), a)) })(it, codec),
+        monotone: <B>(order: Order.Order<A>, image: Order.Order<B>) => law({ name: 'map preserves order', arbitraries: { a: schema, b: schema }, holds: (map: (a: A) => B, { a, b }) => Effect.sync(() => order(a, b) > 0 || image(map(a), map(b)) <= 0) }),
+        homomorphic: <B>(image: Schema.Schema<B>, combiner: Combiner.Combiner<A>, imageCombiner: Combiner.Combiner<B>) =>
+            law({ name: 'map commutes with combine', arbitraries: { a: schema, b: schema }, holds: (map: (a: A) => B, { a, b }) => Effect.sync(() => Schema.toEquivalence(image)(map(combiner.combine(a, b)), imageCombiner.combine(map(a), map(b)))) }),
+        deterministic: <B, E, R>(output: Schema.Schema<B>) => law({ name: 'operation is deterministic', arbitraries: { a: schema }, holds: (operation: (a: A) => Effect.Effect<B, E, R>, { a }) => Effect.zipWith(operation(a), operation(a), Schema.toEquivalence(output)) }),
+        total: <E, R>(counterexample: Counterexample<(a: A) => Effect.Effect<unknown, E, R>, { readonly a: A }>) => property({ name: 'operation is total', arbitraries: { a: schema }, holds: (operation: (a: A) => Effect.Effect<unknown, E, R>, { a }) => Effect.isSuccess(operation(a)) }, counterexample),
+        covers:
+            <const L extends string>(classify: (a: A) => L | readonly L[], labels: readonly L[], options?: Arbitrary.SampleOptions) =>
+            (it: Vitest.MethodsNonLive): void =>
+                it.effect('generated values cover every class', () => Effect.map(Arbitrary.sampleEffect(Arbitrary.schema(schema), options), (samples) => assert.deepStrictEqual(Array.difference(labels, samples.flatMap(flow(classify, Array.ensure))), []))),
+    };
+};
 
 const interleave =
     (counterexample: Counterexample<(schedule: fc.Scheduler) => Promise<boolean>, { readonly schedule: fc.Scheduler }>): Registration<(schedule: fc.Scheduler) => Promise<boolean>> =>
-    (it, subject): void => {
-        it.effect('holds under every interleaving', () => Effect.tryPromise({ try: () => fc.assert(fc.asyncProperty(fc.scheduler(), subject)), catch: (cause) => PropertyError.falsified({ property: 'holds under every interleaving', cause }) }));
-        rejection('holds under every interleaving', (implementation, { schedule }) => Effect.promise(() => implementation(schedule)), counterexample)(it);
+    (it, subject) => {
+        it('holds under every interleaving', () => fc.assert(fc.asyncProperty(fc.scheduler(), subject)));
+        rejects(it, 'holds under every interleaving', (implementation: typeof subject, { schedule }) => Effect.promise(() => implementation(schedule)), counterexample);
     };
-
-const roundtrip = <A, I>(it: Vitest.MethodsNonLive, codec: Schema.Codec<A, I>): void =>
-    it.effect.prop('codec round-trips', { value: codec }, ({ value }) =>
-        Schema.encodeEffect(codec)(value).pipe(
-            Effect.flatMap(Schema.decodeEffect(codec)),
-            Effect.map((decoded) => Schema.toEquivalence(codec)(value, decoded)),
-        ),
-    );
 
 const machine =
-    <Model extends object, Real>(commands: readonly fc.Arbitrary<fc.Command<Model, Real>>[]): Registration<() => { readonly model: Model; readonly real: Real }> =>
-    (it, setup): void => {
-        const property = fc.property(fc.commands([...commands]), (run) => fc.modelRun(setup, run));
-        it.effect('system conforms to its model', () => Effect.try({ try: () => fc.assert(property), catch: (cause) => PropertyError.falsified({ property: 'system conforms to its model', cause }) }));
-    };
-
-const asyncMachine =
-    <Model extends object, Real>(commands: readonly fc.Arbitrary<fc.AsyncCommand<Model, Real>>[]): Registration<() => { readonly model: Model; readonly real: Real }> =>
-    (it, setup): void => {
-        const property = fc.asyncProperty(fc.commands([...commands]), (run) => fc.asyncModelRun(setup, run));
-        it.effect('asynchronous system conforms to its model', () => Effect.tryPromise({ try: () => fc.assert(property), catch: (cause) => PropertyError.falsified({ property: 'asynchronous system conforms to its model', cause }) }));
-    };
+    <Model extends object, Real>(commands: readonly fc.Arbitrary<fc.AsyncCommand<Model, Real, boolean>>[]): Registration<() => { readonly model: Model; readonly real: Real }> =>
+    (it, setup) =>
+        it('system conforms to its model', () => fc.assert(fc.asyncProperty(fc.commands([...commands]), (run) => fc.asyncModelRun(setup, run))));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { associative, asyncMachine, type Binary, type Counterexample, commutative, define, deterministic, equivalence, homomorphic, idempotent, identity, interleave, inverse, type Law, law, machine, monotone, order, PropertyError, type Registration, roundtrip, total, type Values };
+export { type Counterexample, interleave, type Law, law, laws, machine, property, type Registration };

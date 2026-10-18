@@ -384,41 +384,40 @@ class Snapshot(msgspec.Struct, frozen=True, kw_only=True):
         """Returns unlocked sparse assignments and their complete matching state."""
         try:
             definition: bpy.types.Struct = owner.bl_rna  # type: ignore[assignment, union-attr]  # ty: ignore[invalid-assignment, unresolved-attribute]
-            incompatible = tuple(
-                BlenderChoiceFault(path=repr(owner), identifier=snapshot.struct, accepted=(definition.identifier,)) for snapshot in (self, current) if snapshot.struct != definition.identifier
-            )
-            if incompatible:
-                return Result[tuple[Snapshot, Snapshot], BlenderFaults](error=(incompatible[0], *incompatible[1:]))
-
-            def within(path: str, roots: frozenset[str]) -> bool:
-                return any(path == root or beneath(path, root) for root in roots)
-
-            free = {
-                key: Owner(
-                    values={name: value for name, value in held.values.items() if not within(member_path(key, name), locked)},
-                    children=tuple(child for child in held.children if not within(child, locked)),
-                )
-                for key, held in self.tree.owners.items()
-                if not within(key, locked)
-            }
-            compounds = frozenset(
-                key
-                for key in free
-                if key
-                for descriptor in Descriptor.resolve(owner, key, bpy.types.Property).to_option().to_list()
-                if isinstance(descriptor.prop, bpy.types.CollectionProperty)
-                or (isinstance(descriptor.prop, bpy.types.PointerProperty) and isinstance(descriptor.prop.fixed_type, bpy.types.CurveMapping | bpy.types.CurveProfile))
-            )
-            values = {key: held for key, held in current.tree.owners.items() if not within(key, compounds)}
-            for key, held in free.items():
-                previous = values.get(key, Owner(values={}))
-                values[key] = held if within(key, compounds) else Owner(values=previous.values | held.values, children=tuple(dict.fromkeys((*previous.children, *held.children))))
-            nested = frozenset(child for held in values.values() for child in held.children)
-            sparse = msgspec.structs.replace(self, tree=Tree(roots=tuple(key for key in self.tree.roots if key in free), owners=free))
-            matching = msgspec.structs.replace(self, tree=Tree(roots=tuple(dict.fromkeys(key for key in (*current.tree.roots, *sparse.tree.roots) if key not in nested)), owners=values))
-            return Ok((sparse, matching))
         except ReferenceError as error:
             return Error((BlenderEditFault(request=repr(owner), error=error),))
+        incompatible = tuple(
+            BlenderChoiceFault(path=repr(owner), identifier=snapshot.struct, accepted=(definition.identifier,)) for snapshot in (self, current) if snapshot.struct != definition.identifier
+        )
+        if incompatible:
+            return Result[tuple[Snapshot, Snapshot], BlenderFaults](error=(incompatible[0], *incompatible[1:]))
+
+        def within(path: str, roots: frozenset[str]) -> bool:
+            return any(path == root or beneath(path, root) for root in roots)
+
+        free = {
+            key: Owner(
+                values={name: value for name, value in held.values.items() if not within(member_path(key, name), locked)}, children=tuple(child for child in held.children if not within(child, locked))
+            )
+            for key, held in self.tree.owners.items()
+            if not within(key, locked)
+        }
+        compounds = frozenset(
+            key
+            for key in free
+            if key
+            for descriptor in Descriptor.resolve(owner, key, bpy.types.Property).to_option().to_list()
+            if isinstance(descriptor.prop, bpy.types.CollectionProperty)
+            or (isinstance(descriptor.prop, bpy.types.PointerProperty) and isinstance(descriptor.prop.fixed_type, bpy.types.CurveMapping | bpy.types.CurveProfile))
+        )
+        values = {key: held for key, held in current.tree.owners.items() if not within(key, compounds)}
+        for key, held in free.items():
+            previous = values.get(key, Owner(values={}))
+            values[key] = held if within(key, compounds) else Owner(values=previous.values | held.values, children=tuple(dict.fromkeys((*previous.children, *held.children))))
+        nested = frozenset(child for held in values.values() for child in held.children)
+        sparse = msgspec.structs.replace(self, tree=Tree(roots=tuple(key for key in self.tree.roots if key in free), owners=free))
+        matching = msgspec.structs.replace(self, tree=Tree(roots=tuple(dict.fromkeys(key for key in (*current.tree.roots, *sparse.tree.roots) if key not in nested)), owners=values))
+        return Ok((sparse, matching))
 
     @classmethod
     def _applied[W](cls, owner: Native, tree: Tree[W], projected: "Callable[[Descriptor, W], Value | bytes | bpy.types.bpy_struct[object] | Tree[NativeValue]]") -> Applied:

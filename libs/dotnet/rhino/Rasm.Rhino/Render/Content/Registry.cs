@@ -64,13 +64,13 @@ public sealed class DefinedContentSerializer : RenderContentSerializer {
                         : Error.New($"Content {created.Content.Id} has no managed serializer identity")).Uninterruptible()), DisposalOps.Release))),
             static () => null,
             static () => null,
-            new CallbackSite(sink, GetType(), nameof(Read)));
+            new CallbackSite(sink, typeof(DefinedContentSerializer), nameof(Read)));
 
     public override bool Write(string pathToFile, RenderContent renderContent, CreatePreviewEventArgs? previewArgs) =>
         Callbacks.Succeeded(
             row.Write.Map(write => OnFile(pathToFile, path => write(path, renderContent, Optional(previewArgs)))),
             static () => false,
-            new CallbackSite(sink, GetType(), nameof(Write)));
+            new CallbackSite(sink, typeof(DefinedContentSerializer), nameof(Write)));
 
     public override bool CanLoadMultiple() => row.LoadMultiple.IsSome;
 
@@ -79,7 +79,7 @@ public sealed class DefinedContentSerializer : RenderContentSerializer {
             from load in row.LoadMultiple
             select Callbacks.Each(toSeq(fileNames).Map(path => OnFile(path, file => Loaded(load, Optional(doc), contentKind, flags, file)))).Map(unit),
             static () => false,
-            new CallbackSite(sink, GetType(), nameof(LoadMultiple)));
+            new CallbackSite(sink, typeof(DefinedContentSerializer), nameof(LoadMultiple)));
 
     // --- [STEPS]
     private IO<Unit> Loaded(ContentLoad load, Option<RhinoDoc> document, RenderContentKind kind, LoadMultipleFlags flags, string path) =>

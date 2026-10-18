@@ -38,7 +38,7 @@ class Mixer(Case, frozen=True, kw_only=True, tag=1):
     @classmethod
     def of(cls, rows: tuple[Rgb, Rgb, Rgb]) -> Self:
         """Constructs output-channel weights from three structural RGB rows."""
-        return cls(**{name: Weights(**msgspec.structs.asdict(row)) for name, row in zip(cls.__struct_fields__, rows, strict=False)})
+        return cls(**{name: Weights(**msgspec.structs.asdict(row)) for name, row in zip(cls.__struct_fields__, rows)})
 
     @property
     def transform(self) -> PyOpenColorIO.MatrixTransform:

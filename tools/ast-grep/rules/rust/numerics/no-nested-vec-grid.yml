@@ -42,21 +42,8 @@ rule:
         - kind: call_expression
           all:
             - any:
-                - pattern: ($RANGE).map($ROW).collect()
-                - pattern: ($RANGE).map($ROW).collect::<$TYPE>()
-            - has: {stopBy: end, kind: range_expression, pattern: $RANGE}
-            - has:
-                stopBy: end
-                kind: closure_expression
-                pattern: $ROW
-                all:
-                    - has: {field: parameters, regex: '^\|\s*_\w*\s*\|$'}
-                    - matches: row-closure
-        - kind: call_expression
-          all:
-            - any:
                 - pattern: $ROWS.collect()
                 - pattern: $ROWS.collect::<$TYPE>()
-            - has: {field: function, has: {field: value, has: {stopBy: end, matches: repeated-row}}}
+            - has: {field: function, has: {field: value, any: [{matches: repeated-row}, {has: {stopBy: end, matches: repeated-row}}]}}
 message: '`$GRID` builds a rectangular grid as a vector of row vectors'
 note: 'Allocate a 2D type: `ndarray::Array2::zeros((<rows>, <cols>))` or `Array2::from_elem((<rows>, <cols>), <value>)` indexed as `grid[[<row>, <col>]]`, `nalgebra::DMatrix::zeros(<rows>, <cols>)`, or `faer::Mat::zeros(<rows>, <cols>)`'

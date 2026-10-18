@@ -169,7 +169,7 @@ public sealed class NumberField<TValue, TKey> : NumberField
         select shown;
 
     public override bool Adjust(int steps) =>
-        Callbacks.Succeeded(Stepping(state, steps, Keys.None), static () => false, new CallbackSite(Sink, GetType(), nameof(Adjust)));
+        Callbacks.Succeeded(Stepping(state, steps, Keys.None), static () => false, new CallbackSite(Sink, typeof(NumberField<TValue, TKey>), nameof(Adjust)));
 
     private IO<FieldState<TValue>> Current => IO.lift(() => state);
 
@@ -368,5 +368,5 @@ public sealed class NumberField<TValue, TKey> : NumberField
     }
 
     private void Run(IO<Unit> effect, [CallerMemberName] string member = "") =>
-        Callbacks.Run(effect, new CallbackSite(Sink, GetType(), member));
+        Callbacks.Run(effect, new CallbackSite(Sink, typeof(NumberField<TValue, TKey>), member));
 }

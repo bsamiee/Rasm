@@ -502,7 +502,31 @@ class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
                 return Ok(Nothing)
 
     def drawn(self, canvas: Canvas, preferences: bpy.types.Preferences) -> None:
-        """Paints the native-themed browser in its exact region."""
+        """Paints the native-themed browser in its exact region, each preset label prefixed by its read or render failure."""
+
+        def captioned(state: Browsed[T], target: Target, numbered: Mapping[str, int]) -> tuple[str, Option[gpu.types.GPUTexture]]:
+            match target:
+                case str(stem):
+                    demand = Option.of_optional(state.demands.get((stem, Rank.SHOWN)))
+                    outcome = demand.bind(lambda held: Option.of_optional(state.outcomes.get(held)))
+                    faults = outcome.bind(lambda result: result.swap().to_option()).or_else(demand.bind(lambda held: held.value.swap().to_option()))
+                    prefix = faults.map(lambda errors: "Missing: " if any(isinstance(error, BlenderAbsentFault) for error in errors) else "Failed: ").default_value("")
+                    number = f"{numbered[stem]}. " if stem in numbered else ""
+                    return (
+                        prefix + number + ("✓ " if state.catalog.current == Some(stem) else "") + bpy.path.display_name(stem),
+                        outcome.bind(lambda result: result.to_option()).bind(lambda held: Some(held) if isinstance(held, gpu.types.GPUTexture) else Nothing),
+                    )
+                case Verb() as verb:
+                    return verb.title, Nothing
+                case BrowserMode() as mode:
+                    return mode.label, Nothing
+                case Gated(enabled=enabled):
+                    return "Fixed" if enabled else "Fit", Nothing
+                case BrowserControl.SIZE:
+                    return f"Size {state.view.layout.size.value:g}", Nothing
+                case BrowserControl.SEARCH:
+                    return "Search: " + state.view.search, Nothing
+
         ui, points, inset = preferences.themes[0].user_interface, canvas.metrics.text(preferences.ui_styles[0].widget), canvas.metrics.spacing.template
         shader = gpu.shader.from_builtin("IMAGE_COLOR")
         located = ((state, spot.placed(canvas, self.browser.main)) for state in self.held.to_list() for spot in self.place.resolved(bpy.context).to_option().to_list())
@@ -648,7 +672,7 @@ class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
 
     # --- [EVENTS]
 
-    def acted(self, act: Act, shifted: bool) -> BlenderResult["rna_enums.OperatorReturnItems"]:
+    def acted(self, act: Act, *, shifted: bool) -> BlenderResult["rna_enums.OperatorReturnItems"]:
         """Invokes the listing's registered operator over the act's record, its CANCELLED closing the browser without a fault."""
         command = self.actions[act.verb]
 
@@ -683,7 +707,7 @@ class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
                 relaid = following.layout != view.layout
                 match reply:
                     case Act() as act:
-                        return hovered.bind(lambda _: self.acted(act, event.shift))
+                        return hovered.bind(lambda _: self.acted(act, shifted=event.shift))
                     case "CANCELLED":
                         return hovered.map(lambda _: "CANCELLED")
                     case "RUNNING_MODAL":
@@ -696,31 +720,6 @@ class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def captioned[T: msgspec.Struct](state: Browsed[T], target: Target, numbered: Mapping[str, int]) -> tuple[str, Option[gpu.types.GPUTexture]]:
-    """Labels a cell, prefixing a preset's read or render failure, and answers its rendered tile."""
-    match target:
-        case str(stem):
-            demand = Option.of_optional(state.demands.get((stem, Rank.SHOWN)))
-            outcome = demand.bind(lambda held: Option.of_optional(state.outcomes.get(held)))
-            faults = outcome.bind(lambda result: result.swap().to_option()).or_else(demand.bind(lambda held: held.value.swap().to_option()))
-            prefix = faults.map(lambda errors: "Missing: " if any(isinstance(error, BlenderAbsentFault) for error in errors) else "Failed: ").default_value("")
-            number = f"{numbered[stem]}. " if stem in numbered else ""
-            return (
-                prefix + number + ("✓ " if state.catalog.current == Some(stem) else "") + bpy.path.display_name(stem),
-                outcome.bind(lambda result: result.to_option()).bind(lambda held: Some(held) if isinstance(held, gpu.types.GPUTexture) else Nothing),
-            )
-        case Verb() as verb:
-            return verb.title, Nothing
-        case BrowserMode() as mode:
-            return mode.label, Nothing
-        case Gated(enabled=enabled):
-            return "Fixed" if enabled else "Fit", Nothing
-        case BrowserControl.SIZE:
-            return f"Size {state.view.layout.size.value:g}", Nothing
-        case BrowserControl.SEARCH:
-            return "Search: " + state.view.search, Nothing
 
 
 def hit(cells: Cells, point: tuple[int, int]) -> Option[Target]:

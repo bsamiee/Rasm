@@ -158,29 +158,17 @@ nonisolated extension ClaudeFailure {
         let onHold: Bool = [decoded?.errorDescription, code].contains("account_on_hold")
         let detail: ClaudeAPIError? = if case .detail(let detail)? = decoded?.error { detail } else { nil }
         let rejected: ClaudeFailure = .http(endpoint, status: status, error: detail)
+        let retryDelay: TimeInterval =
+            header.flatMap { value in UInt(value).map(TimeInterval.init) ?? (try? Date(value, strategy: .http))?.timeIntervalSince(now) }
+            .flatMap { seconds in seconds > 0 ? min(seconds, 86_400) : nil } ?? 300
         return switch endpoint {
-            case _ where status == 429: .rateLimited(endpoint, until: retryDate(header, at: now))
+            case _ where status == 429: .rateLimited(endpoint, until: now.addingTimeInterval(retryDelay))
             case .token where onHold && [400, 401, 403].contains(status):
                 URL(string: decoded?.errorUri ?? "https://claude.ai/restricted")
                     .map(Self.accountOnHold) ?? rejected
             case .token where code == "invalid_grant" && [400, 401].contains(status): .signInRequired
             case .profile, .usage, .token: rejected
         }
-    }
-
-    private static func retryDate(_ header: String?, at now: Date) -> Date {
-        let defaultRetryDelay: TimeInterval = 300
-        let maximumRetryDelay: TimeInterval = 86_400
-        let delay: TimeInterval? = header.flatMap { value in
-            UInt(value).map(TimeInterval.init)
-                ?? (try? Date(value, strategy: .http))?.timeIntervalSince(now)
-        }
-        let wait: TimeInterval =
-            switch delay {
-                case .some(let seconds) where seconds > 0: min(seconds, maximumRetryDelay)
-                case .some, .none: defaultRetryDelay
-            }
-        return now.addingTimeInterval(wait)
     }
 }
 

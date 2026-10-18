@@ -51,7 +51,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         };
         for (field, span) in built.chain(assigned).filter_map(|(field, value)| Some((field, rendered(value)?))) {
             span_lint_hir_and_then(cx, STRINGIFIED_UUID, expr.hir_id, span, format!("field `{field}` holds a `Uuid` rendered to text"), |diag| {
-                diag.help(format!("declare `{field}` as `uuid::Uuid`, its `Display` and serde impls render it where it leaves the program"));
+                diag.help(format!("declare `{field}` as `newtype_uuid::TypedUuid<<Kind>>` for an entity identifier or `uuid::Uuid` otherwise, `Display` and serde render either"));
             });
         }
     }

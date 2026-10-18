@@ -270,9 +270,7 @@ class Execution:
                 lambda values: (
                     Ok((key, values[0]))
                     if len(values) == 1
-                    else node(key, bpy.types.CompositorNodeSwitchView, {name: value for (name, _), value in zip(views, values, strict=True)}, {}).map(
-                        lambda graph: (key, (graph, End(node=key, socket="Image")))
-                    )
+                    else node(key, bpy.types.CompositorNodeSwitchView, {name: value for (name, _), value in zip(views, values)}, {}).map(lambda graph: (key, (graph, End(node=key, socket="Image"))))
                 )
             )
 
@@ -308,7 +306,7 @@ class Execution:
         """Records the explicit job's output encoding at production, before restoring authored controls."""
         enabled = tuple(held for held in self.stack.held(self.identity, self.scene) if held.entry.enable_for_render) if self.scene.render.use_compositing else ()
 
-        def routed(tree: bpy.types.NodeTree, link: bpy.types.NodeLink, entering: BlenderResult[Option[str]], space: BlenderResult[Option[str]]) -> BlenderResult[Option[str]]:
+        def routed(link: bpy.types.NodeLink, entering: BlenderResult[Option[str]], space: BlenderResult[Option[str]]) -> BlenderResult[Option[str]]:
             match link.from_node:
                 case bpy.types.NodeGroupInput():
                     return entering
@@ -319,7 +317,7 @@ class Execution:
                 case bpy.types.CompositorNodeConvertColorSpace() as conversion:
                     return Ok(Some(self.config.getColorSpace(conversion.to_color_space).getName()))
                 case _:
-                    return space if any(isinstance(edge.to_node, bpy.types.NodeGroupOutput) and edge.from_socket == link.from_socket for edge in tree.links) else Ok(Nothing)
+                    return space if any(isinstance(edge.to_node, bpy.types.NodeGroupOutput) for edge in link.from_socket.links) else Ok(Nothing)  # type: ignore[union-attr]  # ty: ignore[not-iterable, unresolved-attribute]
 
         def stepped(state: tuple[BlenderResult[Option[str]], BlenderResult[Option[str]]], held: StackEntry) -> tuple[BlenderResult[Option[str]], BlenderResult[Option[str]]]:
             entering, viewer = state
@@ -331,7 +329,7 @@ class Execution:
                 )
             ).default_value(Ok(Nothing))
             shown = (
-                routed(tree, link, entering, space)
+                routed(link, entering, space)
                 for tree in Option.of_optional(held.entry.node_group).to_list()
                 if held.entry.is_active
                 for live in tree.nodes
@@ -349,10 +347,9 @@ class Execution:
             else f"{Option.of_optional(properties.get('layer')).bind(lambda value: value if isinstance(value, Option) else Some(value)).default_value(self.scene.view_layers[0].name)}.Combined"
         )
         view = (
-            Option
-            .of_optional(self.scene.view_settings)
-            .filter(lambda _: not any(held.row.filter(lambda row: row.record is DisplayView).is_some() for held in enabled))
-            .map(lambda settings: (viewed(self.scene), settings.exposure, settings.gamma))
+            Nothing
+            if any(held.row.filter(lambda row: row.record is DisplayView).is_some() for held in enabled)
+            else Some((viewed(self.scene), self.scene.view_settings.exposure, self.scene.view_settings.gamma))  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
         )
 
         def rendered(origins: tuple[Option[str], Option[str]]) -> BlenderResult[frozenset["rna_enums.OperatorReturnItems"]]:

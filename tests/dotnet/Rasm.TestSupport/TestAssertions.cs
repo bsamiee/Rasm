@@ -25,8 +25,6 @@ public static class Properties {
             T once = function(value);
             Equal(name, once, function(once), equal);
         });
-    public static PropertyDefinition<T> Inverse<T>(string name, Gen<T> generator, Func<T, T> forward, Func<T, T> inverse, Option<Func<T, T, bool>> equal = default) =>
-        Define(name, generator, value => Equal(name, value, inverse(forward(value)), equal));
     public static PropertyDefinition<TIn> Roundtrip<TIn, TOut>(string name, Gen<TIn> generator, Func<TIn, TOut> encode, Func<TOut, TIn> decode, Option<Func<TIn, TIn, bool>> equal = default) =>
         Define(name, generator, value => Equal(name, value, decode(encode(value)), equal));
     public static PropertyDefinition<(T A, T B)> Commutative<T, TResult>(string name, Gen<T> generator, Func<T, T, TResult> operation, Option<Func<TResult, TResult, bool>> equal = default) =>

@@ -3,6 +3,6 @@
     "compilerOptions": {
         "jsx": "react-jsx",
         "lib": [ "esnext", "dom" ],
-        "types": [ "vite/client", "@cloudflare/workers-types" ]
+        "types": [ "vite/client", "./.cloudflare/types", "@cloudflare/vitest-plugin/types" ]
     }
 }

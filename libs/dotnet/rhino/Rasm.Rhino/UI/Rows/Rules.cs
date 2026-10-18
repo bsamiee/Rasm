@@ -15,11 +15,11 @@ public sealed record RowRule(Seq<EntryKey> Reads, Seq<RowSource> Sources, Func<R
     public static RowRule operator !(RowRule rule) => LogicalNot(rule);
 
     public static RowRule BitwiseAnd(RowRule left, RowRule right) =>
-        new(left.Reads.Concat(right.Reads).Distinct(), left.Sources.Concat(right.Sources).Distinct(),
+        new((left.Reads + right.Reads).Distinct(), (left.Sources + right.Sources).Distinct(),
             scope => left.Holds(scope).Bind(held => held ? right.Holds(scope) : IO.pure(value: false)));
 
     public static RowRule BitwiseOr(RowRule left, RowRule right) =>
-        new(left.Reads.Concat(right.Reads).Distinct(), left.Sources.Concat(right.Sources).Distinct(),
+        new((left.Reads + right.Reads).Distinct(), (left.Sources + right.Sources).Distinct(),
             scope => left.Holds(scope).Bind(held => held ? IO.pure(value: true) : right.Holds(scope)));
 
     public static RowRule LogicalNot(RowRule rule) =>
@@ -29,7 +29,7 @@ public sealed record RowRule(Seq<EntryKey> Reads, Seq<RowSource> Sources, Func<R
 public sealed record RowRules(Option<RowRule> Enabled, Option<RowRule> Visible) {
     public static RowRules Always { get; } = new(None, None);
 
-    public Seq<RowRule> Each => Enabled.ToSeq().Concat(Visible.ToSeq());
+    public Seq<RowRule> Each => Enabled.ToSeq() + Visible.ToSeq();
 
     public static IO<bool> Holds(Option<RowRule> rule, RowScope scope) => rule.Match(Some: held => held.Holds(scope), None: static () => IO.pure(value: true));
 

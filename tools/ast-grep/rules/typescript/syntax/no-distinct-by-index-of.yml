@@ -2,7 +2,6 @@
 id: no-distinct-by-index-of
 language: tsx
 severity: error
-ignores: ['plugins/function-hooks/**']
 utils:
     first-index-test:
         kind: binary_expression
@@ -27,42 +26,13 @@ utils:
                     - kind: statement_block
                       has: {kind: return_statement, has: {matches: first-index-test}}
                       not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
-    native-set:
-        kind: new_expression
-        all:
-            - has: {field: constructor, regex: '^((globalThis|window|self)\.)?Set$', matches: typescript-global-reference}
-            - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $L}}, {not: {has: {nthChild: 2}}}]}
-    array-import:
-        kind: import_statement
-        has: {stopBy: end, kind: identifier, pattern: $ARRAY, matches: {effect-module: {name: {regex: '\bArray$'}}}}
 rule:
+    kind: call_expression
     all:
+        - has: {field: function, kind: member_expression, all: [{has: {field: object, pattern: $L}}, {has: {field: property, regex: '^filter$'}}]}
+        - has: {field: arguments, all: [{has: {nthChild: 1, matches: first-index-callback}}, {not: {has: {nthChild: 2}}}]}
         - any:
-            - kind: call_expression
-              all:
-                - has: {field: function, kind: member_expression, all: [{has: {field: object, pattern: $L}}, {has: {field: property, regex: '^filter$'}}]}
-                - has: {field: arguments, all: [{has: {nthChild: 1, matches: first-index-callback}}, {not: {has: {nthChild: 2}}}]}
-                - any:
-                    - has: {field: function, has: {field: object, pattern: $OWNER}}
-                    - has: {field: arguments, has: {has: {field: parameters, has: {nthChild: 3, has: {kind: identifier, pattern: $OWNER}}}}}
-            - kind: array
-              all:
-                - has: {nthChild: 1, kind: spread_element, has: {matches: native-set}}
-                - not: {has: {nthChild: 2}}
-            - kind: call_expression
-              all:
-                - has: {field: function, regex: '^((globalThis|window|self)\.)?Array\.from$', matches: typescript-global-reference}
-                - has: {field: arguments, all: [{has: {nthChild: 1, matches: native-set}}, {not: {has: {nthChild: 2}}}]}
-        - any:
-            - pattern: $FIXABLE
-              inside: {kind: program, stopBy: end, has: {matches: array-import}}
-            - pattern: $KEPT
-rewriters:
-    - id: dedupe
-      rule: {kind: 'call_expression, array'}
-      fix: $ARRAY.dedupe($L)
-transform:
-    FIXED: rewrite($FIXABLE, rewriters=[dedupe])
-fix: $FIXED$KEPT
-message: '`$L` drops repeated values by hand through `indexOf` or a `Set`'
-note: 'Call `Array.dedupe(<list>)` to keep the first of each value by `Equal`, a `Set` compares by identity and `indexOf` drops every `NaN`'
+            - has: {field: function, has: {field: object, pattern: $OWNER}}
+            - has: {field: arguments, has: {has: {field: parameters, has: {nthChild: 3, has: {kind: identifier, pattern: $OWNER}}}}}
+message: '`$L` drops repeated values through one `indexOf` scan per element'
+note: 'Spread `new Set(<list>)` into an array to keep the first of each value in one pass, or call `effect` `Array.dedupe(<list>)` to compare by `Equal`, where `indexOf` drops every `NaN`'

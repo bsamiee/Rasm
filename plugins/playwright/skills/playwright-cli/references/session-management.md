@@ -52,7 +52,7 @@ playwright cli -s=auth delete-data
 
 `attach` connects a session to a running browser in place of launching one and replies with its snapshot:
 - `attach <name>` connects to a session `list --all` prints, both sessions drive the same pages
-- `--cdp=<url>` connects to a Chrome DevTools Protocol endpoint, its context keeps its own permissions, HTTPS, and CSP settings
+- `--cdp=<url>` connects to a Chrome DevTools Protocol endpoint, its browser keeps its own launch and context settings
 - `--session=<name>` or `-s=<name>` names the session, without one it takes the attached session's name, and `default` for a URL
 - `close` and `detach` end an attached session with the browser left running, `detach` refuses a session `open` started
 - `--idle-timeout=<ms>` detaches after that long without a command, an attached session stays attached without the option

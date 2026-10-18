@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-read-before-write
+language: tsx
+severity: error
+utils:
+    tagged:
+        kind: call_expression
+        has: {field: function, regex: '^sql(<[\s\S]*>)?$'}
+    read:
+        matches: tagged
+        has: {field: arguments, kind: template_string, has: {nthChild: 1, kind: string_fragment, regex: '(?i)^\s*(select|with)\b'}}
+    write:
+        matches: tagged
+        has: {field: arguments, kind: template_string, has: {nthChild: 1, kind: string_fragment, regex: '(?i)^\s*(insert|update|delete|merge)\b'}}
+    value-substitution:
+        kind: template_substitution
+        not: {follows: {stopBy: end, kind: string_fragment, regex: '(?i)\bwhere\b'}}
+    uses-read:
+        matches: value-substitution
+        has: {stopBy: end, kind: identifier, pattern: $READ}
+rule:
+    kind: lexical_declaration
+    all:
+        - has:
+            kind: variable_declarator
+            all:
+                - has: {field: value, kind: yield_expression, has: {stopBy: end, matches: read}}
+                - has:
+                    field: name
+                    any:
+                        - {kind: identifier, pattern: $READ}
+                        - {kind: 'array_pattern, object_pattern', has: {stopBy: end, kind: 'identifier, shorthand_property_identifier_pattern', pattern: $READ}}
+        - inside: {kind: statement_block, inside: {kind: 'generator_function, generator_function_declaration'}}
+        - precedes:
+            stopBy: end
+            any:
+                - has: {stopBy: end, matches: write, pattern: $WRITE, has: {field: arguments, has: {matches: uses-read}}}
+                - all:
+                    - kind: lexical_declaration
+                    - has: {kind: variable_declarator, all: [{has: {field: name, kind: identifier, pattern: $FRAGMENT}}, {has: {field: value, matches: tagged, has: {field: arguments, has: {matches: uses-read}}}}]}
+                    - precedes: {stopBy: end, has: {stopBy: end, matches: write, pattern: $WRITE, has: {field: arguments, has: {matches: value-substitution, has: {kind: identifier, pattern: $FRAGMENT}}}}}
+labels:
+    WRITE: {style: secondary, message: Write that depends on the read}
+message: '`$READ` holds a read that a later write takes a value from'
+note: 'Compute the written value in the write, `update ... set <column> = <column> + 1 where <key> = ... returning ...` or `insert ... on conflict (<key>) do update ... returning ...`, or guard it with `where revision = <expected>`. A value computed from a separate read loses concurrent updates'

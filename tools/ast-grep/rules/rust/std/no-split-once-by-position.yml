@@ -8,6 +8,8 @@ rule:
         - any:
             - pattern: '$S.iter().position($P).map(|$I| (&$S[..$I], &$S[$I + 1..]))'
             - pattern: '$S.iter().position($P).map(|$I| (&$S[..$I], &$S[($I + 1)..]))'
+            - pattern: '$S.iter().position($P).and_then(|$I| Some(($S.get(..$I)?, $S.get($I + 1..)?)))'
+            - pattern: '$S.iter().position($P).and_then(|$I| $S.get(..$I).zip($S.get($I + 1..)))'
 constraints:
     I: {kind: identifier}
 fix: $S.split_once($P)

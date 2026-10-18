@@ -70,14 +70,6 @@ fn wildcard_workspace_enum_match_arm(found: &str) {
        = help: name each variant in a `match`, join variants that share a branch with an or-pattern, and keep a binding with `name @ (A | B)`
 
     warning: catch-all pattern covers each `Signal` variant the other arms leave unnamed
-      --> tools/dylint/examples/wildcard_workspace_enum_match_arm.rs:38:25
-       |
-    38 |         Signal::Pause | _ => 2,
-       |                         ^
-       |
-       = help: name each variant in a `match`, join variants that share a branch with an or-pattern, and keep a binding with `name @ (A | B)`
-
-    warning: catch-all pattern covers each `Signal` variant the other arms leave unnamed
       --> tools/dylint/examples/wildcard_workspace_enum_match_arm.rs:46:10
        |
     46 |         &_ => 5,
@@ -98,14 +90,6 @@ fn wildcard_workspace_enum_match_arm(found: &str) {
        |
     75 |         Command::Send { signal: _ } => 1,
        |                                 ^
-       |
-       = help: name each variant in a `match`, join variants that share a branch with an or-pattern, and keep a binding with `name @ (A | B)`
-
-    warning: catch-all pattern covers each `Invalid` variant the other arms leave unnamed
-      --> tools/dylint/examples/wildcard_workspace_enum_match_arm.rs:90:9
-       |
-    90 |         _ => 1,
-       |         ^
        |
        = help: name each variant in a `match`, join variants that share a branch with an or-pattern, and keep a binding with `name @ (A | B)`
 

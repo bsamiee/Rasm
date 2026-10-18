@@ -185,7 +185,7 @@ class ItemList[T: msgspec.Struct = msgspec.Struct, O: "bpy.types.bpy_struct[obje
             _index: int = 0,
             _flt_flag: int = 0,
         ) -> None:
-            def shown(active: bool) -> None:
+            def shown(*, active: bool) -> None:
                 row = layout.row(align=True)
                 row.active = active
                 glyph = (
@@ -198,7 +198,7 @@ class ItemList[T: msgspec.Struct = msgspec.Struct, O: "bpy.types.bpy_struct[obje
                 for column in listed.columns if ui.layout_type == "DEFAULT" else ():
                     column(row, item, context)
 
-            alerted(layout, self.enabled.map(lambda policy: policy(context, item)).default_value(Ok(True)).map(shown))
+            alerted(layout, self.enabled.map(lambda policy: policy(context, item)).default_value(Ok(True)).map(lambda active: shown(active=active)))
 
         def filter_items(ui: bpy.types.UIList, context: bpy.types.Context, data: "bpy.types.bpy_struct[object]", propname: str) -> tuple[list[int], list[int]]:
             items, shown = getattr(data, propname), ui.bitflag_filter_item

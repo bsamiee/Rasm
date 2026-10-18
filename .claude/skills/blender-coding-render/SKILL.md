@@ -30,6 +30,7 @@ Chain writes follow host rules:
 - `file_format` writes refuse a format outside the current media with `TypeError`, and `MULTI_LAYER_IMAGE` holds `OPEN_EXR_MULTILAYER` alone
 - `file_format` writes keep a `color_mode` and `color_depth` the new format holds (`OPEN_EXR` 16 to `PNG`), take its first otherwise (`JPEG` `RGB` 8, `OPEN_EXR` 32), keep `exr_codec`, and turn `MULTIVIEW` into `INDIVIDUAL` off EXR
 - Linear `file_format` writes reset `linear_colorspace_settings.name` to the working space, display formats and data spaces keeping it
+- `linear_colorspace_settings.name` reads `""` until the first linear `file_format` write, and writes of `""` raise `TypeError`
 - Display writes keep `look`, move views both ways (`AgX` to `AgX - HDR 1000 nits` under `Rec.2100-PQ` and back), and fall back to `Standard` with no error
 - View writes keep an offered look, else take its namesake after ` - ` (`AgX - Punchy` to `False Color - Punchy`, `AgX - High Contrast` to Filmic `High Contrast`)
 - Restores write governing members before governed ones, a governing write resetting members restored before it
@@ -47,8 +48,8 @@ from expression.extra.result import catch
 import msgspec
 
 
-class Colorspace(msgspec.Struct, frozen=True):
-    name: str
+class Colorspace(msgspec.Struct, frozen=True, omit_defaults=True):
+    name: str = ""
 
 
 class FileFormat(msgspec.Struct, frozen=True, kw_only=True):
@@ -66,7 +67,10 @@ class Unwritable(msgspec.Struct, frozen=True, kw_only=True):
 
 def imprinted(owner: object, values: dict[str, object]) -> None:
     for member, value in values.items():
-        imprinted(getattr(owner, member), value) if isinstance(value, dict) else setattr(owner, member, value)
+        if isinstance(value, dict):
+            imprinted(getattr(owner, member), value)
+        else:
+            setattr(owner, member, value)
 
 
 @contextmanager
@@ -79,6 +83,8 @@ def formatted(settings: bpy.types.ImageFormatSettings, output: FileFormat) -> Ge
         imprinted(settings, msgspec.to_builtins(prior))
 ```
 
+`Colorspace` defaults its name to `""`, keeping an unset linear space out of the restore.
+
 Render settings follow host rules:
 - Extensions store render state on the `Scene`, ID property writes on nested settings (`RenderSettings`, `ImageFormatSettings`, `ColorManagedViewSettings`, `ColorManagedDisplaySettings`, `SceneEEVEE`) raising `TypeError`
 - `bpy.props` assigned to a nested settings class stays a class attribute, instance writes raising `AttributeError`
@@ -87,6 +93,7 @@ Render settings follow host rules:
 
 Color management reads Blender's OCIO config:
 - `PyOpenColorIO.GetCurrentConfig()` returns Blender's live config, the file at `bpy.data.colorspace.ocio_config_path` with `blender:*` spaces added
+- Working-space changes rewrite that one config object in place with a new `getCacheID()`, and caches key by the cache ID
 - Blender picks a config once at start from `BLENDER_OCIO`, else `OCIO`, else the bundled file, and a running session keeps it
 - `config.getDisplays()` lists `display_device` identifiers, `config.getViews(display)` the `view_transform` identifiers a display offers
 - Views take looks named `<view> - <look>`, else `<family> - <look>` for the family before ` - ` (`AgX` for `AgX - HDR 1000 nits`)
@@ -170,7 +177,6 @@ Light linking on an emitter names `obj.light_linking.receiver_collection` and `b
 - Per-frame compositor values come from keyframes on effect inputs or tree sockets
 - `scene.copy()` shares effect groups with its source, group edits reaching both scenes
 - Effect inputs key through `scene.keyframe_insert(data_path=item.path_from_id("value"))`, the path naming `compositor_effects["<name>"].properties.inputs.<identifier>.value`
-- `item.property_unset("value")` returns an effect input to its interface default
 
 `bpy.ops.scene` effect operators act on `context.scene`, and calls on another scene run under `context.temp_override(scene=scene)`:
 - `move_compositor_effect_to_index(name=..., index=...)` places an effect at `index`, raising `RuntimeError` at its current index or past the end

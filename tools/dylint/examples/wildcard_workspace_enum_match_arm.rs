@@ -189,7 +189,16 @@ fn main() {
         optional(None),
         member,
         [if_let(Signal::Stop), if_let_alone(Signal::Stop), compared(Signal::Stop), tested_branch(Signal::Stop)],
-        (let_else(Signal::Stop), let_else_set(Signal::Start), tested(Signal::Stop), tested_set(Signal::Pause), looped(Signal::Pause)),
+        (let_else(Signal::Stop), let_else_set(Signal::Start), tested(Signal::Stop), tested_set(Signal::Pause), looped(Signal::Pause), stopped(Signal::Stop), paused(Signal::Pause)),
         [nested(None), paired(Signal::Stop, Signal::Start), paired_count(Signal::Stop, 2), outcome(Ok(Signal::Stop)), expanded(Signal::Stop)],
     ));
 }
+
+const fn stopped(signal: Signal) -> bool {
+    match signal {
+        Signal::Stop => true,
+        _ => false,
+    }
+}
+
+const fn paused(signal: Signal) -> bool { if let Signal::Pause = signal { true } else { false } }

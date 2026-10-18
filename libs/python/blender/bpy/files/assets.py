@@ -2,7 +2,6 @@
 
 from collections.abc import Generator
 from contextlib import contextmanager, ExitStack
-from operator import itemgetter
 from pathlib import Path
 from typing import Annotated, Literal, TYPE_CHECKING
 from uuid import NAMESPACE_URL, UUID, uuid5
@@ -221,7 +220,7 @@ def imported[T: bpy.types.ID](asset: bpy.types.AssetRepresentation, kind: type[T
                     lambda: (BlenderAbsentFault(owner=asset.full_path, key="owner_asset_library"),)
                 )
             )
-            return link.bind(lambda method: blocks_loaded(path, kind, (asset.name,), method)).map(itemgetter(0))
+            return link.bind(lambda method: blocks_loaded(path, kind, (asset.name,), method)).map(lambda blocks: blocks[0])
 
 
 def bundled[T: bpy.types.ID](kind: type[T], name: str) -> BlenderResult[T]:
@@ -243,7 +242,7 @@ def bundled[T: bpy.types.ID](kind: type[T], name: str) -> BlenderResult[T]:
         accumulated(listed(path, kind, assets_only=True) for path in paths)
         .bind(lambda listings: Option.of_optional(next((path for path, names in zip(paths, listings) if name in names), None)).to_result_with(lambda: (BlenderAbsentFault(owner=str(root), key=name),)))
         .bind(lambda path: blocks_loaded(path, kind, (name,), linking(essential(), relative=True)))
-        .map(itemgetter(0))
+        .map(lambda blocks: blocks[0])
     )
 
 

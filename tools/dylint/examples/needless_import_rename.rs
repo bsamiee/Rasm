@@ -77,6 +77,12 @@ fn main() -> ExitCode {
     let shared = Shared::new(AtomicU32::new(0));
     let rendered = rendered(&Map::new()).map_or(0, |text| text.len());
     let flags = [loaded(&shared), elapsed(None, &Instant), waited(1), shadowed(0), dropped(), taken(&mut vec![1_u8]).is_empty()];
-    black_box(&(rendered, native(), shown(&fmt()), Cell::new(0_u8).into_inner(), failed(IoError::from(ErrorKind::NotFound))));
+    black_box(&(rendered, native(), shown(&fmt()), Cell::new(0_u8).into_inner(), failed(IoError::from(ErrorKind::NotFound)), paired::joined(Error, &IoError::from(ErrorKind::NotFound))));
     ExitCode::from(u8::from(flags.contains(&true) || ranked() || tokio::local()))
+}
+
+mod paired {
+    use std::{fmt::Error as FormatError, io::Error as SystemError};
+
+    pub(crate) fn joined(format: FormatError, io: &SystemError) -> bool { format == FormatError && io.raw_os_error().is_none() }
 }

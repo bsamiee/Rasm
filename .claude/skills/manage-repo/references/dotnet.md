@@ -5,11 +5,15 @@ MSBuild directory files and central package versions own every shared .NET decla
 ## [01]-[UPGRADES]
 
 - Upgrades move each `Directory.Packages.props` row holding a version, prereleases included, a row holding a range stays
+- Releases come from nuget.org, the one `NuGet.config` source, a per-commit build on a dnceng feed (`dotnet-tools`) is no release and its package keeps its newest nuget.org version
 - Version edits splice attribute text in place; `XmlDocument` or `ProjectRootElement` saves collapse row alignment
-- Newest release is the listed, framework-compatible release ranked by numeric version, then stable, then latest publish date
+- Newest release is the highest listed framework-compatible release by `NuGetVersion` across base versions, a stable release above its prereleases
+- Prereleases of one base version rank by `NuGetVersion` where the first differing label is numeric on both sides, else by feed publish time
+- Compatibility reads registration dependency groups, a release declaring no framework-specific group downloads its package to read assets
+- Package metadata and downloads read NuGet's HTTP cache under its default age
 - Rows move down when their current version is unlisted or incompatible with the repository target framework
 - `global.json` `sdk.version` moves by hand to the newest `mise ls-remote dotnet` entry
-- SDK moves enable the new SDK's analyzer rules through `latest-all`
+- SDK moves enable the new SDK's analyzer rules through `latest-all`, rules it leaves off (CA1021, CA1045) take their own `.editorconfig` rows
 
 ## [02]-[FILE_BASED_APPS]
 
@@ -27,8 +31,6 @@ C# file-based apps inherit `Directory.Build.props`, `Directory.Build.targets`, c
 
 ## [03]-[PROJECTS]
 
-- Use `README.md` for the group a library joins
-- Shared source no library owns is one internal file each consumer compiles by its own `Compile` item, a root item reaches projects never using it
 - `dotnet` targets name their binlog from `NX_TASK_TARGET_PROJECT` and `NX_TASK_TARGET_TARGET`
 - Targets declare their binlog an output
 - MTP tasks pass one result root, SDK per-module layout places outputs beneath it
@@ -45,7 +47,7 @@ C# file-based apps inherit `Directory.Build.props`, `Directory.Build.targets`, c
 
 Roslyn analyzers sit in `tools/roslyn/Rasm.Analyzers`, code fixes in `tools/roslyn/Rasm.Analyzers.CodeFixes`.
 
-Run `nx run-many -t build -p 'directory:tools/roslyn/**'` in the owning checkout before opening editors or applying launchd services. After rebuilding loaded analyzers, use VS Code's `.NET: Restart Language Server` and restart CodeLens with `launchctl kickstart -k gui/$UID/dev.mise.roslyn-codelens`.
+Run `nx run-many -t build -p 'directory:tools/roslyn/**'` in the owning checkout before opening editors or starting daemons. After rebuilding loaded analyzers, use VS Code's `.NET: Restart Language Server` and restart CodeLens with `mise daemons restart roslyn-codelens`.
 
 - Analyzer projects target `netstandard2.0`; authoring packages must match the Roslyn API available in every consuming host
 - Analyzer projects take no workspace language packages, project usings, or transitive pinning, holding Roslyn's dependency floor for every host
@@ -54,7 +56,9 @@ Run `nx run-many -t build -p 'directory:tools/roslyn/**'` in the owning checkout
 - Semantic formatting targets schedule analyzer builds; direct `dotnet format --no-restore` callers build them first
 - Analyzer references undefine `RhinoPlugIn` and `ArtifactsPivots`, plug-in library copies share one analyzer build
 - Code fix providers and `Microsoft.CodeAnalysis.CSharp.Workspaces` stay in the code fix project, RS1038 rejects Workspaces beside analyzer types
+- New rules join `Rasm.Analyzers.Tests` as a `Samples/<RULE>/` folder of `.txt` samples with `{|ID:...|}` markup, its harness loads every exported analyzer and code fix and checks reviewed Verify snapshots of diagnostics and fixed source
 - Diagnostics fail builds through the `.editorconfig` severity floor, a descriptor's default severity sets no exemption
+- Source generator diagnostics (Mapperly `RMG`) escape the floor and take their own rows
 
 Diagnostic ids take four digits by domain:
 - `RASM1xxx` library rules (LanguageExt, Thinktecture, Mapperly)

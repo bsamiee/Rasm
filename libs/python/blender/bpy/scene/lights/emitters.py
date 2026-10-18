@@ -83,11 +83,8 @@ class MeshLights(msgspec.Struct, frozen=True, kw_only=True):
         ),
     )
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
         """Answers the attachment, the ownership merges, the add operator, and its Add Light menu entry.
-
-        Args:
-            identity: Extension placing the row.
 
         Returns:
             `Ok` of every band and acquisition pair, or every construction fault.
@@ -134,12 +131,12 @@ def strengths(material: bpy.types.Material) -> tuple[bpy.types.NodeSocketFloat, 
         match node:
             case _ if not socket.is_output:
                 pending.extend(
-                    (source, link.from_socket, path)
+                    (link.from_node, link.from_socket, path)  # type: ignore[misc]  # ty: ignore[invalid-argument-type]
                     for link in socket.links  # type: ignore[union-attr]  # ty: ignore[not-iterable]
-                    if link.is_valid and not link.is_muted and (source := link.from_node) is not None and link.from_socket is not None
+                    if link.is_valid and not link.is_muted
                 )
             case _ if node.mute:
-                pending.extend((node, link.from_socket, path) for link in node.internal_links if link.to_socket == socket and link.from_socket is not None)
+                pending.extend((node, link.from_socket, path) for link in node.internal_links if link.to_socket == socket)  # type: ignore[misc]  # ty: ignore[invalid-argument-type]
             case bpy.types.ShaderNodeGroup(node_tree=tree) if tree is not None:
                 pending.extend(
                     (output, inner, (*path, node))

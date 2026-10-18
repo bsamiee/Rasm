@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-nested-continuation
+language: tsx
+severity: error
+utils:
+    continuation:
+        kind: call_expression
+        all:
+            - has: {field: function, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(andThen|catch|catchIf|catchTag|flatMap|map|matchEffect|orElse|tap|tapError)$'}}}}
+            - has: {field: arguments, has: {kind: arrow_function, pattern: $_}}
+rule:
+    pattern: $CALL
+    matches: continuation
+    has:
+        field: arguments
+        has:
+            any:
+                - matches: continuation
+                  pattern: $INNER
+                - kind: arrow_function
+                  has: {field: body, stopBy: {kind: arrow_function}, matches: continuation, pattern: $INNER}
+message: 'A continuation callback starts another continuation at `$INNER`'
+note: 'Write the steps as one `Effect.fn(<name>)(function* ...)` or `Effect.gen` body that yields each result in order'
+labels:
+    CALL: {style: primary}
+    INNER: {style: secondary}

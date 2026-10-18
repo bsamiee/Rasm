@@ -6,34 +6,26 @@ Rasm is a polyglot monorepo with macOS-first development and portable code and t
 
 ```text
 Rasm/
-├── apps/                     # Products, one directory per host
+├── apps/                     # Products
 │   ├── blender/
 │   ├── creative-cloud/
 │   ├── macos/
 │   ├── rhino/
 │   └── web/
-├── libs/                     # Packages, one directory per language
-│   ├── dotnet/
-│   ├── python/
-│   ├── rust/
-│   ├── swift/
-│   └── typescript/
-├── tests/                    # Shared test support per language and suites outside libs/
+├── libs/                     # Packages
+├── tests/
 ├── eng/
-│   ├── dotnet/
-│   ├── python/
-│   └── typescript/
-├── infra/                    # Pulumi program declaring repository resources
+├── infra/                    # IaC programs declaring repository and app hosting resources
 ├── docs/                     # Research sheets, ignored under docs/research
 ├── tools/
-│   ├── ast-grep/             # Outlines, rules, and utilities per language
+│   ├── ast-grep/             # Grammar extensions, outlines, rules, and utilities per language
 │   ├── bridge/               # rasm-mcp-bridge binary serving a stdio MCP server over Streamable HTTP
 │   ├── dylint/               # Rust lints reading types and resolved paths Clippy lacks
 │   ├── nx/                   # Nx plugin inferring a project from each project file
 │   ├── refurb/               # Python checks reading mypy types Ruff lacks
 │   └── roslyn/               # C# analyzers, code fixes, and BannedSymbols*.txt bans
-├── plugins/                  # Agent harness marketplace, one directory per plugin
-├── mise.toml                 # Tool binaries, process environment, and persistent MCP services
+├── plugins/                  # Agent harness marketplace
+├── mise.toml                 # Tool binaries, process environment, and local daemons
 ├── global.json               # .NET SDK versions
 ├── nx.json                   # Task graph
 ├── package.json              # Catalog rows except tool plugins, root Nx targets
@@ -93,32 +85,26 @@ flowchart LR
 
 ## [03]-[TASKS]
 
-- Targets call one tool with its arguments on the command
-- `nx run rasm:check` runs root lint and compiler targets, `nx run rasm:lint:<tool>` runs one checker
-- `nx run rasm:<target> -- <paths>` runs a root target over named paths when its tool takes paths in place of a default file set
-- `nx run <project>:<target>` runs one target of one project
-- `nx run <project>:build -- <switch>` forwards MSBuild switches to a .NET build
-- `nx run <project>:install` builds or packs a project, then installs its product into its host
-- `nx run <project>:pack` writes a project's product as the package its host installs
-- `nx run rasm:upgrade` updates catalogs, installed service binaries, and reapplies declared MCP services
-- `nx run rasm:clean` removes declared outputs and tool residue, prunes caches, and recovers stale macOS processes
-- `nx run rasm:rewrite -- --filter='^<id>$' <path>` applies one rule's fix across a path
-- `nx run rasm:outline -- <path>` lists a path's declarations
-- Workspace plugin derives project edges from project files and Python imports
-- `@nx/dotnet` infers .NET targets and project reference edges
-- File-based app directories are one project each, named by path, `build`, `format`, and `lint` run one `<target>:<file>` target per entry file
-- `nx run rasm:format` runs solution and file-app with proper ordering of commands
-- `nx run rasm:format:files -- <paths>` formats named Git files through non-.NET writers
-- Semantic .NET format targets build analyzer components before formatting
+Targets run tools with their arguments on the command, a pipeline or command list joins tools for work no single tool does.
+
+- `nx run rasm:check` runs every root checker and type checker, `nx run rasm:lint:<tool>` runs one checker
+- `nx run <project>:<target> -- <arguments>` appends to the command, paths in place of a root tool's default file set, switches to `dotnet build`
+- `nx run rasm:format` runs `dotnet format` over the solution and file-based apps, then every other writer
+- `nx run rasm:format:files -- <paths>` runs non-.NET writers over named Git files
+- `nx run <project>:test:integration` starts `rasm:docker`, then runs container cases `test` leaves out (Rust `#[ignore]`, a Vitest project)
+- `nx run <project>:install` builds or packs a project and installs its product into its host, `pack` writes the package its host installs
+- `nx run rasm:infra:<preview|up|refresh>` runs the Pulumi operation on repository resources
+- `nx run rasm:hosting -- <app directory> <cloudflare|docker> <preview|up|refresh|destroy> [--disposable]` runs the operation on an app's hosting stack
+- `nx run rasm:upgrade` moves catalogs, locks, action tags, and installed service binaries to newest releases
+- `nx run rasm:clean` removes declared outputs and tool residue, prunes caches and unused Pulumi plugins, and recovers stale macOS processes
+- `nx run rasm:rewrite -- --filter='^<id>$' <path>` applies one rule's fix across a path, `rasm:outline -- <path>` lists its declarations
 - Native Python consumers start under `pixi run --locked -e hdf5 pixi run --locked -e default`
-- Project `vite.config.ts` infers `build` and continuous `serve` for the Vite development server, both run from that project
-- Project `uxp.config.ts` configures inferred Vite `build` and infers `install` into each host the manifest names
-- Project `cloudflare.config.ts` adds the Cloudflare Build Output under `.cloudflare/output` to inferred Vite `build` outputs
-- Tools one host supplies join a project's target, root targets hold commands no project owns
-- Inputs name the files a tool reads and its version as `runtime`, outputs name the files it writes
+- Project `vite.config.ts` infers `build` and continuous `serve`, both run from the project directory
+- Project `.storybook/main.ts` infers continuous `storybook`, `test` runs each story as a Chromium test that fails on an axe violation
+- `nx run <project>:e2e` runs a Playwright suite uncached, each worker serving its own app instance with empty stores
+- Project `uxp.config.ts` infers UXP `build` and `install` into manifest hosts, `cloudflare.config.ts` adds `.cloudflare/output` to `build` outputs
 - Caches and outputs sit under root `.cache/` and `.artifacts/`, each tool moved by one setting every run reads, or its guidance file states why not
-- Caches shared with projects outside the repository sit where Parametric Forge or the tool's default puts them
-- Logs sit flat in `.artifacts/logs/` as one `<producer>.log` per launchd label or tool name, each moved there through its producer's setting
+- Logs except daemon output sit flat in `.artifacts/logs/` as one `<producer>.log` per launchd label or tool
 
 ## [04]-[OWNERS]
 
@@ -131,19 +117,25 @@ flowchart LR
 |  [05]   | .NET tool package              | `dotnet dnx <id>` on the command                                                                     |
 |  [06]   | Task graph                     | `nx.json`, root `package.json` `nx`                                                                  |
 |  [07]   | Checker configuration          | Tool's own file, `pyproject.toml` `[tool.*]` for every Python tool                                   |
-|  [08]   | Secret                         | Doppler, through consuming commands with `doppler run`                                               |
-|  [09]   | Resource or repository setting | Typed row of the program under `infra/`, applied by `nx run rasm:infra:up`                           |
+|  [08]   | Secret                         | Doppler `agent-runtime/dev`, named in the consuming target's `doppler run` prefix                    |
+|  [09]   | Resource or repository setting | Typed row of an `infra/` program, `rasm:infra:up` for the repository, `rasm:hosting` `up` per app    |
 |  [10]   | Tool with no consumer          | Machine setup                                                                                        |
 |  [11]   | Ghidra install                 | Official distribution through mise                                                                   |
 |  [12]   | Xcode build setting            | `Xcode.xcconfig`, per-product rows in the `.xcodeproj` target                                        |
 |  [13]   | Swift package version          | `.xcodeproj` or `Package.swift` package requirement                                                  |
 |  [14]   | Rust package version           | `Cargo.toml` `[workspace.dependencies]` row                                                          |
 |  [15]   | Agent harness plugin           | `plugins/<name>`                                                                                     |
-|  [16]   | Local MCP service              | Mise launchd declaration in its installed service checkout                                           |
+|  [16]   | Persistent local process       | `mise.toml` `[daemons]` row                                                                          |
 |  [17]   | Python runtime                 | Mise Python row, uv's `.venv`, host `pyproject.toml` requirements                                    |
 |  [18]   | Native libraries for sdists    | Pixi environments in `pyproject.toml`, exact builds in `pixi.lock`                                   |
-|  [19]   | Container runtime              | Mise clients, persistent Colima on macOS, native Docker Engine on Linux                              |
+|  [19]   | Container runtime              | Mise clients, `[daemons]` `docker` row for Colima on macOS, Docker Engine on Linux                   |
 |  [20]   | Shared Vite configuration      | `vite.config.ts`                                                                                     |
+|  [21]   | Shared Vitest configuration    | `vitest.config.ts`, browser settings and the story project every package derives                     |
+|  [22]   | Shared Storybook addons        | `@rasm/test-support` `preset` and `preview` modules                                                  |
+|  [23]   | Shared Playwright settings     | `@rasm/test-support` `playwright` module                                                             |
+|  [24]   | Test MCP suites                | `tests/typescript/playwright.config.ts`                                                              |
+|  [25]   | Agent browser options          | `.playwright/cli.config.json`                                                                        |
+|  [26]   | GitHub Action version          | Published tag on each `uses:` row under `.github/`                                                   |
 
 - Tool rows name a release where `latest` resolves a development build
 
@@ -156,28 +148,20 @@ flowchart LR
 - TypeScript: Biome and `tsc` with `@effect/tsgo` at zero findings
 - Rust: Clippy, rustfmt, Dylint, and cargo-modules at zero findings
 - Swift: compiler, swift-format, and SwiftLint at zero findings
-- Java: google-java-format and PMD at zero findings
+- Java: compiler, google-java-format, and PMD at zero findings
 - TOML: Tombi at zero findings
+- PostgreSQL: Squawk at zero findings
 - Tree: YAML checks, actionlint, ShellCheck, shfmt, ast-grep, and PMD CPD at zero findings
 
 ## [06]-[STRUCTURE]
 
-- `eng/<language>/` owns engineering workflows over repository projects and artifacts
-- `tools/` provides capabilities for development tools and applications
-- Apps group by host under `apps/<host>/`, with one folder per product holding its sources and assets
-- Product assets sit in the folder their build reads: `Assets/` for .NET, `Resources/` for Xcode, `icons/` for Blender, `public/` for Vite
 - Libraries group under `libs/<language>/<group>/` by domain or by host
-- Rust library crates sit at `libs/rust/<domain>/`
-- Swift libraries are one local package per group at `libs/swift/<group>/`
-- TypeScript libraries are packages at `libs/typescript/<group>/<package>/`
-- Host groups hold every project built against the host's API
 - Task graph takes the host list from `apps/<host>/` folders and tags a project by the host name in its path
 - .NET build takes Rhino hosts from the `rhino/` path folder
-- Python packages build into one `rasm` wheel
-- First-party Python imports use `from <import root>.<module> import <member>` for private Blender extension relocation
 - `Grasshopper2` package references add Grasshopper 2 global usings
 - Installed Rhino supplies host assemblies at runtime, build output holds none
 - Project files are the language manifests and markers Nx plugins read, never `project.json`
 - `Workspace.slnx` lists every project `.csproj`
-- Projects hold no `src/` directory and no folder with one file, folders group by domain per language
-- Schema libraries apply the delta from owning types to the live database, with no migration file or history table
+- Projects hold no `src/` directory
+- Schema libraries reconcile the live database to owning types, with no migration file or history table
+- Reconciles drop or retype only what owning types declare retired or retyped

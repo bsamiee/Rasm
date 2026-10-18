@@ -99,7 +99,7 @@ class StripEffect:
 
         self.operators = tuple(map(offered, stack.standalone))
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
         """Retains strip ownership and placement commands."""
         return Ok((*(msgspec.structs.replace(owner, key=f"{owner.key}_strip") for row in self.stack.standalone for owner in ownerships(row.record)), *self.operators))
 

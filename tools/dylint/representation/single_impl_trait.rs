@@ -3,7 +3,7 @@ use itertools::Itertools as _;
 use rustc_data_structures::fx::FxIndexMap;
 use rustc_hir::{AmbigArg, Ty, TyKind, def::DefKind, def_id::DefId};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{AssocKind, AssocTypeData, print::with_forced_trimmed_paths};
+use rustc_middle::ty::{self, AssocKind, AssocTypeData, print::with_forced_trimmed_paths};
 use rustc_span::Span;
 
 use crate::{expanded_externally, exported};
@@ -52,10 +52,10 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 {
                     diag.span_note(objects, with_forced_trimmed_paths!(format!("`dyn {name}` always holds `{implementor}`")));
                 }
-                diag.help(if local {
-                    with_forced_trimmed_paths!(format!("replace the trait with an inherent `impl {implementor}` block"))
-                } else {
-                    with_forced_trimmed_paths!(format!("delete the trait and write each method's body at its call sites on `{implementor}`"))
+                diag.help(match (local, matches!(implementor.kind(), ty::Param(_))) {
+                    (true, _) => with_forced_trimmed_paths!(format!("replace the trait with an inherent `impl {implementor}` block")),
+                    (false, true) => with_forced_trimmed_paths!(format!("replace `{name}` with the bound on `{implementor}`, named as `trait {name} = <bound>;` under `#![feature(trait_alias)]`")),
+                    (false, false) => with_forced_trimmed_paths!(format!("delete the trait and declare each method as a function taking the `{implementor}`")),
                 });
             });
         }

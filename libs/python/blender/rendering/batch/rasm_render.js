@@ -28,11 +28,11 @@ globalThis.compileJob = (job) => {
             return task;
         }),
     );
-    for (const [part, entry] of job.settings.jobs.entries()) {
+    job.settings.jobs.forEach((entry, part) => {
         const prerequisites = entry.prerequisites.flatMap((prerequisite) => tasks[prerequisite]);
-        for (const task of tasks[part]) {
+        tasks[part].forEach((task) => {
             prerequisites.forEach(task.addDependency);
             job.addTask(task);
-        }
-    }
+        });
+    });
 };

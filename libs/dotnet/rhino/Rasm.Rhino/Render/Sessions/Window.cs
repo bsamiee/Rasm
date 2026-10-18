@@ -78,13 +78,16 @@ public static class RenderWindows {
             select frame);
 
     public static Fin<PixelFrame> Frame(RenderWindow.Channel opened, Rectangle rect, PixelExtent extent) =>
-        from read in (ChannelLayout.Validated(opened.PixelSize()).ToValidation(), PixelExtent.Validated(rect.Width, rect.Height).ToValidation())
-            .Apply(static (layout, size) => (Layout: layout, Size: size)).As().ToFin()
+        from read in (ChannelLayout.Validated(opened.PixelSize()), PixelExtent.Validated(rect.Width, rect.Height))
+            .Apply(static (layout, size) => (Layout: layout, Size: size)).As()
         let stride = (long)read.Size.Width * read.Layout.Key
         let bounds = (Left: (long)rect.X, Top: (long)rect.Y, Right: (long)rect.X + read.Size.Width, Bottom: (long)rect.Y + read.Size.Height)
         from native in Refused.Unless(stride <= int.MaxValue && bounds.Left >= 0L && bounds.Top >= 0L && bounds.Right <= opened.Width && bounds.Bottom <= opened.Height,
             stride, nameof(RenderWindow.Channel.GetValues))
-        select new PixelFrame(rect.Location, read.Size, extent, block => Fill(opened, rect, (int)native, read.Layout, block));
+        select new PixelFrame(rect.Location, read.Size, extent, block => {
+            opened.GetValues(rect, (int)native, read.Layout.Order, ref block);
+            Widen(block, read.Layout.Components, read.Layout.Components, rect.Width * rect.Height);
+        });
 
     public static IO<Unit> Blit(RenderWindow window, PixelFrame frame) =>
         Opened(window, RenderWindow.StandardChannels.RGBA, opened =>
@@ -109,9 +112,4 @@ public static class RenderWindows {
 
     private static IO<T> Opened<T>(RenderWindow window, RenderWindow.StandardChannels channel, Func<RenderWindow.Channel, IO<T>> body) =>
         DisposalOps.Found(() => window.OpenChannel(channel), nameof(RenderWindow.OpenChannel), body);
-
-    private static void Fill(RenderWindow.Channel opened, Rectangle rect, int stride, ChannelLayout layout, float[] block) {
-        opened.GetValues(rect, stride, layout.Order, ref block);
-        Widen(block, layout.Components, layout.Components, rect.Width * rect.Height);
-    }
 }

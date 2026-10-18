@@ -60,7 +60,7 @@ class StMap(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
         s, t = np.meshgrid((np.arange(width) + 0.5) / width, 1.0 - (np.arange(height) + 0.5) / height)
         mapped = mapping(np.stack((s, t, np.ones_like(s)), axis=-1))
-        x, y = (folded(mapped[..., axis], size, mode) for axis, (size, mode) in enumerate(zip(source_size, extension, strict=False)))
+        x, y = (folded(mapped[..., axis], size, mode) for axis, (size, mode) in enumerate(zip(source_size, extension)))
         coverage = mapped[..., 2] * x[1] * y[1]
         return cls(plane=np.ascontiguousarray(np.stack((x[0], y[0], coverage, coverage), axis=-1), dtype=np.float32), extension=extension)
 

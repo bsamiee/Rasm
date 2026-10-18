@@ -29,6 +29,7 @@ from blender.bpy.nodes.graphs import End, ended, Fragment, INPUTS, masked, math,
 from blender.bpy.nodes.interface import Interface, item_key, MenuItems, Socket
 from blender.bpy.nodes.trees import fingerprinted
 from blender.bpy.render.color.luts import Enabled, lut_files, Sampling
+from blender.bpy.render.color.spaces import config_of
 from blender.bpy.render.effects.grade.lookup import tabled, tiles
 from blender.bpy.render.effects.stack import CameraFrame, CompositorEffect, Coverage, EffectStack, entries, formation, Named, Shell, viewed
 from blender.bpy.render.effects.viewers import ViewerRead
@@ -39,7 +40,6 @@ from blender.bpy.ui.drawing.handlers import Signal
 from blender.bpy.ui.resources.theme import Metrics
 from blender.imaging.analysis.metering import Extent, samples_of
 from blender.imaging.chain import Effect, GREY, Stage
-from blender.imaging.color.config import admitted
 from blender.imaging.color.luts import Rational
 from blender.imaging.color.processors import applied, DisplayView, processor
 from blender.imaging.compositing.blending import Entry
@@ -922,8 +922,7 @@ def encoded(call: Call[Named]) -> BlenderResult[Outcome]:
             .bind(selected)
         )
 
-    config: BlenderResult[PyOpenColorIO.Config] = admitted(PyOpenColorIO.GetCurrentConfig(), ()).map_error(BlenderImagingFault.lifted)
-    return call.root(bpy.types.Scene).bind(lambda scene: paired(config, formation.current(call.identity, scene)).bind(lambda pair: chosen(scene, *pair)))
+    return call.root(bpy.types.Scene).bind(lambda scene: paired(config_of(), formation.current(call.identity, scene)).bind(lambda pair: chosen(scene, *pair)))
 
 
 def whitened[T: (ToneCurve, Hable)](record: T, config: PyOpenColorIO.Config, plane: npt.NDArray[np.float32]) -> BlenderResult[T]:
@@ -966,7 +965,6 @@ def measured[T: (ToneCurve, Hable)](
     row: CompositorEffect[T], identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]
 ) -> BlenderResult[Option[str]]:
     """Writes an explicit measured white override, preserving the entry's blend, and names an undo step where the white changed."""
-    config: BlenderResult[PyOpenColorIO.Config] = admitted(PyOpenColorIO.GetCurrentConfig(), ()).map_error(BlenderImagingFault.lifted)
 
     def sampled(config: PyOpenColorIO.Config, held: Entry[T]) -> BlenderResult[Option[str]]:
         match held.effect.curve if isinstance(held.effect, ToneCurve) else held.effect:
@@ -978,7 +976,7 @@ def measured[T: (ToneCurve, Hable)](
             case _:
                 return Ok(Nothing)
 
-    reading: BlenderResult[tuple[PyOpenColorIO.Config, Entry[T]]] = paired(config, row.read(identity, entry))
+    reading: BlenderResult[tuple[PyOpenColorIO.Config, Entry[T]]] = paired(config_of(), row.read(identity, entry))
     return Result[tuple[PyOpenColorIO.Config, Entry[T]], BlenderFaults].bind(reading, lambda pair: sampled(*pair))
 
 

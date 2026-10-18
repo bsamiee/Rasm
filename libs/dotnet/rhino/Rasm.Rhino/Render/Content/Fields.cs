@@ -11,7 +11,7 @@ public static class ContentFields {
         IO.lift(() => Optional(fields.GetField(name)).Traverse(read).As());
 
     public static IO<Seq<T>> Rows<T>(FieldDictionary fields, Func<Field, Fin<T>> read) =>
-        IO.lift(() => toSeq(fields.Cast<Field>()).Map(field => IO.lift(() => read(field))).Strict()).Bind(Callbacks.Each);
+        IO.lift(() => toSeq(fields.Cast<Field>()).Traverse(read).As());
 
     public static IO<T> WithinDynamicFields<T>(RenderContent content, bool automatic, IO<T> body) =>
         DisposalOps.Within(fun(() => content.BeginCreateDynamicFields(automatic)), _ => body, _ => IO.lift(content.EndCreateDynamicFields));
@@ -28,9 +28,7 @@ public static class ContentFields {
         DisposalOps.Within(() => Optional(requirement.Match(
                 Some: extra => content.GetExtraRequirementParameter(parameter, extra),
                 None: () => content.GetParameter(parameter))),
-            answer => IO.lift(() => answer.Match(
-                Some: held => Optional(VariantType.IsInstanceOfType(held) ? AsObject(held) : held).Traverse(read).As(),
-                None: static () => Fin.Succ(Option<T>.None))),
+            answer => IO.lift(() => answer.Bind(static held => Optional(VariantType.IsInstanceOfType(held) ? AsObject(held) : held)).Traverse(read).As()),
             static answer => IO.lift(() => answer.Bind(static held => Optional(held as IDisposable)).Iter(static held => held.Dispose())));
 
     public static IO<Unit> SetParameter(

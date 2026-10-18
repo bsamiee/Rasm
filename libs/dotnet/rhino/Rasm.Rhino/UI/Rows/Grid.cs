@@ -27,9 +27,11 @@ public sealed record FieldFit(Control Field, float Width);
 
 public sealed record RowHelp(Option<(string Low, string High)> Range, Option<string> Default) {
     public string Text(string help, Wording wording, IPlugInSink sink) =>
-        string.Join(Environment.NewLine, wording.Shown(help, sink).Cons(
-            Range.Map(static range => RowText.Localize("{0} – {1}", arguments: [range.Low, range.High]).Local).ToSeq()
-                .Concat(Default.Map(static value => RowText.Localize("Default {0}", arguments: [value]).Local).ToSeq())));
+        string.Join(Environment.NewLine, [
+            wording.Shown(help, sink),
+            .. Range.Map(static range => RowText.Localize("{0} – {1}", arguments: [range.Low, range.High]).Local).ToSeq(),
+            .. Default.Map(static value => RowText.Localize("Default {0}", arguments: [value]).Local).ToSeq(),
+        ]);
 }
 
 public sealed record RowLine(Option<string> Caption, Control Value, Option<Control> Pick, Option<FieldFit> Field);
@@ -147,9 +149,6 @@ public sealed class RowGrid : Drawable {
         select new RowTrail(keys, restore, copy, paste, padlock);
 
     // --- [FORM]
-    private static bool Beside(float width, float labels, float values, float trailing, float spacing) =>
-        labels <= LabelShare * width && labels + spacing + values + trailing <= width;
-
     private static IO<RowMetrics> Measured(Seq<ControlRow> column, Seq<RowPlace> places, IPlugInSink sink, Action<IDisposable> retain) =>
         from regular in DisposalOps.Acquire(IO.lift(static () => SystemFonts.Label()), retain)
         from emphasis in DisposalOps.Acquire(IO.lift(() => SystemFonts.Bold(regular.Size)), retain)
@@ -186,7 +185,9 @@ public sealed class RowGrid : Drawable {
         controls.Map(static control => control.GetPreferredSize().Width).Fold(Option<float>.None, static (widest, width) => Some(MathF.Max(widest.IfNone(width), width)));
 
     private IO<Unit> Formed =>
-        IO.lift(() => (float)Width).Bind(width => Shaped(held => held with { Beside = Beside(width, metrics.Labels, metrics.Values, metrics.Trailing, metrics.Spacing.Width) }));
+        IO.lift(() => (float)Width).Bind(width => Shaped(held => held with {
+            Beside = metrics.Labels <= LabelShare * width && metrics.Labels + metrics.Spacing.Width + metrics.Values + metrics.Trailing <= width,
+        }));
 
     private IO<Unit> Shaped(Func<RowForm, RowForm> step) =>
         form.SwapIO(step).Bind(Laid);
@@ -222,7 +223,10 @@ public sealed class RowGrid : Drawable {
             Subscriptions.Host<EventArgs>(typeof(RowGrid), h => SizeChanged += h, h => SizeChanged -= h, nameof(SizeChanged)).Inline(_ => Formed, Sink, acquired.Retain),
             Subscriptions.Host<EventArgs>(typeof(StackLayout), h => stack.SizeChanged += h, h => stack.SizeChanged -= h, nameof(SizeChanged)).Inline(_ => IO.lift(Invalidate), Sink, acquired.Retain),
             Subscriptions.Host<AtomChangedEvent<RowMarks>, RowMarks>(typeof(Atom<RowMarks>), h => marks.Change += h, h => marks.Change -= h,
-                static handler => held => handler(sender: null, held), nameof(marks.Change)).Inline(Marked, Sink, acquired.Retain))
+                static handler => held => handler(sender: null, held), nameof(marks.Change)).Inline(held => IO.lift(() => {
+                    ToolTip = held.Hovered.Bind(Tip).ValueUnsafe();
+                    Invalidate();
+                }), Sink, acquired.Retain))
         + places.Choose(place => place.Cells.Bind(static cells => cells.Menu).Map(attach =>
             attach(place.Trail.Map(static trail => trail.Groups).IfNone(Seq<Seq<Command>>()), Refreshed(Seq(place)), acquired.Retain)
                 .Bind(menu => marks.SwapIO(held => held with { Menus = held.Menus.AddOrUpdate(place.At, menu) })).Map(unit)))
@@ -316,12 +320,6 @@ public sealed class RowGrid : Drawable {
     private IO<Unit> Pointed(Func<RowMarks, RowMarks> step) =>
         marks.SwapMaybeIO(held => Some(step(held)).Filter(next => next.Hovered != held.Hovered || next.Pressed != held.Pressed)).Map(unit);
 
-    private IO<Unit> Marked(RowMarks held) =>
-        IO.lift(() => {
-            ToolTip = held.Hovered.Bind(Tip).ValueUnsafe();
-            Invalidate();
-        });
-
     private Option<string> Tip(RowHit hit) =>
         places.Find(place => place.At == hit.Place).Bind(place => hit.Cell switch {
             HitCell.Caption => place.Help,
@@ -401,7 +399,7 @@ public sealed class RowGrid : Drawable {
     private sealed record GridLine(LineSpec Spec, Panel Host);
 
     private sealed record RowTrail(IterableNE<EntryKey> Keys, Command Restore, Command Copy, Command Paste, Option<CheckCommand> Lock) {
-        public Seq<Seq<Command>> Groups => Seq(Restore.Cons(Lock.Map(static held => (Command)held).ToSeq()), Seq(Copy, Paste));
+        public Seq<Seq<Command>> Groups => [[Restore, .. Lock.ToSeq()], [Copy, Paste]];
     }
 
     private sealed record RowPlace(int At, ControlRow Row, Option<RowCells> Cells, Option<string> Caption, Option<string> Help, Seq<GridLine> Lines, Option<RowTrail> Trail) {
@@ -430,15 +428,13 @@ public sealed class RowGrid : Drawable {
         float Labels, Option<float> Gate, Option<float> Pick, Option<float> Reset, Option<float> Lock, float Values, Size Spacing, float CaptionHeight, Font Regular, Font Emphasis) {
         public float Trailing => Seq(Gate, Pick, Reset, Lock).Somes().Fold(0f, (sum, width) => sum + width + Spacing.Width);
 
-        private float Glyphs => Seq(Reset, Lock).Somes().Fold(0f, (sum, width) => sum + width + Spacing.Width);
-
         private bool Gated(LineSpec line) => Gate.IsSome && (line.Columned || line.Gate.IsSome);
 
         public (Padding Padding, Size Minimum) Spaced(LineSpec line, bool beside) =>
             (new Padding(
                     (int)MathF.Ceiling((line.Columned && beside ? Labels + Spacing.Width : 0f) + (Gated(line) && line.Gate.IsNone ? Gate.IfNone(0f) + Spacing.Width : 0f)),
                     (int)MathF.Ceiling(line.Columned && !beside && line.Caption.IsSome ? CaptionHeight + Spacing.Height : 0f),
-                    (int)MathF.Ceiling(line.Trailing ? (line.Pick.IsNone ? Pick.Map(width => width + Spacing.Width).IfNone(0f) : 0f) + Glyphs : 0f),
+                    (int)MathF.Ceiling(line.Trailing ? Seq(Pick.Filter(_ => line.Pick.IsNone), Reset, Lock).Somes().Fold(0f, (sum, width) => sum + width + Spacing.Width) : 0f),
                     0),
                 new Size(0, (int)MathF.Ceiling(MathF.Max(
                     line.Caption.IsSome && !(line.Columned && !beside) ? CaptionHeight : 0f,

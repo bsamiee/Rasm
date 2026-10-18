@@ -3,30 +3,21 @@ id: no-fourth-nesting-level-tsx
 language: tsx
 severity: error
 utils:
-    function:
-        matches: typescript-function-boundary
-    control:
-        any:
-            - kind: for_statement, for_in_statement, while_statement, do_statement, switch_statement
-            - kind: if_statement
-              not: {inside: {kind: else_clause}}
-            - kind: ternary_expression
-              not: {inside: {kind: ternary_expression, field: alternative, stopBy: {not: {matches: typescript-expression-wrapper}}}}
-    boundary: {any: [{matches: control}, {matches: function}]}
+    boundary: {any: [{matches: typescript-control-flow}, {matches: typescript-function-boundary}]}
 rule:
-    matches: control
+    matches: typescript-control-flow
     pattern: $SCOPE
     inside:
-        matches: control
+        matches: typescript-control-flow
         stopBy: {matches: boundary}
         inside:
-            matches: control
+            matches: typescript-control-flow
             stopBy: {matches: boundary}
             inside:
-                matches: control
+                matches: typescript-control-flow
                 stopBy: {matches: boundary}
-                not: {inside: {matches: control, stopBy: {matches: function}}}
+                not: {inside: {matches: typescript-control-flow, stopBy: {matches: typescript-function-boundary}}}
 message: Control flow reaches a fourth nesting level
-note: 'Rebuild the nested decisions or loops as one `Match` or pipeline over their inputs'
+note: 'Rebuild the nested decisions or loops as one match, lookup, or pipeline over their inputs, with no extracted helper'
 labels:
     SCOPE: {style: primary}

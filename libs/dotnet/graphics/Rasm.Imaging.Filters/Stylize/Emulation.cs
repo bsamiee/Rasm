@@ -167,8 +167,8 @@ public sealed record CrtDisplay(
         double sinc = (whole.IsEven ? 1d : -1d) * double.SinPi(ERational.Min(fraction, ERational.One.Subtract(fraction)).ToDouble()) / (2d * double.Pi * span.ToDouble());
         return (row, column, line) => {
             long y = (long)extent.Height - 1 - line;
-            ERational centre = ERational.FromInt64((2 * y) + 1).Divide(2).Subtract(middle);
-            double beam = NoiseFunctions.Split(centre.Multiply(span).Add(phase)).Local.ToDouble();
+            ERational center = ERational.FromInt64((2 * y) + 1).Divide(2).Subtract(middle);
+            double beam = NoiseFunctions.Split(center.Multiply(span).Add(phase)).Local.ToDouble();
             double average = 0.5d + (double.CosPi(2d * beam) * sinc);
             double lit = power * (1d - (depth * average)) / (1d - (depth / 2d));
             for (int x = 0; x < row.Length; x++) {
@@ -433,7 +433,7 @@ public sealed record AnalogVideo(
                             (luminance[x] + (noise[3 * x] * levels.X), cb[x] + (noise[(3 * x) + 1] * levels.Y), cr[x] + (noise[(3 * x) + 2] * levels.Z));
                     }
                 }
-                return Fin.Succ(unit);
+                return unit;
             }
         });
 
@@ -705,7 +705,7 @@ public sealed record Glitch(
             tau => Subframe(reach.Negate().Multiply(ERational.One.Subtract(slide).Add(slide.Multiply(ERational.FromDouble(tau)))), Vector4.UnitZ),
             _ => Subframe(ERational.Zero, new Vector4(0f, 1f, 0f, 1f)));
 
-        (CoordinateMap Map, Vector4 Lanes) Subframe(ERational shift, Vector4 lanes) {
+        (CoordinateMap Map, Vector4 Gains) Subframe(ERational shift, Vector4 gains) {
             (ERational X, ERational Y) offset = (shift.Multiply(ERational.FromDouble(X)), shift.Multiply(ERational.FromDouble(Y)));
             CoordinateMap moved = new CoordinateMap.Analytic(
                 (points, _, _) => {
@@ -714,7 +714,7 @@ public sealed record Glitch(
                         point = (Sampling.Linear.Point(source.X, state.Wrap, extent.Width), Sampling.Linear.Point(source.Y, state.Wrap, extent.Height));
                     }
                 }, Sampling.Linear, (state.Wrap, state.Wrap));
-            return (state.Moves ? new CoordinateMap.Composed(blocks, moved) : moved, lanes);
+            return (state.Moves ? new CoordinateMap.Composed(blocks, moved) : moved, gains);
         }
     }
 

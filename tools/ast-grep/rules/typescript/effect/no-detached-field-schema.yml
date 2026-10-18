@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-detached-field-schema
+language: tsx
+severity: error
+utils:
+    schema:
+        matches: {effect-module: {name: {regex: '\bSchema$'}}}
+    reference:
+        kind: identifier
+        pattern: $NAME
+        not: {inside: {kind: variable_declarator, field: name}}
+    owner:
+        kind: class_declaration
+        has: {field: name, pattern: $CLASS}
+rule:
+    kind: variable_declarator
+    all:
+        - has: {field: name, kind: identifier, pattern: $NAME}
+        - has:
+            field: value
+            any:
+                - {kind: call_expression, has: {field: function, kind: member_expression, has: {field: object, matches: schema}}}
+                - {kind: member_expression, has: {field: object, matches: schema}}
+        - inside: {matches: typescript-module-constant}
+        - inside:
+            kind: program
+            stopBy: end
+            all:
+                - has: {stopBy: end, matches: owner, has: {kind: class_heritage, has: {stopBy: end, kind: pair, has: {field: value, kind: identifier, pattern: $NAME}}}}
+                - not: {has: {stopBy: end, matches: reference, not: {inside: {stopBy: end, matches: owner}}}}
+message: '`$NAME` declares a field schema that `$CLASS` alone reads'
+note: 'Declare the schema inline in the class fields and read it inside the class as `<Class>.fields.<field>`'

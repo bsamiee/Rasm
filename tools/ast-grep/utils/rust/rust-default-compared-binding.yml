@@ -2,17 +2,10 @@
 id: rust-default-compared-binding
 language: rust
 utils:
-    empty-literal:
-        kind: string_literal
-        not: {has: {kind: 'string_content, escape_sequence'}}
     zero-value:
         any:
-            - matches: empty-literal
+            - matches: rust-empty-string
             - matches: rust-default-value
-            - kind: call_expression
-              all:
-                - has: {field: function, kind: field_expression, all: [{has: {field: value, matches: empty-literal}}, {has: {field: field, regex: '^(into|to_owned|to_string)$'}}]}
-                - has: {field: arguments, not: {has: {pattern: $_}}}
             - {kind: integer_literal, regex: '^0+(_?[iu](8|16|32|64|128|size))?$'}
             - {kind: float_literal, regex: '^0+\.0*(_?f(32|64))?$'}
             - {kind: boolean_literal, regex: '^false$'}

@@ -80,5 +80,8 @@ Custom properties hold `int`, `float`, `str`, `bool`, `None`, ID pointers, strin
 - Integers are signed 32-bit, a larger value raising `OverflowError`
 - Floats are doubles while coordinates are `float32`, and georeferenced geometry stores a local offset with its double-precision origin in an ID property
 - Lists mixing strings with numbers raise `TypeError`, and integer-keyed dictionaries raise `KeyError`
-- Names hold at most 63 characters
+- Names hold at most 63 bytes, a longer key raising `KeyError`
+- Lists of dictionaries read back as a `list` of `IDPropertyGroup` through `ID.copy()`, undo, and reload, holding keys built from paths as values
+- `id[key] = []` stores an empty `IDPropertyArray` in place of a list
+- Bytes written to a key holding a byte string keep the bytes before the first NUL, while a new key, a whole-group write, and `ID.copy()` keep every byte
 - `id.id_properties_ui(key).update(min=, max=, default=)` sets UI range and the Reset to Default value

@@ -88,7 +88,7 @@ public sealed record LocalContrast(AxisFraction Highlights, AxisFraction Shadows
         const float LogFloor = -8f;
         const float Spacing = (HistogramAxis.TopStop - LogFloor) / (32 - 1);
         return frame.Filter(header => {
-            (int width, (double X, double Y, double Z) luminance, double grey, (WrapMode, WrapMode) edge) = (frame.Size.Width, context.Working.Luminance, double.Log2(Exposure.MiddleGrey), (WrapMode.Clamp, WrapMode.Clamp));
+            (int width, (double X, double Y, double Z) luminance, double gray, (WrapMode, WrapMode) edge) = (frame.Size.Width, context.Working.Luminance, double.Log2(Exposure.MiddleGray), (WrapMode.Clamp, WrapMode.Clamp));
             (int across, int down) = ((width + pitch - 1) / pitch, (frame.Size.Height + pitch - 1) / pitch);
             using Mat linear = new();
             using Mat weights = new(1, 4, DepthType.Cv64F, 1);
@@ -134,8 +134,8 @@ public sealed record LocalContrast(AxisFraction Highlights, AxisFraction Shadows
                     Vector256<double> graded = ((1d - upper) * new ReadOnlySpan<Vector256<double>>(planes[slice].DataPointer.ToPointer(), cellCount).AsSpan2D(down, across).Sample(at, edge, Vector256<double>.Zero, static (sum, pixel, weight) => sum + (pixel * weight)))
                     + (upper * new ReadOnlySpan<Vector256<double>>(planes[slice + 1].DataPointer.ToPointer(), cellCount).AsSpan2D(down, across).Sample(at, edge, Vector256<double>.Zero, static (sum, pixel, weight) => sum + (pixel * weight)));
                     double surround = blurred.Sample(at, edge, Vector256<double>.Zero, static (sum, pixel, weight) => sum + (pixel * weight)) switch { var smooth => smooth.GetElement(0) / smooth.GetElement(1) };
-                    double centered = double.Lerp(graded.GetElement(1) > 0d ? graded.GetElement(0) / graded.GetElement(1) : surround, surround, 0.6d) - grey;
-                    double gain = double.Exp2(grey + (centered * (centered > 0d ? state.Highlights : state.Shadows)) + ((own.GetElement(0) - grey - centered) * state.Detail) - own.GetElement(0));
+                    double centered = double.Lerp(graded.GetElement(1) > 0d ? graded.GetElement(0) / graded.GetElement(1) : surround, surround, 0.6d) - gray;
+                    double gain = double.Exp2(gray + (centered * (centered > 0d ? state.Highlights : state.Shadows)) + ((own.GetElement(0) - gray - centered) * state.Detail) - own.GetElement(0));
                     row[x] = new((float)(row[x].X * gain), (float)(row[x].Y * gain), (float)(row[x].Z * gain), row[x].W);
                 }
             }).Run(frame, progress);
@@ -145,7 +145,6 @@ public sealed record LocalContrast(AxisFraction Highlights, AxisFraction Shadows
             double.Log2(double.Max(luma, LuminanceSamples.Floor)) switch {
                 var level => ((level - LogFloor) / Spacing) switch { var stop => (int)double.Floor(stop) switch { var lower => (weight * Vector256.Create(level, 1d, 0d, 0d), lower - first, stop - lower) } },
             };
-
     }
 }
 

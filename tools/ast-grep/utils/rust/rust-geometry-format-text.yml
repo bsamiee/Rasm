@@ -28,11 +28,8 @@ utils:
             - matches: svg-move
             - regex: '^"\s*[LlCcQqSsTt] ?\{[^{}]*\}[ ,]\s*\{[^{}]*\}'
               inside: {kind: function_item, stopBy: {kind: function_item}, has: {stopBy: end, matches: svg-move}}
-    printing:
-        matches: {rust-std-macro: {name: {regex: '^(write|writeln|format|format_args|print|println|eprint|eprintln)$'}}}
     stl:
         regex: '^b?"\s*(facet normal|outer loop|endfacet|endloop|endsolid)\b'
-        not: {inside: {stopBy: {kind: 'function_item, closure_expression'}, matches: printing}}
     obj:
         any:
             - regex: '^"f "$'

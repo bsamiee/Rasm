@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-restated-match-finalizer
+language: tsx
+severity: error
+utils:
+    function-reference:
+        any:
+            - kind: member_expression
+              has: {field: object, matches: {effect-module: {name: {regex: '\bFunction$'}}}}
+            - kind: identifier
+              matches: {typescript-import-reference: {source: {regex: '^effect/Function$'}, exported: {regex: '^(constant|const(Undefined|Null|Void))$'}}}
+    option-none:
+        kind: member_expression
+        all:
+            - has: {field: property, regex: '^none$'}
+            - has: {field: object, matches: {effect-module: {name: {regex: '\bOption$'}}}}
+    absent-value:
+        any:
+            - kind: 'undefined, null'
+            - kind: unary_expression
+              regex: '^void\s'
+              has: {field: argument, kind: number}
+            - kind: parenthesized_expression
+              has: {matches: absent-value}
+            - kind: call_expression
+              all:
+                - has: {field: function, matches: option-none}
+                - not: {has: {field: arguments, has: {pattern: $_}}}
+    unmatched-failure:
+        kind: arrow_function, function_expression
+        all:
+            - any:
+                - has: {field: parameter, kind: identifier, pattern: $INPUT}
+                - has: {field: parameters, all: [{has: {nthChild: 1, kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $INPUT}}}, {not: {has: {nthChild: 2}}}]}
+            - has:
+                field: body
+                kind: call_expression
+                all:
+                    - has: {field: function, matches: {effect-module-member: {module: {regex: '\bResult$'}, member: {regex: '^fail$'}}}}
+                    - has: {field: arguments, all: [{has: {nthChild: 1, kind: identifier, pattern: $INPUT}}, {not: {has: {nthChild: 2}}}]}
+rule:
+    kind: call_expression
+    all:
+        - has: {field: function, matches: {effect-module-member: {module: {regex: '\bMatch$'}, member: {regex: '^orElse$'}}}}
+        - has:
+            field: arguments
+            all:
+                - not: {has: {nthChild: 2}}
+                - has:
+                    nthChild: 1
+                    pattern: $D
+                    any:
+                        - matches: {typescript-constant-function: {result: {matches: absent-value}}}
+                        - kind: call_expression
+                          all:
+                            - has: {field: function, matches: function-reference, regex: '(^|\.)constant$'}
+                            - has: {field: arguments, has: {matches: absent-value}}
+                        - matches: function-reference
+                          regex: '(^|\.)const(Undefined|Null|Void)$'
+                        - matches: option-none
+                        - matches: unmatched-failure
+                        - matches: {effect-module-member: {module: {regex: '\bResult$'}, member: {regex: '^fail$'}}}
+message: '`Match.orElse($D)` restates a matcher finalizer'
+note: 'Finish the matcher with `Match.option` for `Option.none()` on unmatched input or `Match.result` for the unmatched input as a `Result` failure, the arms returning plain values'

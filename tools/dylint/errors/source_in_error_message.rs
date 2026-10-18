@@ -54,9 +54,9 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 Position::ArgumentIs(index) | Position::ArgumentImplicitlyIs(index) =>
                     arguments.iter().filter(|(written, _)| written.is_none()).nth(index).and_then(|&(_, field)| field).and_then(named),
             })?;
-            let help = match (pieces.as_slice(), arguments.is_empty()) {
-                ([Piece::NextArgument(_)], true) => "write `#[error(transparent)]` to forward the source's message and source".to_owned(),
-                _ => format!("delete `{shown}` from the message, reporters print it through `source()`"),
+            let help = match &pieces {
+                [Piece::NextArgument(_)] => format!("state the failure in the message in place of field `{shown}`, reporters print the source through `source()`"),
+                _ => format!("delete field `{shown}` from the message, reporters print it through `source()`"),
             };
             Some((node, attribute.span(), format!("`{}` message prints its source field `{shown}`", variant.name), help))
         }

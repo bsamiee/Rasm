@@ -60,16 +60,16 @@ public static class HatchPatterns {
 
     public static IO<Unit> Written(HatchPattern staged, HatchPatternDefinition definition) =>
         DisposalOps.Within((Action<HatchLine> retain) =>
-                from lines in definition.Lines.TraverseM(_ => DisposalOps.Acquire(IO.lift(static () => new HatchLine()), retain)).As()
-                from settings in IO.lift(() => HatchPatternMapper.Update(definition, staged))
-                from configured in IO.lift(() => lines.Zip(definition.Lines).Iter(static pair => {
-                    HatchPatternMapper.Update(pair.Second, pair.First);
-                    pair.First.SetDashes(pair.Second.Dashes);
-                }))
-                from lined in IO.lift(() => Refused.Unless(staged.SetHatchLines(lines) == lines.Count, nameof(HatchPattern.SetHatchLines)))
-                from held in IO.lift(() => UserStrings.Held(staged.GetUserStrings()))
-                from stored in UserStrings.Write(held, staged.SetUserString, UserStrings.Replacing(held, definition.UserStrings))
-                select unit, DisposalOps.Release);
+            from lines in definition.Lines.TraverseM(_ => DisposalOps.Acquire(IO.lift(static () => new HatchLine()), retain)).As()
+            from settings in IO.lift(() => HatchPatternMapper.Update(definition, staged))
+            from configured in IO.lift(() => lines.Zip(definition.Lines).Iter(static pair => {
+                HatchPatternMapper.Update(pair.Second, pair.First);
+                pair.First.SetDashes(pair.Second.Dashes);
+            }))
+            from lined in IO.lift(() => Refused.Unless(staged.SetHatchLines(lines) == lines.Count, nameof(HatchPattern.SetHatchLines)))
+            from held in IO.lift(() => UserStrings.Held(staged.GetUserStrings()))
+            from stored in UserStrings.Write(held, staged.SetUserString, UserStrings.Replacing(held, definition.UserStrings))
+            select unit, DisposalOps.Release);
 
     public static IO<T> Detached<T>(Seq<(string Name, HatchPatternDefinition Definition)> rows, Func<Seq<HatchPattern>, IO<T>> body) =>
         DisposalOps.Within((Action<HatchPattern> held) =>

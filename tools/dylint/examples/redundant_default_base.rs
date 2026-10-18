@@ -39,5 +39,7 @@ fn retry() -> Retry { Retry { attempts: 4, ..Default::default() } }
 
 fn main() {
     let (limits, window, retry) = (limits(String::new()), window(), retry());
-    black_box(&([limits.timeout, window.width, window.height, retry.backoff], limits.retries, limits.name, retry.attempts));
+    black_box(&([limits.timeout, window.width, window.height, retry.backoff], limits.retries, limits.name, retry.attempts, named(String::new()).retries));
 }
+
+fn named(name: String) -> Limits { Limits { name, ..Limits::default() } }

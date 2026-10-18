@@ -15,6 +15,7 @@ Diagnosing a build from its binary log, from capture through the `binlog` MCP se
 ## [01]-[CAPTURE]
 
 Targets running `dotnet build`, `restore`, `publish`, `msbuild`, `test`, or `format` write `<dir>/<project>/<target>.binlog`:
+- `<target>` spells each `:` of the Nx target name as `-`, artifact uploads and NTFS refuse `:`
 - Nx cache hits restore the log of the run they replay
 - `<dir>` is `binlog` under the absolute path `dotnet msbuild <root>/Directory.Build.props -getProperty:ArtifactsPath` prints
 - `dotnet msbuild` runs evaluation reads and replays, `-bl` captures one

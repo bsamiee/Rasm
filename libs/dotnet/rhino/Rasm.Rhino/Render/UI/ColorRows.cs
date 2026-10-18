@@ -88,7 +88,7 @@ public static class ColorRows {
             Some(ChoiceRows.Context(well.Button, Menu(well, bound, write), [], scope.Sink)));
 
     private static Func<Vector4, TRecord, Fin<TRecord>> Written<TRecord>(Lens<TRecord, Swatch> swatch) where TRecord : notnull =>
-        (color, record) => Fin.Succ(swatch.Set(Swatch.From(color), record));
+        (color, record) => swatch.Set(Swatch.From(color), record);
 
     private static IO<Unit> Shown<TRecord>(Well well, Lens<TRecord, Swatch> swatch, Option<(Lens<TRecord, bool> Lens, CheckBox Box)> gated, Option<TRecord> value)
         where TRecord : notnull =>
@@ -415,7 +415,7 @@ public static class ColorRows {
         from wheel in DisposalOps.Acquire(IO.lift(() => new GradingWheel(scope.Sink, faced(current()))), retain)
         let site = new CallbackSite(scope.Sink, typeof(GradingWheel), nameof(GradingWheel.Edited))
         from bound in RowEdit.Bind(source, members, h => wheel.Edited += h, h => wheel.Edited -= h,
-            edit => Callbacks.Handler<EditEventArgs<WheelOffset>>(args => edit.Take(args.Edit, (offset, held) => Fin.Succ(current().Lens.Set(offset, held))).Map(unit), site),
+            edit => Callbacks.Handler<EditEventArgs<WheelOffset>>(args => edit.Take(args.Edit, (offset, held) => current().Lens.Set(offset, held)).Map(unit), site),
             value => IO.lift(current).Bind(chosen => wheel.Receive(value.Map(chosen.Lens.Get))), scope, site, retain)
         from hue in NumericRows.Line(
             source, WheelOffsetParameter.Hue.Text.Caption, Followed(current, static tone => tone.Hue), WheelHue.Presentation, bound, None, scope.Sink, retain)
@@ -423,7 +423,7 @@ public static class ColorRows {
             source, WheelOffsetParameter.Strength.Text.Caption, Followed(current, static tone => tone.Strength), AxisFraction.Presentation, bound, None, scope.Sink, retain)
         from luma in NumericRows.Line(
             source, WheelOffsetParameter.Luma.Text.Caption, Followed(current, static tone => tone.Luma), WheelLuma.Presentation, bound, None, scope.Sink, retain)
-        from lanes in working.ToSeq().Bind(gamut => toSeq(TraceChannel.Items).Choose(channel => channel.Lane.Map(lane => Laned(channel, lane, WheelOffset.LaneBounds(gamut), current, bound, gamut, scope.Sink, retain))))
+        from lanes in working.ToSeq().Bind(gamut => toSeq(TraceChannel.Items).Choose(channel => channel.Lane.Map(lane => Laned(channel, lane, WheelOffset.ChannelBounds(gamut), current, bound, gamut, scope.Sink, retain))))
             .TraverseM(static make => make).As()
         let lines = Lines(bound, scope.Read(source), Seq(hue.Show, strength.Show, luma.Show) + lanes.Map(static lane => lane.Show))
         from popup in ChoiceRows.Popup(
@@ -484,12 +484,11 @@ public static class ColorRows {
         Vector4[] light = [.. stops.Map(static stop => new Vector4(stop.Color.R, stop.Color.G, stop.Color.B, stop.Color.A) / byte.MaxValue)];
         TransferCurve.Srgb.Decode(light, Nits.ReferenceWhite);
         return stops.Zip(toSeq(light))
-            .Traverse(static pair => (
+            .Traverse(static pair =>
                 from position in RampPosition.Validated(pair.First.Position)
                 from stop in ValidationResults.ToFin(RampStop.Validate(position, pair.Second, out RampStop item), item)
-                select stop).ToValidation())
+                select stop)
             .As()
-            .ToFin()
             .Bind(static held => ValidationResults.ToFin(Ramp.Validate(held, RampInterpolation.Linear, out Ramp? ramp), ramp));
     }
 
@@ -533,7 +532,7 @@ public static class ColorRows {
 
     private static IO<Unit> Dragged<TRecord>(RowEdit<TRecord> edit, Atom<(Option<Ramp> Ramp, Option<int> Selected)> stop, Lens<TRecord, Ramp> lens, Edit<Ramp> change)
         where TRecord : notnull =>
-        stop.SwapIO(held => held with { Ramp = change.Carried | held.Ramp }).Bind(_ => edit.Take(change, (ramp, record) => Fin.Succ(lens.Set(ramp, record)))).Map(unit);
+        stop.SwapIO(held => held with { Ramp = change.Carried | held.Ramp }).Bind(_ => edit.Take(change, (ramp, record) => lens.Set(ramp, record))).Map(unit);
 
     private static IO<Unit> Chosen(Atom<(Option<Ramp> Ramp, Option<int> Selected)> stop, Option<int> at) =>
         stop.SwapIO(held => held with { Selected = at }).Map(unit);
@@ -599,7 +598,7 @@ public static class ColorRows {
         let site = new CallbackSite(scope.Sink, typeof(HueRangeBar), nameof(HueRangeBar.Edited))
         let lenses = axis.Members(range)
         from bound in RowEdit.Bind(source, members, h => bar.Edited += h, h => bar.Edited -= h,
-            edit => Callbacks.Handler<EditEventArgs<HueRange>>(args => edit.Take(args.Edit, (value, held) => Fin.Succ(range.Set(value, held))).Map(unit), site),
+            edit => Callbacks.Handler<EditEventArgs<HueRange>>(args => edit.Take(args.Edit, (value, held) => range.Set(value, held)).Map(unit), site),
             value => Banded(bar, range, grade, value), scope, site, retain)
         from pick in stage.Traverse(input => Pick(input, bound, (color, held) => Centered(axis, lenses.Center, color, held), scope, retain)).As()
         from center in NumericRows.Line(source, band.Center, lenses.Center, axis.Presentation, bound, pick.Map(static button => (Control)button), scope.Sink, retain)

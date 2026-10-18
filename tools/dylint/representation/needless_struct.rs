@@ -1,9 +1,8 @@
 use clippy_utils::{diagnostics::span_lint_hir_and_then, res::MaybeDef as _, sym};
-use itertools::Itertools as _;
 use rustc_data_structures::fx::FxIndexMap;
 use rustc_hir::{Expr, ExprKind, Item, ItemKind, Pat, PatKind, StructTailExpr, VariantData, def_id::LocalDefId};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{FieldDef, Ty};
+use rustc_middle::ty::Ty;
 
 use crate::{expanded_externally, exported, generated};
 
@@ -14,7 +13,7 @@ pub(crate) struct Pass {
     structs: FxIndexMap<LocalDefId, bool>,
 }
 
-lint!(default Pass; NEEDLESS_STRUCT: "crate-private structs with no impl beyond `Debug` that every use builds or destructures whole");
+lint!(default Pass; NEEDLESS_STRUCT: "crate-private one-field structs with no impl beyond `Debug` that every use builds or destructures whole");
 
 impl Pass {
     fn disqualify(&mut self, held: Ty<'_>) {
@@ -29,15 +28,10 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         let candidate = || {
             let adt = cx.tcx.adt_def(item.owner_id);
             let variant = adt.non_enum_variant();
-            !adt.repr().c()
-                && !adt.repr().transparent()
-                && adt.repr().pack.is_none()
-                && adt.repr().align.is_none()
-                && !variant.is_field_list_non_exhaustive()
-                && !variant.fields.iter().any(|field| cx.tcx.type_of(field.did).instantiate_identity().skip_normalization().is_bool())
+            !adt.repr().c() && !adt.repr().transparent() && adt.repr().pack.is_none() && adt.repr().align.is_none() && !variant.is_field_list_non_exhaustive()
         };
         match item.kind {
-            ItemKind::Struct(_, _, VariantData::Struct { fields: [_, ..], .. }) if !expanded_externally(cx, item.span) && !exported(cx, item.owner_id.def_id) && candidate() => {
+            ItemKind::Struct(_, _, VariantData::Struct { fields: [_], .. }) if !expanded_externally(cx, item.span) && !exported(cx, item.owner_id.def_id) && candidate() => {
                 self.structs.entry(item.owner_id.def_id).or_insert(true);
             }
             ItemKind::Impl(implementation) if !implementation.of_trait.is_some_and(|declared| declared.trait_ref.trait_def_id().is_diag_item(cx, sym::Debug)) => {
@@ -68,12 +62,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
 
     fn check_crate_post(&mut self, cx: &LateContext<'tcx>) {
         for (&structure, _) in self.structs.iter().filter(|&(_, &needless)| needless) {
-            let declared = |field: &FieldDef| cx.tcx.type_of(field.did).instantiate_identity().skip_normalization();
             let name = cx.tcx.item_name(structure);
-            let help = match &cx.tcx.adt_def(structure).non_enum_variant().fields.raw {
-                [only] => format!("replace `{name}` with its field type `{}`", declared(only)),
-                fields => format!("replace `{name}` with the tuple `({})`", fields.iter().map(declared).join(", ")),
-            };
+            let held = cx.tcx.type_of(cx.tcx.adt_def(structure).non_enum_variant().single_field().did).instantiate_identity().skip_normalization();
             span_lint_hir_and_then(
                 cx,
                 NEEDLESS_STRUCT,
@@ -81,7 +71,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 cx.tcx.def_span(structure),
                 format!("`{name}` has no impl beyond `Debug`, and every use builds or destructures it whole"),
                 |diag| {
-                    diag.help(help);
+                    diag.help(format!("replace `{name}` with its field type `{held}`"));
                 },
             );
         }

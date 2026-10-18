@@ -1,125 +1,10 @@
 # [PREMIERE_PRO]
 
-Premiere Pro's module is a record of static classes, and its async reads complete before any lock opens.
+Premiere Pro's module is a record of native classes and members its own JavaScript adds, and its async reads complete before any lock opens.
 
-## [01]-[TRANSACTIONS]
+## [01]-[MEMBERS]
 
-Actions are built and added inside synchronous callbacks, and each host boolean leaves as data that becomes a reason:
-
-```ts
-import type { ProjectItem, premierepro } from '@adobe/premierepro';
-
-const EditReason = Schema.TaggedUnion({
-    Unread: { cause: Schema.Defect() },
-    Refused: { undo: Schema.String, names: Schema.NonEmptyArray(Schema.String) },
-    Unexecuted: { undo: Schema.String },
-    Thrown: { undo: Schema.String, cause: Schema.Defect() },
-});
-class EditError extends Schema.TaggedError<EditError, { readonly brand: unique symbol }>()('EditError', { reason: EditReason }) {}
-
-const read = <A>(call: () => Promise<A>): Effect.Effect<A, EditError> =>
-    Effect.tryPromise({ try: call, catch: (cause) => EditError.make({ reason: { _tag: 'Unread', cause } }) });
-const renamed = Effect.fn('renamed')(function* (host: premierepro, undo: string, name: (item: ProjectItem) => string) {
-    const project = yield* read(() => host.Project.getActiveProject());
-    const selection = yield* read(() => host.ProjectUtils.getSelection(project));
-    const items = yield* read(() => selection.getItems());
-    const ran = yield* Effect.try({
-        try: () => {
-            let [refused, executed] = [Array.empty<string>(), false];
-            project.lockedAccess(() => {
-                executed = project.executeTransaction((compound) => {
-                    const actions = Array.map(items, (item) => [item.name, item.createSetNameAction(name(item))] as const);
-                    refused = Array.filterMap(actions, ([label, action]) => (compound.addAction(action) ? Result.failVoid : Result.succeed(label)));
-                }, undo);
-            });
-            return { refused, executed };
-        },
-        catch: (cause) => EditError.make({ reason: { _tag: 'Thrown', undo, cause } }),
-    });
-    yield* Array.match(ran.refused, {
-        onEmpty: () => Effect.void,
-        onNonEmpty: (names) => Effect.fail(EditError.make({ reason: { _tag: 'Refused', undo, names } })),
-    });
-    return yield* ran.executed ? Effect.succeed(items.length) : Effect.fail(EditError.make({ reason: { _tag: 'Unexecuted', undo } }));
-});
-```
-
-`renamed` returns its count of renamed items, and `host` is the module object `require` returns. Reads finish before `lockedAccess`, and actions are built before the first `addAction`, where a throwing `name` adds none.
-
-| [INDEX] | [CALL]                                     | [RESULT]                                        |
-| :-----: | :----------------------------------------- | :---------------------------------------------- |
-|  [01]   | `executeTransaction` inside `lockedAccess` | `true` once its actions executed, or with none  |
-|  [02]   | `executeTransaction` outside a lock        | Throws                                          |
-|  [03]   | `compound.addAction(action)`               | `false` for an action it refuses                |
-|  [04]   | Throw inside a transaction callback        | Reaches its caller, added actions still execute |
-|  [05]   | Async getter inside a callback             | Pending promise no callback can await           |
-
-- `Refused` names each item `addAction` refused beside a transaction that executed every other action
-- `create*Action` members return synchronously, run inside the lock, and change nothing until their transaction executes
-
-## [02]-[READS]
-
-Getters return base types, and each class's static `cast` narrows one or returns `null` for another kind:
-
-```ts
-import type { FolderItem, Project, premierepro } from '@adobe/premierepro';
-
-const folders = (host: premierepro, project: Project): Effect.Effect<FolderItem[], EditError> =>
-    Effect.map(
-        Effect.flatMap(
-            read(() => project.getRootItem()),
-            (root) => read(() => root.getItems()),
-        ),
-        (items) => Array.getSomes(Array.map(items, (item) => Option.fromNullishOr(host.FolderItem.cast(item)))),
-    );
-const dirtied = <E>(
-    host: premierepro,
-    project: Project,
-    work: (event: object | undefined) => Effect.Effect<void, E>,
-): Effect.Effect<void, never, Scope.Scope> =>
-    listening(
-        (handler: (event?: object) => void) => host.EventManager.addEventListener(project, host.Constants.ProjectEvent.DIRTY, handler),
-        (handler) => host.EventManager.removeEventListener(project, host.Constants.ProjectEvent.DIRTY, handler),
-        work,
-    );
-```
-
-`folders` returns every bin under a project's root through `Option.fromNullishOr` over `cast`, which typings declare without `null`. `dirtied` holds a project's `DIRTY` registration in a scope through `listening`.
-
-| [INDEX] | [NEED]         | [FORM]                                     | [DECIDING_FACT]                             |
-| :-----: | :------------- | :----------------------------------------- | :------------------------------------------ |
-|  [01]   | Active project | `await Project.getActiveProject()`         | Static async getter                         |
-|  [02]   | Bin contents   | `FolderItem.cast(item)`, then `getItems()` | `ProjectItem` holds `name` and `type` alone |
-|  [03]   | Clip members   | `ClipProjectItem.cast(item)`               | Returns `null` for a bin                    |
-|  [04]   | Item kind      | `item.type` against `ProjectItem.TYPE_BIN` | Statics hold each kind's number             |
-|  [05]   | Selection      | `ProjectUtils.getSelection(project)`       | Holds a new item once its panel updates     |
-
-- Reads of independent objects combine through `Effect.all` over `read` calls
-- Work that names new items reads them from their folder
-
-## [03]-[EVENTS]
-
-`EventManager` registers a handler on one target for one event name:
-- Targets are `Project`, `Sequence`, `VideoTrack`, `AudioTrack`, and `EncoderManager`
-- Events are string members of `Constants.<Group>Event`: `Project`, `Sequence`, `VideoTrack`, `AudioTrack`, `Encoder`, `Snap`, and `OperationComplete`
-- One executed transaction can raise more than one `DIRTY` event, and handlers hold work that tolerates repeats
-
-## [04]-[PROJECTS]
-
-Projects open, return their root, and close through static and instance calls:
-
-| [INDEX] | [STEP]      | [CALL]                                                         | [RULE]                              |
-| :-----: | :---------- | :------------------------------------------------------------- | :---------------------------------- |
-|  [01]   | Create      | `await Project.createProject(path)`                            | New project becomes active          |
-|  [02]   | Root        | `await project.getRootItem()`                                  | Returns a `FolderItem`              |
-|  [03]   | Close       | `project.close(CloseProjectOptions().setPromptIfDirty(false))` | Close opens a save prompt otherwise |
-|  [04]   | After close | `await Project.getActiveProject()`                             | Returns the project open before     |
-
-- Media Encoder loads the same module form under manifest host `ame`
-
-## [05]-[MEMBERS]
-
-Installed builds bundle a manifest of the module's classes and an allow-list naming what the module exposes, and one `jq` read prints each class:
+Installed builds bundle a manifest of native classes and an allow-list naming what the module exposes, and one `jq` read prints each class:
 
 ```bash
 jq -r --arg c <Class> --slurpfile allow "<app>/Contents/Resources/json/api_config.json" '
@@ -138,6 +23,155 @@ getProject(): Project	instance	async
 ```
 
 - `jq -r '.apis[] | keys[] | select(. != "hash")' "<app>/Contents/Resources/json/api_config.json"` lists every exposed class
-- `class` rows are static members and constants, and `async` rows return promises
-- `lockedAccess`, `executeTransaction`, and the event-target members come from the module's own JavaScript and are typed by `@adobe/premierepro` alone
-- Manifests type each enumeration member `number` or `string` with no value
+- `class` rows are static members and constants, typed `number` or `string` with no value, and `async` rows return promises
+- Module JavaScript adds members the manifest lacks (`lockedAccess`, `executeTransaction`, `cast`, `EventManager`, `Constants`), and typings alone declare them
+- `strings -n 3000 "<app>/Contents/MacOS/<executable>" | rg -F mediaCoreBackend` prints module JavaScript
+
+## [02]-[READS]
+
+Getters return base classes, and each class's static `cast` narrows one or returns `null` for another kind:
+
+```ts
+import type { Project, premierepro } from '@adobe/premierepro';
+
+const folders = (host: premierepro, project: Project) =>
+    Effect.tryPromise(() => project.getRootItem()).pipe(
+        Effect.flatMap((root) => Effect.tryPromise(() => root.getItems())),
+        Effect.map(Array.flatMap((item) => Array.fromNullishOr(host.FolderItem.cast(item)))),
+    );
+```
+
+`folders` returns the bins in a project's root through `Array.fromNullishOr` over `cast`, which typings declare without `null`, and a rejected read fails `Cause.UnknownError` with the rejection as cause. `host` is the module object `require` returns.
+
+| [INDEX] | [NEED]         | [FORM]                                                 | [DECIDING_FACT]                                 |
+| :-----: | :------------- | :----------------------------------------------------- | :---------------------------------------------- |
+|  [01]   | Active project | `await Project.getActiveProject()`                     | `null` with no project open, one object each    |
+|  [02]   | Bin contents   | `FolderItem.cast(item)`, then `getItems()`             | Items are `ProjectItem` with `name` and `type`  |
+|  [03]   | Clip members   | `ClipProjectItem.cast(item)`                           | Returns `null` for a bin                        |
+|  [04]   | Item kind      | `item.type` against `ProjectItem.TYPE_BIN`             | Sequences read `TYPE_CLIP`                      |
+|  [05]   | Selection      | `ProjectUtils.getSelection(project)`, `getItems()`     | Holds imported items, misses a bin action's bin |
+|  [06]   | Track items    | `track.getTrackItems(TrackItemType.CLIP, false)`       | Synchronous, concrete clip track item classes   |
+|  [07]   | Markers        | `await Markers.getMarkers(owner)`, then `getMarkers()` | `null` for an owner other than sequence or clip |
+
+- Work that names new items reads them from their folder
+- Handles read live state, and a track item or `Markers` read before an edit returns the edited value
+- `TrackItemType` is a `Constants` group, and `Marker` getters are synchronous
+
+## [03]-[TRANSACTIONS]
+
+Edits are actions built and added inside one `lockedAccess` callback, and `addAction` alone tells an executed action from a refused one:
+
+```ts
+import type { Project, ProjectItem } from '@adobe/premierepro';
+
+const EditReason = Schema.TaggedUnion({
+    Refused: { undo: Schema.String, names: Schema.NonEmptyArray(Schema.String) },
+    Thrown: { undo: Schema.String, cause: Schema.Defect() },
+});
+class EditError extends Schema.TaggedError<EditError, { readonly brand: unique symbol }>()('EditError', { reason: EditReason }) {}
+
+const renamed = (project: Project, items: readonly ProjectItem[], undo: string, name: (item: ProjectItem) => string) =>
+    Effect.try({
+        try: () => {
+            const refused: string[] = [];
+            project.lockedAccess(() => {
+                const actions = items.map((item) => [item.name, item.createSetNameAction(name(item))] as const);
+                project.executeTransaction((compound) => {
+                    refused.push(...actions.flatMap(([label, action]) => (compound.addAction(action) ? [] : [label])));
+                }, undo);
+            });
+            return refused;
+        },
+        catch: (cause) => EditError.make({ reason: { _tag: 'Thrown', undo, cause } }),
+    }).pipe(
+        Effect.flatMap(
+            Array.match({
+                onEmpty: () => Effect.succeed(items.length),
+                onNonEmpty: (names) => Effect.fail(EditError.make({ reason: { _tag: 'Refused', undo, names } })),
+            }),
+        ),
+    );
+```
+
+`renamed` returns its count over items its caller read before the lock, and `Refused` names each item `addAction` refused beside a transaction that executed every other action. Actions build before the first `addAction`, where a throwing `name` adds none, and `Thrown` from inside the transaction callback follows the actions added before it, which still execute. `refused` leaves through an outer array, since `lockedAccess` returns `true` and drops its callback's value.
+
+| [INDEX] | [CALL]                                      | [RESULT]                                                    |
+| :-----: | :------------------------------------------ | :---------------------------------------------------------- |
+|  [01]   | `create*Action` outside `lockedAccess`      | Throws, inside a transaction callback too                   |
+|  [02]   | `executeTransaction(callback, undo)`        | `true`, one History entry named `undo`, whatever executed   |
+|  [03]   | `executeTransaction` with no `undo`         | History entry "Edit Project"                                |
+|  [04]   | Action built in another `lockedAccess`      | `addAction` returns `false`                                 |
+|  [05]   | `addAction(null)`, an edit the host refuses | `false`                                                     |
+|  [06]   | `addAction` of a non-action                 | Throws "Illegal Parameter type"                             |
+|  [07]   | Throw inside a transaction callback         | Reaches its caller, added actions still execute             |
+|  [08]   | Async getter inside a callback              | Pending promise no callback can await                       |
+|  [09]   | Transaction inside a transaction callback   | Own History entry, its actions execute before the outer one |
+
+- `create*Action` members return synchronously and change nothing until their transaction executes
+
+## [04]-[EVENTS]
+
+`EventManager.addEventListener(target, name, handler)` calls `subscribeToEvent` for track and render events, then the target's own `addEventListener`, and `addGlobalEventListener` listens on the event root:
+
+```ts
+import type { Project, premierepro } from '@adobe/premierepro';
+
+const dirtied = <E>(
+    host: premierepro,
+    project: Project,
+    work: (event: object | undefined) => Effect.Effect<void, E>,
+): Effect.Effect<void, never, Scope.Scope> =>
+    listening(
+        (handler: (event?: object) => void) => host.EventManager.addEventListener(project, host.Constants.ProjectEvent.DIRTY, handler),
+        (handler) => host.EventManager.removeEventListener(project, host.Constants.ProjectEvent.DIRTY, handler),
+        work,
+    );
+```
+
+`dirtied` holds a project's `DIRTY` registration in a scope through `listening`. Handlers receive an event whose `type` equals its name, with no other field.
+
+| [INDEX] | [EVENT]                              | [TARGET]                      | [RAISED_BY]                                         |
+| :-----: | :----------------------------------- | :---------------------------- | :-------------------------------------------------- |
+|  [01]   | `ProjectEvent.DIRTY`                 | `Project`                     | Each executed transaction, repeatedly, after return |
+|  [02]   | `ProjectEvent.OPENED`, `CLOSED`      | Global listener               | `createProject`, `open`, and `close`                |
+|  [03]   | `VideoTrackEvent`, `AudioTrackEvent` | `VideoTrack`, `AudioTrack`    | Edits to items on that track                        |
+|  [04]   | `EncoderEvent`                       | `EncoderManager.getManager()` | Nothing for an `IMMEDIATELY` export                 |
+
+- `Constants` groups hold host strings (`"ProjectEvent.Dirty"`) where typings declare numeric enums
+
+## [05]-[PROJECTS]
+
+Projects open, return their root, save, and close through static and instance calls:
+
+| [INDEX] | [STEP]        | [CALL]                                                    | [RULE]                                       |
+| :-----: | :------------ | :-------------------------------------------------------- | :------------------------------------------- |
+|  [01]   | Create        | `await Project.createProject(path)`                       | New project becomes active                   |
+|  [02]   | Root          | `await project.getRootItem()`                             | Returns a `FolderItem`                       |
+|  [03]   | Import        | `await project.importFiles(paths, true)`                  | Items land in the root, selected             |
+|  [04]   | Sequence      | `await project.createSequenceFromMedia(name, clips, bin)` | New sequence becomes active                  |
+|  [05]   | Save          | `await project.save()`                                    | `true` once written                          |
+|  [06]   | Close         | `await project.close()`                                   | Discards unsaved changes with no prompt      |
+|  [07]   | After close   | `await Project.getActiveProject()`                        | Returns the project open before, same object |
+|  [08]   | Closed handle | Reads and transactions on a closed project                | Still answer, `true` from each transaction   |
+
+- `CloseProjectOptions()` builds without `new`, starts with `promptIfDirty` false, and each setter returns the same object
+- Save and export show a progress dialog that closes when their promise resolves
+
+## [06]-[EXPORT]
+
+Files export through the encoder `EncoderManager.getManager()` returns, and frames through `Exporter`:
+
+| [INDEX] | [OUTPUT]       | [CALL]                                                                           | [RESULT]                  |
+| :-----: | :------------- | :------------------------------------------------------------------------------- | :------------------------ |
+|  [01]   | Sequence file  | `exportSequence(sequence, Constants.ExportType.IMMEDIATELY, path, preset, true)` | `true` with file complete |
+|  [02]   | File extension | `EncoderManager.getExportFileExtension(sequence, preset)`                        | Extension preset writes   |
+|  [03]   | One frame      | `Exporter.exportSequenceFrame(sequence, time, name, folder, width, height)`      | Writes `<folder><name>`   |
+
+- Presets are `.epr` files under `<app>/Contents/Settings/EncoderPresets` and `Settings/Frame.io/EncoderPresets`
+- `TickTime.createWithSeconds` builds times, and `ticks` reads 254016000000 per second as a string
+
+## [07]-[MEDIA_ENCODER]
+
+Media Encoder loads plug-ins under manifest host `ame` from an `ame.json` registry row, `uxp.host.name` reads `ame`, and `require` resolves `mediaencoder` with no `premierepro`:
+- Media Encoder's `api_config.json` allows no class, and `Object.keys(require('mediaencoder'))` lists its module (`RenderQueue`, `PresetManager`)
+- Module JavaScript defines `Constants()` as a method returning `RenderQueueStatus`, `Result`, and `Workarea`

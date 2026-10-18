@@ -50,24 +50,33 @@ utils:
         all:
             - has: {field: operators, regex: '^==$'}
             - has: {matches: python-identifier-string}
+    member-scan:
+        any:
+            - inside: {kind: for_in_clause, field: right, all: [{has: {field: left, has: {nthChild: 1, kind: identifier, pattern: $MEMBER}}}, {inside: {kind: 'list_comprehension, set_comprehension, dictionary_comprehension, generator_expression', has: {kind: if_clause, has: {stopBy: end, matches: name-comparison, has: {pattern: $MEMBER}}}}}]}
+            - inside: {kind: for_statement, field: right, all: [{has: {field: left, has: {nthChild: 1, kind: identifier, pattern: $MEMBER}}}, {has: {field: body, has: {stopBy: end, matches: name-comparison, has: {pattern: $MEMBER}}}}]}
+            - inside: {kind: argument_list, inside: {kind: call, has: {field: function, regex: '^filter$'}}, has: {kind: lambda, has: {field: body, matches: name-comparison}}}
 rule:
     pattern: $CHECK
     any:
         - kind: call
           all:
-            - has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^(get|setdefault)$'}}, {has: {field: object, matches: inspect-member-mapping}}]}
+            - has: {field: function, kind: attribute, has: {field: attribute, regex: '^(get|setdefault)$'}}
+            - inside: {kind: module, stopBy: end, regex: '\bgetmembers'}
+            - has: {field: function, has: {field: object, matches: inspect-member-mapping}}
             - has: {field: arguments, has: {nthChild: 1, matches: attribute-name}}
         - kind: subscript
           all:
-            - has: {field: subscript, matches: attribute-name}
+            - inside: {kind: module, stopBy: end, regex: '\bgetmembers'}
             - has: {field: value, matches: inspect-member-mapping}
+            - has: {field: subscript, matches: attribute-name}
             - matches: python-key-catch
         - kind: comparison_operator
           all:
             - has: {field: operators, regex: '^(not\s+)?in$'}
-            - has: {nthChild: 1, matches: attribute-name}
-            - has: {nthChild: 2, matches: listing}
             - not: {has: {nthChild: 3}}
+            - inside: {kind: module, stopBy: end, regex: '\b(dir|getmembers)'}
+            - has: {nthChild: 2, matches: listing}
+            - has: {nthChild: 1, matches: attribute-name}
         - kind: class_pattern
           all:
             - has: {kind: dotted_name, regex: '^(builtins\.)?object$'}
@@ -75,20 +84,26 @@ rule:
         - kind: dict_pattern
           all:
             - has: {field: key, matches: python-identifier-string}
+            - inside: {kind: module, stopBy: end, regex: '\bgetmembers'}
             - inside: {stopBy: {kind: match_statement}, kind: match_statement, has: {field: subject, matches: inspect-member-mapping}}
         - kind: call
           all:
-            - has: {field: arguments, has: {nthChild: 3}}
-            - has: {field: arguments, has: {nthChild: 2, matches: attribute-name}}
-            - has: {field: function, matches: default-callee}
-        - kind: call
-          all:
-            - has: {field: arguments, has: {nthChild: 2, matches: attribute-name}}
-            - has: {field: function, matches: boolean-callee}
+            - has: {field: function, kind: 'identifier, attribute', matches: {builtins-attribute-function: {name: {regex: '^(getattr(_static)?|hasattr|getmembers(_static)?)$'}}}}
+            - any:
+                - all:
+                    - has: {field: arguments, has: {nthChild: 3}}
+                    - has: {field: function, matches: default-callee}
+                    - has: {field: arguments, has: {nthChild: 2, matches: attribute-name}}
+                - all:
+                    - has: {field: function, matches: boolean-callee}
+                    - has: {field: arguments, has: {nthChild: 2, matches: attribute-name}}
+                - all:
+                    - has: {field: function, matches: getmembers-callee}
+                    - matches: member-scan
         - kind: call
           all:
             - has: {field: arguments, has: {nthChild: 1}}
-            - inside: {stopBy: end, kind: module, all: [{regex: '\bpartial\b'}, {regex: '\b(getattr|hasattr)'}]}
+            - inside: {stopBy: end, kind: module, regex: '\bpartial\(\s*(?:\w+\.)*(?:getattr|hasattr)\b'}
             - any:
                 - all:
                     - has: {field: arguments, has: {nthChild: 2}}
@@ -106,12 +121,5 @@ rule:
                     - has: {field: arguments, has: {nthChild: 3}}
                     - matches: partial-of-boolean
                     - has: {field: arguments, has: {nthChild: 3, matches: attribute-name}}
-        - kind: call
-          all:
-            - any:
-                - inside: {kind: for_in_clause, field: right, all: [{has: {field: left, has: {nthChild: 1, kind: identifier, pattern: $MEMBER}}}, {inside: {kind: 'list_comprehension, set_comprehension, dictionary_comprehension, generator_expression', has: {kind: if_clause, has: {stopBy: end, matches: name-comparison, has: {pattern: $MEMBER}}}}}]}
-                - inside: {kind: for_statement, field: right, all: [{has: {field: left, has: {nthChild: 1, kind: identifier, pattern: $MEMBER}}}, {has: {field: body, has: {stopBy: end, matches: name-comparison, has: {pattern: $MEMBER}}}}]}
-                - inside: {kind: argument_list, inside: {kind: call, has: {field: function, regex: '^filter$'}}, has: {kind: lambda, has: {field: body, matches: name-comparison}}}
-            - has: {field: function, matches: getmembers-callee}
 message: '`$CHECK` tests an object for an attribute by name'
 note: 'Narrow to the declaring type with `isinstance` or a class pattern before each attribute read, a name test hiding declaring types from type checkers. A `vars` or `__dict__` test answering which namespace declares the member stays'

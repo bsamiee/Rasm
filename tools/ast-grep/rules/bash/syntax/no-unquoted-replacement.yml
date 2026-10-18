@@ -16,4 +16,3 @@ rule:
 fix: '"$VALUE"'
 message: 'Unquoted replacement `$VALUE` inserts the matched text at `&` under `patsub_replacement`'
 note: Quote the replacement, `${<name>//<pattern>/"$<replacement>"}`
-labels: {VALUE: {style: primary}}

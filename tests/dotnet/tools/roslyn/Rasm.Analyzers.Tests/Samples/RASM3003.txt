@@ -1,0 +1,17 @@
+using System.Threading.Tasks;
+
+internal static class DiscardedAwaitable {
+    internal static void Started(int count) => {|#0:_ = Task.Run(() => count + 1)|};
+    internal static void Delayed() => {|#1:_ = Task.Delay(1)|};
+    internal static void Valued() => {|#2:_ = ValueTask.FromResult(1)|};
+}
+
+internal static class ObservedAwaitable {
+    internal static async Task Awaited() => await Task.Delay(1);
+    internal static Task Returned() => Task.Delay(1);
+    internal static async Task<int> Discarded() {
+        _ = await Task.FromResult(1);
+        return 1;
+    }
+    internal static void Value(int count) => _ = count + 1;
+}

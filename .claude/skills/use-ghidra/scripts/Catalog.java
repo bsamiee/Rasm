@@ -3,6 +3,7 @@ import ghidra.program.model.data.StringDataInstance;
 import ghidra.program.model.listing.Data;
 import ghidra.program.model.listing.Function;
 import ghidra.program.util.DefinedDataIterator;
+import ghidra.util.task.TaskMonitor;
 
 import util.CollectionUtils;
 
@@ -35,6 +36,10 @@ public class Catalog extends GhidraScript {
     }
 
     record StringRow(Data data, List<Function> functions) implements Row {
+        StringRow(Data data) {
+            this(data, Functions.referrers(data).sorted(Functions.BY_ENTRY).toList());
+        }
+
         @Override
         public long rank() {
             return functions.size();
@@ -52,6 +57,12 @@ public class Catalog extends GhidraScript {
     }
 
     record ImportRow(Function function, List<Function> callers) implements Row {
+        ImportRow(Function function, TaskMonitor monitor) {
+            this(
+                    function,
+                    Functions.callers(function, monitor).sorted(Functions.BY_ENTRY).toList());
+        }
+
         @Override
         public long rank() {
             return callers.size();
@@ -69,6 +80,13 @@ public class Catalog extends GhidraScript {
     }
 
     record FunctionRow(Function function, long callers, long callees) implements Row {
+        FunctionRow(Function function, TaskMonitor monitor) {
+            this(
+                    function,
+                    Functions.callers(function, monitor).count(),
+                    Functions.callees(function, monitor).count());
+        }
+
         @Override
         public long rank() {
             return function.getBody().getNumAddresses();
@@ -98,59 +116,36 @@ public class Catalog extends GhidraScript {
         }
     }
 
-    // --- [SECTIONS]
-
-    private Section strings() {
-        DefinedDataIterator defined =
-                DefinedDataIterator.byDataInstance(currentProgram, StringDataInstance::isString);
-        return new Section(
-                "STRINGS",
-                CollectionUtils.asStream(defined)
-                        .map(
-                                data ->
-                                        new StringRow(
-                                                data,
-                                                Functions.referrers(data)
-                                                        .sorted(Functions.BY_ENTRY)
-                                                        .toList()))
-                        .toList());
-    }
-
-    private Section imports() {
-        return new Section(
-                "IMPORTS",
-                CollectionUtils.asStream(currentProgram.getFunctionManager().getExternalFunctions())
-                        .map(
-                                function ->
-                                        new ImportRow(
-                                                function,
-                                                Functions.callers(function, monitor)
-                                                        .sorted(Functions.BY_ENTRY)
-                                                        .toList()))
-                        .toList());
-    }
-
-    private Section functions() {
-        return new Section(
-                "FUNCTIONS",
-                Functions.internal(currentProgram)
-                        .filter(Predicate.not(Function::isThunk))
-                        .filter(Predicate.not(Functions::isStub))
-                        .map(
-                                function ->
-                                        new FunctionRow(
-                                                function,
-                                                Functions.callers(function, monitor).count(),
-                                                Functions.callees(function, monitor).count()))
-                        .toList());
-    }
-
     // --- [RUN]
 
     @Override
     public void run() throws Exception {
         Path out = Arguments.out(getScriptName(), getScriptArgs());
-        List<Section> sections = List.of(strings(), imports(), functions());
+        List<Section> sections =
+                List.of(
+                        new Section(
+                                "STRINGS",
+                                CollectionUtils.asStream(
+                                                DefinedDataIterator.byDataInstance(
+                                                        currentProgram,
+                                                        StringDataInstance::isString))
+                                        .map(StringRow::new)
+                                        .toList()),
+                        new Section(
+                                "IMPORTS",
+                                CollectionUtils.asStream(
+                                                currentProgram
+                                                        .getFunctionManager()
+                                                        .getExternalFunctions())
+                                        .map(function -> new ImportRow(function, monitor))
+                                        .toList()),
+                        new Section(
+                                "FUNCTIONS",
+                                Functions.internal(currentProgram)
+                                        .filter(Predicate.not(Function::isThunk))
+                                        .filter(Predicate.not(Functions::isStub))
+                                        .map(function -> new FunctionRow(function, monitor))
+                                        .toList()));
         String counts = sections.stream().map(Section::count).collect(Collectors.joining(" "));
         println(
                 Report.write(

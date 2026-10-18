@@ -3,20 +3,42 @@ id: no-input-by-hand
 language: swiftlang
 severity: error
 utils:
+    writer-binding:
+        kind: property_declaration
+        has: {field: value, regex: '\.standardInputWriter$'}
+    writer:
+        any:
+            - regex: '\.standardInputWriter$'
+            - kind: simple_identifier
+              pattern: $WRITER
+              inside:
+                stopBy: {kind: lambda_literal}
+                kind: statements
+                has: {nthChild: 1, matches: writer-binding, has: {field: name, has: {field: bound_identifier, pattern: $WRITER}}}
+    writer-call:
+        kind: call_expression
+        has: {nthChild: 1, kind: navigation_expression, has: {field: target, matches: writer}}
     writer-write:
-        kind: call_expression
-        has: {nthChild: 1, regex: '\.standardInputWriter\.write$'}
+        matches: writer-call
+        has: {nthChild: 1, has: {field: suffix, has: {field: suffix, regex: '^write$'}}}
     writer-finish:
-        kind: call_expression
-        regex: '\.standardInputWriter\.finish\(\)$'
+        matches: writer-call
+        has: {nthChild: 1, has: {field: suffix, has: {field: suffix, regex: '^finish$'}}}
+    statement-wrapper:
+        kind: 'assignment, try_expression, await_expression'
 rule:
     kind: lambda_literal
     all:
         - inside: {kind: call_expression, stopBy: {kind: call_expression}, has: {nthChild: 1, regex: '^(Subprocess\.)?run$'}}
         - has:
             kind: statements
-            all:
-                - has: {nthChild: 1, has: {stopBy: end, matches: writer-write, pattern: $WRITE}}
-                - has: {nthChild: 2, has: {stopBy: end, matches: writer-finish}}
+            any:
+                - all:
+                    - has: {nthChild: 1, has: {stopBy: {not: {matches: statement-wrapper}}, matches: writer-write, pattern: $WRITE}}
+                    - has: {nthChild: 2, has: {stopBy: {not: {matches: statement-wrapper}}, matches: writer-finish}}
+                - all:
+                    - has: {nthChild: 1, matches: writer-binding}
+                    - has: {nthChild: 2, has: {stopBy: {not: {matches: statement-wrapper}}, matches: writer-write, pattern: $WRITE}}
+                    - has: {nthChild: 3, has: {stopBy: {not: {matches: statement-wrapper}}, matches: writer-finish}}
 message: '`$WRITE` writes one fixed value to standard input and closes it'
 note: 'Pass the value as `input: .string(_:)`, `.array(_:)`, or `.data(_:)` on the run for Subprocess to write and close standard input'

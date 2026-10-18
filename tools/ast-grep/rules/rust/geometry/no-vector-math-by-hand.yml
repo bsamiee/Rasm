@@ -80,7 +80,9 @@ utils:
             - pattern: {context: 'fn f() { $A[$P] * $B[$P] + $A[$Q] * $B[$Q] }', selector: binary_expression}
               not: {matches: partial}
             - pattern: $A.$P.mul_add($B.$P, $A.$Q.mul_add($B.$Q, $A.$R * $B.$R))
-            - pattern: $A.$P.mul_add($B.$P, $A.$Q * $B.$Q)
+            - pattern: $A.$U.mul_add($B.$U, $A.$V * $B.$V)
+              not: {inside: {kind: arguments}}
+            - pattern: $A.$U.mul_add($A.$U, $A.$V.powi(2))
               not: {inside: {kind: arguments}}
             - pattern: $A.$P.powi(2) + $A.$Q.powi(2) + $A.$R.powi(2)
             - pattern: $A.$P.powi(2) + $A.$Q.powi(2)
@@ -108,6 +110,8 @@ constraints:
     Q: {regex: '^(y|1)$'}
     R: {regex: '^(z|2)$'}
     S: {regex: '^(w|3)$'}
+    U: {regex: '^(x|y|z|0|1|2)$'}
+    V: {regex: '^(x|y|z|0|1|2)$'}
     AX: {regex: '(x|0)$'}
     BX: {regex: '(x|0)$'}
     AY: {regex: '(y|1)$'}

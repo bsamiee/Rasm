@@ -3,29 +3,20 @@ id: no-fourth-nesting-level-java
 language: java
 severity: error
 utils:
-    function:
-        kind: method_declaration, constructor_declaration, compact_constructor_declaration, static_initializer, lambda_expression
-    control:
-        any:
-            - kind: for_statement, enhanced_for_statement, while_statement, do_statement, switch_expression
-            - kind: if_statement
-              not: {inside: {kind: if_statement, field: alternative}}
-            - kind: ternary_expression
-              not: {inside: {kind: ternary_expression, field: alternative, stopBy: {not: {kind: parenthesized_expression}}}}
-    boundary: {any: [{matches: control}, {matches: function}]}
+    boundary: {any: [{matches: java-control-flow}, {matches: java-function-boundary}]}
 rule:
-    matches: control
+    matches: java-control-flow
     pattern: $SCOPE
     inside:
-        matches: control
+        matches: java-control-flow
         stopBy: {matches: boundary}
         inside:
-            matches: control
+            matches: java-control-flow
             stopBy: {matches: boundary}
             inside:
-                matches: control
+                matches: java-control-flow
                 stopBy: {matches: boundary}
-                not: {inside: {matches: control, stopBy: {matches: function}}}
+                not: {inside: {matches: java-control-flow, stopBy: {matches: java-function-boundary}}}
 message: Control flow reaches a fourth nesting level
 note: 'Rebuild nested decisions or loops as a `switch` or a stream pipeline over their inputs'
 labels:

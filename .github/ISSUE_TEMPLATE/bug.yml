@@ -1,0 +1,40 @@
+name: Bug
+description: Report a product or library behaving differently from its documentation
+labels: [bug]
+body:
+    - type: input
+      id: product
+      attributes:
+        label: Product
+        description: App or library folder under apps/ or libs/
+        placeholder: apps/rhino/Darkroom
+      validations:
+        required: true
+    - type: input
+      id: host
+      attributes:
+        label: Host and system
+        description: Host application, its version, and operating system version
+        placeholder: Rhino 9 WIP on macOS 27.0
+      validations:
+        required: true
+    - type: textarea
+      id: steps
+      attributes:
+        label: Steps
+        description: Steps that reproduce the behavior from a fresh host session
+      validations:
+        required: true
+    - type: textarea
+      id: result
+      attributes:
+        label: Result
+        description: Expected and observed behavior
+      validations:
+        required: true
+    - type: textarea
+      id: log
+      attributes:
+        label: Log
+        description: Host console output, crash report, or command output
+        render: text

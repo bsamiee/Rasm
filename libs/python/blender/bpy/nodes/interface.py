@@ -8,7 +8,6 @@ from typing import Literal, Self
 import bpy
 from expression import Nothing, Ok, Option, Some
 from expression.extra.result import catch
-import idprop
 import msgspec
 import msgspec.structs
 
@@ -320,7 +319,17 @@ def addresses(tree: bpy.types.NodeTree, slot: str) -> dict[Key, str]:
 def kept(tree: bpy.types.NodeTree, interface: Interface, slot: str) -> dict[Key, InterfaceItem]:
     """Live items of a group that keep an interface item's key, kind, side, and toggle presence."""
     resolved = _resolved(tree, slot)
-    return {key: item for key, entry, _, _ in interface.walked() for item in (resolved.get(key),) if item is not None and _matched(entry, item)}
+
+    def matched(entry: DesiredItem, item: InterfaceItem) -> bool:
+        match entry, item:
+            case (Socket(), side), bpy.types.NodeTreeInterfaceSocket():
+                return item.in_out == side
+            case InterfacePanel(toggle=toggle), bpy.types.NodeTreeInterfacePanel():
+                return toggle.is_some() == _toggle(item).is_some()
+            case _:
+                return False
+
+    return {key: item for key, entry, _, _ in interface.walked() for item in (resolved.get(key),) if item is not None and matched(entry, item)}
 
 
 def interfaced(tree: bpy.types.NodeTree, interface: Interface, slot: str) -> tuple[tuple[Withdrawn, ...], tuple[Declared, ...], tuple[Restated, ...]]:
@@ -342,12 +351,41 @@ def interfaced(tree: bpy.types.NodeTree, interface: Interface, slot: str) -> tup
     fresh = wanted - held.keys()
     placed = {key: (Option.of_optional(item.parent).bind(lambda panel: Option.of_optional(inverse.get(panel.identifier))), item.position) for key, item in held.items()}
     unsettled = frozenset(parent for key, _, parent, position in entries if key in fresh or placed.get(key) != (parent, position) or any(frame in fresh for frame in parent.to_list()))
+
+    def restated(key: Key, entry: DesiredItem, place: Option[tuple[Option[Key], int]]) -> Option[Restated]:
+        def changed[T](now: T, wanted: T) -> Option[T]:
+            return Nothing if now == wanted else Some(wanted)
+
+        match entry, held.get(key):
+            case (Socket() as socket, _), bpy.types.NodeTreeInterfaceSocket() as item:
+                kind = Nothing if item.socket_type == socket.kind.__name__ else Some(socket.kind)
+                row = Restated(
+                    key=key,
+                    kind=kind,
+                    name=changed(item.name, socket.name),
+                    description=changed(item.description, socket.description),
+                    place=place,
+                    members=kind.map(lambda _: socket.members).default_with(lambda: differing(socket.members, item)),
+                )
+            case InterfacePanel() as panel, bpy.types.NodeTreeInterfacePanel() as item:
+                row = Restated(
+                    key=key,
+                    name=changed(item.name, panel.name),
+                    description=changed(item.description, panel.description),
+                    closed=changed(item.default_closed, panel.closed),
+                    toggle=panel.toggle.filter(lambda value: not any(holds(toggle, "default_value", value) for toggle in _toggle(item).to_list())),
+                    place=place,
+                )
+            case (Socket() as socket, _), _:
+                row = Restated(key=key, place=place, members=socket.members)
+            case _:
+                row = Restated(key=key, place=place)
+        return Some(row).filter(lambda differs: differs != Restated(key=key))
+
     return (
         tuple(Withdrawn(key=key) for identifier in reversed(_live(tree)) for key in Option.of_optional(inverse.get(identifier)).to_list() if key not in wanted or key in fresh),
         tuple(Declared(key=key, entry=entry) for key, entry, _, _ in entries if key in fresh),
-        tuple(
-            row for key, entry, parent, position in entries for row in _restated(key, entry, Some((parent, position)) if parent in unsettled else Nothing, Option.of_optional(held.get(key))).to_list()
-        ),
+        tuple(row for key, entry, parent, position in entries for row in restated(key, entry, Some((parent, position)) if parent in unsettled else Nothing).to_list()),
     )
 
 
@@ -364,6 +402,9 @@ def revised(row: Withdrawn | Declared | Restated, tree: bpy.types.NodeTree, slot
     """
     face: bpy.types.NodeTreeInterface = tree.interface  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
 
+    def stored(items: dict[str, str | int]) -> None:
+        tree[slot] = [{"key": key, "identifier": identifier} for key, identifier in items.items()]
+
     def item[T: bpy.types.NodeTreeInterfaceItem](key: Key, kind: type[T]) -> BlenderResult[T]:
         return (
             Option
@@ -376,7 +417,7 @@ def revised(row: Withdrawn | Declared | Restated, tree: bpy.types.NodeTree, slot
         for toggle in _toggle(held).to_list():
             face.remove(toggle)
         face.remove(held)
-        tree[slot] = {name: identifier for name, identifier in _items(tree, slot).items() if name != key}
+        stored({name: identifier for name, identifier in _items(tree, slot).items() if name != key})
 
     def refused(error: TypeError) -> BlenderFaults:
         return (BlenderEditFault(request=repr(face), error=error),)
@@ -402,10 +443,7 @@ def revised(row: Withdrawn | Declared | Restated, tree: bpy.types.NodeTree, slot
                         .bind(lambda panel: accumulated(toggled(panel, value=value) for value in toggle.to_list()).map(lambda _: panel))
                     )
 
-        def stored(declared: InterfaceItem) -> None:
-            tree[slot] = _items(tree, slot) | {key: declared.identifier}
-
-        return created().map(stored)
+        return created().map(lambda declared: stored(_items(tree, slot) | {key: declared.identifier}))
 
     def restated(change: Restated) -> BlenderResult[None]:
         def retyped(held: bpy.types.NodeTreeInterfaceItem) -> BlenderResult[bpy.types.NodeTreeInterfaceItem]:
@@ -440,52 +478,6 @@ def revised(row: Withdrawn | Declared | Restated, tree: bpy.types.NodeTree, slot
             return restated(row)
 
 
-def _restated(key: Key, entry: DesiredItem, place: Option[tuple[Option[Key], int]], held: Option[InterfaceItem]) -> Option[Restated]:
-    """Differing parts of a kept interface item or the members of a fresh one, with the place its panel's order requires."""
-
-    def changed[T](now: T, wanted: T) -> Option[T]:
-        return Nothing if now == wanted else Some(wanted)
-
-    def parts() -> Restated:
-        match entry, held.to_optional():
-            case (Socket() as socket, _), bpy.types.NodeTreeInterfaceSocket() as item:
-                kind = Nothing if item.socket_type == socket.kind.__name__ else Some(socket.kind)
-                return Restated(
-                    key=key,
-                    kind=kind,
-                    name=changed(item.name, socket.name),
-                    description=changed(item.description, socket.description),
-                    place=place,
-                    members=kind.map(lambda _: socket.members).default_with(lambda: differing(socket.members, item)),
-                )
-            case InterfacePanel() as panel, bpy.types.NodeTreeInterfacePanel() as item:
-                return Restated(
-                    key=key,
-                    name=changed(item.name, panel.name),
-                    description=changed(item.description, panel.description),
-                    closed=changed(item.default_closed, panel.closed),
-                    toggle=panel.toggle.filter(lambda value: not any(holds(toggle, "default_value", value) for toggle in _toggle(item).to_list())),
-                    place=place,
-                )
-            case (Socket() as socket, _), _:
-                return Restated(key=key, place=place, members=socket.members)
-            case _:
-                return Restated(key=key, place=place)
-
-    return Some(parts()).filter(lambda row: row != Restated(key=key))
-
-
-def _matched(entry: DesiredItem, item: InterfaceItem) -> bool:
-    """Whether a live interface item keeps a desired item's kind, side, and toggle presence."""
-    match entry, item:
-        case (Socket(), side), bpy.types.NodeTreeInterfaceSocket():
-            return item.in_out == side
-        case InterfacePanel(toggle=toggle), bpy.types.NodeTreeInterfacePanel():
-            return toggle.is_some() == _toggle(item).is_some()
-        case _:
-            return False
-
-
 def _toggle(item: bpy.types.NodeTreeInterfaceItem) -> Option[bpy.types.NodeTreeInterfaceSocket]:
     """Panel's toggle socket, `Nothing` for a socket or a panel holding none."""
     match item:
@@ -496,8 +488,8 @@ def _toggle(item: bpy.types.NodeTreeInterfaceItem) -> Option[bpy.types.NodeTreeI
 
 
 def _items(tree: bpy.types.NodeTree, slot: str) -> dict[str, str | int]:
-    """Stored item key to item identifier, empty where the slot holds no group."""
-    return Option.of_optional(tree.get(slot)).filter(lambda value: isinstance(value, idprop.types.IDPropertyGroup)).map(lambda group: dict(group.to_dict())).default_value({})
+    """Stored item key to item identifier, one group per item since keys built from nested panel paths pass the 63-byte limit of an ID property name."""
+    return {row["key"]: row["identifier"] for row in Option.of_optional(tree.get(slot)).filter(lambda value: isinstance(value, list)).default_value([])}
 
 
 def _live(tree: bpy.types.NodeTree) -> dict[str | int, InterfaceItem]:

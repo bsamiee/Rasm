@@ -141,10 +141,11 @@ utils:
                     has: {field: function, kind: member_expression, all: [{has: {field: object, matches: cause-module}}, {has: {field: property, regex: '^(fail|die)$'}}]}
 rule:
     any:
-        - matches: rendering
-          pattern: $TEXT
-          inside: {stopBy: end, matches: cause-parameter}
-          not: {matches: protocol-field}
+        - pattern: $TEXT
+          all:
+            - matches: rendering
+            - inside: {stopBy: end, matches: cause-parameter}
+            - not: {matches: protocol-field}
         - matches: relayed-failure
           pattern: $TEXT
           inside: {stopBy: end, kind: 'statement_block, program', has: {matches: relay-declaration}}
@@ -167,4 +168,4 @@ rule:
         - matches: built-cause
           pattern: $TEXT
 message: '`$TEXT` renders a typed failure to text'
-note: 'Keep the failure typed to the boundary as a `cause` field (`new <Error>({ reason: { _tag: ''<Case>'', cause } })`), where `<error>.message` fills a protocol error''s `message` field or a `McpSchema.TextContent` `text`, and `Cause.pretty(<cause>)` renders a caught cause with its `[cause]` chain'
+note: 'Keep the failure as the error value to the boundary, `Effect.tryPromise(<thunk>)` holding a rejection in `Cause.UnknownError`, where `<error>.message` fills a protocol error''s `message` field or a `McpSchema.TextContent` `text`, and `Cause.pretty(<cause>)` renders a caught cause with its `[cause]` chain'

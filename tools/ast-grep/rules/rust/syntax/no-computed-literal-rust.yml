@@ -9,12 +9,6 @@ utils:
             - kind: unary_expression
               regex: '^-'
               has: {kind: 'integer_literal, float_literal'}
-    number:
-        any:
-            - kind: 'integer_literal, float_literal'
-            - kind: unary_expression
-              regex: '^-'
-              has: {kind: 'integer_literal, float_literal'}
     text:
         kind: 'string_literal, raw_string_literal'
     fixed-token:
@@ -80,18 +74,6 @@ utils:
                     - has: {field: value, matches: text}
                     - has: {field: field, regex: '^(to_uppercase|to_lowercase|to_ascii_uppercase|to_ascii_lowercase|trim|trim_start|trim_end|trim_matches|trim_start_matches|trim_end_matches|replace|replacen|strip_prefix|strip_suffix)$'}
             - not: {has: {field: arguments, has: {pattern: $_, not: {matches: literal}}}}
-    arith-operand:
-        any:
-            - matches: number
-            - kind: parenthesized_expression
-              has: {matches: arith-operand}
-            - matches: literal-arith
-    literal-arith:
-        kind: binary_expression
-        all:
-            - has: {field: operator, regex: '^(\+|-|\*|/|%|<<|>>|&|\||\^)$'}
-            - has: {field: left, matches: arith-operand}
-            - has: {field: right, matches: arith-operand}
 rule:
     pattern: $COMPUTED
     any:
@@ -100,10 +82,5 @@ rule:
         - matches: literal-path-join
         - matches: literal-array-join
         - matches: literal-text-method
-        - all:
-            - matches: literal-arith
-            - not: {inside: {stopBy: {not: {kind: parenthesized_expression}}, kind: binary_expression, matches: literal-arith}}
-            - not: {matches: rust-const-context}
-            - not: {matches: rust-test-scope}
-message: '`$COMPUTED` computes a literal from literals'
-note: 'Write one literal holding the result or a `const` named for the fact the arithmetic derives, `PathBuf::from("<base>/<segment>")` for joined path segments, and `concat!(<piece>, env!("<NAME>"))` for text built from `env!`'
+message: '`$COMPUTED` builds text from literals'
+note: 'Write one literal holding the text, `PathBuf::from("<base>/<segment>")` for joined path segments, and `concat!(<piece>, env!("<NAME>"))` for text built from `env!`'

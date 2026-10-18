@@ -14,13 +14,7 @@ namespace Darkroom.Effects;
 public sealed class WhiteBalanceCorrection : StageEffect<WhiteBalanceCorrection, WhiteBalanceState, WhiteBalanceParameter>, IEffectDefinition<WhiteBalanceState, WhiteBalanceParameter> {
     public static EffectRow<WhiteBalanceState, WhiteBalanceParameter> Row { get; } = new() {
         Looks = toSeq(StandardIlluminant.Items).Map<(string Name, EffectLook<WhiteBalanceState, WhiteBalanceParameter> Look)>(static illuminant =>
-            (illuminant.Map(
-                a: "Illuminant A", b: "Illuminant B", c: "Illuminant C", d50: "Illuminant D50", d55: "Illuminant D55", d65: "Illuminant D65", d75: "Illuminant D75",
-                d93: "Illuminant D93", e: "Illuminant E", f1: "Illuminant F1", f2: "Illuminant F2", f3: "Illuminant F3", f4: "Illuminant F4", f5: "Illuminant F5",
-                f6: "Illuminant F6", f7: "Illuminant F7", f8: "Illuminant F8", f9: "Illuminant F9", f10: "Illuminant F10", f11: "Illuminant F11", f12: "Illuminant F12",
-                ledB1: "Illuminant LED-B1", ledB2: "Illuminant LED-B2", ledB3: "Illuminant LED-B3", ledB4: "Illuminant LED-B4", ledB5: "Illuminant LED-B5",
-                ledBh1: "Illuminant LED-BH1", ledRgb1: "Illuminant LED-RGB1", ledV1: "Illuminant LED-V1", ledV2: "Illuminant LED-V2"),
-             new WhiteBalanceState(illuminant.Temperature, illuminant.Tint))),
+            ($"Illuminant {illuminant.Key}", new WhiteBalanceState(illuminant.Temperature, illuminant.Tint))),
     };
 }
 

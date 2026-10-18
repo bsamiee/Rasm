@@ -3,8 +3,6 @@ id: no-self-wrapping-state
 language: swiftlang
 severity: error
 utils:
-    scope:
-        kind: 'function_declaration, lambda_literal, init_declaration, computed_property'
     wrap:
         kind: call_expression
         all:
@@ -21,6 +19,18 @@ utils:
     fixpoint:
         kind: 'while_statement, repeat_while_statement'
         has: {stopBy: end, matches: equality, has: {kind: simple_identifier, pattern: $STATE}}
+    recursive-case:
+        kind: simple_identifier
+        pattern: $CASE
+        all:
+            - inside: {kind: enum_entry, inside: {kind: enum_class_body, inside: {kind: class_declaration, has: {field: name, pattern: $OWNER}}}}
+            - precedes:
+                kind: enum_type_parameters
+                has:
+                    stopBy: end
+                    kind: user_type
+                    has: {kind: type_identifier, pattern: $OWNER}
+                    not: {has: {kind: type_identifier, nthChild: 2}}
     fixpoint-next:
         kind: 'while_statement, repeat_while_statement'
         has: {stopBy: end, matches: equality, has: {kind: simple_identifier, any: [{pattern: $STATE}, {pattern: $NEXT}]}}
@@ -31,7 +41,7 @@ rule:
             - has: {field: operator, regex: '^=$'}
             - has: {field: target, has: {kind: simple_identifier, pattern: $STATE}}
             - has: {field: result, matches: wrap}
-            - inside: {stopBy: {matches: scope}, matches: fixpoint}
+            - inside: {stopBy: {matches: swift-function-scope}, matches: fixpoint}
         - kind: property_declaration
           all:
             - has: {field: name, has: {field: bound_identifier, pattern: $NEXT}}
@@ -39,10 +49,10 @@ rule:
                 kind: statements
                 has: {kind: assignment, all: [{has: {field: operator, regex: '^=$'}}, {has: {field: target, has: {kind: simple_identifier, pattern: $STATE}}}, {has: {field: result, kind: simple_identifier, pattern: $NEXT}}]}
             - has: {field: value, matches: wrap}
-            - inside: {stopBy: {matches: scope}, matches: fixpoint-next}
+            - inside: {stopBy: {matches: swift-function-scope}, matches: fixpoint-next}
     inside:
         kind: source_file
         stopBy: end
-        has: {stopBy: end, matches: {swift-recursive-case: {case: {pattern: $CASE}}}}
+        has: {stopBy: end, matches: recursive-case}
 message: 'Each pass nests `$STATE` inside `.$CASE`, so the loop waiting for `$STATE` to stop changing never ends'
 note: 'Map each pass into a finite lattice, joining the parts (`union`, `formUnion`, the set of roots) or wrapping only a value holding no earlier wrap'

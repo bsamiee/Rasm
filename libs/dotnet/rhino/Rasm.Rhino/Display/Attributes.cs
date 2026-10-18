@@ -29,13 +29,12 @@ public sealed record ObjectEffects(Color FadeColor, ObjectEffectAmount FadeAmoun
         attributes.GetColorFadeEffect(out Color fadeColor, out float fadeAmount);
         attributes.GetDiagonalHatchEffect(out float hatchStrength, out float hatchWidth);
         return (
-                ObjectEffectAmount.Validated(fadeAmount).ToValidation(),
-                ObjectEffectAmount.Validated(attributes.GetDitherTransparencyEffect()).ToValidation(),
-                ObjectEffectAmount.Validated(hatchStrength).ToValidation(),
-                DiagonalHatchWidth.Validated(hatchWidth).ToValidation())
+                ObjectEffectAmount.Validated(fadeAmount),
+                ObjectEffectAmount.Validated(attributes.GetDitherTransparencyEffect()),
+                ObjectEffectAmount.Validated(hatchStrength),
+                DiagonalHatchWidth.Validated(hatchWidth))
             .Apply((fade, dither, strength, width) => new ObjectEffects(fadeColor, fade, dither, strength, width))
-            .As()
-            .ToFin();
+            .As();
     }
 
     public void Write(DisplayPipelineAttributes attributes) {

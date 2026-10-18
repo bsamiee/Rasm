@@ -13,10 +13,15 @@
 
     // --- [FILE_WATCHING] ---------------------------------------------------------------
     "files.watcherExclude": {
+        ".cargo/rustc-source/**": true,
         "**/.artifacts/**": true,
         "**/.cache/**": true,
+        "**/.cloudflare/**": true,
         "**/.pixi/**": true,
         "**/.venv/**": true,
+        "**/.vs/**": true,
+        "**/__pycache__/**": true,
+        "**/dist/**": true,
         "**/docs/research/**": true,
         "**/node_modules/**": true
     },
@@ -67,6 +72,9 @@
 
     // --- [JAVA] ------------------------------------------------------------------------
     "java.configuration.runtimes": [ { "name": "JavaSE-27", "path": "${JAVA_HOME}", "default": true } ],
+    "java.import.exclusions": [ "**/node_modules/**", "**/.metadata/**", "**/archetype-resources/**", "**/META-INF/maven/**", "**/.cache/**" ],
+    "java.import.maven.enabled": false,
+    "java.import.gradle.enabled": false,
     "java.project.sourcePaths": [ ".claude/skills/use-ghidra/scripts" ],
     "java.project.referencedLibraries": [ "${GHIDRA_INSTALL_DIR}/Ghidra/**/lib/*.jar" ],
     "java.format.settings.google.extra": "--aosp",

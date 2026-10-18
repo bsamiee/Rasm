@@ -1,10 +1,10 @@
 import { RegistryProvider } from '@effect/atom-react';
-import type { ReactNode } from 'react';
+import type { ComponentProps } from 'react';
 import { Site } from './site.tsx';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const root = (value: Parameters<typeof Site>[0]): ReactNode => (
+const root = (value: ComponentProps<typeof Site>) => (
     <RegistryProvider>
         <Site {...value} />
     </RegistryProvider>

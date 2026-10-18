@@ -1,0 +1,2 @@
+#0 `Error.New(error.Message)` converts a `ValidationError` message into an `Error` by hand
+#1 `new Expected(error.Message, 0)` converts a `ValidationError` message into an `Error` by hand

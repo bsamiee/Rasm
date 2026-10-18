@@ -9,6 +9,9 @@ utils:
     caret-literal:
         kind: 'string_literal, char_literal'
         regex: '^("\^+"|"~+"|''[\^~]'')$'
+    caret-only:
+        kind: 'string_literal, char_literal'
+        regex: '^("\^+"|''\^'')$'
     caret-text:
         kind: string_literal
         regex: '^"([^"{}\\]|\\.|\{\{|\}\}|\{[^{}]*\})*?\^'
@@ -17,15 +20,15 @@ utils:
         regex: '\{[^{}]*:[^{}]?>[^{}]*\}'
     caret-repeat:
         kind: call_expression
-        has: {field: function, kind: field_expression, all: [{has: {field: value, matches: caret-literal}}, {has: {field: field, regex: '^repeat$'}}]}
+        has: {field: function, kind: field_expression, all: [{has: {field: value, matches: caret-only}}, {has: {field: field, regex: '^repeat$'}}]}
     caret-iterator:
         kind: call_expression
         any:
             - all:
                 - has: {field: function, regex: '^((::)?(std|core)::)?(iter::)?repeat_n$'}
-                - has: {field: arguments, has: {nthChild: 1, matches: caret-literal}}
+                - has: {field: arguments, has: {nthChild: 1, matches: caret-only}}
             - all:
-                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^take$'}}, {has: {field: value, kind: call_expression, all: [{has: {field: function, regex: '^((::)?(std|core)::)?(iter::)?repeat$'}}, {has: {field: arguments, has: {nthChild: 1, matches: caret-literal}}}]}}]}
+                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^take$'}}, {has: {field: value, kind: call_expression, all: [{has: {field: function, regex: '^((::)?(std|core)::)?(iter::)?repeat$'}}, {has: {field: arguments, has: {nthChild: 1, matches: caret-only}}}]}}]}
     space-repeat:
         kind: call_expression
         has: {field: function, kind: field_expression, all: [{has: {field: value, matches: space-literal}}, {has: {field: field, regex: '^repeat$'}}]}

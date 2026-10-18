@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-socket-link-scan
+language: python
+severity: error
+files:
+    - libs/python/blender/**
+    - apps/blender/**
+rule:
+    kind: comparison_operator
+    any:
+        - pattern: $LINK.$END == $SOCKET
+        - pattern: $SOCKET == $LINK.$END
+    inside:
+        stopBy: end
+        any:
+            - kind: generator_expression, list_comprehension, set_comprehension, dictionary_comprehension
+              has: {kind: for_in_clause, all: [{has: {field: left, pattern: $LINK}}, {has: {field: right, kind: attribute, regex: '\.links$'}}]}
+            - kind: for_statement
+              all: [{has: {field: left, pattern: $LINK}}, {has: {field: right, kind: attribute, regex: '\.links$'}}]
+constraints:
+    END: {regex: '^(from_socket|to_socket)$'}
+message: '`$LINK.$END == $SOCKET` walks every link of the tree to find the links of one socket'
+note: 'Iterate `<socket>.links`, the links Blender keeps on the socket itself'

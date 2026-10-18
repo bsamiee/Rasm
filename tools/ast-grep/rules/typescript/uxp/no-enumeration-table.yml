@@ -33,4 +33,4 @@ rule:
             - has: {matches: member-entry, has: {nthChild: 2, matches: host-member}}
             - not: {has: {pattern: $_, not: {any: [{kind: comment}, {matches: member-entry}]}}}
 message: '`$TABLE` restates members of `$ENUMERATION` under keys of its own'
-note: 'Read the member by name as `Schema.decodeUnknownOption(Schema.instanceOf(indesign.Enumerator))(Reflect.get(<enumeration>, <name>))` and accept member names equal to the member''s `String`, each enumeration holding every member under upper snake, camel, and lowercase keys'
+note: 'Read the member by name as `Reflect.get(<enumeration>, <name>)` narrowed by `instanceof indesign.Enumerator` and accept member names equal to the member''s `String`, each enumeration holding every member under upper snake, camel, and lowercase keys'

@@ -59,7 +59,7 @@ utils:
                 kind: field_expression
                 all:
                     - has: {field: value, kind: identifier, pattern: $WRITTEN}
-                    - has: {field: field, regex: '^(push|push_back|push_front|push_str|insert|extend|extend_from_slice|append|remove|swap_remove|clear|truncate|drain|retain|entry|or_insert|or_insert_with|or_default|pop|pop_front|pop_back|take|swap|sort|sort_by|sort_by_key|sort_unstable|dedup|resize|fill|reverse)$'}
+                    - has: {field: field, matches: rust-mutating-method}
             - kind: 'compound_assignment_expr, assignment_expression'
               has: {field: left, kind: identifier, pattern: $WRITTEN}
     test-reads-written-state:

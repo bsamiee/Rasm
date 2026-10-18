@@ -17,16 +17,16 @@ public static class FalseColor {
             .Filter(static step => step.Before != Some(step.Code))
             .Map(static step => (step.Entry, step.Code));
         Seq<double> openings = bands.Tail.Map(band => (band.Entry - 0.5d) / (table.Length - 1)).Strict();
-        Vector4[] colours = [.. bands.Map(static band => band.Code)];
+        Vector4[] colors = [.. bands.Map(static band => band.Code)];
         Vector4[] positions = [.. toSeq(Range(0, table.Length)).Map(i => new Vector4(new Vector3(i / (table.Length - 1f)), 1f))];
-        Display.Rec1886.Encoding.Decode(colours);
+        Display.Rec1886.Encoding.Decode(colors);
         new LutTable.Antilog(LogSpace.AgXLog.Allocation).Apply(positions);
         foreach (Action<Span<Vector4>> step in AgX.ToBandPosition(look))
             step(positions);
         return (
                 Lut1D.From(table.Length, positions.SelectMany(static position => (float[])[position.X, position.Y, position.Z]).ToArray(), Vector3.Zero, Vector3.One)
                     .Bind(static response => new LutTable.Sequence([new LutTable.Log(LogSpace.AgXLog.Allocation), new LutTable.ChannelCurve(response)]).Inverse()),
-                0d.Cons(openings).Zip(toSeq(colours)).Traverse(static stop => RampPosition.Validated(stop.First).Bind(position =>
+                0d.Cons(openings).Zip(toSeq(colors)).Traverse(static stop => RampPosition.Validated(stop.First).Bind(position =>
                         ValidationResults.ToFin(RampStop.Validate(position, stop.Second, out RampStop item), item))).As()
                     .Bind(static stops => ValidationResults.ToFin(Ramp.Validate(stops, RampInterpolation.Constant, out Ramp? keyed), keyed)))
             .Apply((scene, ramp) => (ramp, Labels(openings, scene)))
@@ -35,7 +35,7 @@ public static class FalseColor {
         static Seq<Option<float>> Labels(Seq<double> openings, LutTable scene) {
             Vector4[] edges = [.. openings.Map(static v => new Vector4(new Vector3((float)v), 1f))];
             scene.Apply(edges);
-            return Option<float>.None.Cons(toSeq(edges).Map(static edge => Some(float.Log2(edge.X / Exposure.MiddleGrey))));
+            return Option<float>.None.Cons(toSeq(edges).Map(static edge => Some(float.Log2(edge.X / Exposure.MiddleGray))));
         }
     }
 }

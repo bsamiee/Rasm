@@ -90,6 +90,8 @@ public sealed class AppKitInitializer : IPlatformInitializer {
         platform.Add<FrameLink>(static () => DisplayLinks.Of);
         platform.Add<IThemeHandler>(static () => new WorkspaceTheme());
         platform.Add<PointerTravel>(static () => static () => Optional(NSApplication.SharedApplication.CurrentEvent).Map(static current => (float)current.DeltaX).IfNone(0f));
+        platform.Add<Render.UI.FrameRaster>(static () => DrawnRasters.Raster);
+        platform.Add<Render.UI.DisplayHeadroom>(static () => DrawnRasters.Headroom);
         Style.Add<DrawableHandler>(ComponentControl.HandlerStyle, DrawnViews.Attach);
         Style.Add<TextBoxHandler>(NumberField.HandlerStyle, NativeControls.Field);
         Style.Add<RowGrid>(RowGrid.HandlerStyle, NativeControls.Rows);

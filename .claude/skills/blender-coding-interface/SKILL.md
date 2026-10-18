@@ -202,15 +202,28 @@ import bpy
 import numpy as np
 
 
-class ITEM_UL_items(bpy.types.UIList):
-    def draw_item(self, context: bpy.types.Context, layout: bpy.types.UILayout, data: bpy.types.bpy_struct, item: bpy.types.bpy_struct, icon: int, active_data: bpy.types.bpy_struct, active_property: str) -> None:
-        layout.prop(item, "name", text="", emboss=False)
+def draw_item(
+    _ui: bpy.types.UIList,
+    _context: bpy.types.Context,
+    layout: bpy.types.UILayout,
+    _data: "bpy.types.bpy_struct[object]",
+    item: "bpy.types.bpy_struct[object]",
+    _icon: int,
+    _active_data: "bpy.types.bpy_struct[object]",
+    _active_property: str,
+) -> None:
+    layout.prop(item, "name", text="", emboss=False)
 
-    def filter_items(self, context: bpy.types.Context, data: bpy.types.bpy_struct, propname: str) -> tuple[list[int], list[int]]:
-        items: bpy.types.bpy_prop_collection = getattr(data, propname)
-        items.foreach_get("hidden", hidden := np.empty(len(items), np.bool_))
-        named: list[int] = bpy.types.UI_UL_list.filter_items_by_name(self.filter_name, self.bitflag_filter_item, items, reverse=self.use_filter_invert)
-        return np.where(hidden, self.bitflag_item_never_show, named or self.bitflag_filter_item).tolist(), bpy.types.UI_UL_list.sort_items_by_name(items) if self.use_filter_sort_alpha else []
+
+def filter_items(ui: bpy.types.UIList, _context: bpy.types.Context, data: "bpy.types.bpy_struct[object]", propname: str) -> tuple[list[int], list[int]]:
+    items: bpy.types.bpy_prop_collection[bpy.types.PropertyGroup] = getattr(data, propname)
+    items.foreach_get("hidden", hidden := np.empty(len(items), np.bool_))
+    named: list[int] = bpy.types.UI_UL_list.filter_items_by_name(ui.filter_name, ui.bitflag_filter_item, items, reverse=ui.use_filter_invert)  # type: ignore[arg-type]  # ty: ignore[invalid-assignment]
+    order: list[int] = bpy.types.UI_UL_list.sort_items_by_name(items) if ui.use_filter_sort_alpha else []  # type: ignore[arg-type]  # ty: ignore[invalid-assignment]
+    return np.where(hidden, ui.bitflag_item_never_show, named or ui.bitflag_filter_item).tolist(), order
+
+
+ITEM_UL_items = type("ITEM_UL_items", (bpy.types.UIList,), {"draw_item": draw_item, "filter_items": filter_items})
 ```
 
 `hidden` stands for a `BoolProperty` on the item's `PropertyGroup`.
@@ -373,19 +386,19 @@ class Stroke(msgspec.Struct, frozen=True, kw_only=True):
     @classmethod
     def of(cls, points: NDArray[np.float32]) -> Self:
         shader = gpu.shader.from_builtin("POLYLINE_UNIFORM_COLOR")
-        return cls(shader=shader, batch=batch_for_shader(shader, "LINE_STRIP", {"pos": points}), end=tuple(points[-1, :2].tolist()))
+        return cls(shader=shader, batch=batch_for_shader(shader, "LINE_STRIP", {"pos": points}), end=tuple(points[-1, :2].tolist()))  # type: ignore[dict-item]  # ty: ignore[invalid-argument-type]
 
     def drawn(self, label: str, preferences: bpy.types.Preferences) -> None:
         ui = preferences.themes[0].user_interface
         with ExitStack() as scope:
-            scope.callback(gpu.state.blend_set, gpu.state.blend_get())
+            scope.callback(gpu.state.blend_set, gpu.state.blend_get())  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
             gpu.state.blend_set("ALPHA")
             self.shader.uniform_float("viewportSize", gpu.state.viewport_get()[2:])
             self.shader.uniform_float("lineWidth", 2.0 * preferences.system.pixel_size)
-            self.shader.uniform_float("color", (*ui.gizmo_primary, 1.0))
+            self.shader.uniform_float("color", (*np.asarray(ui.gizmo_primary), 1.0))
             self.batch.draw(self.shader)
             blf.size(0, preferences.ui_styles[0].widget.points * preferences.system.ui_scale)
-            blf.color(0, *ui.wcol_regular.text, 1.0)
+            blf.color(0, ui.wcol_regular.text.r, ui.wcol_regular.text.g, ui.wcol_regular.text.b, 1.0)
             blf.position(0, *self.end, 0.0)
             blf.draw(0, label)
 ```
@@ -446,9 +459,9 @@ def captured(draw: Callable[[], None], size: int) -> Result[NDArray[np.float32],
     def read(offscreen: gpu.types.GPUOffScreen) -> NDArray[np.float32]:
         with ExitStack() as scope:
             scope.callback(offscreen.free)
-            scope.enter_context(offscreen.bind())
-            scope.enter_context(gpu.matrix.push_pop())
-            scope.enter_context(gpu.matrix.push_pop_projection())
+            scope.enter_context(offscreen.bind())  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            scope.enter_context(gpu.matrix.push_pop())  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+            scope.enter_context(gpu.matrix.push_pop_projection())  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
             framebuffer = gpu.state.active_framebuffer_get()
             framebuffer.clear(color=(0.0, 0.0, 0.0, 0.0))
             gpu.matrix.load_identity()

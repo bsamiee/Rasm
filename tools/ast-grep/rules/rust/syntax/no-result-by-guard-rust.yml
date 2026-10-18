@@ -113,6 +113,7 @@ utils:
                     - not: {has: {field: alternative, pattern: $_}}
                     - has: {field: condition, kind: let_condition, all: [{has: {field: pattern, matches: err-binding}}, {has: {field: value, pattern: $R, matches: subject}}]}
                     - has: {field: consequence, kind: block, all: [{has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, any: [{matches: returned-error}, {kind: expression_statement, has: {matches: returned-error}}]}}, {not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}}]}
+            - not: {precedes: {stopBy: end, any: [{kind: identifier, pattern: $R}, {has: {stopBy: end, kind: identifier, pattern: $R}}]}}
 rule:
     all:
         - any:
@@ -178,7 +179,8 @@ transform:
     THEN_COMPOUND_WRAPPED: {replace: {source: $THEN_COMPOUND, replace: '^([\s\S]+)$', by: '($1)'}}
     UNLESS_PRIMARY_WRAPPED: {replace: {source: $UNLESS_PRIMARY, replace: '^([\s\S]+)$', by: '(!$1)'}}
     UNLESS_COMPOUND_WRAPPED: {replace: {source: $UNLESS_COMPOUND, replace: '^([\s\S]+)$', by: '(!($1))'}}
-    THEN_OPEN: {replace: {source: $X, replace: '^[\s\S]*$', by: '.then(|| '}}
+    EAGER: {replace: {source: $X, replace: '^(?:[A-Za-z_]\w*(?:\.\w+)*|-?[0-9][\w.]*|true|false|\(\))$', by: '.then_some('}}
+    THEN_OPEN: {replace: {source: $EAGER, replace: '^(?:[^.]|\.[^t])[\s\S]*$', by: '.then(|| '}}
     THEN_CLOSE: {replace: {source: $X, replace: '^[\s\S]*$', by: ')'}}
     IF_OPEN: {replace: {source: $COND, replace: '^[\s\S]*$', by: 'if '}}
     IF_THEN: {replace: {source: $COND, replace: '^[\s\S]*$', by: ' { '}}
@@ -199,4 +201,4 @@ fix:
     template: '$THEN_PRIMARY$THEN_COMPOUND_WRAPPED$UNLESS_PRIMARY_WRAPPED$UNLESS_COMPOUND_WRAPPED$THEN_OPEN$X$THEN_CLOSE$IF_OPEN$COND$IF_THEN$VALUE$IF_ELSE$LAST$IF_CLOSE$R$MAP_OPEN$OKV$MAP_MID$A$MAP_CLOSE$MAP_ERR_OPEN$RET_OPEN$ERRV$MAP_ERR_MID$RET_MID$B$RET$MAP_ERR_CLOSE$RET_CLOSE$STATEMENT_END$TAIL_BREAK$GUARD_TAIL'
     expandEnd: {matches: tail}
 message: '`if` or `match` selects a result through an early `return` or by restating each case'
-note: 'Write `<condition>.then(|| <value>)` for arms `Some(<value>)` and `None`, `(!<condition>).then(|| <value>)` for `None` and `Some(<value>)`, `if <condition> { <value> } else { <tail> }` as the tail otherwise, `<result>.map_err(|<error>| <mapped>)?` for an arm returning a mapped `Err`, and `<result>.map(..).map_err(..)` for arms rewrapping `Ok` and `Err`'
+note: 'Write `<condition>.then(|| <value>)` for arms `Some(<value>)` and `None`, `(!<condition>).then(|| <value>)` for `None` and `Some(<value>)`, `then_some` in place of `then` for a place or literal value, `if <condition> { <value> } else { <tail> }` as the tail otherwise, `<result>.map_err(|<error>| <mapped>)?` for an arm returning a mapped `Err`, and `<result>.map(..).map_err(..)` for arms rewrapping `Ok` and `Err`'

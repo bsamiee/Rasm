@@ -36,7 +36,7 @@ internal readonly struct BlueNoise : IOffsetField {
         const string Resource = "BlueNoise.tif";
         using Stream stream = typeof(BlueNoise).Assembly.GetManifestResourceStream(typeof(BlueNoise), Resource)!;
         using Tiff tiff = Tiff.ClientOpen(Resource, "r", stream, new TiffStream());
-        (int width, int height, int lanes) = (tiff.GetField(TiffTag.IMAGEWIDTH)[0].ToInt(), tiff.GetField(TiffTag.IMAGELENGTH)[0].ToInt(), tiff.GetField(TiffTag.SAMPLESPERPIXEL)[0].ToInt());
+        (int width, int height, int channels) = (tiff.GetField(TiffTag.IMAGEWIDTH)[0].ToInt(), tiff.GetField(TiffTag.IMAGELENGTH)[0].ToInt(), tiff.GetField(TiffTag.SAMPLESPERPIXEL)[0].ToInt());
         const float codes = ushort.MaxValue + 1f;
         float half = 0.5f * codes / (width * height);
         float[] draws = new float[width * height];
@@ -45,7 +45,7 @@ internal readonly struct BlueNoise : IOffsetField {
             _ = tiff.ReadScanline(line, row);
             ReadOnlySpan<ushort> ranks = MemoryMarshal.Cast<byte, ushort>(line);
             for (int column = 0; column < width; column++)
-                draws[(row * width) + column] = (ranks[column * lanes] + half) / codes;
+                draws[(row * width) + column] = (ranks[column * channels] + half) / codes;
         }
         return new(draws, height, width);
     }

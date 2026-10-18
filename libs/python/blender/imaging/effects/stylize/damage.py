@@ -119,7 +119,7 @@ class Scratches(msgspec.Struct, frozen=True, kw_only=True):
 
                 return sum((column(index) for index in range(floor(left), floor(right) + 1)), np.zeros(2, dtype=np.float64))
 
-            return cellular_sites(Voronoi(dimensions=2, spacing=1.0), ((left, y), (right, y)), seed=seed, stream=Noise.SCRATCHES).map(composed)
+            return cellular_sites(Voronoi(dimensions=2, spacing=1.0), ((left, right), (y, y)), seed=seed, stream=Noise.SCRATCHES).map(composed)
 
         return guarded(ImagingNumericFault, self, computed, frozenset())
 

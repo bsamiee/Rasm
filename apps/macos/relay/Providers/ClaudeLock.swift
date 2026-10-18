@@ -17,7 +17,19 @@ private nonisolated struct ClaudeLockfile: Sendable {
     let stat: ClaudeLockfileStat
 
     static func acquire(at url: URL) -> Result<Self, ClaudeFailure> {
-        create(at: url)
+        func create() -> Result<Void, ClaudeFailure> {
+            Result {
+                try FileManager.default.createDirectory(
+                    at: url,
+                    withIntermediateDirectories: false,
+                    attributes: [.posixPermissions: 0o700],
+                )
+            }
+            .mapError { error in
+                if case CocoaError.fileWriteFileExists = error { .lockHeld(url) } else { .filesystem(error) }
+            }
+        }
+        return create()
             .flatMapError { error -> Result<Void, ClaudeFailure> in
                 if case .lockHeld = error {
                     fileStat(at: url)
@@ -25,18 +37,14 @@ private nonisolated struct ClaudeLockfile: Sendable {
                             existing.modified < .seconds(Date().timeIntervalSince1970) - staleAfter
                                 ? remove(at: url) : .failure(.lockHeld(url))
                         }
-                        .flatMap { _ in create(at: url) }
+                        .flatMap { _ in create() }
                 } else {
                     .failure(error)
                 }
             }
-            .flatMap { _ in lockfile(at: url) }
-    }
-
-    private static func lockfile(at url: URL) -> Result<Self, ClaudeFailure> {
-        fileStat(at: url).map { stat in Self(url: url, stat: stat) }.mapError { error in
-            error.releasing(remove(at: url))
-        }
+            .flatMap { _ in
+                fileStat(at: url).map { stat in Self(url: url, stat: stat) }.mapError { error in error.releasing(remove(at: url)) }
+            }
     }
 
     func updated() -> Result<Self, ClaudeFailure> {
@@ -65,19 +73,6 @@ private nonisolated struct ClaudeLockfile: Sendable {
         Self.fileStat(at: url)
             .flatMap { current in current == stat ? .success(current) : .failure(.lockCompromised(url)) }
             .mapError { _ in .lockCompromised(url) }
-    }
-
-    private static func create(at url: URL) -> Result<Void, ClaudeFailure> {
-        Result {
-            try FileManager.default.createDirectory(
-                at: url,
-                withIntermediateDirectories: false,
-                attributes: [.posixPermissions: 0o700],
-            )
-        }
-        .mapError { error in
-            if case CocoaError.fileWriteFileExists = error { .lockHeld(url) } else { .filesystem(error) }
-        }
     }
 
     private static func remove(at url: URL) -> Result<Void, ClaudeFailure> {

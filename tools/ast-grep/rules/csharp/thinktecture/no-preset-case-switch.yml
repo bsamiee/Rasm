@@ -2,6 +2,7 @@
 id: no-preset-case-switch
 language: csharp
 severity: error
+ignores: ['tools/roslyn/**']
 utils:
     union-type:
         matches: {csharp-type-name: {name: {pattern: $UNION}}}

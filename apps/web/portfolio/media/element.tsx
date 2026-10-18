@@ -1,31 +1,26 @@
 import { Match } from 'effect';
 import { useInView } from 'motion/react';
-import { lazy, type ReactElement, type RefObject, Suspense, useEffect, useRef, useState } from 'react';
+import { lazy, type RefObject, Suspense, useEffect, useRef, useState } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
 import { type Placement, placementDimensions } from '../model/placement.ts';
 import { imageSourceSet, mediaUrl, placementAlt } from './display.ts';
 import { MediaFailure, MediaLoading } from './status.tsx';
 
-// --- [TYPES] ---------------------------------------------------------------------------
-
-type Presentation = 'expandable' | 'expanded' | 'full' | 'preview' | 'thumbnail';
-
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const PdfSheet = lazy(() => import('./pdf.tsx').then((module) => ({ default: module.PdfSheet })));
-function Media({ placement, active, priority, presentation, layoutId, viewport }: { placement: typeof Placement.Type; active: boolean; priority: boolean; presentation: Presentation; layoutId?: string; viewport?: RefObject<HTMLElement | null> }): ReactElement | null {
+const Media = ({ placement, active, priority, presentation, layoutId, viewport }: { placement: typeof Placement.Type; active: boolean; priority: boolean; presentation: 'expandable' | 'expanded' | 'full' | 'preview' | 'thumbnail'; layoutId?: string; viewport?: RefObject<HTMLElement | null> }) => {
     const video = useRef<HTMLVideoElement>(null);
     const nearby = useInView(viewport ?? video, { margin: '200px' });
     const visible = useInView(viewport ?? video);
-    const [failed, setFailed] = useState(false);
-    const [attempt, setAttempt] = useState(0);
+    const [attempt, setAttempt] = useState({ count: 0, failed: false });
     const { width, height } = placementDimensions(placement);
     const url = mediaUrl(placement.asset);
     const label = placementAlt(placement);
     const thumbnail = presentation === 'preview' || presentation === 'thumbnail';
     const expanded = presentation === 'expanded';
     const eager = priority || presentation === 'expandable';
-    const fetchPriority = active ? 'auto' : 'low';
+    const fail = () => setAttempt(({ count }) => ({ count, failed: true }));
     useEffect(() => {
         if (!(active && visible)) {
             video.current?.pause();
@@ -34,69 +29,50 @@ function Media({ placement, active, priority, presentation, layoutId, viewport }
     if (viewport !== undefined && !eager && !nearby) {
         return null;
     }
-    return failed ? (
-        <MediaFailure
-            href={url}
-            linkLabel="Open original"
-            message={placement.kind === 'video' ? 'This video could not be played.' : 'This image could not be displayed.'}
-            onRetry={(): void => {
-                setFailed(false);
-                setAttempt((value) => value + 1);
-            }}
-        />
+    return attempt.failed ? (
+        <MediaFailure href={url} linkLabel="Open original" message={placement.kind === 'video' ? 'This video could not be played.' : 'This image could not be displayed.'} onRetry={() => setAttempt(({ count }) => ({ count: count + 1, failed: false }))} />
     ) : (
         Match.value(placement).pipe(
             Match.discriminatorsExhaustive('kind')({
-                pdf: (sheet): ReactElement => (
+                pdf: (sheet) => (
                     <ErrorBoundary fallback={<MediaFailure href={url} linkLabel="Open original PDF" message="The PDF viewer could not be loaded." />}>
                         <Suspense fallback={<MediaLoading />}>
-                            <PdfSheet {...(layoutId && { layoutId })} placement={sheet} />
+                            <PdfSheet layoutId={layoutId} placement={sheet} />
                         </Suspense>
                     </ErrorBoundary>
                 ),
-                video: ({ poster }): ReactElement =>
+                video: ({ poster }) =>
                     thumbnail && poster !== undefined ? (
                         <img alt={label} className="block size-full object-contain" decoding="async" height={height} loading="lazy" sizes="auto, 100vw" src={mediaUrl(poster)} srcSet={imageSourceSet(poster)} width={width} />
                     ) : (
-                        // biome-ignore lint/a11y/useMediaCaption: Owners must burn captions into videos with meaningful audio; timed-text uploads are not supported
-                        <video
-                            aria-label={label}
-                            className="block size-full object-contain"
-                            controls={!thumbnail}
-                            height={height}
-                            key={attempt}
-                            onError={(): void => setFailed(true)}
-                            playsInline={true}
-                            poster={poster && mediaUrl(poster)}
-                            preload={active || thumbnail || eager ? 'metadata' : 'none'}
-                            ref={video}
-                            src={url}
-                            width={width}
-                        />
+                        // biome-ignore lint/a11y/useMediaCaption: Uploads hold no timed text, owners burn captions into the video and write transcripts as descriptions
+                        <video aria-label={label} className="block size-full object-contain" controls={!thumbnail} height={height} key={attempt.count} onError={fail} playsInline={true} poster={poster && mediaUrl(poster)} preload={active || thumbnail || eager ? 'metadata' : 'none'} ref={video} src={url} width={width} />
                     ),
-                image: ({ framing, asset }): ReactElement => (
-                    // biome-ignore lint/a11y/noNoninteractiveElementInteractions: Image load failures report through onError
+                image: ({ framing, asset }) => (
+                    // biome-ignore lint/a11y/noNoninteractiveElementInteractions: The error event is the only load failure signal an img element reports
                     <img
                         alt={label}
-                        className="block size-full"
+                        className={expanded ? 'block max-w-none' : { contain: 'block size-full object-contain', cover: 'block size-full object-cover object-(--media-focus)' }[framing.mode]}
                         decoding="async"
-                        fetchPriority={priority ? 'high' : fetchPriority}
+                        fetchPriority={Match.value({ priority, active }).pipe(
+                            Match.when({ priority: true }, () => 'high' as const),
+                            Match.when({ active: true }, () => 'auto' as const),
+                            Match.orElse(() => 'low' as const),
+                        )}
                         height={height}
-                        key={attempt}
+                        key={attempt.count}
                         loading={expanded || eager ? 'eager' : 'lazy'}
-                        onError={(): void => setFailed(true)}
+                        onError={fail}
                         sizes={eager ? '100vw' : 'auto, 100vw'}
                         src={url}
                         srcSet={expanded ? undefined : imageSourceSet(asset)}
-                        // biome-ignore lint/nursery/noInlineStyles: Focal point and framing come from the placement
-                        style={{ objectFit: expanded ? 'contain' : framing.mode, objectPosition: framing.mode === 'cover' ? `${framing.x}% ${framing.y}%` : undefined }}
                         width={width}
                     />
                 ),
             }),
         )
     );
-}
+};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

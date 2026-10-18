@@ -80,7 +80,7 @@ internal sealed class CalculateBoundingBoxConduit(Func<DrawEventArgs, IO<Option<
             from found in IO.pure(e).Bind(box)
             from included in IO.lift(() => found.Iter(e.IncludeBoundingBox))
             select included,
-            new(sink, GetType(), nameof(CalculateBoundingBox)));
+            new(sink, typeof(CalculateBoundingBoxConduit), nameof(CalculateBoundingBox)));
 }
 
 internal sealed class CalculateBoundingBoxZoomExtentsConduit(Func<DrawEventArgs, IO<Option<BoundingBox>>> box, IPlugInSink sink) : DisplayConduit {
@@ -89,17 +89,17 @@ internal sealed class CalculateBoundingBoxZoomExtentsConduit(Func<DrawEventArgs,
             from found in IO.pure(e).Bind(box)
             from included in IO.lift(() => found.Iter(e.IncludeBoundingBox))
             select included,
-            new(sink, GetType(), nameof(CalculateBoundingBoxZoomExtents)));
+            new(sink, typeof(CalculateBoundingBoxZoomExtentsConduit), nameof(CalculateBoundingBoxZoomExtents)));
 }
 
 internal sealed class ObjectCullingConduit(Func<CullObjectEventArgs, bool> cullObject, IPlugInSink sink) : DisplayConduit {
     protected override void ObjectCulling(CullObjectEventArgs e) =>
-        Callbacks.Run(IO.lift(() => { if (cullObject(e)) e.CullObject = true; }), new(sink, GetType(), nameof(ObjectCulling)));
+        Callbacks.Run(IO.lift(() => { if (cullObject(e)) e.CullObject = true; }), new(sink, typeof(ObjectCullingConduit), nameof(ObjectCulling)));
 }
 
 internal sealed class PreDrawObjectsConduit(Func<DrawEventArgs, IO<Unit>> draw, IPlugInSink sink) : DisplayConduit {
     protected override void PreDrawObjects(DrawEventArgs e) =>
-        Callbacks.Run(IO.pure(e).Bind(draw), new(sink, GetType(), nameof(PreDrawObjects)));
+        Callbacks.Run(IO.pure(e).Bind(draw), new(sink, typeof(PreDrawObjectsConduit), nameof(PreDrawObjects)));
 }
 
 internal sealed class PreDrawObjectConduit(Func<DrawObjectEventArgs, IO<bool>> drawObject, IPlugInSink sink) : DisplayConduit {
@@ -108,27 +108,27 @@ internal sealed class PreDrawObjectConduit(Func<DrawObjectEventArgs, IO<bool>> d
             from drawn in IO.pure(e).Bind(drawObject)
             from suppressed in IO.lift(() => { if (!drawn) e.DrawObject = false; })
             select suppressed,
-            new(sink, GetType(), nameof(PreDrawObject)));
+            new(sink, typeof(PreDrawObjectConduit), nameof(PreDrawObject)));
 }
 
 internal sealed class PostDrawObjectsConduit(Func<DrawEventArgs, IO<Unit>> draw, IPlugInSink sink) : DisplayConduit {
     protected override void PostDrawObjects(DrawEventArgs e) =>
-        Callbacks.Run(IO.pure(e).Bind(draw), new(sink, GetType(), nameof(PostDrawObjects)));
+        Callbacks.Run(IO.pure(e).Bind(draw), new(sink, typeof(PostDrawObjectsConduit), nameof(PostDrawObjects)));
 }
 
 internal sealed class DrawForegroundConduit(Func<DrawEventArgs, IO<Unit>> draw, IPlugInSink sink) : DisplayConduit {
     protected override void DrawForeground(DrawEventArgs e) =>
-        Callbacks.Run(IO.pure(e).Bind(draw), new(sink, GetType(), nameof(DrawForeground)));
+        Callbacks.Run(IO.pure(e).Bind(draw), new(sink, typeof(DrawForegroundConduit), nameof(DrawForeground)));
 }
 
 internal sealed class DrawOverlayConduit(Func<DrawEventArgs, IO<Unit>> draw, IPlugInSink sink) : DisplayConduit {
     protected override void DrawOverlay(DrawEventArgs e) =>
-        Callbacks.Run(IO.pure(e).Bind(draw), new(sink, GetType(), nameof(DrawOverlay)));
+        Callbacks.Run(IO.pure(e).Bind(draw), new(sink, typeof(DrawOverlayConduit), nameof(DrawOverlay)));
 }
 
 internal sealed class PostProcessFrameBufferConduit(Func<PostProcessFrameBufferEventArgs, IO<Unit>> read, IPlugInSink sink) : DisplayConduit {
     protected override void PostProcessFrameBuffer(PostProcessFrameBufferEventArgs e) =>
-        Callbacks.Run(IO.pure(e).Bind(read), new(sink, GetType(), nameof(PostProcessFrameBuffer)));
+        Callbacks.Run(IO.pure(e).Bind(read), new(sink, typeof(PostProcessFrameBufferConduit), nameof(PostProcessFrameBuffer)));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -136,11 +136,13 @@ public static class Conduits {
     // --- [LIFETIME]
     public static IO<Unit> Enable(ConduitDefinition definition, IPlugInSink sink, Action<IDisposable> retain) =>
         DisposalOps.Acquire(own =>
-        from rows in definition.Binding.Switch(
-            state: own, everywhere: static (_, _) => IO.pure(Seq<ViewportRef>()), bound: static (state, bound) => toSeq(bound.Sets).TraverseM(set => Viewports.ResolveViewports(bound.Document, set, state)).As().Map(static held => held.Flatten()))
-        from conduits in toSeq(definition.Channels).TraverseM(channel => Enabled(channel, definition.Filter, definition.Binding, rows, sink, own)).As()
-        select unit,
-        retain);
+            from rows in definition.Binding.Switch(
+                own,
+                everywhere: static (_, _) => IO.pure(Seq<ViewportRef>()),
+                bound: static (held, bound) => toSeq(bound.Sets).TraverseM(set => Viewports.ResolveViewports(bound.Document, set, held)).As().Map(static sets => sets.Flatten()))
+            from conduits in toSeq(definition.Channels).TraverseM(channel => Enabled(channel, definition.Filter, definition.Binding, rows, sink, own)).As()
+            select unit,
+            retain);
 
     private static IO<DisplayConduit> Enabled(ConduitChannel channel, ConduitFilter filter, ConduitBinding binding, Seq<ViewportRef> rows, IPlugInSink sink, Action<IDisposable> retain) =>
         DisposalOps.Acquire(IO.lift(() => channel.Switch<IPlugInSink, DisplayConduit>(

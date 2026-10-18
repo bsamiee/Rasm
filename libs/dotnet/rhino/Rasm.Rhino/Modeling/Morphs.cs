@@ -143,16 +143,15 @@ public static class Morphs {
                 Points: unrolledPoints,
                 Dots: unrolledDots),
             made => (
-                    Measurements.Valid(toSeq<Brep?>(made.Flat), nameof(Unroller.PerformUnroll)).Bind(static flat => Conversions.NonEmpty(flat, nameof(Unroller.PerformUnroll))).ToValidation(),
-                    Measurements.Valid(toSeq<Curve?>(made.Curves), nameof(Unroller.PerformUnroll)).ToValidation(),
-                    Measurements.Valid(toSeq<TextDot?>(made.Dots), nameof(Unroller.PerformUnroll)).ToValidation())
+                    Measurements.Valid(toSeq<Brep?>(made.Flat), nameof(Unroller.PerformUnroll)).Bind(static flat => Conversions.NonEmpty(flat, nameof(Unroller.PerformUnroll))),
+                    Measurements.Valid(toSeq<Curve?>(made.Curves), nameof(Unroller.PerformUnroll)),
+                    Measurements.Valid(toSeq<TextDot?>(made.Dots), nameof(Unroller.PerformUnroll)))
                 .Apply((flat, flatCurves, flatDots) => new UnrollResult(
                     flat,
                     flatCurves.Map(curve => (Curve: curve, Source: Conversions.Present(unroller.FollowingGeometryIndex(curve)))).Strict(),
                     Conversions.Rows(made.Points),
                     flatDots.Map(dot => (Dot: dot, Source: Conversions.Present(unroller.FollowingGeometryIndex(dot)))).Strict()))
-                .As()
-                .ToFin(),
+                .As(),
             static made => DisposalOps.Release(Conversions.Rows<GeometryBase>([.. made.Flat, .. made.Curves, .. made.Dots])), retain)
         select unrolled;
 

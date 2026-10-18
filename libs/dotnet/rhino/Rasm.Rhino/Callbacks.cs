@@ -40,10 +40,10 @@ public static class Callbacks {
     public static T Answer<T>(Option<IO<T>> effect, Func<T> absent, Func<T> failed, CallbackSite site) =>
         effect.Match(Some: run => Answer(run, failed, site), None: absent);
 
-    public static bool Succeeded(IO<Unit> effect, CallbackSite site) =>
+    public static bool Succeeded<T>(IO<T> effect, CallbackSite site) =>
         Answer(effect.Map(value: true), static () => false, site);
 
-    public static bool Succeeded(Option<IO<Unit>> effect, Func<bool> absent, CallbackSite site) =>
+    public static bool Succeeded<T>(Option<IO<T>> effect, Func<bool> absent, CallbackSite site) =>
         effect.Match(Some: run => Succeeded(run, site), None: absent);
 
     public static void Run<T>(IO<T> effect, CallbackSite site) =>
@@ -80,11 +80,7 @@ public static class Callbacks {
         Captured<T>(answer => IO.lift(() => host(args => answer(Settled(body(args), CancellationToken.None)))), member);
 
     public static Fin<Seq<T>> Each<TItem, T>(Seq<TItem> items, Func<TItem, int, Fin<T>> element) =>
-        items.Map((item, index) => element(item, index).ToValidation())
-            .Strict()
-            .Traverse(static answer => answer)
-            .As()
-            .ToFin();
+        items.Map(element).Strict().Traverse(static answer => answer).As();
 
     public static Fin<Unit> Each<TItem>(Seq<TItem> items, Func<TItem, bool> call, string member) =>
         Each(items, (item, index) => Refused.Unless(call(item), member, index)).Map(static _ => unit);
@@ -105,10 +101,10 @@ public static class Callbacks {
     }
 
     // --- [LOOKUPS]
-    public static Validation<Error, Seq<TRow>> Unique<TRow, TKey>(Seq<TRow> rows, Func<TRow, TKey> key, string member, IEqualityComparer<TKey>? comparer = null) where TKey : notnull =>
+    public static Fin<Seq<TRow>> Unique<TRow, TKey>(Seq<TRow> rows, Func<TRow, TKey> key, string member, IEqualityComparer<TKey>? comparer = null) where TKey : notnull =>
         toSeq(rows.CountBy(key, comparer))
             .Filter(static counted => counted.Value > 1)
-            .Traverse(counted => Validation.Fail<Error, Unit>(Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"{member} received {counted.Key} {counted.Value} times"))))
+            .Traverse(counted => Fin.Fail<Unit>(Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"{member} received {counted.Key} {counted.Value} times"))))
             .As()
             .Map(_ => rows);
 }

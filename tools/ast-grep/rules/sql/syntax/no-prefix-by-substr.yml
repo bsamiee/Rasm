@@ -5,26 +5,16 @@ severity: error
 utils:
     leading-slice:
         kind: function_call
-        any:
-            - all:
-                - has: {field: name, regex: '(?i)^substr(ing)?$'}
-                - has:
-                    field: arguments
-                    kind: normal_function_arguments
-                    all:
-                        - has: {nthChild: 1, pattern: _SUBJECT}
-                        - has: {nthChild: 2, kind: numeric_literal, regex: '^1$'}
-                        - has: {nthChild: 3, pattern: _LENGTH}
-                        - not: {has: {nthChild: 4}}
-            - all:
-                - has: {field: name, regex: '(?i)^left$'}
-                - has:
-                    field: arguments
-                    kind: normal_function_arguments
-                    all:
-                        - has: {nthChild: 1, pattern: _SUBJECT}
-                        - has: {nthChild: 2, pattern: _LENGTH}
-                        - not: {has: {nthChild: 3}}
+        all:
+            - has: {field: name, regex: '(?i)^substr(ing)?$'}
+            - has:
+                field: arguments
+                kind: normal_function_arguments
+                all:
+                    - has: {nthChild: 1, pattern: _SUBJECT}
+                    - has: {nthChild: 2, kind: numeric_literal, regex: '^1$'}
+                    - has: {nthChild: 3, pattern: _LENGTH}
+                    - not: {has: {nthChild: 4}}
     prefix-test:
         kind: binary_expression
         all:
@@ -77,4 +67,4 @@ transform:
     FIXED: {rewrite: {source: $FIXABLE, rewriters: [position]}}
 fix: $FIXED$KEPT
 message: '`$TEST` tests a prefix through a slice as long as the prefix'
-note: 'Write `instr(<subject>, <prefix>) = 1`, stating the prefix once in a form SQLite and DuckDB both read'
+note: 'Write `instr(<subject>, <prefix>) = 1`, stating the prefix once in a form SQLite, D1, and Durable Objects run'

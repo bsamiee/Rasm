@@ -38,7 +38,7 @@ const PortfolioData = Schema.make<Schema.Codec<typeof envelope.Type, typeof enve
         ([portfolio, assets]) => {
             const parse = SchemaParser.decodeUnknownEffect(Schema.Struct({ portfolio: Schema.Unknown, assets }));
             const resolve = SchemaParser.decodeUnknownEffect(portfolio);
-            return Effect.fnUntraced(function* (input: unknown, _ast: SchemaAST.Declaration, options: SchemaAST.ParseOptions): Effect.fn.Return<typeof envelope.Type, SchemaIssue.Issue> {
+            return Effect.fnUntraced(function* (input: unknown, _ast: SchemaAST.Declaration, options: SchemaAST.ParseOptions) {
                 const data = yield* parse(input, options);
                 const resolved = yield* resolve(data.portfolio, options).pipe(
                     Effect.provideService(Assets, data.assets),
@@ -52,12 +52,12 @@ const PortfolioData = Schema.make<Schema.Codec<typeof envelope.Type, typeof enve
 );
 const Session = Schema.Union([Schema.Struct({ kind: Schema.Literal('owner') }), Schema.Struct({ kind: Schema.Literal('visitor'), signedIn: Schema.Boolean })]);
 const Bootstrap = Schema.Struct({ initial: PortfolioData, session: Session });
-const shell = { root: 'portfolio', data: 'portfolio-data', schema: Bootstrap } as const;
+const shell = { root: 'portfolio', data: 'portfolio-data', schema: Bootstrap };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const placements = (portfolio: typeof Portfolio.Type): readonly (typeof Placement.Type)[] => [...Array.fromNullishOr(portfolio.hero), ...portfolio.entries.flatMap((entry) => [...Array.fromNullishOr(entry.cover), ...entry.compositions.flatMap(Struct.get('items'))])];
-const createEntry = (id: string, kind: typeof Entry.Type.kind): typeof Entry.Type => ({ id, kind, title: '', year: '', location: '', description: '', role: '', credits: '', compositions: [] });
+const placements = (portfolio: typeof Portfolio.Type) => [...Array.fromNullishOr(portfolio.hero), ...portfolio.entries.flatMap((entry) => [...Array.fromNullishOr(entry.cover), ...entry.compositions.flatMap(Struct.get('items'))])];
+const createEntry = (id: string, kind: typeof Entry.Type.kind) => ({ id, kind, title: '', year: '', location: '', description: '', role: '', credits: '', compositions: [] });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

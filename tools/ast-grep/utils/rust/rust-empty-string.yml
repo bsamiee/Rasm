@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-empty-string
+language: rust
+utils:
+    empty-literal:
+        kind: string_literal
+        not: {has: {kind: 'string_content, escape_sequence'}}
+rule:
+    any:
+        - matches: empty-literal
+        - kind: call_expression
+          all:
+            - has: {field: function, kind: field_expression, all: [{has: {field: value, matches: empty-literal}}, {has: {field: field, regex: '^(into|to_owned|to_string)$'}}]}
+            - has: {field: arguments, not: {has: {pattern: $_}}}

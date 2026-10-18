@@ -122,8 +122,8 @@ public sealed record Halftone(
         (ERational pitch, int height, (double X, double Y, double Z) weights) = (ERational.FromSingle(state.Size).Multiply(context.Extent.ShortSide), context.Extent.Height, context.Working.Luminance);
         Screen Turned(InkScreen ink, float turn, float onset) =>
             new(Matrix3x2.CreateRotation(ink.Angle + turn) * Matrix3x2.CreateTranslation(ink.U, ink.V), pitch, state.Shape, onset, 1f / (1f - onset));
-        Plate Inked(InkScreen ink, Vector3 absorbance, Vector4 lane) =>
-            Turned(ink, 0f, 0f) switch { var screen => new(state.CrossOnset < AxisFraction.MaxValue ? [screen, Turned(ink, float.Pi / 2f, state.CrossOnset)] : [screen], absorbance, lane) };
+        Plate Inked(InkScreen ink, Vector3 absorbance, Vector4 channel) =>
+            Turned(ink, 0f, 0f) switch { var screen => new(state.CrossOnset < AxisFraction.MaxValue ? [screen, Turned(ink, float.Pi / 2f, state.CrossOnset)] : [screen], absorbance, channel) };
         Arr<Plate> plates = [
             Inked(state.Cyan, Vector3.UnitX, Vector4.UnitX), Inked(state.Magenta, Vector3.UnitY, Vector4.UnitY), Inked(state.Yellow, Vector3.UnitZ, Vector4.UnitZ),
             Inked(state.Key, Vector3.One - state.Ink.Display.AsVector3(), Vector4.UnitW)];
@@ -149,11 +149,11 @@ public sealed record Halftone(
         }
     }
 
-    private readonly record struct Plate(Arr<Screen> Screens, Vector3 Absorbance, Vector4 Lane) {
+    private readonly record struct Plate(Arr<Screen> Screens, Vector3 Absorbance, Vector4 Channel) {
         public static Vector3 Transmitted(Arr<Plate> plates, (double X, double Y) p, Vector4 levels) {
             Vector3 transmitted = Vector3.One;
             foreach (Plate plate in plates.AsSpan())
-                transmitted *= Vector3.One - ((1f - plate.Clear(p, Vector4.Dot(levels, plate.Lane))) * plate.Absorbance);
+                transmitted *= Vector3.One - ((1f - plate.Clear(p, Vector4.Dot(levels, plate.Channel))) * plate.Absorbance);
             return transmitted;
         }
 

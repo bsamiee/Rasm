@@ -3,10 +3,13 @@ id: no-boolean-as-number
 language: python
 severity: error
 utils:
+    predicate-call:
+        kind: call
+        has: {field: function, matches: {python-builtin-name: {name: {regex: '^(bool|isinstance|issubclass|callable|hasattr|any|all)$'}}}}
     literal-truth:
         any:
             - kind: 'comparison_operator, not_operator, true, false'
-            - matches: builtins-predicate-call
+            - matches: predicate-call
             - kind: parenthesized_expression
               has: {matches: literal-truth}
             - kind: boolean_operator
@@ -33,7 +36,7 @@ utils:
             - kind: true, false, not_operator
             - kind: comparison_operator
               not: {has: {pattern: $$_OPERATOR, regex: '^(==|!=|<=?|>=?)$'}}
-            - matches: builtins-predicate-call
+            - matches: predicate-call
             - kind: parenthesized_expression
               has: {matches: truth}
             - kind: boolean_operator
@@ -41,7 +44,7 @@ utils:
     scalar:
         any:
             - matches: truth
-            - matches: {python-typed-parameter: {type: {regex: '^bool$'}}}
+            - matches: bool-parameter
             - matches: {python-assigned-name: {value: {matches: truth}}}
             - kind: parenthesized_expression
               has: {matches: scalar}

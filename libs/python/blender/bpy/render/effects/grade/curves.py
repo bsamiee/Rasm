@@ -16,11 +16,10 @@ from blender.bpy.extension.identity import Identity
 from blender.bpy.faults import BlenderFaults, BlenderImagingFault, BlenderResult, BlenderUnmetFault
 from blender.bpy.nodes.graphs import CurvePoints, End, ended, Fragment, math, nested, node, NodeGroup, Points
 from blender.bpy.nodes.interface import item_key
-from blender.bpy.render.color.spaces import COLOR_INPUT, COLOR_RESULT, hsy, logarithmic
+from blender.bpy.render.color.spaces import COLOR_INPUT, COLOR_RESULT, config_of, hsy, logarithmic
 from blender.bpy.render.effects.stack import CompositorEffect, Shell
 from blender.bpy.render.effects.viewers import Unread, ViewerRead
 from blender.bpy.settings.shapes import bare
-from blender.imaging.color import config
 from blender.imaging.color.processors import applied, lin_to_log, luma, processor, unassociated
 from blender.imaging.compositing.blending import Entry
 from blender.imaging.effects.grade.curves import admitted, Curves, HueCurves, sampled
@@ -213,7 +212,7 @@ def consumed[R: (Curves, HueCurves)](
             .map(lambda changed: Some("Insert Knots") if changed else Nothing)
         )
 
-    reading: BlenderResult[tuple[Entry[R], PyOpenColorIO.Config]] = paired(row.read(identity, entry), config.admitted(PyOpenColorIO.GetCurrentConfig(), ()).map_error(BlenderImagingFault.lifted))
+    reading: BlenderResult[tuple[Entry[R], PyOpenColorIO.Config]] = paired(row.read(identity, entry), config_of())
     return Result[tuple[Entry[R], PyOpenColorIO.Config], BlenderFaults].bind(reading, read)
 
 

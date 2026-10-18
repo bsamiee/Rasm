@@ -1,0 +1,11 @@
+using System;
+using System.Collections.Generic;
+using Rhino;
+
+internal static class DroppedCount {
+    internal static int Dropped(RhinoDoc doc, IReadOnlyList<Guid> ids) => {|#0:doc.Objects.Delete(ids, true)|};
+}
+
+internal static class ComparedCount {
+    internal static bool Checked(RhinoDoc doc, IReadOnlyList<Guid> ids) => doc.Objects.Delete(ids, true) == ids.Count;
+}

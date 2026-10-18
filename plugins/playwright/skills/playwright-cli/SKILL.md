@@ -1,6 +1,6 @@
 ---
 name: playwright-cli
-description: "Use when a browser or Playwright test runs through `playwright cli` or the `playwright-test` server, covering sessions, snapshots, actions, and devtools."
+description: "Use when an agent drives a browser or Playwright test through `playwright cli` or the `playwright-test` server, covering sessions, snapshots, actions, audits, scraping, and traces."
 allowed-tools: Bash(playwright:*)
 ---
 
@@ -11,50 +11,36 @@ allowed-tools: Bash(playwright:*)
 - Absolute snapshot links join a reply when its command takes a snapshot
 
 [REFERENCES]:
-- [01]-[PLAYWRIGHT_TESTS](references/playwright-tests.md): Running Playwright tests and attaching to one paused under `--debug=cli`
-- [02]-[REQUEST_MOCKING](references/request-mocking.md): Routes, offline state, request lists and parts, and `run-code` handlers
-- [03]-[RUNNING_CODE](references/running-code.md): `run-code` snippets for permissions, waits, frames, API requests, and flows
-- [04]-[SESSION_MANAGEMENT](references/session-management.md): Default session, workspaces, idle shutdown, profiles, and attaching to running browsers
-- [05]-[STORAGE_STATE](references/storage-state.md): Storage state files, cookies, localStorage, sessionStorage, and IndexedDB
-- [06]-[TEST_GENERATION](references/test-generation.md): Test agent procedure, replay, and report ordering
-- [07]-[VIDEO_RECORDING](references/video-recording.md): Video recording with chapters, action callouts, and scripts
-- [08]-[PR_ATTACHMENTS](references/pr-attachments.md): Attaching screenshots and videos to pull requests with `gh --attach`
+- [01]-[TASKS](references/tasks.md): Exploration, accessibility audit, performance, scraping, and verification sequences
+- [02]-[PLAYWRIGHT_TESTS](references/playwright-tests.md): Running Playwright tests and attaching to one paused under `--debug=cli`
+- [03]-[REQUEST_MOCKING](references/request-mocking.md): Routes, offline state, request lists and parts, and `run-code` handlers
+- [04]-[RUNNING_CODE](references/running-code.md): `run-code` snippets for permissions, waits, frames, API requests, and flows
+- [05]-[SESSION_MANAGEMENT](references/session-management.md): Default session, workspaces, idle shutdown, profiles, and attaching to running browsers
+- [06]-[STORAGE_STATE](references/storage-state.md): Storage state files, cookies, localStorage, sessionStorage, and IndexedDB
+- [07]-[TEST_GENERATION](references/test-generation.md): `playwright-test` server sessions, suite projects, plans, test files, and healing
+- [08]-[VIDEO_RECORDING](references/video-recording.md): Video recording with chapters, action callouts, and scripts
+- [09]-[PR_ATTACHMENTS](references/pr-attachments.md): Attaching screenshots and videos to pull requests with `gh --attach`
 
 [INTERFACES]:
 
-| [INDEX] | [INTERFACE]              | [TASK]                                                                          |
-| :-----: | :----------------------- | :------------------------------------------------------------------------------ |
-|  [01]   | `playwright cli`         | Pages, screenshots, PDFs, video, mocking, storage, recording, and ad hoc traces |
-|  [02]   | `playwright test`        | Test runs and step-debugging under `--debug=cli`                                |
-|  [03]   | `playwright-test` server | Test plans, test files, and healing through the `playwright-test-*` agents      |
-|  [04]   | `playwright trace`       | Trace reading through playwright-trace                                          |
+| [INDEX] | [INTERFACE]              | [TASK]                                                                     |
+| :-----: | :----------------------- | :------------------------------------------------------------------------- |
+|  [01]   | `playwright cli`         | Exploration, audits, scraping, verification, captures, and ad hoc traces   |
+|  [02]   | `playwright test`        | Test runs and step-debugging under `--debug=cli`                           |
+|  [03]   | `playwright-test` server | Test plans, test files, and healing through the `playwright-test-*` agents |
+|  [04]   | `playwright trace`       | Trace reading through playwright-trace                                     |
+
+`playwright mcp` takes no harness row, each `browser_*` tool it serves runs as a `playwright cli` command or `run-code` call on the same backend.
 
 Browsers install to `~/Library/Caches/ms-playwright`, shared by every checkout:
 - Sessions and test runs launch the Chromium headless shell
 - Video recordings encode through Playwright's ffmpeg
 
-`playwright-test` server pauses a seed or failing test for the `browser_*` tools of the plugin's `playwright:playwright-test-*` agents:
-- Server loads the config `-c` on its `mise.toml` row names
-- Setup tools and `test_debug` run on one worker with no test timeout, headless under `--headless` on the row
-- One server process holds one paused test and one generator log; clients sharing it serialize setup, generation, and debugging
-- `test_list` releases the paused test before ordinary CLI replay
-- Setup tools pause the seed at its end, `### Paused at end of test. ready for interaction` and `### Page state` holding URL, title, and snapshot
-- Setup results ending `Error: seed test not found.` or `Error while running the seed test.` hold no page
-- `project` names a config's `projects[].name`, the first top-level project without it, a missing name fails `Project <name> not found`
-- `seedFile` resolves against the project's `testDir`, the config directory, then the client root, a miss fails `seed test not found.`
-- Setup without `seedFile` takes the project's first test file with `seed` in its name, or writes `<testDir>/seed.spec.ts` with one empty test
-- Action, assertion, and input tools require `intent`, read tools take none
-- Action results link a snapshot as `page-<stamp>.yml` in `.playwright-mcp/` of the client root, `browser_type` without `submit` links none
-- `.playwright-mcp/` takes no setting, `browserBackend.js` gives the paused test the config `{ capabilities: ["testing"] }` with no `outputDir`
-- Refs resolve against the latest snapshot
-- `browser_snapshot` with `target` leaves refs outside its subtree failing `Ref <ref> not found in the current page snapshot`
-- `browser_tabs` with `action: "new"` opens a tab in the test's context, `select` with `index` makes one current, results list `### Open tabs`
-- `browser_tabs` with `isolatedContext` detaches the paused page until the next setup, `browser_*` calls fail `MCP backend is not initialized`
-- `browser_wait_for` waits for `text` or `textGone` up to the action timeout, `time` in seconds up to 30 replaces it or waits alone
-
 ## [01]-[SESSIONS]
 
-`.playwright/cli.config.json`, named by `PLAYWRIGHT_MCP_CONFIG` for every directory, launches every session as headless Chromium:
+`.playwright/cli.config.json`, named by `PLAYWRIGHT_MCP_CONFIG` for every directory, launches each session in Chromium with an in-memory profile:
+- Sessions run headless at a 1280x720 viewport
+- `goto file://<path>` opens a local file, replies print absolute paths
 - `open [url]` starts a session, `-s=<name>` names the session a command addresses, `close` closes it
 - `--mobile` emulates Pixel 10 at 360x732, `--device="<name>"` a Playwright device name in its exact case
 - Mobile layouts give smaller snapshots
@@ -71,10 +57,11 @@ playwright cli -s=<name> close
 ## [02]-[SNAPSHOTS]
 
 Snapshots serve page reads and hold the refs that target elements:
-- Refs read `e<N>` on the first document and `f<N>e<M>` inside a frame or after a navigation, a ref outside the last snapshot fails `not found`
+- Refs read `e<N>` on the first document and `f<N>e<M>` inside a frame or after a navigation
 - `snapshot` prints the tree in the reply, `--filename=$PLAYWRIGHT_MCP_OUTPUT_DIR/<name>` writes it to that file in place
 - Action replies link `page-<timestamp>.yml` under `$PLAYWRIGHT_MCP_OUTPUT_DIR`, the tree after the action
 - `snapshot <target>` captures one subtree, `--depth=<n>` limits depth, `--boxes` adds `[box=x,y,width,height]` in viewport CSS pixels
+- Refs outside a subtree snapshot fail `Ref <ref> not found in the current page snapshot` until `find` or a whole-page `snapshot`
 - `find <text>` matches a case-insensitive substring and prints each match under its ancestor path with 3 lines of context
 - `find --regex` matches case-sensitive, `"/<pattern>/i"` takes flags, `--max-results=<n>` caps the matches, `--filename` saves them
 - `eval "<expression>"` evaluates on the page and `eval "el => <expression>" <target>` on an element, awaiting a returned promise
@@ -261,13 +248,16 @@ Traces record every action between `tracing-start` and `tracing-stop`, and both 
 - `resources/` holds the response bodies and `screencast/` the frames of every trace in the directory
 
 ```bash
-playwright cli open https://example.com/checkout
-playwright cli tracing-start
-playwright cli snapshot
-playwright cli fill e1 "4111111111111111"
-playwright cli click e4
-playwright cli tracing-stop
-playwright cli close
+playwright cli -s=<session> open https://playwright.dev
+playwright cli -s=<session> tracing-start
+playwright cli -s=<session> snapshot --depth=3
+playwright cli -s=<session> find "Get started"
+playwright cli -s=<session> click e44
+playwright cli -s=<session> tracing-stop
+playwright cli -s=<session> close
+playwright trace open $PLAYWRIGHT_MCP_OUTPUT_DIR/traces/trace-<timestamp>.trace
+playwright trace actions --grep "click"
+playwright trace close
 ```
 
 Use playwright-trace for reading a trace.

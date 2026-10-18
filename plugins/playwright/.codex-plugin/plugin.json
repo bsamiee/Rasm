@@ -1,0 +1,13 @@
+{
+    "name": "playwright",
+    "version": "1.0.0",
+    "description": "Playwright browser automation and trace reading skills and the test runner MCP server",
+    "author": {
+        "name": "Bardia Samiee"
+    },
+    "skills": "./skills/",
+    "mcpServers": "./.mcp.json",
+    "interface": {
+        "displayName": "Playwright"
+    }
+}

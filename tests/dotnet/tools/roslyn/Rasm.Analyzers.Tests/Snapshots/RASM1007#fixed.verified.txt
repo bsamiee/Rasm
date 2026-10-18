@@ -1,0 +1,12 @@
+using LanguageExt;
+using LanguageExt.Traits;
+
+internal static class NarrowedConcrete {
+    internal static Fin<int> Held(Fin<int> value) => value;
+    internal static Option<int> Mapped(Option<int> value) => value.Map(static held => held + 1);
+}
+
+internal static class NarrowedTrait {
+    internal static Fin<int> Applied(Fin<int> left, Fin<int> right) => (left, right).Apply(static (first, second) => first + second).As();
+    internal static Option<int> Traited(K<Option, int> value) => value.As();
+}

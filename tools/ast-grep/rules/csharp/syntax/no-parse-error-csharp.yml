@@ -73,9 +73,14 @@ utils:
         kind: global_statement
         regex: '^\w+[^\n]*(\n(#:[^\n]*|[ \t]*))*\nusing [^;\n]*;$'
         follows: {matches: file-directives}
+    target-named-element:
+        kind: ERROR
+        regex: '^(assembly|module|field|event|method|param|property|return|type|typevar)\s*[,.]'
+        inside: {kind: collection_expression}
     unreported:
         any:
             - inside: {kind: ERROR, stopBy: end}
+            - matches: target-named-element
             - matches: file-directives
             - inside: {matches: file-directives-head, stopBy: end}
             - matches: lambda-with-modifiers
@@ -93,4 +98,4 @@ labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
 message: Grammar failed to parse the span
 note: >-
-    Use a form the grammar parses, every other rule skips constructs inside a parse error. Grammar gaps left unreported are modifiers on implicitly typed lambda parameters (`(a, out b) =>`), a declaration pattern in a slice pattern (`[.. T[] rest]`), assignments to ref-returning calls (`Field(owner) = value`, `Field(owner) += handler`), `extension(<receiver>)` blocks and their members, and file-based app directives (`#:package <id>`). Extension arms retire once a tree-sitter-c-sharp release parses `extension_declaration` and its grammar joins `sgconfig.yml` as a `customLanguages` row
+    Use a form the grammar parses, every other rule skips constructs inside a parse error. Grammar gaps left unreported are modifiers on implicitly typed lambda parameters (`(a, out b) =>`), a declaration pattern in a slice pattern (`[.. T[] rest]`), assignments to ref-returning calls (`Field(owner) = value`, `Field(owner) += handler`), a collection expression whose first element is a local spelled like an attribute target (`[method, .. rest]`), `extension(<receiver>)` blocks and their members, and file-based app directives (`#:package <id>`). Extension arms retire once a tree-sitter-c-sharp release parses `extension_declaration` and its grammar joins `sgconfig.yml` as a `customLanguages` row

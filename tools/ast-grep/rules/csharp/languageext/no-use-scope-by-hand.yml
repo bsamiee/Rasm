@@ -2,6 +2,7 @@
 id: no-use-scope-by-hand
 language: csharp
 severity: error
+ignores: ['tools/roslyn/**']
 utils:
     registration:
         kind: invocation_expression
@@ -108,6 +109,7 @@ rule:
                                 - has: {kind: select_clause, has: {kind: identifier, pattern: $SV}}
                 - not: {has: {stopBy: end, matches: default-attributes}}
         - not: {inside: {stopBy: end, kind: ERROR}}
+        - not: {inside: {stopBy: end, kind: compilation_unit, regex: '(^|\n)#:package (RhinoCommon|Grasshopper2?)\b'}}
         - not: {has: {stopBy: end, kind: ERROR}}
         - not: {has: {stopBy: end, matches: overflows}}
         - not: {all: [{has: {stopBy: end, matches: registration, pattern: $SHARED}}, {has: {stopBy: end, matches: registration, not: {pattern: $SHARED}}}]}
@@ -166,4 +168,7 @@ transform:
             by: '$1).Bracket()'
 fix: $USE_CALL$BRACKET_CALL$SECOND_FIXED$TAIL_FIXED
 message: "`$ACQUIRE_TEXT$SACQ_TEXT` scope closes through `Bracket` by hand"
-note: Write `use(<acquire>).Bind(<resource> => <body>).Bracket()` with `Bracket()` at the scope's first `use`, which releases every `use` inside it
+note: >-
+    Write `use(<acquire>).Bind(<resource> => <body>).Bracket()` with `Bracket()` at the scope's first `use`, which releases every `use` inside it.
+    A file-based app that references RhinoCommon or Grasshopper keeps `Bracket`: `use` hashes its resource through LanguageExt's type resolver,
+    which loads every assembly the entry assembly references and throws outside Rhino

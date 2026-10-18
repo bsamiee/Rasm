@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-else-reads-arm-binding
+language: rust
+rule:
+    kind: match_arm
+    has:
+        field: value
+        has:
+            stopBy: end
+            kind: else_clause
+            has:
+                stopBy: end
+                kind: identifier
+                pattern: $NAME
+                inside:
+                    kind: match_arm
+                    stopBy: end
+                    has: {field: pattern, has: {stopBy: end, kind: 'identifier, shorthand_field_identifier', pattern: $NAME, not: {inside: {kind: tuple_struct_pattern, field: type}}}}

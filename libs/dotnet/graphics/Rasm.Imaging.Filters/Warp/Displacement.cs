@@ -103,7 +103,7 @@ public sealed partial class MapReading : ICaptioned {
     public string Caption { get; }
 
     private static unsafe Fin<Unit> Height(Mat map, double sigma, PassContext context, Func<Mat, Fin<Unit>> read) {
-        ((double X, double Y, double Z) luminance, double logGrey) = (context.Working.Luminance, double.Log(Exposure.MiddleGrey) - (context.Exposure * double.Log(2d)));
+        ((double X, double Y, double Z) luminance, double logGray) = (context.Working.Luminance, double.Log(Exposure.MiddleGray) - (context.Exposure * double.Log(2d)));
         using Mat linear = new();
         using Mat height = new();
         using Mat plane = new();
@@ -111,7 +111,7 @@ public sealed partial class MapReading : ICaptioned {
         Displacements.Transform(linear, height, 1, [luminance.X, luminance.Y, luminance.Z, 0d]);
         foreach (ref double luma in new Span<double>((void*)height.DataPointer, height.Rows * height.Cols))
             luma = double.Log(double.Max(luma, 0d)) switch {
-                var logLuma => double.Exp(logLuma - double.Max(logLuma, logGrey) - double.LogP1(double.Exp(-double.Abs(logLuma - logGrey)))),
+                var logLuma => double.Exp(logLuma - double.Max(logLuma, logGray) - double.LogP1(double.Exp(-double.Abs(logLuma - logGray)))),
             };
         height.ConvertTo(plane, DepthType.Cv32F);
         return plane.Blur(plane, 3d * sigma).Bind(_ => read(plane));
@@ -149,7 +149,7 @@ public sealed partial class RefractionField : ICaptioned {
     public string Caption { get; }
 
     [UseDelegateFromConstructor]
-    internal partial Option<Func<Vector2, Vector4>> Lanes(Refraction state, float held, uint field);
+    internal partial Option<Func<Vector2, Vector4>> Sampler(Refraction state, float held, uint field);
 
     private static Option<Func<Vector2, Vector4>> Glass(Refraction state, Func<Vector2, float> height) =>
         (state.Strength, state.Blur) == (ShortSideOffset.Neutral, ShortSideLength.Neutral) ? None : Some<Func<Vector2, Vector4>>(q => new Vector4(Vector2.Zero, height(q / state.Scale), 1f));
@@ -456,14 +456,14 @@ public sealed record Refraction(
         AxisFraction.Create(0.3f), SignedAngle.Down, Drift.Neutral, Seed.MinValue, Timing.Default, Hold.MinValue, Sampling.Linear, WrapMode.Black);
 
     public static Option<PixelPass> Pass(Refraction state, PassContext context) =>
-        state.Field.Lanes(state, state.Hold.Held(state.Timing.At(context)), CoordinateHash.Field(NoiseStream.Refraction, state.Seed, 0u))
-            .Map(lanes => (PixelPass)new PixelPass.Frame((frame, progress) => state.Kernel(lanes, context, frame, progress)));
+        state.Field.Sampler(state, state.Hold.Held(state.Timing.At(context)), CoordinateHash.Field(NoiseStream.Refraction, state.Seed, 0u))
+            .Map(sample => (PixelPass)new PixelPass.Frame((frame, progress) => state.Kernel(sample, context, frame, progress)));
 
-    private unsafe Fin<Unit> Kernel(Func<Vector2, Vector4> lanes, PassContext context, PixelFrame frame, IProgress<int> progress) {
+    private unsafe Fin<Unit> Kernel(Func<Vector2, Vector4> sample, PassContext context, PixelFrame frame, IProgress<int> progress) {
         (PixelExtent extent, (double X, double Y) half) = (context.Extent, FramePosition.Center.Point(context.Extent));
         (PixelFrame field, PixelFrame refracted) = (new(frame.Origin, frame.Size, frame.Extent), frame.Copy());
         return (from painted in new PixelPass.Pointwise((row, column, line) => {
-            for (int x = 0; x < row.Length; x++) row[x] = new Vector4(extent.ShortSide, extent.ShortSide, 1f, 1f) * lanes(new Vector2(
+            for (int x = 0; x < row.Length; x++) row[x] = new Vector4(extent.ShortSide, extent.ShortSide, 1f, 1f) * sample(new Vector2(
                 (float)(((double)column + x + 0.5d - half.X) / extent.ShortSide), (float)(((double)extent.Height - line - 0.5d - half.Y) / extent.ShortSide)));
         }).Run(field, new Progress<int>())
                 from displaced in field.Filter(drawn => {

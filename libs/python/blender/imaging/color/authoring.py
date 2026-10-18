@@ -12,7 +12,7 @@ import msgspec
 import PyOpenColorIO
 
 from blender.imaging.color.luts import LutFormat
-from blender.imaging.faults import colored, ImagingColorFault, ImagingResult, ImagingWriteFault
+from blender.imaging.faults import accumulated, colored, ImagingFaults, ImagingResult, ImagingWriteFault, paired
 from blender.imaging.files.images import published, staging
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -119,10 +119,10 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
             The merged config, or `color` and `write` faults from native authoring and file operations.
         """
         rows = PyOpenColorIO.Config()
-        request = rows
         tables: dict[str, str] = {}
         stage = stage.absolute()
         clf = next(row for row in LutFormat.writable() if row.extension == "clf")
+        working = base.getWorkingDir()
 
         def tabled(transform: PyOpenColorIO.Transform) -> PyOpenColorIO.Transform:
             match transform:
@@ -138,7 +138,7 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
                 case _:
                     return transform
 
-        try:
+        def authored() -> None:
             scene = PyOpenColorIO.ColorSpace(PyOpenColorIO.REFERENCE_SPACE_SCENE, name="ACES2065-1")
             display = PyOpenColorIO.ColorSpace(PyOpenColorIO.REFERENCE_SPACE_DISPLAY, name="CIE-XYZ-D65")
             rules, given = copy.deepcopy(self.file_rules), base.getFileRules()
@@ -172,13 +172,8 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
                 for transform in Option.of_optional(look.getInverseTransform()).to_list():
                     look.setInverseTransform(tabled(transform))
                 rows.addLook(look)
-            stage.mkdir(parents=True, exist_ok=True)
-            working = base.getWorkingDir()
-            for source, target in (*(((pathlib.Path(working), stage),) if working else ()), *((folder, stage / folder.name) for folder in self.luts)):
-                shutil.copytree(source, target, dirs_exist_ok=True)
-            for name, text in tables.items():
-                (stage / name).write_text(text, encoding="utf-8", newline="")
-            request = PyOpenColorIO.ConfigMergingHelpers.MergeConfigs(self.merge, base, rows)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+
+        def viewed(request: PyOpenColorIO.Config) -> PyOpenColorIO.Config:
             built = tuple(space.getName() for space in self.displays)
             names = tuple(formation.view.getName() for formation in self.formations)
             spaces = {name: space for name in dict.fromkeys((*request.getDisplaysAll(), *built)) for space in Option.of_optional(request.getColorSpace(name)).to_list()}
@@ -192,9 +187,9 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
             ):
                 request.addDisplaySharedView(display_name, name)
             for name in built if request.getActiveDisplays() else ():
-                request.addActiveDisplay(name)
+                request.addActiveDisplay(name)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             for name in names if request.getActiveViews() else ():
-                request.addActiveView(name)
+                request.addActiveView(name)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             separator = request.getFamilySeparator()
             request.setInactiveColorSpaces(
                 ", ".join(
@@ -204,11 +199,30 @@ class ConfigBuild(msgspec.Struct, frozen=True, kw_only=True):
                 )
             )
             request.setWorkingDir(str(stage))
-            return Ok(request)
-        except (PyOpenColorIO.Exception, PyOpenColorIO.ExceptionMissingFile) as error:
-            return Error((ImagingColorFault(request=request, error=error),))
-        except OSError as error:
-            return Error((ImagingWriteFault(request=stage, error=error),))
+            return request
+
+        def refused(error: OSError) -> ImagingFaults:
+            return (ImagingWriteFault(request=stage, error=error),)
+
+        return colored(rows, authored).bind(
+            lambda _: paired(
+                colored(rows, lambda: PyOpenColorIO.ConfigMergingHelpers.MergeConfigs(self.merge, base, rows)).bind(lambda request: colored(request, lambda: viewed(request))),  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                catch(stage.mkdir, exception=OSError)(parents=True, exist_ok=True)
+                .map_error(refused)
+                .bind(
+                    lambda _: accumulated(
+                        written.map_error(refused)
+                        for written in (
+                            *(
+                                catch(shutil.copytree, exception=OSError)(source, target, dirs_exist_ok=True)
+                                for source, target in (*(((pathlib.Path(working), stage),) if working else ()), *((folder, stage / folder.name) for folder in self.luts))
+                            ),
+                            *(catch((stage / name).write_text, exception=OSError)(text, encoding="utf-8", newline="") for name, text in tables.items()),
+                        )
+                    )
+                ),
+            ).map(lambda pair: pair[0])
+        )
 
     def archived(self, base: PyOpenColorIO.Config, path: pathlib.Path) -> ImagingResult[pathlib.Path]:
         """Stages and atomically publishes an OCIO archive.

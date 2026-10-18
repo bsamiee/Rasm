@@ -80,6 +80,9 @@ rule:
         - any:
             - matches: wrap-trio
             - matches: free-trio
-            - matches: plain-trio
+            - all:
+                - inside: {kind: declaration_list, inside: {kind: impl_item, not: {has: {field: trait, pattern: $_}}}}
+                - matches: plain-trio
+        - not: {inside: {kind: declaration_list, inside: {kind: impl_item, matches: rust-forwarding-newtype-impl}}}
 message: '`$NAME` forwards to `self.$FIELD` in the shape of two earlier methods'
-note: 'Generate the forwarding methods from one `macro_rules!` invocation with a row per method, and hold shared policy in one function'
+note: 'Expose the field to callers and delete the forwarding methods, or hold the step every method repeats (`map_err`, a free function) in one method taking the call as `impl FnOnce(&<field type>) -> <result>`'

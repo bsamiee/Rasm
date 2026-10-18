@@ -1,4 +1,3 @@
-#![cfg(test)]
 #![feature(exit_status_error)]
 
 use std::{

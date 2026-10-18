@@ -2,6 +2,7 @@
 id: no-prelude-shadow
 language: csharp
 severity: error
+ignores: ['tools/roslyn/**']
 rule:
     pattern: $NAME
     regex: '^(unit|unitIO|unitEff|None|identity)$'

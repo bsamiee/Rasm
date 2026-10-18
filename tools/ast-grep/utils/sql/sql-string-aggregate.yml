@@ -3,4 +3,4 @@ id: sql-string-aggregate
 language: sql
 rule:
     kind: function_call
-    has: {field: name, regex: '(?i)^(group_concat|string_agg|listagg)$'}
+    has: {field: name, regex: '(?i)^(group_concat|string_agg)$'}

@@ -30,7 +30,7 @@ utils:
 rule:
     kind: call_expression
     all:
-        - has: {field: function, kind: field_expression, has: {field: field, regex: '^(push|push_back|push_front|extend|extend_from_slice|append|push_str|insert_str)$'}}
+        - has: {field: function, kind: field_expression, has: {field: field, matches: rust-growing-method, not: {regex: '^(insert|insert_mut|try_insert)$'}}}
         - has: {field: function, has: {field: value, kind: identifier, pattern: $GROWN}}
         - inside:
             stopBy: {kind: 'closure_expression, function_item'}

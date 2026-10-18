@@ -1,0 +1,2 @@
+#0 `RhinoDoc.ActiveDoc` read where `Document` holds a `RhinoDoc`, Mac Rhino can activate another document
+#1 `RhinoDoc.ActiveDoc` read where `doc` holds a `RhinoDoc`, Mac Rhino can activate another document

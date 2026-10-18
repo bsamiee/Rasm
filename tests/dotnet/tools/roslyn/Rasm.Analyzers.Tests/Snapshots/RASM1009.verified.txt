@@ -1,0 +1,4 @@
+#0 `value.Match(Some: static held => held, None: static () => null)` converts an `Option` to a nullable by hand, `ValueUnsafe()` states it
+#1 `(string?)value.Case` converts an `Option` to a nullable by hand, `ValueUnsafe()` states it
+#2 `value.IsSome ? (string)value : null` converts an `Option` to a nullable by hand, `ValueUnsafe()` states it
+#3 `value.Match(Some: static held => (int?)held, None: static () => null)` converts an `Option` to a nullable by hand, `Map<T?>(<some>).ValueUnsafe()` states it

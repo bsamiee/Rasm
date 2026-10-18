@@ -1,0 +1,13 @@
+using Rhino;
+using Rhino.Commands;
+
+internal sealed class RunScriptWithoutStyle : Command {
+    public override string EnglishName => "Plain";
+    protected override Result RunCommand(RhinoDoc doc, RunMode mode) => {|#0:RhinoApp.RunScript("_Line", true)|} ? Result.Success : Result.Failure;
+}
+
+[CommandStyle(Style.ScriptRunner)]
+internal sealed class RunScriptWithStyle : Command {
+    public override string EnglishName => "Scripted";
+    protected override Result RunCommand(RhinoDoc doc, RunMode mode) => RhinoApp.RunScript("_Line", true) ? Result.Success : Result.Failure;
+}

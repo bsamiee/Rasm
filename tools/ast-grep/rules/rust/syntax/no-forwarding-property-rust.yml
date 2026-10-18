@@ -73,9 +73,11 @@ rule:
                 - has: {field: parameters, has: {kind: self_parameter, not: {has: {kind: mutable_specifier}}}, not: {has: {kind: parameter}}}
                 - has: {field: body, matches: sole, has: {matches: field-read}}
                 - matches: public-field
+                - not: {inside: {kind: declaration_list, inside: {kind: impl_item, matches: rust-forwarding-newtype-impl}}}
             - all:
                 - has: {field: parameters, matches: setter-parameters}
                 - has: {field: body, matches: sole, has: {matches: assigned-parameter}}
+                - matches: public-field
             - all:
                 - has: {field: parameters, matches: setter-parameters}
                 - has:
@@ -84,5 +86,6 @@ rule:
                         - has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, matches: assigned-parameter}
                         - has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}, kind: self}
                         - not: {has: {nthChild: {position: 3, ofRule: {matches: rust-statement}}}}
+                - matches: public-field
 message: 'Method `$NAME` reads or writes field `$F` of `$TYPE` unchanged'
 note: 'Read or assign the field at each use and build the value with a struct literal or `..<base>` update'

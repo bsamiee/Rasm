@@ -400,16 +400,15 @@ def cellular(basis: Voronoi, points: npt.NDArray[np.float64], *, seed: Seed, str
     return guarded(ImagingNumericFault, basis, computed, frozenset(("over", "divide")))
 
 
-def cellular_sites(basis: Voronoi, bounds: tuple[tuple[Fraction, ...], tuple[Fraction, ...]], *, seed: Seed, stream: int = 0) -> ImagingResult[tuple[CellularSite, ...]]:
-    """Enumerates all base-octave stencil candidates over positive lattice bounds."""
+def cellular_sites(basis: Voronoi, spans: tuple[tuple[Fraction, Fraction], ...], *, seed: Seed, stream: int = 0) -> ImagingResult[tuple[CellularSite, ...]]:
+    """Enumerates all base-octave stencil candidates over each axis's positive lattice span."""
 
     def computed() -> ImagingResult[tuple[CellularSite, ...]]:
-        lower, upper = bounds
-        axes = tuple(range(math.floor(first) - basis.reach, math.floor(last) + basis.reach + 1) for first, last in zip(lower, upper, strict=True))
+        axes = tuple(range(math.floor(first) - basis.reach, math.floor(last) + basis.reach + 1) for first, last in spans)
         sites: list[CellularSite] = []
         for cell in itertools.product(*axes):
             draw = uniforms(cell, seed=seed, stream=stream, count=max(4, len(cell)))
-            point = tuple(Fraction(integer) + Fraction(basis.randomness) * Fraction(float(value)) for integer, value in zip(cell, draw[: len(cell)], strict=True))
+            point = tuple(Fraction(integer) + Fraction(basis.randomness) * Fraction(float(value)) for integer, value in zip(cell, draw[: len(cell)]))
             sites.append(CellularSite(cell=cell, point=point, color=(float(draw[0]), float(draw[1]))))
         return Ok(tuple(sites))
 
@@ -427,11 +426,170 @@ def density_range(basis: Basis) -> tuple[float, float]:
 def sample(basis: Basis, points: npt.NDArray[np.float64], *, seed: Seed, stream: int = 0) -> ImagingResult[npt.NDArray[np.float64]]:
     """Returns columns density and tone at greater-side XYZ/evolution coordinates."""
 
+    def fractal(field: Perlin, at: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        def gradient(at: npt.NDArray[np.float64], channel: int) -> npt.NDArray[np.float64]:
+            cells, local = _lattice(at)
+            fade = local**3 * (local * (6.0 * local - 15.0) + 10.0)
+            total = np.zeros(len(at), dtype=np.float64)
+            rank = at.shape[1]
+            sign_split = 0.5
+            for corner in itertools.product((0, 1), repeat=rank):
+                draws = np.array([uniforms(tuple(value + offset for value, offset in zip(cell, corner)), seed=seed, stream=channel, count=rank) for cell in cells])
+                slope = np.where(draws < sign_split, -1.0, 1.0)
+                weight = np.prod(np.where(np.array(corner), fade, 1.0 - fade), axis=1)
+                total += weight * np.sum(slope * (local - corner), axis=1)
+            total /= rank
+            return total
+
+        warped = at + field.distortion * np.stack([gradient(at, stream * 5 + axis + 1) for axis in range(at.shape[1])], axis=-1)
+        value = np.zeros(len(at), dtype=np.float64)
+        signal = np.zeros_like(value)
+        weight = np.ones_like(value)
+        amplitude = 1.0
+        total = 0.0
+        for octave in range(math.ceil(field.octaves.detail) + 1):
+            fraction = min(1.0, field.octaves.detail + 1.0 - octave)
+            noise = gradient(warped, stream)
+            match field.fractal:
+                case Fractal.FBM:
+                    previous = value / total if total else value
+                    value += amplitude * noise
+                    total += amplitude
+                    if fraction < 1.0:
+                        return 0.5 + 0.5 * ((1.0 - fraction) * previous + fraction * value / total)
+                case Fractal.MULTIFRACTAL:
+                    value = (np.ones_like(value) if octave == 0 else value) * (1.0 + fraction * amplitude * noise)
+                case Fractal.RIDGED_MULTIFRACTAL:
+                    if fraction < 1.0:
+                        break
+                    signal = np.square(field.offset - np.abs(noise)) * (1.0 if octave == 0 else np.clip(signal * field.gain, 0.0, 1.0))
+                    value += amplitude * signal
+                case Fractal.HYBRID_MULTIFRACTAL:
+                    minimum_weight = 0.001
+                    held = np.minimum(weight, 1.0)
+                    signal = (noise + field.offset) * amplitude
+                    active = weight > minimum_weight
+                    value += np.where(active, fraction * held * signal, 0.0)
+                    weight = np.where(active, held * field.gain * signal, weight)
+                case Fractal.HETERO_TERRAIN:
+                    signal = noise + field.offset
+                    value = signal if octave == 0 else value + fraction * amplitude * signal * value
+            amplitude *= field.octaves.roughness
+            if octave < math.ceil(field.octaves.detail):
+                warped *= field.octaves.lacunarity
+        return 0.5 + 0.5 * value / total if field.fractal == Fractal.FBM else value
+
+    def voronoi(cells: Voronoi, at: npt.NDArray[np.float64]) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
+        edge = cells.feature == Feature.DISTANCE_TO_EDGE
+        bound = 0.5 + 0.5 * cells.randomness
+        limit = bound if edge else float(_distance(np.full((1, at.shape[1]), bound), cells)[0]) * (2.0 if cells.feature == Feature.F2 else 1.0)
+        value = np.full(len(at), 8.0 if edge else 0.0)
+        tone = np.zeros((len(at), 2), dtype=np.float64)
+        normalizer = limit if edge else 0.0
+        scale = 1.0
+        amplitude = 1.0
+        for octave in range(math.ceil(cells.octaves.detail) + 1):
+            if (weight := (amplitude * min(1.0, cells.octaves.detail + 1.0 - octave))) == 0.0:
+                break
+            feature = _cellular(cells, at * scale, seed, stream)
+            distance, color = feature.value, feature.color
+            if edge:
+                with np.errstate(divide="ignore", invalid="ignore"):
+                    value = (1.0 - weight) * value + weight * np.minimum(value, np.divide(distance, scale))
+                    normalizer = (1.0 - weight) * normalizer + weight * np.divide(limit, scale)
+            else:
+                value += weight * distance
+                normalizer += weight * limit
+            tone = (1.0 - weight) * tone + weight * color
+            amplitude *= cells.octaves.roughness
+            if octave < math.ceil(cells.octaves.detail):
+                scale *= cells.octaves.lacunarity
+        with np.errstate(invalid="ignore"):
+            return value / normalizer, tone
+
+    def gabor(kernel: Gabor, at: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
+        rank = kernel.dimensions
+        cells, local = _lattice(at)
+        total = np.zeros(len(at), dtype=np.float64)
+        for offset in itertools.product((-1, 0, 1), repeat=rank):
+            keys = [tuple(value + shift for value, shift in zip(cell, offset)) for cell in cells]
+            for impulse in range(8):
+                center = np.array([uniforms(key, seed=seed, stream=stream * 17 + 2 * impulse) for key in keys])
+                turns = np.array([uniforms(key, seed=seed, stream=stream * 17 + 2 * impulse + 1, count=2) for key in keys])
+                delta = local - offset - center[:, :rank]
+                squared = np.sum(delta * delta, axis=1)
+                if rank == 2:
+                    angle = kernel.orientation + (turns[:, 0] - 0.5) * math.pi * (1.0 - kernel.anisotropy)
+                    direction = np.stack((np.cos(angle), np.sin(angle)), axis=-1)
+                else:
+                    inclination = math.pi / 2.0 + turns[:, 0] * math.pi * (1.0 - kernel.anisotropy)
+                    azimuth = kernel.orientation + turns[:, 1] * math.pi * (1.0 - kernel.anisotropy)
+                    direction = np.stack((np.sin(inclination) * np.cos(azimuth), np.sin(inclination) * np.sin(azimuth), np.cos(inclination)), axis=-1)
+                total += np.where(
+                    squared < 1.0,
+                    np.copysign(np.exp(-math.pi * squared) * (0.5 + 0.5 * np.cos(math.pi * squared)), center[:, 3] - 0.5) * np.sin(math.tau * kernel.frequency * np.sum(delta * direction, axis=1)),
+                    0.0,
+                )
+        total /= 6.0 * math.sqrt(4.0 * 2.0 ** (-1.0 - rank / 2.0))
+        total *= 0.5
+        total += 0.5
+        return total
+
     def computed() -> ImagingResult[npt.NDArray[np.float64]]:
         if len(points) == 0:
             return Ok(np.empty((0, 2), dtype=np.float64))
-        value, tone = _sample(basis, points, seed, stream)
-        return Ok(np.stack((value, tone), axis=-1))
+        match basis:
+            case Perlin():
+                coordinates = _coordinates(points, basis.size, basis.dimensions)
+                if basis.dimensions > 1:
+                    coordinates[:, 1] /= basis.stretch
+                raw = fractal(basis, coordinates)
+            case Voronoi():
+                raw, color = voronoi(basis, _coordinates(points, basis.spacing, basis.dimensions))
+                density = basis.cut.applied(raw)
+                return Ok(np.stack((density * color[:, 1], color[:, 0]) if basis.cell_color else (density, density), axis=-1))
+            case White():
+                cells, _ = _lattice(_coordinates(points, basis.spacing, basis.dimensions))
+                raw = np.array([uniforms(cell, seed=seed, stream=stream, count=1)[0] for cell in cells])
+            case Gabor():
+                raw = gabor(basis, _coordinates(points, basis.size, basis.dimensions))
+            case Magic():
+                x, y, z = (_coordinates(points, basis.size, 3) % math.tau).T
+                values = np.stack((np.sin(5.0 * (x + y + z)), np.cos(5.0 * (-x + y - z)), -np.cos(5.0 * (-x - y + z))), axis=-1) * (1.0 if basis.depth == 0 else basis.distortion)
+                steps = (
+                    (1, -1.0, np.cos, (1, -1, 1)),
+                    (0, 1.0, np.cos, (1, -1, -1)),
+                    (2, 1.0, np.sin, (-1, -1, -1)),
+                    (0, -1.0, np.cos, (-1, 1, -1)),
+                    (1, -1.0, np.sin, (-1, 1, 1)),
+                    (1, -1.0, np.cos, (-1, 1, 1)),
+                    (0, 1.0, np.cos, (1, 1, 1)),
+                    (2, 1.0, np.sin, (1, 1, -1)),
+                    (0, -1.0, np.cos, (-1, -1, 1)),
+                    (1, -1.0, np.sin, (1, -1, 1)),
+                )
+                for channel, sign, wave, (a, b, c) in steps[: basis.depth]:
+                    x, y, z = values.T
+                    values[:, channel] = sign * wave(a * x + b * y + c * z) * basis.distortion
+                raw = np.mean(0.5 - (values if basis.distortion == 0.0 else values / (2.0 * basis.distortion)), axis=-1)
+            case Wave():
+                coordinates = points[:, :3] / basis.wavelength
+                phase = math.tau * (coordinates[:, 0] if basis.pattern == Pattern.BANDS else np.linalg.norm(coordinates[:, :2], axis=1)) + basis.phase - math.tau * points[:, 3]
+                if basis.distortion != 0.0:
+                    field = Perlin(dimensions=3, size=1.0, stretch=1.0, octaves=Octaves(detail=basis.detail, roughness=basis.detail_roughness), distortion=0.0)
+                    phase += basis.distortion * (2.0 * fractal(field, coordinates * (math.pi / 10.0) * basis.detail_scale) - 1.0)
+                period = phase / math.tau
+                match basis.profile:
+                    case Profile.SIN:
+                        raw = 0.5 - 0.5 * np.cos(phase)
+                    case Profile.SAW:
+                        raw = period % 1.0
+                    case Profile.TRI:
+                        raw = 2.0 * np.abs(period - np.floor(period + 0.5))
+                    case Profile.SQUARE:
+                        raw = np.floor(2.0 * (period % 1.0))
+        value = basis.cut.applied(raw)
+        return Ok(np.stack((value, value), axis=-1))
 
     return guarded(ImagingNumericFault, basis, computed, frozenset(("over", "divide")))
 
@@ -440,61 +598,6 @@ def _lattice(points: npt.NDArray[np.float64]) -> tuple[list[tuple[int, ...]], np
     cells = [tuple(math.floor(float(points[row, axis])) for axis in range(points.shape[1])) for row in range(len(points))]
     local = np.array([[float(points[row, axis]) - integer for axis, integer in enumerate(cell)] for row, cell in enumerate(cells)], dtype=np.float64)
     return cells, local
-
-
-def _gradient(points: npt.NDArray[np.float64], seed: int, stream: int) -> npt.NDArray[np.float64]:
-    cells, local = _lattice(points)
-    fade = local**3 * (local * (6.0 * local - 15.0) + 10.0)
-    total = np.zeros(len(points), dtype=np.float64)
-    rank = points.shape[1]
-    sign_split = 0.5
-    for corner in itertools.product((0, 1), repeat=rank):
-        draws = np.array([uniforms(tuple(value + offset for value, offset in zip(cell, corner, strict=True)), seed=seed, stream=stream, count=rank) for cell in cells])
-        gradient = np.where(draws < sign_split, -1.0, 1.0)
-        weight = np.prod(np.where(np.array(corner), fade, 1.0 - fade), axis=1)
-        total += weight * np.sum(gradient * (local - corner), axis=1)
-    total /= rank
-    return total
-
-
-def _fractal(basis: Perlin, points: npt.NDArray[np.float64], seed: int, stream: int) -> npt.NDArray[np.float64]:
-    warped = points + basis.distortion * np.stack([_gradient(points, seed, stream * 5 + axis + 1) for axis in range(points.shape[1])], axis=-1)
-    value = np.zeros(len(points), dtype=np.float64)
-    signal = np.zeros_like(value)
-    weight = np.ones_like(value)
-    amplitude = 1.0
-    total = 0.0
-    for octave in range(math.ceil(basis.octaves.detail) + 1):
-        fraction = min(1.0, basis.octaves.detail + 1.0 - octave)
-        noise = _gradient(warped, seed, stream)
-        match basis.fractal:
-            case Fractal.FBM:
-                previous = value / total if total else value
-                value += amplitude * noise
-                total += amplitude
-                if fraction < 1.0:
-                    return 0.5 + 0.5 * ((1.0 - fraction) * previous + fraction * value / total)
-            case Fractal.MULTIFRACTAL:
-                value = (np.ones_like(value) if octave == 0 else value) * (1.0 + fraction * amplitude * noise)
-            case Fractal.RIDGED_MULTIFRACTAL:
-                if fraction < 1.0:
-                    break
-                signal = np.square(basis.offset - np.abs(noise)) * (1.0 if octave == 0 else np.clip(signal * basis.gain, 0.0, 1.0))
-                value += amplitude * signal
-            case Fractal.HYBRID_MULTIFRACTAL:
-                minimum_weight = 0.001
-                held = np.minimum(weight, 1.0)
-                signal = (noise + basis.offset) * amplitude
-                active = weight > minimum_weight
-                value += np.where(active, fraction * held * signal, 0.0)
-                weight = np.where(active, held * basis.gain * signal, weight)
-            case Fractal.HETERO_TERRAIN:
-                signal = noise + basis.offset
-                value = signal if octave == 0 else value + fraction * amplitude * signal * value
-        amplitude *= basis.octaves.roughness
-        if octave < math.ceil(basis.octaves.detail):
-            warped *= basis.octaves.lacunarity
-    return 0.5 + 0.5 * value / total if basis.fractal == Fractal.FBM else value
 
 
 def _distance(delta: npt.NDArray[np.float64], basis: Voronoi) -> npt.NDArray[np.float64]:
@@ -518,9 +621,7 @@ def _distance(delta: npt.NDArray[np.float64], basis: Voronoi) -> npt.NDArray[np.
 def _cellular(basis: Voronoi, points: npt.NDArray[np.float64], seed: int, stream: int) -> CellularSample:
     cells, local = _lattice(points)
     offsets = tuple(itertools.product(range(-basis.reach, basis.reach + 1), repeat=points.shape[1]))
-    colors = np.array([
-        [uniforms(tuple(value + offset for value, offset in zip(cell, neighbor, strict=True)), seed=seed, stream=stream, count=max(4, points.shape[1])) for cell in cells] for neighbor in offsets
-    ])
+    colors = np.array([[uniforms(tuple(value + offset for value, offset in zip(cell, neighbor)), seed=seed, stream=stream, count=max(4, points.shape[1])) for cell in cells] for neighbor in offsets])
     delta = np.array(offsets)[:, None, :] + basis.randomness * colors[:, :, : points.shape[1]] - local
     distance = _distance(delta, basis)
     indices = np.argsort(distance, axis=0, kind="stable")
@@ -551,125 +652,8 @@ def _cellular(basis: Voronoi, points: npt.NDArray[np.float64], seed: int, stream
             bisectors = np.divide(np.sum((closest + delta) * difference / 2.0, axis=-1), norm, out=np.full_like(norm, np.inf), where=norm > 0.0)
             value = bisectors.min(axis=0)
             tone = colors[selected, columns, :2]
-    labels = tuple(tuple(value + offset for value, offset in zip(cell, offsets[int(index)], strict=True)) for cell, index in zip(cells, selected, strict=True))
+    labels = tuple(tuple(value + offset for value, offset in zip(cell, offsets[int(index)])) for cell, index in zip(cells, selected))
     return CellularSample(value=value, delta=delta[selected, columns], cell=labels, color=tone)
-
-
-def _voronoi(basis: Voronoi, points: npt.NDArray[np.float64], seed: int, stream: int) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-    edge = basis.feature == Feature.DISTANCE_TO_EDGE
-    bound = 0.5 + 0.5 * basis.randomness
-    limit = bound if edge else float(_distance(np.full((1, points.shape[1]), bound), basis)[0]) * (2.0 if basis.feature == Feature.F2 else 1.0)
-    value = np.full(len(points), 8.0 if edge else 0.0)
-    tone = np.zeros((len(points), 2), dtype=np.float64)
-    normalizer = limit if edge else 0.0
-    scale = 1.0
-    amplitude = 1.0
-    for octave in range(math.ceil(basis.octaves.detail) + 1):
-        if (weight := (amplitude * min(1.0, basis.octaves.detail + 1.0 - octave))) == 0.0:
-            break
-        feature = _cellular(basis, points * scale, seed, stream)
-        distance, color = feature.value, feature.color
-        if edge:
-            with np.errstate(divide="ignore", invalid="ignore"):
-                value = (1.0 - weight) * value + weight * np.minimum(value, np.divide(distance, scale))
-                normalizer = (1.0 - weight) * normalizer + weight * np.divide(limit, scale)
-        else:
-            value += weight * distance
-            normalizer += weight * limit
-        tone = (1.0 - weight) * tone + weight * color
-        amplitude *= basis.octaves.roughness
-        if octave < math.ceil(basis.octaves.detail):
-            scale *= basis.octaves.lacunarity
-    with np.errstate(invalid="ignore"):
-        return value / normalizer, tone
-
-
-def _gabor(basis: Gabor, points: npt.NDArray[np.float64], seed: int, stream: int) -> npt.NDArray[np.float64]:
-    rank = basis.dimensions
-    cells, local = _lattice(points)
-    total = np.zeros(len(points), dtype=np.float64)
-    for offset in itertools.product((-1, 0, 1), repeat=rank):
-        keys = [tuple(value + shift for value, shift in zip(cell, offset, strict=True)) for cell in cells]
-        for impulse in range(8):
-            center = np.array([uniforms(key, seed=seed, stream=stream * 17 + 2 * impulse, count=4) for key in keys])
-            turns = np.array([uniforms(key, seed=seed, stream=stream * 17 + 2 * impulse + 1, count=2) for key in keys])
-            delta = local - offset - center[:, :rank]
-            squared = np.sum(delta * delta, axis=1)
-            if rank == 2:
-                angle = basis.orientation + (turns[:, 0] - 0.5) * math.pi * (1.0 - basis.anisotropy)
-                direction = np.stack((np.cos(angle), np.sin(angle)), axis=-1)
-            else:
-                inclination = math.pi / 2.0 + turns[:, 0] * math.pi * (1.0 - basis.anisotropy)
-                azimuth = basis.orientation + turns[:, 1] * math.pi * (1.0 - basis.anisotropy)
-                direction = np.stack((np.sin(inclination) * np.cos(azimuth), np.sin(inclination) * np.sin(azimuth), np.cos(inclination)), axis=-1)
-            total += np.where(
-                squared < 1.0,
-                np.copysign(np.exp(-math.pi * squared) * (0.5 + 0.5 * np.cos(math.pi * squared)), center[:, 3] - 0.5) * np.sin(math.tau * basis.frequency * np.sum(delta * direction, axis=1)),
-                0.0,
-            )
-    total /= 6.0 * math.sqrt(4.0 * 2.0 ** (-1.0 - rank / 2.0))
-    total *= 0.5
-    total += 0.5
-    return total
-
-
-def _magic(basis: Magic, points: npt.NDArray[np.float64]) -> npt.NDArray[np.float64]:
-    x, y, z = (points % math.tau).T
-    values = np.stack((np.sin(5.0 * (x + y + z)), np.cos(5.0 * (-x + y - z)), -np.cos(5.0 * (-x - y + z))), axis=-1) * (1.0 if basis.depth == 0 else basis.distortion)
-    steps = (
-        (1, -1.0, np.cos, (1, -1, 1)),
-        (0, 1.0, np.cos, (1, -1, -1)),
-        (2, 1.0, np.sin, (-1, -1, -1)),
-        (0, -1.0, np.cos, (-1, 1, -1)),
-        (1, -1.0, np.sin, (-1, 1, 1)),
-        (1, -1.0, np.cos, (-1, 1, 1)),
-        (0, 1.0, np.cos, (1, 1, 1)),
-        (2, 1.0, np.sin, (1, 1, -1)),
-        (0, -1.0, np.cos, (-1, -1, 1)),
-        (1, -1.0, np.sin, (1, -1, 1)),
-    )
-    for channel, sign, wave, (a, b, c) in steps[: basis.depth]:
-        x, y, z = values.T
-        values[:, channel] = sign * wave(a * x + b * y + c * z) * basis.distortion
-    return np.mean(0.5 - (values if basis.distortion == 0.0 else values / (2.0 * basis.distortion)), axis=-1)
-
-
-def _sample(basis: Basis, points: npt.NDArray[np.float64], seed: int, stream: int) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.float64]]:
-    match basis:
-        case Perlin():
-            coordinates = _coordinates(points, basis.size, basis.dimensions)
-            if basis.dimensions > 1:
-                coordinates[:, 1] /= basis.stretch
-            raw = _fractal(basis, coordinates, seed, stream)
-        case Voronoi():
-            raw, color = _voronoi(basis, _coordinates(points, basis.spacing, basis.dimensions), seed, stream)
-            density = basis.cut.applied(raw)
-            return (density * color[:, 1], color[:, 0]) if basis.cell_color else (density, density)
-        case White():
-            cells, _ = _lattice(_coordinates(points, basis.spacing, basis.dimensions))
-            raw = np.array([uniforms(cell, seed=seed, stream=stream, count=1)[0] for cell in cells])
-        case Gabor():
-            raw = _gabor(basis, _coordinates(points, basis.size, basis.dimensions), seed, stream)
-        case Magic():
-            raw = _magic(basis, _coordinates(points, basis.size, 3))
-        case Wave():
-            coordinates = points[:, :3] / basis.wavelength
-            phase = math.tau * (coordinates[:, 0] if basis.pattern == Pattern.BANDS else np.linalg.norm(coordinates[:, :2], axis=1)) + basis.phase - math.tau * points[:, 3]
-            if basis.distortion != 0.0:
-                field = Perlin(dimensions=3, size=1.0, stretch=1.0, octaves=Octaves(detail=basis.detail, roughness=basis.detail_roughness), distortion=0.0)
-                phase += basis.distortion * (2.0 * _fractal(field, coordinates * (math.pi / 10.0) * basis.detail_scale, seed, stream) - 1.0)
-            period = phase / math.tau
-            match basis.profile:
-                case Profile.SIN:
-                    raw = 0.5 - 0.5 * np.cos(phase)
-                case Profile.SAW:
-                    raw = period % 1.0
-                case Profile.TRI:
-                    raw = 2.0 * np.abs(period - np.floor(period + 0.5))
-                case Profile.SQUARE:
-                    raw = np.floor(2.0 * (period % 1.0))
-    value = basis.cut.applied(raw)
-    return value, value
 
 
 def _coordinates(points: npt.NDArray[np.float64], size: float, rank: int) -> npt.NDArray[np.float64]:

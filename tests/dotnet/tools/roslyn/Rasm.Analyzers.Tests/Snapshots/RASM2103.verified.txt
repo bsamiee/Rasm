@@ -1,0 +1,2 @@
+#0 Cast or type test narrows `curve.Duplicate()` to `Curve`
+#1 Cast or type test narrows `curve.Duplicate()` to `Curve`

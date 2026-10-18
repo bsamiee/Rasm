@@ -96,16 +96,16 @@ public static class SectionStyles {
         let boundary = visible
             ? BoundaryWidthScale.Validated(style.BoundaryWidthScale).Map(width => Some(new SectionBoundary(
                 Conversions.Present(style.BoundaryColor), Conversions.Present(style.BoundaryPrintColor), width, PlotWeight.FromInheritable(style.BoundaryPlotWeightMillimeters), linetype)))
-            : Fin.Succ(Option<SectionBoundary>.None)
+            : Option<SectionBoundary>.None
         let hatch = address.Traverse(reference => HatchScale.Validated(style.HatchScale).Map(scale => new SectionHatch(
             reference, scale, style.HatchRotationRadians, Conversions.Present(style.HatchPatternColor), Conversions.Present(style.HatchPatternPrintColor), PlotWeight.FromInheritable(style.HatchPatternPlotWeightMillimeters)))).As()
-        from definition in IO.lift((boundary.ToValidation(), hatch.ToValidation()).Apply((edge, hatched) => new SectionStyleDefinition(
+        from definition in IO.lift((boundary, hatch).Apply((edge, hatched) => new SectionStyleDefinition(
             style.SectionFillRule,
             style.BackgroundFillMode switch {
                 SectionBackgroundFillMode.None => new SectionFill.NoFill(),
                 SectionBackgroundFillMode.Viewport => new SectionFill.ViewportFill(),
                 SectionBackgroundFillMode.SolidColor => new SectionFill.SolidFill(Conversions.Present(style.BackgroundFillColor), Conversions.Present(style.BackgroundFillPrintColor)),
-            }, edge, hatched)).As().ToFin())
+            }, edge, hatched)).As())
         select (Definition: definition, BoundaryHasShapes: embedded.HasShapes);
 
     public static IO<bool> Unchanged(SectionStyle live, SectionStyle staged) =>
@@ -159,7 +159,7 @@ public static class SectionStyles {
             from patternRows in TableOps.Rows(doc.HatchPatterns)
             from styleRows in TableOps.Rows(doc.SectionStyles)
             from plans in IO.lift((TableOps.Plan(patternRows, new TableSpec<HatchPatternDefinition>(file.Patterns, Exclusive: false)), TableOps.Plan(styleRows, new TableSpec<SectionStyleDefinition>(file.Styles, Exclusive: false)))
-                .Apply(static (patterns, styles) => (Patterns: patterns, Styles: styles)).As().ToFin())
+                .Apply(static (patterns, styles) => (Patterns: patterns, Styles: styles)).As())
             from patterns in TableOps.Upsert(doc, TableKinds.HatchPatterns, plans.Patterns.Upserts.Filter(static upsert => upsert.Existing.IsNone), HatchPatterns.Written, HatchPatterns.Unchanged)
             from styles in TableOps.Upsert(doc, TableKinds.SectionStyles, plans.Styles.Upserts, (staged, definition) => Written(doc, staged, definition), Unchanged)
             select styles)

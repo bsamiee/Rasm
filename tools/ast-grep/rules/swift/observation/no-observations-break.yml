@@ -3,7 +3,7 @@ id: no-observations-break
 language: swiftlang
 severity: error
 rule:
-    kind: if_statement
+    kind: 'if_statement, guard_statement'
     pattern: $SITE
     all:
         - has: {kind: statements, has: {nthChild: 1, kind: control_transfer_statement, regex: '^break$'}, not: {has: {nthChild: 2}}}

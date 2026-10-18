@@ -533,10 +533,9 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
         handle.Switch(
             (Pair: pair, Level: level),
             black: static held =>
-                (SignedMagnitude.Validated(held.Level).ToValidation(), Exposure.Validated(float.Log2(Level(LevelsParameter.White, held.Pair) - held.Level)).ToValidation())
+                (SignedMagnitude.Validated(held.Level), Exposure.Validated(float.Log2(Level(LevelsParameter.White, held.Pair) - held.Level)))
                     .Apply(static (black, white) => new Levels(black, white))
-                    .As()
-                    .ToFin(),
+                    .As(),
             white: static held =>
                 Exposure.Validated(float.Log2(held.Level - held.Pair.Black)).Map(white => held.Pair with { White = white }));
 
@@ -577,8 +576,6 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
     private const float WhiteShare = 0.015f;
     private const float DisplayAlpha = 0.5f;
     private const float WorkingAlpha = 0.7f;
-    private static readonly SizeF LabelOffset = new(13f, 16f);
-    private static readonly (float Least, float Most) WhiteSide = (3f, 6f);
     private static readonly Seq<float> Quarters = toSeq(Range(1, 4)).Map(static quarter => quarter / 4f);
     private static readonly MarkStyle Split = new MarkStyle.Stroke(new MarkColor.Themed(PaintSlot.ControlText), 0.5f, 1f);
 
@@ -708,9 +705,9 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
         };
 
     private static Vector3 Scoped(PlotCanvas canvas, ChromaAxes axes, ScopeTraces.Vectorscope traces, int peak, TraceBrightness brightness, (float First, float Second) at) =>
-        (Centred: new Vector2(at.First, at.Second) - new Vector2(0.5f), Count: Count(traces.Reading.Bins, at)) switch {
-            var held when held.Centred.Length() <= 0.5f && held.Count > 0 =>
-                Ink(canvas, Hue(axes, 2f * held.Centred * traces.Reading.Request.Zoom.Reach)) * Weight(held.Count, peak, brightness),
+        (Centered: new Vector2(at.First, at.Second) - new Vector2(0.5f), Count: Count(traces.Reading.Bins, at)) switch {
+            var held when held.Centered.Length() <= 0.5f && held.Count > 0 =>
+                Ink(canvas, Hue(axes, 2f * held.Centered * traces.Reading.Request.Zoom.Reach)) * Weight(held.Count, peak, brightness),
             _ => Vector3.Zero,
         };
 
@@ -742,7 +739,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
                 from lettered in IO.lift(() => targets.Iter(held => canvas.Graphics.DrawText(
                     canvas.Font,
                     Plots.Resolve(canvas, MarkStyle.Label),
-                    held.At + LabelOffset - new SizeF(0f, canvas.Font.Ascent),
+                    held.At + new SizeF(13f, 16f - canvas.Font.Ascent),
                     RowText.Localize(held.Target.Map(red: "R", magenta: "Mg", blue: "B", cyan: "Cy", green: "G", yellow: "Yl")).Local)))
                 select unit,
         };
@@ -767,18 +764,20 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
             _ => ChromaticityPlot(canvas, plot, traces),
             _ => IO.lift(canvas.Graphics.ResetClip));
 
-    private static IO<Unit> ChromaticityPlot(PlotCanvas canvas, RectangleF plot, ScopeTraces.Chromaticity traces) =>
-        (Square: PlotPlane.Cartesian.Unit(ScopeTraces.Chromaticity.Square(plot)), Ink: Ink(canvas, new MarkColor.Themed(PaintSlot.ControlText)), Peak: Peak(traces.Reading.Bins.Counts),
-          ScopeTraces.Chromaticity.Fit, Roles: Roles(traces), Side: float.Clamp(plot.Width * WhiteShare, WhiteSide.Least, WhiteSide.Most)) switch {
-              var held =>
-                  from extent in IO.lift(ImagePlots.Device(held.Square, canvas.Scale))
-                  from rastered in Rastered(canvas, held.Square.Plot, extent, point => held.Ink * Weight(Count(traces.Reading.Bins, held.Square.Value(point)), held.Peak, TraceBrightness.Normal))
-                  from ruled in Plots.Paint(canvas, Lattice(held.Square, held.Fit).Concat(Gamuts(held.Square, held.Side, held.Roles)))
-                  from based in Plots.Labels(canvas, held.Square, LabelSide.Bottom, Evens(held.Fit.X))
-                  from sided in Plots.Labels(canvas, held.Square, LabelSide.Left, Evens(held.Fit.Y))
-                  from listed in Legend(canvas, plot, held.Roles)
-                  select unit,
-          };
+    private static IO<Unit> ChromaticityPlot(PlotCanvas canvas, RectangleF plot, ScopeTraces.Chromaticity traces) {
+        PlotPlane.Cartesian square = PlotPlane.Cartesian.Unit(ScopeTraces.Chromaticity.Square(plot));
+        Vector3 ink = Ink(canvas, new MarkColor.Themed(PaintSlot.ControlText));
+        int peak = Peak(traces.Reading.Bins.Counts);
+        Vector2 fit = ScopeTraces.Chromaticity.Fit;
+        Seq<(string Role, Gamut Gamut, float Alpha)> roles = Roles(traces);
+        return from extent in IO.lift(ImagePlots.Device(square, canvas.Scale))
+               from rastered in Rastered(canvas, square.Plot, extent, point => ink * Weight(Count(traces.Reading.Bins, square.Value(point)), peak, TraceBrightness.Normal))
+               from ruled in Plots.Paint(canvas, Lattice(square, fit).Concat(Gamuts(square, float.Clamp(plot.Width * WhiteShare, 3f, 6f), roles)))
+               from based in Plots.Labels(canvas, square, LabelSide.Bottom, Evens(fit.X))
+               from sided in Plots.Labels(canvas, square, LabelSide.Left, Evens(fit.Y))
+               from listed in Legend(canvas, plot, roles)
+               select unit;
+    }
 
     private static Seq<PlotMark<ScopePart>> Lattice(PlotPlane.Cartesian square, Vector2 fit) =>
         Plots.Rules(square, Orientation.Vertical, Tenths(fit.X).Map(static tenth => (float)tenth / Divisions))

@@ -29,7 +29,7 @@ utils:
                 kind: field_expression
                 all:
                     - has: {field: value, matches: target}
-                    - has: {field: field, regex: '^(push|push_mut|push_str|push_back|push_back_mut|push_front|push_front_mut|insert|insert_mut|insert_str|try_insert|extend|append|clear|remove|try_remove|remove_matches|retain|retain_mut|extract_if|truncate|drain|split_off|split_off_first|split_off_last|sort|sort_by|sort_by_key|sort_unstable|dedup|replace|take|take_if|get_or_insert|get_or_insert_with|get_or_insert_default|entry|pop|pop_if|pop_back|pop_back_if|pop_front|pop_front_if|resize|swap_remove|reserve)$'}
+                    - has: {field: field, matches: rust-mutating-method}
 rule:
     kind: parameter
     matches: out-parameter

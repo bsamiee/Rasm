@@ -36,7 +36,23 @@ enum CodexDesktop {
         .filter { application in !application.isTerminated }
         guard !instances.isEmpty else { return .success(()) }
         for instance: NSRunningApplication in instances {
-            if case .failure = await quit(instance) { instance.forceTerminate() }
+            let quit: Result<Void, CodexFailure> = await ProcessRun.withDeadline(.seconds(10)) {
+                @MainActor in
+                let pid: pid_t = instance.processIdentifier
+                let terminations: AsyncCompactMapSequence<NotificationCenter.Notifications, pid_t> =
+                    NSWorkspace.shared.notificationCenter
+                    .notifications(named: NSWorkspace.didTerminateApplicationNotification)
+                    .compactMap { notification in
+                        (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?
+                            .processIdentifier
+                    }
+                return switch (instance.terminate(), instance.isTerminated) {
+                    case (false, _): .failure(.desktopQuitRefused)
+                    case (true, true): .success(())
+                    case (true, false): await terminations.contains(pid) ? .success(()) : .failure(.cancelled)
+                }
+            }
+            if case .failure = quit { instance.forceTerminate() }
             guard !Task.isCancelled else { return .failure(.cancelled) }
         }
         return await applicationURL().bind { application in
@@ -50,24 +66,5 @@ enum CodexDesktop {
 
     static func openSignIn(_ url: URL) -> Result<Void, CodexFailure> {
         NSWorkspace.shared.open(url) ? .success(()) : .failure(.signInPageUnopened)
-    }
-
-    private static func quit(_ instance: NSRunningApplication) async -> Result<Void, CodexFailure> {
-        let pid: pid_t = instance.processIdentifier
-        return await ProcessRun.withDeadline(.seconds(10)) {
-            @MainActor in
-            let terminations: AsyncCompactMapSequence<NotificationCenter.Notifications, pid_t> =
-                NSWorkspace.shared.notificationCenter
-                .notifications(named: NSWorkspace.didTerminateApplicationNotification)
-                .compactMap { notification in
-                    (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?
-                        .processIdentifier
-                }
-            return switch (instance.terminate(), instance.isTerminated) {
-                case (false, _): .failure(.desktopQuitRefused)
-                case (true, true): .success(())
-                case (true, false): await terminations.contains(pid) ? .success(()) : .failure(.cancelled)
-            }
-        }
     }
 }

@@ -41,6 +41,9 @@ Per-element mesh data goes through attributes and dedicated calls:
 - Bevel weights and creases are the `bevel_weight_edge` and `crease_edge` attributes
 - `mesh.validate()` follows input not known to be valid and answers `True` when it repaired something
 - `VertexGroup.remove` takes indices below `len(mesh.vertices)`, a larger index crashing Blender
+- Object Mode `mesh.attributes` lists `position`, `.edge_verts`, `.corner_vert`, `.corner_edge`, `sharp_face`, UV maps, and `material_index`
+- Vertex groups sit outside original and evaluated mesh attributes, weights reading through `MeshVertex.groups` alone
+- Vertex group names live on the mesh, every object sharing it listing them, and `vertex_groups.clear()` empties `groups` on each vertex
 
 ## [04]-[MESH_BUFFERS]
 
@@ -67,7 +70,12 @@ Per-element mesh data goes through attributes and dedicated calls:
 
 Buffers follow host storage:
 - Buffers are flat, and `reshape(-1, 3)` follows the read
-- 2D buffers and wrong lengths raise `RuntimeError("internal error setting the array")`, the exception a `catch` names
+- 2D buffers and wrong lengths raise `RuntimeError("internal error setting the array")`, the exception a `catch` names, and print `Array length mismatch`
+- Dynamic arrays (`MeshPolygon.vertices`) declare one length in `array_length` and `array_dimensions` while each item holds its own, and buffers take the resolved array's `len()`
+- Mesh shape keys read `co` through `ShapeKey.points`, 100k points in 25 µs against 3.5 ms through `data`
+- Curve shape keys hold an empty `points`, and `data` mixes `ShapeKeyBezierPoint` and `ShapeKeyCurvePoint` items, `co` 3 wide on both, with `fixed_type` reading `UnknownType`
+- Hair `curve_offset_data` and Grease Pencil `drawing.curve_offsets` hold curve offsets in `value`, one more than the curve count, outside the attributes
+- `foreach_get` reads read-only members (`GreasePencilFrame.frame_number`)
 - `foreach_set` on attribute data tags the mesh for evaluation
 - `.corner_vert`, `.corner_edge`, and `.edge_verts` are internal attributes with no public fast accessor, and Blender's bundled FBX and glTF exporters read and write them as their bulk path
 
@@ -146,8 +154,8 @@ def purged(objects: tuple[bpy.types.Object, ...]) -> None:
 - Values a driver or NLA strip changes read through `frame_set`
 
 ```python
-def keyed(light: bpy.types.Light, context: bpy.types.Context, frames: tuple[float, ...], values: tuple[float, ...]) -> BlenderResult[bool]:
-    return Animation(member="energy", source=Keys(points=tuple(zip(frames, values, strict=True)))).apply(light, context)
+def keyed(light: bpy.types.Light, context: bpy.types.Context, points: tuple[tuple[float, float], ...]) -> BlenderResult[bool]:
+    return Animation(member="energy", source=Keys(points=points)).apply(light, context)
 ```
 
 Channel work `Animation` lacks joins `Animation` and follows the layered action model:

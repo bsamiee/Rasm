@@ -3,7 +3,7 @@ use core::{iter, mem};
 use clippy_utils::{
     consts::{ConstEvalCtxt, Constant},
     diagnostics::span_lint_hir_and_then,
-    fn_def_id, get_parent_expr, is_in_test,
+    fn_def_id, get_parent_expr,
     macros::root_macro_call,
     paths::PathNS,
     peel_blocks, peel_hir_expr_while,
@@ -100,7 +100,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 self.branches.entry(held).or_default().push((span, tags));
             }
         };
-        if (!expanded_externally(cx, expr.span) || root_macro_call(expr.span).is_some_and(|call| cx.tcx.is_diagnostic_item(sym::matches_macro, call.def_id))) && !is_in_test(cx.tcx, expr.hir_id) {
+        if (!expanded_externally(cx, expr.span) || root_macro_call(expr.span).is_some_and(|call| cx.tcx.is_diagnostic_item(sym::matches_macro, call.def_id))) && !cx.tcx.sess.is_test_crate() {
             if let ExprKind::Match(scrutinee, arms, MatchSource::Normal) = expr.kind
                 && is_text(cx, typeck.expr_ty(scrutinee))
                 && let tagged = arms.iter().filter_map(|arm| Some((tags(cx, arm.pat)?, arm.body))).collect::<Vec<_>>()
@@ -227,7 +227,13 @@ fn text_view<'tcx>(cx: &LateContext<'tcx>, inner: &'tcx Expr<'tcx>) -> Option<&'
     let typeck = cx.typeck_results();
     match inner.kind {
         ExprKind::AddrOf(_, _, operand) | ExprKind::Unary(_, operand) => Some(operand),
-        ExprKind::MethodCall(_, receiver, [], _) if is_text(cx, typeck.expr_ty(receiver)) && is_text(cx, typeck.expr_ty(inner)) => Some(receiver),
+        ExprKind::MethodCall(_, receiver, [], _)
+            if is_text(cx, typeck.expr_ty(receiver))
+                && is_text(cx, typeck.expr_ty(inner))
+                && let Some(method) = fn_def_id(cx, inner)
+                && (cx.tcx.is_diagnostic_item(sym::string_as_str, method)
+                    || matches!(method.opt_parent(cx).opt_diag_name(cx), Some(sym::AsRef | sym::Borrow | sym::Deref | sym::ToOwned | sym::ToString | sym::From | sym::Into))) =>
+            Some(receiver),
         ExprKind::Call(_, [argument]) if is_text(cx, typeck.expr_ty(argument)) && matches!(fn_def_id(cx, inner).opt_parent(cx).opt_diag_name(cx), Some(sym::From | sym::Into)) => Some(argument),
         _ => None,
     }

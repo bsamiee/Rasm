@@ -1,0 +1,30 @@
+using System;
+using System.Linq;
+using LanguageExt.Common;
+
+internal static class CastAndRuntimeType {
+    internal static int Code(Error error) => ({|#0:(Expected)error|}).Code;
+    internal static Type Kind(Error error) => {|#1:error.GetType()|};
+    internal static string Sorted(Error error) {
+        switch (error) {
+            case {|#2:Expected|}:
+                return "expected";
+            default:
+                return "other";
+        }
+    }
+}
+
+internal static class TypeTestOnError {
+    internal static bool Tested(Error error) => {|#3:error is Expected|};
+    internal static string Named(Error error) => error switch { {|#4:Expected|} => "expected", _ => "other" };
+}
+
+internal static class IteratedLeaf {
+    internal static bool Any(Error error) => error.AsIterable().Any(static leaf => leaf is Expected);
+}
+
+internal static class LeafTypeTest {
+    internal static bool Leaf(Error error) => error.Head is Expected;
+    internal static string Split(Error error) => error switch { ManyErrors => "many", Expected => "expected", _ => "other" };
+}

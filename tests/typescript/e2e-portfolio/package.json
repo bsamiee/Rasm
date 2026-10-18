@@ -1,0 +1,16 @@
+{
+    "name": "@rasm/e2e-portfolio",
+    "private": true,
+    "description": "Playwright journeys over the served portfolio, one app instance with its own stores per worker",
+    "type": "module",
+    "dependencies": {
+        "@axe-core/playwright": "catalog:",
+        "@playwright/test": "catalog:",
+        "@rasm/hosting": "workspace:*",
+        "@rasm/test-support": "workspace:*",
+        "architectural-portfolio": "workspace:*"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:"
+    }
+}

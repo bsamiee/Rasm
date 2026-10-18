@@ -89,23 +89,25 @@ public static class Texts {
     // --- [CREATION]
     public static IO<AnnotationBase> Create(
         RhinoDoc doc, TextForm form, Option<ComponentRef<DimensionStyle>> style, Option<Func<DimensionStyle, IO<Unit>>> overrides, Action<AnnotationBase, IDisposable> retain) =>
-        form.Switch(state: (doc, style, overrides, retain), note: static (state, note) => Dimensions.Create(
-                state.doc, state.style, state.overrides,
+        form.Switch(
+            (Doc: doc, Style: style, Overrides: overrides, Retain: retain),
+            note: static (state, note) => Dimensions.Create(
+                state.Doc, state.Style, state.Overrides,
                 parent => TextEntity.CreateWithRichText(note.RichText, note.Plane, parent, note.WrapWidth.IsSome, note.WrapWidth.IfNone(0d), note.RotationRadians),
-                nameof(TextEntity.CreateWithRichText), state.retain), callout: static (state, callout) => Dimensions.Create(
-                state.doc, state.style, state.overrides,
+                nameof(TextEntity.CreateWithRichText), state.Retain),
+            callout: static (state, callout) => Dimensions.Create(
+                state.Doc, state.Style, state.Overrides,
                 parent => Leader.CreateWithRichText(callout.RichText, callout.Plane, parent, [.. callout.Points]),
-                nameof(Leader.CreateWithRichText), state.retain));
+                nameof(Leader.CreateWithRichText), state.Retain));
 
     // --- [EDITS]
     public static IO<Unit> Modify(RhinoDoc doc, Guid id, Seq<Func<AnnotationBase, IO<Unit>>> edits, Option<double> wrapWidth) =>
         DimensionStyles.Edit<AnnotationBase>(doc, id, annotation =>
             edits.TraverseM(edit => edit(annotation)).Map(static _ => unit).As()
                 >> IO.lift(() => {
-                    foreach (double width in wrapWidth.AsEnumerable()) TextMapper.Update((TextIsWrapped: true, FormatWidth: width), annotation);
-                    if (!annotation.TextIsWrapped) return;
-
-                    annotation.WrapText();
+                    _ = wrapWidth.Iter(width => TextMapper.Update((TextIsWrapped: true, FormatWidth: width), annotation));
+                    if (annotation.TextIsWrapped)
+                        annotation.WrapText();
                 }));
 
     public static IO<Unit> Repoint(RhinoDoc doc, Guid id, Seq<Point3d> points) =>

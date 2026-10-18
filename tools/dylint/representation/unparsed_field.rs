@@ -88,7 +88,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             let (name, shown) = (cx.tcx.item_name(field), with_forced_trimmed_paths!(target.to_string()));
             span_lint_hir_and_then(cx, UNPARSED_FIELD, cx.tcx.local_def_id_to_hir_id(field), cx.tcx.def_span(field), format!("field `{name}` holds text every read parses into `{shown}`"), |diag| {
                 diag.span_note(cx.tcx.hir_span(first), "parsed here");
-                diag.help(format!("declare `{name}` as `{shown}` and parse the text where it enters, through clap's `value_parser` or serde's `DisplayFromStr`"));
+                diag.help(format!("declare `{name}` as `{shown}` and parse the text where it enters, through clap's `value_parser` or `serde_with::DisplayFromStr`"));
             });
         }
     }

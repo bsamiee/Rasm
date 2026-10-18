@@ -179,7 +179,7 @@ def written(
             spec=spec,
             attributes=(*stored.attributes, *named, *((name, OpenImageIO.TypeString, text) for name, text in fields.items())),
             pixels=lambda: accumulated(plane(item) for item in group).map(
-                lambda planes: np.concatenate([stored.clipped(array) if item.role is Role.COLOR else array for item, array in zip(group, planes, strict=True)], axis=-1)
+                lambda planes: np.concatenate([stored.clipped(array) if item.role is Role.COLOR else array for item, array in zip(group, planes)], axis=-1)
             ),
         )
 
@@ -204,11 +204,11 @@ def rewritten(path: str, display: Option[Window], channels: Callable[[tuple[str,
         renamed = tuple(channels(spec.channelnames) for spec in specs)
         return (
             Ok(Nothing)
-            if display.is_none() and all(names == spec.channelnames for spec, names in zip(specs, renamed, strict=True))
+            if display.is_none() and all(names == spec.channelnames for spec, names in zip(specs, renamed))
             else accumulated(
                 Option.of_optional(image.read_image(index, 0, 0, spec.nchannels, OpenImageIO.FLOAT)).to_result_with(lambda: (ImagingReadFault(request=path, error=image.geterror()),))
                 for index, spec in enumerate(specs)
-            ).map(lambda arrays: Some(tuple(itertools.starmap(subimage, zip(specs, renamed, arrays, strict=True)))))
+            ).map(lambda arrays: Some(tuple(map(subimage, specs, renamed, arrays))))
         )
 
     def subimage(spec: OpenImageIO.ImageSpec, names: tuple[str, ...], array: npt.NDArray[np.float32]) -> Subimage[np.float32]:

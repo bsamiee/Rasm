@@ -1,0 +1,2 @@
+#0 `Apply` over 2 lifted `Fin` operands keeps one failure
+#1 `Apply` over 2 lifted `Fin` operands keeps one failure

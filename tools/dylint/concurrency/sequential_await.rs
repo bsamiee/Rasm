@@ -8,9 +8,10 @@ use clippy_utils::{
     peel_hir_expr_while,
     res::{MaybeDef as _, MaybeResPath as _},
     sym,
-    ty::{implements_trait, make_normalized_projection},
+    ty::implements_trait,
     visitors::for_each_expr_without_closures,
 };
+use rustc_data_structures::fx::FxHashSet;
 use rustc_hir::{Expr, ExprKind, Mutability, def_id::DefId};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{
@@ -18,7 +19,7 @@ use rustc_middle::ty::{
     adjustment::{Adjust, AutoBorrow, AutoBorrowMutability},
 };
 
-use crate::{expanded_externally, path, result_parts};
+use crate::{expanded_externally, paths};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -31,13 +32,15 @@ enum Built {
 // --- [SERVICES] ------------------------------------------------------------------------
 
 pub(crate) struct Pass {
-    join_error: Option<DefId>,
+    handles: FxHashSet<DefId>,
 }
 
 lint!(Pass; SEQUENTIAL_AWAIT: "`for` loops awaiting one independent future per item in sequence");
 
 impl Pass {
-    pub(crate) fn new(tcx: TyCtxt<'_>) -> Self { Self { join_error: path(tcx, PathNS::Type, "tokio::task::JoinError") } }
+    pub(crate) fn new(tcx: TyCtxt<'_>) -> Self {
+        Self { handles: paths(tcx, PathNS::Type, &["tokio::task::JoinHandle", "tokio_util::task::AbortOnDropHandle", "tokio::sync::oneshot::Receiver", "futures::channel::oneshot::Receiver"]) }
+    }
 }
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
@@ -52,13 +55,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                     .is_some_and(|local| !for_loop.pat.walk_short(|pat| pat.hir_id != local))
             };
             let into_future = cx.tcx.get_diagnostic_item(sym::IntoFuture);
-            let wrapped = |argument: &&'tcx Expr<'tcx>| bound(argument) && into_future.is_some_and(|into_future| implements_trait(cx, typeck.expr_ty(argument), into_future, &[]));
-            let task = |future: &Expr<'_>| {
-                into_future
-                    .and_then(|into_future| make_normalized_projection(cx.tcx, cx.typing_env(), into_future, sym::Output, [typeck.expr_ty(future)]))
-                    .and_then(|output| result_parts(cx, output))
-                    .is_some_and(|(_, error)| error.opt_def_id().is_some_and(|error| Some(error) == self.join_error))
-            };
+            let wrapped = |argument: &Expr<'tcx>| bound(argument) && into_future.is_some_and(|into_future| implements_trait(cx, typeck.expr_ty(argument), into_future, &[]));
             let shared = |operand: &Expr<'_>| {
                 !typeck.expr_adjustments(operand).iter().any(|adjustment| matches!(adjustment.kind, Adjust::Borrow(AutoBorrow::Ref(AutoBorrowMutability::Mut { .. }))))
                     && !matches!(operand.kind, ExprKind::AddrOf(_, Mutability::Mut, _))
@@ -71,11 +68,11 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 };
                 let operands = || iter::chain(receiver, arguments);
                 if bound(future) {
-                    Some((future, Built::Before))
-                } else if let Some(passed) = arguments.iter().find(wrapped) {
-                    Some((passed, Built::Before))
+                    typeck.expr_ty(future).opt_def_id().is_none_or(|held| !self.handles.contains(&held)).then_some(Built::Before)
+                } else if arguments.iter().any(wrapped) {
+                    Some(Built::Before)
                 } else {
-                    (operands().any(&bound) && operands().all(&shared)).then_some((future, Built::Inside))
+                    (operands().any(&bound) && operands().all(&shared)).then_some(Built::Inside)
                 }
             };
             let exits = || {
@@ -85,12 +82,9 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 })
                 .is_some()
             };
-            if let Some((awaited, (future, built))) =
-                for_each_expr_without_closures(for_loop.body, |inner| desugar_await(inner).and_then(joined).map_or(ControlFlow::Continue(()), |future| ControlFlow::Break((inner, future))))
-                && match built {
-                    Built::Before => !task(future),
-                    Built::Inside => !exits(),
-                }
+            if let Some((awaited, built)) =
+                for_each_expr_without_closures(for_loop.body, |inner| desugar_await(inner).and_then(joined).map_or(ControlFlow::Continue(()), |built| ControlFlow::Break((inner, built))))
+                && (matches!(built, Built::Before) || !exits())
             {
                 let message = match built {
                     Built::Before => "`for` loop awaits futures built before it in sequence",

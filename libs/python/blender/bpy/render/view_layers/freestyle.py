@@ -124,7 +124,7 @@ class FreestyleSection(Line, frozen=True):
         def built(members: LineMembers) -> tuple[LineMembers, Listing[Freestyle], Operator[Empty]]:
             def onto(value: Freestyle, layers: tuple[bpy.types.ViewLayer, ...]) -> BlenderResult[Outcome]:
                 def wrote(current: tuple[Freestyle, ...]) -> BlenderResult[Outcome]:
-                    if not (differing := tuple(layer for layer, held in zip(layers, current, strict=True) if held != value)):
+                    if not (differing := tuple(layer for layer, held in zip(layers, current) if held != value)):
                         return Ok(Unchanged(reason="No used view layer differs from these lines"))
                     return tallied(tuple(applied(value, layer, identity, members) for layer in differing))
 

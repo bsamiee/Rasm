@@ -11,10 +11,14 @@ rule:
                 - pattern: '[$$$NAMES].iter().any(|&$N| $X.is_diag_item($CX, $N))'
                 - pattern: '[$$$NAMES].into_iter().any(|$N| $X.is_lang_item($CX, $N))'
                 - pattern: '[$$$NAMES].iter().any(|&$N| $X.is_lang_item($CX, $N))'
+                - pattern: '[$$$NAMES].into_iter().any(|$N| $CX.is_diagnostic_item($N, $X))'
+                - pattern: '[$$$NAMES].iter().any(|&$N| $CX.is_diagnostic_item($N, $X))'
             - kind: binary_expression
               any:
                 - pattern: $X.is_diag_item($CX, $A) || $X.is_diag_item($CX, $B)
                 - pattern: $X.is_lang_item($CX, $A) || $X.is_lang_item($CX, $B)
+                - pattern: $CX.is_diagnostic_item($A, $X) || $CX.is_diagnostic_item($B, $X)
+                - pattern: $CX.is_lang_item($X, $A) || $CX.is_lang_item($X, $B)
         - not: {inside: {stopBy: end, matches: rust-trait-of-assoc-test}}
 message: '`$X` repeats one item lookup per name of a set'
-note: 'Match one lookup against the set: `matches!(<value>.opt_diag_name(cx), Some(sym::A | sym::B))` for diagnostic items, `matches!(tcx.as_lang_item(<def_id>), Some(LangItem::A | LangItem::B))` for lang items'
+note: 'Match one lookup against the set: `matches!(<value>.opt_diag_name(cx), Some(sym::A | sym::B))` or `matches!(tcx.get_diagnostic_name(<def_id>), Some(sym::A | sym::B))` for diagnostic items, `matches!(tcx.as_lang_item(<def_id>), Some(LangItem::A | LangItem::B))` for lang items'

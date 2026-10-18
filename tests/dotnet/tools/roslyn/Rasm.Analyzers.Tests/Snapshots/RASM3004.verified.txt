@@ -1,0 +1,2 @@
+#0 Catch-all arm over `Mode` sends every member the arms leave unnamed to one result
+#1 Catch-all arm over `Mode` sends every member the arms leave unnamed to one result

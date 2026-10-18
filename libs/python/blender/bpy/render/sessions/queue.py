@@ -10,7 +10,6 @@ from functools import reduce
 import hashlib
 import importlib.resources
 from itertools import chain
-from operator import itemgetter
 import os
 from pathlib import Path
 import posixpath
@@ -426,7 +425,7 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
                 case Result(tag="error", error=faults):
                     return Error(BlenderRenderingFault.lifted(faults))
                 case Result(ok=observations):
-                    if not Progress.begun(observations.map(itemgetter(0)), queue, os.getpid()).marks:
+                    if not Progress.begun(observations.map(lambda observation: observation[0]), queue, os.getpid()).marks:
                         self.identity.reports.reported(posted)(queueing.listener, Started(jobs=len(queue.jobs), frames=len(queue.steps))).to_optional()
                     return queueing.power.held(lambda: supervise(run.target, queue, self.host, queueing.heartbeat)).map(completed).default_with(failed)
 

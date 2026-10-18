@@ -1,192 +1,129 @@
-import { type Extension, make, READING, ranked, register, type routed } from '@rasm/mcp/extension';
-import { fitted, Tokens } from '@rasm/mcp/vision';
-import { CHARACTERS, Font, Options, read } from '@rasm/typography/font';
-import { Array, Effect, FileSystem, Option, Path, Record, Schema, Struct } from 'effect';
+import { Peer } from '@rasm/indesign/contract';
+import { Image, Instructions, READING, Unmatched } from '@rasm/mcp/link';
+import { register } from '@rasm/mcp/server';
+import { Font, Options, read } from '@rasm/typography/font';
+import { Array, Context, Effect, FileSystem, Function, Option, Path, Schema, SchemaGetter, SchemaIssue, String, Struct } from 'effect';
 import { McpSchema, McpServer, Tool } from 'effect/ai';
-import { Application, Face, Scripting, ScriptingError, Size, Window } from './scripting.ts';
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-const Shown = Window.mapFields(Struct.pick(['id', 'title']));
+import { Application, Face, Scripting, Size, Window } from './scripting.ts';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const applications = Effect.fn('applications')(function* (extensions: readonly Extension<unknown, unknown>[]) {
-    const [scripting, hosts] = yield* Effect.all([Scripting, Effect.forEach(extensions, ({ name, Service }) => Effect.map(Service, ({ linked }) => ({ name, linked })))]);
-    const dictionary = ((segments: TemplateStringsArray, ..._: readonly string[]): TemplateStringsArray => segments)`adobe://dictionary/${'application'}`;
-    const installed = (running: boolean): Effect.Effect<readonly (typeof Application.Type)[], ScriptingError> => scripting.call((sender) => sender.applications({ running }));
+const serves = (row: typeof Application.Type) => (peer: typeof Peer.Type) => row.running && Option.exists(Option.flatMap(row.version, Schema.decodeOption(Peer.fields.version)), (major) => major === peer.version);
+const installed = Effect.gen(function* () {
+    const sender = yield* Scripting;
+    const located = Effect.fnUntraced(function* (url: URL) {
+        const found = yield* sender.application({ url }).pipe(
+            Effect.asSome,
+            Effect.catchTag('ScriptingError', () => Effect.succeedNone),
+        );
+        const rows = yield* Option.isSome(found) ? Effect.succeed([]) : sender.applications({ running: false });
+        const candidates = rows.map(({ url: each }) => each.href);
+        return yield* Effect.fromOption(found, () => Unmatched.make({ subject: 'installed application', query: url.href, candidates }));
+    });
+    const application = Schema.OptionFromOptionalKey(
+        Schema.URLFromString.annotate({ description: 'url from applications, absent for the one application with a linked extension' }).pipe(
+            Schema.decodeTo(Schema.toType(Application), {
+                decode: SchemaGetter.transformEffect((url: URL) => Effect.mapError(located(url), ({ message }) => new SchemaIssue.InvalidValue({ message }, url))),
+                encode: SchemaGetter.transform(Struct.get('url')),
+            }),
+        ),
+    );
+    return {
+        application,
+        route: (identifier: string) => ({
+            fields: { application },
+            select: ({ application: given }: { readonly application: Option.Option<typeof Application.Type> }) => Option.match(given, { onNone: () => Option.some(Function.constTrue), onSome: (row) => Option.liftPredicate(serves(row), () => row.identifier === identifier) }),
+        }),
+    };
+});
+const applications = Effect.fn('applications')(function* (application: Effect.Success<typeof installed>['application'], extensions: readonly { readonly name: string; readonly identifier: string; readonly peers: Effect.Effect<readonly (typeof Peer.Type)[]> }[]) {
+    const [sender, files, path] = yield* Effect.all([Scripting, FileSystem.FileSystem, Path.Path]);
+    const dictionary = ((segments: TemplateStringsArray, ..._: readonly string[]) => segments)`adobe://dictionary/${'application'}`;
+    const entry = Effect.fnUntraced(function* (row: typeof Application.Type) {
+        const owner = Array.findFirst(extensions, ({ identifier }) => identifier === row.identifier);
+        const peers = yield* Effect.transposeOption(Option.map(owner, Struct.get('peers')));
+        return {
+            ...row,
+            dictionary: Option.map(Option.liftPredicate(row, Struct.get('scriptable')), ({ url }) => dictionary.join(encodeURIComponent(url.href))),
+            extension: Option.map(Option.all({ owner, peers }), ({ owner: { name }, peers: linked }) => ({ name, linked: linked.some(serves(row)) })),
+        };
+    });
     const listed = Effect.fnUntraced(function* (running: boolean) {
-        const rows = yield* installed(running);
-        return Array.flatten(
-            yield* Effect.forEach(
-                rows,
-                (application) =>
-                    Array.findFirst(hosts, ({ name, linked }) =>
-                        Option.map(
-                            linked(application),
-                            Effect.map((version) => ({ name, linked: Option.isSome(version), version })),
-                        ),
-                    ).pipe(
-                        Effect.transposeOption,
-                        Effect.map((extension) => (application.scriptable || Option.exists(extension, Struct.get('linked')) ? [{ ...application, dictionary: Option.liftPredicate(String.raw(dictionary, encodeURIComponent(application.url.href)), () => application.scriptable), extension }] : [])),
-                    ),
-                { concurrency: 'unbounded' },
-            ),
+        const rows = yield* Effect.forEach(yield* sender.applications({ running }), entry, { concurrency: 'unbounded' });
+        return rows.filter(({ scriptable, extension }) => scriptable || Option.exists(extension, Struct.get('linked')));
+    });
+    const target = Effect.fnUntraced(function* (given: Option.Option<typeof Application.Type>) {
+        const rows = yield* Option.isSome(given) ? Effect.succeed([]) : listed(true);
+        const linked = rows.filter(({ extension }) => Option.exists(extension, Struct.get('linked')));
+        const single = linked.length === 1 ? Array.head(linked) : Option.none();
+        const candidates = (linked.length === 0 ? rows : linked).map(({ url }) => url.href);
+        return yield* Effect.fromOption(
+            Option.orElse(given, () => single),
+            () => Unmatched.make({ subject: 'single application with a linked extension', query: '', candidates }),
         );
     });
     yield* McpServer.registerResource(
         dictionary,
         McpSchema.param('application', Schema.URL),
     )({
-        name: 'Scripting dictionary',
+        name: 'dictionary',
         description: 'Commands, classes, and enumerations of a scriptable application',
         mimeType: 'application/xml',
-        completion: {
-            application: (input) =>
-                Effect.map(Effect.orDie(installed(false)), (rows) =>
-                    Array.map(
-                        ranked(
-                            input,
-                            Array.map(Array.filter(rows, Struct.get('scriptable')), ({ url }) => url.href),
-                        ),
-                        (href) => new URL(href),
-                    ),
-                ),
-        },
-        content: (_uri, application) => scripting.call((sender) => sender.definition({ application })),
+        annotations: Context.make(Instructions, ['- adobe://dictionary/{application}: commands, classes, and enumerations of a scriptable application.']),
+        completion: { application: () => Effect.map(Effect.orDie(sender.applications({ running: false })), (rows) => rows.filter(Struct.get('scriptable')).map(Struct.get('url'))) },
+        content: (_uri, url) => sender.definition({ application: url }),
     });
     yield* register(
         Tool.make('applications', {
             description: 'Lists installed Adobe applications an agent can act on, with the url other tools take',
             success: Schema.Struct({
-                applications: Schema.Array(
-                    Application.mapFields(Struct.omit(['scriptable', 'identifier'])).pipe(
-                        Schema.fieldsAssign({ dictionary: Schema.OptionFromOptionalKey(Schema.String), extension: Schema.OptionFromOptionalKey(Schema.Struct({ name: Schema.String, linked: Schema.Boolean, version: Schema.OptionFromOptionalKey(Schema.String) })) }),
-                    ),
-                ),
+                applications: Schema.Array(Application.mapFields(Struct.omit(['scriptable', 'identifier'])).pipe(Schema.fieldsAssign({ dictionary: Schema.OptionFromOptionalKey(Schema.String), extension: Schema.OptionFromOptionalKey(Schema.Struct({ name: Schema.String, linked: Schema.Boolean })) }))),
             }),
-        }).annotateMerge(READING),
-        () => Effect.succeed([Option.none(), Effect.map(listed(false), (rows) => [{ applications: rows }, []] as const)] as const),
+        })
+            .annotateMerge(READING)
+            .annotate(Instructions, ['- applications: each application with the url other tools take as application. Tools given no application act on the one application with a linked extension.']),
+        () => Effect.map(listed(false), (rows) => ({ applications: rows })),
     );
-    const reach = <A>({ application }: { readonly application: Option.Option<URL> }, pick: (target: typeof Application.Type) => Option.Option<A>): Effect.Effect<A, ScriptingError> =>
-        Option.match(application, {
-            onSome: (given): Effect.Effect<typeof Application.Type, ScriptingError> =>
-                scripting
-                    .call((sender) => sender.application({ url: given }))
-                    .pipe(
-                        Effect.catchReason('ScriptingError', 'Refused', () =>
-                            Effect.flatMap(installed(false), (rows) =>
-                                Effect.fail(
-                                    ScriptingError.make({
-                                        reason: {
-                                            _tag: 'Missing',
-                                            subject: `installed application ${given.href}`,
-                                            candidates: ranked(
-                                                given.href,
-                                                Array.map(rows, ({ url }) => url.href),
-                                            ),
-                                        },
-                                    }),
-                                ),
-                            ),
-                        ),
-                    ),
-            onNone: (): Effect.Effect<typeof Application.Type, ScriptingError> =>
-                Effect.flatMap(listed(true), (rows) => {
-                    const linked = Array.filter(rows, ({ extension }) => Option.exists(extension, Struct.get('linked')));
-                    return Effect.fromOption(
-                        Option.filter(Array.head(linked), () => linked.length === 1),
-                        () => ScriptingError.make({ reason: { _tag: 'Missing', subject: 'single application with a linked extension', candidates: Array.map(Array.isReadonlyArrayNonEmpty(linked) ? linked : rows, ({ url }) => url.href) } }),
-                    );
-                }),
-        }).pipe(Effect.flatMap((target) => Effect.fromOption(pick(target), () => ScriptingError.make({ reason: { _tag: 'Unserved', application: target.name } }))));
-    return {
-        fields: Schema.Struct({ application: Schema.OptionFromOptionalKey(Schema.URL.annotateKey({ description: 'url from applications; absent, the one application with a linked extension' })) }),
-        reach,
-    };
-});
-const font = Effect.fn('font')(function* ({ faces, resolve }: Effect.Success<ReturnType<typeof routed>>, { fields, reach }: Effect.Success<ReturnType<typeof applications>>) {
+    yield* register(
+        Tool.make('screenshot', {
+            description: 'Captures a window of the application at its native pixel size: the given one, else its open dialog or alert, else its front window',
+            parameters: Schema.Struct({ application, window: Schema.OptionFromOptionalKey(Window.fields.id.annotate({ description: 'Window id from a previous screenshot result' })) }),
+            success: Size.pipe(Schema.fieldsAssign({ window: Window, windows: Schema.Array(Window), image: Image('image/jpeg') })),
+        })
+            .annotateMerge(READING)
+            .annotate(Instructions, ['- screenshot: a window or open dialog of an application as an image.']),
+        Effect.fn('screenshot')(function* (parameters) {
+            const chosen = yield* target(parameters.application);
+            const windows = yield* sender.windows({ application: chosen.url });
+            const [given, dialog, front] = [Array.findFirst(windows, ({ id }) => Option.contains(parameters.window, id)), Array.findFirst(windows, ({ level }) => level === 'modal'), Array.findFirst(windows, ({ level }) => level === 'normal')];
+            const candidates = windows.map(({ id, title }) => [id, ...Option.toArray(title)].join(' '));
+            const query = Option.match(parameters.window, { onNone: () => '', onSome: globalThis.String });
+            const window = yield* Effect.fromOption(Option.isSome(parameters.window) ? given : Option.orElse(dialog, () => front), () => Unmatched.make({ subject: `window of ${chosen.name}`, query, candidates }));
+            const file = yield* files.makeTempFileScoped({ suffix: '.jpg' });
+            const size = yield* sender.capture({ window: window.id, url: yield* path.toFileUrl(file) });
+            return { ...size, window, windows, image: yield* files.readFile(file) };
+        }, Effect.scoped),
+    );
     yield* register(
         Tool.make('font', {
             description: "Reads an installed face from its file: names, metrics in em, features, axes, named instances, and characters it lacks. An application's extension adds that application's view of the face",
-            parameters: fields.pipe(Schema.fieldsAssign({ name: Schema.String.annotate({ description: 'Face by PostScript name, full name, or family for its Regular style, in any case' }), ...Options.fields })),
-            success: Schema.Union(Array.map(faces, ({ success }) => success.pipe(Schema.fieldsAssign({ metrics: Schema.OptionFromOptionalKey(Font) })))),
-        }).annotateMerge(READING),
-        (request) =>
-            Effect.succeed([
-                Option.none(),
-                reach(request, resolve).pipe(
-                    Effect.flatMap((resolver) => resolver(request.name, Array.join([...Option.toArray(request.text), ...Record.values(CHARACTERS)], ''))),
-                    Effect.flatMap(([face, source]) => Effect.map(Effect.transposeOption(Option.map(source, ({ file, postscriptName, coordinates }) => read(file, postscriptName, { ...request, coordinates: Option.orElse(request.coordinates, () => coordinates) }))), (metrics) => [{ ...face, metrics }, []] as const)),
-                ),
-            ] as const),
+            parameters: Options.pipe(Schema.fieldsAssign({ name: Schema.String.annotate({ description: 'Face by PostScript name, full name, or family for its Regular style, in any case' }) })),
+            success: Face.pipe(Schema.fieldsAssign({ metrics: Font })),
+        })
+            .annotateMerge(READING)
+            .annotate(Instructions, ["- font: an installed face's metrics, features, axes, and glyph coverage."]),
+        Effect.fn('font')(function* ({ name, ...options }) {
+            const faces = yield* sender.faces();
+            const face = yield* Effect.fromOption(
+                Array.findFirst(faces, (each) => [each.postscriptName, each.fullName, ...(each.style === 'Regular' ? [each.family] : [])].map(String.toLowerCase).includes(String.toLowerCase(name))),
+                () => Unmatched.make({ subject: 'installed face', query: name, candidates: faces.map(Struct.get('postscriptName')) }),
+            );
+            return { ...face, metrics: yield* read(face.file, face.postscriptName, options) };
+        }),
     );
+    return target;
 });
-
-// --- [COMPOSITION] ---------------------------------------------------------------------
-
-const Atelier = make(
-    {
-        name: 'Atelier',
-        serves: Application,
-        instructions: [
-            'Atelier drives installed Adobe applications.',
-            '- applications: lists each application with the url other tools take as application; a tool given no application acts on the one application with a linked extension.',
-            "- execute: runs a scripting dictionary command, or a form an application's extension adds, in one application; preview undoes it where the application records an undo step.",
-            '- screenshot: a window or open dialog of an application as an image.',
-            "- font: an installed face's metrics, features, axes, and glyph coverage.",
-            '- adobe://dictionary/{application}: commands, classes, and enumerations of a scriptable application.',
-            '- adobe://executions: results of calls that change an application, cancelled before their response.',
-        ],
-        preview: Schema.Never,
-        runs: {},
-        tools: {
-            screenshot: Tool.make('screenshot', {
-                description: 'Captures a window of the application as a JPEG: the given one, else its open dialog or alert, else its front window',
-                parameters: Schema.Struct({ window: Schema.OptionFromOptionalKey(Shown.fields.id.annotate({ description: 'Window id from a previous screenshot result' })), tokens: Tokens }),
-                success: Size.pipe(Schema.fieldsAssign({ window: Shown, windows: Schema.Array(Shown) })),
-            }).annotateMerge(READING),
-        },
-        activity: {},
-        face: Face,
-    },
-    Effect.gen(function* () {
-        const [scripting, files, path] = yield* Effect.all([Scripting, FileSystem.FileSystem, Path.Path]);
-        return {
-            runs: {},
-            tools: {
-                screenshot: Effect.fn('screenshot')(function* (application: typeof Application.Type, { window, tokens }: { readonly window: Option.Option<number>; readonly tokens: number }) {
-                    const listed = yield* scripting.call((sender) => sender.windows({ application: application.url }));
-                    const chosen = yield* Effect.fromOption(
-                        Option.match(window, {
-                            onNone: () =>
-                                Option.orElse(
-                                    Array.findFirst(listed, ({ level }) => level === 'modal'),
-                                    () => Array.findFirst(listed, ({ level }) => level === 'normal'),
-                                ),
-                            onSome: (id) => Array.findFirst(listed, (each) => each.id === id),
-                        }),
-                        () => ScriptingError.make({ reason: { _tag: 'Missing', subject: `window of ${application.name}`, candidates: Array.map(listed, ({ id, title }) => Array.join([String(id), ...Option.toArray(title)], ' ')) } }),
-                    );
-                    const file = yield* Effect.orDie(files.makeTempFileScoped({ suffix: '.jpg' }));
-                    const url = yield* Effect.orDie(path.toFileUrl(file));
-                    const size = yield* scripting.call((sender) => sender.capture({ window: chosen.id, url, longest: fitted(tokens, chosen.width, chosen.height) }));
-                    const data = yield* Effect.orDie(files.readFile(file));
-                    return [{ ...size, window: chosen, windows: listed }, [McpSchema.ImageContent.make({ data, mimeType: 'image/jpeg' })]] as const;
-                }, Effect.scoped),
-            },
-            face: Effect.fn('face')(function* (_application: typeof Application.Type, name: string) {
-                const faces = yield* scripting.call((sender) => sender.faces());
-                const face = yield* Effect.fromOption(
-                    Array.findFirst(faces, (each) => Array.some([each.postscriptName, each.fullName, ...(each.style === 'Regular' ? [each.family] : [])], (known) => known.toLowerCase() === name.toLowerCase())),
-                    () => ScriptingError.make({ reason: { _tag: 'Missing', subject: `installed face ${name}`, candidates: ranked(name, Array.map(faces, Struct.get('postscriptName'))) } }),
-                );
-                return [face, Option.some({ file: face.file, postscriptName: face.postscriptName, coordinates: Option.none() })] as const;
-            }),
-        };
-    }),
-);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Atelier, applications, font };
+export { applications, installed };

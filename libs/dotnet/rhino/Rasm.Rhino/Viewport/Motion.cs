@@ -201,13 +201,13 @@ public static class Motions {
         (Refused.Unless(
                 Quaternion.Slerp(Quaternion.Rotation(Plane.WorldXY, from.Frame), Quaternion.Rotation(Plane.WorldXY, to.Frame), progress).GetRotation(out Plane turned),
                 turned,
-                nameof(Quaternion.GetRotation)).ToValidation(),
-            Lens(from.Lens, to.Lens, progress).ToValidation())
+                nameof(Quaternion.GetRotation)),
+            Lens(from.Lens, to.Lens, progress))
         .Apply((rotated, lens) => new CameraPose(
             new Plane(new Line(from.Frame.Origin, to.Frame.Origin).PointAt(progress), rotated.XAxis, rotated.YAxis),
             new Line(from.Target, to.Target).PointAt(progress),
             lens))
-        .As().ToFin();
+        .As();
 
     private static Fin<CameraLens> Lens(CameraLens from, CameraLens to, double progress) =>
         to.Switch(
@@ -219,12 +219,12 @@ public static class Motions {
                 Progress: progress),
             parallel: static (state, goal) => state.Held.Match(
                 Left: held => ParallelExtent.Validated(double.Lerp(held, goal.Extent, state.Progress)).Map<CameraLens>(static extent => extent),
-                Right: _ => Fin.Succ(state.Goal)),
+                Right: _ => state.Goal),
             perspective: static (state, goal) => state.Held.Match(
-                Left: _ => Fin.Succ(state.Goal),
+                Left: _ => state.Goal,
                 Right: held => CameraAngle.Validated(double.Lerp(held, goal.Angle, state.Progress)).Map<CameraLens>(static angle => angle)),
             twoPoint: static (state, goal) => state.Held.Match(
-                Left: _ => Fin.Succ(state.Goal),
+                Left: _ => state.Goal,
                 Right: held => CameraAngle.Validated(double.Lerp(held, goal.Angle, state.Progress))
                     .Map<CameraLens>(angle => new CameraLens.TwoPoint(angle, goal.Up))));
 

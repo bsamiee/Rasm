@@ -70,5 +70,11 @@ async fn main() {
         awaited(path).await,
         in_memory().await,
         size(path),
+        drained(std::sync::mpsc::channel().1).await,
+        std::net::TcpListener::bind("127.0.0.1:0").map(served),
     ));
 }
+
+async fn drained(received: std::sync::mpsc::Receiver<u8>) -> usize { received.iter().count() }
+
+async fn served(listener: std::net::TcpListener) -> usize { listener.incoming().take(1).count() }

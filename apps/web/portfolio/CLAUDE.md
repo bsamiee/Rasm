@@ -23,7 +23,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - Publication-only rules are a `Schema.check` on publish payload, draft payloads skip them
 - Schema checks run on encode, an invalid editor request fails before leaving the browser
 
-[CONTRACT]: `makeApi` declares one `HttpApi` over a portfolio schema, `HttpApiBuilder` serving its stored form and `AtomHttpApi` its resolved form
+[CONTRACT]: `Api` declares one `HttpApi` over `StoredPortfolio` that `HttpApiBuilder` serves and `AtomHttpApi` calls, the editor encodes its resolved `Portfolio` into each payload
 - Expected failures are `HttpApiError` variants and `Schema.TaggedError` classes with `httpApiStatus`, clients match `_tag`
 - `Owner` is an `HttpApiMiddleware.Service` over every endpoint, accepting owner sessions and rejecting cross-origin writes
 - Answers a contract cannot type (rendered page, ranged media bytes) are `HttpRouter` routes beside API groups
@@ -32,31 +32,35 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 
 [HANDLERS]: Worker is one Effect `Layer` graph that `HttpRouter.toWebHandler` turns into a fetch handler
 - Operations are `Effect.fn` spans, `Effect.catchTag` turns SQL, schema, and platform failures into a logged `ServiceUnavailable`
-- `D1Client` from `@effect/sql-d1` stores complete encoded documents and assets as JSON, R2 stores media bytes
+- `SqlClient` stores complete encoded documents and assets as JSON (D1 in the Worker, SQLite under Node), object storage holds media bytes
 - `SqlSchema` decodes joined JSON documents and asset collections through `PortfolioData` at store boundaries
 - ALWAYS enforce storage invariants as conditions of writing SQL statements
 - Placement references derive from stored JSON through one query
-- Draft and published documents each store one JSON body
-- Draft reads and writes derive an ETag from stored JSON, stale `If-Match` headers fail with `PreconditionFailed`
-- Draft and publication writes share one atomic D1 batch, conditional on unchanged content and available asset references
-- `partial-content` evaluates HTTP preconditions and ranges for draft writes and media reads
+- Draft and published documents each store one JSON body and a revision
+- `Revision` encodes the draft revision as a strong ETag, a write whose `If-Match` revision is stale fails with `PreconditionFailed`
+- Draft and publication writes share one `atomic` batch: the draft upsert compares and sets the revision on available asset references and returns the revision it wrote, publication copies that draft
+- `partial-content` evaluates HTTP preconditions and ranges for media reads
 - Uploads are idempotent per asset id, a repeat with equal metadata succeeds and differing metadata conflicts
 - Asset JSON holds upload attempts and object keys, interrupted uploads and removals remain available for owner cleanup
 - Media reads serve assets placed in published work to anyone, every other asset to the owner alone
 
 ## [04]-[PAGE]
 
-[RENDER]: Worker renders `Site` into built `index.html` through `HTMLRewriter`, browsers hydrate the same `Site`
+[RENDER]: Worker and Node entry render `Site` into built `index.html` through `@rasm/hosting` `renderPage`, browsers hydrate the same `Site`
 - Served markup holds published document and session alone, drafts reach a browser through owner endpoints
 - `shell` names the root, data script, and `Bootstrap` schema `@rasm/hosting` renders in Worker and hydrates in browser
 - Fragments name active project and selected composition, user selection pushes history and scrolling replaces it
 - `popstate` and `hashchange` restore selection and scroll position from the fragment
+- Scrolling at the page end keeps the fragment's entry while its section is in view, the tracking line cannot reach the last sections there
+- Side index and phone select are each the `Work index` navigation at their width
 
 [STYLE]: `site/theme.css` owns Tailwind tokens, shared utilities, and layout variants
+- Class names take theme tokens and spacing steps, a value one utility reads stays a declaration in that utility
 - Presentation components name visual roles, typed `data-*` attributes select composition layouts
-- Inline styles hold values derived from media dimensions, theme rules hold visual choices
+- Elements carry no `style` attribute, theme rules hold visual choices and the formulas over media values
+- Media values reach CSS as custom properties through `@rasm/ui` `CustomProperties`, a hoisted `<style precedence>` rule its `data-properties` attribute selects
+- Figures reserve their box before media loads, server rendering emits each hoisted rule ahead of the markup it sizes
 - React Aria state variants come from `tailwindcss-react-aria-components`
-- Figures reserve their box before media loads through CSS custom properties computed from uploaded dimensions
 - `react-aria-components` owns composite controls, focus, selection, and overlays sized to its `--visual-viewport-height`
 - Motion owns layout animation, in-view detection, and reduced-motion preference
 - ALWAYS give each interaction a keyboard path, an accessible name or live announcement, a focus target, and a reduced-motion form
@@ -93,19 +97,26 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - Each file's destination stays editable until its processing starts, PDF sheets are chosen after upload
 - Success places compositions at their destination in queue order under concurrent uploads
 - Upload recovery lists incomplete uploads and removals, each with one discard action the owner confirms
+- Uppy retries a failed request three times before the queue shows a failure and its retry action
+- Dashboard 6.0.2 renders its Informer twice, so the Dashboard takes `disableInformer` and the view renders Uppy `info` state as one alert per message
 
 ## [07]-[HOSTING]
 
 [SITES]: OpenAI Sites runs the built Worker with D1 and R2 bindings `.openai/hosting.json` names
 - `cloudflare.config.ts` declares the Worker, its asset routing, and its bindings through `cf/config` builders
-- Worker binding types infer from `cloudflare.config.ts` through `InferEnv`
+- Worker binding types are the global `Env` that `cf workers types` generates from `cloudflare.config.ts`
 - Worker `fetch` supplies bindings to memoized handler construction inside request context
-- Sites forwards signed-in user id and email headers, requests without an id are signed-out visitors
+- `worker/app.ts` composes the routes both entries serve, `worker/index.ts` provides D1 and `r2` storage, `worker/node.ts` provides SQLite and `s3` storage
+- `nx run rasm:hosting -- apps/web/portfolio <cloudflare|docker> <operation>` deploys the same build to a Cloudflare account or a Docker host
+- Signed-in user id and email arrive as the `@rasm/hosting/sites.ts` `contract` headers from Sites, Cloudflare Access through `@rasm/hosting/worker.ts`, or the Docker target's proxy, requests without an id are signed-out visitors
 - First sign-in with an email equal to `OWNER_EMAIL` ignoring case enrolls its user id, later owner checks compare user ids alone
-- Hosted configuration supplies the `OWNER_EMAIL` secret, `development` mode binds it to the `sites()` local sign-in email
+- Hosted configuration supplies the `OWNER_EMAIL` secret, every mode other than `production` binds it to the `sites()` local sign-in email
 - `sites()` copies `.openai/hosting.json` into project-local `dist` and exposes no relocation setting
 
-[STORAGE]: `worker/schema.sql` declares document, asset, and owner tables
-- `db:setup` creates local tables through `cf` in the Vite plugin's persisted state, hosted tables retain their existing structure
-- Effect schemas define JSON content, D1 updates each document or asset in place
-- Schema history, numbered SQL, and request-time table creation are absent
+[STORAGE]: `worker/database.ts` declares the document, asset, and owner tables as `@rasm/database` tables beside the statements over them
+- `@rasm/database` `store` builds each entry's client with the library's column naming and reconciles the tables once per isolate or process start, adding what they declare and keeping every undeclared column and table
+- Queries reach a multi-word table column through that naming (`sql.insert`, `sql('userId')`, library `select`)
+- Columns and tables leave only through a declared `retired` entry, and change type only through a declared `retype` entry
+- Queries name their columns and new required columns carry a default, so an older or newer build keeps reading and writing
+- Effect schemas define JSON content, each document or asset updates in place
+- Migration files, schema history, and request-time table creation are absent

@@ -1,26 +1,52 @@
+import { createRequire } from 'node:module';
 import { join, relative } from 'node:path';
-import { Array, String } from 'effect';
-import { defaultClientConditions, defaultServerConditions, type Rollup, type UserConfig } from 'vite';
+import { cloudflare } from '@cloudflare/vite-plugin';
+import compiler from '@vitejs/plugin-react';
+import { Array, Config, Effect, Record, String } from 'effect';
+import { defaultClientConditions, defaultServerConditions, type PluginOption, type Rollup, type UserConfig, type UserConfigFnObject } from 'vite';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _ROOT = import.meta.dirname;
-const _UXP_MODULE = /^adobe:/u;
+const _HOSTED = /^adobe:/u;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const project = (directory: string, config: UserConfig): UserConfig => ({ ...config, cacheDir: join(_ROOT, '.cache', 'vite', relative(_ROOT, directory)) });
-const web = (directory: string, config: UserConfig): UserConfig => project(directory, { ...config, build: { ...config.build, target: 'esnext' }, server: { ...config.server, strictPort: true } });
+const react = (): PluginOption => compiler({ compiler: { panicThreshold: 'all_errors' } });
+const worker =
+    (directory: string, plugins: PluginOption, hosting: PluginOption): UserConfigFnObject =>
+    ({ mode }) => ({
+        build: { target: 'esnext' },
+        plugins: [
+            plugins,
+            Effect.runSync(Effect.map(Effect.all([Config.withDefault(Config.Boolean('STORYBOOK'), false), Config.withDefault(Config.Boolean('VITEST'), false)]), Array.some(Boolean)))
+                ? []
+                : [hosting, cloudflare({ types: { generate: false }, ...(mode === 'test' ? { persistState: false, inspectorPort: false } : { persistState: { path: join(_ROOT, '.cache', 'cloudflare', relative(_ROOT, directory)) } }) })],
+        ],
+    });
 
-const uxp = (directory: string, { main, manifest }: { readonly main: string; readonly manifest: object }): UserConfig =>
-    project(directory, {
+const uxp = (directory: string, { main, manifest }: { readonly main: string; readonly manifest: object }): UserConfig => {
+    const load = createRequire(import.meta.url);
+    const encoding = load.resolve('@exodus/bytes/encoding-lite.js');
+    const injected = (name: string): readonly [string, [string, string]] => [name, [encoding, name]];
+    return {
         build: {
             ssr: true,
             outDir: join(_ROOT, '.artifacts', relative(_ROOT, directory)),
             emptyOutDir: true,
-            rolldownOptions: { input: { main }, platform: 'neutral', output: { format: 'cjs', entryFileNames: '[name].js', codeSplitting: false, paths: String.replace(_UXP_MODULE, '') } },
+            rolldownOptions: {
+                input: { main },
+                platform: 'neutral',
+                transform: {
+                    inject: Record.fromIterableWith(
+                        Array.filter(Object.keys(load(encoding)), (name) => name in globalThis),
+                        injected,
+                    ),
+                },
+                output: { format: 'cjs', entryFileNames: '[name].js', codeSplitting: false, paths: String.replace(_HOSTED, '') },
+            },
         },
-        environments: { ssr: { resolve: { noExternal: true, builtins: [_UXP_MODULE], conditions: Array.intersection(defaultServerConditions, defaultClientConditions) } } },
+        environments: { ssr: { resolve: { noExternal: true, builtins: [_HOSTED], conditions: Array.intersection(defaultServerConditions, defaultClientConditions) } } },
         plugins: [
             {
                 name: 'manifest',
@@ -29,8 +55,9 @@ const uxp = (directory: string, { main, manifest }: { readonly main: string; rea
                 },
             },
         ],
-    });
+    };
+};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { project, uxp, web };
+export { react, uxp, worker };

@@ -4,7 +4,7 @@ Covers IFC work through Bonsai and its bundled ifcopenshell.
 
 ## [01]-[ROUTES]
 
-Code reaches the open model through `import bonsai.tool as tool`, with `tool.Ifc.get()` returning the `ifcopenshell.file`, `tool.Ifc.get_entity(obj)` an object's element, and `tool.Ifc.get_object(element)` an element's object. With Bonsai keeping IFC file and Blender scene in step through its operators alone, scene-changing work goes through them and IFC-only data through `ifcopenshell.api` on the open file:
+Code reaches the open model through `from bonsai import tool`, with `tool.Ifc.get()` returning the `ifcopenshell.file`, `tool.Ifc.get_entity(obj)` an object's element, and `tool.Ifc.get_object(element)` an element's object. With Bonsai keeping IFC file and Blender scene in step through its operators alone, scene-changing work goes through them and IFC-only data through `ifcopenshell.api` on the open file:
 
 | [INDEX] | [TASK]                                                    | [ROUTE]                                                 | [SESSION]         |
 | :-----: | :-------------------------------------------------------- | :------------------------------------------------------ | :---------------- |
@@ -28,20 +28,21 @@ Operator and API results follow host rules:
 `bim.new_project(preset=)` reads the home file, then creates the project, `metric_m`, `metric_mm`, and `imperial_ft` making IFC4 projects and `wizard` stopping for settings before `bim.create_project()`:
 
 ```python
+from bonsai import tool
 import bpy
-import bonsai.tool as tool
 
 bpy.ops.bim.new_project(preset="wizard")
-tool.Project.get_project_props().export_schema = "IFC4X3_ADD2"
-bpy.context.scene.unit_settings.system, bpy.context.scene.unit_settings.length_unit = "IMPERIAL", "FEET"
-bim = tool.Blender.get_bim_props()
-bim.area_unit, bim.volume_unit = "square foot", "cubic foot"
-bpy.ops.bim.create_project()
-building = tool.Ifc.get().by_type("IfcBuilding")[0]
-bpy.ops.bim.add_part_to_object(part_class="IfcBuildingStorey", part_name="<Storey>", element=building.id())
-storey = next(s for s in tool.Ifc.get().by_type("IfcBuildingStorey") if s.Name == "<Storey>")
-tool.Ifc.get_object(storey).location.z = <elevation_m>
-tool.Spatial.set_default_container(storey)
+with bpy.context.temp_override(window=bpy.context.window_manager.windows[0]):
+    tool.Project.get_project_props().export_schema = "IFC4X3_ADD2"
+    bpy.context.scene.unit_settings.system, bpy.context.scene.unit_settings.length_unit = "IMPERIAL", "FEET"
+    bim = tool.Blender.get_bim_props()
+    bim.area_unit, bim.volume_unit = "square foot", "cubic foot"
+    bpy.ops.bim.create_project()
+    building = tool.Ifc.get().by_type("IfcBuilding")[0]
+    bpy.ops.bim.add_part_to_object(part_class="IfcBuildingStorey", part_name="<Storey>", element=building.id())
+    storey = next(s for s in tool.Ifc.get().by_type("IfcBuildingStorey") if s.Name == "<Storey>")
+    tool.Ifc.get_object(storey).location.z = <elevation_m>
+    tool.Spatial.set_default_container(storey)
 ```
 
 - `bim.new_project` and a fresh-session `bim.load_project` replace the open file with no prompt
@@ -70,11 +71,11 @@ Layered walls and slabs come from a type and `bim.add_occurrence`, each body bui
 ```python
 import math
 
+from bonsai import tool
 import bpy
 import ifcopenshell.api.material
 import ifcopenshell.util.element
 import ifcopenshell.util.unit
-import bonsai.tool as tool
 
 f = tool.Ifc.get()
 bpy.ops.bim.add_default_type(ifc_element_type="IfcWallType")
@@ -107,6 +108,7 @@ Slab outlines change through the profile editor in object space:
 
 ```python
 import bmesh
+import bpy
 
 bpy.context.view_layer.objects.active = <slab object>
 bpy.ops.bim.enable_editing_extrusion_profile()
@@ -124,12 +126,14 @@ bpy.ops.bim.edit_extrusion_profile()
 Doors and windows come from a type with representation maps and fill a wall that is the only selected object:
 
 ```python
-import os
+from pathlib import Path
 
+from bonsai import tool
 from bonsai.bim.ifc import IfcStore
+import bpy
 
-library = os.path.join(os.path.dirname(tool.__file__), "..", "bim", "data", "libraries", "IFC4 Demo Library.ifc")
-bpy.ops.bim.select_library_file(filepath=os.path.abspath(library))
+library = Path(tool.__file__).parents[1] / "bim" / "data" / "libraries" / f"{tool.Ifc.get().schema} Demo Library.ifc"
+bpy.ops.bim.select_library_file(filepath=str(library))
 source = next(t for t in IfcStore.library_file.by_type("IfcDoorType") if t.RepresentationMaps)
 bpy.ops.bim.append_library_element(definition=source.id())
 door_type = next(t for t in tool.Ifc.get().by_type("IfcDoorType") if t.Name == source.Name)
@@ -138,14 +142,15 @@ for obj in bpy.context.selected_objects:
 host = tool.Ifc.get_object(<wall element>)
 host.select_set(True)
 bpy.context.view_layer.objects.active = host
-bpy.context.scene.cursor.location = (<x on wall axis>, <y on wall axis>, 0.0)
+bpy.context.scene.cursor.location = (<x on wall axis>, <y on wall axis>, host.matrix_world.translation.z)
 bpy.ops.bim.add_occurrence(relating_type_id=door_type.id())
 ```
 
 - Door and window types come from `bim.append_library_element` or `bim.add_default_type`
 - `bim.add_default_type` needs the Model Profile `ELEVATION_VIEW` context in API-authored files
-- Library ids belong to `IfcStore.library_file` after `bim.select_library_file`
+- Library ids belong to `IfcStore.library_file` after `bim.select_library_file`, which refuses a library of another schema
 - Fills placed with one wall selected cut an `IfcOpeningElement` through it, and fills placed otherwise stand free with no opening
+- Fills sit at the cursor height, and walls at their container's elevation, a fill missing the wall cutting nothing
 - Free openings come from a wall (active) and a cutter mesh selected together and `bim.add_opening()`
 
 ## [06]-[SPACES]
@@ -171,6 +176,7 @@ Spaces come from walls or the cursor:
 Property sets, quantities, classification, attributes, and materials go through `ifcopenshell.api` on the open file:
 
 ```python
+from bonsai import tool
 import ifcopenshell.api.classification
 import ifcopenshell.api.pset
 
@@ -203,7 +209,7 @@ Reads use `ifcopenshell.util` on the open file:
 
 `bim.save_project` syncs every moved object's transform, then writes the IFC:
 - `filepath=` saves as that path and makes it the open file's path, `.ifczip` and `.ifcjson` exporting beside the `.ifc` path
-- Paired `.blend` files take `bpy.ops.wm.save_mainfile()` after the IFC save, Python writes leaving `is_dirty` False
+- Paired `.blend` files take `bpy.ops.wm.save_mainfile()` after the IFC save
 - Placements in a session go on the object, an object moved after an API placement edit winning on save
 
 ## [11]-[DRAWINGS]
@@ -211,8 +217,8 @@ Reads use `ifcopenshell.util` on the open file:
 Drawings are SVG views cut from the model through a Bonsai camera:
 
 ```python
+from bonsai import tool
 import bpy
-import bonsai.tool as tool
 
 docs = bpy.context.scene.DocProperties
 docs.target_view = "PLAN_VIEW"
@@ -241,6 +247,9 @@ bpy.ops.bim.create_drawing()
 Sheets follow saved drawings:
 
 ```python
+import bpy
+
+docs = bpy.context.scene.DocProperties
 bpy.ops.bim.save_project()
 bpy.ops.bim.load_drawings()
 bpy.ops.bim.toggle_target_view(toggle_all=True, option="EXPAND")

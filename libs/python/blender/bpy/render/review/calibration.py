@@ -183,25 +183,11 @@ class Patches(msgspec.Struct, frozen=True, kw_only=True):
                         )
                     )
                 case _ if image.use_view_as_render:
-                    return (
-                        Option
-                        .of_optional(scene.view_settings)
-                        .map(lambda view: Some(lambda values: viewed(scene).form(config, values, exposure=view.exposure, gamma=view.gamma).map_error(BlenderImagingFault.lifted)))
-                        .to_result_with(lambda: (BlenderAbsentFault(owner=repr(scene), key="view_settings"),))
-                    )
+                    exposure, gamma = scene.view_settings.exposure, scene.view_settings.gamma  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+                    return Ok(Some(lambda values: viewed(scene).form(config, values, exposure=exposure, gamma=gamma).map_error(BlenderImagingFault.lifted)))
                 case _:
-                    return (
-                        Option
-                        .of_optional(scene.display_settings)
-                        .map(
-                            lambda display: Some(
-                                lambda values: (
-                                    DisplayView(display=display.display_device, view=config.getDefaultView(display.display_device)).form(config, values).map_error(BlenderImagingFault.lifted)
-                                )
-                            )
-                        )
-                        .to_result_with(lambda: (BlenderAbsentFault(owner=repr(scene), key="display_settings"),))
-                    )
+                    device = scene.display_settings.display_device  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+                    return Ok(Some(lambda values: DisplayView(display=device, view=config.getDefaultView(device)).form(config, values).map_error(BlenderImagingFault.lifted)))
 
         def patched(scene: bpy.types.Scene, config: PyOpenColorIO.Config, image: bpy.types.Image, record: ChartImage, opacity: float) -> BlenderResult[Option[tuple[Handle[bpy.types.Image], Drawn]]]:
             references = ChartReference.of(record.placement.chart).values(config).map_error(BlenderImagingFault.lifted)
@@ -221,7 +207,7 @@ class Patches(msgspec.Struct, frozen=True, kw_only=True):
                             ),
                             edges=tuple(
                                 (batch_for_shader(lines, "LINE_STRIP", {"pos": quad[(0, 1, 2, 3, 0), :]}), (float(edge[0]), float(edge[1]), float(edge[2]), float(edge[3])))  # type: ignore[dict-item]  # ty: ignore[invalid-argument-type]
-                                for quad, edge in zip(np.unstack(corners), np.unstack(np.concatenate((pair[1], np.ones((len(pair[1]), 1), np.float32)), axis=-1)), strict=True)
+                                for quad, edge in zip(np.unstack(corners), np.unstack(np.concatenate((pair[1], np.ones((len(pair[1]), 1), np.float32)), axis=-1)))
                             ),
                         )
                     ),
@@ -316,6 +302,43 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True):
 
     def operators(self, identity: Identity) -> ChartCommands:
         """Builds the operator rows over the image editor and node editor conditions."""
+
+        def unplaced(image: bpy.types.Image) -> BlenderFaults:
+            return (BlenderUnmetFault(requirement=Unplaced(image=image.name)),)
+
+        def aspect(context: bpy.types.Context, image: bpy.types.Image) -> BlenderResult[float]:
+            return (
+                rooted(bpy.types.Scene, context).map(lambda scene: scene.render).map(lambda render: render.resolution_x * render.pixel_aspect_x / (render.resolution_y * render.pixel_aspect_y))
+                if image.type == "RENDER_RESULT"
+                else Ok(image.size[0] / image.size[1])  # type: ignore[index]
+            )
+
+        def squared(ratio: float, reference: ChartReference) -> Quad:
+            columns, rows = reference.shape
+            half = np.array((0.25, 0.25 * ratio * rows / columns))
+            corners = np.array(((-1.0, 1.0), (1.0, 1.0), (1.0, -1.0), (-1.0, -1.0))) * half + 0.5
+            return Quad.of(np.concatenate((corners, np.ones((4, 1))), axis=-1))
+
+        def planed(context: bpy.types.Context, image: bpy.types.Image, config: PyOpenColorIO.Config) -> BlenderResult[npt.NDArray[np.float32]]:
+            def linear(found: ImageFile[np.float32]) -> BlenderResult[npt.NDArray[np.float32]]:
+                return (
+                    processor(config, PyOpenColorIO.ColorSpaceTransform(src=found.colorspace, dst=PyOpenColorIO.ROLE_SCENE_LINEAR))
+                    .map(lambda built: applied(built.getDefaultCPUProcessor(), np.ascontiguousarray(found.pixels)))
+                    .map(lambda plane: plane if plane.shape[2] == 4 else np.concatenate((plane, np.ones((*plane.shape[:2], 1), np.float32)), axis=-1))
+                    .map_error(BlenderImagingFault.lifted)
+                )
+
+            match image.type:
+                case "RENDER_RESULT":
+                    return Result[tuple[bpy.types.Scene, bpy.types.ViewLayer], BlenderFaults].bind(
+                        paired(rooted(bpy.types.Scene, context), rooted(bpy.types.ViewLayer, context)),
+                        lambda pair: saved(pair[0]).bind(lambda path: plane(path, ("", f"{pair[1].name}.Combined"), ("R", "G", "B", "A"))),
+                    )
+                case _:
+                    return read(image, config).bind(linear)
+
+        def export_paths(path: Path) -> tuple[Path, ...]:
+            return tuple(path.with_stem(f"{path.stem}_{side.label}") for side in Direction)
 
         def located(context: bpy.types.Context) -> BlenderResult[tuple[bpy.types.Image, ChartImage, Attached[ChartImage]]]:
             return charts.bound(identity).bind(
@@ -754,11 +777,6 @@ class Unlit(msgspec.Struct, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def unplaced(image: bpy.types.Image) -> BlenderFaults:
-    """Answers the unplaced refusal of an image's chart."""
-    return (BlenderUnmetFault(requirement=Unplaced(image=image.name)),)
-
-
 def sampled_image(identity: Identity, image: bpy.types.Image) -> bool:
     """Whether an image's chart holds a sample of every patch, the poll of every image pointer."""
     return charts.bound(identity).to_option().filter(lambda chart: chart.stored(image)).bind(lambda chart: chart.read(image).to_option()).bind(lambda record: record.sampled).is_some()
@@ -791,44 +809,6 @@ def charted(context: bpy.types.Context, identity: Identity, chart: Attached[Char
             )
         )
     )
-
-
-def aspect(context: bpy.types.Context, image: bpy.types.Image) -> BlenderResult[float]:
-    """Answers the frame's width over height, the render's for the Render Result."""
-    return (
-        rooted(bpy.types.Scene, context).map(lambda scene: scene.render).map(lambda render: render.resolution_x * render.pixel_aspect_x / (render.resolution_y * render.pixel_aspect_y))
-        if image.type == "RENDER_RESULT"
-        else Ok(image.size[0] / image.size[1])  # type: ignore[index]
-    )
-
-
-def squared(ratio: float, reference: ChartReference) -> Quad:
-    """Answers a chart of square cells centered across half the frame width."""
-    columns, rows = reference.shape
-    half = np.array((0.25, 0.25 * ratio * rows / columns))
-    corners = np.array(((-1.0, 1.0), (1.0, 1.0), (1.0, -1.0), (-1.0, -1.0))) * half + 0.5
-    return Quad.of(np.concatenate((corners, np.ones((4, 1))), axis=-1))
-
-
-def planed(context: bpy.types.Context, image: bpy.types.Image, config: PyOpenColorIO.Config) -> BlenderResult[npt.NDArray[np.float32]]:
-    """Reads an image's scene-linear RGBA plane, the Render Result through its saved multilayer file."""
-
-    def linear(found: ImageFile[np.float32]) -> BlenderResult[npt.NDArray[np.float32]]:
-        return (
-            processor(config, PyOpenColorIO.ColorSpaceTransform(src=found.colorspace, dst=PyOpenColorIO.ROLE_SCENE_LINEAR))
-            .map(lambda built: applied(built.getDefaultCPUProcessor(), np.ascontiguousarray(found.pixels)))
-            .map(lambda plane: plane if plane.shape[2] == 4 else np.concatenate((plane, np.ones((*plane.shape[:2], 1), np.float32)), axis=-1))
-            .map_error(BlenderImagingFault.lifted)
-        )
-
-    match image.type:
-        case "RENDER_RESULT":
-            return Result[tuple[bpy.types.Scene, bpy.types.ViewLayer], BlenderFaults].bind(
-                paired(rooted(bpy.types.Scene, context), rooted(bpy.types.ViewLayer, context)),
-                lambda pair: saved(pair[0]).bind(lambda path: plane(path, ("", f"{pair[1].name}.Combined"), ("R", "G", "B", "A"))),
-            )
-        case _:
-            return read(image, config).bind(linear)
 
 
 def calibrated(config: PyOpenColorIO.Config, chart: Attached[ChartImage], chosen: Calibrating) -> BlenderResult[tuple[Calibration, CalibrationFit[Calibration]]]:
@@ -880,15 +860,10 @@ def calibrated(config: PyOpenColorIO.Config, chart: Attached[ChartImage], chosen
                 lambda selected: selected if chosen.gain else msgspec.structs.replace(selected, gained=selected.matrix, exposure=0.0)
             )
 
-        fit: BlenderResult[CalibrationFit[Calibration]] = Calibration.fit(tuple(zip(source, goal, strict=False))).map_error(BlenderImagingFault.lifted)
+        fit: BlenderResult[CalibrationFit[Calibration]] = Calibration.fit(tuple(zip(source, goal))).map_error(BlenderImagingFault.lifted)
         return Result[CalibrationFit[Calibration], BlenderFaults].bind(fit, lambda fit: chosen_side(fit).map(lambda selected: (selected, fit)))
 
     return held(chosen.source, Pairing.SOURCE).bind(lambda pair: paired(samples(pair), aimed(pair[1])).bind(lambda rows: fitted(*pair, *rows)))
-
-
-def export_paths(path: Path) -> tuple[Path, ...]:
-    """Names both calibration outputs from the browser's selected base path."""
-    return tuple(path.with_stem(f"{path.stem}_{side.label}") for side in Direction)
 
 
 def exported(output: LutOutput, calibration: Calibration, paths: tuple[Path, ...], *, direction: Direction, clamped: bool) -> BlenderResult[tuple[str, ...]]:

@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-disabled-foreign-keys
+language: sql
+severity: error
+rule:
+    kind: pragma_statement
+    pattern: _PRAGMA
+    all:
+        - has: {field: name, regex: '(?i)^"?(defer_)?foreign_keys"?$'}
+        - has: {field: value, regex: '(?i)^[''"]?(off|no|false|0)[''"]?$'}
+message: '`$PRAGMA` lets a transaction commit orphan rows'
+note: 'Open a rebuild with `pragma defer_foreign_keys = on` and declare rebuilt children against the temporary name of their rebuilt parent. `defer_foreign_keys = off` clears pending violations, and a transaction, D1, and Durable Objects ignore `foreign_keys = off`'

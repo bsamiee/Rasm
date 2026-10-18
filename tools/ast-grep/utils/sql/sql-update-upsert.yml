@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: sql-update-upsert
+language: sql
+arguments: [row]
+rule:
+    kind: upsert_clause
+    all:
+        - has: {field: assignment, kind: set_assignment}
+        - inside:
+            kind: insert_statement
+            field: upsert
+            any:
+                - has: {field: alias, matches: row}
+                - all: [{not: {has: {field: alias, regex: '.'}}}, {has: {field: target, has: {field: name, matches: row}}}]

@@ -66,9 +66,7 @@ public enum FileWatch {
                 continuation.finish(throwing: FileWatchFailure.registration)
                 return
             }
-            let current: Value = read(file)
-            value = .some(current)
-            continuation.yield(current)
+            emitIfChanged()
         }
 
         func stop() {
@@ -89,39 +87,34 @@ public enum FileWatch {
                 }
                 return [source(path), ancestors.lazy.compactMap(source).first { _ in true }].compactMap(\.self)
             }
-        }
-
-        private func source(_ path: FilePath) -> any DispatchSourceFileSystemObject? {
-            (try? FileDescriptor.open(path, .readOnly, options: [.eventOnly, .closeOnExec])).map { descriptor in
-                let source: any DispatchSourceFileSystemObject = DispatchSource.makeFileSystemObjectSource(
-                    fileDescriptor: descriptor.rawValue,
-                    eventMask: .all,
-                    queue: queue,
-                )
-                source.setEventHandler { [weak self] in
-                    self?.assumeIsolated { watcher in
-                        watcher.arm()
-                        watcher.scheduleEmit()
+            func source(_ path: FilePath) -> any DispatchSourceFileSystemObject? {
+                (try? FileDescriptor.open(path, .readOnly, options: [.eventOnly, .closeOnExec])).map { descriptor in
+                    let source: any DispatchSourceFileSystemObject = DispatchSource.makeFileSystemObjectSource(
+                        fileDescriptor: descriptor.rawValue,
+                        eventMask: .all,
+                        queue: queue,
+                    )
+                    source.setEventHandler { [weak self] in
+                        self?.assumeIsolated { watcher in
+                            watcher.arm()
+                            guard let debounce: Duration = watcher.debounce else {
+                                watcher.emitIfChanged()
+                                return
+                            }
+                            watcher.pending?.cancel()
+                            watcher.pending = Task {
+                                if case .success = await Result(catching: { try await Task.sleep(for: debounce) }) { watcher.emitIfChanged() }
+                            }
+                        }
                     }
+                    source.setCancelHandler { _ = try? descriptor.close() }
+                    source.activate()
+                    return source
                 }
-                source.setCancelHandler { _ = try? descriptor.close() }
-                source.activate()
-                return source
             }
         }
 
         // --- [EVENTS]
-        private func scheduleEmit() {
-            guard let debounce else {
-                emitIfChanged()
-                return
-            }
-            pending?.cancel()
-            pending = Task { [self] in
-                if case .success = await Result(catching: { try await Task.sleep(for: debounce) }) { emitIfChanged() }
-            }
-        }
-
         private func emitIfChanged() {
             let current: Value = read(file)
             guard .some(current) != value else { return }

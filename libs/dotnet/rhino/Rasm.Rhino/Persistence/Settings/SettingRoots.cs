@@ -25,10 +25,12 @@ public sealed record SettingsNode(SettingsRoot Root, Seq<string> Path = default)
 
     public SettingsNode Child(string key) => this with { Path = Path.Add(key) };
 
-    public IO<TValue> Current<TValue, TRaw>(PlugInSetting<TValue, TRaw> row)
+    public Fin<TValue> Current<TValue, TRaw>(PlugInSetting<TValue, TRaw> row)
         where TValue : notnull
         where TRaw : notnull =>
-        PlugInSettings.Store(this, row).Read.Map(held => held.IfNone(row.Value.Default));
+        SettingRoots.Resolved(this).Traverse(settings => row.Kind.Read(settings, row.Value.Name)).As()
+            .Bind(raw => raw.Flatten().Traverse(row.Value.From).As())
+            .Map(held => held.IfNone(row.Value.Default));
 }
 
 public sealed record KeyDescription(Option<Type> RuntimeType, bool ReadOnly, bool HiddenFromUserInterface);
@@ -56,19 +58,17 @@ public static class SettingRoots {
             plugInNode: static plugIn => PersistentSettings.FromPlugInId(plugIn.Id),
             commandNode: static command => command.Command.Settings);
 
-    private static Option<PersistentSettings> Resolved(SettingsNode node) =>
+    internal static Option<PersistentSettings> Resolved(SettingsNode node) =>
         node.Path.Fold(Some(Root(node.Root)), static (held, key) => held.Bind(parent => Callbacks.Found(parent.TryGetChild(key, out PersistentSettings child), child)));
 
     private static NodeDescription Tree(PersistentSettings node) =>
         new(
             node.HiddenFromUserInterface,
-            toHashMap(toSeq(node.Keys).Choose(key => Entry(node, key).Map(entry => (key, entry)))),
+            toHashMap(toSeq(node.Keys).Choose(key =>
+                node.TryGetSettingIsReadOnly(key, out bool readOnly) && node.TryGetSettingIsHiddenFromUserInterface(key, out bool hidden) && node.TryGetSettingType(key, out Type? type)
+                    ? Some((key, new KeyDescription(Optional(type), readOnly, hidden)))
+                    : None)),
             toHashMap(toSeq(node.ChildKeys).Choose(key => Callbacks.Found(node.TryGetChild(key, out PersistentSettings child), child).Map(found => (key, Tree(found))))));
-
-    private static Option<KeyDescription> Entry(PersistentSettings node, string key) =>
-        node.TryGetSettingIsReadOnly(key, out bool readOnly) && node.TryGetSettingIsHiddenFromUserInterface(key, out bool hidden) && node.TryGetSettingType(key, out Type? type)
-            ? Some(new KeyDescription(Optional(type), readOnly, hidden))
-            : None;
 
     // --- [CHANGES]
     public static IO<bool> ContainsChangedValues(SettingsNode node) =>

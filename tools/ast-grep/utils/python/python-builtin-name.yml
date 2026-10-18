@@ -12,8 +12,13 @@ utils:
 rule:
     any:
         - matches: {python-builtin-identifier: {name: {matches: name}}}
-        - matches: {python-member-use: {module: {regex: '^builtins$'}, name: {matches: name}}}
         - kind: attribute
           all:
             - has: {field: attribute, matches: name}
+            - inside: {kind: module, stopBy: end, regex: '\bbuiltins\b'}
+            - matches: {python-member-use: {module: {regex: '^builtins$'}, name: {matches: name}}}
+        - kind: attribute
+          all:
+            - has: {field: attribute, matches: name}
+            - inside: {kind: module, stopBy: end, regex: '\b__builtins__\b'}
             - has: {field: object, matches: implicit-reference}

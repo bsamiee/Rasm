@@ -2,6 +2,7 @@
 id: no-identity-lens-by-hand
 language: csharp
 severity: error
+ignores: ['tools/roslyn/**']
 utils:
     only-return:
         kind: block

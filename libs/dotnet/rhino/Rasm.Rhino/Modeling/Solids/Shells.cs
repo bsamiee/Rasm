@@ -22,10 +22,10 @@ public static class Shells {
                 Walls: walls),
             static Fin<OffsetResult> (made) => made.Blends is null
                 ? new Refused(nameof(Brep.CreateOffsetBrep), Refused.Declined)
-                : (Measurements.Valid(toSeq<Brep?>(made.Offsets), nameof(Brep.CreateOffsetBrep)).ToValidation(),
-                   Measurements.Valid(toSeq<Brep?>(made.Blends), nameof(OffsetResult.Blends)).ToValidation(),
-                   Measurements.Valid(toSeq<Brep?>(made.Walls), nameof(OffsetResult.Walls)).ToValidation())
-                    .Apply(static (offsets, blends, walls) => new OffsetResult(offsets, blends, walls)).As().ToFin(),
+                : (Measurements.Valid(toSeq<Brep?>(made.Offsets), nameof(Brep.CreateOffsetBrep)),
+                   Measurements.Valid(toSeq<Brep?>(made.Blends), nameof(OffsetResult.Blends)),
+                   Measurements.Valid(toSeq<Brep?>(made.Walls), nameof(OffsetResult.Walls)))
+                    .Apply(static (offsets, blends, walls) => new OffsetResult(offsets, blends, walls)).As(),
             static made => DisposalOps.Release(Conversions.Rows(made.Offsets) + Conversions.Rows(made.Blends) + Conversions.Rows(made.Walls)), retain);
 
     // --- [PIPES]

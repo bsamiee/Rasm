@@ -2,20 +2,31 @@
 id: no-kvo-initial-by-hand
 language: swiftlang
 severity: error
+utils:
+    observe-call:
+        kind: call_expression
+        all:
+            - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^observe$'}}}
+            - has:
+                kind: call_suffix
+                has:
+                    kind: value_arguments
+                    not: {has: {kind: value_argument, all: [{has: {field: name, regex: '^options$'}}, {has: {field: value, regex: '\.initial\b'}}]}}
+    handler:
+        kind: call_suffix
+        has: {kind: lambda_literal, has: {kind: statements, has: {nthChild: 1, pattern: $CHECK}, not: {has: {nthChild: 2}}}}
+    registration:
+        kind: call_expression
+        has: {matches: handler}
+        any:
+            - matches: observe-call
+            - has: {nthChild: 1, matches: observe-call}
 rule:
-    kind: property_declaration
-    all:
-        - has:
-            field: value
-            kind: call_expression
-            all:
-                - has:
-                    nthChild: 1
-                    kind: call_expression
-                    all:
-                        - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^observe$'}}}
-                        - has: {kind: call_suffix, has: {kind: value_arguments, not: {has: {kind: value_argument, has: {field: name, regex: '^options$'}}}}}
-                - has: {kind: call_suffix, has: {kind: lambda_literal, has: {kind: statements, has: {nthChild: 1, kind: if_statement, pattern: $CHECK}, not: {has: {nthChild: 2}}}}}
-        - precedes: {kind: if_statement, pattern: $CHECK}
+    any:
+        - kind: property_declaration
+          has: {field: value, matches: registration}
+        - kind: assignment
+          has: {field: result, matches: registration}
+    precedes: {pattern: $CHECK}
 message: 'Observation handler repeats `$CHECK` after registering in place of asking for the initial value'
-note: 'Pass `options: [.initial]` to `observe(_:options:changeHandler:)` to run the handler once with the current value, and delete the statement after it'
+note: 'Add `.initial` to the `options` of `observe(_:options:changeHandler:)` to run the handler once with the current value, and delete the statement after it'

@@ -4,7 +4,7 @@ language: csharp
 severity: error
 utils:
     member:
-        kind: 'method_declaration, local_function_statement, constructor_declaration, accessor_declaration, property_declaration, indexer_declaration, operator_declaration, field_declaration'
+        kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, constructor_declaration, accessor_declaration, property_declaration, indexer_declaration, operator_declaration, field_declaration'
     named-read:
         kind: invocation_expression
         all:
@@ -28,8 +28,6 @@ utils:
             - has: {field: expression, pattern: $MAP}
             - has: {field: subscript, has: {kind: argument, pattern: $KEY}, not: {has: {kind: argument, nthChild: 2}}}
             - not: {inside: {kind: assignment_expression, field: left}}
-    presence-test:
-        has: {field: function, has: {field: name, regex: '^ContainsKey$'}}
     earlier-any:
         follows:
             stopBy: end
@@ -37,12 +35,12 @@ utils:
                 - {matches: named-read, pattern: $EARLIER}
                 - {matches: index-read, pattern: $EARLIER}
                 - has: {stopBy: end, any: [{matches: named-read}, {matches: index-read}], pattern: $EARLIER}
-    earlier-value-read:
+    earlier-named-read:
         follows:
             stopBy: end
             any:
-                - {matches: named-read, not: {matches: presence-test}, pattern: $EARLIER}
-                - has: {stopBy: end, matches: named-read, not: {matches: presence-test}, pattern: $EARLIER}
+                - {matches: named-read, pattern: $EARLIER}
+                - has: {stopBy: end, matches: named-read, pattern: $EARLIER}
 rule:
     any:
         - kind: invocation_expression
@@ -57,9 +55,9 @@ rule:
             - pattern: $LOOKUP
             - matches: index-read
             - any:
-                - matches: earlier-value-read
-                - inside: {stopBy: {matches: member}, not: {matches: member}, matches: earlier-value-read}
+                - matches: earlier-named-read
+                - inside: {stopBy: {matches: member}, not: {matches: member}, matches: earlier-named-read}
 labels:
     EARLIER: {style: secondary, message: 'Earlier read of the same key'}
-message: '`$LOOKUP` reads `$KEY` from `$MAP` a second time in one member'
+message: '`$LOOKUP` reads `$KEY` from `$MAP` a second time'
 note: 'Read the key once through `Find` or `TryGetValue` and branch on that result with `Map`, `Match`, or a `Some` pattern'

@@ -43,7 +43,7 @@ public static class ViewRegistration {
         IO.lift(() => plugIn.Views.Listed<TCase>()).Bind(rows => Callbacks.Each(rows.Map(register))).Map(unit);
 
     private static IO<Unit> Hosted(Type view, Action register) =>
-        IO.lift(register).MapFail(error => error.HasException<ArgumentException>() ? Error.New($"{view.Name} is a view its host cannot hold", error) : error);
+        IO.lift(register).MapFail(error => error.HasException<ArgumentException>() ? new UnheldView(view, error) : error);
 
     // --- [PANELS]
     public static readonly Func<IPlugInViews, Action<IDisposable>, IO<Unit>> RegisterPanels =

@@ -1,5 +1,5 @@
-import { Array, Effect, Formatter, Number, Option, Predicate, pipe, Record, Schema, Struct } from 'effect';
-import { type BBOX, type Font as Face, type Glyph, open } from 'fontkit';
+import { Array, Cause, Effect, flow, Number, Option, Predicate, pipe, Record, Schema, Struct } from 'effect';
+import { type BBOX, type Font as Face, open } from 'fontkit';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -30,7 +30,7 @@ const Name = Schema.optional(Schema.Struct({ en: Schema.optional(Schema.Union([S
 const Tables = Schema.Struct({
     directory: Schema.Struct({ tables: Schema.Record(Schema.String, Schema.Struct(Struct.Record(['offset', 'length'], Schema.Int))) }),
     stream: Schema.Struct({ view: Schema.instanceOf(DataView) }),
-    variationCoords: Schema.NullOr(Schema.Array(Schema.Finite)),
+    variationCoords: Schema.OptionFromNullOr(Schema.Array(Schema.Finite)),
     'CFF ': Schema.OptionFromOptional(Schema.Struct({ topDict: Schema.Struct({ UnderlinePosition: Schema.Finite, UnderlineThickness: Schema.Finite, FontMatrix: Schema.Tuple([Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite, Schema.Finite]) }) })),
     GSUB: Schema.OptionFromOptional(Schema.Struct({ featureList: Schema.Array(Schema.Struct({ tag: Schema.String, feature: Schema.Struct({ featureParams: Schema.OptionFromNullOr(Schema.Struct({ nameID: Schema.Int })) }) })) })),
     fvar: Schema.OptionFromOptional(Schema.Struct({ instance: Schema.Array(Schema.Struct({ nameID: Schema.Int, coord: Schema.Array(Schema.Finite) })) })),
@@ -39,11 +39,9 @@ const Tables = Schema.Struct({
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-const FontReason = Schema.TaggedUnion({ Unreadable: { cause: Schema.Defect() }, Absent: { postscriptName: Schema.String }, Static: { postscriptName: Schema.String } });
-class FontError extends Schema.TaggedError<FontError, { readonly brand: unique symbol }>()('FontError', { file: Schema.String, reason: FontReason }) {
+class FontError extends Schema.TaggedError<FontError, { readonly brand: unique symbol }>()('FontError', { file: Schema.String, reason: Schema.TaggedUnion({ Absent: { postscriptName: Schema.String }, Static: { postscriptName: Schema.String } }) }) {
     override get message(): string {
-        return FontReason.match(this.reason, {
-            Unreadable: ({ cause }) => `Cannot read ${this.file}: ${Formatter.format(cause)}`,
+        return FontError.fields.reason.match(this.reason, {
             Absent: ({ postscriptName }) => `${this.file} holds no face ${postscriptName}`,
             Static: ({ postscriptName }) => `${postscriptName} in ${this.file} has no variation axes to take coordinates`,
         });
@@ -52,79 +50,67 @@ class FontError extends Schema.TaggedError<FontError, { readonly brand: unique s
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const read = Effect.fn('read')(function* (file: string, postscriptName: string, { text, coordinates, size }: typeof Options.Type): Effect.fn.Return<typeof Font.Type, FontError> {
-    const unreadable = (cause: unknown): FontError => FontError.make({ file, reason: { _tag: 'Unreadable', cause } });
-    const opened = yield* Effect.tryPromise({ try: () => open(file), catch: unreadable });
-    const base = yield* Effect.filterOrFail(
-        'fonts' in opened ? Effect.fromOption(Option.fromNullishOr(opened.getFont(postscriptName)), () => FontError.make({ file, reason: { _tag: 'Absent', postscriptName } })) : Effect.succeed(opened),
-        ({ variationAxes }) => Option.isNone(coordinates) || !Record.isEmptyRecord(variationAxes),
-        () => FontError.make({ file, reason: { _tag: 'Static', postscriptName } }),
-    );
-    const font = yield* Effect.try({
-        try: () => (Record.isEmptyRecord(base.variationAxes) ? base : base.getVariation(Record.fromEntries([...Array.zip(Record.keys(base.variationAxes), Option.getOrElse(coordinates, Array.empty)), ...Option.toArray(Option.map(size, (opsz) => ['opsz', opsz] as const))]))),
-        catch: unreadable,
-    });
-    const face = yield* Effect.mapError(Schema.decodeUnknownEffect(Tables)(font), unreadable);
-    return yield* Effect.try({
-        try: () => {
-            const TYPO = { ascender: 68, descender: 70, lineGap: 72, length: 78 } as const;
-            const { records } = face.name;
-            const names: NonNullable<typeof records.fontFeatures> = { ...records.fontFeatures, 2: records.fontSubfamily, 17: records.preferredSubfamily };
-            const os2 = Option.fromUndefinedOr(font['OS/2']);
-            const em = (units: number): number => units / font.unitsPerEm;
-            const label = (id: number): Option.Option<string> => Option.filter(Option.fromNullishOr(names[id]?.en), Predicate.isString);
-            const drawn = (instance: Face, characters: string): Glyph[] => Array.filter(instance.glyphsForString(characters), (glyph) => glyph.id !== 0);
-            const edge = (instance: Face, character: string, side: keyof BBOX): Option.Option<number> => Option.map(Array.head(drawn(instance, character)), (glyph) => glyph.bbox[side]);
-            const stroke = (position: number, thickness: number): (typeof Font.Type)['underline'] => (thickness === 0 ? Option.none() : Option.some({ position, thickness }));
-            const typo = Option.map(
-                Option.filter(Record.get(face.directory.tables, 'OS/2'), ({ length }) => length >= TYPO.length),
-                ({ offset }) => ({ ascender: face.stream.view.getInt16(offset + TYPO.ascender), descender: -Math.abs(face.stream.view.getInt16(offset + TYPO.descender)), lineGap: face.stream.view.getInt16(offset + TYPO.lineGap) }),
+const read = Effect.fn('read')(
+    function* (file: string, postscriptName: string, { text, coordinates, size }: typeof Options.Type) {
+        const opened = yield* Effect.tryPromise(() => open(file));
+        const base = yield* Effect.filterOrFail(
+            'fonts' in opened ? Effect.fromOption(Option.fromNullishOr(opened.getFont(postscriptName)), () => FontError.make({ file, reason: { _tag: 'Absent', postscriptName } })) : Effect.succeed(opened),
+            ({ variationAxes }) => Option.isNone(coordinates) || !Record.isEmptyRecord(variationAxes),
+            () => FontError.make({ file, reason: { _tag: 'Static', postscriptName } }),
+        );
+        const font = Record.isEmptyRecord(base.variationAxes) ? base : base.getVariation(Record.fromEntries([...Array.zip(Record.keys(base.variationAxes), Option.getOrElse(coordinates, Array.empty)), ...Option.toArray(Option.map(size, (opsz) => ['opsz', opsz] as const))]));
+        const face = yield* Schema.decodeUnknownEffect(Tables)(font);
+        const TYPO = { ascender: 68, descender: 70, lineGap: 72, length: 78 } as const;
+        const { records } = face.name;
+        const names: NonNullable<typeof records.fontFeatures> = { ...records.fontFeatures, 2: records.fontSubfamily, 17: records.preferredSubfamily };
+        const os2 = Option.fromUndefinedOr(font['OS/2']);
+        const em = (units: number) => units / font.unitsPerEm;
+        const label = (id: number) => Option.filter(Option.fromNullishOr(names[id]?.en), Predicate.isString);
+        const drawn = (instance: Face, characters: string) => instance.glyphsForString(characters).filter((glyph) => glyph.id !== 0);
+        const edge = (instance: Face, character: string, side: keyof BBOX) => Option.map(Array.head(drawn(instance, character)), (glyph) => glyph.bbox[side]);
+        const stroke = (position: number, thickness: number) => (thickness === 0 ? Option.none() : Option.some({ position, thickness }));
+        const typo = Option.map(
+            Option.filter(Record.get(face.directory.tables, 'OS/2'), ({ length }) => length >= TYPO.length),
+            ({ offset }) => ({ ascender: face.stream.view.getInt16(offset + TYPO.ascender), descender: -Math.abs(face.stream.view.getInt16(offset + TYPO.descender)), lineGap: face.stream.view.getInt16(offset + TYPO.lineGap) }),
+        );
+        const cjk = drawn(font, CHARACTERS.cjk).length > 0;
+        const vertical = (field: 'ascender' | 'descender', side: keyof BBOX) =>
+            pipe(
+                typo,
+                Option.filter(() => !cjk),
+                Option.map((fields) => fields[field] + ('MVAR' in face.directory.tables ? 0 : Option.getOrElse(Option.zipWith(edge(font, CHARACTERS[field], side), edge(base, CHARACTERS[field], side), Number.subtract), () => 0))),
+                Option.orElse(() => edge(font, CHARACTERS[field], side)),
+                Option.map(em),
             );
-            const cjk = Array.isReadonlyArrayNonEmpty(drawn(font, CHARACTERS.cjk));
-            const vertical = (field: 'ascender' | 'descender', side: keyof BBOX): Option.Option<number> =>
-                pipe(
-                    typo,
-                    Option.filter(() => !cjk),
-                    Option.map((fields) => fields[field] + ('MVAR' in face.directory.tables ? 0 : Option.getOrElse(Option.zipWith(edge(font, CHARACTERS[field], side), edge(base, CHARACTERS[field], side), Number.subtract), () => 0))),
-                    Option.orElse(() => edge(font, CHARACTERS[field], side)),
-                    Option.map(em),
-                );
-            const height = (field: 'xHeight' | 'capHeight'): Option.Option<number> =>
-                pipe(
-                    edge(font, CHARACTERS[field], 'maxY'),
-                    Option.orElse(() => Option.filter(Option.flatMapNullishOr(os2, Struct.get(field)), (units) => units !== 0)),
-                    Option.map(em),
-                );
-            return {
-                ascender: vertical('ascender', 'maxY'),
-                descender: vertical('descender', 'minY'),
-                lineGap: em(Option.getOrElse(Option.map(typo, Struct.get('lineGap')), () => font.hhea.lineGap)),
-                xHeight: height('xHeight'),
-                capHeight: height('capHeight'),
-                bounds: Record.map(Struct.pick(font.bbox, ['minX', 'minY', 'maxX', 'maxY']), em),
-                underline: Option.match(face['CFF '], {
-                    onSome: ({ topDict: { UnderlinePosition, UnderlineThickness, FontMatrix } }) => stroke(UnderlinePosition * FontMatrix[3], UnderlineThickness * FontMatrix[3]),
-                    onNone: () => stroke(em(font.underlinePosition - ('CFF2' in face.directory.tables ? font.underlineThickness / 2 : 0)), em(font.underlineThickness)),
-                }),
-                strikeout: Option.flatMap(os2, ({ yStrikeoutPosition, yStrikeoutSize }) => stroke(em(yStrikeoutPosition - yStrikeoutSize / 2), em(yStrikeoutSize))),
-                italicAngle: font.italicAngle,
-                monospace: pipe(drawn(font, CHARACTERS.monospace), Array.map(Struct.get('advanceWidth')), Array.dedupe).length === 1,
-                features: Array.map(Array.dedupe(font.availableFeatures), (tag) => ({
-                    tag,
-                    name: Option.flatMap(face.GSUB, ({ featureList }) => Array.findFirst(featureList, ({ tag: own, feature }) => (own === tag ? Option.flatMap(feature.featureParams, ({ nameID }) => label(nameID)) : Option.none()))),
-                })),
-                axes: Array.zipWith(pipe(font.variationAxes, Record.filter(Predicate.isNotUndefined), Record.toEntries), face.variationCoords ?? [], ([tag, axis], value) => ({ tag, ...axis, value })),
-                instances: Array.flatMap(Option.toArray(face.fvar), ({ instance }) => Array.map(instance, ({ nameID, coord }) => ({ name: label(nameID), coordinates: coord }))),
-                missing: pipe(
-                    Array.flatMap(Option.toArray(text), (characters) => Array.fromIterable(characters.replaceAll(/\p{Cc}/gu, ''))),
-                    Array.dedupe,
-                    Array.filter((character) => Array.isReadonlyArrayEmpty(drawn(font, character))),
-                ),
-            };
-        },
-        catch: unreadable,
-    });
-});
+        const height = (field: 'xHeight' | 'capHeight') =>
+            pipe(
+                edge(font, CHARACTERS[field], 'maxY'),
+                Option.orElse(() => Option.filter(Option.flatMapNullishOr(os2, Struct.get(field)), Predicate.isTruthy)),
+                Option.map(em),
+            );
+        const featureNames = Option.toArray(face.GSUB).flatMap(({ featureList }) => featureList);
+        return {
+            ascender: vertical('ascender', 'maxY'),
+            descender: vertical('descender', 'minY'),
+            lineGap: em(Option.getOrElse(Option.map(typo, Struct.get('lineGap')), () => font.hhea.lineGap)),
+            xHeight: height('xHeight'),
+            capHeight: height('capHeight'),
+            bounds: Record.map(Struct.pick(font.bbox, ['minX', 'minY', 'maxX', 'maxY']), em),
+            underline: Option.match(face['CFF '], {
+                onSome: ({ topDict: { UnderlinePosition, UnderlineThickness, FontMatrix } }) => stroke(UnderlinePosition * FontMatrix[3], UnderlineThickness * FontMatrix[3]),
+                onNone: () => stroke(em(font.underlinePosition - ('CFF2' in face.directory.tables ? font.underlineThickness / 2 : 0)), em(font.underlineThickness)),
+            }),
+            strikeout: Option.flatMap(os2, ({ yStrikeoutPosition, yStrikeoutSize }) => stroke(em(yStrikeoutPosition - yStrikeoutSize / 2), em(yStrikeoutSize))),
+            italicAngle: font.italicAngle,
+            monospace: Array.dedupe(drawn(font, CHARACTERS.monospace).map(({ advanceWidth }) => advanceWidth)).length === 1,
+            features: Array.dedupe(font.availableFeatures).map((tag) => ({ tag, name: Array.findFirst(featureNames, ({ tag: own, feature }) => (own === tag ? Option.flatMap(feature.featureParams, flow(Struct.get('nameID'), label)) : Option.none())) })),
+            axes: Array.zipWith(pipe(font.variationAxes, Record.filter(Predicate.isNotUndefined), Record.toEntries), Option.getOrElse(face.variationCoords, Array.empty), ([tag, axis], value) => ({ tag, ...axis, value })),
+            instances: Option.toArray(face.fvar).flatMap(({ instance }) => instance.map(({ nameID, coord }) => ({ name: label(nameID), coordinates: coord }))),
+            missing: Array.dedupe(Option.toArray(text).flatMap((characters) => [...characters.replaceAll(/\p{Cc}/gu, '')])).filter((character) => drawn(font, character).length === 0),
+        };
+    },
+    Effect.catchDefect((defect) => Effect.fail(new Cause.UnknownError(defect))),
+);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

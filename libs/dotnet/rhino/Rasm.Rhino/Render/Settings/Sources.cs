@@ -16,7 +16,7 @@ namespace Rasm.Rhino.Render.Settings;
 // --- [TYPES] ---------------------------------------------------------------------------
 public interface IRenderSettingsRecord<TSelf> : IStateRecord<TSelf> where TSelf : IRenderSettingsRecord<TSelf> {
     public static abstract string Owner { get; }
-    public static abstract Option<DocumentEvent<RenderPropertyChangedEvent>> Changed { get; }
+    public static virtual Option<DocumentEvent<RenderPropertyChangedEvent>> Changed => None;
     public static abstract IO<TSelf> Read(RenderSettingsScope scope);
     public static abstract IO<TSelf> Write(RenderSettingsScope scope, TSelf record);
 }
@@ -24,7 +24,7 @@ public interface IRenderSettingsRecord<TSelf> : IStateRecord<TSelf> where TSelf 
 public interface IRenderSettingsRecord<TSelf, TParameter> : IRenderSettingsRecord<TSelf>, IStateRecord<TSelf, TParameter>
     where TSelf : IRenderSettingsRecord<TSelf, TParameter>
     where TParameter : class, IStateParameter<TSelf>, ISmartEnum<string, TParameter, ValidationError> {
-    public static abstract RowRules Rules(RowSource<TSelf> source, TParameter parameter);
+    public static virtual RowRules Rules(RowSource<TSelf> source, TParameter parameter) => RowRules.Always;
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -125,7 +125,7 @@ public static class RenderSettingsSources {
         from values in Bindings(source).Capture
         from diff in Edit(target, staged =>
             from bindings in IO.pure(Bindings(staged))
-            from applied in bindings.Apply(values, toHashSet(bindings.Keys().Filter(static key => string.Equals(key.Owner, RenderSourceState.Owner, StringComparison.Ordinal))))
+            from applied in bindings.Apply(values, [.. bindings.Keys().Filter(static key => string.Equals(key.Owner, RenderSourceState.Owner, StringComparison.Ordinal))])
             select applied)
         select diff;
 
@@ -133,13 +133,13 @@ public static class RenderSettingsSources {
         Edit(source, static staged => Callbacks.Each(Rows(staged).Map(static row => row.Reset)).Map(unit));
 
     private static Seq<(ValueBinding Binding, IO<Unit> Reset)> Rows(RenderSettingsSource source) =>
-        Seq(Row<ImageOutputState>(source), Row<RenderSourceState>(source), Row<FrameState>(source),
-                Row<LinearWorkflowState>(source), Row<DitheringState>(source), Row<RenderChannelsState>(source),
-                Row<BackgroundState>(source), Row<LightingState>(source), Row<SafeFrameState>(source),
-                Row<GroundPlaneState>(source), Row<SunState>(source))
-            .Concat(Dictionary(source) switch {
-                var dictionary => toSeq(CyclesKey.Items).Map(item => item.Entry(dictionary)),
-            });
+        [
+            Row<ImageOutputState>(source), Row<RenderSourceState>(source), Row<FrameState>(source),
+            Row<LinearWorkflowState>(source), Row<DitheringState>(source), Row<RenderChannelsState>(source),
+            Row<BackgroundState>(source), Row<LightingState>(source), Row<SafeFrameState>(source),
+            Row<GroundPlaneState>(source), Row<SunState>(source),
+            .. Dictionary(source) switch { var dictionary => toSeq(CyclesKey.Items).Map(item => item.Entry(dictionary)) },
+        ];
 
     private static (ValueBinding Binding, IO<Unit> Reset) Row<TRecord>(RenderSettingsSource source) where TRecord : IRenderSettingsRecord<TRecord> =>
         Store<TRecord>(source) switch {

@@ -1,0 +1,1 @@
+#0 Item count from `Delete` reaches no `==` or `!=` comparison

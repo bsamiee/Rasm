@@ -255,9 +255,14 @@ public static partial class AttributeEdits {
 
     public static IO<Unit> ActiveInViewport(ObjectAttributes staged, RowsEdit<Guid, Guid> edit, bool active) =>
         IO.lift(() => edit.Switch(
-state: (staged, active), replace: static (state, replace) => Refused.Unless(state.staged.SetActiveInViewportOverrides([.. replace.Rows], state.active), nameof(ObjectAttributes.SetActiveInViewportOverrides)), add: static (state, add) => Callbacks.Each(add.Rows, Fin<Unit> (id, index) => state.staged.HasActiveInViewportOverride(id, out _)
-                ? unit : Refused.Unless(state.staged.AddActiveInViewportOverride(id, state.active), nameof(ObjectAttributes.AddActiveInViewportOverride), index)).Map(static _ => unit), remove: static (state, remove) => Callbacks.Each(remove.Keys, Fin<Unit> (id, index) => state.staged.HasActiveInViewportOverride(id, out bool stored)
-                ? Refused.Unless(state.staged.RemoveActiveInViewportOverride(id, stored), nameof(ObjectAttributes.RemoveActiveInViewportOverride), index) : unit).Map(static _ => unit)));
+            (Staged: staged, Active: active),
+            replace: static (state, replace) => Refused.Unless(state.Staged.SetActiveInViewportOverrides([.. replace.Rows], state.Active), nameof(ObjectAttributes.SetActiveInViewportOverrides)),
+            add: static (state, add) => Callbacks.Each(add.Rows, Fin<Unit> (id, index) => state.Staged.HasActiveInViewportOverride(id, out _)
+                ? unit
+                : Refused.Unless(state.Staged.AddActiveInViewportOverride(id, state.Active), nameof(ObjectAttributes.AddActiveInViewportOverride), index)).Map(static _ => unit),
+            remove: static (state, remove) => Callbacks.Each(remove.Keys, Fin<Unit> (id, index) => state.Staged.HasActiveInViewportOverride(id, out bool stored)
+                ? Refused.Unless(state.Staged.RemoveActiveInViewportOverride(id, stored), nameof(ObjectAttributes.RemoveActiveInViewportOverride), index)
+                : unit).Map(static _ => unit)));
 
     public static IO<Unit> HideInDetail(ObjectAttributes staged, RowsEdit<Guid, Guid> edit) =>
         IO.lift(() => edit.Switch(
@@ -267,9 +272,9 @@ state: (staged, active), replace: static (state, replace) => Refused.Unless(stat
                 remove: static (held, remove) => (Hide: Seq<Guid>(), Show: toSeq(held.Intersect(remove.Keys))))
             switch {
                 var (hide, show) =>
-                    (Callbacks.Each(show, staged.RemoveHideInDetailOverride, nameof(ObjectAttributes.RemoveHideInDetailOverride)).ToValidation(),
-                     Callbacks.Each(hide, staged.AddHideInDetailOverride, nameof(ObjectAttributes.AddHideInDetailOverride)).ToValidation())
-                        .Apply(static (_, _) => unit).As().ToFin(),
+                    (Callbacks.Each(show, staged.RemoveHideInDetailOverride, nameof(ObjectAttributes.RemoveHideInDetailOverride)),
+                     Callbacks.Each(hide, staged.AddHideInDetailOverride, nameof(ObjectAttributes.AddHideInDetailOverride)))
+                        .Apply(static (_, _) => unit).As(),
             });
 
     // --- [FRAME]

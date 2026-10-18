@@ -1,0 +1,2 @@
+#0 `As` narrows `Fin<int>` to itself
+#1 `As` narrows `Option<int>` to itself

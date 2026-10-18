@@ -3,7 +3,6 @@
 from collections.abc import Callable
 from fractions import Fraction
 import functools
-from itertools import starmap
 import math
 from typing import Annotated, Self
 
@@ -84,7 +83,7 @@ class ChartReference(msgspec.Struct, frozen=True, kw_only=True, eq=False):
                 return cls(
                     checker=ColourChecker(
                         chart.label,
-                        dict(zip(patches, np.unstack(np.column_stack((values[:, :2] / values.sum(axis=-1, keepdims=True), values[:, 1]))), strict=False)),
+                        dict(zip(patches, np.unstack(np.column_stack((values[:, :2] / values.sum(axis=-1, keepdims=True), values[:, 1]))))),
                         np.array((0.3457, 0.3585), dtype=np.float64),
                         4,
                         6,
@@ -199,11 +198,11 @@ class ChartPlacement(msgspec.Struct, frozen=True, kw_only=True):
         def listed(homography: Homography) -> tuple[Finding, ...]:
             scale = Fraction(view.aspect if self.panorama.enabled else aspect)
             corners = tuple((Fraction(x) * scale, Fraction(y)) for x, y in msgspec.structs.astuple(homography.quad))
-            before = tuple((previous[0] - corner[0], previous[1] - corner[1]) for previous, corner in zip(corners[-1:] + corners[:-1], corners, strict=False))
-            after = tuple((following[0] - corner[0], following[1] - corner[1]) for corner, following in zip(corners, corners[1:] + corners[:1], strict=False))
-            angles = tuple(starmap(angle, zip(before, after, strict=False)))
+            before = tuple((previous[0] - corner[0], previous[1] - corner[1]) for previous, corner in zip(corners[-1:] + corners[:-1], corners))
+            after = tuple((following[0] - corner[0], following[1] - corner[1]) for corner, following in zip(corners, corners[1:] + corners[:1]))
+            angles = tuple(map(angle, before, after))
             narrowest, widest = min(angles), max(angles)
-            area = sum((corner[0] * following[1] - corner[1] * following[0] for corner, following in zip(corners, corners[1:] + corners[:1], strict=False)), start=Fraction()) / 2
+            area = sum((corner[0] * following[1] - corner[1] * following[0] for corner, following in zip(corners, corners[1:] + corners[:1])), start=Fraction()) / 2
             positions = self.mapping(homography)(self.footprints)
             clipped = tuple(np.flatnonzero(np.any((((positions[..., :2] < 0.0) | (positions[..., :2] > 1.0)) & clip), axis=(1, 2)) | np.any(positions[..., 2] <= 0.0, axis=1)).tolist())
             return (
@@ -304,7 +303,7 @@ class Calibration(msgspec.Struct, frozen=True, kw_only=True):
         """Factors each neutral's configured luminance ratio into exposure, or returns absence or OCIO refusals."""
 
         def factored(built: tuple[PyOpenColorIO.Processor, PyOpenColorIO.Processor]) -> Option[Self]:
-            source_luma, target_luma = (float(applied(op.getDefaultCPUProcessor(), np.array(sample, dtype=np.float32))[1]) for op, sample in zip(built, (source, target), strict=False))
+            source_luma, target_luma = (float(applied(op.getDefaultCPUProcessor(), np.array(sample, dtype=np.float32))[1]) for op, sample in zip(built, (source, target)))
             return Some(msgspec.structs.replace(self, exposure=math.log2(target_luma) - math.log2(source_luma))) if source_luma > 0.0 and target_luma > 0.0 else Nothing
 
         return paired(processor(config, xyz(config, source_space)), processor(config, xyz(config, target_space))).map(factored)

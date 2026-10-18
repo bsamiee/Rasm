@@ -1,0 +1,169 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-single-reader-swift
+language: swiftlang
+severity: error
+utils:
+    literal:
+        any:
+            - kind: 'integer_literal, real_literal, hex_literal, oct_literal, bin_literal, boolean_literal'
+            - kind: 'line_string_literal, multi_line_string_literal'
+              not: {has: {stopBy: end, kind: interpolated_expression}}
+            - kind: 'prefix_expression, navigation_expression'
+              not: {has: {stopBy: end, kind: call_expression}}
+            - kind: 'array_literal, dictionary_literal'
+              not: {has: {pattern: µ_, not: {matches: literal}}}
+            - kind: call_expression
+              all:
+                - has:
+                    nthChild: 1
+                    any:
+                        - {kind: prefix_expression, not: {regex: '^\.init$'}}
+                        - {kind: simple_identifier, regex: '^[A-Z]'}
+                        - {kind: navigation_expression, regex: '^[A-Z]', not: {has: {stopBy: end, kind: call_expression}}}
+                        - {kind: navigation_expression, has: {field: target, matches: literal}}
+                - not: {has: {kind: call_suffix, has: {stopBy: end, kind: value_argument, has: {field: value, not: {matches: literal}}}}}
+                - not: {has: {kind: call_suffix, has: {kind: lambda_literal}}}
+    shadowed:
+        not: {inside: {kind: navigation_suffix}}
+        inside:
+            stopBy: end
+            any:
+                - kind: statements
+                  has: {kind: property_declaration, has: {field: name, has: {field: bound_identifier, pattern: $NAME}}}
+                - kind: for_statement
+                  has: {field: item, has: {stopBy: end, field: bound_identifier, pattern: $NAME}}
+    reference:
+        kind: simple_identifier
+        pattern: $NAME
+        not:
+            any:
+                - inside: {kind: value_argument_label}
+                - inside: {kind: pattern, field: bound_identifier}
+                - inside: {kind: function_declaration, field: name}
+                - matches: shadowed
+    private:
+        has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}
+    pinning-attribute:
+        kind: attribute
+        regex: '^@(objc|IBAction|concurrent|MainActor)\b'
+    pinned:
+        any:
+            - has: {matches: pinning-attribute}
+            - has: {kind: modifiers, any: [{has: {matches: pinning-attribute}}, {has: {regex: '^(override|nonisolated\b.*)$'}}]}
+    member:
+        kind: 'function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
+        inside: {kind: 'class_body, enum_class_body, protocol_body, source_file'}
+    reader:
+        matches: member
+        pattern: $READER
+        all:
+            - not: {inside: {stopBy: end, kind: class_declaration, has: {kind: modifiers, has: {kind: attribute, regex: '^@main$'}}}}
+            - not: {has: {field: name, pattern: $NAME}}
+    holds-reference:
+        any:
+            - matches: reference
+            - has: {stopBy: end, matches: reference}
+    statement-branch:
+        any:
+            - kind: switch_statement
+              has: {kind: switch_entry, has: {kind: statements, has: {nthChild: 2}}}
+            - kind: if_statement
+              any:
+                - has: {kind: statements, has: {nthChild: 2}}
+                - has: {kind: if_statement, matches: statement-branch}
+    level:
+        any:
+            - kind: 'lambda_literal, guard_statement, for_statement, while_statement, repeat_while_statement, do_statement, switch_statement'
+            - kind: if_statement
+              not: {inside: {kind: if_statement}}
+            - kind: function_declaration
+              inside: {kind: statements}
+    nested-1:
+        has: {stopBy: end, matches: level}
+    nested-2:
+        has: {stopBy: end, all: [{matches: level}, {matches: nested-1}]}
+    nested-3:
+        has: {stopBy: end, all: [{matches: level}, {matches: nested-2}]}
+    nested-4:
+        has: {stopBy: end, all: [{matches: level}, {matches: nested-3}]}
+    enclosed-1:
+        inside: {stopBy: {matches: member}, matches: level}
+    enclosed-2:
+        inside: {stopBy: {matches: member}, all: [{matches: level}, {matches: enclosed-1}]}
+    enclosed-3:
+        inside: {stopBy: {matches: member}, all: [{matches: level}, {matches: enclosed-2}]}
+    enclosed-4:
+        inside: {stopBy: {matches: member}, all: [{matches: level}, {matches: enclosed-3}]}
+    inlined-past-third-level:
+        any:
+            - has: {field: body, matches: nested-4}
+            - all: [{has: {field: body, matches: nested-3}}, {inside: {kind: statements, has: {stopBy: end, all: [{matches: reference}, {matches: enclosed-1}]}}}]
+            - all: [{has: {field: body, matches: nested-2}}, {inside: {kind: statements, has: {stopBy: end, all: [{matches: reference}, {matches: enclosed-2}]}}}]
+            - all: [{has: {field: body, matches: nested-1}}, {inside: {kind: statements, has: {stopBy: end, all: [{matches: reference}, {matches: enclosed-3}]}}}]
+            - inside: {kind: statements, has: {stopBy: end, all: [{matches: reference}, {matches: enclosed-4}]}}
+rule:
+    any:
+        - kind: property_declaration
+          all:
+            - matches: private
+            - not: {has: {kind: modifiers, has: {kind: attribute}}}
+            - has: {kind: value_binding_pattern, regex: '^let$'}
+            - has: {field: name, kind: pattern, has: {field: bound_identifier, pattern: $NAME}}
+            - has: {field: value, matches: literal}
+            - inside: {kind: 'class_body, enum_class_body, source_file'}
+            - inside:
+                kind: source_file
+                stopBy: end
+                all:
+                    - has: {stopBy: end, matches: reference, inside: {stopBy: end, matches: reader}}
+                    - not: {has: {stopBy: end, matches: reference, not: {inside: {stopBy: end, pattern: $READER, matches: member}}}}
+        - kind: function_declaration
+          all:
+            - matches: private
+            - not: {matches: pinned}
+            - has: {field: name, kind: simple_identifier, pattern: $NAME}
+            - inside: {kind: 'class_body, enum_class_body, source_file'}
+            - not:
+                inside:
+                    kind: class_body
+                    inside: {kind: class_declaration, has: {field: declaration_kind, regex: '^actor$'}}
+                    has:
+                        stopBy: end
+                        matches: reference
+                        inside: {stopBy: {kind: lambda_literal}, kind: await_expression, inside: {stopBy: end, kind: lambda_literal}}
+            - inside:
+                kind: source_file
+                stopBy: end
+                all:
+                    - has: {stopBy: end, matches: reference, inside: {stopBy: end, matches: reader}}
+                    - not: {has: {stopBy: end, matches: reference, not: {inside: {stopBy: end, pattern: $READER, matches: member}}}}
+            - not:
+                any:
+                    - matches: nested-3
+                    - has: {stopBy: end, kind: function_declaration, has: {stopBy: end, kind: function_declaration}}
+        - kind: function_declaration
+          all:
+            - inside: {kind: statements}
+            - not: {matches: pinned}
+            - has: {field: name, kind: simple_identifier, pattern: $NAME}
+            - has:
+                field: body
+                has:
+                    matches:
+                        swift-single-statement:
+                            first:
+                                not:
+                                    any:
+                                        - kind: 'for_statement, while_statement, repeat_while_statement, do_statement, guard_statement, assignment, property_declaration, function_declaration'
+                                        - matches: statement-branch
+            - not: {has: {field: body, has: {stopBy: end, matches: reference}}}
+            - inside:
+                kind: statements
+                all:
+                    - has: {stopBy: end, matches: reference}
+                    - not: {has: {stopBy: end, matches: holds-reference, precedes: {stopBy: end, matches: holds-reference}}}
+            - not: {matches: inlined-past-third-level}
+message: '`$NAME` has one reader'
+note: 'Move a constant into its reader as a local `let` and a function as a local `func`, `@Sendable` where a `@Sendable` closure calls it, or inline a declaration with a name that states no fact; a function a `[weak self]` callback calls moves into that callback'
+labels:
+    READER: {style: secondary, message: Only reader}

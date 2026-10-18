@@ -31,12 +31,8 @@ internal sealed class SvgGlyphIcon(IPlugInSink sink, IGlyph glyph, int master) :
                             using (BitmapData data = filtered.Lock())
                                 data.SetPixels(data.GetPixels().Select(filter));
                             context.Context.Graphics.DrawImage(filtered, drawing.Frame);
-                            return unit;
                         },
-                        None: () => {
-                            context.Context.Graphics.DrawImage(bitmap, drawing.Frame);
-                            return unit;
-                        }))
+                        None: () => context.Context.Graphics.DrawImage(bitmap, drawing.Frame)))
                     select drawn,
                 _ => IO.pure(unit),
             }
@@ -64,7 +60,7 @@ internal sealed class GlyphIcon : AbstractIcon {
             let lower = (int)Math.Floor(value)
             let upper = (float)(value - lower)
             let received = Optional(context.Filter).IfNone(identity)
-            let weighted = fun((float weight) => context.WithFilter(compose(received, colour => new Color(colour, colour.A * weight))))
+            let weighted = fun((float weight) => context.WithFilter(compose(received, color => new Color(color, color.A * weight))))
             from _ in IO.lift(() => frames.At(lower).Iter(frame => frame.Draw(weighted(1f - upper))))
             from __ in IO.lift(() => frames.At(lower + 1).Iter(frame => frame.Draw(weighted(upper))))
             from ___ in IO.lift(() => overlays.Iter(overlay => overlay.Draw(context)))

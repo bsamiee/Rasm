@@ -5,7 +5,11 @@ severity: error
 utils:
     renamed-call:
         kind: function_call
-        has: {field: name, regex: '(?i)^(ifnull|substring|strpos|lcase|ucase|len|char_length|character_length|pow|ceiling|string_agg|listagg)$'}
+        has: {field: name, regex: '(?i)^(ifnull|substring|ceiling|power|if|group_concat)$'}
+        not:
+            all:
+                - has: {field: name, regex: '(?i)^group_concat$'}
+                - has: {field: arguments, has: {field: modifier, regex: '(?i)^distinct$'}}
     operator-call:
         kind: function_call
         all:
@@ -18,19 +22,11 @@ utils:
                     - has: {nthChild: 2, any: [{matches: sql-operator-expression, pattern: _OPERANDG}, {pattern: _OPERAND}]}
                     - any: [{has: {nthChild: 3, pattern: _ESCAPE}}, {not: {has: {nthChild: 3}}}]
                     - not: {has: {nthChild: 4}}
-    prefix-call:
-        kind: function_call
-        all:
-            - has: {field: name, regex: '(?i)^(starts_with|prefix)$'}
-            - has:
-                field: arguments
-                kind: normal_function_arguments
-                all: [{has: {nthChild: 1, pattern: _TEXT}}, {has: {nthChild: 2, pattern: _PREFIX}}, {not: {has: {nthChild: 3}}}]
     single-in:
         kind: in_list_expression
         all:
             - has: {field: operand, not: {kind: tuple_expression}, any: [{matches: sql-operator-expression, pattern: _OPERANDG}, {pattern: _OPERAND}]}
-            - has: {field: values, not: {kind: tuple_expression}, any: [{matches: sql-operator-expression, pattern: _VALUEG}, {pattern: _VALUE}]}
+            - has: {field: values, not: {kind: 'tuple_expression, template_substitution'}, any: [{matches: sql-operator-expression, pattern: _VALUEG}, {pattern: _VALUE}]}
             - not: {has: {nthChild: 3}}
     comparison-operand:
         inside:
@@ -45,11 +41,10 @@ utils:
         kind: limit_clause
         all:
             - has: {regex: '^,$'}
-            - has: {nthChild: 1, pattern: _SKIP}
+            - has: {nthChild: 1, kind: numeric_literal, pattern: _SKIP}
             - has: {nthChild: 2, pattern: _COUNT}
     keyword-spelling:
         any:
-            - {kind: insert_statement, has: {field: kind, regex: '(?i)^replace$'}}
             - {kind: join_step, has: {regex: '(?i)^(inner|outer)$'}}
             - {kind: 'begin_statement, commit_statement, rollback_statement', has: {regex: '(?i)^(transaction|end)$'}}
             - {kind: 'select_statement, select_clause', has: {regex: '(?i)^all$', follows: {regex: '(?i)^select$'}}}
@@ -104,7 +99,6 @@ rule:
     any:
         - matches: json-call
         - matches: operator-call
-        - matches: prefix-call
         - matches: single-in
         - matches: limit-pair
         - matches: keyword-spelling
@@ -123,10 +117,10 @@ rewriters:
               any:
                 - inside: {kind: 'unary_expression, collate_expression'}
                 - inside: {kind: binary_expression, field: right, has: {field: operator, regex: '^(\|\||->>?)$'}}
-            - any: [{matches: operator-call}, {matches: prefix-call}, {matches: single-in}]
+            - any: [{matches: operator-call}, {matches: single-in}]
               matches: comparison-operand
       transform:
-        PLAIN: {rewrite: {source: $GROUPED, rewriters: [json-operator, operator, prefixed, included]}}
+        PLAIN: {rewrite: {source: $GROUPED, rewriters: [json-operator, operator, included]}}
       fix: ($PLAIN)
     - id: json-operator
       rule: {matches: json-call}
@@ -141,9 +135,6 @@ rewriters:
         GROUPED_PATTERN: {replace: {source: $PATTERNG, replace: '(?s)^(.+)$', by: '($1)'}}
         ESCAPE_CLAUSE: {replace: {source: $ESCAPE, replace: '(?s)^(.+)$', by: ' escape $1'}}
       fix: $OPERAND$GROUPED_OPERAND $OPERATOR $PATTERN$GROUPED_PATTERN$ESCAPE_CLAUSE
-    - id: prefixed
-      rule: {matches: prefix-call}
-      fix: instr($TEXT, $PREFIX) = 1
     - id: included
       rule:
         matches: single-in
@@ -157,9 +148,6 @@ rewriters:
     - id: limited
       rule: {matches: limit-pair}
       fix: limit $COUNT offset $SKIP
-    - id: insertion
-      rule: {regex: '(?i)^replace$', inside: {kind: insert_statement, field: kind}}
-      fix: insert or replace
     - id: joined
       rule: {regex: '(?i)^(inner|outer)$', inside: {kind: join_step}}
       fix: {template: join, expandEnd: {regex: '(?i)^join$'}}
@@ -186,14 +174,22 @@ rewriters:
       transform:
         COALESCE: {replace: {source: $NAME, replace: '(?i)^ifnull$', by: coalesce}}
         SLICE: {replace: {source: $COALESCE, replace: '(?i)^substring$', by: substr}}
-        CONCATENATION: {replace: {source: $SLICE, replace: '(?i)^(string_agg|listagg)$', by: group_concat}}
-        POSITION: {replace: {source: $CONCATENATION, replace: '(?i)^strpos$', by: instr}}
-        LOWER: {replace: {source: $POSITION, replace: '(?i)^lcase$', by: lower}}
-        UPPER: {replace: {source: $LOWER, replace: '(?i)^ucase$', by: upper}}
-        LENGTH: {replace: {source: $UPPER, replace: '(?i)^(len|char_length|character_length)$', by: length}}
-        POWER: {replace: {source: $LENGTH, replace: '(?i)^pow$', by: power}}
-        CEIL: {replace: {source: $POWER, replace: '(?i)^ceiling$', by: ceil}}
-      fix: $CEIL
+        CEIL: {replace: {source: $SLICE, replace: '(?i)^ceiling$', by: ceil}}
+        POW: {replace: {source: $CEIL, replace: '(?i)^power$', by: pow}}
+        CHOICE: {replace: {source: $POW, replace: '(?i)^if$', by: iif}}
+        AGGREGATE: {replace: {source: $CHOICE, replace: '(?i)^group_concat$', by: string_agg}}
+      fix: $AGGREGATE
+    - id: separated
+      rule:
+        kind: normal_function_arguments
+        inside: {field: arguments, matches: renamed-call, has: {field: name, regex: '(?i)^group_concat$'}}
+        has: {nthChild: 1, pattern: _VALUE}
+        any:
+            - not: {has: {nthChild: 2}}
+            - has: {nthChild: 2, kind: order_by_clause, pattern: _ORDER}
+      transform:
+        ORDER_CLAUSE: {replace: {source: $ORDER, replace: '(?s)^(.+)$', by: ' $1'}}
+      fix: "$VALUE, ','$ORDER_CLAUSE"
     - id: compared
       rule:
         matches: equality
@@ -221,7 +217,7 @@ rewriters:
       rule: {kind: is_null_expression, has: {field: operand, pattern: _OPERAND}}
       fix: $OPERAND is not null
 transform:
-    FIXED: {rewrite: {source: $NODE, rewriters: [grouped, json-operator, operator, prefixed, included, limited, insertion, joined, committed, selected, temp, star, starred, renamed, compared, null-identity, is-null, is-not-null]}}
+    FIXED: {rewrite: {source: $NODE, rewriters: [grouped, json-operator, operator, included, limited, joined, committed, selected, temp, star, starred, renamed, separated, compared, null-identity, is-null, is-not-null]}}
 fix: $FIXED
 message: '`$NODE` is a second spelling of `$FIXED`'
-note: 'Write the fix''s spelling, the one SQLite and DuckDB both read. Null-safe comparison keeps `is` in SQLite text and `is not distinct from` in DuckDB SQL. Scalar `case` and `iif` stay, Cloudflare D1''s function authorizer rejects `if`'
+note: 'Write the fix spelling. The D1 and Durable Objects authorizer rejects `if`, `power`, and `ceiling`, and PostgreSQL shares `string_agg`'

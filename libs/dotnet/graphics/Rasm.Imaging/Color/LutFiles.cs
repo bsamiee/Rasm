@@ -167,7 +167,7 @@ public static class LutFiles {
     private const string LinSideBreak = "linSideBreak";
     private const string LinearSlope = "linearSlope";
     private const string Channel = "channel";
-    private const string Lanes = "RGB";
+    private const string ChannelLetters = "RGB";
     private const string ExponentParams = "ExponentParams";
     private const string ExponentValue = "exponent";
     private const string OffsetValue = "offset";
@@ -332,7 +332,7 @@ public static class LutFiles {
     private static Fin<LutTable> ParseProcessList(LutFormat format, string text) =>
         Try.lift(() => XDocument.Parse(text, LoadOptions.SetLineInfo)).Run()
             .MapFail(error => error.Exception.Case is XmlException xml ? Misstated(format, xml.LineNumber) : error)
-            .Bind(document => document.Root is { } root && string.Equals(root.Name.LocalName, ProcessList, StringComparison.Ordinal)
+            .Bind(document => document.Root is { Name.LocalName: ProcessList } root
                 ? toSeq(root.Elements())
                     .Filter(static node => !Marked(node, "bypass", "true"))
                     .TraverseM(node => ProcessNode.TryGet(node.Name.LocalName, out ProcessNode? kind) && kind.Formats.Exists(held => held == format)
@@ -347,7 +347,7 @@ public static class LutFiles {
         from table in (read.Array.Dimensions, read.Array.Values.Length) switch {
             ([4, ..], _) => Unheld(node, format),
             ([3, 3] or [3, 3, 3], 9) => Fin.Succ<LutTable>(Affine(read.Array.Values.AsSpan(0, 9), 3, read.Scales)),
-            ([3, 4] or [3, 4, 3], 12) => Fin.Succ<LutTable>(Affine(read.Array.Values.AsSpan(0, 12), 4, read.Scales)),
+            ([3, 4] or [3, 4, 3], 12) => Affine(read.Array.Values.AsSpan(0, 12), 4, read.Scales),
             _ => Malformed(node, format),
         }
         select table;
@@ -389,8 +389,8 @@ public static class LutFiles {
         let clamps = !Marked(node, Style, NoClamp)
         from bounds in (stated.Minimum.Case, stated.Maximum.Case) switch {
             (RemapBound low, RemapBound high) when low.In != high.In => Fin.Succ<RemapBounds>(new RemapBounds.Between(low, high, clamps)),
-            (RemapBound low, null) when clamps => Fin.Succ<RemapBounds>(new RemapBounds.Floor(low)),
-            (null, RemapBound high) when clamps => Fin.Succ<RemapBounds>(new RemapBounds.Ceiling(high)),
+            (RemapBound low, null) when clamps => new RemapBounds.Floor(low),
+            (null, RemapBound high) when clamps => new RemapBounds.Ceiling(high),
             _ => Malformed(node, format),
         }
         select (LutTable)new LutTable.Remap(bounds);
@@ -398,7 +398,7 @@ public static class LutFiles {
     internal static Fin<LutTable> ReadLog(XElement node, LutFormat format) =>
         from style in Attribute(node, Style).Bind(static token => ClfLogStyle.Validated(token).ToOption()).ToFin(Malformed(node, format))
         from curve in style.Base.Match(
-            Some: static logBase => Fin.Succ(new LogCurve(logBase, Vector3.One, Vector3.Zero, Vector3.One, Vector3.Zero, None)),
+            Some: static logBase => new LogCurve(logBase, Vector3.One, Vector3.Zero, Vector3.One, Vector3.Zero, None),
             None: () => Logarithm(node, format, style.Camera))
         select style.Table(curve);
 
@@ -423,7 +423,7 @@ public static class LutFiles {
         Fin<T> Field<T>(string parent, string name, Func<string, Option<T>> parse, T absent) =>
             Child(correction, parent).Match(
                 Some: held => Child(held, name).Bind(element => parse(element.Value)).ToFin(malformed(name)),
-                None: () => Fin.Succ(absent));
+                None: () => absent);
         return (Field(SopNode, Slope, Triple, Vector3.One), Field(SopNode, Offset, Triple, Vector3.Zero), Field(SopNode, Power, Triple, Vector3.One), Field(SatNode, Saturation, static text => Invariant.Number<float>(text), 1f))
             .Apply(static (slope, offset, power, saturation) => (slope, offset, power, saturation))
             .As();
@@ -510,10 +510,10 @@ public static class LutFiles {
         from bases in Children(node, LogParams).TraverseM(element => Decimal(element, format, LogBase)).As()
         from logBase in bases.Somes().Distinct() switch {
             [] => Fin.Succ(2f),
-            [> 0f and not 1f and var stated] => Fin.Succ(stated),
+            [> 0f and not 1f and var stated] => stated,
             _ => Malformed(node, format),
         }
-        from lanes in Laned(
+        from channels in PerChannel(
             node, format, LogParams,
             element =>
                 from read in (
@@ -533,15 +533,15 @@ public static class LutFiles {
             camera ? None : Some((Sides: new Vector4(1f, 0f, 1f, 0f), Camera: Option<(float Knee, float Slope)>.None)))
         select new LogCurve(
             logBase,
-            Across(lanes, static lane => lane.Sides.X),
-            Across(lanes, static lane => lane.Sides.Y),
-            Across(lanes, static lane => lane.Sides.Z),
-            Across(lanes, static lane => lane.Sides.W),
-            lanes.Traverse(static lane => lane.Camera).As().Map(static joints => new CameraSegment(Across(joints, static joint => joint.Knee), Across(joints, static joint => joint.Slope))));
+            Across(channels, static channel => channel.Sides.X),
+            Across(channels, static channel => channel.Sides.Y),
+            Across(channels, static channel => channel.Sides.Z),
+            Across(channels, static channel => channel.Sides.W),
+            channels.Traverse(static channel => channel.Camera).As().Map(static joints => new CameraSegment(Across(joints, static joint => joint.Knee), Across(joints, static joint => joint.Slope))));
 
     private static Fin<LutTable> Exponential(XElement node, LutFormat format, string parameters, string exponent) =>
         from style in Attribute(node, Style).Bind(static token => ExponentStyle.Validated(token).ToOption()).ToFin(Malformed(node, format))
-        from lanes in Laned(
+        from channels in PerChannel(
             node, format, parameters,
             element =>
                 from read in (Decimal(element, format, exponent).Bind(held => held.ToFin(Malformed(element, format))), Decimal(element, format, OffsetValue))
@@ -552,27 +552,27 @@ public static class LutFiles {
                     Malformed(element, format)).ToFin()
                 select (read.Power, Offset: read.Offset.IfNone(0f)),
             Some((Power: 1f, Offset: 0f)))
-        from table in (Across(lanes, static lane => lane.Power), Across(lanes, static lane => lane.Offset)) switch {
+        from table in (Across(channels, static channel => channel.Power), Across(channels, static channel => channel.Offset)) switch {
             var (power, offset) when offset == Vector3.Zero => Fin.Succ<LutTable>(new LutTable.Exponent(style.Basic.IfNone(style), power, offset)),
-            var (power, offset) when Vector3.GreaterThanAll(offset, Vector3.Zero) && Vector3.GreaterThanAll(power, Vector3.One) => Fin.Succ<LutTable>(new LutTable.Exponent(style, power, offset)),
+            var (power, offset) when Vector3.GreaterThanAll(offset, Vector3.Zero) && Vector3.GreaterThanAll(power, Vector3.One) => new LutTable.Exponent(style, power, offset),
             _ => Malformed(node, format),
         }
         select table;
 
-    private static Fin<Seq<T>> Laned<T>(XElement node, LutFormat format, string name, Func<XElement, Fin<T>> read, Option<T> unstated) =>
+    private static Fin<Seq<T>> PerChannel<T>(XElement node, LutFormat format, string name, Func<XElement, Fin<T>> read, Option<T> unstated) =>
         Children(node, name)
             .TraverseM(element =>
-                from lanes in Attribute(element, Channel).Match(
-                    Some: static letter => letter.Length is 1 && Lanes.IndexOf(letter, StringComparison.OrdinalIgnoreCase) is var lane and >= 0 ? Some(Seq(lane)) : None,
+                from channels in Attribute(element, Channel).Match(
+                    Some: static letter => letter.Length is 1 && ChannelLetters.IndexOf(letter, StringComparison.OrdinalIgnoreCase) is var channel and >= 0 ? Some(Seq(channel)) : None,
                     None: static () => Some(Seq(0, 1, 2))).ToFin(Malformed(element, format))
                 from value in read(element)
-                select (Lanes: lanes, Value: value))
+                select (Channels: channels, Value: value))
             .As()
             .Bind(entries => Seq(0, 1, 2)
-                .Traverse(lane => (entries.Filter(entry => entry.Lanes.Exists(held => held == lane)).Last.Map(static entry => entry.Value) | unstated).ToFin(Malformed(node, format)))
+                .Traverse(channel => (entries.Filter(entry => entry.Channels.Exists(held => held == channel)).Last.Map(static entry => entry.Value) | unstated).ToFin(Malformed(node, format)))
                 .As());
 
-    private static Vector3 Across<T>(Seq<T> lanes, Func<T, float> lane) => new([.. lanes.Map(lane)]);
+    private static Vector3 Across<T>(Seq<T> channels, Func<T, float> channel) => new([.. channels.Map(channel)]);
 
     private static Fin<(float In, float Out)> Scales(XElement node, LutFormat format) =>
         (Scale(node, format, InBitDepth), Scale(node, format, OutBitDepth)).Apply(static (input, output) => (In: input, Out: output)).As();
@@ -814,9 +814,9 @@ public static class LutFiles {
             exponent: static (_, exponent) => Seq(Node(
                 ProcessNode.Exponent,
                 new XAttribute(Style, exponent.Style.Key),
-                Parameters(ExponentParams, lane => exponent.Style.Basic.IsSome
-                    ? Seq((ExponentValue, exponent.Power[lane]), (OffsetValue, exponent.Offset[lane]))
-                    : Seq((ExponentValue, exponent.Power[lane]))))),
+                Parameters(ExponentParams, channel => exponent.Style.Basic.IsSome
+                    ? Seq((ExponentValue, exponent.Power[channel]), (OffsetValue, exponent.Offset[channel]))
+                    : Seq((ExponentValue, exponent.Power[channel]))))),
             cdl: static (_, cdl) => Seq(Node(ProcessNode.AscCdl, new XAttribute(Style, cdl.Style.Key), CorrectionNodes(XNamespace.None, cdl))),
             sequence: static (format, sequence) => sequence.Steps.TraverseM(step => Nodes(format, step)).As().Map(static nodes => nodes.Flatten()));
 
@@ -852,14 +852,14 @@ public static class LutFiles {
         Node(
             ProcessNode.Log,
             new XAttribute(Style, style.Key),
-            Parameters(LogParams, lane =>
-                Seq((LogBase, curve.Base), (LogSideSlope, curve.LogSlope[lane]), (LogSideOffset, curve.LogOffset[lane]), (LinSideSlope, curve.LinSlope[lane]), (LinSideOffset, curve.LinOffset[lane]))
-                + curve.Camera.ToSeq().Bind(camera => Seq((LinSideBreak, camera.Break[lane]), (LinearSlope, camera.Slope[lane])))));
+            Parameters(LogParams, channel =>
+                Seq((LogBase, curve.Base), (LogSideSlope, curve.LogSlope[channel]), (LogSideOffset, curve.LogOffset[channel]), (LinSideSlope, curve.LinSlope[channel]), (LinSideOffset, curve.LinOffset[channel]))
+                + curve.Camera.ToSeq().Bind(camera => Seq((LinSideBreak, camera.Break[channel]), (LinearSlope, camera.Slope[channel])))));
 
-    private static Seq<XElement> Parameters(string element, Func<int, Seq<(string Name, float Value)>> lane) =>
-        Seq(0, 1, 2).Map(lane).Strict() switch {
-            var lanes when lanes.Distinct().Count is 1 => lanes.Take(1).Map(held => new XElement(element, Attributes(held))),
-            var lanes => lanes.Map((held, at) => new XElement(element, new XAttribute(Channel, Lanes[at].ToString()), Attributes(held))),
+    private static Seq<XElement> Parameters(string element, Func<int, Seq<(string Name, float Value)>> channel) =>
+        Seq(0, 1, 2).Map(channel).Strict() switch {
+            var channels when channels.Distinct().Count is 1 => channels.Take(1).Map(held => new XElement(element, Attributes(held))),
+            var channels => channels.Map((held, at) => new XElement(element, new XAttribute(Channel, ChannelLetters[at].ToString()), Attributes(held))),
         };
 
     private static Seq<XAttribute> Attributes(Seq<(string Name, float Value)> held) =>

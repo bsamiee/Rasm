@@ -3,12 +3,12 @@
     "cacheDirectory": ".cache/nx/cache",
     "neverConnectToCloud": true,
     "namedInputs": {
-        "production": [ "default", "!{projectRoot}/**/*.{spec,test,bench}.{ts,tsx,mts,cts}" ],
-        "dotnet": [ "{workspaceRoot}/{global.json,NuGet.config,Directory.Build.props,Directory.Build.rsp,Directory.Build.targets,Directory.Packages.props}", "{workspaceRoot}/tools/roslyn/**/*", { "externalDependencies": [] }, { "env": "NUGET_PACKAGES" }, { "runtime": "dotnet --version" } ],
+        "production": [ "default", "!{projectRoot}/**/*.{spec,test,bench}.{ts,tsx,mts,cts}", "!{projectRoot}/**/*.stories.tsx", "!{projectRoot}/.storybook/**/*" ],
+        "dotnet": [ "{workspaceRoot}/{global.json,NuGet.config,Directory.Build.props,Directory.Build.rsp,Directory.Build.targets,Directory.Packages.props}", "{workspaceRoot}/tools/roslyn/**/*", { "externalDependencies": [] }, { "env": "NUGET_PACKAGES" } ],
         "python": [ "{workspaceRoot}/pyproject.toml", "{workspaceRoot}/uv.lock", "{workspaceRoot}/pixi.lock", { "externalDependencies": [] }, { "runtime": "uv --version" }, { "runtime": "python --version" } ],
-        "vite": [ "{workspaceRoot}/vite.config.ts", { "externalDependencies": [ "vite", "effect" ] } ],
+        "vite": [ "{workspaceRoot}/vite.config.ts", { "externalDependencies": [ "vite", "effect", "@vitejs/plugin-react", "@cloudflare/vite-plugin" ] } ],
         "typescript": [ "{workspaceRoot}/tsconfig.base.json", { "json": "{workspaceRoot}/package.json", "fields": [ "type", "imports" ] }, { "runtime": "node --version" } ],
-        "rust": [ "{workspaceRoot}/{Cargo.toml,Cargo.lock,rust-toolchain.toml,.cargo/config.toml}", { "externalDependencies": [] }, { "runtime": "rustc --version" } ],
+        "rust": [ "{workspaceRoot}/{Cargo.toml,Cargo.lock,rust-toolchain.toml,.cargo/config.toml}", { "externalDependencies": [] } ],
         "pythonFiles": [ "{workspaceRoot}/**/*.{py,pyi}" ],
         "rustFiles": [ "{workspaceRoot}/**/*.rs" ],
         "lintLibrary": [ "{projectRoot}/**/*.rs", "!{projectRoot}/examples/**/*", "!{projectRoot}/tests/**/*", "{projectRoot}/Cargo.toml" ],
@@ -28,7 +28,7 @@
             },
             {
                 "filter": { "projects": [ "tag:language:dotnet" ] },
-                "command": "dotnet build \"-bl:$NX_WORKSPACE_ROOT/.artifacts/dotnet/binlog/$NX_TASK_TARGET_PROJECT/$NX_TASK_TARGET_TARGET.binlog\"",
+                "command": "dotnet build \"-bl:$NX_WORKSPACE_ROOT/.artifacts/dotnet/binlog/$NX_TASK_TARGET_PROJECT/$(printf %s \"$NX_TASK_TARGET_TARGET\" | tr : -).binlog\"",
                 "inputs": [ "...", "dotnet", "{workspaceRoot}/.config/sixlabors.lic" ],
                 "parallelism": false
             },
@@ -65,7 +65,7 @@
             {
                 "filter": { "projects": [ "tag:host:rhino" ] },
                 "cache": false,
-                "command": "dotnet publish --no-build --configuration Release \"-bl:$NX_WORKSPACE_ROOT/.artifacts/dotnet/binlog/$NX_TASK_TARGET_PROJECT/$NX_TASK_TARGET_TARGET.binlog\"",
+                "command": "dotnet publish --no-build --configuration Release \"-bl:$NX_WORKSPACE_ROOT/.artifacts/dotnet/binlog/$NX_TASK_TARGET_PROJECT/$(printf %s \"$NX_TASK_TARGET_TARGET\" | tr : -).binlog\"",
                 "options": { "cwd": "{projectRoot}" },
                 "dependsOn": [ "build:release" ],
                 "outputs": [ "{workspaceRoot}/.artifacts/dotnet/publish/{projectName}/release*", "{workspaceRoot}/.artifacts/dotnet/obj/{projectName}/release*/PublishOutputs.*.txt", "{workspaceRoot}/.artifacts/dotnet/binlog/{projectName}/pack.binlog" ]
@@ -90,23 +90,22 @@
             },
             {
                 "filter": { "projects": [ "tag:host:rhino" ] },
-                "command": "dotnet msbuild -target:InstallYakPackage -property:Configuration=Release \"-bl:$NX_WORKSPACE_ROOT/.artifacts/dotnet/binlog/$NX_TASK_TARGET_PROJECT/$NX_TASK_TARGET_TARGET.binlog\"",
+                "command": "dotnet msbuild -target:InstallYakPackage -property:Configuration=Release \"-bl:$NX_WORKSPACE_ROOT/.artifacts/dotnet/binlog/$NX_TASK_TARGET_PROJECT/$(printf %s \"$NX_TASK_TARGET_TARGET\" | tr : -).binlog\"",
                 "options": { "cwd": "{projectRoot}" },
                 "dependsOn": [ "pack" ],
                 "parallelism": false,
                 "outputs": [ "{workspaceRoot}/.artifacts/dotnet/binlog/{projectName}/install.binlog" ]
             },
             { "filter": { "projects": [ "tag:host:blender" ] }, "dependsOn": [ "pack" ], "parallelism": false },
-            { "filter": { "projects": [ "tag:host:uxp" ] }, "command": "node eng/typescript/uxp/main.ts .artifacts/{projectRoot}", "dependsOn": [ "build" ], "parallelism": false }
-        ],
-        "{install,upgrade}:cargo": { "command": "cargo install --locked --profile dist --path {projectRoot}", "parallelism": false },
-        "{install,upgrade}": [
-            { "filter": { "projects": [ "tag:language:rust" ] }, "options": { "binary": "{projectName}" }, "dependsOn": [ "install:cargo" ] },
+            { "filter": { "projects": [ "tag:host:uxp" ] }, "command": "node eng/typescript/uxp/main.ts .artifacts/{projectRoot}", "dependsOn": [ "build" ], "parallelism": false },
             {
-                "filter": { "projects": [ "rasm", "tag:language:rust" ] },
-                "command": "yq -p toml -oy '.bootstrap.macos.launchd.agents | to_entries | .[] | select(\"{args.binary}\" == \"\" or (.value.args | any_c(. == \"{args.binary}\"))) | .key' mise.toml | xargs -I @ launchctl kickstart -k gui/$(id -u)/dev.mise.@"
+                "filter": { "projects": [ "tag:language:rust" ] },
+                "command": "yq -p toml -oy '.daemons | to_entries | .[] | select(.value.boot_start and (.value.run | split(\" \") | any_c(. == \"{args.binary}\"))) | .key' mise.toml | xargs mise daemons restart",
+                "options": { "binary": "{projectName}" },
+                "dependsOn": [ "install:cargo" ]
             }
         ],
+        "{install,upgrade}:cargo": { "command": "cargo install --locked --profile dist --path {projectRoot}", "parallelism": false },
         "upgrade": [
             {
                 "filter": { "projects": [ "tag:build:xcode" ] },
@@ -149,22 +148,28 @@
             }
         ],
         "serve": [ { "filter": { "projects": [ "tag:bundler:vite" ] }, "command": "vite", "options": { "cwd": "{projectRoot}" }, "continuous": true } ],
-        "restore{,:*.cs}": { "command": "dotnet restore \"-bl:$NX_WORKSPACE_ROOT/.artifacts/dotnet/binlog/$NX_TASK_TARGET_PROJECT/$NX_TASK_TARGET_TARGET.binlog\"", "cache": false, "parallelism": false },
+        "storybook": { "command": "storybook dev --ci", "options": { "cwd": "{projectRoot}" }, "continuous": true },
+        "types": { "command": "cf workers types", "options": { "cwd": "{projectRoot}" }, "cache": true, "inputs": [ "{projectRoot}/cloudflare.config.ts", { "externalDependencies": [ "cf" ] } ], "outputs": [ "{projectRoot}/.cloudflare/types" ] },
+        "restore{,:*.cs}": { "command": "dotnet restore \"-bl:$NX_WORKSPACE_ROOT/.artifacts/dotnet/binlog/$NX_TASK_TARGET_PROJECT/$(printf %s \"$NX_TASK_TARGET_TARGET\" | tr : -).binlog\"", "parallelism": false },
         "run:*.cs": { "command": "dotnet run" },
         "format:*": { "parallelism": false },
-        "{format,lint}:{dotnet-format,*.cs}": { "command": "dotnet format --binarylog \"$NX_WORKSPACE_ROOT/.artifacts/dotnet/binlog/$NX_TASK_TARGET_PROJECT/$NX_TASK_TARGET_TARGET.binlog\"", "parallelism": false, "dependsOn": [ "...", { "target": "build", "projects": [ "directory:tools/roslyn/**" ] } ] },
+        "lint:*": { "cache": true },
+        "{format,lint}:{dotnet-format,*.cs}": {
+            "command": "dotnet format --binarylog \"$NX_WORKSPACE_ROOT/.artifacts/dotnet/binlog/$NX_TASK_TARGET_PROJECT/$(printf %s \"$NX_TASK_TARGET_TARGET\" | tr : -).binlog\"",
+            "parallelism": false,
+            "dependsOn": [ "...", { "target": "build", "projects": [ "directory:tools/roslyn/**" ] } ]
+        },
         "typecheck:*": [
+            { "cache": true },
             {
                 "filter": { "projects": [ "tag:language:typescript" ] },
                 "command": "tsc --pretty false",
-                "cache": true,
                 "inputs": [ "default", "^default", "typescript", { "externalDependencies": [ "typescript", "@effect/tsgo" ] } ],
                 "options": { "cwd": "{projectRoot}" }
             },
             {
                 "filter": { "projects": [ "tag:language:rust" ] },
                 "command": "cargo clippy --locked --no-deps --package {projectName}",
-                "cache": true,
                 "inputs": [ "default", "^default", "rust", "{workspaceRoot}/clippy.toml" ],
                 "parallelism": false
             }
@@ -183,24 +188,24 @@
             },
             {
                 "filter": { "projects": [ "tag:language:typescript" ], "plugin": "@nx/vitest" },
-                "inputs": [ "...", "typescript", "{workspaceRoot}/vitest.config.ts", { "externalDependencies": [ "effect", "@effect/platform-node", "@effect/vitest", "yaml" ] } ],
+                "inputs": [ "...", "typescript", "vite", "{workspaceRoot}/vitest.config.ts", { "externalDependencies": [ "effect", "@effect/platform-node", "@effect/vitest", "yaml", "@vitest/browser-playwright", "playwright", "@storybook/addon-vitest" ] } ],
                 "outputs": [ "{workspaceRoot}/.artifacts/typescript/coverage/{projectName}" ]
             },
             {
                 "filter": { "projects": [ "tag:language:rust" ] },
                 "command": "cargo nextest run --locked --package {projectName}",
                 "inputs": [ "default", "^default", "rust", "{workspaceRoot}/.config/nextest.toml", { "runtime": "cargo nextest --version" } ],
-                "outputs": [],
                 "parallelism": false
             },
             { "filter": { "projects": [ "tag:host:dylint" ] }, "inputs": [ "...", { "runtime": "cargo dylint --version" } ] },
             {
                 "filter": { "projects": [ "tag:build:swiftpm" ] },
                 "command": "swift test --package-path {projectRoot} --scratch-path $NX_WORKSPACE_ROOT/.cache/swiftpm/build/{projectRoot} --disable-automatic-resolution",
-                "inputs": [ "default", "^default", { "externalDependencies": [] }, { "runtime": "xcodebuild -version" } ],
-                "outputs": []
+                "inputs": [ "default", "^default", { "externalDependencies": [] }, { "runtime": "xcodebuild -version" } ]
             }
         ],
+        "e2e": [ { "filter": { "plugin": "@nx/playwright/plugin" }, "cache": false, "parallelism": true } ],
+        "test:integration": [ { "cache": false, "parallelism": false, "dependsOn": [ { "projects": [ "rasm" ], "target": "docker" } ] }, { "filter": { "projects": [ "tag:language:typescript" ] }, "command": "vitest run", "options": { "cwd": "{projectRoot}" } } ],
         "coverage": {
             "command": "cargo llvm-cov nextest --locked --package {projectName} --branch --html --output-dir .artifacts/rust/coverage/{projectName}",
             "cache": true,
@@ -212,7 +217,7 @@
     },
     "plugins": [
         { "plugin": "@nx/vitest", "include": [ "**/vitest.config.ts" ], "exclude": [ "vitest.config.ts" ], "options": { "testMode": "run" } },
-        { "plugin": "@nx/playwright/plugin" },
+        { "plugin": "@nx/playwright/plugin", "options": { "ciTargetName": "" } },
         { "plugin": "@nx/dotnet", "options": { "clean": false, "pack": false, "publish": false, "restore": false, "run": false, "watch": false } },
         { "plugin": "./tools/nx/workspace.ts" }
     ]

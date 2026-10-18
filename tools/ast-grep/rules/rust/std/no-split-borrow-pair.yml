@@ -24,11 +24,15 @@ utils:
 rule:
     kind: let_declaration
     all:
-        - pattern: 'let ($HEAD, $TAIL) = $V.split_at_mut($AT);'
+        - any:
+            - pattern: 'let ($HEAD, $TAIL) = $V.split_at_mut($AT);'
+            - pattern: 'let ($HEAD, $TAIL) = $V.split_at_mut_checked($AT)?;'
+            - pattern: 'let ($HEAD, $TAIL) = $V.split_at_mut_checked($AT).$OR($$$)?;'
+            - pattern: 'let Some(($HEAD, $TAIL)) = $V.split_at_mut_checked($AT) else { $$$ };'
         - precedes: {stopBy: end, has: {stopBy: end, matches: head-element}}
         - precedes: {stopBy: end, has: {stopBy: end, matches: tail-element}}
         - not: {precedes: {stopBy: end, has: {stopBy: end, kind: identifier, pattern: $HEAD, not: {matches: element-site}}}}
         - not: {precedes: {stopBy: end, has: {stopBy: end, kind: identifier, pattern: $TAIL, not: {matches: element-site}}}}
         - not: {precedes: {stopBy: end, has: {stopBy: end, matches: looped, has: {stopBy: end, kind: identifier, any: [{pattern: $HEAD}, {pattern: $TAIL}]}}}}
-message: '`$V.split_at_mut($AT)` splits the slice to borrow one element from each half'
+message: '`$V` splits at `$AT` to borrow one element from each half'
 note: 'Write `let [<a>, <b>] = <slice>.get_disjoint_mut([<i>, <j>])?` with each half index rewritten as an index into the slice'

@@ -46,7 +46,7 @@ rule:
         - matches: sender-field
 rewriters:
     - id: binding-form
-      rule: {matches: tuple-binding}
+      rule: {matches: tuple-binding, has: {field: pattern, regex: '^\(\s*(mut\s+)?\w+\s*,\s*_\s*,?\s*\)$'}}
       transform:
         TURBOFISH: replace($TYPES, replace='^<', by='::<')
         ANNOTATION:
@@ -61,4 +61,4 @@ transform:
     FIXED: rewrite($SITE, rewriters=[binding-form, field-form])
 fix: $FIXED
 message: '`$MODULE::channel` builds a receiver that no code reads'
-note: 'Construct the sender alone with `<module>::Sender::new` and take receivers from `Sender::subscribe` where a consumer exists'
+note: 'Construct the sender alone with `<module>::Sender::new` and take receivers from `Sender::subscribe` where a consumer exists, and call `send_replace` in place of a `send` the held receiver kept succeeding'

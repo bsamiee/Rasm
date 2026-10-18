@@ -49,10 +49,10 @@ public sealed partial class CurveAxis {
     public bool Contains(double coordinate) => coordinate >= Span.Low && (Periodic ? coordinate < Span.High : coordinate <= Span.High);
 
     public static double ToStops(double linear) =>
-        linear < LinearBreak ? (linear * Slope) + Floor : double.Log2((linear + Shift) / (Exposure.MiddleGrey + Shift));
+        linear < LinearBreak ? (linear * Slope) + Floor : double.Log2((linear + Shift) / (Exposure.MiddleGray + Shift));
 
     public static double FromStops(double stops) =>
-        stops < StopBreak ? (stops - Floor) / Slope : (double.Exp2(stops) * (Exposure.MiddleGrey + Shift)) - Shift;
+        stops < StopBreak ? (stops - Floor) / Slope : (double.Exp2(stops) * (Exposure.MiddleGray + Shift)) - Shift;
 }
 
 [SmartEnum]
@@ -144,13 +144,13 @@ internal sealed partial class SplineShape {
             toSeq(domain.Map(point => wraps && (point.X < 0d || point.X >= 1d) ? Shifted(point, point.X < 0d ? 1d : -1d, monotone) : point).OrderBy(static point => point.X)) switch {
                 var sorted => (wraps, Spaced(sorted.Map(static point => point.X)).Zip(monotone ? Spaced(sorted.Map(static point => point.Y)) : sorted.Map(static point => point.Y), static (x, y) => new CurvePoint(x, y))),
             } switch {
-                (true, [var first, .., var last] and var spaced) => Shifted(last, -1d, monotone).Cons(spaced).Add(Shifted(first, 1d, monotone)),
+                (true, [var first, .., var last] and var spaced) => [Shifted(last, -1d, monotone), .. spaced, Shifted(first, 1d, monotone)],
                 (_, var spaced) => spaced,
             };
 
         static Seq<double> Wrapped(Seq<double> slopes, bool wraps) =>
             (wraps, slopes) switch {
-                (true, [_, var second, .., var penultimate, _]) => penultimate.Cons(slopes.Tail.Init).Add(second),
+                (true, [_, var second, .., var penultimate, _]) => [penultimate, .. slopes.Tail.Init, second],
                 _ => slopes,
             };
 
@@ -190,7 +190,7 @@ internal sealed partial class SplineShape {
 
         static Seq<double> Ended(Seq<Interval> spans, Seq<double> interior, double floor) =>
             fun((Interval span, double inner) => double.Max(floor, 0.5 * ((3d * span.Secant) - inner))) switch {
-                var end => (spans.Head, interior.Head).Apply(end).As().ToSeq().Concat(interior).Concat((spans.Last, interior.Last).Apply(end).As().ToSeq()),
+                var end => [.. (spans.Head, interior.Head).Apply(end).As().ToSeq(), .. interior, .. (spans.Last, interior.Last).Apply(end).As().ToSeq()],
             };
 
         static Seq<double> Harmonic(Seq<Interval> spans) =>
@@ -335,11 +335,11 @@ public sealed record PointCurves(PointCurve Red, PointCurve Green, PointCurve Bl
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class PointCurveParameter : IStateParameter<PointCurves> {
     public static readonly PointCurveParameter Red = new("red", new StateParameter<PointCurves>.Keyed<PointCurve, string>(CurveChannel.Red.Curve),
-        new("Red", "Red channel curve over stops about middle grey"));
+        new("Red", "Red channel curve over stops about middle gray"));
     public static readonly PointCurveParameter Green = new("green", new StateParameter<PointCurves>.Keyed<PointCurve, string>(CurveChannel.Green.Curve),
-        new("Green", "Green channel curve over stops about middle grey"));
+        new("Green", "Green channel curve over stops about middle gray"));
     public static readonly PointCurveParameter Blue = new("blue", new StateParameter<PointCurves>.Keyed<PointCurve, string>(CurveChannel.Blue.Curve),
-        new("Blue", "Blue channel curve over stops about middle grey"));
+        new("Blue", "Blue channel curve over stops about middle gray"));
     public static readonly PointCurveParameter Master = new("master", new StateParameter<PointCurves>.Keyed<PointCurve, string>(CurveChannel.Master.Curve),
         new("Master", "Curve every channel takes after its own"));
     public static readonly PointCurveParameter PreserveHue = new("preserve-hue", StateParameter.Bounded(Lens<PointCurves, AxisFraction>.New(static curves => curves.PreserveHue, static preserve => curves => curves with { PreserveHue = preserve })),

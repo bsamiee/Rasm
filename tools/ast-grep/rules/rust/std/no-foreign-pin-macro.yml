@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-foreign-pin-macro
+language: rust
+severity: error
+utils:
+    foreign:
+        regex: '^((::)?tokio::pin|((::)?(futures(::\w+)*|pin_utils)::)?pin_mut)$'
+rule:
+    any:
+        - kind: macro_invocation
+          has: {field: macro, matches: foreign, pattern: $SITE}
+        - kind: use_declaration
+          has:
+            field: argument
+            any:
+                - {kind: scoped_identifier, matches: foreign, pattern: $SITE}
+                - {kind: use_as_clause, has: {field: path, kind: scoped_identifier, matches: foreign, pattern: $SITE}}
+                - kind: scoped_use_list
+                  all:
+                    - has: {field: path, regex: '^(::)?(tokio|futures(::\w+)*|pin_utils)$'}
+                    - has:
+                        field: list
+                        has:
+                            any:
+                                - {kind: identifier, regex: '^(pin|pin_mut)$', pattern: $SITE}
+                                - {kind: use_as_clause, has: {field: path, kind: identifier, regex: '^(pin|pin_mut)$', pattern: $SITE}}
+message: '`$SITE` pins through a crate macro'
+note: 'Write `core::pin::pin!(<future>)` and bind its `Pin<&mut _>`'

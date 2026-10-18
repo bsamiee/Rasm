@@ -10,10 +10,11 @@
 - Apple Events alone reach an application, with no socket, broker, queue, or health check
 - Requests and replies share one JSON form, a reply value feeds a later request unchanged
 - `Atelier.app` is a background-only bundle with identifier `app.rasm.atelier`, the subject of Automation and Screen Recording consent and `tccutil`
-- `mise.toml` `[env]` `ATELIER_PATH` names the executable inside the installed bundle
+- `mise.toml` `atelier` daemon row `env` `ATELIER_PATH` names the executable inside the installed bundle
 - `apps/creative-cloud/atelier/scripting.ts` keeps `ATELIER_PATH` running, one JSON-RPC 2.0 request per stdin line, one reply per stdout line
 - `Request` in `Scripting.swift` decodes each method, the `RpcGroup` in `scripting.ts` types each call
-- A refusal replies with a JSON-RPC error carrying `_tag` `ScriptingError` and a `Refused` `reason`, the form `ScriptingError` decodes
+- Refusals reply with a JSON-RPC error carrying `_tag` `ScriptingError` and a `Refused` `reason`, the form `ScriptingError` decodes
+- `Scripting.swift` changes reach callers after `nx run Atelier:install` and `mise daemons restart rasm/atelier`, stale installed bundle fails every refusal with `SchemaError`
 - Lines run concurrently, a reply carries its request's `id`, a line with no readable `id` gets no reply
 - Closing stdin exits after every reply is written
 - Each running application's parsed dictionary stays in memory until its process identifier changes
@@ -23,6 +24,6 @@
 - `application` reads the one bundle at a url
 - `windows` lists on-screen windows front to back with bounds in points, level (`normal`, `modal`, `other`), and the title a window server names
 - `capture` runs `screencapture` as a child of `Atelier` under its Screen Recording grant and answers the image's pixel size
-- Captures scale down to the `longest` side a call names, never up
+- Captures are JPEG files at the window's native pixel size
 - `faces` lists each face CoreText finds among the available fonts once, with the path of its file
 - When another binary is responsible for it, `Atelier` re-executes in place with responsibility disclaimed, TCC consent names it alone

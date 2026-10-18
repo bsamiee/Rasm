@@ -396,12 +396,11 @@ public static class Appearance {
             Applied.Live,
             SettingChanged);
 
-    private static ValueStore<int> Strip(string name, IO<int> current) {
-        const int factory = 18;
-        return Sized(
+    private static ValueStore<int> Strip(string name, IO<int> current) =>
+        Sized(
             name,
             current,
-            IO.pure(factory),
+            IO.pure(18),
             IO.pure((Minimum: 16, Maximum: 32)),
             size =>
                 from node in SettingRoots.AddChild(SettingsNode.Application)
@@ -410,7 +409,6 @@ public static class Appearance {
                 select written,
             Applied.IdleSave,
             SettingRoots.Saved(SettingsNode.Application));
-    }
 
     // --- [WINDOW]
     public static IO<Option<Rectangle>> InitialMainWindowPosition() =>

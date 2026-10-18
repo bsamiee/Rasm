@@ -1,4 +1,4 @@
-use clippy_utils::{diagnostics::span_lint_hir_and_then, is_in_test, is_inside_always_const_context, macros::first_node_macro_backtrace, paths::PathNS, sym};
+use clippy_utils::{diagnostics::span_lint_hir_and_then, is_inside_always_const_context, macros::first_node_macro_backtrace, paths::PathNS, sym};
 use rustc_data_structures::fx::FxHashSet;
 use rustc_hir::{Expr, def_id::DefId};
 use rustc_lint::{LateContext, LateLintPass};
@@ -29,7 +29,7 @@ impl Pass {
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
         if let Some(call) = first_node_macro_backtrace(cx, expr).find(|call| self.assertions.contains(&call.def_id) && !expanded_externally(cx, call.span))
-            && !is_in_test(cx.tcx, expr.hir_id)
+            && !cx.tcx.sess.is_test_crate()
             && !is_inside_always_const_context(cx.tcx, expr.hir_id)
         {
             span_lint_hir_and_then(cx, ASSERTIONS_OUTSIDE_TESTS, expr.hir_id, call.span, format!("`{}!` asserts at run time outside a test", cx.tcx.item_name(call.def_id)), |diag| {

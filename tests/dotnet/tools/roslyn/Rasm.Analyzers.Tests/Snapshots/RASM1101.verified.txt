@@ -1,0 +1,2 @@
+#0 Catch-all arm in `switch` over `Shape` hides cases without an arm
+#1 Catch-all arm in `switch` over `Shape` hides cases without an arm

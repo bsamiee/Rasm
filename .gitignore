@@ -1,7 +1,6 @@
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
 node_modules/
-.pixi/
 
 # --- [TOOL_WRITES] ----------------------------------------------------------------------
 
@@ -11,9 +10,8 @@ dist/
 .cloudflare/
 .artifacts/
 .vs/
-.playwright-cli/
-.playwright-mcp/
 buildServer.json
+*.received.*
 
 # --- [HOST_WRITES] ----------------------------------------------------------------------
 

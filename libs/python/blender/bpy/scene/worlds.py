@@ -229,7 +229,7 @@ class WorldEnvironment(msgspec.Struct, frozen=True, kw_only=True):
         ),
     )
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
         """Returns the same declarations consumed by the section."""
         return Ok((self.attachment, self.ownership, self.place, self.restore))
 

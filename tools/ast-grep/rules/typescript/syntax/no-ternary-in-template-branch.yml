@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-ternary-in-template-branch
+language: tsx
+severity: error
+rule:
+    kind: ternary_expression
+    pattern: $INNER
+    inside:
+        kind: template_substitution
+        inside:
+            kind: template_string
+            any:
+                - inside: {kind: ternary_expression, field: consequence, stopBy: {not: {kind: parenthesized_expression}}}
+                - inside: {kind: ternary_expression, field: alternative, stopBy: {not: {kind: parenthesized_expression}}}
+message: '`$INNER` nests a ternary inside a template branch of another ternary'
+note: 'Select the text with one `Match` or lookup over the combined conditions, the form Biome `noNestedTernary` requires where no template stands between the ternaries'

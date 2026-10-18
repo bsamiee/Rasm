@@ -1,7 +1,8 @@
 {
     "name": "@rasm/mcp",
     "private": true,
-    "description": "Serves host application extensions to AI agents as MCP tools over WebSocket RPC links from a loopback MCP server process",
+    "description": "Loopback Streamable HTTP MCP servers built from Effect tools and from the RPC groups of host panels linked over WebSocket, with telemetry, progress, completion ranking, content blocks, and a record of cancelled calls that change state",
+    "sideEffects": false,
     "type": "module",
     "exports": {
         "./*": "./*.ts"

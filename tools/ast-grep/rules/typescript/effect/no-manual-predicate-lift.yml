@@ -65,6 +65,11 @@ utils:
     declaration-of-tested:
         kind: variable_declarator
         has: {field: name, kind: identifier, pattern: $V}
+    yielded-declaration:
+        kind: variable_declarator
+        all:
+            - has: {field: name, kind: identifier, pattern: $V}
+            - has: {field: value, kind: yield_expression, regex: '^yield\s*\*'}
     generator-constant:
         kind: identifier
         pattern: $V
@@ -74,7 +79,7 @@ utils:
             has:
                 field: body
                 all:
-                    - has: {kind: lexical_declaration, has: {matches: declaration-of-tested}}
+                    - has: {kind: lexical_declaration, has: {matches: yielded-declaration}}
                     - not:
                         has:
                             has: {kind: 'identifier, shorthand_property_identifier', pattern: $V, stopBy: end}

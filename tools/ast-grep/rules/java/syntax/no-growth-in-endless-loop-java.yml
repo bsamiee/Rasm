@@ -71,8 +71,8 @@ utils:
         kind: formal_parameter, variable_declarator
         has: {field: name, pattern: $GROWN}
 rule:
-    matches: growth
     all:
+        - matches: growth
         - inside: {stopBy: {matches: scope}, matches: endless, not: {has: {stopBy: end, matches: reset}}}
         - any:
             - inside: {stopBy: end, matches: function, has: {stopBy: end, matches: declared}, not: {has: {stopBy: end, matches: drain}}}

@@ -6,6 +6,7 @@ from itertools import pairwise
 from operator import getitem, setitem
 import os
 import re
+import typing
 from typing import Annotated, Generic, Self, TypeVar
 
 import bpy
@@ -15,7 +16,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from blender.bpy.data.ids.store import blocks
-from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderEditFault, BlenderFaults, BlenderReadFault, BlenderResult
+from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderEditFault, BlenderFaults, BlenderReadFault, BlenderResult, EditRefusal
 from blender.imaging.faults import accumulated
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -167,8 +168,8 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
                 return ()
 
     def shape(self, owner: Native) -> tuple[int, ...]:
-        """Returns the array dimensions the live owner's class declares, which a subtype class can narrow."""
-        return self.dimensions(owner.bl_rna.properties[self.prop.identifier])  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+        """Returns the live array's dimensions: its length, which a dynamic array sets per item past its declared one, then the inner sizes the owner's class declares."""
+        return (len(getattr(owner, self.prop.identifier)), *self.dimensions(owner.bl_rna.properties[self.prop.identifier])[1:])  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
 
     def read(self, owner: Native) -> Value:
         """Returns a scalar, flat array, enum identifiers, block identity, or null pointer."""
@@ -192,7 +193,7 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
             case _:
                 return msgspec.convert(msgspec.to_builtins(getattr(owner, name)), bool | int | float | str)
 
-    def equal(self, held: "Value | bpy.types.bpy_struct[object]", desired: "Value | bytes | bpy.types.bpy_struct[object]") -> bool:
+    def equal(self, held: "Value | bpy.types.bpy_struct[object]", desired: object) -> bool:
         """Compares native float32 bits and other values exactly."""
         if isinstance(self.prop, bpy.types.StringProperty) and isinstance(desired, bytes):
             desired = msgspec.to_builtins(desired) if self.prop.subtype == "BYTE_STRING" else os.fsdecode(desired)
@@ -200,91 +201,89 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
 
     def write(self, owner: Native, value: "Value | bytes | bpy.types.bpy_struct[object]") -> "BlenderResult[Option[Value | bpy.types.bpy_struct[object]]]":
         """Returns the prior value after assignment, Nothing if equal, or a native refusal."""
-        name = self.prop.identifier
+        name, request = self.prop.identifier, f"{owner!r}.{self.prop.identifier}"
+        numeric = tuple(int(item) if isinstance(item, bool) else item for item in value) if isinstance(value, tuple) else int(value) if isinstance(value, bool) else value
+        kind: object
+        match self.prop:
+            case bpy.types.FloatProperty(is_array=array):
+                source, kind = numeric, tuple[float, ...] if array and self.index.is_none() else float
+            case bpy.types.IntProperty(hard_min=low, hard_max=high, is_array=array):
+                bounded = Annotated[int, msgspec.Meta(ge=low, le=high)]
+                source, kind = numeric, tuple[bounded, ...] if array and self.index.is_none() else bounded
+            case bpy.types.StringProperty(subtype=subtype):
+                source, kind = value, bytes if subtype == "BYTE_STRING" or isinstance(value, bytes) else str
+            case bpy.types.EnumProperty(is_enum_flag=flag):
+                source, kind = value, tuple[str, ...] if flag else str
+            case _:
+                source, kind = value, object
         try:
-            if isinstance(self.prop, bpy.types.FloatProperty):
-                array = self.prop.is_array
-                source = tuple(float(item) if isinstance(item, bool) else item for item in value) if isinstance(value, tuple) else float(value) if isinstance(value, bool) else value
-                number = msgspec.convert(source, tuple[float, ...]) if array and self.index.is_none() else msgspec.convert(source, float)
-                match self.quantized(self.prop, number):
-                    case Result(tag="ok", ok=target):
-                        value = tuple(target.tolist()) if array and self.index.is_none() else float(target)
-                    case Result(error=faults):
-                        return Error(faults)
-            elif isinstance(self.prop, bpy.types.IntProperty):
-                low, high, array = self.prop.hard_min, self.prop.hard_max, self.prop.is_array
-                source = tuple(int(item) if isinstance(item, bool) else item for item in value) if isinstance(value, tuple) else int(value) if isinstance(value, bool) else value
-                limits = msgspec.Meta(ge=low, le=high)
-                value = msgspec.convert(source, tuple[Annotated[int, limits], ...] if array and self.index.is_none() else Annotated[int, limits])
-            elif isinstance(self.prop, bpy.types.StringProperty):
-                value = msgspec.convert(value, bytes) if self.prop.subtype == "BYTE_STRING" else value if isinstance(value, bytes) else msgspec.convert(value, str)
-                match self.admitted(self.prop, value):
-                    case Result(tag="ok", ok=payload):
-                        value = payload
-                    case Result(error=faults):
-                        return Error(faults)
+            target = msgspec.convert(source, kind)
+        except msgspec.ValidationError as error:
+            return Error((BlenderReadFault(request=request, error=error),))
+        try:
             prior = getattr(owner, name) if isinstance(self.prop, bpy.types.PointerProperty) else self.read(owner)
-            compared = IdName.of(prior) if isinstance(prior, bpy.types.ID) and isinstance(value, IdName) else prior
+        except typing.get_args(EditRefusal.__value__) as error:
+            return Error((BlenderEditFault(request=request, error=error),))
 
-            def published(_: object) -> "Option[Value | bpy.types.bpy_struct[object]]":
+        def assigned(assignment: Callable[[], object]) -> "BlenderResult[Option[Value | bpy.types.bpy_struct[object]]]":
+            def applied() -> "Option[Value | bpy.types.bpy_struct[object]]":
+                assignment()
                 if self.prop.is_runtime and isinstance(owner, bpy.types.bpy_struct):
                     bpy.msgbus.publish_rna(key=owner.path_resolve(name, False))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
                 return Some(prior)
 
-            def assigned(change: Callable[[], object]) -> "BlenderResult[Option[Value | bpy.types.bpy_struct[object]]]":
-                return Ok(published(change()))
+            return BlenderEditFault.attempted(request, applied)
 
-            match self.prop, value, self.index:
-                case _, _, _ if self.equal(compared, value):
-                    return Ok(Nothing)
+        def changed(stored: object) -> "BlenderResult[Option[Value | bpy.types.bpy_struct[object]]]":
+            match self.prop, stored, self.index:
                 case (
                     bpy.types.BoolProperty(is_array=True) | bpy.types.IntProperty(is_array=True) | bpy.types.FloatProperty(is_array=True),
                     bool() | int() | float(),
                     Option(tag="some", some=index),
                 ) if isinstance(owner, bpy.types.bpy_struct):
                     coordinates = np.unravel_index(index, self.shape(owner))
-                    return assigned(lambda: setitem(reduce(getitem, coordinates[:-1], owner.path_resolve(name, False)), coordinates[-1], value))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                case bpy.types.EnumProperty() as prop, _, _:
-                    identifiers = msgspec.convert(value, tuple[str, ...]) if prop.is_enum_flag else (msgspec.convert(value, str),)
-                    accepted = tuple(item.identifier for item in prop.enum_items if bpy.types.UILayout.enum_item_name(owner, name, item.identifier))
+                    return assigned(lambda: setitem(reduce(getitem, coordinates[:-1], owner.path_resolve(name, False)), coordinates[-1], stored))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                case bpy.types.EnumProperty() as prop, tuple() | str() as chosen, _:
                     refusals = tuple(
-                        BlenderChoiceFault(path=f"{owner!r}.{name}", identifier=identifier, accepted=accepted)
-                        for identifier in identifiers
+                        BlenderChoiceFault(
+                            path=request, identifier=identifier, accepted=tuple(item.identifier for item in prop.enum_items if bpy.types.UILayout.enum_item_name(owner, name, item.identifier))
+                        )
+                        for identifier in (chosen if isinstance(chosen, tuple) else (chosen,))
                         if not bpy.types.UILayout.enum_item_name(owner, name, identifier)
                     )
-                    match refusals:
-                        case (first, *rest):
-                            return Error((first, *rest))
-                        case _:
-                            return assigned(lambda: setattr(owner, name, set(identifiers) if prop.is_enum_flag else identifiers[0]))
-                case bpy.types.PointerProperty(), bpy.types.bpy_struct(), _:
-                    return assigned(lambda: setattr(owner, name, value))
+                    return Error((refusals[0], *refusals[1:])) if refusals else assigned(lambda: setattr(owner, name, set(chosen) if isinstance(chosen, tuple) else chosen))
                 case bpy.types.PointerProperty(fixed_type=bpy.types.ID() as pointed), IdName() as identity, _:
-                    found = next((held for held in blocks(bpy.data, type(pointed)) if IdName.of(held) == identity), None)  # type: ignore[unreachable]
-                    return assigned(lambda: setattr(owner, name, found)) if found is not None else Error((BlenderAbsentFault(owner=type(pointed).__name__, key=identity.name),))
+                    return (  # type: ignore[unreachable]
+                        Option
+                        .of_optional(next((held for held in blocks(bpy.data, type(pointed)) if IdName.of(held) == identity), None))
+                        .map(lambda found: assigned(lambda: setattr(owner, name, found)))
+                        .default_with(lambda: Error((BlenderAbsentFault(owner=type(pointed).__name__, key=identity.name),)))
+                    )
                 case bpy.types.BoolProperty(is_array=True) | bpy.types.IntProperty(is_array=True) | bpy.types.FloatProperty(is_array=True), tuple(), _:
-                    return assigned(lambda: setattr(owner, name, np.asarray(value).reshape(self.shape(owner)).tolist()))
+                    return assigned(lambda: setattr(owner, name, np.asarray(stored).reshape(self.shape(owner)).tolist()))
                 case _:
-                    return assigned(lambda: setattr(owner, name, value))
+                    return assigned(lambda: setattr(owner, name, stored))
 
-        except msgspec.ValidationError as error:
-            return Error((BlenderReadFault(request=f"{owner!r}.{name}", error=error),))
-        except (AttributeError, ReferenceError, TypeError, ValueError) as error:
-            return Error((BlenderEditFault(request=f"{owner!r}.{name}", error=error),))
+        match self.prop, target:
+            case _ if self.equal(IdName.of(prior) if isinstance(prior, bpy.types.ID) and isinstance(target, IdName) else prior, target):
+                return Ok(Nothing)
+            case bpy.types.FloatProperty() as real, float() | tuple() as number:
+                return self.quantized(real, number).bind(lambda stored: changed(tuple(stored.tolist()) if stored.ndim else float(stored)))
+            case bpy.types.StringProperty() as text, str() | bytes() as payload:
+                return self.admitted(text, payload).bind(changed)
+            case _:
+                return changed(target)
 
     @staticmethod
     def quantized(prop: bpy.types.FloatProperty, value: float | tuple[float, ...] | NDArray[np.float64]) -> BlenderResult[NDArray[np.float32]]:
         """Returns native float32 storage admitted against the property's hard interval."""
-        try:
-            with np.errstate(over="ignore"):
-                target = np.asarray(value, dtype=np.float32)
-            return (
-                Error((BlenderReadFault(request=repr(prop), error=ValueError(f"Value outside native interval [{prop.hard_min}, {prop.hard_max}]")),))
-                if np.any((target < prop.hard_min) | (target > prop.hard_max))
-                else Ok(target)
-            )
-        except (TypeError, ValueError) as error:
-            return Error((BlenderEditFault(request=repr(prop), error=error),))
+        with np.errstate(over="ignore"):
+            target = np.asarray(value, dtype=np.float32)
+        return (
+            Error((BlenderReadFault(request=repr(prop), error=ValueError(f"Value outside native interval [{prop.hard_min}, {prop.hard_max}]")),))
+            if np.any((target < prop.hard_min) | (target > prop.hard_max))
+            else Ok(target)
+        )
 
     @staticmethod
     def admitted[T: str | bytes](prop: bpy.types.StringProperty, value: T) -> BlenderResult[T]:
@@ -371,17 +370,16 @@ def id_path(struct: "bpy.types.bpy_struct[object]") -> Option[str]:
 
 def struct_at(root: Native, path: str) -> Option[Native]:
     """Returns the struct or collection at a relative path, or Nothing for an absent step, an empty pointer, or a value."""
-    found: object
     try:
-        match root:
-            case _ if not path:
-                found = root
-            case bpy.types.bpy_struct():
-                found = root.path_resolve(path)
-            case _:
-                owner: bpy.types.bpy_struct[object] = root.data  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-                identifier = next(prop.identifier for prop in owner.bl_rna.properties if isinstance(prop, bpy.types.CollectionProperty) and getattr(owner, prop.identifier) == root)
-                found = owner.path_resolve(member_path(identifier, path))
+        found = (
+            root
+            if not path
+            else root.path_resolve(path)
+            if isinstance(root, bpy.types.bpy_struct)
+            else (owner := root.data).path_resolve(  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+                member_path(next(prop.identifier for prop in owner.bl_rna.properties if isinstance(prop, bpy.types.CollectionProperty) and getattr(owner, prop.identifier) == root), path)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
+            )
+        )
     except (ValueError, ReferenceError):
         return Nothing
     return Some(found) if isinstance(found, bpy.types.bpy_struct | bpy.types.bpy_prop_collection) else Nothing

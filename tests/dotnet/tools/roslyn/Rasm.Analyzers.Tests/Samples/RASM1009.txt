@@ -1,0 +1,13 @@
+using LanguageExt;
+
+internal static class NullableByHand {
+    internal static string? Matched(Option<string> value) => {|#0:value.Match(Some: static held => held, None: static () => null)|};
+    internal static string? Cased(Option<string> value) => {|#1:(string?)value.Case|};
+    internal static string? Tested(Option<string> value) => {|#2:value.IsSome ? (string)value : null|};
+    internal static int? Lifted(Option<int> value) => {|#3:value.Match(Some: static held => (int?)held, None: static () => null)|};
+}
+
+internal static class NullableKept {
+    internal static string Defaulted(Option<string> value) => value.IfNone("");
+    internal static int Length(Option<string> value) => value.Match(Some: static held => held.Length, None: static () => 0);
+}

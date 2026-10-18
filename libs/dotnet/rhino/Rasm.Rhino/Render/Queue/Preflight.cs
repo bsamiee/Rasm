@@ -104,8 +104,8 @@ public abstract partial record PreflightFinding {
 
 public sealed record Preflight(Seq<PreflightFinding> Refusals, Seq<PreflightFinding> Cautions, DocumentStatistics Statistics, Map<int, ulong> Memory) {
     // --- [VERDICT]
-    public Validation<Error, Unit> Verdict =>
-        Refusals.Traverse(static refusal => Validation.Fail<Error, Unit>(refusal.Error)).As().Map(static _ => unit);
+    public Fin<Unit> Verdict =>
+        Refusals.Traverse(static refusal => Fin.Fail<Unit>(refusal.Error)).As().Map(static _ => unit);
 
     // --- [CHECK]
     public static IO<Preflight> Check(QueueContext context, RhinoDoc doc, QueuePlan plan, QueueTarget target) =>
@@ -118,19 +118,17 @@ public sealed record Preflight(Seq<PreflightFinding> Refusals, Seq<PreflightFind
     private static IO<Preflight> Read(QueueContext context, RhinoDoc doc, QueuePlan plan, Reach reach) =>
         plan.Entries.Map(static entry => (Entry: entry, Frame: entry.Rendered)).Strict() switch {
             var rendered =>
-        (DocumentStatistics.Read(doc),
-         Links.Closure(doc.RuntimeSerialNumber),
-         Links.Style(doc).Read,
-         NamedSnapshots.Names(doc).Map(names => rendered.Map((entry, index) => Entered(doc, names, entry.Entry, index, entry.Frame)).Flatten().Strict()),
-         RenderSettingsSources.Read(new RenderSettingsSource.Live(doc), RenderChannelsState.Read).Map(QueueEstimate.Channels),
-         reach.Local
-             ? QueueProgress.Observed(context).Map(static observed => Some(observed.State))
-             : IO.pure(Option<RunState>.None),
-         IO.lift(Host.Read),
-         Measured(doc, plan, reach),
-         IO.lift(() => Textured(doc)))
-        .Apply((statistics, links, style, entered, channels, run, host, disk, textures) => Judged(reach, plan, rendered, statistics, links, style, entered, channels, run, host, disk, textures))
-        .As(),
+                (DocumentStatistics.Read(doc).Try(),
+                 Links.Closure(doc.RuntimeSerialNumber).Try(),
+                 Links.Style(doc).Read.Try(),
+                 NamedSnapshots.Names(doc).Map(names => rendered.Map((entry, index) => Entered(doc, names, entry.Entry, index, entry.Frame)).Flatten().Strict()).Try(),
+                 RenderSettingsSources.Read(new RenderSettingsSource.Live(doc), RenderChannelsState.Read).Map(QueueEstimate.Channels).Try(),
+                 (reach.Local ? QueueProgress.Observed(context).Map(static observed => Some(observed.State)) : IO.pure(Option<RunState>.None)).Try(),
+                 IO.lift(Host.Read).Try(),
+                 Measured(doc, plan, reach).Try(),
+                 IO.lift(() => Textured(doc)).Try())
+                .Apply((statistics, links, style, entered, channels, run, host, disk, textures) => Judged(reach, plan, rendered, statistics, links, style, entered, channels, run, host, disk, textures))
+                .As().Run().As().Bind(IO.lift),
         };
 
     // --- [READS]
@@ -255,15 +253,13 @@ public sealed record Preflight(Seq<PreflightFinding> Refusals, Seq<PreflightFind
 
         public static IO<Volume> Of(string folder) =>
             IO.lift(() => Nearest(new DirectoryInfo(folder))).Bind(found => found.Match(
-                Some: existing => Freed(existing).Map(free => new Volume(folder, !existing.Attributes.HasFlag(FileAttributes.ReadOnly), free)),
+                Some: existing => IO.lift(() => Some(new DriveInfo(existing.FullName).AvailableFreeSpace))
+                    .Catch(static error => error.HasException<ArgumentException>(), static _ => IO.pure(Option<long>.None))
+                    .Map(free => new Volume(folder, !existing.Attributes.HasFlag(FileAttributes.ReadOnly), free)),
                 None: () => IO.pure(new Volume(folder, Writable: false, Free: None))));
 
         private static Option<DirectoryInfo> Nearest(DirectoryInfo folder) =>
             folder.Exists ? Some(folder) : Optional(folder.Parent).Bind(Nearest);
-
-        private static IO<Option<long>> Freed(DirectoryInfo existing) =>
-            IO.lift(() => Some(new DriveInfo(existing.FullName).AvailableFreeSpace))
-                .Catch(static error => error.HasException<ArgumentException>(), static _ => IO.pure(Option<long>.None));
     }
 
     private sealed record Textures(Seq<string> Absent, Seq<string> Unpacked);

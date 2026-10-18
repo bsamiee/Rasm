@@ -5,26 +5,28 @@ severity: error
 utils:
     empty-path:
         regex: '^((std|alloc)::\w+::)?(String|Vec|PathBuf|OsString)::(new|default)$'
-    empty-literal:
+    blank-word:
         kind: string_literal
-        not: {has: {kind: 'string_content, escape_sequence'}}
-    blank-literal:
+        regex: '(?i)^"\s*(unknown|n/?a|none|null|nil|undefined|missing|unset|empty|invalid|placeholder|tbd|todo|-+|\?+|\(none\)|<\w*>)\s*"$'
+    blank-text:
         any:
-            - matches: empty-literal
-            - kind: string_literal
-              regex: '(?i)^"\s*(unknown|n/?a|none|null|nil|undefined|missing|unset|empty|invalid|placeholder|tbd|todo|-+|\?+|\(none\)|<\w*>)\s*"$'
-    empty-text:
+            - matches: blank-word
+            - kind: call_expression
+              all:
+                - has: {field: function, kind: field_expression, all: [{has: {field: value, matches: blank-word}}, {has: {field: field, regex: '^(into|to_owned|to_string)$'}}]}
+                - has: {field: arguments, not: {has: {pattern: $_}}}
+    default-text:
         any:
-            - matches: blank-literal
+            - matches: rust-empty-string
             - kind: call_expression
               all:
                 - has: {field: function, kind: scoped_identifier, matches: empty-path}
                 - has: {field: arguments, not: {has: {pattern: $_}}}
-            - kind: call_expression
-              all:
-                - has: {field: function, kind: field_expression, all: [{has: {field: value, matches: blank-literal}}, {has: {field: field, regex: '^(into|to_owned|to_string)$'}}]}
-                - has: {field: arguments, not: {has: {pattern: $_}}}
             - {kind: scoped_identifier, matches: empty-path}
+    empty-text:
+        any:
+            - matches: blank-text
+            - matches: default-text
     bound:
         any:
             - kind: unary_expression
@@ -54,41 +56,53 @@ utils:
     absent-sentinel:
         pattern: $SENTINEL
         any:
-            - matches: blank-literal
+            - matches: rust-empty-string
+            - matches: blank-text
             - kind: call_expression
               all:
                 - has: {field: function, kind: scoped_identifier, matches: text-path}
-                - has: {field: arguments, not: {has: {pattern: $_}}}
-            - kind: call_expression
-              all:
-                - has: {field: function, kind: field_expression, all: [{has: {field: value, matches: blank-literal}}, {has: {field: field, regex: '^(into|to_owned|to_string)$'}}]}
                 - has: {field: arguments, not: {has: {pattern: $_}}}
             - matches: bound
             - matches: aliased
     fallback:
         any:
             - matches: sentinel
+              not: {any: [{matches: default-text}, {kind: reference_expression, has: {field: value, matches: default-text}}]}
             - kind: closure_expression
-              has: {field: body, matches: sentinel}
+              has: {field: body, matches: sentinel, not: {matches: default-text}}
     absent-value:
         any:
             - matches: absent-sentinel
             - kind: block
               has: {nthChild: {position: 1, reverse: true, ofRule: {matches: rust-statement}}, any: [{matches: absent-sentinel}, {kind: return_expression, has: {matches: absent-sentinel}}]}
+    result-call:
+        kind: call_expression
+        any:
+            - all:
+                - has:
+                    field: function
+                    any:
+                        - {kind: field_expression, has: {field: field, regex: '^(parse|try_into)$'}}
+                        - {kind: generic_function, has: {field: function, kind: field_expression, has: {field: field, regex: '^(parse|try_into)$'}}}
+                - has: {field: arguments, not: {has: {pattern: $_}}}
+            - has:
+                field: function
+                kind: 'scoped_identifier, generic_function'
+                regex: '::(from_str|from_str_radix|try_from|from_utf8|from_utf16|from_slice|from_value|from_reader)(::<[\s\S]*>)?$'
     substitute:
         kind: field_expression
         all:
             - has: {field: field, regex: '^(unwrap_or|unwrap_or_else|map_or|map_or_else)$'}
-            - not: {has: {field: value, any: [{matches: rust-dropped-error}, {matches: rust-result-call}]}}
+            - not: {has: {field: value, any: [{matches: rust-dropped-error}, {matches: result-call}]}}
     defaulted:
         kind: field_expression
         all:
-            - has: {field: field, regex: '^(unwrap_or_default|map_or_default)$'}
-            - not: {has: {field: value, any: [{matches: rust-dropped-error}, {matches: rust-result-call}]}}
+            - has: {field: field, regex: '^map_or_default$'}
+            - not: {has: {field: value, any: [{matches: rust-dropped-error}, {matches: result-call}]}}
     default-map:
         kind: call_expression
         all:
-            - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(map_or|map_or_else)$'}}, {not: {has: {field: value, any: [{matches: rust-dropped-error}, {matches: rust-result-call}]}}}]}
+            - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^map_or_else$'}}, {not: {has: {field: value, any: [{matches: rust-dropped-error}, {matches: result-call}]}}}]}
             - has: {field: arguments, has: {nthChild: 1, matches: rust-default-value}}
     binding:
         kind: let_declaration
@@ -105,36 +119,6 @@ utils:
         precedes:
             stopBy: {kind: let_declaration, has: {field: pattern, pattern: $NAME}}
             any: [{matches: retested-sentinel}, {has: {stopBy: {kind: 'function_item, closure_expression'}, matches: retested-sentinel}}]
-    text-option:
-        kind: generic_type
-        all:
-            - has: {field: type, regex: '^Option$'}
-            - has:
-                field: type_arguments
-                has:
-                    any:
-                        - {kind: type_identifier, regex: '^(String|PathBuf|OsString)$'}
-                        - {kind: reference_type, has: {field: type, regex: '^(str|Path|OsStr)$'}}
-                        - {kind: generic_type, has: {field: type, regex: '^(Vec|Cow|Box)$'}}
-    text-option-value:
-        any:
-            - kind: identifier
-              pattern: $NAME
-              inside:
-                kind: 'function_item, closure_expression'
-                stopBy: end
-                any:
-                    - has: {field: parameters, has: {kind: parameter, all: [{has: {field: pattern, pattern: $NAME}}, {has: {field: type, matches: text-option}}]}}
-                    - has: {stopBy: end, kind: let_declaration, all: [{has: {field: pattern, pattern: $NAME}}, {has: {field: type, matches: text-option}}]}
-            - kind: field_expression
-              all:
-                - has: {field: value, kind: self}
-                - has: {field: field, pattern: $NAME}
-                - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: field_declaration, all: [{has: {field: name, pattern: $NAME}}, {has: {field: type, matches: text-option}}]}}
-            - kind: call_expression
-              all:
-                - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(clone|cloned|take|as_deref|as_ref)$'}}, {has: {field: value, matches: text-option-value}}]}
-                - has: {field: arguments, not: {has: {pattern: $_}}}
     absent-pattern:
         kind: match_pattern
         any:
@@ -163,14 +147,12 @@ rule:
         - kind: call_expression
           all:
             - has: {field: function, matches: substitute}
-            - has: {field: arguments, has: {nthChild: 1, kind: 'integer_literal, float_literal, boolean_literal', pattern: $SENTINEL}}
+            - has: {field: arguments, has: {nthChild: 1, kind: 'integer_literal, float_literal, boolean_literal', pattern: $SENTINEL, not: {regex: '^(0+(_?[iu](8|16|32|64|128|size))?|0+\.0*(_?f(32|64))?|false)$'}}}
             - matches: retested
         - kind: call_expression
           all:
             - any: [{has: {field: function, matches: defaulted}}, {matches: default-map}]
-            - any:
-                - matches: rust-default-compared-binding
-                - has: {field: function, all: [{has: {field: field, regex: '^unwrap_or_default$'}}, {has: {field: value, matches: text-option-value}}]}
+            - matches: rust-default-compared-binding
         - kind: match_arm
           all:
             - has: {field: pattern, matches: absent-pattern, not: {has: {field: condition, pattern: $_}}}

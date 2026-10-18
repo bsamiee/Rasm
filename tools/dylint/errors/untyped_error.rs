@@ -2,7 +2,7 @@ use core::{mem, ops::ControlFlow};
 
 use clippy_utils::{
     diagnostics::span_lint_hir_and_then,
-    expr_or_init, fn_def_id, get_parent_expr, is_lint_allowed,
+    expr_or_init, fn_def_id, get_parent_expr,
     macros::root_macro_call_first_node,
     res::{MaybeDef as _, MaybeResPath as _},
     sym,
@@ -103,14 +103,14 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         }
 
         let owner = item.owner_id.def_id;
-        let checked = matches!(cx.tcx.def_kind(owner), DefKind::Fn | DefKind::Struct | DefKind::Enum | DefKind::Union | DefKind::TyAlias) && !skipped(cx, item.span, item.hir_id());
+        let checked = matches!(cx.tcx.def_kind(owner), DefKind::Fn | DefKind::Struct | DefKind::Enum | DefKind::Union | DefKind::TyAlias) && !expanded_externally(cx, item.span);
         if checked && matches!(item.kind, ItemKind::Struct(..) | ItemKind::Enum(..)) && is_error(cx, cx.tcx.type_of(owner).instantiate_identity().skip_normalization()) {
             let variants = cx.tcx.adt_def(owner).variants().iter().filter_map(|variant| {
                 let (reason, help) = variant.fields.iter().find_map(|field| {
                     let held = cx.tcx.type_of(field.did).instantiate_identity().skip_normalization();
                     match untyped_kind(cx, held) {
-                        Some(untyped @ (UntypedKind::Erased | UntypedKind::Report)) => Some((untyped.reason(), HELP)),
-                        Some(untyped @ UntypedKind::Many) => Some((untyped.reason(), "hold the errors in a `nonempty_collections::NEVec`")),
+                        Some(untyped @ (UntypedKind::Erased | UntypedKind::Report)) => Some((untyped.into(), HELP)),
+                        Some(untyped @ UntypedKind::Many) => Some((untyped.into(), "hold the errors in a `nonempty_collections::NEVec`")),
                         Some(UntypedKind::Text | UntypedKind::Code | UntypedKind::Tuple | UntypedKind::Unit | UntypedKind::Messages | UntypedKind::NoError(_)) | None =>
                             singular(cx, held).then_some((
                                 "a one-value source error that adds nothing to the variant",
@@ -132,7 +132,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
     }
 
     fn check_trait_item(&mut self, cx: &LateContext<'tcx>, item: &'tcx TraitItem<'tcx>) {
-        if !skipped(cx, item.span, item.hir_id()) {
+        if !expanded_externally(cx, item.span) {
             intravisit::walk_trait_item(&mut Signature::new(cx, item.owner_id.def_id), item);
         }
     }
@@ -148,7 +148,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         }
 
         let owner = item.owner_id.def_id;
-        if !skipped(cx, item.span, item.hir_id()) {
+        if !expanded_externally(cx, item.span) {
             match (cx.tcx.associated_item(owner).trait_item_def_id(), item.kind) {
                 (None, _) => intravisit::walk_impl_item(&mut Signature::new(cx, owner), item),
                 (Some(declared), ImplItemKind::Type(defined)) => {
@@ -265,7 +265,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 UNTYPED_ERROR,
                 cx.tcx.local_def_id_to_hir_id(variant),
                 cx.tcx.def_span(variant),
-                format!("error `{}` holds {}", cx.tcx.item_name(variant), UntypedKind::Text.reason()),
+                format!("error `{}` holds {}", cx.tcx.item_name(variant), <&str>::from(UntypedKind::Text)),
                 |diag| {
                     diag.span_note(site, WRITTEN);
                     diag.help(HELP);
@@ -277,8 +277,6 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn skipped(cx: &LateContext<'_>, span: Span, node: HirId) -> bool { expanded_externally(cx, span) || is_lint_allowed(cx, UNTYPED_ERROR, node) }
-
 fn report<'tcx>(cx: &LateContext<'tcx>, node: HirId, span: Span, error: Ty<'tcx>, untyped: UntypedKind) {
     const TYPED: &str = "return a `thiserror` enum with a variant per failure and its typed source";
     let trimmed = || with_forced_trimmed_paths!(error.to_string());
@@ -288,7 +286,7 @@ fn report<'tcx>(cx: &LateContext<'tcx>, node: HirId, span: Span, error: Ty<'tcx>
         UntypedKind::NoError(declared) if declared.is_local() => (trimmed(), Some(declared), "derive `thiserror::Error` on the type in place of its hand-written `Display`"),
         UntypedKind::Text | UntypedKind::Code | UntypedKind::Tuple | UntypedKind::Unit | UntypedKind::Erased | UntypedKind::Messages | UntypedKind::NoError(_) => (trimmed(), None, TYPED),
     };
-    span_lint_hir_and_then(cx, UNTYPED_ERROR, node, span, format!("`Result` error `{shown}` is {}", untyped.reason()), |diag| {
+    span_lint_hir_and_then(cx, UNTYPED_ERROR, node, span, format!("`Result` error `{shown}` is {}", <&str>::from(untyped)), |diag| {
         if let Some(declared) = declared {
             diag.span_note(cx.tcx.def_span(declared), "declared here");
         }

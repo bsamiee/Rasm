@@ -1,22 +1,22 @@
 use clippy_utils::{
     peel_blocks, peel_hir_expr_while,
-    res::{MaybeDef as _, MaybeQPath as _, MaybeResPath as _},
+    res::{MaybeQPath as _, MaybeResPath as _},
     sym,
 };
 use rustc_data_structures::fx::FxHashSet;
-use rustc_hir::{Expr, ExprKind, UnOp};
+use rustc_hir::{Expr, ExprKind, UnOp, def_id::DefId};
 use rustc_lint::LateContext;
 use rustc_middle::ty::{self, AdtDef, Ty, VariantDef};
 use rustc_span::Symbol;
 
 use crate::{expanded_externally, impl_owner, parameter_bindings};
 
-// --- [TYPES] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum VariantCollection {
     Array,
-    Map,
+    Map(DefId),
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -35,7 +35,7 @@ fn variant_collection<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) -> O
         return itertools::equal(elements.iter().map(|element| element.res(typeck).opt_def_id()), keyed.variants().iter().map(VariantDef::ctor_def_id)).then_some((VariantCollection::Array, keyed));
     }
     let ty::Adt(map, args) = typeck.expr_ty(expr).kind() else { return None };
-    let keyed = map.is_diag_item(cx, sym::BTreeMap).then(|| fieldless_local_enum(args.type_at(0)))??;
+    let keyed = fieldless_local_enum(args.types().next()?)?;
     let pairs = match expr.kind {
         ExprKind::Call(_, [pairs]) => pairs,
         ExprKind::MethodCall(collected, pairs, [], _) if collected.ident.name == sym::collect => pairs,
@@ -77,7 +77,7 @@ fn variant_collection<'tcx>(cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) -> O
         ExprKind::Array(entries) => listed(entries),
         _ => false,
     }
-    .then_some((VariantCollection::Map, keyed))
+    .then_some((VariantCollection::Map(map.did()), keyed))
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

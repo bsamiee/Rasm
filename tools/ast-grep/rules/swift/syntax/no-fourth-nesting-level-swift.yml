@@ -8,14 +8,14 @@ rule:
     not: {inside: {kind: ERROR, stopBy: end}}
     inside:
         matches: swift-nesting-level
-        stopBy: {matches: swift-nesting-boundary}
+        stopBy: {matches: swift-function-scope}
         inside:
             matches: swift-nesting-level
-            stopBy: {matches: swift-nesting-boundary}
+            stopBy: {matches: swift-function-scope}
             inside:
                 matches: swift-nesting-level
-                stopBy: {matches: swift-nesting-boundary}
-                not: {inside: {matches: swift-nesting-level, stopBy: {matches: swift-nesting-boundary}}}
+                stopBy: {matches: swift-function-scope}
+                not: {inside: {matches: swift-nesting-level, stopBy: {matches: swift-function-scope}}}
 message: Control flow reaches a fourth nesting level
 note: Rebuild nested decisions or loops with a switch or a collection transform over their inputs
 labels:

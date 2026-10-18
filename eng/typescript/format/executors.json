@@ -1,6 +1,5 @@
 {
     "executors": {
-        "format": { "implementation": "./main.ts#formatWorkspace", "schema": "./schema.json", "description": "Formats the workspace through every repository writer." },
-        "format-files": { "implementation": "./main.ts#formatFiles", "schema": "./schema.json", "description": "Formats the named Git files through the writers that own them." }
+        "format": { "implementation": "./main.ts#format", "schema": "./schema.json", "description": "Formats the named Git paths, or the workspace when none are named, through each writer target whose metadata names its extensions." }
     }
 }

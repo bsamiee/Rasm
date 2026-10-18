@@ -45,12 +45,14 @@ public sealed class ParameterSlider<TValue, TKey>(IPlugInSink sink, ScalarText<T
                         new PlotMark<Unit>(new MarkShape.Disc(plane.Point((float)position, 0.5f), knob - 1f), MarkStyle.Ring, None)),
         };
 
-    private Seq<PlotMark<Unit>> Filled(ParameterSliderState<TValue, TKey> state, PlotPlane.Cartesian plane, double position) =>
-        text.Domain.Presentation.Stops.IsSome
+    private Seq<PlotMark<Unit>> Filled(ParameterSliderState<TValue, TKey> state, PlotPlane.Cartesian plane, double position) {
+        double origin = text.Domain.Presentation.Origin.Map(key => text.Domain.Presentation.Position(key, Track(state))).IfNone(0d);
+        return text.Domain.Presentation.Stops.IsSome
             ? Seq<PlotMark<Unit>>()
             : new PlotMark<Unit>(new MarkShape.Band(plane.Plot), Groove, None).Cons(state.Shown.Map(_ => new PlotMark<Unit>(new MarkShape.Band(RectangleF.FromSides(
-                plane.Point((float)double.Min(Origin(state), position), 0f).X, plane.Plot.Top,
-                plane.Point((float)double.Max(Origin(state), position), 0f).X, plane.Plot.Bottom)), Span, None)).ToSeq());
+                plane.Point((float)double.Min(origin, position), 0f).X, plane.Plot.Top,
+                plane.Point((float)double.Max(origin, position), 0f).X, plane.Plot.Bottom)), Span, None)).ToSeq());
+    }
 
     // --- [TRACK]
     private (TKey Low, TKey High) Track(ParameterSliderState<TValue, TKey> state) =>
@@ -60,9 +62,6 @@ public sealed class ParameterSlider<TValue, TKey>(IPlugInSink sink, ScalarText<T
 
     private double Position(ParameterSliderState<TValue, TKey> state) =>
         state.Shown.Match(Some: shown => text.Domain.Presentation.Position(text.Domain.Key(shown), Track(state)), None: static () => 0d);
-
-    private double Origin(ParameterSliderState<TValue, TKey> state) =>
-        text.Domain.Presentation.Origin.Map(origin => text.Domain.Presentation.Position(origin, Track(state))).IfNone(0d);
 
     private TKey Clamped(TKey key, (TKey Low, TKey High) track) =>
         TKey.Clamp(key, text.Key(0d, track), text.Key(1d, track));

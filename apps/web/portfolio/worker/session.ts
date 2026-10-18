@@ -1,8 +1,8 @@
-import { D1Client } from '@effect/sql-d1';
 import { user } from '@rasm/hosting/sites.ts';
 import { Effect, Layer, Option } from 'effect';
 import { HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { HttpApiError } from 'effect/http-api';
+import { SqlClient } from 'effect/sql';
 import { Owner } from '../model/api.ts';
 import type { Session } from '../model/document.ts';
 import { ownerUserId, registerOwner } from './database.ts';
@@ -20,7 +20,7 @@ const session = Effect.fn('session')(function* (email: string) {
         },
     });
 });
-const authorize = (email: string): Effect.Effect<typeof Session.Type, HttpApiError.Forbidden | HttpApiError.ServiceUnavailable, HttpServerRequest.HttpServerRequest | D1Client.D1Client> =>
+const authorize = (email: string): Effect.Effect<typeof Session.Type, HttpApiError.Forbidden | HttpApiError.ServiceUnavailable, HttpServerRequest.HttpServerRequest | SqlClient.SqlClient> =>
     Effect.filterOrFail(
         session(email),
         (current) => current.kind === 'owner',
@@ -29,20 +29,20 @@ const authorize = (email: string): Effect.Effect<typeof Session.Type, HttpApiErr
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const owner = (email: string): Layer.Layer<Owner, never, D1Client.D1Client> =>
+const owner = (email: string): Layer.Layer<Owner, never, SqlClient.SqlClient> =>
     Layer.effect(
         Owner,
         Effect.map(
-            D1Client.D1Client,
+            SqlClient.SqlClient,
             (sql) =>
                 (effect): ReturnType<typeof Owner.Service> =>
                     HttpServerRequest.HttpServerRequest.pipe(
                         Effect.filterOrFail(
-                            (request) => request.method === 'GET' || request.headers.origin === new URL(request.originalUrl).origin,
+                            (request) => request.method === 'GET' || Option.exists(HttpServerRequest.toURL(request), ({ origin }) => origin === request.headers.origin),
                             () => HttpApiError.Forbidden.make(),
                         ),
                         Effect.andThen(authorize(email)),
-                        Effect.provideService(D1Client.D1Client, sql),
+                        Effect.provideService(SqlClient.SqlClient, sql),
                         Effect.andThen(effect),
                         Effect.map(HttpServerResponse.setHeader('Cache-Control', 'private, no-store')),
                     ),

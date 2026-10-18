@@ -38,7 +38,7 @@ public static class ImagePlots {
 
     public static Axis Placed(CurveAxis axis) => axis.Periodic ? new Axis.Periodic(Range(axis)) : new Axis.Linear(Range(axis));
 
-    public static Vector4 HueRamp(float hue) => new Hsy(hue, 1f, Exposure.MiddleGrey).ToRgb(1f);
+    public static Vector4 HueRamp(float hue) => new Hsy(hue, 1f, Exposure.MiddleGray).ToRgb(1f);
 
     public static Fin<PixelExtent> Device(PlotPlane plane, float scale) =>
         PixelExtent.Validated((int)MathF.Ceiling(plane.Plot.Width * scale), (int)MathF.Ceiling(plane.Plot.Height * scale));

@@ -11,18 +11,46 @@ utils:
                 kind: token_tree
                 any:
                     - regex: '^\(\s*"\{\}"\s*,\s*[\s\S]+?\s*,?\s*\)$'
-                      not: {regex: '^\(\s*"\{\}"\s*,\s*[A-Za-z_]\w*\s*=[^=]'}
+                      not: {any: [{regex: '^\(\s*"\{\}"\s*,\s*[A-Za-z_]\w*\s*=[^=]'}, {regex: '^\(\s*"\{\}"\s*,\s*[A-Za-z_]\w*\s*,?\s*\)$'}]}
                     - regex: '^\(\s*"\{[A-Za-z_]\w*\}"\s*,?\s*\)$'
+    literal-format:
+        kind: macro_invocation
+        all:
+            - matches: {rust-std-macro: {name: {regex: '^format$'}}}
+            - has:
+                kind: token_tree
+                any:
+                    - regex: '^\(\s*"(?:[^"\\{}]|\\[\s\S]|\{\{|\}\})*"\s*,?\s*\)$'
+                    - regex: '^\(\s*r#*"(?:[^{}]|\{\{|\}\})*?"#*\s*,?\s*\)$'
+    formatted:
+        any: [{matches: display-format}, {matches: literal-format}]
     owning-copy:
         kind: call_expression
         all:
-            - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(to_owned|to_string|into_owned|clone)$'}}, {has: {field: value, matches: display-format}}]}
+            - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(to_owned|to_string|into_owned|clone)$'}}, {has: {field: value, matches: formatted}}]}
             - has: {field: arguments, not: {has: {pattern: $_}}}
+    borrowed-literal:
+        kind: reference_expression
+        all:
+            - not: {has: {kind: mutable_specifier}}
+            - has: {field: value, matches: literal-format}
 rule:
     pattern: $SITE
     any:
         - matches: owning-copy
-        - matches: display-format
-          not: {inside: {kind: field_expression, field: value, inside: {matches: owning-copy}}}
-message: '`$SITE` renders one `Display` value with no surrounding text'
-note: 'Call `<value>.to_string()`, or `<value>.to_owned()` on `&str` and `String`, and delete a copy of the formatted `String` (`to_owned`, `to_string`, `clone`) with the macro'
+        - matches: borrowed-literal
+        - matches: formatted
+          not:
+            any:
+                - inside: {kind: field_expression, field: value, inside: {matches: owning-copy}}
+                - inside: {matches: borrowed-literal}
+transform:
+    UNCOPIED: {replace: {source: $SITE, replace: '\s*\.\s*(?:to_owned|to_string|into_owned|clone)\(\s*\)$', by: ''}}
+    BORROWED: {replace: {source: $UNCOPIED, replace: '^&\s*(?:(?:::)?(?:std|alloc)::)?format!\s*\(\s*("(?:[^"\\{}]|\\[\s\S])*"|r"[^"{}]*")\s*,?\s*\)$', by: '$1'}}
+    EMPTY: {replace: {source: $BORROWED, replace: '^(?:(?:::)?(?:std|alloc)::)?format!\s*\(\s*r?""\s*,?\s*\)$', by: 'String::new()'}}
+    OWNED: {replace: {source: $EMPTY, replace: '^(?:(?:::)?(?:std|alloc)::)?format!\s*\(\s*("(?:[^"\\{}]|\\[\s\S])*"|r"[^"{}]*")\s*,?\s*\)$', by: '$1.to_owned()'}}
+    POSITIONAL: {replace: {source: $OWNED, replace: '^(?:(?:::)?(?:std|alloc)::)?format!\s*\(\s*"\{\}"\s*,\s*([A-Za-z_][\w.:]*(?:\(\))?)\s*,?\s*\)$', by: '$1.to_string()'}}
+    RENDERED: {replace: {source: $POSITIONAL, replace: '^(?:(?:::)?(?:std|alloc)::)?format!\s*\(\s*"\{([A-Za-z_]\w*)\}"\s*,?\s*\)$', by: '$1.to_string()'}}
+fix: $RENDERED
+message: '`$SITE` runs `format!` over one `Display` value or a literal with no placeholders'
+note: 'Call `<value>.to_string()`, or `<value>.to_owned()` on `&str` and `String`, write `"<text>".to_owned()` for a literal, `String::new()` for `format!("")`, and the literal itself where the result is borrowed, and delete a copy of the formatted `String` (`to_owned`, `to_string`, `clone`) with the macro'

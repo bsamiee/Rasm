@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: java-control-flow
+language: java
+rule:
+    any:
+        - kind: for_statement, enhanced_for_statement, while_statement, do_statement, switch_expression
+        - kind: if_statement
+          not: {inside: {kind: if_statement, field: alternative}}
+        - kind: ternary_expression
+          not: {inside: {kind: ternary_expression, field: alternative, stopBy: {not: {kind: parenthesized_expression}}}}

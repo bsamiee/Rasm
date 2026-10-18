@@ -9,13 +9,15 @@ utils:
         kind: field_declaration
         has: {kind: modifiers, all: [{has: {regex: '^static$'}}, {has: {regex: '^final$'}}]}
 rule:
-    matches: java-regex-compile
-    has: {field: name, pattern: $METHOD}
-    not:
-        inside:
-            stopBy: {matches: evaluation}
-            any:
-                - matches: static-final
-                - kind: static_initializer, enum_constant, constant_declaration
+    kind: method_invocation
+    all:
+        - matches: java-regex-compile
+        - has: {field: name, pattern: $METHOD}
+        - not:
+            inside:
+                stopBy: {matches: evaluation}
+                any:
+                    - matches: static-final
+                    - kind: static_initializer, enum_constant, constant_declaration
 message: '`$METHOD` compiles its constant regex on every evaluation'
 note: 'Compile the regex once into a `static final Pattern` and use its `matcher`, `asPredicate`, or `splitAsStream`, or call `String.replace` for a regex with no metacharacter'

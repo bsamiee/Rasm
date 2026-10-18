@@ -18,14 +18,16 @@ using UnitsNet.Units;
 
 namespace Rasm.Rhino.Render.Effects;
 
-// --- [TYPES] ---------------------------------------------------------------------------
-internal enum TileRank {
-    Current,
-    Visible,
-    Rest,
+// --- [MODELS] --------------------------------------------------------------------------
+[SmartEnum]
+internal sealed partial class TileRank {
+    public static readonly TileRank Current = new(viewed: true);
+    public static readonly TileRank Visible = new(viewed: true);
+    public static readonly TileRank Rest = new(viewed: false);
+
+    public bool Viewed { get; }
 }
 
-// --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<int>(AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 public readonly partial struct TileBatch : System.Numerics.IMinMaxValue<TileBatch> {
     public static TileBatch MinValue { get; } = new(1);
@@ -81,9 +83,9 @@ public sealed record TileLimitRows(
     ];
 
     public IO<TileLimits> Limits(ISettingReader reader) =>
-        (reader.Current(Batch), reader.Current(Budget), reader.Current(Capacity))
+        IO.lift(() => (reader.Current(Batch), reader.Current(Budget), reader.Current(Capacity))
             .Apply(static (batch, budget, capacity) => new TileLimits(batch, budget, capacity))
-            .As();
+            .As());
 }
 
 public sealed record TileRequest(Rendering Rendering, ValueSet Set, Seq<EffectKind> Chain) {
@@ -111,7 +113,6 @@ public sealed record TileRequest(Rendering Rendering, ValueSet Set, Seq<EffectKi
 public sealed class PreviewTiles {
     // --- [ACQUISITION]
     private static readonly Duration Tick = Duration.FromMilliseconds(150);
-    private static readonly Duration Window = Tick * 2;
 
     private readonly Atom<Ledger> held = Atom(Ledger.Empty);
     private readonly Atom<TileLimits> bounds = Atom(TileLimits.Default);
@@ -287,15 +288,15 @@ public sealed class PreviewTiles {
 
     private IO<Unit> Reported(Error error) => IO.lift(() => owner.Report(error, typeof(PreviewTiles), nameof(Register)));
 
-    private Func<long, bool> Recent(long now) => at => clock.GetElapsedTime(at, now).ToDuration() < Window;
+    private Func<long, bool> Recent(long now) => at => clock.GetElapsedTime(at, now).ToDuration() < Tick * 2;
 
     // --- [LEDGER]
     private sealed record Raster((object Source, Option<Control> View, PixelFrame Frame, PixelExtent Extent, Imaging.Color.Transfer Encoding) Key, Bitmap Pixels, long Drawn);
 
     private sealed record Pending(ContentKey Key, TileRequest Request, PixelExtent Extent, HashMap<TileRank, long> Asks) {
-        public bool Holds(TileRank rank, Func<long, bool> recent) => Asks.Find(rank).Exists(at => rank is TileRank.Rest || recent(at));
+        public bool Holds(TileRank rank, Func<long, bool> recent) => Asks.Find(rank).Exists(at => !rank.Viewed || recent(at));
 
-        public bool Ranked(Func<long, bool> recent) => toSeq(Enum.GetValues<TileRank>()).Exists(rank => Holds(rank, recent));
+        public bool Ranked(Func<long, bool> recent) => Asks.Exists((rank, at) => !rank.Viewed || recent(at));
     }
 
     private sealed record Kept(TileRequest Request, PixelExtent Extent, Fin<PixelFrame> Result, long Drawn);
@@ -304,21 +305,21 @@ public sealed class PreviewTiles {
         public static Ledger Empty { get; } = new(HashMap<ContentKey, PixelFrame>(), Seq<Pending>(), None, HashMap<ContentKey, Kept>());
 
         public long Bytes =>
-            toSeq(Tiles.Values).Bind(static kept => kept.Result.ToSeq()).Concat(toSeq(Proxies.Values))
+            (toSeq(Tiles.Values).Bind(static kept => kept.Result.ToSeq()) + toSeq(Proxies.Values))
                 .Fold(0L, static (sum, frame) => sum + (sizeof(float) * (long)frame.Block.Length));
 
         public Ledger Asked(ContentKey key, TileRequest request, PixelExtent tile, TileRank rank, long now) =>
             this with {
-                Tiles = rank is TileRank.Rest ? Tiles : Tiles.TrySetItem(key, kept => kept with { Drawn = now }),
+                Tiles = rank.Viewed ? Tiles.TrySetItem(key, kept => kept with { Drawn = now }) : Tiles,
                 Queue = Queue.Exists(pending => pending.Key == key)
                     ? Queue.Map(pending => pending.Key == key ? pending with { Asks = pending.Asks.AddOrUpdate(rank, now) } : pending)
-                    : Running.Exists(running => running.Key == key) || (rank is not TileRank.Rest && Tiles.ContainsKey(key))
+                    : Running.Exists(running => running.Key == key) || (rank.Viewed && Tiles.ContainsKey(key))
                         ? Queue
                         : Queue.Add(new Pending(key, request, tile, HashMap((rank, now)))),
             };
 
         public Ledger Popped(Func<long, bool> recent) =>
-            toSeq(Enum.GetValues<TileRank>()).Choose(rank => Queue.Find(pending => pending.Holds(rank, recent))).Head.Match(
+            toSeq(TileRank.Items).Choose(rank => Queue.Find(pending => pending.Holds(rank, recent))).Head.Match(
                 Some: next => this with { Queue = Queue.Filter(pending => pending.Key != next.Key && pending.Ranked(recent)), Running = Some(next) },
                 None: () => this with { Queue = Seq<Pending>(), Running = None });
 
@@ -333,17 +334,15 @@ public sealed class PreviewTiles {
                     .Take(Tiles.Count - capacity)
                     .Select(static entry => entry.Key)),
             } switch {
-                var trimmed => trimmed with { Proxies = trimmed.Proxies.Intersect(trimmed.Requests.Map(static request => request.Rendering.Key)) },
+                var trimmed => trimmed with {
+                    Proxies = trimmed.Proxies.Intersect((trimmed.Queue + trimmed.Running.ToSeq()).Map(static pending => pending.Request.Rendering.Key)
+                        + toSeq(trimmed.Tiles.Values).Map(static kept => kept.Request.Rendering.Key)),
+                },
             };
 
         public Ledger Refreshed(long now) =>
             toSeq(Tiles.AsIterable()).Fold(
                 this with { Tiles = Tiles.Filter(static kept => kept.Result.IsSucc) },
                 (ledger, entry) => ledger.Asked(entry.Key, entry.Value.Request, entry.Value.Extent, TileRank.Rest, now));
-
-        private Seq<TileRequest> Requests =>
-            Queue.Map(static pending => pending.Request)
-                .Concat(Running.Map(static pending => pending.Request).ToSeq())
-                .Concat(toSeq(Tiles.Values).Map(static kept => kept.Request));
     }
 }

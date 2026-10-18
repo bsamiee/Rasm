@@ -36,4 +36,4 @@ rule:
                             - {kind: shorthand_property_identifier, regex: '^properties$'}
     inside: {kind: program, stopBy: end, matches: {uxp-host-file: {module: {regex: '^(adobe:)?indesign$'}}}}
 message: '`$WRITE` writes a record through `properties`, where InDesign drops each refused key with no throw'
-note: 'Write each key as its own `Reflect.set(<owner>, <key>, <value>)` under `Effect.validate`, where a refused key throws with its expected type and range, and restore each held key by name in the release of an `Effect.acquireRelease`'
+note: 'Write each key as its own `Object.assign(<owner>, { [<key>]: <value> })` under `Effect.validate`, where a refused or read-only key throws with its expected type, range, or read-only reason, and restore each held key by name in the release of an `Effect.acquireRelease`'

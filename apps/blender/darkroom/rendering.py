@@ -10,8 +10,8 @@ from bl_ui.space_statusbar import STATUSBAR_HT_header
 from bl_ui.space_topbar import TOPBAR_MT_render
 from bl_ui.space_view3d import VIEW3D_MT_object_context_menu
 import bpy
-from cycles.presets import AddPresetIntegrator, AddPresetPerformance, AddPresetSampling, AddPresetViewportSampling  # type: ignore[import-not-found]  # ty: ignore[unresolved-import]
-from cycles.ui import CYCLES_RENDER_PT_passes  # type: ignore[import-not-found]  # ty: ignore[unresolved-import]
+from cycles.presets import AddPresetIntegrator, AddPresetPerformance, AddPresetSampling, AddPresetViewportSampling
+from cycles.ui import CYCLES_RENDER_PT_passes
 from expression import Some
 
 from blender.bpy.commands.operators import Acquired, Own

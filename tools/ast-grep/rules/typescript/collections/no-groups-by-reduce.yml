@@ -2,7 +2,6 @@
 id: no-groups-by-reduce
 language: tsx
 severity: error
-ignores: ['plugins/function-hooks/**']
 utils:
     effect-iterable:
         matches: {effect-module: {name: {regex: '\b(Array|Chunk|Iterable)$'}}}

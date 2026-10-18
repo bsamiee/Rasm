@@ -24,21 +24,10 @@ utils:
         regex: '(?i)(^|_)(bytes|kb|kib|mb|mib|gb|gib)$'
     serde-item:
         inside: {stopBy: end, matches: rust-serde-record}
-    number-value:
-        any:
-            - kind: 'integer_literal, float_literal'
-              regex: '_?[iuf](8|16|32|64|128|size)$'
-            - kind: type_cast_expression
-              has: {field: type, matches: number-type}
     number-declared:
-        any:
-            - has: {field: type, matches: number-type}
-            - kind: let_declaration
-              all:
-                - not: {has: {field: type, pattern: $_}}
-                - has: {field: value, matches: number-value}
+        has: {field: type, matches: number-type}
 rule:
-    kind: 'const_item, static_item, field_declaration, parameter, let_declaration'
+    kind: 'const_item, static_item, field_declaration, parameter'
     all:
         - any: [{has: {field: name, pattern: $NAME}}, {has: {field: pattern, kind: identifier, pattern: $NAME}}]
         - any:
@@ -53,14 +42,14 @@ rule:
                 - any: [{has: {field: name, matches: path-name}}, {has: {field: pattern, kind: identifier, matches: path-name}}]
                 - has: {field: type, matches: text-type}
             - all:
-                - kind: 'field_declaration, parameter, let_declaration'
+                - kind: 'field_declaration, parameter'
                 - any: [{has: {field: name, matches: timestamp-name}}, {has: {field: pattern, kind: identifier, matches: timestamp-name}}]
                 - matches: number-declared
             - all:
                 - any: [{has: {field: name, matches: date-name}}, {has: {field: pattern, kind: identifier, matches: date-name}}]
                 - has: {field: type, matches: text-type}
             - all:
-                - kind: 'field_declaration, parameter, let_declaration'
+                - kind: 'field_declaration, parameter'
                 - any: [{has: {field: name, matches: quantity-name}}, {has: {field: pattern, kind: identifier, matches: quantity-name}}]
                 - has: {field: type, kind: primitive_type, regex: '^f64$'}
                 - not: {matches: serde-item}

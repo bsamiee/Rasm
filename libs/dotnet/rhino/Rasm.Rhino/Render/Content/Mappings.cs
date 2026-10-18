@@ -39,13 +39,13 @@ public static partial class Mappings {
     public static IO<TValue> WithMapping<TValue>(MappingPrimitive primitive, Func<TextureMapping, IO<TValue>> body) =>
         DisposalOps.Within(
             () => primitive.Switch(
-            surfaceParameter: static _ => Refused.UnlessFound(TextureMapping.CreateSurfaceParameterMapping(), nameof(TextureMapping.CreateSurfaceParameterMapping)),
-            planar: static planar => Refused.UnlessFound(TextureMapping.CreatePlaneMapping(planar.Plane, planar.Dx, planar.Dy, planar.Dz, planar.Capped), nameof(TextureMapping.CreatePlaneMapping)),
-            ocs: static ocs => Refused.UnlessFound(TextureMapping.CreateOcsMapping(ocs.Plane), nameof(TextureMapping.CreateOcsMapping)),
-            cylindrical: static cylindrical => Refused.UnlessFound(TextureMapping.CreateCylinderMapping(cylindrical.Cylinder, cylindrical.Capped), nameof(TextureMapping.CreateCylinderMapping)),
-            spherical: static spherical => Refused.UnlessFound(TextureMapping.CreateSphereMapping(spherical.Sphere), nameof(TextureMapping.CreateSphereMapping)),
-            box: static box => Refused.UnlessFound(TextureMapping.CreateBoxMapping(box.Plane, box.Dx, box.Dy, box.Dz, box.Capped), nameof(TextureMapping.CreateBoxMapping)),
-            customMesh: static custom => Refused.UnlessFound(TextureMapping.CreateCustomMeshMapping(custom.Mesh), nameof(TextureMapping.CreateCustomMeshMapping))),
+                surfaceParameter: static _ => Refused.UnlessFound(TextureMapping.CreateSurfaceParameterMapping(), nameof(TextureMapping.CreateSurfaceParameterMapping)),
+                planar: static planar => Refused.UnlessFound(TextureMapping.CreatePlaneMapping(planar.Plane, planar.Dx, planar.Dy, planar.Dz, planar.Capped), nameof(TextureMapping.CreatePlaneMapping)),
+                ocs: static ocs => Refused.UnlessFound(TextureMapping.CreateOcsMapping(ocs.Plane), nameof(TextureMapping.CreateOcsMapping)),
+                cylindrical: static cylindrical => Refused.UnlessFound(TextureMapping.CreateCylinderMapping(cylindrical.Cylinder, cylindrical.Capped), nameof(TextureMapping.CreateCylinderMapping)),
+                spherical: static spherical => Refused.UnlessFound(TextureMapping.CreateSphereMapping(spherical.Sphere), nameof(TextureMapping.CreateSphereMapping)),
+                box: static box => Refused.UnlessFound(TextureMapping.CreateBoxMapping(box.Plane, box.Dx, box.Dy, box.Dz, box.Capped), nameof(TextureMapping.CreateBoxMapping)),
+                customMesh: static custom => Refused.UnlessFound(TextureMapping.CreateCustomMeshMapping(custom.Mesh), nameof(TextureMapping.CreateCustomMeshMapping))),
             answer => IO.lift(answer).Bind(body),
             static answer => DisposalOps.Release(answer.ToSeq()));
 

@@ -19,5 +19,5 @@ rule:
         - any:
             - all: [{has: {field: lhs, matches: raw-value}}, {has: {field: rhs, matches: text}}]
             - all: [{has: {field: lhs, matches: text}}, {has: {field: rhs, matches: raw-value}}]
-message: '`$SITE` compares `$VALUE` as text with a raw value that a case names'
+message: '`$SITE` compares the raw value `$VALUE` with a string literal'
 note: 'Compare the typed value with the case (`<value> == .<case>`), or with `<Type>(rawValue: <text>)` for a raw-representable struct'

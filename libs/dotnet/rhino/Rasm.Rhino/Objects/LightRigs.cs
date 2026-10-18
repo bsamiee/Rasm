@@ -192,7 +192,7 @@ public abstract partial record RigLayout {
     public Fin<Seq<RigLight>> Lights(Option<LightingReading> reading) =>
         Switch(
             reading,
-            arranged: static (_, arranged) => Fin.Succ(arranged.Rows),
+            arranged: static (_, arranged) => arranged.Rows,
             matched: static (held, matched) => held.ToFin(new Refused(nameof(LightingReading), Refused.Absent)).Bind(matched.Look.Derived));
 }
 
@@ -278,44 +278,43 @@ public static class LightRigs {
         from placing in Fin.Succ(Transform.Rotation(rig.Rotation, basis.YAxis, basis.Origin)
             * Transform.Rotation(-(double)rig.Elevation, basis.XAxis, basis.Origin)
             * Transform.PlaneToPlane(Plane.WorldXY, basis))
-        from placed in lights.Traverse(light => Positioned(rig, light, target, placing, modelUnit)).As().ToFin()
+        from placed in lights.Traverse(light => Positioned(rig, light, target, placing, modelUnit)).As()
         select placed;
 
-    private static Validation<Error, PlacedLight> Positioned(LightRig rig, RigLight light, RigTarget.Fixed target, Transform placing, LengthUnit modelUnit) =>
-        from reach in TargetRadius.Validated(light.Distance * target.Radius).ToValidation()
+    private static Fin<PlacedLight> Positioned(LightRig rig, RigLight light, RigTarget.Fixed target, Transform placing, LengthUnit modelUnit) =>
+        from reach in TargetRadius.Validated(light.Distance * target.Radius)
         let axes = light.Axes
         let radius = reach * Math.Tan(light.Size / 2d)
         let side = 2d * radius
         let at = placing * new Point3d(reach * axes.Toward)
-        let metres = Quantities.From(reach, modelUnit).Meters.ToDouble()
+        let meters = Quantities.From(reach, modelUnit).Meters.ToDouble()
         let falloff = light.Falloff switch {
             Light.Attenuation.Constant => (Gain: 1d, Vector: Light.ConstantAttenuationVector),
-            Light.Attenuation.Linear => (Gain: metres, Vector: Light.LinearAttenuationVector),
-            Light.Attenuation.InverseSquared => (Gain: metres * metres, Vector: Light.InverseSquaredAttenuationVector),
+            Light.Attenuation.Linear => (Gain: meters, Vector: Light.LinearAttenuationVector),
+            Light.Attenuation.InverseSquared => (Gain: meters * meters, Vector: Light.InverseSquaredAttenuationVector),
         }
         let shaped = light.Emitter.Switch(
             (At: at, Aim: target.Focus - at, Radius: radius, Side: side, Size: (double)light.Size, falloff.Gain, Across: side * (placing * axes.Across), Rise: side * (placing * axes.Rise)),
             pointLight: static (state, _) => (
-                Shape: EmitterRadius.Validated(state.Radius).ToValidation()
+                Shape: EmitterRadius.Validated(state.Radius)
                     .Map(emitter => (LightShape)new LightShape.PointLight(state.At, emitter, CameraRelative: false)),
                  state.Gain),
             spotLight: static (state, spot) => (
-                Shape: EmitterRadius.Validated(state.Radius).ToValidation()
+                Shape: EmitterRadius.Validated(state.Radius)
                     .Map(emitter => (LightShape)new LightShape.SpotLight(state.At, state.Aim, spot.Angle, spot.HotSpot, emitter, CameraRelative: false)),
                  state.Gain),
             directionalLight: static (state, _) => (
-                Shape: SunAngle.Validated(state.Size).ToValidation()
+                Shape: SunAngle.Validated(state.Size)
                     .Map(angle => (LightShape)new LightShape.DirectionalLight(state.At, state.Aim, angle, CameraRelative: false)),
                 Gain: 1d),
             rectangularLight: static (state, _) => (
                 Shape: double.IsFinite(state.Side)
-                    ? Validation.Success<Error, LightShape>(new LightShape.RectangularLight(state.At - (state.Across / 2d) - (state.Rise / 2d), state.Across, state.Rise, state.Aim))
-                    : Validation.Fail<Error, LightShape>(Error.New(ErrorCodes.ValidationFailed, "rectangular light side is not finite")),
+                    ? new LightShape.RectangularLight(state.At - (state.Across / 2d) - (state.Rise / 2d), state.Across, state.Rise, state.Aim)
+                    : Error.New(ErrorCodes.ValidationFailed, "rectangular light side is not finite"),
                  state.Gain))
-        from result in fun((LightShape shape, LightIntensity intensity) => new PlacedLight(
+        from result in (shaped.Shape, LightIntensity.Validated(rig.Level == LightIntensity.MinValue ? 0d : rig.Level * double.Exp2(light.Stops) * shaped.Gain))
+            .Apply((shape, intensity) => new PlacedLight(
                 light.Role, shape, light.Color.Switch(blackbody: static blackbody => (LightColor)blackbody.Kelvin, linear: static linear => (LightColor)linear.Filter), intensity, falloff.Vector))
-            .Map(shaped.Shape)
-            .Apply(LightIntensity.Validated(rig.Level == LightIntensity.MinValue ? 0d : rig.Level * double.Exp2(light.Stops) * shaped.Gain).ToValidation())
             .As()
         select result;
 

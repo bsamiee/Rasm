@@ -34,6 +34,7 @@ Patterns are valid code under the language's tree-sitter grammar with whole-node
 ## [02]-[RULES]
 
 - Ids share one namespace across languages, a category checked in more than one names each rule `<category>-<language>`, in one the category alone
+- Rules leave out forms a configured linter or type-aware checker reports, keeping an arm for a defect that checker's fix writes
 - Rule objects are unordered `all`s with keys applied atomic, then `all`, `any`, `not`, `matches`, then relational, `all:` keeps list order
 - Rules need a kind set from `pattern` or `kind`, `regex`, `range`, `nthChild`, `not`, `all: []`, or `any: []` alone fails the load
 - `kind` takes a named node, an anonymous token (`then`) fails the load with `Cannot parse rule`, exit 8
@@ -88,7 +89,8 @@ Scans parse each file once, try a rule at each node of its kind set, and walk ea
 - `all:` lists capture-free `field` tests, binding clauses in capture order, walks, then `not:` guards
 - `matches:` evaluations take a reference on one util registry every scan thread shares, a util named as a walk target runs at each visited node
 - Walk targets and `stopBy` rules hold an atomic `kind`, a kind list used more than once is a YAML anchor (`&owner`) later sites alias (`*owner`)
-- Rules checking a file-wide fact per candidate place `inside: {kind: <root kind>, stopBy: end, regex: '<name>'}` before the walk
+- Rules checking a file-wide fact per candidate place `inside: {kind: <root kind>, stopBy: end, regex: '<name>'}` after the candidate's own text or callee test and before the walk, on a frequent kind it costs a second parse
+- `matches:` beside `all`, `any`, or `not` in one map runs after them, a cheap gate opens an ordered `all:` list ahead of the walks
 
 ## [05]-[FIX]
 
@@ -210,6 +212,11 @@ Fixes emit walrus conditionals as `(v := (a if b else c))`.
 | :-----: | :------------------ | :------------------------------------------------------------------------------------------- |
 |  [01]   | `<Name>text</Name>` | Patterns bind whole elements, `<Name>_TEXT</Name>` captures the content                      |
 |  [02]   | `Attribute="value"` | `AttValue` includes its quotes, a value that can hold the other quote matches each delimiter |
+
+| [INDEX] | [SWIFT]                       | [SHAPE]                                                                                            |
+| :-----: | :---------------------------- | :------------------------------------------------------------------------------------------------- |
+|  [01]   | `if let a = b, c > 0 { }`     | `if_statement` holds each clause token in field `condition`, `field: condition` reads the first    |
+|  [02]   | `lhs + receiver.member(args)` | `call_expression` over `additive_expression` with `rhs: navigation_expression`, call wraps the `+` |
 
 | [INDEX] | [SQL]                          | [SHAPE]                                                                                     |
 | :-----: | :----------------------------- | :------------------------------------------------------------------------------------------ |

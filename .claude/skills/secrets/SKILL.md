@@ -1,6 +1,6 @@
 ---
 name: secrets
-description: "Use when a command or build reads a secret or an agent needs a credential, covering Doppler scopes, doppler run, infra rows, 1Password sign-in, op reads and writes, SSH, and commit signing."
+description: "Use when a command or build reads a secret or an agent needs a credential, covering Doppler scopes, doppler run, infra prefixes, 1Password sign-in, op reads and writes, SSH, and commit signing."
 ---
 
 # [SECRETS]
@@ -26,15 +26,17 @@ Doppler reads each option from a flag, then a `DOPPLER_*` environment variable, 
 |  [07]   | Secrets in a process env | `doppler run --project <p> --config <c> -- <cmd>`                             |
 |  [08]   | Shell operators          | `doppler run --project <p> --config <c> --command '<cmd> && <cmd>'`           |
 
-## [02]-[INFRA_ROWS]
+## [02]-[INFRA_PREFIXES]
 
-Doppler resources exist alone as typed `infra/cli.ts` rows of `Project`, `Environment`, `BranchConfig`, `Secret`, and `ServiceToken` from `@pulumiverse/doppler`:
-- Workplace `Parametric_Arsenal` holds project `rasm`, environments `dev` and `prd` with locked root configs, and branch config `dev_repo` under `dev`
-- `Secret` rows name `project`, `config`, `name`, and `value`, `@pulumiverse/doppler` stores `value` as a Pulumi secret
-- `Secret` import ids take the form `<project>.<config>.<name>`
+Repository programs read owner-issued values from shared project `agent-runtime` config `dev` in workplace `Parametric_Arsenal`, each through its root target's `doppler run` prefix:
+- `rasm:infra` names `GITHUB_TOKEN` with `--only-secrets`, a missing name fails the run
+- `rasm:hosting` names `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, and `OWNER_EMAIL` with `--no-exit-on-missing-only-secrets`, a missing name stays unset and the program's typed `Config` read names it when a target needs it
+- Variables the prefix leaves unset pass through from the calling environment, a local run sets one on the command
+- Hosting secrets join through `doppler secrets set <NAME> --project agent-runtime --config dev` and a name in the `rasm:hosting` prefix
+- Values a program generates (store keys, owner passwords) stay Pulumi stack secrets, `pulumi stack output <name> --show-secrets` reads them
+- Pulumi reads its backend credential from the `pulumi login` saved under `PULUMI_HOME`
 - Doppler adds `DOPPLER_PROJECT`, `DOPPLER_CONFIG`, and `DOPPLER_ENVIRONMENT` to every config
-- `infra/cli.ts` reads each `Secret` value from the environment `dev_repo` injects, a branch config inheriting every `dev` secret
-- Use `Skill(manage-repo)` for infra rows
+- Use `Skill(manage-repo)` for infra programs
 
 ## [03]-[OP_SIGNIN]
 

@@ -4,9 +4,9 @@ language: tsx
 severity: error
 utils:
     string-module:
-        matches: {effect-module: {name: {regex: '^String$'}}}
+        matches: {effect-module: {name: {regex: '\bString$'}}}
     array-module:
-        matches: {effect-module: {name: {regex: '^Array$'}}}
+        matches: {effect-module: {name: {regex: '\bArray$'}}}
     fixed-regex:
         kind: regex
         all:

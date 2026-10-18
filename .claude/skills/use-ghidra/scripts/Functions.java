@@ -139,7 +139,18 @@ final class Functions {
         options.grabFromProgram(program);
         options.setMaxPayloadMBytes(settings.get(Arguments.Setting.PAYLOAD));
         DecompilerCallback<DecompileResults> callback =
-                new DecompilerCallback<>(program, decompiler -> decompiler.setOptions(options)) {
+                new DecompilerCallback<>(
+                        program,
+                        decompiler -> {
+                            decompiler.setOptions(options);
+                            if (!decompiler.openProgram(program)) {
+                                throw new IllegalStateException(
+                                        "Decompiler failed to open %s: %s"
+                                                .formatted(
+                                                        program.getName(),
+                                                        decompiler.getLastMessage()));
+                            }
+                        }) {
                     @Override
                     public DecompileResults process(
                             DecompileResults results, TaskMonitor taskMonitor) {
@@ -160,20 +171,24 @@ final class Functions {
                     .collect(
                             Collectors.toMap(
                                     function -> function,
-                                    function -> result(byFunction.get(function), timeout),
+                                    function ->
+                                            switch (byFunction.get(function)) {
+                                                case DecompileResults results
+                                                        when results.decompileCompleted() ->
+                                                        new Report.Success<>(results);
+                                                case DecompileResults results
+                                                        when results.isTimedOut() ->
+                                                        new Report.Failure<>(
+                                                                "Decompile timed out after %d s"
+                                                                        .formatted(timeout));
+                                                case DecompileResults results ->
+                                                        new Report.Failure<>(
+                                                                results.getErrorMessage().strip());
+                                            },
                                     (first, _) -> first,
                                     LinkedHashMap::new));
         } finally {
             callback.dispose();
         }
-    }
-
-    private static Report.Result<DecompileResults> result(DecompileResults results, int timeout) {
-        return results.decompileCompleted()
-                ? new Report.Success<>(results)
-                : new Report.Failure<>(
-                        results.isTimedOut()
-                                ? "Decompile timed out after %d s".formatted(timeout)
-                                : results.getErrorMessage().strip());
     }
 }

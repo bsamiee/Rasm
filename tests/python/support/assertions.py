@@ -1,8 +1,7 @@
-"""Reusable assertions for algebraic properties, tables, tolerance, and results."""
+"""Reusable assertions for tolerance, algebraic properties, tables, results, and codec round trips."""
 
 import cmath
 from collections.abc import Callable, Iterable, Mapping, Sequence
-import dataclasses
 from decimal import Decimal
 from fractions import Fraction
 import operator
@@ -39,65 +38,45 @@ class _Quantity(Protocol):
     def magnitude(self) -> object: ...
 
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-JSON_ENCODER = msgspec.json.Encoder(order="deterministic")
-MSGPACK_ENCODER = msgspec.msgpack.Encoder(order="deterministic")
-
-# --- [TOLERANCE_ASSERTIONS] -------------------------------------------------------------
+# --- [OPERATIONS] -----------------------------------------------------------------------
+# --- [TOLERANCE]
 
 
 def _diverge(a: object, b: object, rel_tol: float, abs_tol: float, path: str) -> str | None:
     """Name the first tolerance divergence at its structural path, or ``None`` when the values are close."""
     match (a, b):
-        case (bool(), _) | (_, bool()) | (str(), _) | (bytes(), _):
+        case (bool() | str() | bytes(), _) | (_, bool() | str() | bytes()):
             return None if isinstance(a, bool) == isinstance(b, bool) and a == b else f"{path}: {a!r} != {b!r}"
+        case (np.ndarray() | np.generic(), _) | (_, np.ndarray() | np.generic()) if (left := np.asarray(a)).shape != (right := np.asarray(b)).shape:
+            return f"{path}: shape {left.shape} != {right.shape}"
         case (np.ndarray() | np.generic(), _) | (_, np.ndarray() | np.generic()):
-            left, right = np.asarray(a), np.asarray(b)
-            if left.shape != right.shape:
-                return f"{path}: shape {left.shape} != {right.shape}"
-            near = np.atleast_1d(np.isclose(left, right, rtol=rel_tol, atol=abs_tol, equal_nan=True))
-            if bool(near.all()):
-                return None
-            index = tuple(int(i) for i in np.argwhere(~near)[0])
-            return f"{path}{list(index)}: {np.atleast_1d(left)[index]!r} !~ {np.atleast_1d(right)[index]!r}"
-        case ((int() | float() | complex() | Decimal() | Fraction()) as num_a, (int() | float() | complex() | Decimal() | Fraction()) as num_b):
-            fa, fb = complex(num_a), complex(num_b)
-            close_enough = fa == fb or (cmath.isnan(fa) and cmath.isnan(fb)) or cmath.isclose(fa, fb, rel_tol=rel_tol, abs_tol=abs_tol)
-            return None if close_enough else f"{path}: |{a!r} - {b!r}| exceeds rel_tol={rel_tol}, abs_tol={abs_tol}"
-        case (_Quantity() as qty_a, _Quantity() as qty_b):
-            if qty_b.units != qty_a.units:
-                return f"{path}: units {qty_a.units!r} != {qty_b.units!r}"
-            return _diverge(qty_a.magnitude, qty_b.magnitude, rel_tol, abs_tol, f"{path}.magnitude")
-        case (Result(tag="ok", ok=left), Result(tag="ok", ok=right)):
-            return _diverge(left, right, rel_tol, abs_tol, f"{path}.ok")
-        case (Result(tag="error", error=left), Result(tag="error", error=right)):
-            return _diverge(left, right, rel_tol, abs_tol, f"{path}.error")
-        case (Option(tag="some", some=left), Option(tag="some", some=right)):
-            return _diverge(left, right, rel_tol, abs_tol, f"{path}.some")
-        case (Option(tag="none"), Option(tag="none")):
-            return None
-        case (Result(), Result()) | (Option(), Option()):
+            left, right = np.atleast_1d(np.asarray(a)), np.atleast_1d(np.asarray(b))
+            far = np.argwhere(~np.isclose(left, right, rtol=rel_tol, atol=abs_tol, equal_nan=True))
+            return None if far.size == 0 else f"{path}{far[0].tolist()}: {left[tuple(far[0])]!r} !~ {right[tuple(far[0])]!r}"
+        case ((int() | float() | complex() | Decimal() | Fraction()) as left, (int() | float() | complex() | Decimal() | Fraction()) as right):
+            fa, fb = complex(left), complex(right)
+            return None if cmath.isclose(fa, fb, rel_tol=rel_tol, abs_tol=abs_tol) or (cmath.isnan(fa) and cmath.isnan(fb)) else f"{path}: |{a!r} - {b!r}| exceeds rel_tol={rel_tol}, abs_tol={abs_tol}"
+        case (_Quantity() as left, _Quantity() as right) if left.units != right.units:
+            return f"{path}: units {left.units!r} != {right.units!r}"
+        case (_Quantity() as left, _Quantity() as right):
+            children: Iterable[tuple[str, object, object]] = ((".magnitude", left.magnitude, right.magnitude),)
+        case (Result(tag=tag), Result(tag=other)) | (Option(tag=tag), Option(tag=other)) if tag != other:
             return f"{path}: result tags differ: {a!r} != {b!r}"
-        case (Block(), Block()):
-            return _diverge(tuple(a), tuple(b), rel_tol, abs_tol, path)
+        case (Result(tag=tag), Result()) | (Option(tag=tag), Option()):
+            children = ((f".{tag}", getattr(a, tag), getattr(b, tag)),)
         case (msgspec.Struct(), msgspec.Struct()) if type(a) is type(b):
-            fields: tuple[str, ...] = a.__struct_fields__
-            return next((d for f in fields if (d := _diverge(getattr(a, f), getattr(b, f), rel_tol, abs_tol, f"{path}.{f}")) is not None), None)
-        case _ if dataclasses.is_dataclass(a) and not isinstance(a, type) and type(a) is type(b):
-            names = (f.name for f in dataclasses.fields(a))
-            return next((d for f in names if (d := _diverge(getattr(a, f), getattr(b, f), rel_tol, abs_tol, f"{path}.{f}")) is not None), None)
+            children = ((f".{field}", getattr(a, field), getattr(b, field)) for field in a.__struct_fields__)
+        case (Mapping(), Mapping()) if set(a) != set(b):
+            return f"{path}: key sets differ: {sorted(map(repr, set(a) ^ set(b)))}"
         case (Mapping(), Mapping()):
-            if set(a) != set(b):
-                return f"{path}: key sets differ: {sorted(map(repr, set(a) ^ set(b)))}"
-            return next((d for k, v in a.items() if (d := _diverge(v, b[k], rel_tol, abs_tol, f"{path}[{k!r}]")) is not None), None)
-        case (Sequence(), Sequence()):
-            if len(a) != len(b):
-                return f"{path}: length {len(a)} != {len(b)}"
-            pairs = zip(a, b, strict=True)
-            return next((d for i, (x, y) in enumerate(pairs) if (d := _diverge(x, y, rel_tol, abs_tol, f"{path}[{i}]")) is not None), None)
+            children = ((f"[{key!r}]", value, b[key]) for key, value in a.items())
+        case (Block() as left, Block() as right) | (Sequence() as left, Sequence() as right) if len(left) != len(right):
+            return f"{path}: length {len(left)} != {len(right)}"
+        case (Block() as left, Block() as right) | (Sequence() as left, Sequence() as right):
+            children = ((f"[{index}]", x, y) for index, (x, y) in enumerate(zip(left, right)))
         case _:
             return None if a == b else f"{path}: {a!r} != {b!r}"
+    return next((divergence for suffix, x, y in children if (divergence := _diverge(x, y, rel_tol, abs_tol, f"{path}{suffix}")) is not None), None)
 
 
 def close(*, rel_tol: float = 1e-9, abs_tol: float = 0.0) -> Callable[[object, object], bool]:
@@ -111,7 +90,7 @@ def assert_close(actual: object, expected: object, *, rel_tol: float = 1e-9, abs
     assert divergence is None, f"tolerance violation at {divergence}"
 
 
-# --- [ALGEBRAIC_LAWS] -------------------------------------------------------------------
+# --- [LAWS]
 
 
 def _assert_equal[T](left: T, right: T, equal: _Equality[T]) -> None:
@@ -188,14 +167,24 @@ def differential[T, R](value: T, implementation: Callable[[T], R], reference: Ca
     _assert_equal(implementation(value), reference(value), eq)
 
 
-def metamorphic[T, R](value: T, function: Callable[[T], R], *relations: Relation[T, R]) -> None:
-    """Assert every relation ``(name, transform, relate)`` holds between ``function(value)`` and ``function(transform(value))``."""
+def metamorphic[T, R](value: T, function: Callable[[T], R], relations: Iterable[Relation[T, R]], subtests: pytest.Subtests) -> None:
+    """Assert each ``(name, transform, relate)`` relation between ``function(value)`` and ``function(transform(value))`` as an independent subtest."""
     baseline = function(value)
-    for _, transform, relate in relations:
-        relate(baseline, function(transform(value)))
+    for name, transform, relate in relations:
+        with subtests.test(msg=name):
+            relate(baseline, function(transform(value)))
 
 
-# --- [TABLE_ASSERTIONS] -----------------------------------------------------------------
+def rejects_counterexample[T, **P](counterexample: T, property_assertion: Callable[Concatenate[T, P], None], *args: P.args, **kwargs: P.kwargs) -> None:
+    """Raise ``AssertionError`` when the property assertion accepts the counterexample."""
+    try:
+        property_assertion(counterexample, *args, **kwargs)
+    except AssertionError:
+        return
+    raise AssertionError(f"property accepts its counterexample: {counterexample!r}")
+
+
+# --- [TABLES]
 
 
 def assert_table[I, O](cases: Iterable[Case[I, O]], function: Callable[[I], O], subtests: pytest.Subtests) -> None:
@@ -206,7 +195,7 @@ def assert_table[I, O](cases: Iterable[Case[I, O]], function: Callable[[I], O], 
             assert actual == expected, f"{label!r}: expected {expected!r}, got {actual!r} for {value!r}"
 
 
-# --- [RESULT_ASSERTIONS] ----------------------------------------------------------------
+# --- [RESULTS]
 
 
 def assert_ok[T, E](result: Result[T, E]) -> T:
@@ -245,17 +234,12 @@ def assert_none(option: Option[object]) -> None:
             raise AssertionError(f"expected Nothing, got {option!r}")
 
 
-def rejects_counterexample[T, **P](counterexample: T, property_assertion: Callable[Concatenate[T, P], None], *args: P.args, **kwargs: P.kwargs) -> None:
-    """Raise ``AssertionError`` when the property assertion accepts the counterexample."""
-    try:
-        property_assertion(counterexample, *args, **kwargs)
-    except AssertionError:
-        return
-    raise AssertionError(f"property accepts its counterexample: {counterexample!r}")
+# --- [CODECS]
 
 
-def assert_roundtrip[T](value: T, typ: type[T], *, encoder: msgspec.json.Encoder | msgspec.msgpack.Encoder = JSON_ENCODER) -> T:
-    """Return the decoded value after asserting decode equality and a byte-identical re-encode."""
+def assert_roundtrip[T](value: T, typ: type[T], *, codec: type[msgspec.json.Encoder | msgspec.msgpack.Encoder] = msgspec.json.Encoder) -> T:
+    """Return the decoded value after asserting decode equality and a byte-identical re-encode under the codec's deterministic order."""
+    encoder = codec(order="deterministic")
     raw = encoder.encode(value)
     decoded: T = msgspec.msgpack.decode(raw, type=typ) if isinstance(encoder, msgspec.msgpack.Encoder) else msgspec.json.decode(raw, type=typ)
     assert decoded == value, f"decode mismatch for {typ.__name__}: {decoded!r} != {value!r}"
@@ -267,8 +251,6 @@ def assert_roundtrip[T](value: T, typ: type[T], *, encoder: msgspec.json.Encoder
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
-    "JSON_ENCODER",
-    "MSGPACK_ENCODER",
     "Case",
     "Relation",
     "absorbing",

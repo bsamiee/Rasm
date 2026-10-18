@@ -5,7 +5,7 @@
     "type": "object",
     "properties": {
         "project": { "description": "Project whose writer targets run.", "type": "string", "$default": { "$source": "projectName" } },
-        "files": { "description": "Paths the file executor formats; the workspace executor ignores them.", "type": "array", "items": { "type": "string" }, "$default": { "$source": "unparsed" } }
+        "files": { "description": "Git paths or directories to format, every writer's own file set when empty.", "type": "array", "items": { "type": "string" }, "$default": { "$source": "unparsed" } }
     },
     "required": [ "project", "files" ]
 }

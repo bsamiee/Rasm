@@ -25,22 +25,20 @@ public readonly partial struct Longitude : System.Numerics.IMinMaxValue<Longitud
 
 public sealed record GeoCoordinate(Latitude Latitude, Longitude Longitude) {
     public static Fin<GeoCoordinate> From(double latitude, double longitude) =>
-        (Latitude.Validated(latitude).ToValidation(),
-         Longitude.Validated(longitude).ToValidation())
+        (Latitude.Validated(latitude),
+         Longitude.Validated(longitude))
             .Apply(static (north, east) => new GeoCoordinate(north, east))
-            .As()
-            .ToFin();
+            .As();
 }
 
 public sealed record EarthLocation(GeoCoordinate Place, Length Elevation);
 
 public sealed record EarthAnchor(Option<EarthLocation> Earth, Option<EarthCoordinateSystem> Datum, Option<Plane> Compass, Option<string> Name, Option<string> Description) {
     public Fin<(EarthLocation Earth, Plane Compass)> Located =>
-        (Earth.ToValidation<Error>(new Refused(nameof(EarthAnchorPoint.EarthLocationIsSet), Refused.Absent)),
-         Compass.ToValidation<Error>(new Refused(nameof(EarthAnchorPoint.ModelLocationIsSet), Refused.Absent)))
+        (Earth.ToFin(new Refused(nameof(EarthAnchorPoint.EarthLocationIsSet), Refused.Absent)),
+         Compass.ToFin(new Refused(nameof(EarthAnchorPoint.ModelLocationIsSet), Refused.Absent)))
             .Apply(static (earth, compass) => (Earth: earth, Compass: compass))
-            .As()
-            .ToFin();
+            .As();
 
     public static Fin<EarthAnchor> Of(EarthAnchorPoint point) =>
         Callbacks.Found(point.EarthLocationIsSet(), point)

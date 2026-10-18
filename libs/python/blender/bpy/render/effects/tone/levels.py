@@ -3,17 +3,16 @@
 import bpy
 from expression import Nothing, Option, option, Some
 import numpy as np
-import PyOpenColorIO
 
 from blender.bpy.commands.operators import Done, Operator
 from blender.bpy.data.rna.conditions import Job
 from blender.bpy.extension.identity import Identity
 from blender.bpy.faults import BlenderImagingFault, BlenderResult
 from blender.bpy.nodes.graphs import End, ended, Fragment, math, mixed, node
+from blender.bpy.render.color.spaces import config_of
 from blender.bpy.render.effects.stack import CompositorEffect, Named, Shell
 from blender.bpy.render.effects.viewers import ViewerRead
 from blender.imaging.analysis.metering import Samples, samples_of
-from blender.imaging.color.config import admitted
 from blender.imaging.compositing.blending import Entry
 from blender.imaging.effects.tone.levels import Levels
 from blender.imaging.faults import accumulated, paired
@@ -40,12 +39,8 @@ def leveled(shell: Shell[Levels]) -> BlenderResult[tuple[Fragment, End]]:
 
 def measured(identity: Identity, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]) -> BlenderResult[Option[str]]:
     """Writes covered frame extrema as levels, retaining the entry's blend, and names an undo step where the levels changed."""
-    found: BlenderResult[Option[Levels]] = (
-        admitted(PyOpenColorIO.GetCurrentConfig(), ())
-        .bind(lambda config: samples_of(config, file.pixels))
-        .map(Samples.extent)
-        .map(option.bind(lambda extent: Levels.of(extent.low, extent.white)))
-        .map_error(BlenderImagingFault.lifted)
+    found = config_of().bind(
+        lambda config: samples_of(config, file.pixels).map(Samples.extent).map(option.bind(lambda extent: Levels.of(extent.low, extent.white))).map_error(BlenderImagingFault.lifted)
     )
     return (
         paired(found, levels.read(identity, entry))

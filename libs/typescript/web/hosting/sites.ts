@@ -1,18 +1,19 @@
 import { Option } from 'effect';
 import { Headers, type HttpServerRequest } from 'effect/http';
 
-// --- [TYPES] ---------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
-interface User {
-    readonly id: string;
-    readonly email: Option.Option<string>;
-}
+const contract = {
+    headers: { id: 'oai-authenticated-user-id', email: 'oai-authenticated-user-email' },
+    paths: { signin: '/signin-with-chatgpt', signout: '/signout-with-chatgpt' },
+    returnTo: 'return_to',
+} as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const sessionPath = (action: 'signin' | 'signout', returnTo: string): string => `/${action}-with-chatgpt?${new URLSearchParams({ return_to: returnTo })}`;
-const user = ({ headers }: HttpServerRequest.HttpServerRequest): Option.Option<User> => Option.map(Headers.get(headers, 'oai-authenticated-user-id'), (id) => ({ id, email: Headers.get(headers, 'oai-authenticated-user-email') }));
+const sessionPath = (action: keyof typeof contract.paths, returnTo: string) => `${contract.paths[action]}?${new URLSearchParams({ [contract.returnTo]: returnTo })}`;
+const user = ({ headers }: HttpServerRequest.HttpServerRequest) => Option.map(Headers.get(headers, contract.headers.id), (id) => ({ id, email: Headers.get(headers, contract.headers.email) }));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { sessionPath, user };
+export { contract, sessionPath, user };

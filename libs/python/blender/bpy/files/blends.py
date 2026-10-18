@@ -241,7 +241,7 @@ def inspected(path: Path) -> Generator[BlenderResult[bpy.types.BlendData]]:
 
 def mirrored(root: Path, path: Path) -> Path:
     """Returns a path under a mirror root, retaining its drive as a directory."""
-    normal = Path(os.path.abspath(path))  # ruff: ignore[os-path-abspath]
+    normal = Path(os.path.abspath(path))
     return root / normal.drive.removesuffix(":").lstrip("\\/") / normal.relative_to(normal.anchor)
 
 
@@ -250,7 +250,7 @@ def dependencies() -> tuple[Dependency, ...]:
     found: list[Dependency] = []
 
     def visited(owner: bpy.types.ID, path: str, _: bpy.types.BlendDataPathMeta) -> None:
-        absolute = Path(os.path.abspath(bpy.path.abspath(path, library=owner.library)))  # ruff: ignore[os-path-abspath]
+        absolute = Path(os.path.abspath(bpy.path.abspath(path, library=owner.library)))
         found.append(Dependency(owner=Handle.of(owner), path=absolute, present=absolute.exists()))
 
     bpy.data.file_path_foreach(visited, flags={"SKIP_PACKED", "SKIP_WEAK_REFERENCES", "EXPAND_TOKENS", "EXPAND_SEQUENCES"})
@@ -267,7 +267,7 @@ def relinked(relink: Relink) -> dict[tuple[Handle[bpy.types.ID], str], str]:
                 return Nothing if path.startswith("//") else Some(bpy.path.relpath(str(mirrored(root, Path(path))), start=str(mirrored(root, source.parent))))
             case Rebased(source=source, target=target):
                 return (
-                    Some(Path(os.path.abspath(bpy.path.abspath(path))))  # ruff: ignore[os-path-abspath]
+                    Some(Path(os.path.abspath(bpy.path.abspath(path))))
                     .filter(lambda held: held.is_relative_to(source))
                     .map(lambda held: target / held.relative_to(source))
                     .map(lambda moved: bpy.path.relpath(str(moved)) if path.startswith("//") and moved.anchor == Path(bpy.data.filepath).anchor else str(moved))

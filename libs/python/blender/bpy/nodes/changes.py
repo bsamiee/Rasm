@@ -110,6 +110,10 @@ def changes(desired: Graph | NodeGroup, tree: bpy.types.NodeTree, identity: Iden
     Returns:
         `Ok` of the rows an apply writes, `Changes()` for a current tree; `Error` of `absent` or `choice` for a content member the node's class lacks, or of `register` for a refused stored-key name.
     """
+
+    def referenced[T: bpy.types.ID](live: bpy.types.Node, identifier: str, kind: type[T]) -> Option[T]:
+        return struct_at(live, identifier).bind(lambda found: Some(found) if isinstance(found, kind) else Nothing)
+
     graph, interface = (desired.graph, desired.interface) if isinstance(desired, NodeGroup) else (desired, Interface())
     placed = graph.placed
     first = owned(tree, identity)
@@ -120,16 +124,81 @@ def changes(desired: Graph | NodeGroup, tree: bpy.types.NodeTree, identity: Iden
         for key, live in held.items()
         for content in placed[key][0].content.to_list()
         if isinstance(content, Nested)
-        for tree in _pointed(live, "node_tree", bpy.types.NodeTree).filter(lambda tree: Mark.read(identity, tree) == Some(Mark(key=content.group.key))).to_list()
+        for tree in referenced(live, "node_tree", bpy.types.NodeTree).filter(lambda tree: Mark.read(identity, tree) == Some(Mark(key=content.group.key))).to_list()
     }
     current = {pair: changes(group, pair[0], identity).map(lambda rows: rows == Changes()) for pair, group in pointed.items()}
+
+    def holding(content: Content, live: bpy.types.Node) -> BlenderResult[bool]:
+        match content:
+            case Ramp() | CurvePoints():
+                desired = _tree(content)
+                return (
+                    accumulated(Descriptor.resolve(type(live), root, bpy.types.PointerProperty) for root in desired.roots)
+                    .bind(lambda roots: Snapshot.capture(live, Some(roots)))
+                    .map(
+                        lambda held: all(
+                            key in held.tree.owners
+                            and held.tree.owners[key].children == owner.children
+                            and all(holds(struct, name, value) for struct in struct_at(live, key).to_list() for name, value in owner.values.items())
+                            for key, owner in desired.owners.items()
+                        )
+                    )
+                )
+            case Generated(ownership=ownership, content=hashed):
+                return Ok(
+                    referenced(live, "image", bpy.types.Image)
+                    .map(lambda image: Mark.read(identity, image) == Some(Mark(key=ownership.key, content=Some(hashed))))
+                    .default_with(lambda: Mark.read(identity, live).map(lambda mark: mark.content == Some(hashed)).default_value(False))
+                )
+            case Loaded(path=path, tag=tag, frames=frames):
+                return (
+                    frames
+                    .map(lambda want: _framed(live).map(lambda holder: all(holds(holder, name, value) for name, value in msgspec.structs.asdict(want).items())))
+                    .default_value(Ok(True))
+                    .map(
+                        lambda framed: (
+                            framed
+                            and referenced(live, "image", bpy.types.Image)
+                            .map(lambda image: bpy.path.abspath(image.filepath, library=image.library) == path and (image.source == "SEQUENCE") == tag.sequence)
+                            .default_value(False)
+                        )
+                    )
+                )
+            case Nested(group=group):
+                return referenced(live, "node_tree", bpy.types.NodeTree).bind(lambda tree: Option.of_optional(current.get((tree, group.key)))).default_value(Ok(False))
+            case MenuItems() as menu:
+                return _narrowed(live, bpy.types.GeometryNodeMenuSwitch, "enum_items").map(
+                    lambda switch: tuple((each.name, each.description) for each in switch.enum_items) == tuple((each.name, each.description) for each in menu.items)
+                )
+            case FileItems() as files:
+                return _narrowed(live, bpy.types.CompositorNodeOutputFile, "file_output_items").map(
+                    lambda output: (
+                        len(output.file_output_items) == len(files.items)
+                        and all(held.name == item.name and held.socket_type == item.kind and not differing(item.members, held) for held, item in zip(output.file_output_items, files.items))
+                    )
+                )
+
+    def stale(
+        sockets: bpy.types.NodeInputs | bpy.types.NodeOutputs, values: dict[str, Value], keyed: Mapping[str, str], interface: Option[dict[str, tuple[str, type[bpy.types.NodeSocket]]]]
+    ) -> dict[str, Value]:
+        return {
+            address: value
+            for address, value in values.items()
+            if not any(
+                holds(socket, "default_value", value)
+                and interface.map(
+                    lambda future: any(identifier == socket.identifier and address in {key, identifier} and isinstance(socket, kind) for key, (identifier, kind) in future.items())
+                ).default_value(True)
+                for socket in socket_at(sockets, keyed.get(address, address)).to_option().to_list()
+            )
+        }
 
     def altered(key: Key, node: Node, parent: Option[Key]) -> BlenderResult[Option[Altered]]:
         def drawn(live: bpy.types.Node) -> BlenderResult[Altered]:
             framed = parent.bind(lambda frame: Option.of_optional(held.get(frame))).to_optional() == live.parent
             return (
                 node.content
-                .map(lambda wanted: _current(wanted, live, identity, current).map(lambda now: Nothing if now else Some(wanted)))
+                .map(lambda wanted: holding(wanted, live).map(lambda now: Nothing if now else Some(wanted)))
                 .default_value(Ok(Nothing))
                 .map(lambda content: Altered(key=key, members=differing(node.members, live), content=content, parent=Nothing if framed else Some(parent)))
             )
@@ -194,9 +263,7 @@ def changes(desired: Graph | NodeGroup, tree: bpy.types.NodeTree, identity: Iden
         (withdrawn, declared, restated), (disconnected, connected, interfaces) = interfaced(tree, interface, name), linked(name, keyed, rows)
         values = tuple(
             Valued(
-                key=key,
-                inputs=_stale(held[key].inputs, node.inputs, keyed[key], future := Option.of_optional(interfaces.get(key))),
-                outputs=_stale(held[key].outputs, node.outputs, keyed[key], future),
+                key=key, inputs=stale(held[key].inputs, node.inputs, keyed[key], future := Option.of_optional(interfaces.get(key))), outputs=stale(held[key].outputs, node.outputs, keyed[key], future)
             )
             if key in held
             else Valued(key=key, inputs=node.inputs, outputs=node.outputs)
@@ -357,6 +424,18 @@ def stored(content: Content, live: bpy.types.Node, identity: Identity) -> Blende
     Returns:
         `Ok` after writing; native snapshot, image, group, and RNA faults remain typed errors.
     """
+
+    def ordered(
+        items: bpy.types.NodeMenuSwitchItems | bpy.types.NodeCompositorFileOutputItems, names: tuple[str, ...], added: Callable[[str], object], removed: Callable[[str], object]
+    ) -> tuple[bpy.types.NodeEnumItem | bpy.types.NodeCompositorFileOutputItem, ...]:
+        for name in tuple(item.name for item in items if item.name not in names):
+            removed(name)
+        for name in [name for name in names if items.get(name) is None]:
+            added(name)
+        for index, name in enumerate(names):
+            items.move(tuple(items).index(items[name]), index)
+        return tuple(items)
+
     match content:
         case Ramp() | CurvePoints():
             return Snapshot(struct=live.bl_rna.identifier, tree=_tree(content)).apply(live).outcome  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
@@ -378,7 +457,7 @@ def stored(content: Content, live: bpy.types.Node, identity: Identity) -> Blende
         case MenuItems() as menu:
             return (
                 _narrowed(live, bpy.types.GeometryNodeMenuSwitch, "enum_items")
-                .map(lambda switch: _ordered(switch.enum_items, tuple(each.name for each in menu.items), switch.enum_items.new, lambda name: switch.enum_items.remove(switch.enum_items[name])))
+                .map(lambda switch: ordered(switch.enum_items, tuple(each.name for each in menu.items), switch.enum_items.new, lambda name: switch.enum_items.remove(switch.enum_items[name])))
                 .bind(lambda held: accumulated(written(each, "description", item.description) for each, item in zip(held, menu.items)).map(lambda _: None))
             )
         case FileItems() as files:
@@ -386,7 +465,7 @@ def stored(content: Content, live: bpy.types.Node, identity: Identity) -> Blende
             return (
                 _narrowed(live, bpy.types.CompositorNodeOutputFile, "file_output_items")
                 .map(
-                    lambda output: _ordered(
+                    lambda output: ordered(
                         output.file_output_items,
                         tuple(kinds),
                         lambda name: output.file_output_items.new(kinds[name], name),
@@ -433,93 +512,6 @@ def _tree(content: Ramp | CurvePoints) -> Tree[Value]:
                     **{key: Owner(values={"location": point, "handle_type": handle}) for curve, points in curves.items() for key, point in zip(keys[curve], points)},
                 },
             )
-
-
-def _current(content: Content, live: bpy.types.Node, identity: Identity, nested: Mapping[tuple[bpy.types.NodeTree, Key], BlenderResult[bool]]) -> BlenderResult[bool]:
-    """Whether a node holds a content, one arm per content case, a nested group's currency read once per owned tree and group key."""
-    match content:
-        case Ramp() | CurvePoints():
-            desired = _tree(content)
-            return (
-                accumulated(Descriptor.resolve(type(live), root, bpy.types.PointerProperty) for root in desired.roots)
-                .bind(lambda roots: Snapshot.capture(live, Some(roots)))
-                .map(
-                    lambda held: all(
-                        key in held.tree.owners
-                        and held.tree.owners[key].children == owner.children
-                        and all(holds(struct, name, value) for struct in struct_at(live, key).to_list() for name, value in owner.values.items())
-                        for key, owner in desired.owners.items()
-                    )
-                )
-            )
-        case Generated(ownership=ownership, content=hashed):
-            return Ok(
-                _pointed(live, "image", bpy.types.Image)
-                .map(lambda image: Mark.read(identity, image) == Some(Mark(key=ownership.key, content=Some(hashed))))
-                .default_with(lambda: Mark.read(identity, live).map(lambda mark: mark.content == Some(hashed)).default_value(False))
-            )
-        case Loaded(path=path, tag=tag, frames=frames):
-            return (
-                frames
-                .map(lambda want: _framed(live).map(lambda holder: all(holds(holder, name, value) for name, value in msgspec.structs.asdict(want).items())))
-                .default_value(Ok(True))
-                .map(
-                    lambda framed: (
-                        framed
-                        and _pointed(live, "image", bpy.types.Image)
-                        .map(lambda image: bpy.path.abspath(image.filepath, library=image.library) == path and (image.source == "SEQUENCE") == tag.sequence)
-                        .default_value(False)
-                    )
-                )
-            )
-        case Nested(group=group):
-            return _pointed(live, "node_tree", bpy.types.NodeTree).bind(lambda tree: Option.of_optional(nested.get((tree, group.key)))).default_value(Ok(False))
-        case MenuItems() as menu:
-            return _narrowed(live, bpy.types.GeometryNodeMenuSwitch, "enum_items").map(
-                lambda switch: tuple((each.name, each.description) for each in switch.enum_items) == tuple((each.name, each.description) for each in menu.items)
-            )
-        case FileItems() as files:
-            return _narrowed(live, bpy.types.CompositorNodeOutputFile, "file_output_items").map(
-                lambda output: (
-                    len(output.file_output_items) == len(files.items)
-                    and all(held.name == item.name and held.socket_type == item.kind and not differing(item.members, held) for held, item in zip(output.file_output_items, files.items))
-                )
-            )
-
-
-def _ordered(
-    items: bpy.types.NodeMenuSwitchItems | bpy.types.NodeCompositorFileOutputItems, names: tuple[str, ...], made: Callable[[str], object], removed: Callable[[str], object]
-) -> tuple[bpy.types.NodeEnumItem | bpy.types.NodeCompositorFileOutputItem, ...]:
-    """Keeps a named item collection to the given names in order, removing the rest and adding the missing, so a held item keeps its name and stored values."""
-    for name in tuple(item.name for item in items if item.name not in names):
-        removed(name)
-    for name in [name for name in names if items.get(name) is None]:
-        made(name)
-    for index, name in enumerate(names):
-        items.move(tuple(items).index(items[name]), index)
-    return tuple(items)
-
-
-def _stale(
-    sockets: bpy.types.NodeInputs | bpy.types.NodeOutputs, values: dict[str, Value], keyed: Mapping[str, str], interface: Option[dict[str, tuple[str, type[bpy.types.NodeSocket]]]]
-) -> dict[str, Value]:
-    """Socket values by address, resolved through the node's keyed identifiers, whose live socket is absent or holds another value."""
-    return {
-        address: value
-        for address, value in values.items()
-        if not any(
-            holds(socket, "default_value", value)
-            and interface.map(
-                lambda future: any(identifier == socket.identifier and address in {key, identifier} and isinstance(socket, kind) for key, (identifier, kind) in future.items())
-            ).default_value(True)
-            for socket in socket_at(sockets, keyed.get(address, address)).to_option().to_list()
-        )
-    }
-
-
-def _pointed[T: bpy.types.ID](live: bpy.types.Node, identifier: str, kind: type[T]) -> Option[T]:
-    """Data-block a node's pointer member names, `Nothing` for an empty pointer or a member the node lacks."""
-    return struct_at(live, identifier).bind(lambda found: Some(found) if isinstance(found, kind) else Nothing)
 
 
 def _framed(live: bpy.types.Node) -> BlenderResult[bpy.types.ImageUser | bpy.types.CompositorNodeImage]:

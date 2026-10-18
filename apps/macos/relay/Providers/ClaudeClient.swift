@@ -71,9 +71,30 @@ actor ClaudeClient: ProviderClient {
     }
 
     func currentSelection(known: [Account]) async -> Result<AccountIdentity?, ProviderError> {
-        await identity(of: shared).bind { identity -> Result<AccountIdentity?, ClaudeFailure> in
+        func saveLastCredential(incoming identity: AccountIdentity) async -> Result<Void, ClaudeFailure> {
+            guard let previous: AccountIdentity = lastSelection, !previous.isSameAccount(as: identity),
+                let outgoing: UUID = selectionDestination(known: known),
+                let credential: ClaudeCredential = lastCredential,
+                credential.identity.isSameAccount(as: previous)
+            else {
+                if !(lastSelection?.isSameAccount(as: identity) ?? false) { lastCredential = nil }
+                return .success(())
+            }
+            let store: ClaudeCredentialStore = privateStore(outgoing)
+            return await ClaudeLock.withLock(directories: [store.directory]) {
+                await store.read().bind { existing -> Result<Void, ClaudeFailure> in
+                    let keepsExisting: Bool =
+                        existing.token.map { held in
+                            (held.expiresAt ?? .distantPast) >= (credential.token.expiresAt ?? .distantPast)
+                        } ?? false
+                    return await keepsExisting ? .success(()) : self.write(credential, into: store)
+                }
+            }
+            .map { _ in lastCredential = nil }
+        }
+        return await identity(of: shared).bind { identity -> Result<AccountIdentity?, ClaudeFailure> in
             if let identity {
-                await saveLastCredential(incoming: identity, known: known).bind { _ in
+                await saveLastCredential(incoming: identity).bind { _ in
                     lastSelection = identity
                     if case .success(.credential(let held)) = await shared.read(),
                         held.identity.isSameAccount(as: identity)
@@ -128,31 +149,6 @@ actor ClaudeClient: ProviderClient {
         } else {
             .success(())
         }
-    }
-
-    private func saveLastCredential(
-        incoming identity: AccountIdentity,
-        known: [Account],
-    ) async -> Result<Void, ClaudeFailure> {
-        guard let previous: AccountIdentity = lastSelection, !previous.isSameAccount(as: identity),
-            let outgoing: UUID = selectionDestination(known: known),
-            let credential: ClaudeCredential = lastCredential,
-            credential.identity.isSameAccount(as: previous)
-        else {
-            if !(lastSelection?.isSameAccount(as: identity) ?? false) { lastCredential = nil }
-            return .success(())
-        }
-        let store: ClaudeCredentialStore = privateStore(outgoing)
-        return await ClaudeLock.withLock(directories: [store.directory]) {
-            await store.read().bind { existing -> Result<Void, ClaudeFailure> in
-                let keepsExisting: Bool =
-                    existing.token.map { held in
-                        (held.expiresAt ?? .distantPast) >= (credential.token.expiresAt ?? .distantPast)
-                    } ?? false
-                return await keepsExisting ? .success(()) : self.write(credential, into: store)
-            }
-        }
-        .map { _ in lastCredential = nil }
     }
 
     // --- [SWITCH]
@@ -319,7 +315,7 @@ actor ClaudeClient: ProviderClient {
 
     // --- [USAGE]
     func usage(for account: Account, isSelected: Bool) async -> Result<AccountUsage, ProviderError> {
-        await request(for: account, isSelected: isSelected) { credential in
+        func send(_ credential: ClaudeCredential) async -> Result<AccountUsage, ClaudeFailure> {
             await fetch(
                 .usage,
                 headers: [
@@ -330,6 +326,14 @@ actor ClaudeClient: ProviderClient {
             .flatMap { data in decode(ClaudeUsageResponse.self, from: data) }
             .flatMap { usage in
                 usage.usage(observedAt: Date(), signInExpiresAt: credential.token.refreshTokenExpiresAt)
+            }
+        }
+        return await credential(for: account, isSelected: isSelected, replacing: nil).bind { stored in
+            let sent: Result<AccountUsage, ClaudeFailure> = await verify(stored).bind(send)
+            guard case .failure(let error) = sent, error.isUnauthorized else { return sent }
+            verifiedIdentities[stored.token.fingerprint] = nil
+            return await credential(for: account, isSelected: isSelected, replacing: stored).bind { renewed in
+                await verify(renewed).bind(send)
             }
         }
         .mapError(ProviderError.init(failure:))
@@ -392,21 +396,6 @@ actor ClaudeClient: ProviderClient {
             }
     }
 
-    private func request<Value: Sendable>(
-        for account: Account,
-        isSelected: Bool,
-        _ send: (ClaudeCredential) async -> Result<Value, ClaudeFailure>,
-    ) async -> Result<Value, ClaudeFailure> {
-        await credential(for: account, isSelected: isSelected, replacing: nil).bind { stored in
-            let sent: Result<Value, ClaudeFailure> = await verify(stored).bind(send)
-            guard case .failure(let error) = sent, error.isUnauthorized else { return sent }
-            verifiedIdentities[stored.token.fingerprint] = nil
-            return await credential(for: account, isSelected: isSelected, replacing: stored).bind { renewed in
-                await verify(renewed).bind(send)
-            }
-        }
-    }
-
     // --- [REFRESH]
     private func renew(
         _ current: ClaudeCredential,
@@ -427,7 +416,22 @@ actor ClaudeClient: ProviderClient {
         .flatMap { data in decode(ClaudeTokenResponse.self, from: data) }
         switch exchanged {
             case .success(let response):
-                return await save(response, replacing: current, posted: posted, in: store)
+                let now: Date = Date()
+                return await store.readItem().bind { item -> Result<ClaudeCredential, ClaudeFailure> in
+                    await ![nil, "", posted].contains(item?.known.claudeAiOauth?.known.refreshToken)
+                        ? store.read().flatMap { content in Self.matched(content, to: current.identity) }
+                        : response.oauth(replacing: current.token, posted: posted, at: now)
+                            .bind { token in
+                                await store.writeOAuth(token.document, over: item).map { _ in
+                                    ClaudeCredential(token: token, account: current.account, identity: current.identity)
+                                }
+                            }
+                            .flatMap { renewed in response.identity(plan: renewed.token.document.known.subscriptionType).map { identity in (renewed, identity) } }
+                            .map { renewed, identity in
+                                if let identity { verifiedIdentities[renewed.token.fingerprint] = identity }
+                                return renewed
+                            }
+                }
             case .failure(.signInRequired):
                 let signedOut: Result<Void, ClaudeFailure> = await store.readItem().bind {
                     item -> Result<Void, ClaudeFailure> in
@@ -442,30 +446,6 @@ actor ClaudeClient: ProviderClient {
                 return .failure(.signInRequired.releasing(signedOut))
             case .failure(let error):
                 return .failure(error)
-        }
-    }
-
-    private func save(
-        _ response: ClaudeTokenResponse,
-        replacing current: ClaudeCredential,
-        posted: String,
-        in store: ClaudeCredentialStore,
-    ) async -> Result<ClaudeCredential, ClaudeFailure> {
-        let now: Date = Date()
-        return await store.readItem().bind { item -> Result<ClaudeCredential, ClaudeFailure> in
-            await ![nil, "", posted].contains(item?.known.claudeAiOauth?.known.refreshToken)
-                ? store.read().flatMap { content in Self.matched(content, to: current.identity) }
-                : response.oauth(replacing: current.token, posted: posted, at: now)
-                    .bind { token in
-                        await store.writeOAuth(token.document, over: item).map { _ in
-                            ClaudeCredential(token: token, account: current.account, identity: current.identity)
-                        }
-                    }
-                    .flatMap { renewed in response.identity(plan: renewed.token.document.known.subscriptionType).map { identity in (renewed, identity) } }
-                    .map { renewed, identity in
-                        if let identity { verifiedIdentities[renewed.token.fingerprint] = identity }
-                        return renewed
-                    }
         }
     }
 

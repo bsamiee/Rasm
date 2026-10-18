@@ -1,17 +1,24 @@
+using QuikGraph;
+using QuikGraph.Algorithms;
+using QuikGraph.Algorithms.Search;
 using Rhino;
 using Rhino.DocObjects;
 using Rhino.DocObjects.Tables;
 using Rhino.FileIO;
-using QuikGraph;
-using QuikGraph.Algorithms;
-using QuikGraph.Algorithms.Search;
 
 namespace Rasm.Rhino.Document.Tables;
 
-// --- [TYPES] ---------------------------------------------------------------------------
-public enum LayerPrune { Keep, Delete, Purge }
-
 // --- [MODELS] --------------------------------------------------------------------------
+[SmartEnum]
+public sealed partial class LayerPrune {
+    public static readonly LayerPrune Keep = new(static _ => None);
+    public static readonly LayerPrune Delete = new(static target => Some<LayerOp>(new LayerOp.Delete(target)));
+    public static readonly LayerPrune Purge = new(static target => Some<LayerOp>(new LayerOp.Purge(target)));
+
+    [UseDelegateFromConstructor]
+    public partial Option<LayerOp> Removal(LayerRef target);
+}
+
 public sealed record PlannedLayer(LayerPath Path, Option<Guid> Id, Seq<LayerEdit> Edits);
 
 public sealed record LayerPlan(Seq<PlannedLayer> Layers, Option<LayerPath> Current, LayerPrune Prune, bool Ordered) {
@@ -29,19 +36,19 @@ public static class LayerPlans {
             select ops);
 
     public static Fin<Seq<LayerOp>> Plan(LayerTree live, LayerPlan plan, Func<Guid> fresh) =>
-        from valid in Checked(plan).ToFin()
+        from valid in Checked(plan)
         let rows = Placed(live, valid, fresh)
         let stale = live.Order.Filter(id => !live.Nodes[id].IsReference && !rows.Exists(row => row.Id == id))
-        from free in Conflicts(rows).ToFin()
+        from free in Conflicts(rows)
         select Ops(live, valid, rows, stale);
 
     // --- [PLACEMENT]
     private sealed record Placement(LayerPath Path, Guid Id, Option<Guid> Parent, Option<LayerNode> Held, Option<Guid> Occupant, Seq<LayerEdit> Edits);
 
-    private static Validation<Error, LayerPlan> Checked(LayerPlan plan) =>
+    private static Fin<LayerPlan> Checked(LayerPlan plan) =>
         (Callbacks.Unique(plan.Layers, static layer => layer.Path, nameof(PlannedLayer.Path)),
          Callbacks.Unique(plan.Layers.Map(static layer => layer.Id).Somes(), static id => id, nameof(PlannedLayer.Id)),
-         Refused.UnlessFound(plan.Current.ForAll(current => Paths(plan).Exists(path => path == current)), nameof(LayerPlan.Current)).ToValidation())
+         Refused.UnlessFound(plan.Current.ForAll(current => Paths(plan).Exists(path => path == current)), nameof(LayerPlan.Current)))
         .Apply((_, _, _) => plan)
         .As();
 
@@ -80,10 +87,10 @@ public static class LayerPlans {
             }).Rows;
     }
 
-    private static Validation<Error, Unit> Conflicts(Seq<Placement> rows) =>
-        rows.Traverse(static row => row.Occupant.Filter(occupant => occupant != row.Id).Match(
-                Some: occupant => Validation.Fail<Error, Unit>(Error.New($"layer path {row.Path.Text} is held by layer {occupant}")),
-                None: static () => Validation.Success<Error, Unit>(unit)))
+    private static Fin<Unit> Conflicts(Seq<Placement> rows) =>
+        rows.Traverse(static row => row.Occupant.Filter(occupant => occupant != row.Id).Match<Fin<Unit>>(
+                Some: occupant => Error.New($"layer path {row.Path.Text} is held by layer {occupant}"),
+                None: static () => unit))
             .As()
             .Map(static _ => unit);
 
@@ -106,13 +113,8 @@ public static class LayerPlans {
         Seq<Guid> subtrees = toSeq(stale.GroupBy(id => components[id]))
             .Filter(group => !group.Any(id => live.Parent(id).Exists(parent => removed.Contains(parent) && components[parent] != group.Key)))
             .Map(static group => group.First());
-        Seq<LayerOp> pruned = subtrees
-            .Bind(id => plan.Prune switch {
-                LayerPrune.Keep => Seq<LayerOp>(),
-                LayerPrune.Delete => Seq<LayerOp>(new LayerOp.Delete(Address(id))),
-                LayerPrune.Purge => Seq<LayerOp>(new LayerOp.Purge(Address(id))),
-            });
-        Seq<Guid> order = rows.Map(static row => row.Id) + (plan.Prune is LayerPrune.Keep ? stale : Seq<Guid>()) + live.Order.Filter(id => live.Nodes[id].IsReference);
+        Seq<LayerOp> pruned = subtrees.Choose(id => plan.Prune.Removal(Address(id)));
+        Seq<Guid> order = rows.Map(static row => row.Id) + (plan.Prune == LayerPrune.Keep ? stale : Seq<Guid>()) + live.Order.Filter(id => live.Nodes[id].IsReference);
         return created + current + changed + pruned + (plan.Ordered && order != live.Order ? Seq<LayerOp>(new LayerOp.Sort(order.Map(Address))) : Seq<LayerOp>());
     }
 

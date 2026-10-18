@@ -102,34 +102,26 @@ actor CodexConnection {
         await withTaskCancellationHandler {
             await withCheckedContinuation { continuation in
                 let immediate: Result<Data, CodexFailure>? = registry.withLock { state in
-                    Self.claim(id, for: continuation, in: &state)
+                    if let failure: CodexFailure = state.terminalFailure {
+                        state.replies.removeValue(forKey: id)
+                        return .failure(failure)
+                    }
+                    switch state.replies[id] {
+                        case .arrived(let reply):
+                            state.replies.removeValue(forKey: id)
+                            return reply
+                        case .unclaimed(let method) where !Task.isCancelled:
+                            state.replies[id] = .awaited(method: method, continuation)
+                            return nil
+                        case .unclaimed, .awaited, .none:
+                            state.replies.removeValue(forKey: id)
+                            return .failure(.cancelled)
+                    }
                 }
                 if let immediate { continuation.resume(returning: immediate) }
             }
         } onCancel: {
             Self.cancelReply(id, in: self.registry)
-        }
-    }
-
-    private static func claim(
-        _ id: String,
-        for continuation: CheckedContinuation<Result<Data, CodexFailure>, Never>,
-        in state: inout Registry,
-    ) -> Result<Data, CodexFailure>? {
-        if let failure: CodexFailure = state.terminalFailure {
-            state.replies.removeValue(forKey: id)
-            return .failure(failure)
-        }
-        switch state.replies[id] {
-            case .arrived(let reply):
-                state.replies.removeValue(forKey: id)
-                return reply
-            case .unclaimed(let method) where !Task.isCancelled:
-                state.replies[id] = .awaited(method: method, continuation)
-                return nil
-            case .unclaimed, .awaited, .none:
-                state.replies.removeValue(forKey: id)
-                return .failure(.cancelled)
         }
     }
 
@@ -142,20 +134,6 @@ actor CodexConnection {
             if case .awaited(_, let continuation) = state.replies.removeValue(forKey: id) { continuation } else { nil }
         }
         awaited?.resume(returning: .failure(.cancelled))
-    }
-
-    private static func reply(
-        _ line: Data,
-        outcome: Result<Void, CodexProtocol.ErrorObject>?,
-        method: CodexProtocol.Method,
-        serverVersion: String?,
-    ) -> Result<Data, CodexFailure> {
-        switch outcome {
-            case .some(.success): .success(line)
-            case .some(.failure(let error)):
-                .failure(.requestRejected(method: method, code: error.code, message: error.message, serverVersion: serverVersion))
-            case .none: .failure(.invalidResponse(field: "request result"))
-        }
     }
 
     // --- [NOTIFICATIONS]
@@ -192,23 +170,17 @@ actor CodexConnection {
                     },
                     fail: { failure in continuation.resume(returning: .failure(failure)) },
                 )
-                let refusal: CodexFailure? = registry.withLock { state in Self.register(waiter, for: method, in: &state) }
+                let refusal: CodexFailure? = registry.withLock { state in
+                    if let failure: CodexFailure = state.terminalFailure { return failure }
+                    guard !Task.isCancelled else { return .cancelled }
+                    state.waiters[method, default: []].append(waiter)
+                    return nil
+                }
                 if let refusal { continuation.resume(returning: .failure(refusal)) }
             }
         } onCancel: {
             Self.cancelWaiter(id, method: method, in: self.registry)
         }
-    }
-
-    private static func register(
-        _ waiter: NotificationWaiter,
-        for method: CodexProtocol.Method,
-        in state: inout Registry,
-    ) -> CodexFailure? {
-        if let failure: CodexFailure = state.terminalFailure { return failure }
-        guard !Task.isCancelled else { return .cancelled }
-        state.waiters[method, default: []].append(waiter)
-        return nil
     }
 
     private nonisolated static func cancelWaiter(
@@ -229,7 +201,63 @@ actor CodexConnection {
             for try await text: String in execution.standardOutput.strings() {
                 let line: Data = Data(text.utf8)
                 switch Result(catching: { try JSONDecoder().decode(CodexProtocol.ServerMessage.self, from: line) }) {
-                    case .success(let message): await receive(message, line: line)
+                    case .success(.request(let id)):
+                        let refusal: Result<Void, CodexFailure> = await write(
+                            CodexProtocol.ErrorReply(
+                                id: id,
+                                error: CodexProtocol.ErrorObject(code: -32601, message: "Relay does not provide agent tools"),
+                            )
+                        )
+                        if case .failure(let error) = refusal { finish(error) }
+                    case .success(.response(let id, let outcome)):
+                        let serverVersion: String? = serverVersion
+                        func reply(_ method: CodexProtocol.Method) -> Result<Data, CodexFailure> {
+                            switch outcome {
+                                case .some(.success): .success(line)
+                                case .some(.failure(let error)):
+                                    .failure(.requestRejected(method: method, code: error.code, message: error.message, serverVersion: serverVersion))
+                                case .none: .failure(.invalidResponse(field: "request result"))
+                            }
+                        }
+                        let awaited:
+                            (
+                                reply: Result<Data, CodexFailure>,
+                                continuation: CheckedContinuation<Result<Data, CodexFailure>, Never>
+                            )? = registry.withLock { state in
+                                switch state.replies[id] {
+                                    case .unclaimed(let method):
+                                        state.replies[id] = .arrived(reply(method))
+                                        return nil
+                                    case .awaited(let method, let continuation):
+                                        state.replies.removeValue(forKey: id)
+                                        return (reply(method), continuation)
+                                    case .arrived, .none: return nil
+                                }
+                            }
+                        if let awaited { awaited.continuation.resume(returning: awaited.reply) }
+                    case .success(.notification(.accountRateLimitsUpdated)):
+                        if let updated: CodexProtocol.ParamsField<CodexProtocol.RateLimitsUpdated> = Self.decode(
+                            CodexProtocol.ParamsField<CodexProtocol.RateLimitsUpdated>.self,
+                            line,
+                        ) {
+                            updatesContinuation.yield(updated.params)
+                        }
+                    case .success(.notification(let method)):
+                        let delivery: (@Sendable () -> Void)? = registry.withLock { state in
+                            state.waiters[method]?.enumerated().lazy
+                                .compactMap { index, waiter in waiter.accept(line).map { resume in (index, resume) } }.first
+                                .map { index, resume in
+                                    state.waiters[method]?.remove(at: index)
+                                    return resume
+                                }
+                        }
+                        let retainedNotifications: Set<CodexProtocol.Method> = [.accountLoginCompleted, .turnCompleted]
+                        if let delivery {
+                            delivery()
+                        } else if retainedNotifications.contains(method) {
+                            notifications[method, default: []].append(line)
+                        }
+                    case .success(.ignored): continue
                     case .failure: finish(.invalidResponse(field: "message"))
                 }
             }
@@ -274,64 +302,5 @@ actor CodexConnection {
                 await Result { () async throws(SubprocessError) in _ = try await execution.standardInputWriter.write(line.bytes) }
                     .mapError { error in CodexFailure(process: ProcessRun.failure(error)) }
             }
-    }
-
-    private func receive(_ message: CodexProtocol.ServerMessage, line: Data) async {
-        switch message {
-            case .request(let id):
-                let refusal: Result<Void, CodexFailure> = await write(
-                    CodexProtocol.ErrorReply(
-                        id: id,
-                        error: CodexProtocol.ErrorObject(code: -32601, message: "Relay does not provide agent tools"),
-                    )
-                )
-                if case .failure(let error) = refusal { finish(error) }
-            case .response(let id, let outcome):
-                let serverVersion: String? = serverVersion
-                let awaited:
-                    (
-                        reply: Result<Data, CodexFailure>,
-                        continuation: CheckedContinuation<Result<Data, CodexFailure>, Never>
-                    )? = registry.withLock { state in
-                        switch state.replies[id] {
-                            case .unclaimed(let method):
-                                state.replies[id] = .arrived(
-                                    Self.reply(line, outcome: outcome, method: method, serverVersion: serverVersion)
-                                )
-                                return nil
-                            case .awaited(let method, let continuation):
-                                state.replies.removeValue(forKey: id)
-                                return (
-                                    Self.reply(line, outcome: outcome, method: method, serverVersion: serverVersion),
-                                    continuation,
-                                )
-                            case .arrived, .none: return nil
-                        }
-                    }
-                if let awaited { awaited.continuation.resume(returning: awaited.reply) }
-            case .notification(.accountRateLimitsUpdated):
-                if let updated: CodexProtocol.ParamsField<CodexProtocol.RateLimitsUpdated> = Self.decode(
-                    CodexProtocol.ParamsField<CodexProtocol.RateLimitsUpdated>.self,
-                    line,
-                ) {
-                    updatesContinuation.yield(updated.params)
-                }
-            case .notification(let method):
-                let delivery: (@Sendable () -> Void)? = registry.withLock { state in
-                    state.waiters[method]?.enumerated().lazy
-                        .compactMap { index, waiter in waiter.accept(line).map { resume in (index, resume) } }.first
-                        .map { index, resume in
-                            state.waiters[method]?.remove(at: index)
-                            return resume
-                        }
-                }
-                let retainedNotifications: Set<CodexProtocol.Method> = [.accountLoginCompleted, .turnCompleted]
-                if let delivery {
-                    delivery()
-                } else if retainedNotifications.contains(method) {
-                    notifications[method, default: []].append(line)
-                }
-            case .ignored: return
-        }
     }
 }

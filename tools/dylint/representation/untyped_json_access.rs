@@ -13,7 +13,7 @@ use rustc_hir::{Expr, ExprKind, Node, Pat, PatExpr, PatExprKind, PatKind, def_id
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{Ty, TyCtxt, print::with_forced_trimmed_paths};
 
-use crate::{expanded_externally, fn_item_value, is_text, item_path, resolve, signature};
+use crate::{expanded_externally, fn_item_value, is_text, item_path, paths, resolve, signature};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -39,13 +39,14 @@ lint!(Pass; UNTYPED_JSON_ACCESS: "JSON documents accessed by variant or fixed ke
 impl Pass {
     pub(crate) fn new(tcx: TyCtxt<'_>) -> Self {
         let documents = resolve(tcx, PathNS::Type, &[("serde_json::Value", Document::Value), ("serde_json::Map", Document::Map)]);
+        let built = paths(tcx, PathNS::Value, &["serde_json::Map::insert", "serde_json::Map::entry"]);
         let methods = documents
             .iter()
             .flat_map(|(&document, &kind)| {
                 tcx.inherent_impls(document)
                     .iter()
                     .flat_map(|implementation| tcx.associated_items(*implementation).in_definition_order())
-                    .filter(|item| item.is_method())
+                    .filter(|item| item.is_method() && !built.contains(&item.def_id))
                     .map(move |method| (method.def_id, kind))
             })
             .collect();

@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-non-exhaustive-enum
+language: rust
+severity: error
+rule:
+    kind: attribute_item
+    all:
+        - regex: '^#\[\s*(cfg_attr\s*\(.*,\s*)?non_exhaustive\s*\)?\s*\]$'
+        - any:
+            - precedes: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: enum_item}
+            - inside: {kind: enum_variant_list}
+message: '`#[non_exhaustive]` marks a workspace enum or variant open'
+note: 'Delete the attribute, matches in other crates then name every variant and field and the compiler reports each one added'

@@ -28,6 +28,11 @@ utils:
         any:
             - has: {pattern: $$_AWAIT, regex: '^await$'}
             - has: {field: collection, any: [{kind: value_pack_expansion}, {has: {stopBy: end, kind: value_pack_expansion}}]}
+    awaiting-loop:
+        kind: 'while_statement, repeat_while_statement'
+        all:
+            - has: {kind: statements, has: {stopBy: end, kind: await_expression}}
+            - has: {kind: statements, has: {stopBy: end, matches: mutation}}
 rule:
     kind: value_binding_pattern
     all:
@@ -64,6 +69,7 @@ rule:
                                             - has: {stopBy: end, kind: assignment, has: {field: target, has: {pattern: $NAME}}}
                                             - has: {stopBy: end, kind: assignment, has: {field: target, has: {kind: call_expression, has: {pattern: $NAME}}}}
                                             - has: {stopBy: end, kind: 'for_statement, while_statement, repeat_while_statement', has: {stopBy: end, pattern: $NAME}}
+                            - precedes: {stopBy: end, any: [{matches: awaiting-loop}, {has: {stopBy: end, matches: awaiting-loop}}]}
                             - precedes:
                                 stopBy: end
                                 has:

@@ -97,11 +97,11 @@ public static class Generators {
 
     // --- [SERIALIZATION]
     public static readonly Gen<string> UnicodeString = Gen.Frequency(
-        (40, Gen.Char[' ', '~'].Array[0, 24].Select(static chars => new string(chars))),
-        (20, Gen.Char['\u0080', '\uD7FF'].Array[1, 12].Select(static chars => new string(chars))),
+        (40, Gen.String[Gen.Char[' ', '~'], 0, 24]),
+        (20, Gen.String[Gen.Char['\u0080', '\uD7FF'], 1, 12]),
         (14, Gen.Int[0x10000, 0x10FFFF].Array[1, 4].Select(static codes => string.Concat(codes.Select(char.ConvertFromUtf32)))),
         (14, Gen.OneOf("", "\"", "\\", "\r\n", "\t", "{", "}", "\u0000", "\e", "\uFFFD", "\U0001D518\U0001D52B\U0001D526")),
-        (12, Gen.Char['\u0000', '\u001F'].Array[1, 4].Select(static chars => new string(chars))));
+        (12, Gen.String[Gen.Char['\u0000', '\u001F'], 1, 4]));
     public static readonly Gen<byte[]> Bytes = Gen.Frequency(
         (40, Gen.Byte.Array[1, 64]),
         (25, Gen.Byte.Array[65, 4096]),
@@ -123,23 +123,21 @@ public static class Generators {
             new IOException("generated I/O failure"),
             new FormatException("generated format failure"))
         .Select(static exception => Error.New(exception));
-    public static Gen<Fin<T>> FinOf<T>(Gen<T> success, int successWeight = 80) => FinOf(success, Errors, successWeight);
-    public static Gen<Fin<T>> FinOf<T>(Gen<T> success, Gen<Error> error, int successWeight = 80) =>
+    public static Gen<Fin<T>> FinOf<T>(Gen<T> success, Option<Gen<Error>> error = default, int successWeight = 80) =>
         Gen.Frequency(
             (successWeight, success.Select(static Fin<T> (value) => value)),
-            (Weights - successWeight, error.Select(static Fin<T> (generatedError) => generatedError)));
+            (Weights - successWeight, error.IfNone(Errors).Select(static Fin<T> (generatedError) => generatedError)));
     public static Gen<Option<T>> OptionOf<T>(Gen<T> some, int someWeight = 80) =>
         Gen.Frequency(
             (someWeight, some.Select(static Option<T> (v) => v)),
             (Weights - someWeight, Gen.Const(Option<T>.None)));
-    public static Gen<Validation<Error, T>> ValidationOf<T>(Gen<T> success) => ValidationOf(success, Errors);
-    public static Gen<Validation<Error, T>> ValidationOf<T>(Gen<T> success, Gen<Error> error) =>
+    public static Gen<Validation<Error, T>> ValidationOf<T>(Gen<T> success, Option<Gen<Error>> error = default) =>
         Gen.OneOf(
             success.Select(static Validation<Error, T> (value) => value),
-            error.Select(static Validation<Error, T> (generatedError) => generatedError));
+            error.IfNone(Errors).Select(static Validation<Error, T> (generatedError) => generatedError));
 
     // --- [KEYS]
-    public static readonly Gen<string> Key = Gen.Char['a', 'z'].Array[1, 32].Select(static chars => new string(chars));
+    public static readonly Gen<string> Key = Gen.String[Gen.Char['a', 'z'], 1, 32];
 
     // --- [CONSTRUCTION]
     public static Gen<TValueObject> ConstructedValues<TIn, TValueObject>(Gen<TIn> source, Func<TIn, Fin<TValueObject>> create) =>

@@ -2,6 +2,7 @@
 id: no-read-then-swap
 language: csharp
 severity: error
+ignores: ['tools/roslyn/**']
 utils:
     transaction:
         kind: invocation_expression

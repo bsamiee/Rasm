@@ -74,7 +74,7 @@ class CameraDisplay(msgspec.Struct, frozen=True, kw_only=True):
         """Passepartout switch and its enabled alpha control."""
         return _camera_row("show_passepartout"), _camera_row("passepartout_alpha", Some("show_passepartout"))
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
         """Returns the retained passepartout append for camera views."""
         perspective = Descriptor(root=bpy.types.RegionView3D, owner="", prop=bpy.types.RegionView3D.bl_rna.properties["view_perspective"])
         camera = Descriptor(root=bpy.types.Scene, owner="camera", prop=bpy.types.Object.bl_rna.properties["type"])
@@ -117,7 +117,7 @@ class CameraViews(msgspec.Struct, frozen=True, kw_only=True):
 
     attachment: ClassVar[Attachment[RenderViews]] = Attachment(key="render_views", form=RenderViews, owner=bpy.types.Scene, changed=Some(reconciling(bpy.types.Scene, synced)))
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
         """Returns the original attachment declaration for scoped construction."""
         return Ok((self.attachment,))
 

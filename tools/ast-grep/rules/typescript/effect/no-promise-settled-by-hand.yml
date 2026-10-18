@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-promise-settled-by-hand
+language: tsx
+severity: error
+utils:
+    register:
+        kind: arrow_function, function_expression
+        all:
+            - any:
+                - has: {field: parameter, kind: identifier, pattern: $SINK}
+                - has: {field: parameters, has: {nthChild: 1, kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $SINK}}}
+            - nthChild: 1
+            - inside:
+                kind: arguments
+                inside:
+                    kind: call_expression
+                    has: {field: function, matches: {effect-module-member: {module: {regex: '\b(Effect|Stream)$'}, member: {regex: '^callback$'}}}}
+    settle:
+        kind: call_expression
+        any:
+            - has: {field: function, kind: identifier, pattern: $SINK}
+            - all:
+                - has: {field: function, matches: {effect-module-member: {module: {regex: '\bQueue$'}, member: {regex: '^(offer|offerUnsafe|offerAll|offerAllUnsafe|end|endUnsafe|fail|failCause|failCauseUnsafe)$'}}}}
+                - has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $SINK}}
+rule:
+    kind: call_expression
+    pattern: $SETTLED
+    all:
+        - has: {field: function, kind: member_expression, has: {field: property, regex: '^(then|catch|finally)$', pattern: $METHOD}}
+        - inside: {stopBy: end, matches: register}
+        - has: {field: arguments, has: {stopBy: end, matches: settle}}
+message: '`$METHOD` settles a promise into `$SINK` by hand'
+note: 'Convert the promise with `Effect.tryPromise(<thunk>)` in place of `Effect.callback`, and compose it with `Queue.offer` or `Queue.into(<queue>)` inside `Stream.callback`, the effect carrying failure and interruption'
+labels: {SETTLED: {style: primary}}

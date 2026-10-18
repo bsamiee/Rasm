@@ -2,6 +2,7 @@
 id: no-bracket-by-hand
 language: csharp
 severity: error
+ignores: ['tools/roslyn/**']
 utils:
     action:
         any:

@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-wrapped-rpc-payload
+language: tsx
+severity: error
+utils:
+    rpc-member:
+        matches: {effect-module-member: {module: {regex: '\bRpc$'}, member: {regex: '^(make|custom)$'}}}
+    rpc-constructor:
+        any:
+            - matches: rpc-member
+              has: {field: property, regex: '^make$'}
+            - kind: identifier
+              pattern: $CONSTRUCTOR
+              inside:
+                kind: program
+                stopBy: end
+                has:
+                    stopBy: end
+                    kind: variable_declarator
+                    all:
+                        - has: {field: name, pattern: $CONSTRUCTOR}
+                        - has: {field: value, kind: call_expression, has: {field: function, matches: rpc-member, has: {field: property, regex: '^custom$'}}}
+rule:
+    kind: call_expression
+    pattern: $STRUCT
+    all:
+        - has: {field: function, kind: member_expression, has: {field: property, regex: '^Struct$'}}
+        - has: {field: arguments, all: [{has: {nthChild: 1, kind: object, pattern: $FIELDS}}, {not: {has: {nthChild: 2}}}]}
+        - has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '\bSchema$'}}}}}
+        - inside:
+            kind: pair
+            field: value
+            has: {field: key, regex: '^payload$'}
+            inside:
+                kind: object
+                nthChild: 2
+                inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, matches: rpc-constructor}}}
+fix: $FIELDS
+message: '`$STRUCT` wraps the fields `Rpc.make` wraps in `Schema.Struct` itself'
+note: 'Pass the fields object as `payload`, which `Rpc.make` and `Rpc.custom` constructors build into the same `Schema.Struct` payload schema'

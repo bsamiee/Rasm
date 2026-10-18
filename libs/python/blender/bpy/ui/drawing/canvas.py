@@ -155,8 +155,9 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
         shader.uniform_float("size", size)
         return shader
 
+    @staticmethod
     def label(
-        self, text: str, at: tuple[float, float], color: Color, points: float, align: Align = Align.START, shadow: Option[Shadow] = Nothing, *, font: int = 0, translation_context: str | None = None
+        text: str, at: tuple[float, float], color: Color, points: float, align: Align = Align.START, shadow: Option[Shadow] = Nothing, *, font: int = 0, translation_context: str | None = None
     ) -> None:
         """Draws translated text through a caller-owned font, defaulting to the UI font."""
         blf.size(font, points)
@@ -189,7 +190,8 @@ class Canvas(msgspec.Struct, frozen=True, kw_only=True):
         finally:
             gpu.state.blend_set(blend)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
 
-    def picture(self, texture: gpu.types.GPUTexture, rect: Rect, shader: gpu.types.GPUShader, color: Color = (1.0, 1.0, 1.0, 1.0)) -> None:
+    @staticmethod
+    def picture(texture: gpu.types.GPUTexture, rect: Rect, shader: gpu.types.GPUShader, color: Color = (1.0, 1.0, 1.0, 1.0)) -> None:
         """Draws a floating-point position/UV image shader under the caller's blend."""
         quad = textured()
         shader.bind()

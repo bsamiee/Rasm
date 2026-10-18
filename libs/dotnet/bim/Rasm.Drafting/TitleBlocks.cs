@@ -23,17 +23,15 @@ public sealed partial class RevisionIndex {
         text.ToUpperInvariant() switch {
             var letters when letters.Length < 1 || letters.Length > alphabet.MaxLetters || letters.AsSpan().ContainsAnyExcept(alphabet.Symbols) =>
                 Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"revision letters {letters} must be 1 to {alphabet.MaxLetters} of {alphabet.Symbols}")),
-            var letters => Admitted(alphabet, toSeq(letters).Fold(0, (ordinal, letter) => (ordinal * alphabet.Symbols.Length) + alphabet.Symbols.IndexOf(letter, StringComparison.Ordinal) + 1)),
+            var letters => Validated(alphabet, toSeq(letters).Fold(0, (ordinal, letter) => (ordinal * alphabet.Symbols.Length) + alphabet.Symbols.IndexOf(letter, StringComparison.Ordinal) + 1)),
         };
 
-    public Fin<RevisionIndex> Next() => Admitted(Alphabet, Ordinal + 1);
+    public Fin<RevisionIndex> Next() => Validated(Alphabet, Ordinal + 1);
 
-    public override string ToString() => Spell(Alphabet.Symbols, Ordinal);
+    public override string ToString() =>
+        string.Concat(LanguageExt.List.unfold(Ordinal, rest => rest is 0 ? None : Some((Alphabet.Symbols[(rest - 1) % Alphabet.Symbols.Length], (rest - 1) / Alphabet.Symbols.Length))).Reverse());
 
-    private static string Spell(string symbols, int ordinal) =>
-        ordinal is 0 ? "" : Spell(symbols, (ordinal - 1) / symbols.Length) + symbols[(ordinal - 1) % symbols.Length];
-
-    private static Fin<RevisionIndex> Admitted(RevisionAlphabet alphabet, int ordinal) =>
+    private static Fin<RevisionIndex> Validated(RevisionAlphabet alphabet, int ordinal) =>
         ValidationResults.ToFin(Validate(alphabet, ordinal, out RevisionIndex? index), index);
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref RevisionAlphabet alphabet, ref int ordinal) =>
@@ -50,10 +48,10 @@ public sealed partial class TitleRule {
 
     public bool Mandatory { get; }
 
-    public Validation<Error, Option<string>> Accept(TitleField field, RevisionAlphabet alphabet, Option<string> entry) =>
+    public Fin<Option<string>> Accept(TitleField field, RevisionAlphabet alphabet, Option<string> entry) =>
         entry.Match(
-            Some: text => Normalize(alphabet, text).Map(static accepted => Some(accepted)).MapFail(error => Error.New(ErrorCodes.ValidationFailed, $"title-block field {field} entry is invalid", error)).ToValidation(),
-            None: () => Mandatory ? Error.New(ErrorCodes.ValidationFailed, $"title-block field {field} has no entry") : Success<Error, Option<string>>(None));
+            Some: text => Normalize(alphabet, text).Map(static accepted => Some(accepted)).MapFail(error => Error.New(ErrorCodes.ValidationFailed, $"title-block field {field} entry is invalid", error)),
+            None: () => Mandatory ? Error.New(ErrorCodes.ValidationFailed, $"title-block field {field} has no entry") : Option<string>.None);
 
     [UseDelegateFromConstructor]
     private partial Fin<string> Normalize(RevisionAlphabet alphabet, string text);
@@ -96,16 +94,16 @@ public sealed partial class TitleField {
 
     public TitleSource Source { get; }
 
-    public static Validation<Error, Seq<(TitleField Field, Option<string> Text)>> Accept(DraftingConvention convention, HashMap<TitleField, string> entries) =>
+    public static Fin<Seq<(TitleField Field, Option<string> Text)>> Accept(DraftingConvention convention, HashMap<TitleField, string> entries) =>
         toSeq(Items).Filter(entries.ContainsKey)
             .Traverse(field => field.Source.Switch(
                     (Field: field, Alphabet: convention.Revisions, Entry: entries.Find(field).Map(static text => text.Trim()).Filter(static text => text.Length > 0)),
                     projectText: static (input, source) => source.Rule.Accept(input.Field, input.Alphabet, input.Entry),
                     sheetText: static (input, source) => source.Rule.Accept(input.Field, input.Alphabet, input.Entry),
-                    identifier: static (_, _) => Success<Error, Option<string>>(None),
-                    ordinal: static (_, _) => Success<Error, Option<string>>(None),
-                    count: static (_, _) => Success<Error, Option<string>>(None),
-                    designation: static (_, _) => Success<Error, Option<string>>(None))
+                    identifier: static (_, _) => Option<string>.None,
+                    ordinal: static (_, _) => Option<string>.None,
+                    count: static (_, _) => Option<string>.None,
+                    designation: static (_, _) => Option<string>.None)
                 .Map(text => (field, text)))
             .As();
 }

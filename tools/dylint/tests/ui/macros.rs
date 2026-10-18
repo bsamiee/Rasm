@@ -18,6 +18,24 @@ fn expect_used_in_macro(found: &str) {
     "#);
 }
 
+fn map_err_ignore_in_macro(found: &str) {
+    insta::assert_snapshot!(found, @"
+    warning: `map_err(|_| ..)` in a local macro expansion discards the error
+       --> tools/dylint/examples/restriction_in_macro.rs:89:16
+        |
+     87 | macro_rules! ignored {
+     88 |     ($value:expr) => {
+     89 |         $value.map_err(|_| Refused)
+        |                ^^^^^^^^^^^^^^^^^^^^
+    ...
+    111 | fn ignoring(value: Result<u32, ParseIntError>) -> Result<u32, Refused> { ignored!(value) }
+        |                                                                          --------------- in this macro invocation
+        |
+        = help: bind the error and keep it as the source of the new error
+        = note: `#[warn(map_err_ignore_in_macro)]` on by default
+    ");
+}
+
 fn panic_in_macro(found: &str) {
     insta::assert_snapshot!(found, @r#"
     warning: `panic!` in a local macro expansion panics
@@ -64,19 +82,6 @@ fn print_in_macro(found: &str) {
        |
        = help: record the value through `tracing` at the boundary
        = note: `#[warn(print_in_macro)]` on by default
-
-    warning: `dbg!` in a local macro expansion writes to the console
-      --> tools/dylint/examples/restriction_in_macro.rs:39:9
-       |
-    37 | macro_rules! traced {
-    38 |     ($value:expr) => {
-    39 |         dbg!($value)
-       |         ^^^^^^^^^^^^
-    ...
-    53 | fn debugged(value: u32) -> u32 { traced!(value) }
-       |                                  -------------- in this macro invocation
-       |
-       = help: record the value through `tracing` at the boundary
     "#);
 }
 
@@ -100,6 +105,19 @@ fn redundant_closure_call_in_macro(found: &str) {
        |                ----------------------------------- in this macro invocation
        = help: match the closure as `|$<param>:pat_param| $<body>:expr` in the macro matcher and transcribe the body with each parameter bound to its argument
        = note: `#[warn(redundant_closure_call_in_macro)]` on by default
+
+    warning: `doubled!` calls the closure it declares in its expansion
+      --> tools/dylint/examples/redundant_closure_call_in_macro.rs:20:9
+       |
+    18 | ..._rules! doubled {
+    19 | ...$value:expr) => {
+    20 | ...   (|value: u32| value * 2)($value)
+       |       ^^^^^^^^^^^^^^^^^^^^^^^^
+    ...
+    34 | ...lack_box([applied!(|value: u32| value + 1, 1), applied!(increment, 2), applied!(handler.apply, 3), bound!(|value| value + 1, 4), doubled!(5), (...
+       |                                                                                                                                     ----------- in this macro invocation
+       |
+       = help: bind each argument with `let <parameter> = <argument>;` and transcribe the body
     ");
 }
 
@@ -160,6 +178,24 @@ fn unwrap_used_in_macro(found: &str) {
     ");
 }
 
+fn use_debug_in_macro(found: &str) {
+    insta::assert_snapshot!(found, @r#"
+    warning: `write!` in a local macro expansion formats through `Debug`
+       --> tools/dylint/examples/restriction_in_macro.rs:83:9
+        |
+     81 | macro_rules! written {
+     82 |     ($out:expr, $value:expr) => {
+     83 |         write!($out, "{:?}", $value)
+        |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...
+    109 | fn writing(out: &mut String, value: u32) -> core::fmt::Result { written!(out, value) }
+        |                                                                 -------------------- in this macro invocation
+        |
+        = help: format through `Display`
+        = note: `#[warn(use_debug_in_macro)]` on by default
+    "#);
+}
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-snapshots!(expect_used_in_macro, panic_in_macro, print_in_macro, redundant_closure_call_in_macro, renamed_function_params_in_macro, unwrap_used_in_macro);
+snapshots!(expect_used_in_macro, map_err_ignore_in_macro, panic_in_macro, print_in_macro, redundant_closure_call_in_macro, renamed_function_params_in_macro, unwrap_used_in_macro, use_debug_in_macro);

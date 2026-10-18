@@ -55,7 +55,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 format!("every use of `{}` tests its `Option` sender with `if let Some` and no `else`", held.name(cx)),
                 |diag| {
                     diag.span_note(cx.tcx.hir_span(site), "tested here");
-                    diag.help("hold the sender without `Option`, a send with no receiver returns `Err` and blocks nothing");
+                    diag.help("hold the sender without `Option`, a sender with no receiver blocks nothing");
                 },
             );
         }

@@ -186,7 +186,7 @@ Overrides reach the members an operator reads alone:
 - Overrides nest a region inside its area inside its window, and take no full-screen area or temporary screen
 - `window=` alone sets workspace and screen and clears area and region
 - `screen=` of another workspace switches the window's workspace and the active object's mode for the block
-- Areas outside the screen and regions outside the area raise `TypeError`
+- Areas outside the screen and regions outside the area raise `TypeError` at `__enter__`, and members passed as `None` enter with no raise
 - `temp_override` accepts unknown keywords with no raise
 - `logging_set(True)` called on the override before its `with` prints each member an operator reads with the calling line
 - Background runs hold `window` and `screen` with no area, and an editor operator's override takes the `VIEW_3D` area from `window.screen.areas` with its `WINDOW` region
@@ -233,14 +233,14 @@ Original data holds no modifier, constraint, or animation result, and each read 
 |  [08]   | Evaluated mesh                                 | `meshed(obj, depsgraph)` scope                                                   |
 |  [09]   | Evaluated attributes, instance references      | `obj.evaluated_get(depsgraph).evaluated_geometry()`, bound for the read          |
 |  [10]   | Persistent evaluated mesh                      | `new_from_object(evaluated, preserve_all_data_layers=True, depsgraph=depsgraph)` |
-|  [11]   | Result after an `id[key]` or `bpy.props` write | `id.update_tag()` on the written ID, then evaluation                             |
+|  [11]   | Result after a write that tags nothing         | `id.update_tag()` on the written ID, then evaluation                             |
 |  [12]   | Result after a modifier input write            | `obj.update_tag()`, then evaluation                                              |
 |  [13]   | Original mesh read in Edit Mode                | `obj.update_from_editmode()` first                                               |
 |  [14]   | `view_layer.objects` after a link or `exclude` | `evaluated(view_layer)` first                                                    |
 
 Evaluation follows host rules:
 - Writes to an evaluated ID succeed with no raise and drop at the next evaluation
-- RNA writes to built-in members tag their owner, while `id["key"]` writes and script writes to registered `bpy.props` tag nothing
+- RNA writes to built-in members tag their owner, while `id["key"]` writes, script writes to registered `bpy.props`, `CurveProfile` point writes with `update()`, `PointCloud.resize`, and `GreasePencilFrames.move` tag nothing
 - `scene.frame_current = n` applies at the next `evaluated(view_layer)`, and `frame_set` evaluates at the call and fires the frame handlers
 - `evaluated(view_layer)` serves every scene's layers, and `context.evaluated_depsgraph_get()` returns the active layer's depsgraph
 - `evaluated_depsgraph_get()` evaluates at viewport settings, and exports needing render results pass `evaluation_mode` (USD, Alembic, PLY, STL) or `export_eval_mode` (OBJ)
@@ -284,6 +284,7 @@ Registered values read and write through the host:
 - `ob["prop"] = value` on a registered name creates a separate custom property
 - `property_unset` resets a value, and `is_property_set(name)` counts a value reused from the last run as unset, `ghost=False` counting it as set
 - `Snapshot.capture` takes every writable member, view state (`cursor_location`, `is_dirty`) and `PASSWORD`-subtype tokens (`auth_token`, `access_token`) included, and a `selection` narrows it
+- Whole-mesh captures cost 1.1 to 1.9 ms per face, and caches over geometry key on `foreach_get` buffers beside a capture selecting the block's own value members
 - `bl_rna.properties[name].is_readonly` is static, and `struct.is_property_readonly(name)` answers whether the member is editable now
 - Data paths (`driver_add`, `keyframe_insert`, `path_resolve`) name a registered property by identifier, `["name"]` resolving ID properties alone
 - `path_from_id()` raises `ValueError` for structs with no ID path (preferences, `Region`, `RegionView3D`), and `path_from_module()` returns the full path with its ID
@@ -324,7 +325,8 @@ Handler, timer, msgbus, and modal bodies return `BlenderResult` to the row holdi
 - Raising native timers unregister for good, and a raising handler prints its traceback while later handlers run
 - Handlers remove only themselves from their list during their call
 - State seeds from a one-shot persistent `Timer` beside a `load_post` `PathHandler`, native collections included
-- GPU calls outside a GPU context raise `SystemError`, and `gpu.texture.from_image` crashes a background run
+- GPU calls outside a GPU context raise `SystemError`
+- Background runs draw (`GPUOffScreen`, `batch_for_shader`, `draw_view3d`) after `gpu.init()`, and `gpu.texture.from_image` before it crashes Blender
 - Background runs read `Region.data` `None`, and `RegionView3D.update()` crashes them
 - `bpy.msgbus` keys name a declaring class and member (`(bpy.types.Object, "location")`) or one instance's member through `data.path_resolve("<member>", False)`
 - Stock RNA writes notify msgbus subscribers coalesced after operators and outside undo

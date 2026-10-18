@@ -8,4 +8,4 @@ rule:
     not: {matches: rust-macro-argument}
     regex: '^(r#*)?"/proc(/(self|\d+|\{\w*\}))?(/|/(meminfo|cpuinfo|stat|loadavg|uptime|swaps|mounts|diskstats|net/dev)|/(stat|statm|status|cmdline|environ|exe|cwd|root|io|mounts|fd|limits|task))?"#*$'
 message: '`$PATH` reads a Linux procfs file by hand'
-note: 'Read through `sysinfo::System` (`refresh_memory` then `total_memory`, `refresh_cpu_all` then `cpus`, `load_average`, `uptime`, `refresh_processes` then `process(<pid>)` with `open_files` and `tasks`, `get_current_pid` for `self`), `sysinfo::Disks` for mounts and disk counters, `sysinfo::Networks` for interface counters, and `std::env::current_exe` for `/proc/self/exe`'
+note: 'Read through `sysinfo::System` (`refresh_memory` then `total_memory`, `refresh_cpu_all` then `cpus`, `load_average`, `uptime`, `refresh_processes` then `process(<pid>)` with `open_files` and `tasks`, `get_current_pid` for `self`), `sysinfo::Disks` for mounts and disk counters, `sysinfo::Networks` for interface counters, and take the executable path, working directory, and environment of `self` as arguments the boundary resolves'

@@ -3,8 +3,6 @@ id: no-untyped-throws
 language: swiftlang
 severity: error
 utils:
-    scope:
-        kind: 'function_declaration, init_declaration, lambda_literal, computed_property, subscript_declaration'
     owner-case:
         kind: simple_identifier
         pattern: $M
@@ -48,9 +46,9 @@ rule:
         all:
             - has: {field: name, pattern: $$NAME}
             - not: {has: {kind: modifiers, has: {kind: attribute, regex: '^@objc\b'}}}
-            - has: {field: body, has: {stopBy: {matches: scope}, matches: throw, has: {stopBy: {kind: value_arguments}, kind: simple_identifier, regex: '^[A-Z]', pattern: $T}}}
-            - not: {has: {field: body, has: {stopBy: {matches: scope}, matches: throw, not: {has: {matches: named-error}}}}}
-            - not: {has: {field: body, has: {stopBy: {matches: scope}, matches: propagation}}}
+            - has: {field: body, has: {stopBy: {matches: swift-function-scope}, matches: throw, has: {stopBy: {kind: value_arguments}, kind: simple_identifier, regex: '^[A-Z]', pattern: $T}}}
+            - not: {has: {field: body, has: {stopBy: {matches: swift-function-scope}, matches: throw, not: {has: {matches: named-error}}}}}
+            - not: {has: {field: body, has: {stopBy: {matches: swift-function-scope}, matches: propagation}}}
 fix: throws($T)
 message: '`$NAME` throws `$T` alone through an untyped `throws`'
 note: 'Declare `throws(<type>)` with the one type every `throw` names'

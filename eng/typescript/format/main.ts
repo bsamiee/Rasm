@@ -1,73 +1,53 @@
-import { NodeServices } from '@effect/platform-node';
-import { type ExecutorContext, normalizePath, runExecutor, type Target } from '@nx/devkit';
-import { Array, Effect, FileSystem, Option, Path, Schema, type Scope, Stream } from 'effect';
-import { ChildProcess, type ChildProcessSpawner } from 'effect/process';
+import { layer, type NodeServices } from '@effect/platform-node/NodeServices';
+import { type ExecutorContext, runExecutor, type Target } from '@nx/devkit';
+import { Array, Cause, Effect, Exit, FileSystem, Option, Path, Schema, type Scope, Stream, String } from 'effect';
 import { quote } from 'shell-quote';
-
-// --- [ERRORS] --------------------------------------------------------------------------
-
-const Reason = Schema.TaggedUnion({
-    Executor: { target: Schema.String, cause: Schema.Defect() },
-    Writer: { target: Schema.String },
-    Git: { code: Schema.Finite },
-});
-class FormatError extends Schema.TaggedError<FormatError, { readonly brand: unique symbol }>()('FormatError', { reason: Reason }) {}
+import { stdout } from '../process.ts';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const execute = (target: Target, args: { readonly args?: string }, context: ExecutorContext): Effect.Effect<void, FormatError> => {
-    const failed = (cause: unknown): FormatError => FormatError.make({ reason: { _tag: 'Executor', target: target.target, cause } });
-    return Stream.fromEffect(Effect.tryPromise({ try: () => runExecutor<{ success: boolean }>(target, args, context), catch: failed })).pipe(
-        Stream.flatMap((results) => Stream.fromAsyncIterable(results, failed)),
-        Stream.runForEach(({ success }) => (success ? Effect.void : FormatError.make({ reason: { _tag: 'Writer', target: target.target } }))),
+const execute = (target: Target, args: { readonly args?: string }, context: ExecutorContext): Effect.Effect<void, Cause.UnknownError> =>
+    Effect.tryPromise(() => runExecutor<{ success: boolean }>(target, args, context)).pipe(
+        Effect.map((results) => Stream.fromAsyncIterable(results, (cause) => new Cause.UnknownError(cause, `${target.target} did not finish`))),
+        Stream.unwrap,
+        Stream.runForEach(({ success }) => (success ? Effect.void : Effect.fail(new Cause.UnknownError(target, `${target.target} failed`)))),
     );
-};
-const compose = (invoke: (target: string, extensions: Option.Option<readonly string[]>) => Effect.Effect<void, FormatError>): Effect.Effect<void, Array.NonEmptyArray<FormatError>> =>
-    Effect.validate(
-        [
-            { targets: ['format:biome'], extensions: Option.none() },
-            { targets: ['format:ruff'], extensions: Option.some(['.py', '.pyi', '.pyw', '.ipynb']) },
-            { targets: ['format:yamlfmt'], extensions: Option.some(['.yaml', '.yml']) },
-            { targets: ['format:tombi'], extensions: Option.some(['.toml']) },
-            { targets: ['format:google-java-format'], extensions: Option.some(['.java']) },
-            { targets: ['format:swiftlint', 'format:swift-format'], extensions: Option.some(['.swift']) },
-            { targets: ['format:rustfmt'], extensions: Option.some(['.rs']) },
-            { targets: ['format:shfmt'], extensions: Option.some(['.sh']) },
-        ],
-        ({ targets, extensions }) => Effect.forEach(targets, (target) => invoke(target, extensions), { discard: true }),
-        { concurrency: 'unbounded', discard: true },
-    );
-const complete = <E>(program: Effect.Effect<void, E, FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner | Scope.Scope>): Promise<{ success: boolean }> =>
+const write = Effect.fnUntraced(function* (context: ExecutorContext, project: string, { target, extensions }: { readonly target: string; readonly extensions: Option.Option<readonly string[]> }, named: Option.Option<readonly string[]>) {
+    const path = yield* Path.Path;
+    const owns = (entry: string) => Option.match(extensions, { onNone: () => true, onSome: Array.contains(path.extname(entry)) });
+    return yield* Option.match(named, {
+        onNone: () => execute({ project, target }, {}, context),
+        onSome: (files) => Array.match(files.filter(owns), { onEmpty: () => Effect.void, onNonEmpty: (owned) => execute({ project, target, configuration: 'files' }, { args: quote(owned) }, context) }),
+    });
+});
+const complete = <E>(program: Effect.Effect<void, E, NodeServices | Scope.Scope>): Promise<{ success: boolean }> =>
     program.pipe(
         Effect.as({ success: true }),
         Effect.catchCause((cause) => Effect.as(Effect.logError(cause), { success: false })),
         Effect.scoped,
-        Effect.provide(NodeServices.layer),
+        Effect.provide(layer),
         Effect.runPromise,
     );
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export const formatWorkspace = (options: { readonly project: string }, context: ExecutorContext): Promise<{ success: boolean }> => complete(compose((target) => execute({ project: options.project, target }, {}, context)));
-
-export const formatFiles = (options: { readonly project: string; readonly files: readonly string[] }, context: ExecutorContext): Promise<{ success: boolean }> =>
+export const format = (options: { readonly project: string; readonly files: readonly string[] }, context: ExecutorContext): Promise<{ success: boolean }> =>
     complete(
         Effect.gen(function* () {
             const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-            const handle = yield* ChildProcess.make('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'], { cwd: context.root, stderr: 'inherit' });
-            const [text, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), handle.exitCode], { concurrency: 'unbounded' });
-            if (code !== 0) {
-                return yield* FormatError.make({ reason: { _tag: 'Git', code } });
-            }
-            const argued = Array.dedupe(options.files.map((entry) => normalizePath(path.relative(context.root, path.resolve(context.root, entry)))));
-            const eligible = Array.intersection(
-                argued,
-                text.split('\0').filter((entry) => entry !== ''),
+            const named = Array.isReadonlyArrayNonEmpty(options.files)
+                ? Option.some(
+                      yield* stdout('git', ['--literal-pathspecs', 'ls-files', '--cached', '--others', '--exclude-standard', '--deduplicate', '-z', '--', ...options.files], { cwd: context.root, stderr: 'inherit' }).pipe(
+                          Effect.flatMap((listed) => Effect.filter(listed.split('\0').filter(String.isNonEmpty), (entry) => fs.exists(path.resolve(context.root, entry)), { concurrency: 'unbounded' })),
+                          Effect.map(Array.map((entry) => (entry.startsWith('-') || entry.startsWith('@') ? `./${entry}` : entry))),
+                      ),
+                  )
+                : Option.none();
+            const writers = Object.entries(context.projectsConfigurations.projects[options.project]?.targets ?? {}).flatMap(([target, { metadata }]) =>
+                Option.toArray(Option.map(Schema.decodeUnknownOption(Schema.Struct({ extensions: Schema.OptionFromNullOr(Schema.Array(Schema.String)) }))(metadata), ({ extensions }) => ({ target, extensions }))),
             );
-            const files = yield* Effect.filter(eligible, (entry) => fs.exists(path.resolve(context.root, entry)), { concurrency: 'unbounded' });
-            return yield* compose((target, extensions) => {
-                const named = Option.match(extensions, { onNone: () => files, onSome: (listed) => files.filter((entry) => listed.includes(path.extname(entry))) });
-                return named.length === 0 ? Effect.void : execute({ project: options.project, target, configuration: 'files' }, { args: quote(named.map((entry) => (entry.startsWith('-') || entry.startsWith('@') ? `./${entry}` : entry))) }, context);
-            });
+            return yield* Effect.forEach(Object.values(Array.groupBy(writers, ({ extensions }) => Option.match(extensions, { onNone: () => '', onSome: Array.join(',') }))), (group) => Effect.exit(Effect.forEach(group, (writer) => write(context, options.project, writer, named), { discard: true })), {
+                concurrency: 'unbounded',
+            }).pipe(Effect.flatMap(Exit.asVoidAll));
         }),
     );

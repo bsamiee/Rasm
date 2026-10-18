@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-imported-name
+language: rust
+arguments: [source, name]
+utils:
+    imported-leaf:
+        any:
+            - kind: use_as_clause
+              all:
+                - has: {field: alias, pattern: $BOUND}
+                - has: {field: path, any: [{kind: identifier, matches: name}, {kind: scoped_identifier, has: {field: name, matches: name}}]}
+            - kind: identifier
+              all: [{pattern: $BOUND}, {matches: name}, {not: {inside: {kind: use_as_clause, stopBy: {kind: use_declaration}}}}]
+rule:
+    kind: identifier
+    pattern: $BOUND
+    inside:
+        kind: 'source_file, declaration_list, block'
+        stopBy: end
+        has: {kind: use_declaration, matches: source, has: {stopBy: end, matches: imported-leaf}}

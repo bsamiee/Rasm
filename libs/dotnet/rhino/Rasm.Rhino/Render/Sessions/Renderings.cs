@@ -91,7 +91,7 @@ public sealed record Rendering(string FileName, Instant Saved, PixelExtent Exten
         Read(FileName, (file, index) =>
             from offsets in Offsets(index.Xml)
             from frames in toSeq(SavedChannel.Items).Filter(channel => Components(channel.Key).ForAll(component => offsets.ContainsKey(RenderWindow.ChannelId(component))))
-                .Traverse(channel => Filled(file, index.Body, offsets, channel.Key).Map(frame => (channel.Key, frame)).ToValidation()).As().ToFin()
+                .Traverse(channel => Filled(file, index.Body, offsets, channel.Key).Map(frame => (channel.Key, frame))).As()
             select toHashMap(frames));
 
     public Option<string> Note => State.Bind(static state => state.Note);
@@ -120,11 +120,10 @@ public sealed record Rendering(string FileName, Instant Saved, PixelExtent Exten
     }
 
     private static Fin<PixelExtent> Measured(XElement xml, string fileName) =>
-        (Child(xml, RimagePart.Width, parseInt).ToValidation(RimagePart.Width.Unreadable(fileName)),
-         Child(xml, RimagePart.Height, parseInt).ToValidation(RimagePart.Height.Unreadable(fileName)))
+        (Child(xml, RimagePart.Width, parseInt).ToFin(RimagePart.Width.Unreadable(fileName)),
+         Child(xml, RimagePart.Height, parseInt).ToFin(RimagePart.Height.Unreadable(fileName)))
             .Apply(static (width, height) => (Width: width, Height: height))
             .As()
-            .ToFin()
             .Bind(static size => PixelExtent.Validated(size.Width, size.Height));
 
     private static Fin<(Guid Id, bool Running, Seq<(EntryKey Key, string Text)> Fields)> Entry(string fileName, XElement effects, (XElement Stage, XElement Entry) row) =>
@@ -165,10 +164,8 @@ public sealed record Rendering(string FileName, Instant Saved, PixelExtent Exten
 
     private Fin<PixelFrame> Filled(FileStream file, long body, HashMap<Guid, long> offsets, RenderWindow.StandardChannels channel) =>
         from starts in Components(channel)
-            .Map(component => offsets.Find(RenderWindow.ChannelId(component)).ToValidation<Error>(new FileRefused(FileName, $"holds no {component} plane")))
-            .Traverse(static plane => plane)
+            .Traverse(component => offsets.Find(RenderWindow.ChannelId(component)).ToFin(new FileRefused(FileName, $"holds no {component} plane")))
             .As()
-            .ToFin()
         let length = file.Length
         let bytes = (long)sizeof(float) * Extent.Width * Extent.Height
         let marker = RimagePart.Chan.Key.Length + Unsafe.SizeOf<Guid>()
@@ -301,11 +298,13 @@ public sealed class RenderHistory {
             select applied);
 
     private static Seq<EffectRequest> Requests(Seq<EffectEntry> entries, Seq<Guid> chain) =>
-        entries.Map<EffectRequest>(entry => new EffectRequest.Placing(entry.Switch<Seq<Guid>, EffectEntry>(
+        [
+            .. entries.Map(entry => new EffectRequest.Placing(entry.Switch<Seq<Guid>, EffectEntry>(
                 chain,
                 listed: static (running, listed) => listed with { On = running.Exists(id => id == listed.Id) },
-                selectable: static (running, selectable) => selectable with { Selected = running.Exists(id => id == selectable.Id) })))
-            .Add(new EffectRequest.Ordering(chain.Filter(toHashSet(entries.Choose(static entry => entry.Switch(listed: static listed => Some(listed.Id), selectable: static _ => Option<Guid>.None))).Contains)));
+                selectable: static (running, selectable) => selectable with { Selected = running.Exists(id => id == selectable.Id) }))),
+            new EffectRequest.Ordering(chain.Filter(toHashSet(entries.Choose(static entry => entry.Switch(listed: static listed => Some(listed.Id), selectable: static _ => Option<Guid>.None))).Contains)),
+        ];
 
     // --- [EVENTS]
     public static HostEvent<Unit> Changed { get; } = new(
@@ -346,10 +345,10 @@ public sealed class RenderHistory {
         from fileNames in IO.lift(() => toSeq(Directory.EnumerateFiles(folder, "*.rimage")).Strict())
         from sidecars in IO.lift(() => toSeq(Directory.EnumerateFiles(folder, $"*{suffix}")).Strict())
         let kept = toHashSet(fileNames.Map(Sidecar))
-        from orphans in sidecars.Filter(sidecar => !kept.Contains(sidecar)).TraverseM(static sidecar => IO.lift(() => File.Delete(sidecar))).As()
+        from orphans in sidecars.Filter(sidecar => !kept.Contains(sidecar)).Map<K<IO, Unit>>(static sidecar => IO.lift(() => File.Delete(sidecar))).PartitionFallible().As()
         from read in fileNames.Map<K<IO, Rendering>>(fileName => Stated(Sidecar(fileName)).Bind(state => Loaded(fileName, state))).PartitionFallible().As()
         from listed in held.SwapIO(ledger => ledger with { Renderings = ledger.Renderings.TryAddRange(read.Succs.Map(static rendering => (rendering.FileName, rendering))) })
-        from failed in unless(read.Fails.IsEmpty, IO.fail<Unit>(Error.Many(read.Fails))).As()
+        from failed in unless(orphans.Fails.IsEmpty && read.Fails.IsEmpty, IO.fail<Unit>(Error.Many(orphans.Fails + read.Fails))).As()
         select unit;
 
     private static IO<Rendering> Loaded(string fileName, Option<RenderingState> state) =>
@@ -416,32 +415,31 @@ public sealed class RenderHistory {
                 Rename = Some<Func<Rendering, string, Fin<Rendering>>>(static (rendering, text) =>
                     rendering.State.ToFin(new Refused(nameof(Annotate), Refused.Absent)).Map(state => rendering with { State = Some(state with { Note = Conversions.Present(text) }) })),
                 Reloads = Seq(Changed),
-                Commands = static selection =>
-                    Seq<CommandRow>(
-                        Command("history-compare", "Compare",
-                            "Compare the selected rendering against the current frame through its own grading", Headed(selection, Compared)),
-                        Command("history-compare-before", "Compare Before",
-                            "Compare the selected rendering's frame before its chain against the current frame", Headed(selection, Before)),
-                        Command("history-export", "Export",
-                            "Write the selected history frame through the output targets and its recorded grading",
-                            Headed(selection, static (scope, rendering) =>
-                                from document in scope.DocumentIO
-                                from frame in rendering.Frame
-                                from kinds in EffectRegistry.Kinds.Of(scope.Sink)
-                                let request = TileRequest.Recorded(rendering, kinds)
-                                from written in Saves.Write(document, scope.Sink,
-                                    Right<(Guid Rendering, RenderRun Run), (PixelFrame Scene, TileRequest Request)>((frame, request)))
-                                select unit)))
-                    + toSeq(RenderingPart.Items).Map<CommandRow>(part => Restoring(selection, part))
-                    + Seq<CommandRow>(
-                        Command("history-delete", "Delete", "Delete the selected renderings and their recorded state",
-                            scope =>
-                                from history in Current.Of(scope.Sink)
-                                from chosen in selection
-                                from deleted in chosen.TraverseM(rendering => history.Delete(rendering)).As()
-                                select unit),
-                        Command("history-clear-comparison", "Clear Comparison", "Drop the rendering the frame view compares against",
-                            static scope => RenderingComparison.Current.Of(scope.Sink).Bind(static comparison => comparison.Clear))),
+                Commands = static selection => [
+                    Command("history-compare", "Compare",
+                        "Compare the selected rendering against the current frame through its own grading", Headed(selection, Compared)),
+                    Command("history-compare-before", "Compare Before",
+                        "Compare the selected rendering's frame before its chain against the current frame", Headed(selection, Before)),
+                    Command("history-export", "Export",
+                        "Write the selected history frame through the output targets and its recorded grading",
+                        Headed(selection, static (scope, rendering) =>
+                            from document in scope.DocumentIO
+                            from frame in rendering.Frame
+                            from kinds in EffectRegistry.Kinds.Of(scope.Sink)
+                            let request = TileRequest.Recorded(rendering, kinds)
+                            from written in Saves.Write(document, scope.Sink,
+                                Right<(Guid Rendering, RenderRun Run), (PixelFrame Scene, TileRequest Request)>((frame, request)))
+                            select unit)),
+                    .. toSeq(RenderingPart.Items).Map(part => Restoring(selection, part)),
+                    Command("history-delete", "Delete", "Delete the selected renderings and their recorded state",
+                        scope =>
+                            from history in Current.Of(scope.Sink)
+                            from chosen in selection
+                            from deleted in Callbacks.Each(chosen.Map(history.Delete))
+                            select unit),
+                    Command("history-clear-comparison", "Clear Comparison", "Drop the rendering the frame view compares against",
+                        static scope => RenderingComparison.Current.Of(scope.Sink).Bind(static comparison => comparison.Clear)),
+                ],
                 Wording = Wording.Library,
             },
             new RowRules(None, None));
@@ -450,7 +448,7 @@ public sealed class RenderHistory {
         from ledger in held.ValueIO
         from keep in IO.lift(SupportOptions.AutoSaveKeepAmount)
         let before = ledger.Listed(keep)
-        from noted in ledger.Renamed(items).TraverseM(item => Annotate(item.Rendering, item.Note)).As()
+        from noted in Callbacks.Each(ledger.Renamed(items).Map(item => Annotate(item.Rendering, item.Note)))
         let written = toHashMap(noted.Map(static rendering => (rendering.FileName, rendering)))
         select ValueStore.Between(Some(before), Some(before.Map(rendering => written.Find(rendering.FileName).IfNone(rendering))));
 

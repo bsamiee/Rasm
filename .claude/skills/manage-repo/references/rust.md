@@ -18,7 +18,11 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - Files pair the date with `profile = "minimal"`, a rolling `nightly` or an omitted profile resolves per machine and day
 - `[env]` `RUSTUP_TOOLCHAIN = false` stops mise's idiomatic export and leaves selection to the file, builds outside the tree take rustup's default
 - Nightly-only manifest, config, and source forms join in the change that sets the toolchain file, stable Cargo and rustc refuse them
+- Members take the newest stable edition, the `future` edition has no behavior of its own and each change in it needs a `#![feature]` opt-in
 - Crate `#![feature]` gates name a form the crate uses, `unused_features` fails an idle gate
+- Gates stay per crate, `-Zcrate-attr` in `build.rustflags` reaches every unit and `unused_features` fails each member writing no gated form
+- Incomplete features stay out, `incomplete_features` fails under `build.warnings`
+- Compiler-internal gates (`unboxed_closures`, `fn_traits`) stay out with no stabilization path
 
 ## [03]-[CATALOG]
 
@@ -27,6 +31,8 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - Restricted rows re-add every default except the offending one, their comment stating the fact that excludes it
 - Members inherit catalog rows whole through `workspace = true`, `feature-unification = "workspace"` builds each member under workspace features
 - Members reach a member through its catalog row pairing `path` with the workspace `version`, Cargo packages no unversioned path dependency
+- Native libraries a `links` key names take one owner row, a second binding crate of the same library fails resolution
+- Rows pulling ring beside aws-lc-rs with no feature avoiding it stay until a member imports their crate
 
 ## [04]-[LINTS]
 
@@ -37,8 +43,12 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - Lint groups take a priority below single lints, Clippy's `lint_groups_priority` fails a group and a lint sharing one
 - Restriction lints join one row at a time with the repository rule each enforces, `blanket_clippy_restriction_lints` flags the whole group
 - Lints demanding docs take `allow`, names and types state each contract
+- Lints take `allow` where their fix writes worse code than the flagged form, the row comment naming that form
 - `clippy.toml` API bans name their replacement
+- `clippy.toml` ban rows hold paths no dependency's macro or derive writes, Clippy reports inside proc-macro output (`#[tokio::test]` writes `tokio::pin!`)
+- Bans on a path proc-macro output writes sit in ast-grep or a Dylint lint behind `expanded_externally`
 - Ban rows take `allow-invalid` where their crate loads without the item (platform module, disabled feature), Clippy skips unloaded crates
+- Ban rows name a path code writes, a type a default type parameter supplies (`RandomState` under `HashMap::new`) escapes its ban
 - Cargo checks normal dependencies under default selection or a library selection with all binaries, rustc `unused_crate_dependencies` stays off
 - Clippy's `cargo` group fails a duplicate crate, an `allowed-duplicate-crates` row names one no catalog move clears with each release's dependents
 
@@ -65,12 +75,15 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - Untested members set `test` and `bench` false on `[lib]` and `[[bin]]`, `doctest` false on `[lib]`, and `clippy --tests` compiles no empty harness
 - Members name their crate root beside `Cargo.toml` through `[lib] path` or `[[bin]] path`, Cargo discovers targets under `src/` alone
 - Binary packages take their binary's name, the Nx project and installed command then share one name
-- Binaries a launchd row runs install through target `install` into `$CARGO_HOME/bin`, the row names a command on mise's `PATH`
+- Binaries a `[daemons]` row runs install through target `install` into `$CARGO_HOME/bin` and restart that row, the row names a command on mise's `PATH`
 
 ## [07]-[CHECKERS]
 
 - Clippy is each member's type check over its library, binary, and test targets, a separate `cargo check` repeats its compile
 - Tested libraries select `--lib --bins --tests`, tested binary-only packages `--all-targets`, untested packages Cargo defaults
+- Container cases carry `#[ignore = "<reason>"]`, the package's `test:integration` target runs them through `--run-ignored only`
+- Container cases pull their `latest` image through `AsyncRunner::pull_image`
+- Integration test crates hold no `#![cfg(test)]`, rustc compiles them under `--test` and Dylint passes skip test code through `Session::is_test_crate`
 - Joins stay on `futures::future::join` until a rust-analyzer release resolves the def-site helper macro of `core::future::join!`
 - Editors and harnesses run locked workspace Clippy with `-- -D warnings` to reject warnings in JSON output
 - `check.allTargets` and `check.extraArgs` check a saved example or binary alone by `--example` or `--bin`, an override runs one command per save
@@ -88,10 +101,13 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 
 - `cargo upgrade` from cargo-edit moves each catalog row to its newest release, breaking releases included, Cargo itself moves no requirement
 - `cargo update` follows every catalog move
-- Select newest `clippy_utils.rev` matching its declared nightly and Dylint driver's extra-symbol table
-- `rustup toolchain install --no-self-update --no-update` reads the declaration, `mise install http:rustc-source` acquires matching source
+- `clippy_utils.rev` and `channel` move by hand, Dylint's driver reads `clippy_utils/src/sym.rs` at the first rust-clippy `Rustup` merge holding the channel
+- `clippy_utils.rev` is the newest first-parent rust-clippy commit before the next `sym.rs` change, a later one fails `lints` UI tests
+- `cargo dylint upgrade` moves to the first commit of the newest `clippy_utils` version and refuses a nightly older than the declared one, `--rust-version` reads stable `rust-<version>` tags alone
+- `mise upgrade` installs the declared channel with its profile and components through rustup, and the matching `http:rustc-source`
 - Nightly or Clippy revision moves require unchanged UI fixtures and strict Clippy to pass
-- Prereleases join by hand through a catalog row naming one, `cargo upgrade` takes no prerelease option
+- Prereleases join by hand through a catalog row naming one, `cargo upgrade` has no prerelease option
+- `cargo upgrade` moves a prerelease row to newer releases, prereleases included
 - Edition moves run `cargo fix --edition`, then set `[workspace.package]` and `rustfmt.toml` `edition` together
 
 ## [09]-[LINT_LIBRARIES]
@@ -99,13 +115,13 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - One crate `lints` at `tools/dylint/` holds every lint
 - `lints` is a workspace member `[workspace.metadata.dylint]` names, catalog rows and `[workspace.lints]` reach it as any member
 - `lints` exports `register_lints` through `__maybe_mangle!` beside `dylint_library!()`, `unsafe_code = "forbid"` passes the macro-written export
-- Lints are one `Warn` module each, ordered as a Clippy lint file (`declare_lint!`, the pass with `impl_lint_pass!` and `impl LateLintPass`)
-- Queries one pass reads sit in its module, queries one folder's passes read in its parent module, a query read across folders in `lib.rs`
+- Lint modules hold one pass and its `Warn` lints in Clippy file order: one root `lint!` call, the pass's own `new` if any, then `impl LateLintPass`
 - Lint modules are plain `mod` items rustfmt reaches, one root `lints!` call registers each pass by `<module path>::<Pass>`
-- Passes holding resolved items construct through a `::new` row from `TyCtxt`, every other pass derives `Default` or comes from `declare_lint_pass!`
+- `lint!` writes a unit `Pass` with `new`, `lint!(default <Pass>; ..)` adds `new` over a derived `Default`, `lint!(Pass; ..)` leaves a pass holding resolved items to its own `new` from `TyCtxt`
 - Fixtures are examples `examples/<lint>.rs` and `examples/<lint>_<case>.rs` per entry-function case, importing dev-dependencies the library lacks
 - `examples/` stays flat, Cargo discovers `examples/*.rs` and `examples/*/main.rs` alone and a nested fixture takes an `[[example]]` row
 - Fixtures of lints skipping exported items take an `[[example]]` row with `crate-type = ["lib"]`, a binary example exports nothing
+- Forms a lint splits by export belong to the lint whatever their `pub` text, an ast-grep rule over the same form excludes it through one shared util
 - `tests/ui/main.rs` holds one `#[test] fn ui` that runs `cargo dylint --no-deps` once over every fixture and groups diagnostics by lint name
 - `tests/ui/<folder>.rs` holds one function per lint of its lint folder, asserting diagnostics and suggestion applicability as an inline snapshot
 - Each `tests/ui/<folder>.rs` ends in one `snapshots!` row naming its functions, `ui` reads each folder's `SNAPSHOTS` and names each differing lint
@@ -114,3 +130,12 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - Fixtures compile in that run alone under `[workspace.lints]` rustc rows, library checks select no example target
 - `host:dylint` members take no `coverage`, the dylint driver runs their lints outside instrumentation
 - Drivers stay under `~/.dylint_drivers`, dylint refuses a missing driver directory and `rasm:clean` removes `.cache`
+
+## [10]-[MODULES]
+
+- Roots that `[lib] path` or `[[bin]] path` names load `mod a;` from `a.rs` beside them and `a/b.rs` below, no `#[path]` reshapes layout
+- Module files take `foo.rs` beside `foo/`, a `foo/mod.rs` beside `foo.rs` fails the build
+- Modules beside `Cargo.toml` take no `build`, `tests`, `examples`, or `benches` name, Cargo builds or discovers each as a target
+- Types parallel to a dependency's family take its word order, a router beside `<Kind>Router` is `<Kind>Router`, a conversion `Into<Target>`
+- Public items sit in public modules reached by path, `pub_use` fails a re-export
+- Crate roots close with their `mod` lines under `[COMPOSITION]`

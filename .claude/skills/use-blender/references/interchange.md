@@ -38,6 +38,8 @@ foreach (var obj in doc.Objects.GetObjectList(all).Where(o => o.Geometry is Rhin
 Blender imports in Object Mode, layers as collections:
 
 ```python
+import bpy
+
 bpy.ops.import_3dm.some_data(filepath="<file>.3dm", import_layers_as_empties=False)
 ```
 
@@ -57,8 +59,9 @@ bpy.ops.import_3dm.some_data(filepath="<file>.3dm", import_layers_as_empties=Fal
 STEP Importer converts the file through `cascadio` and imports the result into the active collection, tessellation reading the extension's preferences:
 
 ```python
-prefs = bpy.context.preferences.addons["bl_ext.blender_org.step_importer"].preferences
-prefs.tol_preset = "FINE"
+import bpy
+
+bpy.context.preferences.addons["bl_ext.blender_org.step_importer"].preferences.tol_preset = "FINE"
 bpy.ops.import_scene.step(filepath="<file>.step", use_assembly_collections=True)
 ```
 
@@ -106,6 +109,8 @@ bpy.ops.import_scene.cad2cube_dxf(filepath="<file>.dxf", units_mode="MANUAL", ma
 Georeferenced drawings lose precision in float32 conversion and move to a local origin in `ezdxf` before the import, the offset kept on the scene:
 
 ```python
+import bpy
+import ezdxf
 from ezdxf import bbox
 
 doc = ezdxf.readfile("<file>.dxf")
@@ -122,6 +127,8 @@ bpy.context.scene["dxf_origin"] = (origin.x, origin.y)
 Import Autodesk MAX reads no unit from the file and multiplies system units by `scale_objects` in meters per unit (0.001 millimeters, 0.01 centimeters, 0.0254 inches, 0.3048 feet):
 
 ```python
+import bpy
+
 bpy.ops.import_scene.max(filepath="<file>.max", scale_objects=0.0254, use_collection=True)
 ```
 
@@ -150,6 +157,7 @@ Rhino exports differ by format:
 With `import_curve.svg` sizing a document as millimeters times its root unit, millimeter documents import at size and others take a factor on added objects:
 
 ```python
+import bpy
 from mathutils import Matrix
 
 before = set(bpy.data.objects)
@@ -168,7 +176,6 @@ for obj in set(bpy.data.objects) - before:
 `.3dm` written through `rhino3dm` keeps collections as layers, names, curves, blocks, materials, and custom properties. Every object takes `ObjectAttributes` with the `LayerIndex` of a layer the file holds, `import_3dm` raising `KeyError` on one without:
 
 ```python
-import bpy
 import rhino3dm
 
 model = rhino3dm.File3dm()
@@ -205,6 +212,8 @@ model.Write("<file>.3dm", 8)
 Mesh-only exchanges take GLB once each mesh holds a material and mesh data holds its object's name, Rhino naming objects after mesh data:
 
 ```python
+import bpy
+
 grey = bpy.data.materials.new("<Default>")
 for obj in bpy.context.scene.objects:
     if obj.type == "MESH" and not obj.data.materials:
@@ -221,6 +230,8 @@ FBX for Rhino takes `axis_forward="Y"` and `axis_up="Z"`, and OBJ takes `global_
 Attrio CSV writes the active object's evaluated point attributes per frame, settings on `scene.attrio_csv_settings`:
 
 ```python
+import bpy
+
 settings = bpy.context.scene.attrio_csv_settings
 settings.export_path, settings.subfolder, settings.base_filename = "<dir>", "<subfolder>", "<name>"
 settings.multi_frame = False
@@ -239,6 +250,8 @@ bpy.ops.export.attrio_csv()
 With Attrio's import operators loading nothing on macOS, tables come in through the Geometry Nodes Import CSV node, one attribute per column, positions set from named columns:
 
 ```python
+import bpy
+
 group = bpy.data.node_groups.new("<CSV Points>", "GeometryNodeTree")
 group.interface.new_socket("Geometry", in_out="OUTPUT", socket_type="NodeSocketGeometry")
 nodes, links = group.nodes, group.links

@@ -20,7 +20,7 @@ utils:
     unit-arm:
         kind: match_arm
         all:
-            - has: {field: pattern, kind: match_pattern, has: {nthChild: 1, kind: scoped_identifier}, not: {has: {field: condition, pattern: $_}}}
+            - has: {field: pattern, kind: match_pattern, regex: '^\w+::\w+\s*(\(\s*(_|\.\.)(\s*,\s*(_|\.\.))*\s*,?\s*\)|\{\s*\.\.\s*\})?$', not: {has: {field: condition, pattern: $_}}}
             - has: {field: value, matches: literal-text}
     naming-impl:
         kind: impl_item

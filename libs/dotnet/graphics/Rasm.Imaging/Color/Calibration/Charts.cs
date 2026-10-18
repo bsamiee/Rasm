@@ -146,9 +146,9 @@ public abstract partial record ChartPlacement {
 
     public Seq<(ChartPatch Patch, (double X, double Y) TopLeft, (double X, double Y) TopRight, (double X, double Y) BottomRight, (double X, double Y) BottomLeft)> Footprints =>
         (Quad.Homography, (X: Footprint / 2d / ColorChart.Columns, Y: Footprint / 2d / ColorChart.Rows)) switch {
-            var (map, half) => Chart.Cells.Map((cell, index) => Centre(index) switch {
-                var centre => Each(((centre.X - half.X, centre.Y - half.Y), (centre.X + half.X, centre.Y - half.Y),
-                        (centre.X + half.X, centre.Y + half.Y), (centre.X - half.X, centre.Y + half.Y)), map.Apply)
+            var (map, half) => Chart.Cells.Map((cell, index) => Center(index) switch {
+                var center => Each(((center.X - half.X, center.Y - half.Y), (center.X + half.X, center.Y - half.Y),
+                        (center.X + half.X, center.Y + half.Y), (center.X - half.X, center.Y + half.Y)), map.Apply)
                     .Map(corners => (cell.Patch, corners.TopLeft, corners.TopRight, corners.BottomRight, corners.BottomLeft)),
             }).Somes(),
         };
@@ -203,7 +203,7 @@ public abstract partial record ChartPlacement {
             .Bind(patches => ValidationResults.ToFin(ChartSamples.Validate(Chart, gamut, toHashMap(patches), out ChartSamples? samples), samples));
 
         (double R, double G, double B, double Weight) Sum(int cell) {
-            (double x, double y) = Centre(cell);
+            (double x, double y) = Center(cell);
             (double R, double G, double B, double Weight) sum = (0d, 0d, 0d, 0d);
             for (int row = 0; row < down; row++)
                 for (int column = 0; column < across; column++)
@@ -213,9 +213,9 @@ public abstract partial record ChartPlacement {
     }
 
     internal abstract (Func<(double X, double Y), Option<(double X, double Y)>> Map, (WrapMode Across, WrapMode Down) Wrap) ToImage(PixelExtent image);
-
-    private static (double X, double Y) Centre(int cell) => (((cell % ColorChart.Columns) + 0.5d) / ColorChart.Columns, ((cell / ColorChart.Columns) + 0.5d) / ColorChart.Rows);
     private static double Between(Vector3 first, Vector3 second) => double.Atan2(Vector3.Cross(first, second).Length(), Vector3.Dot(first, second));
+
+    private static (double X, double Y) Center(int cell) => (((cell % ColorChart.Columns) + 0.5d) / ColorChart.Columns, ((cell / ColorChart.Columns) + 0.5d) / ColorChart.Rows);
 
     private static Option<(B TopLeft, B TopRight, B BottomRight, B BottomLeft)> Each<A, B>((A TopLeft, A TopRight, A BottomRight, A BottomLeft) corners, Func<A, Option<B>> map) =>
         from topLeft in map(corners.TopLeft)

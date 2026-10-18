@@ -8,15 +8,31 @@ utils:
         any:
             - pattern: $TYPE
             - regex: '^Self$'
-rule:
-    kind: function_declaration
-    all:
-        - any:
+    type-member:
+        any:
             - has: {kind: modifiers, has: {kind: property_modifier, regex: '^static$'}}
             - has: {regex: '^class$'}
-        - has: {field: name, kind: simple_identifier, pattern: $NAME}
-        - inside: {kind: 'class_body, enum_class_body', inside: {kind: class_declaration, has: {field: name, pattern: $TYPE}}}
-        - has: {kind: parameter, pattern: $RECEIVER, has: {matches: own-type}}
-        - not: {has: {kind: parameter, not: {pattern: $RECEIVER}, has: {matches: own-type}}}
+    sole-receiver:
+        all:
+            - has: {field: name, kind: simple_identifier, pattern: $NAME}
+            - has: {kind: parameter, pattern: $RECEIVER, has: {matches: own-type}}
+            - not: {has: {kind: parameter, not: {pattern: $RECEIVER}, has: {matches: own-type}}}
+rule:
+    any:
+        - kind: function_declaration
+          all:
+            - matches: type-member
+            - inside: {kind: 'class_body, enum_class_body', inside: {kind: class_declaration, has: {field: name, pattern: $TYPE}}}
+            - matches: sole-receiver
+            - not:
+                inside:
+                    kind: source_file
+                    stopBy: end
+                    has: {stopBy: end, kind: protocol_function_declaration, matches: type-member, has: {field: name, pattern: $NAME}}
+        - kind: protocol_function_declaration
+          all:
+            - matches: type-member
+            - inside: {kind: protocol_body, inside: {kind: protocol_declaration, has: {field: name, pattern: $TYPE}}}
+            - matches: sole-receiver
 message: '`$NAME` is a type member taking `$RECEIVER`, a value of the enclosing `$TYPE`'
 note: 'Drop `static` and `<receiver>`, read `self` in its body, add `mutating` for an `inout` receiver, and call the member on each value'

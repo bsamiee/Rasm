@@ -207,13 +207,13 @@ internal static class AcesTransform {
         double m1 = 0.5d * (ceiling + double.Sqrt(ceiling * (ceiling + (4d * ToeFlare))));
         double scaled = hit / m1;
         double m = m1 / double.Pow(scaled / (scaled + 1d), Surround);
-        double grey = 10.013d / (float)Nits.ReferenceWhite * (1d + (double.Log2(ceiling) * 0.14d));
-        double lifted = double.Pow(0.5d * (grey + double.Sqrt(grey * (grey + (4d * ToeFlare)))) / m, 1d / Surround);
-        double greyWeight = Exposure.MiddleGrey / (-(m1 * lifted) / (lifted - 1d));
+        double gray = 10.013d / (float)Nits.ReferenceWhite * (1d + (double.Log2(ceiling) * 0.14d));
+        double lifted = double.Pow(0.5d * (gray + double.Sqrt(gray * (gray + (4d * ToeFlare)))) / m, 1d / Surround);
+        double grayWeight = Exposure.MiddleGray / (-(m1 * lifted) / (lifted - 1d));
         double logPeak = double.Log10(ceiling);
         float limitJ = Lightness((float)peak);
         return new(
-            (float)ceiling, (float)(8d * hit), (float)(greyWeight * m1), (float)(m1 / double.Pow(scaled / (scaled + greyWeight), Surround)), limitJ, Lightness((float)(grey * (float)Nits.ReferenceWhite)),
+            (float)ceiling, (float)(8d * hit), (float)(grayWeight * m1), (float)(m1 / double.Pow(scaled / (scaled + grayWeight), Surround)), limitJ, Lightness((float)(gray * (float)Nits.ReferenceWhite)),
             (float)double.Max(0.2d, 1.3d - (1.3d * 0.69d * logPeak)), (float)(0.5d / peak), (float)(2.4d + (2.4d * 3.3d * logPeak)), (float)(double.Pow(0.03379d * peak, 0.30596d) - 0.45135d),
             (float)(1.35d + (1.35d * 1.75d * logPeak)), (float)(1d / (1.14d + (0.07d * logPeak))),
             Wrapped(toSeq(Range(0, Degrees)).Map(hue => Reached(hue, limitJ)), static (value, _) => value));

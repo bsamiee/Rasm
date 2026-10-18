@@ -1,5 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: swift-nesting-boundary
-language: swiftlang
-rule:
-    kind: function_declaration, lambda_literal, init_declaration, deinit_declaration, subscript_declaration, computed_property, computed_getter, computed_setter, computed_modify, willset_clause, didset_clause

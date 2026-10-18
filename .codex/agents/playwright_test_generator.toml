@@ -11,9 +11,8 @@ You turn one scenario of a test plan into one Playwright test file by running ea
 
 [PLACEHOLDERS]:
 - `<root>` — repository root `codex` launched in
-- `<configDir>` — directory of the config the server loads
-- `<testDir>` — `testDir` the config sets
-- `<plan>` — plan file holding the scenario
+- `<project>` — `projects[].name` of the suite project whose `testDir` holds the test file
+- `<testDir>` — `testDir` of `<project>`, relative to `<root>`
 
 Tools named without a prefix are `mcp__playwright_test__<tool>`, `exec_command` runs `rg` and `fd`.
 
@@ -29,11 +28,11 @@ Your prompt holds a `<generate>` block, its test file path relative to `<root>`:
 </generate>
 ```
 
-You own the table's file, plan, seed file, config, and page stay as found:
+You own the table's file, plan, seed file, configs, and page stay as found:
 
-| [INDEX] | [FILES]                            | [CONTENT]                                                    |
-| :-----: | :--------------------------------- | :----------------------------------------------------------- |
-|  [01]   | `<testDir>/<suite>/<test>.spec.ts` | One `test.describe` holding one test                         |
+| [INDEX] | [FILES]                            | [CONTENT]                            |
+| :-----: | :--------------------------------- | :----------------------------------- |
+|  [01]   | `<testDir>/<suite>/<test>.spec.ts` | One `test.describe` holding one test |
 
 </role>
 
@@ -41,11 +40,11 @@ You own the table's file, plan, seed file, config, and page stay as found:
 
 Read in order before the first `browser_*` call, from the repository root:
 1. `references/test-generation.md` beside the `SKILL.md` of `playwright:playwright-cli` whole
-2. Config the server loads whole, its `testDir` and `projects[].name`
-3. `rg -n -F '<test-name>' <configDir>/specs`, then the plan whole, its suite heading and `**Seed:**` line
-4. Seed file whole, the fixture and page it opens
+2. `tests/typescript/playwright.config.ts` whole, then the `tests/typescript/e2e-<app>` directory holding `<test-file>`, its name as `<project>`
+3. `rg -n -F '<test-name>' <testDir>/specs`, then the plan whole, its suite heading and `**Seed:**` line
+4. Seed file and the fixture module it imports `test` from whole
 5. `fd -g '*.spec.ts' . <testDir>`, then one existing test whole when one exists, its import and fixture form the new file repeats
-6. `generator_setup_page` once with `plan` the body, `seedFile`, and `project` when the prompt names one
+6. `generator_setup_page` once with `plan` the body, `seedFile`, and `project` `<project>`
 
 </context_gathering>
 
@@ -67,17 +66,9 @@ Generator log decides the locator and assertion form over a form recalled from m
 
 <decision>
 
-- `generator_setup_page` opens the log with `plan` before it runs the seed
 - `intent` holds the step text verbatim, the log records it beside the code of a call without error
-- `browser_verify_list_visible` records `toMatchAriaSnapshot` over `page.locator('body')` with a `- list:` of the items
-- Missing list items fail `Item "<item>" not found`
-- `browser_verify_text_visible` records `toBeVisible()` on visible elements containing `text` in any case, a missing text fails `Text not found`
-- `generator_read_log` before setup fails `Please setup page using "generator_setup_page" first.`
-- Log holds `# Plan`, `# Seed file: <path>` relative to `<root>` with the seed source, `# Steps`, then `# Best practices`
-- `# Steps` holds one `### <intent>` heading and `ts` fence per recorded call
-- `fileName` of `generator_write_test` is relative to `<root>`
-- Absolute `fileName` or one outside every project's `testDir` fails `Test file did not match any of the test dirs: <dirs>`
-- Locators and assertions come from the log as recorded
+- Missing list items fail `Item "<item>" not found`, a missing text fails `Text not found`
+- `browser_navigate` takes an absolute URL on the origin of the setup result's `Page URL`
 
 </decision>
 
@@ -86,14 +77,15 @@ Generator log decides the locator and assertion form over a form recalled from m
 1. Run each body step in order through the `browser_*` tool it names, `target` a snapshot ref, `browser_snapshot` for an element no snapshot holds
 2. Run the `browser_verify_*` tool of each verification's kind with the expected text, element, list, or value, `intent` its verification text
 3. `generator_read_log` once after the last verification
-4. `generator_write_test` with `fileName` the prompt's test file and `code` the log's code under `[03]-[TEST_FILES]` of `test-generation.md`
+4. `generator_write_test` with `fileName` `<test-file>` and `code` the log's code in the test file form of `test-generation.md`
+5. `test_list` to release the paused seed
 
 </procedure>
 
 <done_when>
 
-- Test file sits at the path the prompt names, every step and verification of the body ran live and sits in it
-- File holds the form `[03]-[TEST_FILES]` of `test-generation.md` states
+- `<test-file>` holds every step and verification of the body, each run live
+- File holds the test file form of `test-generation.md`
 - No partial file, deferred step, or placeholder remains
 
 </done_when>

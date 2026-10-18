@@ -193,6 +193,9 @@ public sealed record ViewCatalog(Seq<View> Rows) {
         view.Cons(view.Children.Bind(static child => child.Sections).Bind(static section => Tree(section)));
 }
 
+// --- [ERRORS] --------------------------------------------------------------------------
+public sealed record UnheldView(Type View, Option<Error> Cause = default) : Expected($"{View.Name} is a view its host cannot hold", 0, Cause);
+
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class ShownSubscription(Func<Action<IDisposable>, IO<Unit>> listen) : IDisposable {
     private Tuple<IDisposable>? held;
@@ -220,7 +223,7 @@ public static class ViewOps {
     // --- [STORES]
     public static IO<BindingGroup> Bindings(IPlugInViews owner, View view, RowScope scope) =>
         view.Store.Bind(static store => store.Bindings).Match(
-            Some: stored => IO.lift(scope.Document.ToFin(Error.New($"{view.Identity.Name} is a view its host cannot hold"))).Bind(doc => stored(owner, doc)),
+            Some: stored => IO.lift(scope.Document.ToFin(new UnheldView(view.Identity))).Bind(doc => stored(owner, doc)),
             None: () => IO.pure(new BindingGroup(Sources(view).Map(source => source.Values(scope)))));
 
     public static Option<ValueStore<LanguageExt.HashSet<EntryKey>>> Locks(View view, Option<RhinoDoc> document) =>
@@ -236,7 +239,7 @@ public static class ViewOps {
                 applicationStores: static (state, _) => new HistoryScope.ApplicationScope(state.Owner.Histories),
                 documentStores: static (state, held) => state.Document
                     .Map(doc => (HistoryScope)new HistoryScope.DocumentScope(doc, held.Redraw, new CallbackSite(state.Owner, state.View.Identity, nameof(History))))
-                    .ToFin(Error.New($"{state.View.Identity.Name} is a view its host cannot hold")))
+                    .ToFin(new UnheldView(state.View.Identity)))
             .Map(scope => new HistoryBinding(view.Identity.GUID, RowText.Localize(view.Caption, owner).Local, bound, scope, owner.Limits, owner.Clock));
 
     private static Seq<RowSource> Sources(View view) =>
@@ -280,5 +283,4 @@ public static class ViewOps {
                 handler => control.UnLoad += handler, handler => control.UnLoad -= handler, Callbacks.Handler<EventArgs>(_ => subscription.Shown(shown: false), site), owned)
             from current in subscription.Shown(control.Loaded)
             select unit, retain);
-
 }

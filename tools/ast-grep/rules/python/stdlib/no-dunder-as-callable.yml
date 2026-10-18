@@ -28,7 +28,7 @@ rule:
         - any:
             - has: {field: attribute, pattern: $BUILTIN, regex: '^__(len|hash|str|repr|bytes|bool|int|float|complex|abs|iter|next|aiter|anext|divmod|round|format|reversed)__$'}
             - all:
-                - has: {field: attribute, pattern: $NAME, regex: '^__(i?(lt|le|eq|ne|ge|gt|add|and|floordiv|lshift|mod|mul|matmul|or|pow|rshift|sub|truediv|xor|concat)|not|index|invert|neg|pos|contains|getitem|setitem|delitem|length_hint|call)__$'}
+                - has: {field: attribute, pattern: $NAME, regex: '^__(concat|not|index|invert|neg|pos|contains|getitem|setitem|delitem|length_hint|call)__$'}
                 - inside: {kind: module, stopBy: end, has: {matches: operator-import}}
                 - not: {matches: module-shadowed}
             - all:
@@ -39,10 +39,10 @@ rule:
                 - has: {field: attribute, regex: '^__(i?(lt|le|eq|ne|ge|gt|add|and|floordiv|lshift|mod|mul|matmul|or|pow|rshift|sub|truediv|xor|concat)|not|index|invert|neg|pos|contains|getitem|setitem|delitem|length_hint|call|floor|ceil|trunc)__$'}
                 - pattern: $UNBOUND
 transform:
-    NAMED: {replace: {source: $NAME, replace: '^__(or|and|not)__$', by: '${1}_'}}
+    NAMED: {replace: {source: $NAME, replace: '^__not__$', by: 'not_'}}
     OPERATOR: {replace: {source: $NAMED, replace: '^__(\w+)__$', by: '$1'}}
     QUALIFIED: {replace: {source: $MODULE, replace: '^(.+)$', by: '$1.'}}
     FUNCTION: {replace: {source: $BUILTIN, replace: '^__(\w+)__$', by: '$1'}}
 fix: $FUNCTION$QUALIFIED$OPERATOR$UNBOUND
 message: '`$DUNDER` reads a dunder method as a callable, skipping the reflected operand and the builtin dispatch'
-note: 'Call the protocol builtin (`len`, `bool`, `iter`), `operator.<name>`, or `math.<name>`'
+note: 'Call the protocol builtin (`len`, `bool`, `iter`), `math.<name>`, `operator.<name>` where typeshed types its result (`index`, `neg`, `getitem`, `contains`), or a lambda applying the operator where typeshed returns `Any` (comparisons, binary and in-place arithmetic)'

@@ -64,24 +64,9 @@ rule:
           has: {kind: token_tree, has: {stopBy: end, matches: repeated-field}}
         - kind: attribute_item
           has: {kind: attribute, has: {stopBy: end, matches: instrument-fields, has: {matches: repeated-field}}}
-        - kind: attribute_item
-          all:
-            - has: {kind: attribute, has: {stopBy: end, matches: instrument-fields, has: {matches: field-start, pattern: $NAME, precedes: {matches: name-end}}}}
-            - precedes:
-                stopBy: {kind: function_item}
-                kind: function_item
-                has: {field: parameters, has: {kind: parameter, has: {field: pattern, pattern: $NAME}}}
-            - not:
-                has:
-                    kind: attribute
-                    has:
-                        stopBy: end
-                        any:
-                            - {kind: identifier, regex: '^skip_all$'}
-                            - {kind: token_tree, follows: {kind: identifier, regex: '^skip$'}, has: {kind: identifier, pattern: $NAME}}
 transform:
     TAIL: {replace: {source: $B, replace: '^(.*)$', by: '.$1'}}
     TAIL2: {replace: {source: $C, replace: '^(.*)$', by: '.$1'}}
     TAIL3: {replace: {source: $D, replace: '^(.*)$', by: '.$1'}}
 message: 'Event or span records `$NAME$TAIL$TAIL2$TAIL3` twice'
-note: 'Record each value under its own field name, counting a trailing format string as field `message` and each `#[instrument]` parameter outside `skip(<name>)` and `skip_all` as a field'
+note: 'Record each value under its own field name, counting a trailing format string as field `message`'

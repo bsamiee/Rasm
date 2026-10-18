@@ -22,4 +22,4 @@ rule:
                 - matches: lengths
                 - {kind: binary_expression, has: {field: right, matches: lengths}}
 message: '`$A` and `$B` compare their lengths and then each pair by hand'
-note: 'Call `itertools::equal(<left>.map(..), <right>.map(..))` over the compared values to test length and elements in one pass'
+note: 'Compare `<left> == <right>` for slices, or `<left>.map(..).eq(<right>.map(..))` through `Iterator::eq` for mapped values'

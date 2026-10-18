@@ -7,7 +7,7 @@ namespace Rasm.Rhino.Persistence.Settings;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 public interface ISettingReader {
-    public IO<TValue> Current<TValue, TRaw>(PlugInSetting<TValue, TRaw> row)
+    public Fin<TValue> Current<TValue, TRaw>(PlugInSetting<TValue, TRaw> row)
         where TValue : notnull
         where TRaw : notnull;
 }
@@ -24,9 +24,9 @@ public sealed record PlugInSetting<TValue, TRaw>(ValueKey<TValue, TRaw> Value, S
 
     internal override IO<Unit> Register(PersistentSettings settings) =>
         from registered in IO.lift(() => Kind.Register(settings, Value.Name, Value.ToRaw(Value.Default), LegacyNames))
-            | @catch(static error => error.HasException<NotSupportedException>(), error => IO.lift(() => Fin.Fail<TRaw>(SettingType.String.TryGet(settings, Value.Name).Match(
+            | @catch(static error => error.HasException<NotSupportedException>(), error => IO.fail<TRaw>(SettingType.String.TryGet(settings, Value.Name).Match(
                 Some: text => Error.New(ErrorCodes.ParseError, $"{text} reads as no {typeof(TRaw).Name}", error),
-                None: () => error))))
+                None: () => error)))
         from admitted in IO.lift(() => Value.From(registered))
         from hidden in when(Hidden, IO.lift(() => settings.HideSettingFromUserInterface(Value.Name))).As()
         let refused = fun((TRaw raw) => Value.From(raw).IsFail)
@@ -47,10 +47,7 @@ public static class PlugInSettings {
         where TValue : notnull
         where TRaw : notnull =>
         ValueStore.Of(
-            from found in SettingRoots.TryGetChild(node)
-            from raw in IO.lift(() => found.Traverse(settings => row.Kind.Read(settings, row.Value.Name)).As())
-            from held in IO.lift(() => raw.Flatten().Traverse(row.Value.From).As())
-            select held.Filter(value => !EqualityComparer<TValue>.Default.Equals(value, row.Value.Default)),
+            IO.lift(() => node.Current(row)).Map(value => Some(value).Filter(held => !EqualityComparer<TValue>.Default.Equals(held, row.Value.Default))),
             value =>
                 from settings in SettingRoots.AddChild(node)
                 from writable in IO.lift(() => Writable(settings, row.Value.Name))
@@ -90,6 +87,7 @@ public static class PlugInSettings {
 
     private static Seq<(FieldText<TRecord> Field, SettingsNode Parent, string Key)> Leaves<TRecord>(SettingsNode node) where TRecord : IStateRecord<TRecord> =>
         FieldTexts.Items<TRecord>().Choose(field => field.Path.Last.Map(key => (field, node with { Path = node.Path + field.Path.Init }, key)));
+
     internal static Fin<Unit> Writable(PersistentSettings settings, string key) =>
         settings.TryGetSettingIsReadOnly(key, out bool readOnly) && readOnly ? Error.New($"key {key} is read-only") : unit;
 

@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-self-assigning-upsert
+language: sql
+severity: error
+rule:
+    kind: upsert_clause
+    pattern: _UPSERT
+    all:
+        - matches: {sql-update-upsert: {row: {pattern: _TABLE}}}
+        - not:
+            has:
+                kind: set_assignment
+                not:
+                    all:
+                        - has: {field: column, pattern: _COLUMN}
+                        - has:
+                            field: value
+                            kind: column_reference
+                            all:
+                                - has: {field: name, pattern: _COLUMN}
+                                - any: [{not: {has: {field: table, regex: '.'}}}, {has: {field: table, pattern: _TABLE}}]
+message: '`$UPSERT` rewrites each conflicting row with the values it already holds'
+note: 'Write `on conflict (<key>) do nothing returning <columns>` and read the key in the same unit (a `union all` select on PostgreSQL, a second statement of the batch on SQLite), so an existing row costs D1 no written row and PostgreSQL no row version or WAL'

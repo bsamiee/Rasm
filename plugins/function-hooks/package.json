@@ -6,7 +6,7 @@
     "nx": {
         "tags": [ "host:claude" ],
         "targets": {
-            "typecheck:tsc": { "cache": false }
+            "typecheck:tsc": { "inputs": [ "...", { "fileset": "{projectRoot}/.claude-plugin/types/**/*.d.ts", "includeIgnored": true } ] }
         }
     }
 }

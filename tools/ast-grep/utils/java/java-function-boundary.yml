@@ -1,0 +1,5 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: java-function-boundary
+language: java
+rule:
+    kind: method_declaration, constructor_declaration, compact_constructor_declaration, static_initializer, lambda_expression

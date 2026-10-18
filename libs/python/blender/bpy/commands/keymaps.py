@@ -129,13 +129,13 @@ class Keymap:
         """Resolves native contexts and acquires targets after operator registration."""
 
         @contextmanager
-        def added(given: tuple[tuple[Location, ...], tuple[bpy.types.WindowManager, bpy.types.KeyConfig]]) -> Generator[BlenderResult[None]]:
-            locations, (manager, config) = given
+        def added(given: tuple[tuple[Location, ...], bpy.types.WindowManager]) -> Generator[BlenderResult[None]]:
+            locations, manager = given
             held: list[tuple[bpy.types.KeyMap, bpy.types.KeyMapItem]] = []
             try:
                 writes: list[BlenderResult[None]] = []
                 for name, space, region in locations:
-                    native = config.keymaps.new(name, space_type=space, region_type=region)
+                    native = manager.keyconfigs.addon.keymaps.new(name, space_type=space, region_type=region)  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
 
                     def placed(pair: tuple[str, Writer], chord: Chord, target: Target) -> BlenderResult[None]:
                         operator, write = pair
@@ -153,30 +153,25 @@ class Keymap:
                 for native, item in held:
                     native.keymap_items.remove(item)
 
-        config = rooted(bpy.types.WindowManager, bpy.context).bind(
-            lambda manager: (
-                Option.of_optional(manager.keyconfigs.addon).map(lambda addon: (manager, addon)).to_result_with(lambda: (BlenderAbsentFault(owner="WindowManager.keyconfigs", key="addon"),))
-            )
-        )
-        return paired(nesting(self.keymap), config).map(lambda given: ((Band.KEYMAP_ITEMS, added(given)),))
+        return paired(nesting(self.keymap), rooted(bpy.types.WindowManager, bpy.context)).map(lambda given: ((Band.KEYMAP_ITEMS, added(given)),))
 
     # --- [USER_ITEMS]
 
-    def counterparts(self, context: bpy.types.Context) -> tuple[tuple[bpy.types.KeyConfig, bpy.types.KeyMap, bpy.types.KeyMapItem], ...]:
-        """Resolves each owned item to the current user keyconfig, keymap, and counterpart item."""
+    def counterparts(self, context: bpy.types.Context) -> tuple[tuple[bpy.types.KeyMap, bpy.types.KeyMapItem], ...]:
+        """Resolves each owned item to the current user keymap and counterpart item."""
         return tuple(
-            (config, keymap, item)
+            (keymap, item)
             for manager in Option.of_optional(context.window_manager).to_list()
-            for config in Option.of_optional(manager.keyconfigs.user).to_list()
             for added, mine in self._items
-            for keymap in Option.of_optional(config.keymaps.find_match(added)).to_list()
+            for keymap in Option.of_optional(manager.keyconfigs.user.keymaps.find_match(added)).to_list()  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
             for item in Option.of_optional(keymap.keymap_items.find_match(added, mine)).to_list()
         )
 
     def drawn(self, layout: bpy.types.UILayout, context: bpy.types.Context) -> None:
         """Draws the native user shortcut editors, including per-item restore controls."""
-        for config, keymap, item in self.counterparts(context):
-            rna_keymap_ui.draw_kmi([], config, keymap, item, layout, 0)
+        for manager in Option.of_optional(context.window_manager).to_list():
+            for keymap, item in self.counterparts(context):
+                rna_keymap_ui.draw_kmi([], manager.keyconfigs.user, keymap, item, layout, 0)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

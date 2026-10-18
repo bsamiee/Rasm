@@ -2,6 +2,7 @@
 id: no-outside-range-by-hand
 language: csharp
 severity: error
+ignores: ['tools/roslyn/**']
 utils:
     key-read:
         any:

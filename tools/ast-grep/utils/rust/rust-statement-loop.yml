@@ -10,7 +10,7 @@ utils:
                 kind: field_expression
                 all:
                     - has: {field: value, kind: identifier, pattern: $STATE}
-                    - has: {field: field, regex: '^(push|push_back|push_front|push_str|insert|extend|extend_from_slice|append)$'}
+                    - has: {field: field, matches: rust-growing-method}
             - kind: 'compound_assignment_expr, assignment_expression'
               has: {field: left, kind: identifier, pattern: $STATE}
     write-statement:
@@ -30,7 +30,7 @@ utils:
                 any:
                     - kind: 'assignment_expression, compound_assignment_expr, await_expression'
                     - kind: call_expression
-                      has: {field: function, kind: field_expression, has: {field: field, regex: '^(push|push_back|push_front|push_str|insert|extend|extend_from_slice|append|remove|swap_remove|clear|truncate|drain|retain|entry|or_insert|or_insert_with|or_default|get_or_insert|get_or_insert_with|pop|pop_front|pop_back|take|swap|sort|sort_by|sort_by_key|sort_unstable|dedup|reserve|resize|fill|reverse|send|write|write_all|flush)$'}}
+                      has: {field: function, kind: field_expression, has: {field: field, matches: rust-mutating-method}}
     write-block:
         kind: block
         all:
@@ -46,7 +46,7 @@ utils:
                 - has: {field: consequence, matches: write-block}
     valued-return:
         kind: return_expression
-        has: {pattern: $_, not: {regex: '^Some\s*\('}}
+        has: {pattern: $_, not: {kind: call_expression, all: [{has: {field: function, regex: '^Some$'}}, {has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $ELEMENT}, not: {has: {nthChild: 2}}}}]}}
     return-block:
         kind: block
         all:
@@ -103,11 +103,9 @@ utils:
                 - has: {field: right, any: [{pattern: $INDEX + 1}, {kind: call_expression, has: {field: function, kind: field_expression, all: [{has: {field: value, pattern: $INDEX}}, {has: {field: field, regex: '^(saturating|checked|strict|wrapping)_add$'}}]}}]}
     iterating-while:
         kind: while_expression
-        any:
-            - has: {field: condition, kind: let_condition, has: {field: value, matches: plain-next}}
-            - all:
-                - has: {field: condition, kind: let_condition, has: {field: value, kind: call_expression, all: [{has: {field: function, kind: field_expression, has: {field: field, regex: '^get$'}}}, {has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $INDEX}, not: {has: {nthChild: 2}}}}]}}
-                - has: {field: body, has: {stopBy: end, matches: index-step}}
+        all:
+            - has: {field: condition, kind: let_condition, has: {field: value, kind: call_expression, all: [{has: {field: function, kind: field_expression, has: {field: field, regex: '^get$'}}}, {has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $INDEX}, not: {has: {nthChild: 2}}}}]}}
+            - has: {field: body, has: {stopBy: end, matches: index-step}}
 rule:
     any:
         - kind: for_expression
@@ -119,7 +117,9 @@ rule:
             - has: {field: body, matches: accumulating-body}
             - matches: declared-before
         - kind: for_expression
-          has: {field: body, matches: searching-body}
+          all:
+            - has: {field: pattern, any: [{kind: identifier, pattern: $ELEMENT}, {kind: reference_pattern, has: {kind: identifier, pattern: $ELEMENT}}, {pattern: $ELEMENT}]}
+            - has: {field: body, matches: searching-body}
         - matches: iterating-while
           has: {field: body, matches: searching-body}
         - kind: loop_expression

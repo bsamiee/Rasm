@@ -118,11 +118,11 @@ public sealed partial class TransferCurve : ICaptioned {
         "srgb", "sRGB",
         static (row, _) => {
             foreach (ref Vector4 pixel in row)
-                ImageProcessing.EncodeTransfer(Lanes(ref pixel), Lanes(ref pixel), TransferFunction.Srgb);
+                ImageProcessing.EncodeTransfer(Components(ref pixel), Components(ref pixel), TransferFunction.Srgb);
         },
         static (row, _) => {
             foreach (ref Vector4 pixel in row)
-                ImageProcessing.DecodeTransfer(Lanes(ref pixel), Lanes(ref pixel), TransferFunction.Srgb);
+                ImageProcessing.DecodeTransfer(Components(ref pixel), Components(ref pixel), TransferFunction.Srgb);
         });
     public static readonly TransferCurve Pq = new(
         "pq", "PQ",
@@ -130,13 +130,13 @@ public sealed partial class TransferCurve : ICaptioned {
             float scale = (float)white / (float)Nits.MaxValue;
             foreach (ref Vector4 pixel in row) {
                 pixel = new Vector4(pixel.AsVector3() * scale, pixel.W);
-                ImageProcessing.EncodeTransfer(Lanes(ref pixel), Lanes(ref pixel), TransferFunction.Pq);
+                ImageProcessing.EncodeTransfer(Components(ref pixel), Components(ref pixel), TransferFunction.Pq);
             }
         },
         static (row, white) => {
             float scale = (float)Nits.MaxValue / (float)white;
             foreach (ref Vector4 pixel in row) {
-                ImageProcessing.DecodeTransfer(Lanes(ref pixel), Lanes(ref pixel), TransferFunction.Pq);
+                ImageProcessing.DecodeTransfer(Components(ref pixel), Components(ref pixel), TransferFunction.Pq);
                 pixel = new Vector4(pixel.AsVector3() * scale, pixel.W);
             }
         });
@@ -149,21 +149,21 @@ public sealed partial class TransferCurve : ICaptioned {
                 double luminance = Vector256.Dot(display, HlgSystem.Weights);
                 Vector256<double> scene = display * double.Pow(double.Max(luminance, HlgSystem.DisplayFloor), (1d - HlgSystem.Gamma) / HlgSystem.Gamma);
                 pixel = new Vector4((float)scene[0], (float)scene[1], (float)scene[2], pixel.W);
-                ImageProcessing.EncodeTransfer(Lanes(ref pixel), Lanes(ref pixel), TransferFunction.Hlg);
+                ImageProcessing.EncodeTransfer(Components(ref pixel), Components(ref pixel), TransferFunction.Hlg);
             }
         },
         static (row, white) => {
             double scale = (double)Nits.HlgPeak / white;
             foreach (ref Vector4 pixel in row) {
-                ImageProcessing.DecodeTransfer(Lanes(ref pixel), Lanes(ref pixel), TransferFunction.Hlg);
+                ImageProcessing.DecodeTransfer(Components(ref pixel), Components(ref pixel), TransferFunction.Hlg);
                 Vector256<double> scene = Vector256.Create(pixel.X, pixel.Y, pixel.Z, 0d);
                 double luminance = Vector256.Dot(scene, HlgSystem.Weights);
                 Vector256<double> display = scene * (double.Pow(double.Max(luminance, HlgSystem.SceneFloor), HlgSystem.Gamma - 1d) * scale);
                 pixel = new Vector4((float)display[0], (float)display[1], (float)display[2], pixel.W);
             }
         });
-    public static readonly TransferCurve AcesCct = new("acescct", "ACEScct", static (row, _) => PerLane(row, RgbModels.Acescct.FromLinear), static (row, _) => PerLane(row, RgbModels.Acescct.ToLinear));
-    public static readonly TransferCurve AcesCc = new("acescc", "ACEScc", static (row, _) => PerLane(row, RgbModels.Acescc.FromLinear), static (row, _) => PerLane(row, RgbModels.Acescc.ToLinear));
+    public static readonly TransferCurve AcesCct = new("acescct", "ACEScct", static (row, _) => PerChannel(row, RgbModels.Acescct.FromLinear), static (row, _) => PerChannel(row, RgbModels.Acescct.ToLinear));
+    public static readonly TransferCurve AcesCc = new("acescc", "ACEScc", static (row, _) => PerChannel(row, RgbModels.Acescc.FromLinear), static (row, _) => PerChannel(row, RgbModels.Acescc.ToLinear));
 
     private static readonly (Vector256<double> Weights, double Gamma, double SceneFloor, double DisplayFloor) HlgSystem =
         (Gamut.Rec2020.Luminance, 1.2d + (0.42d * double.Log10(Nits.HlgPeak / 1_000d))) switch {
@@ -178,12 +178,12 @@ public sealed partial class TransferCurve : ICaptioned {
     [UseDelegateFromConstructor]
     public partial void Decode(Span<Vector4> row, Nits white);
 
-    internal static void PerLane(Span<Vector4> row, Func<double, double> curve) {
+    internal static void PerChannel(Span<Vector4> row, Func<double, double> curve) {
         for (int index = 0; index < row.Length; index++)
             row[index] = new Vector4((float)curve(row[index].X), (float)curve(row[index].Y), (float)curve(row[index].Z), row[index].W);
     }
 
-    private static Span<float> Lanes(ref Vector4 pixel) => MemoryMarshal.CreateSpan(ref pixel.X, 3);
+    private static Span<float> Components(ref Vector4 pixel) => MemoryMarshal.CreateSpan(ref pixel.X, 3);
 }
 
 [Union]
@@ -241,16 +241,16 @@ public abstract partial record Transfer : IConvertible<string> {
         public static Gamma Rec1886 { get; } = new(PositiveMagnitude.Create(2.4f));
         public static Gamma Default => Gamma22;
 
-        public override void Encode(Span<Vector4> row, Nits white) => TransferCurve.PerLane(row, linear => double.Pow(double.Max(linear, 0d), 1d / Exponent));
-        public override void Decode(Span<Vector4> row, Nits white) => TransferCurve.PerLane(row, signal => double.Pow(double.Max(signal, 0d), Exponent));
+        public override void Encode(Span<Vector4> row, Nits white) => TransferCurve.PerChannel(row, linear => double.Pow(double.Max(linear, 0d), 1d / Exponent));
+        public override void Decode(Span<Vector4> row, Nits white) => TransferCurve.PerChannel(row, signal => double.Pow(double.Max(signal, 0d), Exponent));
     }
 
     public sealed record Camera(CameraLog Log) : Transfer, IStateRecord<Camera, CameraTransferParameter> {
         public static Camera Default { get; } = new(CameraLog.ArriLogC3);
         public static string Caption => "Camera log";
 
-        public override void Encode(Span<Vector4> row, Nits white) => TransferCurve.PerLane(row, Log.Encode);
-        public override void Decode(Span<Vector4> row, Nits white) => TransferCurve.PerLane(row, Log.Decode);
+        public override void Encode(Span<Vector4> row, Nits white) => TransferCurve.PerChannel(row, Log.Encode);
+        public override void Decode(Span<Vector4> row, Nits white) => TransferCurve.PerChannel(row, Log.Decode);
     }
 }
 

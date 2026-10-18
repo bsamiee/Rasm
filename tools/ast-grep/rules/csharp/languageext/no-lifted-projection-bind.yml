@@ -2,6 +2,7 @@
 id: no-lifted-projection-bind
 language: csharp
 severity: error
+ignores: ['tools/roslyn/**']
 utils:
     overload-return:
         any: [{kind: predefined_type, regex: '^void$'}, {matches: {csharp-type-name: {name: {regex: '^(Fin|Either)$'}}}, has: {stopBy: end, kind: type_argument_list}}]

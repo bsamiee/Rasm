@@ -92,9 +92,7 @@ class Tiles(msgspec.Struct, frozen=True, kw_only=True):
         """Replaces the candidate's first matching type or single stage in the native chain."""
         kind, mirrors = type(record), self.mirrors(identity, scene)
         replaced = next((mirror for mirror in mirrors if mirror.row.filter(lambda row: row.record is kind or (kind.stage.single and row.record.stage is kind.stage)).is_some()), None)
-        return self.stack.offering(kind).map(
-            lambda row: PreviewScene(stack=self.stack).chain(scene, head, tuple(mirror for mirror in mirrors if mirror is not replaced), (Offered(row=row, record=Entry(effect=record)),))
-        )
+        return self.stack.offering(kind).map(lambda row: Chain.of(scene, head, tuple(mirror for mirror in mirrors if mirror is not replaced), (Offered(row=row, record=Entry(effect=record)),)))
 
     def parts(self, identity: Identity, scene: bpy.types.Scene, *, mirrored: Option[tuple[Mirrored, ...]] = Nothing) -> BlenderResult[Option[tuple[msgspec.Struct | ContentHash, ...]]]:
         """Reads mirrored records and complete observable native group content."""
@@ -150,9 +148,10 @@ class Tiles(msgspec.Struct, frozen=True, kw_only=True):
 
     # --- [DEMAND]
 
-    def icon(self, identity: Identity, slot: str, record: Effect, scale: float) -> Option[int]:
+    @classmethod
+    def icon(cls, identity: Identity, slot: str, record: Effect, scale: float) -> Option[int]:
         """Records draw demand and returns the slot's successfully published native icon."""
-        if (wanted := Tiles.held[identity.package].wanted).get(slot) != (request := Wanted(record=record, scale=scale)):
+        if (wanted := cls.held[identity.package].wanted).get(slot) != (request := Wanted(record=record, scale=scale)):
             wanted[slot] = request
         return Previews(identity=identity).icon_id(slot)
 
@@ -194,25 +193,23 @@ class Tiles(msgspec.Struct, frozen=True, kw_only=True):
 
     # --- [LIFECYCLE]
 
-    def consumed(self, identity: Identity, scene: bpy.types.Scene, path: str) -> BlenderResult[Option[str]]:
-        """Reads the native Combined plane and camera extent into a linear display-sized proxy."""
-        bound = root_in(bpy.types.WindowManager, bpy.context).bind(lambda manager: Option.of_optional(max((area.width for window in manager.windows for area in window.screen.areas), default=None)))
-
-        def held(pair: tuple[npt.NDArray[np.float32], Framing]) -> BlenderResult[Option[str]]:
-            pixels, framing = pair
-
-            def stored(proxy: npt.NDArray[np.float32]) -> Option[str]:
-                camera = scaled(framing, pixels.shape[:2], proxy.shape[:2])
-                Tiles.held[identity.package].proxy = Some(Proxied(plane=proxy, framing=camera, key=content_hash(Proxied, camera, arrays=(proxy,))))
-                return Nothing
-
-            return bound.map(lambda side: fitted(pixels, side)).default_value(Ok(pixels)).map(stored)
-
-        camera = FrameSize().bound(identity).bind(lambda frame: paired(frame.read(scene), frame.base(scene)).map(lambda pair: pair[1].default_value(pair[0])))
-        return paired(plane(path, (f"{scene.view_layers[0].name}.Combined",), ("R", "G", "B", "A")), camera).bind(held)
-
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
         """Returns scoped demand, shared previews, the queue feed, and render-result consumer."""
+
+        def consumed(scene: bpy.types.Scene, path: str) -> BlenderResult[Option[str]]:
+            bound = root_in(bpy.types.WindowManager, bpy.context).bind(
+                lambda manager: Option.of_optional(max((area.width for window in manager.windows for area in window.screen.areas), default=None))
+            )
+            camera = FrameSize().bound(identity).bind(lambda frame: paired(frame.read(scene), frame.base(scene)).map(lambda pair: pair[1].default_value(pair[0])))
+
+            def stored(pixels: npt.NDArray[np.float32], framing: Framing, proxy: npt.NDArray[np.float32]) -> Option[str]:
+                fitted_camera = scaled(framing, pixels.shape[:2], proxy.shape[:2])
+                Tiles.held[identity.package].proxy = Some(Proxied(plane=proxy, framing=fitted_camera, key=content_hash(Proxied, fitted_camera, arrays=(proxy,))))
+                return Nothing
+
+            return paired(plane(path, (f"{scene.view_layers[0].name}.Combined",), ("R", "G", "B", "A")), camera).bind(
+                lambda pair: bound.map(lambda side: fitted(pair[0], side)).default_value(Ok(pair[0])).map(lambda proxy: stored(*pair, proxy))
+            )
 
         @contextmanager
         def held() -> Generator[None]:
@@ -236,7 +233,7 @@ class Tiles(msgspec.Struct, frozen=True, kw_only=True):
             (Band.RESOURCES, PreviewQueue.fed(identity, self.jobs)),
             PreviewScene(stack=self.stack),
             FrameSize.attachment,
-            ResultRead(consume=lambda scene, path: self.consumed(identity, scene, path)),
+            ResultRead(consume=consumed),
             UpdateHandler(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.ID,), body=invalidated),
             SceneHandler(handlers=bpy.app.handlers.frame_change_post, body=invalidated),
             PathHandler(handlers=bpy.app.handlers.load_post, body=cleared),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]

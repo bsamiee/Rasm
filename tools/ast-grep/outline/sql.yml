@@ -73,20 +73,6 @@ transform:
 name: $NAME
 signature: $SIGNATURE
 ---
-id: sql-macro
-language: sql
-role: item
-symbolType: function
-rule:
-    kind: ERROR
-    pattern: _DECLARATION
-    regex: '(?i)^create\s+(or\s+replace\s+)?(temp(orary)?\s+)?macro\s'
-transform:
-    NAME: {replace: {source: $DECLARATION, replace: '(?is)^create\s+(?:or\s+replace\s+)?(?:temp(?:orary)?\s+)?macro\s+([\w.]+).*$', by: '$1'}}
-    SIGNATURE: {replace: {source: $DECLARATION, replace: '\s+', by: ' '}}
-name: $NAME
-signature: $SIGNATURE
----
 id: sql-statement
 language: sql
 role: item

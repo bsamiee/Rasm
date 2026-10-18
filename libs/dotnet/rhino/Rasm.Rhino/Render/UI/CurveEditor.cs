@@ -304,11 +304,11 @@ public sealed class CurveEditor : ComponentControl<CurveEditorState, CurvePart, 
                     var counts => counts.Fold(1, int.Max) switch {
                         var tallest => new MarkShape.Polygon([
                             Placed.Plot.BottomLeft,
-                        .. toSeq(Range(0, columns)).Map(column => new PointF(
-                            Placed.Plot.Left + ((column + 0.5f) * Placed.Plot.Width / columns),
-                            Placed.Plot.Bottom - ((float)counts.Find(column).IfNone(0) / tallest * Placed.Plot.Height))),
-                        Placed.Plot.BottomRight,
-                    ]),
+                            .. toSeq(Range(0, columns)).Map(column => new PointF(
+                                Placed.Plot.Left + ((column + 0.5f) * Placed.Plot.Width / columns),
+                                Placed.Plot.Bottom - ((float)counts.Find(column).IfNone(0) / tallest * Placed.Plot.Height))),
+                            Placed.Plot.BottomRight,
+                        ]),
                     },
                 };
 
@@ -368,10 +368,10 @@ public sealed class CurveEditor : ComponentControl<CurveEditorState, CurvePart, 
             Curve.Points.Map(static (point, at) => (Point: point, At: at)).Filter(held => !moving.Exists(gone => gone == held.At)) switch {
                 var free => (Before: free.Filter(held => held.At < index).Last.Map(static held => held.Point), After: free.Find(held => held.At > index).Map(static held => held.Point), Point: Curve.Points[index]) switch {
                     var near => (
-                        near.Before.Map(neighbour => neighbour.X + StepX).IfNone(Curve.Input.Span.Low) - near.Point.X,
-                        near.After.Map(neighbour => neighbour.X - StepX).IfNone(Curve.Input.Periodic ? double.BitDecrement(Curve.Input.Span.High) : Curve.Input.Span.High) - near.Point.X,
-                        near.Before.Filter(_ => Curve.Ascending).Map(static neighbour => neighbour.Y).IfNone(Curve.Output.Span.Low) - near.Point.Y,
-                        near.After.Filter(_ => Curve.Ascending).Map(static neighbour => neighbour.Y).IfNone(Curve.Output.Span.High) - near.Point.Y),
+                        near.Before.Map(neighbor => neighbor.X + StepX).IfNone(Curve.Input.Span.Low) - near.Point.X,
+                        near.After.Map(neighbor => neighbor.X - StepX).IfNone(Curve.Input.Periodic ? double.BitDecrement(Curve.Input.Span.High) : Curve.Input.Span.High) - near.Point.X,
+                        near.Before.Filter(_ => Curve.Ascending).Map(static neighbor => neighbor.Y).IfNone(Curve.Output.Span.Low) - near.Point.Y,
+                        near.After.Filter(_ => Curve.Ascending).Map(static neighbor => neighbor.Y).IfNone(Curve.Output.Span.High) - near.Point.Y),
                 },
             };
 

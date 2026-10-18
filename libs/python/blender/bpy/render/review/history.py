@@ -4,7 +4,7 @@ from collections.abc import Callable
 import datetime
 from pathlib import Path
 import shutil
-from typing import Annotated
+from typing import Annotated, Self
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
@@ -89,52 +89,8 @@ class HistoryCommands(msgspec.Struct, frozen=True, kw_only=True):
     clear: Operator[Empty]
     folder: Operator[Empty]
 
-
-class HistoryStore(msgspec.Struct, frozen=True, kw_only=True):
-    """Row keeping each completed render with its settings, its browser state, operators, compare, and difference mask."""
-
-    settings: Callable[[Identity], BlenderResult[Reviewing]]
-    glyph: Glyph
-    scale: float
-
-    @property
-    def compare(self) -> CompareView:
-        """Compare of the shown entry over the editor's frame, refreshed on each browser field."""
-        return CompareView(key="history_compare", glyph=self.glyph, read=lambda identity, _: before(identity), kinds=("IMAGE", "RENDER_RESULT"), refreshes=watched)
-
-    @property
-    def page_rows(self) -> tuple[Registrable, ...]:
-        """Browser state and the compare state, which the preferences page acquires."""
-        return (browsing, self.compare.state)
-
-    def section(self) -> Single:
-        """Render History section: the Before icon view, the shown entry's note, the difference toggle, and the operator buttons."""
-
-        def rows(identity: Identity) -> BlenderResult[tuple[Row, ...]]:
-            commands = self.operators(identity)
-            shown = next(field for field in msgspec.structs.fields(Browsing) if field.name == "shown")
-            difference = next(field for field in msgspec.structs.fields(Browsing) if field.name == "difference")
-
-            def noted(context: bpy.types.Context) -> Option[str]:
-                return chosen(identity, context).to_option().map(lambda pair: pair[1].value).filter(bool)
-
-            def grouped(*rows: OperatorButton) -> Caption:
-                return Caption(rows=rows, flow=Flow.ALIGNED)
-
-            return browsing.bound(identity).map(
-                lambda attached: (
-                    IconView(choice=Member(root=bpy.types.WindowManager, path=f"{attached.name}.{shown.name}"), scale=self.scale, show_labels=True),
-                    Label(text=noted),
-                    Property(target=Member(root=bpy.types.WindowManager, path=f"{attached.name}.{difference.name}")),
-                    grouped(*(OperatorButton(target=command) for command in (commands.restore, commands.diff, commands.open))),
-                    grouped(OperatorButton(target=commands.measure), OperatorButton(target=commands.note)),
-                    grouped(OperatorButton(target=commands.remove), OperatorButton(target=commands.clear), OperatorButton(target=commands.folder, text=Some(""), icon=Some("FILE_FOLDER"))),
-                )
-            )
-
-        return Single(key="history", title="Render History", rows=(Bound(rows=rows),))
-
-    def operators(self, identity: Identity) -> HistoryCommands:
+    @classmethod
+    def of(cls, identity: Identity) -> Self:
         """Builds the history's operator rows over one identity."""
 
         def restored(call: Call[Empty]) -> BlenderResult[Outcome]:
@@ -202,7 +158,7 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True):
         def cleared(_call: Call[Empty]) -> BlenderResult[Done]:
             return held(identity).bind(lambda history: kept(identity, history, msgspec.structs.replace(history, entries=()))).map(lambda _: Done())
 
-        return HistoryCommands(
+        return cls(
             restore=Operator(key="history_restore", title="Restore Settings", description="Apply the stored render's settings to the scene", form=Empty, run=restored),
             diff=Operator(key="history_diff", title="Compare Settings", description="Report the settings the scene changed since the stored render", form=Empty, run=diffed, undo=False),
             open=Operator(key="history_open", title="Open Render", description="Show the stored render in the render view", form=Empty, run=opened, undo=False),
@@ -237,6 +193,51 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True):
             ),
         )
 
+
+class HistoryStore(msgspec.Struct, frozen=True, kw_only=True):
+    """Row keeping each completed render with its settings, its browser state, operators, compare, and difference mask."""
+
+    settings: Callable[[Identity], BlenderResult[Reviewing]]
+    glyph: Glyph
+    scale: float
+
+    @property
+    def compare(self) -> CompareView:
+        """Compare of the shown entry over the editor's frame, refreshed on each browser field."""
+        return CompareView(key="history_compare", glyph=self.glyph, read=lambda identity, _: before(identity), kinds=("IMAGE", "RENDER_RESULT"), refreshes=watched)
+
+    @property
+    def page_rows(self) -> tuple[Registrable, ...]:
+        """Browser state and the compare state, which the preferences page acquires."""
+        return (browsing, self.compare.state)
+
+    def section(self) -> Single:
+        """Render History section: the Before icon view, the shown entry's note, the difference toggle, and the operator buttons."""
+
+        def rows(identity: Identity) -> BlenderResult[tuple[Row, ...]]:
+            commands = HistoryCommands.of(identity)
+            shown = next(field for field in msgspec.structs.fields(Browsing) if field.name == "shown")
+            difference = next(field for field in msgspec.structs.fields(Browsing) if field.name == "difference")
+
+            def noted(context: bpy.types.Context) -> Option[str]:
+                return chosen(identity, context).to_option().map(lambda pair: pair[1].value).filter(bool)
+
+            def grouped(*rows: OperatorButton) -> Caption:
+                return Caption(rows=rows, flow=Flow.ALIGNED)
+
+            return browsing.bound(identity).map(
+                lambda attached: (
+                    IconView(choice=Member(root=bpy.types.WindowManager, path=f"{attached.name}.{shown.name}"), scale=self.scale, show_labels=True),
+                    Label(text=noted),
+                    Property(target=Member(root=bpy.types.WindowManager, path=f"{attached.name}.{difference.name}")),
+                    grouped(*(OperatorButton(target=command) for command in (commands.restore, commands.diff, commands.open))),
+                    grouped(OperatorButton(target=commands.measure), OperatorButton(target=commands.note)),
+                    grouped(OperatorButton(target=commands.remove), OperatorButton(target=commands.clear), OperatorButton(target=commands.folder, text=Some(""), icon=Some("FILE_FOLDER"))),
+                )
+            )
+
+        return Single(key="history", title="Render History", rows=(Bound(rows=rows),))
+
     def jobs(self, identity: Identity, _context: bpy.types.Context) -> BlenderResult[tuple[Job, ...]]:
         """Returns every stale tile request from one history read, withdrawing omitted requests."""
         previews = Previews(identity=identity)
@@ -256,7 +257,7 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True):
                         .map(lambda _: Nothing)
                     )
                 ),
-                *msgspec.structs.astuple(self.operators(identity)),
+                *msgspec.structs.astuple(HistoryCommands.of(identity)),
                 self.compare,
                 FrameMask(read=lambda _: difference(identity), kinds=("IMAGE", "RENDER_RESULT"), refreshes=refreshes),
             )

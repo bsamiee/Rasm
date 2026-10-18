@@ -6,7 +6,6 @@ ignores:
     - apps/creative-cloud/indesign/galley/**
     - libs/typescript/creative-cloud/indesign/**
     - libs/typescript/creative-cloud/uxp/**
-    - plugins/function-hooks/**
 utils:
     syntax-class:
         kind: regex

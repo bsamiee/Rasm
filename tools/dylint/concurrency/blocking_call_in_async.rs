@@ -1,3 +1,5 @@
+use core::iter;
+
 use clippy_utils::{
     diagnostics::span_lint_hir_and_then,
     fn_def_id_with_node_args,
@@ -45,6 +47,7 @@ impl Pass {
                 "std::sync::nonpoison::Condvar::wait_timeout_while",
                 "std::sync::mpsc::Receiver::recv",
                 "std::sync::mpsc::Receiver::recv_timeout",
+                "std::sync::mpsc::Receiver::iter",
                 "std::sync::mpsc::SyncSender::send",
                 "std::fs::set_times",
                 "std::fs::set_times_nofollow",
@@ -80,6 +83,7 @@ impl Pass {
                 "std::net::TcpStream::connect",
                 "std::net::TcpStream::connect_timeout",
                 "std::net::TcpListener::accept",
+                "std::net::TcpListener::incoming",
                 "std::net::UdpSocket::recv",
                 "std::net::UdpSocket::recv_from",
                 "std::net::UdpSocket::send",
@@ -105,7 +109,7 @@ impl Pass {
                 "tokio::sync::broadcast::Receiver::blocking_recv",
             ],
         );
-        let owners = paths(tcx, PathNS::Type, &["fs_err::PathExt"]).into_iter().chain(find_crates(tcx, Symbol::intern("fs_err")).iter().copied()).collect();
+        let owners = iter::chain(paths(tcx, PathNS::Type, &["fs_err::PathExt"]), find_crates(tcx, Symbol::intern("fs_err")).iter().copied()).collect();
         let streams = paths(tcx, PathNS::Type, &["std::io::Read", "std::io::Write", "std::io::BufRead", "std::io::Seek"]);
         let handles = paths(
             tcx,

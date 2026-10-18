@@ -11,6 +11,9 @@ rule:
         has: {field: name, pattern: $PARAM}
         inside:
             kind: type_parameters
-            inside: {kind: 'impl_item, trait_item, struct_item, enum_item, union_item', field: type_parameters}
-message: '`$PARAM` takes bound `$BOUNDS` inside the generic parameter list'
+            inside:
+                kind: 'impl_item, trait_item, struct_item, enum_item, union_item, associated_type, type_item'
+                field: type_parameters
+                not: {all: [{kind: type_item}, {not: {inside: {kind: declaration_list}}}]}
+message: '`$PARAM$BOUNDS` bounds a parameter inside the generic parameter list'
 note: 'Move every bound into the `where` clause'

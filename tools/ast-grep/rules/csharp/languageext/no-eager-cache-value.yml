@@ -2,6 +2,7 @@
 id: no-eager-cache-value
 language: csharp
 severity: error
+ignores: ['tools/roslyn/**']
 utils:
     computation:
         kind: 'invocation_expression, object_creation_expression, implicit_object_creation_expression, array_creation_expression, collection_expression, with_expression, await_expression, query_expression, interpolated_string_expression'

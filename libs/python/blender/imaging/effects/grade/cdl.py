@@ -35,7 +35,7 @@ class Cdl(Effect, frozen=True, kw_only=True, tag=12):
 
     @override
     def transform(self, config: PyOpenColorIO.Config) -> ImagingResult[Option[PyOpenColorIO.CDLTransform]]:
-        slope, offset, power = zip(*(msgspec.structs.astuple(channel) for channel in (self.red, self.green, self.blue)), strict=False)
+        slope, offset, power = zip(*(msgspec.structs.astuple(channel) for channel in (self.red, self.green, self.blue)))
         return Ok(Some(PyOpenColorIO.CDLTransform(slope=slope, offset=offset, power=power, sat=self.saturation)))
 
 
@@ -55,7 +55,7 @@ def read(path: str) -> ImagingResult[tuple[tuple[Option[str], Cdl], ...]]:
     """
 
     def entry(correction: PyOpenColorIO.CDLTransform) -> ImagingResult[tuple[Option[str], Cdl]]:
-        red, green, blue = ({"slope": slope, "offset": offset, "power": power} for slope, offset, power in zip(correction.getSlope(), correction.getOffset(), correction.getPower(), strict=False))
+        red, green, blue = ({"slope": slope, "offset": offset, "power": power} for slope, offset, power in zip(correction.getSlope(), correction.getOffset(), correction.getPower()))
         try:
             grade = msgspec.convert({"red": red, "green": green, "blue": blue, "saturation": correction.getSat()}, type=Cdl)
         except msgspec.ValidationError as error:

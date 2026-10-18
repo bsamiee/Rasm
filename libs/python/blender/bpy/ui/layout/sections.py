@@ -5,7 +5,6 @@ import datetime
 from enum import Enum
 from functools import partial
 from itertools import product, starmap
-from operator import itemgetter
 from pathlib import Path
 from types import MappingProxyType, MemberDescriptorType
 import typing
@@ -46,6 +45,7 @@ from blender.bpy.ui.layout.rows import (
     Property,
     realized,
     refused,
+    Resolved,
     ResolvedMember,
     Row,
     RowContent,
@@ -586,10 +586,10 @@ class Assembly[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
         def built(parts: tuple[tuple[str, Option[tuple[ResolvedMember, RowDraw]]], tuple[tuple[RowDraw, ...], Option[tuple[tuple[RowContent, ...], Nest]]]]) -> BlenderResult[Self]:
             (name, gated), (heads, walked) = parts
-            scalars = walked.map(itemgetter(0)).default_value(())
+            scalars = walked.map(lambda nested: nested[0]).default_value(())
             count = len(rows)
             return placed((*rows, *scalars), identity).map(
-                lambda draws: cls(name=name, gate=gated, header=heads, rows=draws[:count], fields=draws[count:], nest=walked.map(itemgetter(1)), slots=slots)
+                lambda draws: cls(name=name, gate=gated, header=heads, rows=draws[:count], fields=draws[count:], nest=walked.map(lambda nested: nested[1]), slots=slots)
             )
 
         return paired(paired(identity.name(Name.ATTACHMENT, key), gate), paired(accumulated(realized(row, identity) for row in header), walk)).bind(built)
@@ -676,7 +676,7 @@ class Single[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, k
             Ok(Nothing)
         )
 
-        def drawn(parts: tuple[Assembly[T], Option[ResolvedMember]]) -> Drawn:
+        def drawn(parts: tuple[Assembly[T], Option[Resolved]]) -> Drawn:
             frame, host = parts
 
             def found(holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> Option[Host]:
@@ -699,7 +699,9 @@ class Single[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, k
                 inline=inline,
             )
 
-        return hosting.bind(lambda held: Assembly.of(identity, self.key, self.rows, self.header, self.enable, held.map(itemgetter(1))).map(lambda frame: (frame, held.map(itemgetter(0))))).map(drawn)
+        return hosting.bind(
+            lambda held: Assembly.of(identity, self.key, self.rows, self.header, self.enable, held.map(lambda hosted: hosted[1])).map(lambda frame: (frame, held.map(lambda hosted: hosted[0])))
+        ).map(drawn)
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
         """Answers the section as a layout panel row."""

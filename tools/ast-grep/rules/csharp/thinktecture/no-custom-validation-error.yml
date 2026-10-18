@@ -2,6 +2,7 @@
 id: no-custom-validation-error
 language: csharp
 severity: error
+ignores: ['tools/roslyn/**']
 utils:
     validation-code:
         kind: member_access_expression

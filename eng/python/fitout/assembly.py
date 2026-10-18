@@ -4,20 +4,19 @@ import ast
 from pathlib import Path, PurePosixPath
 import shutil
 import subprocess
-import tokenize
+import tempfile
 from typing import Annotated
-from zipfile import BadZipFile, ZipFile
+from zipfile import ZipFile
 
-import anyio
 from asttokens import ASTText
 from asttokens.util import replace
 from cyclopts import Parameter
-from cyclopts.types import ResolvedExistingFile, ResolvedPath
+from cyclopts.types import ResolvedExistingDirectory, ResolvedExistingFile, ResolvedPath
+from expression import Error, Ok, Result
+from expression.extra.result import catch
 import msgspec
-from packaging.requirements import InvalidRequirement, Requirement
+from packaging.requirements import Requirement
 from packaging.utils import canonicalize_name, parse_wheel_filename
-from pathops import PathOpsError  # type: ignore[attr-defined]
-from result import as_async_result
 import tomlkit
 
 from eng.python.fitout.icons import encoded
@@ -50,44 +49,31 @@ class _Root(msgspec.Struct, frozen=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-async def _resolved(blender: Path, root: _Root, lock: Path, *placement: str | Path) -> _Interpreter:
+def _ran(*command: str | Path, stdout: int | None = None, stderr: int | None = None) -> Result[subprocess.CompletedProcess[bytes], subprocess.CalledProcessError]:
+    """Run a child process on the given or inherited streams, its nonzero exit the error."""
+    return catch(lambda: subprocess.run(command, stdout=stdout, stderr=stderr, check=True), exception=subprocess.CalledProcessError)()
+
+
+def _resolved(blender: Path, root: _Root, lock: Path, *placement: str | Path) -> Result[_Interpreter, subprocess.CalledProcessError]:
     """Place the locked runtime closure using Blender's interpreter, leaving out the packages Blender bundles."""
-    host = await anyio.run_process(
-        (
-            blender,
-            "--background",
-            "--factory-startup",
-            "--python-exit-code",
-            "1",
-            "--python-expr",
-            "import json, sys; from bl_pkg.cli.blender_ext import platform_from_this_system; sys.stderr.write(json.dumps({'executable': sys.executable, 'platform': platform_from_this_system()}))",
-        ),
-        stdout=None,
+    probe = "import json, sys; from bl_pkg.cli.blender_ext import platform_from_this_system; sys.stderr.write(json.dumps({'executable': sys.executable, 'platform': platform_from_this_system()}))"
+    excluded = (*("--no-emit-package", Requirement(entry).name) for entry in root.tool.uv.constraint_dependencies)
+    return (
+        _ran(blender, "--background", "--factory-startup", "--python-exit-code", "1", "--python-expr", probe, stderr=subprocess.PIPE)
+        .map(lambda host: msgspec.json.decode(host.stderr, type=_Interpreter))
+        .bind(
+            lambda interpreter: (
+                _ran("uv", "export", "--locked", "--no-default-groups", "--no-editable", "--no-hashes", "--format", "requirements.txt", *excluded, "--output-file", lock, stdout=subprocess.DEVNULL)
+                .bind(lambda _: _ran("pip", "--python", interpreter.executable, "--disable-pip-version-check", *placement, "--no-deps", "--requirement", lock))
+                .map(lambda _: interpreter)
+            )
+        )
     )
-    interpreter = msgspec.json.decode(host.stderr, type=_Interpreter)
-    await anyio.run_process(
-        (
-            "uv",
-            "export",
-            "--locked",
-            "--no-default-groups",
-            "--no-editable",
-            "--no-hashes",
-            "--format",
-            "requirements.txt",
-            *(argument for entry in root.tool.uv.constraint_dependencies for argument in ("--no-emit-package", Requirement(entry).name)),
-            "--output-file",
-            lock,
-        ),
-        stdout=subprocess.DEVNULL,
-        stderr=None,
-    )
-    await anyio.run_process(("pip", "--python", interpreter.executable, "--disable-pip-version-check", *placement, "--no-deps", "--requirement", lock), stdout=None, stderr=None)
-    return interpreter
 
 
-@as_async_result(OSError, subprocess.CalledProcessError, BadZipFile, msgspec.DecodeError, SyntaxError, ValueError, PathOpsError)
-async def pack(source: ResolvedPath, archive: ResolvedPath, /, *, blender: Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")]) -> int:
+def pack(
+    source: ResolvedExistingDirectory, archive: ResolvedPath, /, *, blender: Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")]
+) -> Result[int, subprocess.CalledProcessError | ExceptionGroup[subprocess.CalledProcessError]]:
     """Build a Blender extension holding the first-party packages as submodules and every other distribution as a wheel.
 
     Args:
@@ -96,59 +82,60 @@ async def pack(source: ResolvedPath, archive: ResolvedPath, /, *, blender: Annot
         blender: Blender executable, supplied by BLENDER_PATH.
 
     Returns:
-        Zero once built, or an input, process, or archive error.
+        Zero once built, or the failed child processes, every icon render's together.
     """
-    root = msgspec.toml.decode(await anyio.Path("pyproject.toml").read_bytes(), type=_Root)
+    root = msgspec.toml.decode(Path("pyproject.toml").read_bytes(), type=_Root)
     icons = source / "icons"
-    tools = icons / "tools"
-    async with anyio.TemporaryDirectory() as folder:
-        scratch = Path(folder)
-        stage = scratch / "stage"
+
+    def staged(stage: Path, interpreter: _Interpreter) -> None:
         wheels = stage / "wheels"
-        previews = stage / icons.name
-        shutil.copytree(source, stage, ignore=lambda parent, names: [name for name in names if Path(parent, name) in {icons, source / "pyproject.toml"}])
-        lock = scratch / "requirements.txt"
-        interpreter = await _resolved(blender, root, lock, "wheel", "--wheel-dir", wheels)
-        (first_party,) = [wheel async for wheel in anyio.Path(wheels).glob("*.whl") if parse_wheel_filename(wheel.name)[0] == canonicalize_name(root.project.name)]
+        (first_party,) = [wheel for wheel in wheels.glob("*.whl") if parse_wheel_filename(wheel.name)[0] == canonicalize_name(root.project.name)]
         with ZipFile(first_party) as wheel:
             members = [name for name in wheel.namelist() if not PurePosixPath(name).parts[0].endswith(".dist-info")]
             wheel.extractall(stage, members)
-        await first_party.unlink()
+        first_party.unlink()
         roots = {PurePosixPath(name).parts[0] for name in members}
-        async for module in anyio.Path(stage).rglob("*.py"):
-            with tokenize.open(module) as stream:
-                text = stream.read()
-                encoding = stream.encoding
-            syntax = ASTText(text, filename=str(module))
-            edits = [
-                (*syntax.get_text_range(node, padded=False), ast.unparse(ast.ImportFrom(module=node.module, names=node.names, level=len(module.relative_to(stage).parent.parts) + 1)))
-                for node in ast.walk(syntax.tree)
-                if isinstance(node, ast.ImportFrom) and node.level == 0 and node.module is not None and node.module.split(".")[0] in roots
-            ]
-            if edits:
-                await module.write_text(replace(text, edits), encoding=encoding)
-        size = "256"
-        async for master in anyio.Path(icons).glob("*.svg"):
-            await anyio.Path(previews).mkdir(exist_ok=True)
-            await anyio.run_process(("resvg", "--width", size, "--height", size, master, (previews / master.name).with_suffix(".png")), stdout=None, stderr=None)
-        async for master in anyio.Path(tools).glob("*.svg"):
-            glyph = anyio.Path(previews, tools.name, master.name).with_suffix(".dat")
-            await glyph.parent.mkdir(parents=True, exist_ok=True)
-            await glyph.write_bytes(encoded(Path(master)))
-        manifest = anyio.Path(stage, "blender_manifest.toml")
-        document = tomlkit.parse(await manifest.read_text())
+        for module in stage.rglob("*.py"):
+            syntax = ASTText(text := module.read_text(newline=""), filename=str(module))
+            module.write_text(
+                replace(
+                    text,
+                    [
+                        (*syntax.get_text_range(node, padded=False), ast.unparse(ast.ImportFrom(module=node.module, names=node.names, level=len(module.relative_to(stage).parent.parts) + 1)))
+                        for node in ast.walk(syntax.tree)
+                        if isinstance(node, ast.ImportFrom) and node.level == 0 and node.module is not None and node.module.split(".")[0] in roots
+                    ],
+                ),
+                newline="",
+            )
+        document = tomlkit.parse((manifest := stage / "blender_manifest.toml").read_text())
         document["platforms"] = [interpreter.platform]
-        manifest_wheels = tomlkit.array().multiline(multiline=True)
-        manifest_wheels.extend(f"./wheels/{name}" for name in sorted([wheel.name async for wheel in anyio.Path(wheels).glob("*.whl")]))
-        document["wheels"] = manifest_wheels
-        await manifest.write_text(tomlkit.dumps(document))
-        await anyio.Path(archive.parent).mkdir(parents=True, exist_ok=True)
-        await anyio.run_process((blender, "--factory-startup", "--command", "extension", "build", "--source-dir", stage, "--output-filepath", archive), stdout=None, stderr=None)
-    return 0
+        document["wheels"] = tomlkit.item([f"./wheels/{wheel.name}" for wheel in sorted(wheels.glob("*.whl"))]).multiline(multiline=True)
+        manifest.write_text(tomlkit.dumps(document))
+
+    with tempfile.TemporaryDirectory() as folder:
+        stage = Path(folder, "stage")
+        previews = stage / icons.name
+        shutil.copytree(
+            source, stage, ignore=lambda parent, names: [name for name in names if Path(parent, name) == source / "pyproject.toml" or (Path(parent).is_relative_to(icons) and name.endswith(".svg"))]
+        )
+        for master in (icons / "tools").glob("*.svg"):
+            (previews / master.relative_to(icons)).with_suffix(".dat").write_bytes(encoded(master))
+        failures = [*_ran("resvg", "--width", "256", "--height", "256", master, previews / f"{master.stem}.png").swap().to_option().to_list() for master in icons.glob("*.svg")]
+        rendered: Result[None, subprocess.CalledProcessError | ExceptionGroup[subprocess.CalledProcessError]] = (
+            Error(ExceptionGroup("Icon previews failed to render", failures)) if failures else Ok(None)
+        )
+        archive.parent.mkdir(parents=True, exist_ok=True)
+        return (
+            rendered
+            .bind(lambda _: _resolved(blender, root, Path(folder, "requirements.txt"), "wheel", "--wheel-dir", stage / "wheels"))
+            .map(lambda interpreter: staged(stage, interpreter))
+            .bind(lambda _: _ran(blender, "--factory-startup", "--command", "extension", "build", "--source-dir", stage, "--output-filepath", archive))
+            .map(lambda _: 0)
+        )
 
 
-@as_async_result(OSError, subprocess.CalledProcessError, msgspec.DecodeError, InvalidRequirement)
-async def site(target: ResolvedPath, /, *, blender: Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")]) -> int:
+def site(target: ResolvedPath, /, *, blender: Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")]) -> Result[int, subprocess.CalledProcessError]:
     """Install the distributions `pack` bundles into a folder Blender's interpreter imports from.
 
     Args:
@@ -156,13 +143,11 @@ async def site(target: ResolvedPath, /, *, blender: Annotated[ResolvedExistingFi
         blender: Blender executable, supplied by BLENDER_PATH.
 
     Returns:
-        Zero once installed, or a process, decoding, or requirement error.
+        Zero once installed, or the failed child process.
     """
-    root = msgspec.toml.decode(await anyio.Path("pyproject.toml").read_bytes(), type=_Root)
-    async with anyio.TemporaryDirectory() as scratch:
-        lock = Path(scratch) / "requirements.txt"
-        await _resolved(blender, root, lock, "install", "--no-compile", "--target", target)
-    return 0
+    root = msgspec.toml.decode(Path("pyproject.toml").read_bytes(), type=_Root)
+    with tempfile.TemporaryDirectory() as folder:
+        return _resolved(blender, root, Path(folder, "requirements.txt"), "install", "--no-compile", "--target", target).map(lambda _: 0)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

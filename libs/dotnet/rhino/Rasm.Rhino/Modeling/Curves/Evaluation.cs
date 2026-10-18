@@ -131,10 +131,10 @@ public static class CurveEvaluation {
                     var parameters => Refused.Unless(!parameters.IsEmpty || source.IsPeriodic, parameters.Map(t => CurveSample.Of(source, t)).Strict(), nameof(Curve.ExtremeParameters)),
                 },
             discontinuities: static (source, rule) =>
-                Fin.Succ(toSeq(LanguageExt.List.unfold(source.Domain.T0, t0 =>
+                toSeq(LanguageExt.List.unfold(source.Domain.T0, t0 =>
                         t0 < source.Domain.T1 ? Callbacks.Found(source.GetNextDiscontinuity(rule.ContinuityType, t0, source.Domain.T1, rule.CosAngleTolerance, rule.CurvatureTolerance, out double t), (t, t)) : None))
                     .Map(t => CurveSample.Of(source, t))
-                    .Strict()));
+                    .Strict());
 
     // --- [PROXIMITY]
     public static Fin<CurveSample> ClosestPoint(Curve curve, Point3d test) =>

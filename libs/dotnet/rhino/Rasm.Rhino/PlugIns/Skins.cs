@@ -42,20 +42,17 @@ public abstract partial class DefinedSkin : Skin, IPlugInSink {
     private readonly Ref<Option<(Form Window, Label Status, ProgressBar Bar, IDisposable Lease)>> splash = Ref<Option<(Form Window, Label Status, ProgressBar Bar, IDisposable Lease)>>(None);
 
     // --- [IDENTITY]
-    private static readonly Size MarkSize = new(128, 128);
-    private static readonly System.Drawing.Size MainIconSize = new(256, 256);
-
     protected sealed override string ApplicationName => GetType().Assembly.GetCustomAttributes<AssemblyTitleAttribute>().Single().Title;
 
     protected sealed override System.Drawing.Bitmap? MainRhinoIcon =>
         Callbacks.Answer(
             (HostUtils.RunningOnWindows
-                ? Icons.PlugInImage(this, static (assets, name) => assets.IconBitmaps.Get(name, MainIconSize))
+                ? Icons.PlugInImage(this, static (assets, name) => assets.IconBitmaps.Get(name, new System.Drawing.Size(256, 256)))
                 : IO.pure(Option<System.Drawing.Bitmap>.None)).Map(static bitmap => bitmap.ValueUnsafe()),
             static () => null,
             CallbackSite.Of(this));
 
-    private IO<Option<Icon>> Mark => Icons.PlugInImage(this, static (assets, name) => assets.Native.Eto.Icons.Get(name, MarkSize));
+    private IO<Option<Icon>> Mark => Icons.PlugInImage(this, static (assets, name) => assets.Native.Eto.Icons.Get(name, new Size(128, 128)));
 
     // --- [LOAD]
     protected sealed override void OnBeginLoadAtStartPlugIns(int expectedCount) =>

@@ -160,6 +160,7 @@ Source files group declarations into sections and an owner's members into operat
 - ALWAYS open a subsection with a divider without dashes, indented with its members, when one section holds more than one operation family
 - ALWAYS place every declaration under a divider, the preamble (imports, namespace, shebang, `set` flags, assembly attributes) precedes the first one
 - ALWAYS place every member of a subdivided section under a `[<FAMILY>]` subsection that names what its members do
+- ALWAYS place every declaration and table of one concept in one section, each family under a subsection in place of a separate section
 - ALWAYS add a `[<SECTION>]` label outside the table after its closest core section when the label names what its declarations own
 - ALWAYS keep a type's members, nested types, union cases, and companion factories in the section of the type
 - ALWAYS order inside a section by owner, then dependency, then domain order (lifecycle, severity, case order), then public before private

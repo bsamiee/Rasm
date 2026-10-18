@@ -21,16 +21,16 @@ from blender.bpy.data.rna.descriptors import Descriptor, Value
 from blender.bpy.data.rna.snapshots import Scenes, Snapshot
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderEditFault, BlenderImagingFault, BlenderResult
+from blender.bpy.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderEditFault, BlenderResult
 from blender.bpy.nodes.changes import reconciled
 from blender.bpy.nodes.graphs import End, ended, Fragment, Graph, INPUTS, Loaded, node, NodeGroup, Operand, vector
 from blender.bpy.nodes.interface import Interface, Socket
 from blender.bpy.nodes.trees import emptied, tree_of
+from blender.bpy.render.color.spaces import config_of
 from blender.bpy.scene.objects import fanned, ObjectState, Reconciled
 from blender.bpy.settings.attachments import Attachment, reconciling
 from blender.bpy.settings.properties import Definition
 from blender.imaging.calibration import Calibration
-from blender.imaging.color.config import admitted
 from blender.imaging.faults import accumulated, paired
 from blender.imaging.parameters import Case, Choice, Finite, Gated, heading, NonNegative, Presentation, Quantity, Rgb, Unit
 
@@ -160,10 +160,9 @@ class Materials(msgspec.Struct, frozen=True, kw_only=True):
     @staticmethod
     def reshaded(held: Handle[bpy.types.Material], identity: Identity) -> BlenderResult[Option[str]]:
         """Reconciles the latest attached setup in a deferred write without an undo step."""
-        config = admitted(PyOpenColorIO.GetCurrentConfig(), ()).map_error(BlenderImagingFault.lifted)
         return (
             paired(held.resolve(), Materials.attachment.bound(identity))
-            .bind(lambda pair: paired(tree_of(pair[0]).bind(pair[1].read), config).bind(lambda read: shaded(pair[0], read[0].setup, read[1], identity)))
+            .bind(lambda pair: paired(tree_of(pair[0]).bind(pair[1].read), config_of()).bind(lambda read: shaded(pair[0], read[0].setup, read[1], identity)))
             .map(lambda _: Nothing)
         )
 
@@ -177,7 +176,6 @@ class Materials(msgspec.Struct, frozen=True, kw_only=True):
 
         def run(call: Call[Empty]) -> BlenderResult[Done]:
             paths = tuple(map(str, call.paths))
-            config = admitted(PyOpenColorIO.GetCurrentConfig(), ()).map_error(BlenderImagingFault.lifted)
 
             def assigned(maps: dict[MapKind, str], config: PyOpenColorIO.Config) -> BlenderResult[dict[MapKind, str]]:
                 return (
@@ -194,7 +192,7 @@ class Materials(msgspec.Struct, frozen=True, kw_only=True):
                 return Done(notes=tuple(("INFO", f"{PurePath(path).name} matches no map kind") for path in paths if path not in matched))
 
             with ExitStack() as rollback:
-                return committed(paired(classified(paths), config).bind(lambda pair: assigned(*pair)), rollback).map(published)
+                return committed(paired(classified(paths), config_of()).bind(lambda pair: assigned(*pair)), rollback).map(published)
 
         return Descriptor.resolve(bpy.types.ViewLayer, "objects.active", bpy.types.PointerProperty).map(
             lambda active: Operator(
@@ -210,7 +208,7 @@ class Materials(msgspec.Struct, frozen=True, kw_only=True):
 
     # --- [REGISTRATION]
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
+    def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
         """Returns nested declarations for registration to scope once under this identity."""
         return paired(matrix(), self.texture_setup).map(lambda pair: (Materials.attachment, *(case.ownership for case in get_args(ShadingSetup.__value__)), *pair))
 
@@ -383,7 +381,7 @@ def matrix() -> BlenderResult[NodeGroup]:
     )
     return (
         accumulated(vector(f"{row}_dot", "DOT_PRODUCT", End(node=INPUTS, socket="color"), End(node=INPUTS, socket=row)) for row in Rgb.__struct_fields__)
-        .bind(lambda rows: node("combined", bpy.types.ShaderNodeCombineXYZ, dict(zip("XYZ", rows, strict=False)), {}))
+        .bind(lambda rows: node("combined", bpy.types.ShaderNodeCombineXYZ, dict(zip("XYZ", rows)), {}))
         .bind(lambda combined: vector("scaled", "SCALE", ended("combined", "Vector")(combined), End(node=INPUTS, socket="gain")))
         .bind(lambda scaled: NodeGroup.built("color_matrix", "Color Matrix", interface, {"transformed": scaled}, bpy.types.ShaderNodeTree))
     )
@@ -391,7 +389,7 @@ def matrix() -> BlenderResult[NodeGroup]:
 
 def matrix_inputs(calibration: Calibration) -> dict[Key, Value]:
     """Returns matrix rows and exposure gain for an owned color-matrix group."""
-    return {**{name: msgspec.structs.astuple(row) for name, row in zip(Rgb.__struct_fields__, calibration.matrix, strict=False)}, "gain": math.exp2(calibration.exposure)}
+    return {**{name: msgspec.structs.astuple(row) for name, row in zip(Rgb.__struct_fields__, calibration.matrix)}, "gain": math.exp2(calibration.exposure)}
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

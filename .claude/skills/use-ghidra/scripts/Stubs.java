@@ -24,6 +24,32 @@ public class Stubs extends GhidraScript {
 
     sealed interface Rename permits Renamed, Unchanged, Unresolved, Rejected {
         Function stub();
+
+        static Rename of(Function stub) {
+            return Functions.selector(stub)
+                    .map(selector -> Objc1Constants.OBJC_MSG_SEND + "$" + selector)
+                    .map(
+                            name ->
+                                    name.equals(stub.getName())
+                                                    && ObjcUtils.OBJC_MSGSEND_STUBS_CC.equals(
+                                                            stub.getCallingConventionName())
+                                            ? new Unchanged(stub)
+                                            : apply(stub, name))
+                    .orElseGet(() -> new Unresolved(stub));
+        }
+
+        default String row() {
+            return stub().getEntryPoint()
+                    + " "
+                    + switch (this) {
+                        case Renamed(Function stub, String previous) ->
+                                previous + " -> " + stub.getName(true);
+                        case Unchanged(Function stub) -> stub.getName(true) + " unchanged";
+                        case Unresolved(Function stub) -> stub.getName(true) + " unresolved";
+                        case Rejected(Function stub, String message) ->
+                                stub.getName(true) + " rejected: " + message;
+                    };
+        }
     }
 
     record Renamed(Function stub, String previous) implements Rename {}
@@ -34,22 +60,9 @@ public class Stubs extends GhidraScript {
 
     record Rejected(Function stub, String message) implements Rename {}
 
-    private static Rename rename(Function stub) {
-        return Functions.selector(stub)
-                .map(selector -> rename(stub, Objc1Constants.OBJC_MSG_SEND + "$" + selector))
-                .orElseGet(() -> new Unresolved(stub));
-    }
-
-    private static Rename rename(Function stub, String name) {
-        String previous = stub.getName();
-        return previous.equals(name)
-                        && ObjcUtils.OBJC_MSGSEND_STUBS_CC.equals(stub.getCallingConventionName())
-                ? new Unchanged(stub)
-                : apply(stub, name, previous);
-    }
-
-    private static Rename apply(Function stub, String name, String previous) {
+    private static Rename apply(Function stub, String name) {
         Program program = stub.getProgram();
+        String previous = stub.getName();
         try {
             stub.updateFunction(
                     ObjcUtils.OBJC_MSGSEND_STUBS_CC,
@@ -66,21 +79,6 @@ public class Stubs extends GhidraScript {
         }
     }
 
-    // --- [ROWS]
-
-    private static String row(Rename rename) {
-        String entry = rename.stub().getEntryPoint() + " ";
-        return entry
-                + switch (rename) {
-                    case Renamed(Function stub, String previous) ->
-                            previous + " -> " + stub.getName(true);
-                    case Unchanged(Function stub) -> stub.getName(true) + " unchanged";
-                    case Unresolved(Function stub) -> stub.getName(true) + " unresolved";
-                    case Rejected(Function stub, String message) ->
-                            stub.getName(true) + " rejected: " + message;
-                };
-    }
-
     // --- [RUN]
 
     @Override
@@ -90,7 +88,7 @@ public class Stubs extends GhidraScript {
                 Functions.internal(currentProgram)
                         .filter(Functions::isStub)
                         .sorted(Functions.BY_ENTRY)
-                        .map(Stubs::rename)
+                        .map(Rename::of)
                         .toList();
         String counts =
                 Stream.of(Renamed.class, Unchanged.class, Unresolved.class, Rejected.class)
@@ -107,6 +105,6 @@ public class Stubs extends GhidraScript {
                         counts,
                         Stream.concat(
                                 Stream.of(Report.section("STUBS")),
-                                renames.stream().map(Stubs::row))));
+                                renames.stream().map(Rename::row))));
     }
 }

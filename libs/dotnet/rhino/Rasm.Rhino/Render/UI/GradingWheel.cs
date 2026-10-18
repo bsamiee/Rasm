@@ -137,18 +137,15 @@ public sealed class GradingWheel(IPlugInSink sink, ShownWheel shown)
             var plane =>
                 from well in Plots.Well(canvas, bounds)
                 from disc in ImagePlots.Device(plane, canvas.Scale).Match(Succ: extent => Tinted(canvas, plane.Plot, extent), Fail: static _ => IO.pure(unit))
-                from painted in Plots.Paint(canvas, marks.Map(mark => Cue(mark, interaction)) + (canvas.Focused ? Seq(Focus(bounds)) : Seq<PlotMark<WheelPart>>()))
+                from painted in Plots.Paint(canvas, marks.Map(mark => Cue(mark, interaction)) + (canvas.Focused ? Seq(new PlotMark<WheelPart>(new MarkShape.Band(bounds), new MarkStyle.Stroke(PaintSlot.Highlight, 1f, 1f), None)) : Seq<PlotMark<WheelPart>>()))
                 select unit,
         };
 
     private IO<Unit> Tinted(PlotCanvas canvas, RectangleF plot, PixelExtent extent) =>
-        from image in IO.lift(() => Held(extent))
+        from image in IO.lift(() => raster.Filter(held => held.Diameter == extent.Width).IfNone(() => Rebuilt(extent)).Raster)
         from drawn in Plots.Raster(canvas, plot, image)
         from veil in Plots.Veiled(canvas, new MarkShape.Disc(plot.Center, plot.Width))
         select unit;
-
-    private Bitmap Held(PixelExtent extent) =>
-        raster.Filter(held => held.Diameter == extent.Width).IfNone(() => Rebuilt(extent)).Raster;
 
     private (int Diameter, Bitmap Raster) Rebuilt(PixelExtent extent) {
         (int Diameter, Bitmap Raster) built = (extent.Width, ImagePlots.Pixels(extent, Tints(extent.Width)));
@@ -162,16 +159,13 @@ public sealed class GradingWheel(IPlugInSink sink, ShownWheel shown)
         toSeq(Range(0, diameter * diameter)).Map(index => new Vector2((index % diameter) + 0.5f - (diameter / 2f), (diameter / 2f) - (index / diameter) - 0.5f) switch {
             var offset => float.Clamp((diameter / 2f) - offset.Length() + 0.5f, 0f, 1f) switch {
                 0f => 0,
-                var alpha => new Color(Plots.Encoded(Gamut.StandardRgb, Exposure.MiddleGrey * WheelOffset.Tint(Gamut.StandardRgb, offset / diameter)), alpha).ToArgb(),
+                var alpha => new Color(Plots.Encoded(Gamut.StandardRgb, Exposure.MiddleGray * WheelOffset.Tint(Gamut.StandardRgb, offset / diameter)), alpha).ToArgb(),
             },
         });
 
     private static PlotMark<WheelPart> Cue(PlotMark<WheelPart> mark, Interaction<WheelPart> cues) =>
         mark.Part.Filter(part => cues.Hovered.Exists(key => key == part.Key) || cues.Pressed.Exists(key => key == part.Key))
             .Match(Some: part => mark with { Style = part.Key.Cued }, None: () => mark);
-
-    private static PlotMark<WheelPart> Focus(RectangleF bounds) =>
-        new(new MarkShape.Band(bounds), new MarkStyle.Stroke(PaintSlot.Highlight, 1f, 1f), None);
 
     // --- [LIFETIME]
     protected override void Dispose(bool disposing) {

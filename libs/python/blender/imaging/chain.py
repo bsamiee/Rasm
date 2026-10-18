@@ -92,7 +92,7 @@ class Effect(Case, metaclass=EffectMeta, frozen=True, kw_only=True):
         """Whether this record answers each pixel independently of its frame."""
         ...
 
-    def transform(self, config: PyOpenColorIO.Config) -> ImagingResult[Option[PyOpenColorIO.Transform]]:
+    def transform(self, _config: PyOpenColorIO.Config, /) -> ImagingResult[Option[PyOpenColorIO.Transform]]:
         """Returns an optional OCIO operation or typed failure."""
         return Ok(Nothing)
 

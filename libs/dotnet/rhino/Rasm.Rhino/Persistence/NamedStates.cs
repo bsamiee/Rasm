@@ -124,7 +124,7 @@ public abstract partial class LayerStateRestoreParameter : IStateParameter<Layer
 
         internal override IO<Func<LayerStateRestore, LayerStateRestore>> Read(RhinoDoc doc, (KeyName Section, SettingsNode Node) owner) =>
             from held in Store(Some(doc), owner).Read.Catch(static error => error.HasCode(ErrorCodes.ParseError), _ => IO.pure(Some(row.Value.Default)))
-            from value in held.Match(Some: IO.pure, None: () => owner.Node.Current(row))
+            from value in IO.lift(() => held.Match(Some: static raw => raw, None: () => owner.Node.Current(row)))
             select lens.SetF(value);
 
         internal override IO<Option<IO<Unit>>> Edit(Option<RhinoDoc> doc, (KeyName Section, SettingsNode Node) owner, Option<LayerStateRestore> value) =>
@@ -157,9 +157,9 @@ public static class NamedStates {
     private static IO<Unit> SaveLayerState(RhinoDoc doc, NamedState.LayerState state) =>
         from scope in Scope(doc, state.Viewport)
         from restorable in IO.lift(state.Edits.Bind(static modify => modify.Edits)
-            .Traverse(edit => (edit.Restores is not RestoreLayerProperties.None && (edit.Viewport.IsNone || edit.Viewport == scope)
+            .Traverse(edit => edit.Restores is not RestoreLayerProperties.None && (edit.Viewport.IsNone || edit.Viewport == scope)
                 ? Fin.Succ(unit)
-                : Error.New(ErrorCodes.ValidationFailed, $"a layer state restore does not revert {edit.Member}")).ToValidation()).As().ToFin())
+                : Error.New(ErrorCodes.ValidationFailed, $"a layer state restore does not revert {edit.Member}")).As())
         let edited = from changed in state.Edits.TraverseM(modify => Layers.Apply(doc, modify)).As()
                      from saved in Saved(doc, state.Name, scope)
                      select saved
@@ -239,10 +239,9 @@ public static class NamedStates {
                 select (table.Table, Key: key));
 
     public static Fin<Seq<NamedChange>> Plan(Seq<(NamedTable Table, string Key)> held, Seq<NamedState> desired, LanguageExt.HashSet<NamedTable> prune) =>
-        from addresses in Fin.Succ(desired.Map(static state => state.Address))
-        from kept in toSeq(addresses.GroupBy(static address => address.Table))
+        from kept in toSeq(desired.Map(static state => state.Address).GroupBy(static address => address.Table))
             .Traverse(static states => Callbacks.Unique(toSeq(states).Choose(static state => state.Key), identity, nameof(Plan), states.Key.Comparer)
-                .Map(keys => (states.Key, keys.ToHashSet(states.Key.Comparer)))).As().ToFin()
+                .Map(keys => (states.Key, keys.ToHashSet(states.Key.Comparer)))).As()
         let byTable = toHashMap(kept)
         select held.Filter(entry => prune.Contains(entry.Table) && !byTable.Find(entry.Table).Exists(keys => keys.Contains(entry.Key)))
             .Map<NamedChange>(static entry => new NamedChange.Delete(entry.Table, entry.Key)) + desired.Map<NamedChange>(static state => new NamedChange.Save(state));

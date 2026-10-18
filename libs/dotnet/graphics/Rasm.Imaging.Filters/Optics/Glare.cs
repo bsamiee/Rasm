@@ -101,7 +101,7 @@ public sealed record Iris(ApertureBlades Blades, SignedAngle Rotation, AxisFract
     internal Func<(double X, double Y), double> Transmission(double radius) {
         (double obstruction, double squeeze, double circumradius) = (Obstruction, Squeeze, Circumradius);
         double margin = double.Hypot(squeeze, 1d) / (2d * circumradius * double.Cos(double.Pi / Blades));
-        double[] blades = [.. Enumerable.Range(0, Blades).Select(i => double.Tau * i / Blades)];
+        double[] blades = [.. Enumerable.Range(0, Blades).Select(i => (((-Rotation - (double.Tau * i / Blades)) % double.Tau) + double.Tau) % double.Tau)];
         return point => {
             (double x, double y) = (squeeze * point.X, point.Y);
             double reach = double.Hypot(x, y) / Boundary(double.Atan2(-y, x));
@@ -110,10 +110,8 @@ public sealed record Iris(ApertureBlades Blades, SignedAngle Rotation, AxisFract
             if (reach + margin <= radius && reach - margin >= obstruction * radius)
                 return 1d / (1d - obstruction);
             (double left, double right, double top, double bottom) = (x - (squeeze / 2d), x + (squeeze / 2d), y - 0.5d, y + 0.5d);
-            double[] angles = [.. new[] { 0d, double.Pi / 2d, double.Pi, 3d * double.Pi / 2d, double.Tau }
-                .Concat(blades.Select(angle => (((-Rotation - angle) % double.Tau) + double.Tau) % double.Tau))
-                .Concat(new[] { (left, top), (left, bottom), (right, top), (right, bottom) }.Select(static corner => (double.Atan2(corner.Item2, corner.Item1) + double.Tau) % double.Tau))
-                .Order()];
+            double[] angles = [0d, double.Pi / 2d, double.Pi, 3d * double.Pi / 2d, double.Tau, .. blades, Bearing(left, top), Bearing(left, bottom), Bearing(right, top), Bearing(right, bottom)];
+            System.Array.Sort(angles);
             double area = 0d;
             for (int i = 1; i < angles.Length; i++)
                 area += Integrate.GaussKronrod(Section, angles[i - 1], angles[i]);
@@ -129,6 +127,8 @@ public sealed record Iris(ApertureBlades Blades, SignedAngle Rotation, AxisFract
                 (double near, double far) = (double.Max(0d, double.Max(double.Max(nearX, nearY), obstruction * edge)), double.Min(edge, double.Min(farX, farY)));
                 return far > near ? (far - near) * (far + near) / (2d * (1d - obstruction)) : 0d;
             }
+
+            static double Bearing(double x, double y) => (double.Atan2(y, x) + double.Tau) % double.Tau;
         };
     }
 
@@ -391,7 +391,7 @@ public sealed unsafe record StarGlare(Iris Iris, ShortSideLength Radius) : IStat
         int grid = 2 * CvInvoke.GetOptimalDFTSize(int.Max(key.Extent.Width, key.Extent.Height));
         (int middle, double half) = (grid / 2, grid / (2d * pupil.Circumradius));
         Size size = new((2 * key.Size.Width) - 1, (2 * key.Size.Height) - 1);
-        Point centre = new(key.Size.Width - 1, key.Size.Height - 1);
+        Point center = new(key.Size.Width - 1, key.Size.Height - 1);
         using Mat energy = new(grid, grid, DepthType.Cv64F, 1);
         using Mat spectrum = new();
         using Mat power = new();
@@ -416,8 +416,8 @@ public sealed unsafe record StarGlare(Iris Iris, ShortSideLength Radius) : IStat
         foreach ((float wavelength, Vector3 matching) in rows) {
             ERational step = ERational.FromDecimal(reference * airy).Multiply(ERational.FromSingle(pupil.Circumradius))
                 .Divide(ERational.FromSingle(key.State.Radius)).Divide(key.Extent.ShortSide).Divide(ERational.FromSingle(wavelength)).Divide(grid);
-            (double Phase, double Footprint)[] across = [.. Enumerable.Range(0, size.Width).Select(x => Cell(step, x - centre.X))];
-            (double Phase, double Footprint)[] down = [.. Enumerable.Range(0, size.Height).Select(y => Cell(step, y - centre.Y))];
+            (double Phase, double Footprint)[] across = [.. Enumerable.Range(0, size.Width).Select(x => Cell(step, x - center.X))];
+            (double Phase, double Footprint)[] down = [.. Enumerable.Range(0, size.Height).Select(y => Cell(step, y - center.Y))];
             for (int i = 0; i < light.Length; i++) {
                 (int y, int x) = int.DivRem(i, size.Width);
                 double cell = across[x].Footprint * down[y].Footprint;
@@ -435,8 +435,8 @@ public sealed unsafe record StarGlare(Iris Iris, ShortSideLength Radius) : IStat
             if (offset is 0)
                 return (0d, 1d);
             ERational frequency = step.Multiply(int.Abs(offset));
-            ERational centre = ERational.Create(1, 2);
-            double phase = frequency.Add(centre).Remainder(ERational.One).Subtract(centre).ToDouble();
+            ERational center = ERational.Create(1, 2);
+            double phase = frequency.Add(center).Remainder(ERational.One).Subtract(center).ToDouble();
             return (offset < 0 ? -phase : phase, double.SinPi(phase) / (double.Pi * frequency.ToDouble()));
         }
     }
@@ -539,11 +539,11 @@ public sealed partial class HalationParameter : IStateParameter<Halation> {
 internal sealed class PointSpread(Arr<int> planes) : VectorOfMat(planes.Fold(0, int.Max) + 1) {
     public Fin<Unit> Convolve(Mat light) {
         for (int component = 0; component < planes.Count; component++) {
-            using Mat lane = new();
+            using Mat channel = new();
             using Mat kernel = this[planes[component]];
-            CvInvoke.ExtractChannel(light, lane, component);
-            CvInvoke.Filter2D(lane, lane, kernel, new Point(-1, -1), 0d, BorderType.Constant);
-            CvInvoke.InsertChannel(lane, light, component);
+            CvInvoke.ExtractChannel(light, channel, component);
+            CvInvoke.Filter2D(channel, channel, kernel, new Point(-1, -1), 0d, BorderType.Constant);
+            CvInvoke.InsertChannel(channel, light, component);
         }
         return unit;
     }
@@ -559,11 +559,11 @@ file static unsafe class Planes {
         public Fin<Unit> Spread(Func<Vector4, Vector4> fill, Func<Mat, Fin<Unit>> spread, BlendingMode mode, float weight, IProgress<int> progress) => Try.lift(() => {
             using Mat light = new(frame.Size.Height, frame.Size.Width, DepthType.Cv32F, 4);
             return new PixelPass.Pointwise((row, _, line) => {
-                Span<Vector4> plane = Lane(line);
+                Span<Vector4> plane = LightRow(line);
                 for (int x = 0; x < row.Length; x++)
                     plane[x] = fill(row[x]);
             }).Run(frame, Unreported).Bind(_ => spread(light)).Bind(_ => new PixelPass.Pointwise((row, _, line) => {
-                Span<Vector4> layer = Lane(line);
+                Span<Vector4> layer = LightRow(line);
                 for (int x = 0; x < layer.Length; x++)
                     layer[x] = new(row[x].W > 0f ? layer[x].AsVector3() / row[x].W : Vector3.Zero, 0f);
                 using SpanOwner<float> weights = SpanOwner<float>.Allocate(row.Length);
@@ -572,7 +572,7 @@ file static unsafe class Planes {
                 layer.CopyTo(row);
             }).Run(frame, progress));
 
-            Span<Vector4> Lane(long line) => new((void*)light.GetDataPointer(frame.RowIndex(line)), frame.Size.Width);
+            Span<Vector4> LightRow(long line) => new((void*)light.GetDataPointer(frame.RowIndex(line)), frame.Size.Width);
         }).Run();
     }
 }

@@ -70,7 +70,7 @@ public static class RenderOverrides {
                 if (!Captures.Value.Active.ContainsKey(serial))
                     return Fin.Fail<Unit>(Errors.Cancelled);
                 _ = capture.Clay.Swap(_ => Some(lease));
-                return Fin.Succ(unit);
+                return unit;
             }).ThrowIfFail())).As()
         select unit;
 

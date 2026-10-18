@@ -1,4 +1,4 @@
-#![feature(sync_nonpoison, nonpoison_mutex)]
+#![feature(sync_nonpoison, nonpoison_mutex, lock_value_accessors)]
 
 use core::hint::black_box;
 use std::{
@@ -57,6 +57,16 @@ struct Handed {
 
 #[derive(Default)]
 struct Tried {
+    waiting: Mutex<BTreeMap<u64, oneshot::Sender<u32>>>,
+}
+
+#[derive(Default)]
+struct Lent {
+    waiting: Mutex<BTreeMap<u64, oneshot::Sender<u32>>>,
+}
+
+#[derive(Default)]
+struct Pruned {
     waiting: Mutex<BTreeMap<u64, oneshot::Sender<u32>>>,
 }
 
@@ -130,6 +140,19 @@ impl Tried {
     fn peek(&self) -> bool { self.waiting.try_lock().is_ok() }
 }
 
+impl Lent {
+    fn park(&self, key: u64, sender: oneshot::Sender<u32>) -> Option<oneshot::Sender<u32>> { self.waiting.with_mut(|waiting| waiting.insert(key, sender)) }
+}
+
+impl Pruned {
+    fn park(&self, key: u64, sender: oneshot::Sender<u32>) -> Option<oneshot::Sender<u32>> {
+        self.waiting.with_mut(|waiting| {
+            waiting.retain(|_, held| !held.is_closed());
+            waiting.insert(key, sender)
+        })
+    }
+}
+
 impl Counts {
     fn count(&self, key: u64) -> Option<u32> { self.seen.lock().insert(key, 1) }
 }
@@ -141,8 +164,9 @@ fn main() {
         (Parked::default(), Paused::default(), Batched::default(), Swept::default(), Leases::default(), Expiring::default(), Counts::default());
     black_box(&(parked.park(1), parked.resume(1), paused.pause(2, 3).is_some(), paused.resume(2).is_some(), batched.park(4, oneshot::channel().0)));
     black_box(&(swept.park(5, oneshot::channel().0), counts.count(6)));
-    let (handed, tried) = (Handed::default(), Tried::default());
+    let (handed, tried, lent, pruned) = (Handed::default(), Tried::default(), Lent::default(), Pruned::default());
     black_box(&(handed.park(9, oneshot::channel().0), tried.park(10, oneshot::channel().0), tried.peek()));
+    black_box(&(lent.park(11, oneshot::channel().0), pruned.park(12, oneshot::channel().0)));
     swept.sweep();
     drop(leases.lease(7, oneshot::channel().0));
     drop(expiring.park(8, oneshot::channel().0));

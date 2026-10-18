@@ -49,11 +49,36 @@ languageInjections:
       injected: rust
     - hostLanguage: tsx
       rule:
+        kind: template_string
+        pattern: $CONTENT
+        all:
+            - not: {has: {kind: escape_sequence}}
+            - any:
+                - inside: {kind: call_expression, field: arguments, has: {field: function, regex: '(?s)(?:^|=>\s*)sql(?:\s*<.*>)?$'}}
+                - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '^sql\.unsafe$'}}}
+                - {regex: '(?i)^`\s*(?:(?:alter|analyze|attach|begin|commit|create|delete|detach|drop|end|explain|insert|pragma|reindex|release|replace|rollback|savepoint|select|update|vacuum|values)\b\s*[^\s`]|with\s+(?:recursive\b|\w+(?:\s*\([^)]*\))?\s+as\s*\())', not: {regex: '^`\s*[A-Z][a-z]'}}
+            - not: {matches: postgres-scope}
+      utils: &sql
+        postgres-scope:
+            inside:
+                stopBy: end
+                any:
+                    - {kind: pair, has: {field: key, regex: '^pg$'}}
+                    - {kind: 'variable_declarator, function_declaration, method_definition', has: {field: name, regex: '(?:^|[a-z_])(?:pg|Pg|PG)(?:$|[A-Z_])'}}
+      injected: sql
+    - hostLanguage: tsx
+      rule:
         kind: string_fragment
         pattern: $CONTENT
-        regex: '(?i)^\s*(?:(?:alter|analyze|attach|begin|commit|create|delete|detach|drop|end|explain|insert|pragma|reindex|release|replace|rollback|savepoint|select|update|vacuum|values)\b\s*\S|with\s+(?:recursive\b|\w+(?:\s*\([^)]*\))?\s+as\s*\())'
-        not: {regex: '^\s*[A-Z][a-z]'}
-        inside: {kind: 'string, template_string', not: {has: {kind: 'escape_sequence, template_substitution'}}}
+        all:
+            - inside:
+                kind: string
+                not: {has: {kind: escape_sequence}}
+                any:
+                    - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '^sql\.unsafe$'}}}
+                    - {regex: '(?i)^[''"]\s*(?:(?:alter|analyze|attach|begin|commit|create|delete|detach|drop|end|explain|insert|pragma|reindex|release|replace|rollback|savepoint|select|update|vacuum|values)\b\s*[^\s''"]|with\s+(?:recursive\b|\w+(?:\s*\([^)]*\))?\s+as\s*\())', not: {regex: '^[''"]\s*[A-Z][a-z]'}}
+            - not: {matches: postgres-scope}
+      utils: *sql
       injected: sql
     - hostLanguage: yaml
       rule:

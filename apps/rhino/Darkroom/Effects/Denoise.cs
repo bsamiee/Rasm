@@ -1,5 +1,5 @@
 using System.Runtime.InteropServices;
-using Rasm.Imaging.Filters.Denoise;
+using Rasm.Imaging.Filters.Detail;
 using Rasm.Rhino.Render.Effects;
 using Rhino.Render.PostEffects;
 

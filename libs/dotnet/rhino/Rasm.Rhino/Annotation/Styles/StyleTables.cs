@@ -75,7 +75,7 @@ public static class StyleTables {
     private static Seq<(ComponentIdentity Row, IO<bool> Delete)> Candidates<T>(RhinoDocCommonTable<T> table, Seq<T> rows, Func<T, bool> held) where T : ModelComponent =>
         rows.Map(row => (
             new ComponentIdentity(row.Id, row.ComponentType),
-            IO.lift(() => held(row) ? Fin.Succ(value: false) : Refused.Unless(table.Delete(row), value: true, nameof(RhinoDocCommonTable<>.Delete), row.Index))));
+            IO.lift(() => held(row) ? false : Refused.Unless(table.Delete(row), value: true, nameof(RhinoDocCommonTable<>.Delete), row.Index))));
 
     private static IO<LanguageExt.HashSet<ComponentIdentity>> Pruned(ArrayBidirectionalGraph<ComponentIdentity, SEquatableEdge<ComponentIdentity>> graph, Seq<(ComponentIdentity Row, IO<bool> Delete)> candidates) =>
         toHashMap(candidates.Map(static candidate => (candidate.Row, candidate))) switch {
@@ -99,8 +99,7 @@ public static class StyleTables {
                 TableOps.Plan(rows.sectionStyles, spec.SectionStyles), TableOps.Plan(rows.dimensionStyles, spec.DimensionStyles))
             .Apply(static (hatchPlan, linetypePlan, sectionPlan, dimensionPlan) =>
                 new StylePlan(hatchPlan, linetypePlan, sectionPlan, dimensionPlan with { Upserts = WriteOrder(dimensionPlan.Upserts) }))
-            .As()
-            .ToFin())
+            .As())
         select plan;
 
     public static IO<Committed<ReconciledStyles>> Reconcile(RhinoDoc doc, StyleSpec spec, Func<StyleRows, IO<Unit>> reassign, string name, RedrawPolicy redraw, IPlugInSink sink) =>

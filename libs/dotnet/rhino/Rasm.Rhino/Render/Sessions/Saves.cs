@@ -31,21 +31,20 @@ public sealed record FileOrigin(SoftwareName Software, ZonedClock Clock, Map<Fie
     internal static IO<FileOrigin> At(IPlugInSink sink) =>
         IO.lift(() => (PlugIn)sink switch {
             var plugIn => (
-                    SoftwareName.Validated(plugIn.Name).ToValidation(),
+                    SoftwareName.Validated(plugIn.Name),
                     Field("Version", plugIn.Version),
                     Field("SettingsKey", plugIn.Id.ToString("D", CultureInfo.InvariantCulture)))
                 .Apply((software, version, settings) => new FileOrigin(software, ((IPlugInViews)sink).Clock.ToZonedClock(), Map(version, settings)))
-                .As()
-                .ToFin(),
+                .As(),
         });
 
-    internal static Validation<Error, (FieldName Name, FieldText Text)> Field(string name, string text) =>
-        (FieldName.Validated(name).ToValidation(), FieldText.Validated(text).ToValidation())
+    internal static Fin<(FieldName Name, FieldText Text)> Field(string name, string text) =>
+        (FieldName.Validated(name), FieldText.Validated(text))
             .Apply(static (field, value) => (field, value))
             .As();
 }
 
-public sealed record IdentitySource(ushort Id, Option<string> Name, Color Colour);
+public sealed record IdentitySource(ushort Id, Option<string> Name, Color Color);
 
 [SmartEnum<RenderWindow.StandardChannels>(SkipIComparable = true, SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class SavedChannel {
@@ -187,7 +186,7 @@ public static class Saves {
         from auxiliary in toSeq(SavedChannel.Items).Filter(channel => target.ColorDepth.Levels.IsNone && channels.ContainsKey(channel.Key))
             .TraverseM(channel => Layer(None, channel, channels[channel.Key], Some(target.DisplayDevice.Encoding))).As()
         from layeredDocument in IO.lift(LayeredDocument.From(target.ColorDepth, Some(target.DisplayDevice.Encoding),
-            new DocumentLayer.Raster(name, frame, BlendingMode.Mix, AxisFraction.MaxValue, Visible: true, Mask: None).Cons(auxiliary)).ToFin())
+            new DocumentLayer.Raster(name, frame, BlendingMode.Mix, AxisFraction.MaxValue, Visible: true, Mask: None).Cons(auxiliary)))
         select (StillFormat)new StillFormat.Document(layeredDocument);
 
     private static IO<PixelFrame> Displayed(
@@ -197,7 +196,7 @@ public static class Saves {
             IO.fail<Unit>(Error.New($"{target.Dithering} holds no levels to dither at a float depth"))).As()
         from extent in IO.lift(source.Match(
             Left: static captured => (captured.Run.Scene || captured.Run.Formed).Map(static frame => frame.Extent).ToFin(new NotFound("formed frame", $"{captured.Rendering}")),
-            Right: static recorded => Fin.Succ(recorded.Scene.Extent)))
+            Right: static recorded => recorded.Scene.Extent))
         let context = EffectPipeline.Detached(extent, derivations) with {
             Display = target.DisplayDevice,
             Depth = depth,
@@ -280,9 +279,9 @@ public static class Saves {
         from layout in IO.lift(layers.Layout)
         from position in IO.lift(target.Position
             ? (channels.Find(SavedChannel.Distance.Key).ToFin(new Refused(nameof(RenderWindow.StandardChannels.DistanceFromCamera), Refused.Absent)),
-                framing.Bind(static run => run.Metres).ToFin(new Refused(nameof(RenderRun.Metres), Refused.Absent)))
-                .Apply(static (distance, metres) => Some(EffectPipeline.Metric(distance, metres))).As()
-            : Fin.Succ(Option<PixelFrame>.None))
+                framing.Bind(static run => run.Meters).ToFin(new Refused(nameof(RenderRun.Meters), Refused.Absent)))
+                .Apply(static (distance, meters) => Some(EffectPipeline.Metric(distance, meters))).As()
+            : Option<PixelFrame>.None)
         from named in toSeq(SavedChannel.Items).Filter(channel => channels.ContainsKey(channel.Key)).TraverseM(channel =>
             from name in IO.lift(PassName.Validated(channel.Layer))
             let frame = channels[channel.Key]
@@ -294,8 +293,8 @@ public static class Saves {
                 ? parts.Add(new ExrPass.InverseDepth(PassName.Create(nameof(ExrPass.InverseDepth)), frame))
                 : parts).As()
         from set in IO.lift(PassSet.From(layers.Reader.Convention, framing.Bind(static run => run.Camera), PassLayout.Parts,
-            named.Flatten() + position.Map<ExrPass>(static distance => new ExrPass.Position(distance)).ToSeq()).ToFin())
-        from still in IO.lift(StillFormat.ExrRaster.From(beauty, layout, target.Alpha, Some(set)).ToFin())
+            named.Flatten() + position.Map<ExrPass>(static distance => new ExrPass.Position(distance)).ToSeq()))
+        from still in IO.lift(StillFormat.ExrRaster.From(beauty, layout, target.Alpha, Some(set)))
         select still;
 
     // --- [DOCUMENTS]
@@ -308,7 +307,7 @@ public static class Saves {
                 from layers in channels.Filter(channel => !formed || channel.Sources.IsSome).TraverseM(channel => Layer(source, channel, encoding, place)).As()
                 from beautyName in IO.lift(PassName.Validated(nameof(RenderWindow.StandardChannels.RGBA)))
                 from document in IO.lift(LayeredDocument.From(
-                    target.ColorDepth, encoding, new DocumentLayer.Raster(beautyName, beauty, BlendingMode.Mix, AxisFraction.MaxValue, Visible: true, Mask: None).Cons(layers)).ToFin())
+                    target.ColorDepth, encoding, new DocumentLayer.Raster(beautyName, beauty, BlendingMode.Mix, AxisFraction.MaxValue, Visible: true, Mask: None).Cons(layers)))
                 select (StillFormat)new StillFormat.Document(document),
         };
 
@@ -321,7 +320,7 @@ public static class Saves {
         from name in IO.lift(PassName.Validated(channel.Layer))
         from layer in IO.lift(() => (from sources in channel.Sources from doc in document select sources(doc)).Match(
             Some: sources => Identified(frame, sources, encoding).Map(entries => DocumentLayer.Identities(name, frame, entries)),
-            None: () => Fin.Succ<DocumentLayer>(new DocumentLayer.Raster(name, frame, BlendingMode.Mix, AxisFraction.MaxValue, Visible: false, Mask: None))))
+            None: () => new DocumentLayer.Raster(name, frame, BlendingMode.Mix, AxisFraction.MaxValue, Visible: false, Mask: None)))
         select layer;
 
     private static Fin<Seq<IdentityLayer>> Identified(PixelFrame ids, Seq<IdentitySource> sources, Option<ColorEncoding> encoding) {
@@ -332,15 +331,15 @@ public static class Saves {
         return Callbacks.Each(
                 toSeq(sources
                     .Filter(source => present.Contains(source.Id))
-                    .Fold(Map<ushort, (Color Colour, Seq<string> Names)>(), static (held, source) =>
-                        held.AddOrUpdate(source.Id, same => (same.Colour, same.Names + source.Name.ToSeq()), (source.Colour, source.Name.ToSeq())))
+                    .Fold(Map<ushort, (Color Color, Seq<string> Names)>(), static (held, source) =>
+                        held.AddOrUpdate(source.Id, same => (same.Color, same.Names + source.Name.ToSeq()), (source.Color, source.Name.ToSeq())))
                     .AsIterable()),
                 (entry, _) => PassName.Validated(
                         entry.Value.Names.IsEmpty ? entry.Key.ToString(CultureInfo.InvariantCulture) : string.Join(", ", entry.Value.Names))
-                    .Map(layer => new IdentityLayer(entry.Key, layer, Encoded(entry.Value.Colour))));
+                    .Map(layer => new IdentityLayer(entry.Key, layer, Encoded(entry.Value.Color))));
 
-        Vector3 Encoded(Color colour) {
-            Vector4[] pixel = [new Vector4(colour.R, colour.G, colour.B, byte.MaxValue) / byte.MaxValue];
+        Vector3 Encoded(Color color) {
+            Vector4[] pixel = [new Vector4(color.R, color.G, color.B, byte.MaxValue) / byte.MaxValue];
             _ = steps.Iter(step => step(pixel));
             return pixel[0].AsVector3();
         }
@@ -352,7 +351,7 @@ public static class Saves {
         from created in IO.lift(() => origin.Clock.GetCurrentZonedDateTime().ToDateTimeOffset())
         from density in RenderSettingsSources.Store<ImageOutputState>(document).Read.Map(static held => held.IfNone(ImageOutputState.Default).ImageDpi)
         from active in RenderSets.Book(document).Map(static book => book.Active)
-        from set in IO.lift(active.Traverse(static name => FileOrigin.Field("RenderSet", name)).As().ToFin())
+        from set in IO.lift(active.Traverse(static name => FileOrigin.Field("RenderSet", name)).As())
         select new FileMetadata(origin.Software, created, density, origin.Fields.AddRange(set.ToSeq()));
 
     // --- [PROMPTS]
@@ -378,7 +377,7 @@ public sealed class FrameExportCommand(IPlugInSink sink, Guid id, string english
             from coordinates in frame(settings, extent)
             from path in Saves.Prompted(doc, mode, LocalName, StillFormat.ExrRaster.Extensions.Head)
             from metadata in Saves.Metadata(doc, site.Sink)
-            from still in IO.lift(StillFormat.ExrRaster.From(coordinates, ExrLayout.Coordinates, alpha: true, None).ToFin())
+            from still in IO.lift(StillFormat.ExrRaster.From(coordinates, ExrLayout.Coordinates, alpha: true, None))
             from _ in StillWriter.Write(still, metadata, path)
             select unit);
 }
@@ -387,25 +386,25 @@ public sealed class LutExportCommand(IPlugInSink sink, Guid id, string englishNa
     protected override IO<Unit> Run(RhinoDoc doc, RunMode mode, CallbackSite site) =>
         Saves.Measured(doc, (settings, extent) =>
             DisposalOps.Within(static () => new Derivations(), derivations =>
-            from entries in EffectRegistry.Read(settings)
-            from history in RenderHistory.Current.Of(site.Sink)
-            from grading in history.Grading(doc)
-            from set in grading.Capture
-            from kinds in EffectRegistry.Kinds.Of(site.Sink)
-            let ordered = EffectPipeline.Ordered(entries, kinds)
-            let context = EffectPipeline.Detached(extent, derivations) with { Lights = Some(SceneLights.Empty) }
-            from chain in EffectPipeline.Chain(set, ordered, context)
-            from chosen in Getters.Stages<LutChoice, LutChoice>(LutChoice.Default, (choice, accepts) => Getters.Choice(doc, new GetterRequest<GetOption, StageStep<LutChoice, LutChoice>>(LocalName, site) {
-                Accept = accepts with { Nothing = Some((Option<string>.None, IO.pure<StageStep<LutChoice, LutChoice>>(new StageStep<LutChoice, LutChoice>.Done(choice)))) },
-                Options = choice.Options,
-            }))
-            from path in Saves.Prompted(doc, mode, LocalName, chosen.Format.Extension)
-            from table in Getters.Await(doc, LocalName, None, _ => IO.lift(Bakes.Bake(chosen.Bake, EffectPipeline.Baked(chain), EffectPipeline.Working)))
-            from metadata in Saves.Metadata(doc, site.Sink)
-            from _ in toSeq(LookupLayout.Items).Find(layout => Equals(layout.Format, chosen.Format)).Match(
-                Some: layout => LutFile.WriteLookup(table, layout, metadata, path),
-                None: () => LutFile.Write(table, chosen.Format, path))
-            select unit));
+                from entries in EffectRegistry.Read(settings)
+                from history in RenderHistory.Current.Of(site.Sink)
+                from grading in history.Grading(doc)
+                from set in grading.Capture
+                from kinds in EffectRegistry.Kinds.Of(site.Sink)
+                let ordered = EffectPipeline.Ordered(entries, kinds)
+                let context = EffectPipeline.Detached(extent, derivations) with { Lights = Some(SceneLights.Empty) }
+                from chain in EffectPipeline.Chain(set, ordered, context)
+                from chosen in Getters.Stages<LutChoice, LutChoice>(LutChoice.Default, (choice, accepts) => Getters.Choice(doc, new GetterRequest<GetOption, StageStep<LutChoice, LutChoice>>(LocalName, site) {
+                    Accept = accepts with { Nothing = Some((Option<string>.None, IO.pure<StageStep<LutChoice, LutChoice>>(new StageStep<LutChoice, LutChoice>.Done(choice)))) },
+                    Options = choice.Options,
+                }))
+                from path in Saves.Prompted(doc, mode, LocalName, chosen.Format.Extension)
+                from table in Getters.Await(doc, LocalName, None, _ => IO.lift(Bakes.Bake(chosen.Bake, EffectPipeline.Baked(chain), EffectPipeline.Working)))
+                from metadata in Saves.Metadata(doc, site.Sink)
+                from _ in toSeq(LookupLayout.Items).Find(layout => Equals(layout.Format, chosen.Format)).Match(
+                    Some: layout => LutFile.WriteLookup(table, layout, metadata, path),
+                    None: () => LutFile.Write(table, chosen.Format, path))
+                select unit));
 
     private sealed record LutChoice(LatticeSize Size, AllocationStop Low, AllocationSpan Span, Gamut Gamut, Transfer Transfer, LutFormat Format) {
         public static LutChoice Default { get; } =

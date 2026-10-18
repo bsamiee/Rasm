@@ -24,11 +24,6 @@ utils:
         all:
             - has: {field: name, regex: '^count$'}
             - has: {field: object, matches: stage}
-    sized:
-        kind: method_invocation
-        all:
-            - has: {field: name, regex: '^size$'}
-            - has: {field: object, matches: collected}
     zero:
         regex: '^0[lL]?$'
     one:
@@ -41,12 +36,12 @@ rule:
         - kind: binary_expression
           any:
             - all:
-                - has: {field: left, any: [{matches: counted}, {matches: sized}], pattern: $TERM}
+                - has: {field: left, matches: counted, pattern: $TERM}
                 - any:
                     - all: [{has: {field: operator, regex: '^(>|!=|==|<=)$'}}, {has: {field: right, matches: zero}}]
                     - all: [{has: {field: operator, regex: '^(>=|<)$'}}, {has: {field: right, matches: one}}]
             - all:
-                - has: {field: right, any: [{matches: counted}, {matches: sized}], pattern: $TERM}
+                - has: {field: right, matches: counted, pattern: $TERM}
                 - any:
                     - all: [{has: {field: operator, regex: '^(<|!=|==|>=)$'}}, {has: {field: left, matches: zero}}]
                     - all: [{has: {field: operator, regex: '^(<=|>)$'}}, {has: {field: left, matches: one}}]

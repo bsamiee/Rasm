@@ -54,4 +54,20 @@ fn kept(root: &str) -> PathBuf {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-fn main() { black_box(&(waited(1), located("a"), described("b"), stamped(2), dated(3), measured(4.0), typed(5), kept("c"))); }
+fn main() { black_box(&(waited(1), located("a"), described("b"), stamped(2), dated(3), measured(4.0), typed(5), kept("c"), sized(6), (ratio(7.0), annotated()))); }
+
+fn sized(base: u64) -> u64 {
+    let total_bytes = base.saturating_mul(2);
+    let block_mb: f64 = 1.5;
+    total_bytes.saturating_add(block_mb.to_bits())
+}
+
+fn ratio(base: f64) -> f64 {
+    let load_percent = base / 2.0;
+    load_percent
+}
+
+const fn annotated() -> u64 {
+    let retry_delay: u64 = 500;
+    retry_delay
+}

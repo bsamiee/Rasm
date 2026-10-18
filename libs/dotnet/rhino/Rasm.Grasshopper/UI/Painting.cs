@@ -203,9 +203,7 @@ public static class CanvasPainting {
     // --- [WIRES]
     public static IO<Unit> Route(Type shape, Action<IDisposable> retain) =>
         DisposalOps.Acquire(keep =>
-        from free in IO.lift(static () => Optional(WireShape.ShapeType).Match(
-            Some: static held => Fin.Fail<Unit>(Error.New($"{nameof(WireShape.ShapeType)} already holds {held}")),
-            None: static () => Fin.Succ(unit)))
+        from free in IO.lift(static Fin<Unit> () => WireShape.ShapeType is { } held ? Error.New($"{nameof(WireShape.ShapeType)} already holds {held}") : unit)
         from lease in DisposalOps.Acquire(IO.lift(() => new Disposal<Type>(shape, static held => {
             if (WireShape.ShapeType == held) WireShape.ShapeType = null;
             _ = Optional(Editor.Instance).Iter(static editor => editor.Canvas.ScheduleRedraw());

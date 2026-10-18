@@ -12,7 +12,7 @@ use crate::{any_expr, bounds_of, expanded_externally, is_text, parameter_of};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-lint!(PRIMITIVE_DOMAIN_BINDING: "unannotated `let` bindings of a number or text with a name stating a duration, instant, calendar value, physical quantity, or a path a filesystem API reads");
+lint!(PRIMITIVE_DOMAIN_BINDING: "`let` bindings of a number or text with a name stating a duration, instant, byte size, calendar value, physical quantity, or a path a filesystem API reads");
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_local(&mut self, cx: &LateContext<'tcx>, local: &'tcx LetStmt<'tcx>) {
@@ -27,8 +27,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             |argument: &'tcx Expr<'tcx>| get_parent_expr(cx, argument).is_some_and(|consumer| pathlike(typeck.expr_ty(consumer)) || parameter_of(cx, consumer, argument).is_some_and(bounded));
         let reaches = |used: &'tcx Expr<'tcx>| consumed(peel_hir_expr_while(used, |inner| get_parent_expr(cx, inner).filter(|outer| matches!(outer.kind, ExprKind::AddrOf(..)))));
         let filesystem = |binding| get_enclosing_block(cx, local.hir_id).is_some_and(|block| any_expr(cx.tcx, block, |used| used.res_local_id() == Some(binding) && reaches(used)));
-        if local.ty.is_none()
-            && let PatKind::Binding(_, binding, ident, None) = local.pat.kind
+        if let PatKind::Binding(_, binding, ident, None) = local.pat.kind
             && !expanded_externally(cx, local.span)
             && let held = typeck.node_type(binding)
             && let (number, text) = (held.is_numeric(), is_text(cx, held))
@@ -43,17 +42,18 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 (previous, "secs" | "seconds" | "ms" | "millis" | "milliseconds" | "us" | "micros" | "ns" | "nanos" | "mins" | "minutes" | "hours") =>
                     Some(if previous == Some(EPOCH) { instant } else { duration }),
                 (_, "timeout" | "interval" | "delay" | "ttl" | "duration" | "elapsed") => Some(duration),
+                (_, "bytes" | "kb" | "kib" | "mb" | "mib" | "gb" | "gib") => Some((held.is_integral(), "a byte size", "bind a `bytesize::ByteSize`")),
                 (_, "path" | "dir" | "directory" | "file" | "folder") => Some((text && filesystem(binding), "a path", "bind a `PathBuf` or `&Path`")),
                 (_, "date" | "time" | "datetime") => Some((text, "a calendar value", "bind a `jiff::civil::Date`, `Time`, or `DateTime`")),
-                (Some(_), "mm" | "km" | "ft" | "kg" | "lbs" | "deg" | "rad" | "kpa" | "mpa" | "psi" | "kw" | "kwh" | "hz" | "khz" | "mhz")
+                (Some(_), "mm" | "km" | "ft" | "kg" | "lbs" | "deg" | "rad" | "kpa" | "mpa" | "psi" | "kw" | "kwh" | "hz" | "khz" | "mhz" | "pct")
                 | (
                     _,
-                    "millimeters" | "millimetres" | "centimeters" | "centimetres" | "meters" | "metres" | "kilometers" | "kilometres" | "feet" | "inches" | "kilograms" | "degrees" | "radians"
-                    | "pascals" | "watts" | "kilowatts" | "joules" | "celsius" | "kelvin" | "fahrenheit",
+                    "percent" | "millimeters" | "millimetres" | "centimeters" | "centimetres" | "meters" | "metres" | "kilometers" | "kilometres" | "feet" | "inches" | "kilograms" | "degrees"
+                    | "radians" | "pascals" | "watts" | "kilowatts" | "joules" | "celsius" | "kelvin" | "fahrenheit" | "hertz",
                 ) => Some((
                     held == cx.tcx.types.f64,
                     "a physical quantity",
-                    "bind a `uom::si::f64` quantity (`Length`, `Mass`, `Angle`, `Pressure`, `Power`, `Energy`, `ThermodynamicTemperature`, `Frequency`)",
+                    "bind a `uom::si::f64` quantity (`Length`, `Mass`, `Angle`, `Pressure`, `Power`, `Energy`, `ThermodynamicTemperature`, `Frequency`, `Ratio`)",
                 )),
                 _ => None,
             }

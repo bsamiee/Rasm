@@ -22,6 +22,7 @@
         <exclude name="NoPackage" />
         <exclude name="OnlyOneReturn" />
         <exclude name="ShortClassName" />
+        <exclude name="ShortMethodName" />
         <exclude name="ShortVariable" />
     </rule>
 
@@ -57,6 +58,22 @@
     <rule ref="category/java/errorprone.xml/EmptyCatchBlock">
         <properties>
             <property name="allowExceptionNameRegex" value="^$" />
+        </properties>
+    </rule>
+
+    <!-- [GHIDRA] -->
+    <rule name="UncheckedDecompilerOpen" language="java" message="Decompiler program open ignores its result" class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
+        <description>`DecompInterface.openProgram` returns false with the cause in `getLastMessage`, and the `DecompilerCallback` pool ignores that false, so open the program in the configurer and fail on false</description>
+        <priority>1</priority>
+        <properties>
+            <property name="xpath">
+                <value>
+<![CDATA[
+//ExpressionStatement/MethodCall[pmd-java:matchesSig('ghidra.app.decompiler.DecompInterface#openProgram(_)')]
+| //ConstructorCall[pmd-java:typeIs('ghidra.app.decompiler.parallel.DecompilerCallback')][not(ArgumentList//MethodCall[pmd-java:matchesSig('ghidra.app.decompiler.DecompInterface#openProgram(_)')])]
+]]>
+                </value>
+            </property>
         </properties>
     </rule>
 

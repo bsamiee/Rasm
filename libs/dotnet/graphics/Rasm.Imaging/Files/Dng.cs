@@ -25,8 +25,8 @@ internal static class DngWriter {
         new(TiffTag.EXIF_FOCALLENGTH, 1, 1, TiffType.RATIONAL, FieldBit.Custom, okToChange: true, passCount: false, "FocalLength"),
     ];
 
-    internal static Validation<Error, Unit> Bounded(PixelExtent size) =>
-        (DngSide.Validated(size.Width).ToValidation(), DngSide.Validated(size.Height).ToValidation()).Apply(static (_, _) => unit).As()
+    internal static Fin<Unit> Bounded(PixelExtent size) =>
+        (DngSide.Validated(size.Width), DngSide.Validated(size.Height)).Apply(static (_, _) => unit).As()
             .MapFail(error => Error.New($"frame {size} lies outside the DNG extent LibRaw reads", error));
 
     internal static IO<Unit> Write(StillFormat.Dng dng, FileMetadata metadata, FileStream stream) =>

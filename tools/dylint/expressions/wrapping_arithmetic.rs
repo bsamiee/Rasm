@@ -1,39 +1,31 @@
 use clippy_utils::{diagnostics::span_lint_hir_and_then, fn_def_id, res::MaybeDef as _, sym};
-use rustc_data_structures::fx::FxHashSet;
-use rustc_hir::{Expr, ExprKind, def::DefKind};
+use rustc_hir::{BinOpKind, Expr, ExprKind, UnOp};
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{Ty, TyCtxt};
-use rustc_span::Symbol;
+use rustc_middle::ty::Ty;
 
 use crate::{expanded_externally, impl_owner};
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-pub(crate) struct Pass {
-    methods: FxHashSet<Symbol>,
-}
-
-lint!(Pass; WRAPPING_ARITHMETIC: "`wrapping_*` and `overflowing_*` integer arithmetic and `Wrapping` values, which wrap on overflow");
-
-impl Pass {
-    pub(crate) fn new(_: TyCtxt<'_>) -> Self {
-        let operations = ["add", "sub", "mul", "div", "rem", "neg", "shl", "shr", "pow", "abs"];
-        Self { methods: ["wrapping", "overflowing"].into_iter().flat_map(|prefix| operations.map(|operation| Symbol::intern(&format!("{prefix}_{operation}")))).collect() }
-    }
-}
+lint!(WRAPPING_ARITHMETIC: "`wrapping_*` and `overflowing_*` integer methods and `Wrapping` operators, which wrap on overflow");
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
+        let arithmetic = |operation: BinOpKind| matches!(operation, BinOpKind::Add | BinOpKind::Sub | BinOpKind::Mul | BinOpKind::Div | BinOpKind::Rem | BinOpKind::Shl | BinOpKind::Shr);
+        let operand = match expr.kind {
+            ExprKind::Binary(operation, operand, _) if arithmetic(operation.node) => Some(operand),
+            ExprKind::AssignOp(operation, operand, _) if arithmetic(operation.node.into()) => Some(operand),
+            ExprKind::Unary(UnOp::Neg, operand) => Some(operand),
+            _ => None,
+        };
         let message = match expr.kind {
             _ if expanded_externally(cx, expr.span) => None,
             ExprKind::MethodCall(segment, ..)
                 if let Some(method) = fn_def_id(cx, expr)
-                    && self.methods.contains(&cx.tcx.item_name(method))
+                    && ["wrapping_", "overflowing_"].iter().any(|prefix| cx.tcx.item_name(method).as_str().starts_with(prefix))
                     && impl_owner(cx.tcx, method).is_some_and(Ty::is_integral) =>
                 Some((segment.ident.span.to(expr.span.shrink_to_hi()), format!("`{}` wraps on overflow", segment.ident))),
-            ExprKind::Call(_, [_])
-                if cx.typeck_results().expr_ty(expr).is_diag_item(cx, sym::Wrapping) && fn_def_id(cx, expr).is_some_and(|ctor| matches!(cx.tcx.def_kind(ctor), DefKind::Ctor(..))) =>
-                Some((expr.span, String::from("`Wrapping` arithmetic wraps on overflow"))),
+            _ if operand.is_some_and(|operand| cx.typeck_results().expr_ty(operand).is_diag_item(cx, sym::Wrapping)) => Some((expr.span, String::from("`Wrapping` arithmetic wraps on overflow"))),
             _ => None,
         };
         if let Some((span, message)) = message {

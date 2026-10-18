@@ -179,7 +179,7 @@ public static class Responders {
             .Bind(joins => when(joins, Filled(args.Menu, groups, scope, menus)).As());
 
     private static IO<Unit> Filled(ContextMenu host, Seq<Seq<CommandRow>> groups, RowScope scope, Ref<Option<HashMap<ContextMenu, IDisposable>>> menus) =>
-        DisposalOps.Acquire(keep =>
+        DisposalOps.Replace(keep =>
             from site in IO.pure(new CallbackSite(scope.Sink, typeof(ContextMenu), nameof(ContextMenu.Closed)))
             from realized in groups.TraverseM(@group => @group.TraverseM(command => command.Commands(scope, keep)).As()).As()
             let menu = CommandRow.Menu(realized)
@@ -192,14 +192,11 @@ public static class Responders {
                     menus.Value = menus.Value.Map(map => map.Remove(host));
                     return held;
                 }).Bind(static held => IO.lift(() => held.Iter(static lease => lease.Dispose()))).Uninterruptible(), site), keep)
-            select unit, (_, lease) => {
-                bool retained = atomic(() => {
-                    Option<HashMap<ContextMenu, IDisposable>> held = menus.Value;
-                    menus.Value = held.Map(map => map.Add(host, lease));
-                    return held.IsSome;
-                });
-                if (!retained) throw Errors.Cancelled.ToException();
-            });
+            select unit, (_, lease) => atomicIO(Fin<Unit> () => {
+                Option<HashMap<ContextMenu, IDisposable>> held = menus.Value;
+                menus.Value = held.Map(map => map.Add(host, lease));
+                return held.IsSome ? unit : Errors.Cancelled;
+            }).Bind(IO.lift));
 
     // --- [NUDGE]
     public static IO<Unit> Nudge(Canvas canvas, IPlugInSink sink, Action<IDisposable> retain) =>

@@ -35,20 +35,6 @@ rule:
     any:
         - kind: invocation_expression
           all:
-            - has:
-                field: function
-                matches: callee
-                all:
-                    - has: {field: expression, matches: {csharp-type-name: {name: {regex: '^Activator$'}}}}
-                    - has: {field: name, regex: '^CreateInstance$'}
-            - has:
-                field: arguments
-                any:
-                    - has: {kind: argument, nthChild: 2, has: {kind: boolean_literal, regex: '^true$'}}
-                    - has: {kind: argument, all: [{has: {field: name, regex: '^nonPublic$'}}, {has: {kind: boolean_literal, regex: '^true$'}}]}
-                    - matches: non-public-flag
-        - kind: invocation_expression
-          all:
             - has: {field: function, matches: callee, has: {field: name, regex: '^GetConstructors?$'}}
             - has: {field: arguments, matches: non-public-flag}
         - kind: method_declaration

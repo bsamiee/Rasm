@@ -1,0 +1,40 @@
+{
+    "name": "@rasm/database",
+    "private": true,
+    "description": "Relational stores for apps on D1, SQLite, and PostgreSQL: Effect Schema tables reconciled against the live database, and atomic statement groups",
+    "type": "module",
+    "exports": {
+        "./*": "./*"
+    },
+    "dependencies": {
+        "@effect/sql-d1": "catalog:",
+        "@effect/sql-pg": "catalog:",
+        "@effect/sql-sqlite-do": "catalog:",
+        "effect": "catalog:"
+    },
+    "devDependencies": {
+        "@cloudflare/vitest-plugin": "catalog:",
+        "@effect/platform-node": "catalog:",
+        "@effect/sql-pglite": "catalog:",
+        "@effect/sql-sqlite-node": "catalog:",
+        "@effect/vitest": "catalog:",
+        "@electric-sql/pglite": "catalog:",
+        "@rasm/test-support": "workspace:*",
+        "@testcontainers/postgresql": "catalog:",
+        "@types/node": "catalog:",
+        "cf": "catalog:",
+        "testcontainers": "catalog:",
+        "vitest": "catalog:"
+    },
+    "nx": {
+        "targets": {
+            "test": { "options": { "args": [ "--project=!postgres" ] }, "outputs": [ "...", "{workspaceRoot}/.artifacts/sql/postgres" ] },
+            "test:integration": { "options": { "args": [ "--project=postgres" ] } },
+            "lint:squawk": {
+                "command": "squawk --config .config/squawk.toml '.artifacts/sql/postgres/*.sql'",
+                "dependsOn": [ "test" ],
+                "inputs": [ "{workspaceRoot}/.config/squawk.toml", { "dependentTasksOutputFiles": "**/*.sql" }, { "runtime": "squawk --version" } ]
+            }
+        }
+    }
+}

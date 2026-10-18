@@ -225,34 +225,7 @@ fn manual_gen_block(found: &str) {
 
 fn manual_partition(found: &str) {
     insta::assert_snapshot!(found, @"
-    warning: `filter` and `find` split `self.words.iter()` on one predicate and its negation in two passes
-      --> tools/dylint/examples/manual_partition.rs:35:133
-       |
-    35 | ...word| word.is_empty()).count(), self.words.iter().find(|word| !word.is_empty()).copied()) }
-       |                                                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       |
-    note: other pass here
-      --> tools/dylint/examples/manual_partition.rs:35:75
-       |
-    35 |     fn split(&self) -> (usize, Option<&'static str>) { (self.words.iter().filter(|word| word.is_empty()).count(), self.words.iter()....
-       |                                                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       = help: split once with `Iterator::partition` and read each side from its half
-       = note: `#[warn(manual_partition)]` on by default
-
-    warning: `filter` and `find` split `VERSIONS.iter().rev()` on one predicate and its negation in two passes
-      --> tools/dylint/examples/manual_partition.rs:41:136
-       |
-    41 | ...oned().collect(), legacy: VERSIONS.iter().rev().find(|version| version.legacy()).cloned() }
-       |                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       |
-    note: other pass here
-      --> tools/dylint/examples/manual_partition.rs:41:50
-       |
-    41 |     Lifecycle { preferred: VERSIONS.iter().rev().filter(|version| !version.legacy()).cloned().collect(), legacy: VERSIONS.iter().rev...
-       |                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-       = help: split once with `Iterator::partition` and read each side from its half
-
-    warning: `filter` and `filter` split `words.iter()` on one predicate and its negation in two passes
+    warning: two `filter` passes split `words.iter()` on one predicate and its negation
       --> tools/dylint/examples/manual_partition.rs:46:31
        |
     46 |     let filled = words.iter().filter(|text| !text.trim().is_empty()).copied().collect::<Vec<_>>();
@@ -264,19 +237,7 @@ fn manual_partition(found: &str) {
     45 |     let blank = words.iter().filter(|word| word.trim().is_empty()).copied().collect::<Vec<_>>();
        |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        = help: split once with `Iterator::partition` and read each side from its half
-
-    warning: `filter` and `find` split `words.iter()` on one predicate and its negation in two passes
-      --> tools/dylint/examples/manual_partition.rs:52:28
-       |
-    52 |     (counted, words.iter().find(|word| !short(word)).copied())
-       |                            ^^^^^^^^^^^^^^^^^^^^^^^^^
-       |
-    note: other pass here
-      --> tools/dylint/examples/manual_partition.rs:51:32
-       |
-    51 |     let counted = words.iter().filter(short).count();
-       |                                ^^^^^^^^^^^^^
-       = help: split once with `Iterator::partition` and read each side from its half
+       = note: `#[warn(manual_partition)]` on by default
     ");
 }
 
@@ -532,13 +493,13 @@ fn manual_upcast(found: &str) {
        |
        = help: add `Any` to the supertraits of `Plugin`, delete the method, and coerce `dyn Plugin` to `dyn Any` at each call site
 
-    warning: `as_shown` returns `self` as `dyn Display`, which trait upcasting converts from `dyn Defaulted`
+    warning: `as_shown` returns `self` as `dyn Display`, which an unsizing coercion converts
       --> tools/dylint/examples/manual_upcast.rs:40:27
        |
     40 |     fn as_shown(&self) -> &dyn Display
        |                           ^^^^^^^^^^^^
        |
-       = help: delete the method and coerce `dyn Defaulted` to `dyn Display` at each call site
+       = help: delete the method and coerce each receiver to `dyn Display` at each call site
     ");
 }
 

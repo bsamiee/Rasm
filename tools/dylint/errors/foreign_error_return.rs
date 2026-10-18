@@ -1,4 +1,4 @@
-use clippy_utils::{diagnostics::span_lint_hir_and_then, is_in_test, res::MaybeQPath as _};
+use clippy_utils::{diagnostics::span_lint_hir_and_then, res::MaybeQPath as _};
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_hir::{
     ExprKind, FnRetTy, ImplItem, Item, TraitItem,
@@ -41,7 +41,7 @@ impl Pass {
             && let FnRetTy::Return(output) = declaration.output
             && let node = cx.tcx.local_def_id_to_hir_id(owner)
             && !generated(cx, node)
-            && !is_in_test(cx.tcx, node)
+            && !cx.tcx.sess.is_test_crate()
             && exported(cx, owner)
             && let Some((_, error)) = result_parts(cx, awaited_output(cx.tcx, owner.to_def_id()))
             && let ty::Adt(adt, _) = pointee(cx, error).kind()

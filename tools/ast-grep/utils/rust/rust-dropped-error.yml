@@ -1,13 +1,27 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: rust-dropped-error
 language: rust
+utils:
+    result-read:
+        kind: identifier
+        any:
+            - inside: {kind: 'let_declaration, parameter, closure_parameters', field: pattern}
+            - inside: {kind: field_expression, field: value, inside: {kind: call_expression, has: {field: function, has: {field: field, regex: '^(is_ok|is_err)$'}}}}
+            - inside:
+                kind: field_expression
+                field: value
+                has: {field: field, regex: '^as_(ref|mut|deref|deref_mut)$'}
+                inside:
+                    kind: call_expression
+                    has: {field: arguments, not: {has: {pattern: $_}}}
+                    inside: {kind: field_expression, field: value, has: {field: field, regex: '^ok$'}}
 rule:
     kind: call_expression
     all:
         - has: {field: function, kind: field_expression, has: {field: field, regex: '^ok$'}}
         - has: {field: arguments, not: {has: {pattern: $_}}}
-        - not: {has: {field: function, kind: field_expression, has: {field: value, matches: rust-inspected-error}}}
+        - not: {has: {field: function, kind: field_expression, has: {field: value, kind: call_expression, has: {field: function, kind: field_expression, has: {field: field, regex: '^inspect_err$'}}}}}
         - not:
             all:
                 - has: {field: function, has: {field: value, kind: call_expression, has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^as_(ref|mut|deref|deref_mut)$'}}, {has: {field: value, kind: identifier, pattern: $RESULT}}]}}}
-                - inside: {stopBy: end, kind: block, inside: {kind: 'function_item, closure_expression', field: body}, has: {stopBy: end, kind: identifier, pattern: $RESULT, not: {matches: rust-result-read}}}
+                - inside: {stopBy: end, kind: block, inside: {kind: 'function_item, closure_expression', field: body}, has: {stopBy: end, kind: identifier, pattern: $RESULT, not: {matches: result-read}}}

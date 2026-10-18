@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <Description>Tests one marked C# sample per Rasm analyzer rule, its code fix, and fix-all against reviewed diagnostic and fixed-source snapshots</Description>
+        <SolutionDir>$([MSBuild]::GetDirectoryNameOfFileAbove('$(MSBuildProjectDirectory)', 'Workspace.slnx'))/</SolutionDir>
+    </PropertyGroup>
+
+    <ItemGroup Label="Rhino">
+        <PackageReference Include="RhinoCommon" />
+    </ItemGroup>
+
+    <ItemGroup Label="Testing">
+        <PackageReference Include="coverlet.MTP" />
+        <PackageReference Include="CsCheck" />
+        <PackageReference Include="Microsoft.CodeAnalysis.CSharp.CodeFix.Testing" />
+        <PackageReference Include="Verify.XunitV3" />
+        <PackageReference Include="xunit.v3.mtp-v2" />
+    </ItemGroup>
+
+    <ItemGroup Label="Workspace Packages">
+        <ProjectReference Include="../../../../../tools/roslyn/Rasm.Analyzers/Rasm.Analyzers.csproj" />
+        <ProjectReference Include="../../../../../tools/roslyn/Rasm.Analyzers.CodeFixes/Rasm.Analyzers.CodeFixes.csproj" />
+    </ItemGroup>
+</Project>

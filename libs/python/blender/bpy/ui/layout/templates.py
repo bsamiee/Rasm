@@ -178,7 +178,7 @@ class Shortcut(Line, frozen=True, kw_only=True):
         """Returns live key caps without capturing replaceable user keymap items."""
 
         def shown(layout: bpy.types.UILayout, _holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
-            for _, _, item in self.keymap.counterparts(context):
+            for _, item in self.keymap.counterparts(context):
                 layout.template_event_from_keymap_item(item, text=item.name)
 
         return Ok(shown)

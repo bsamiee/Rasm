@@ -45,18 +45,18 @@ public static partial class Drawings {
         ProjectionFrame frame, BoundingBox bounds, Seq<Plane> clips, Tolerances tolerances, Func<HiddenLineDrawingParameters, Fin<Unit>> subjects,
         bool multipleThreads, bool rejoin, Option<IProgress<double>> progress, Action<IDisposable> retain) =>
         DisposalOps.Acquire(outputs =>
-        from unique in IO.lift(() => Callbacks.Unique(clips, identity, nameof(HiddenLineDrawingParameters.AddClippingPlane)).ToFin())
-        let parameters = new HiddenLineDrawingParameters { AbsoluteTolerance = tolerances.Absolute }
-        from configured in IO.lift(() => {
-            _ = unique.Iter(parameters.AddClippingPlane);
-            return subjects(parameters);
-        })
-        from projected in DisposalOps.Within<IDisposable, Unit>(temporary => Projected(frame, bounds, parameters, temporary), DisposalOps.Release)
-        from drawn in DisposalOps.Within<IDisposable, LineDrawing>(
-            temporary => Computed(parameters, multipleThreads, progress, temporary).Bind(drawing => Drawn(drawing, rejoin, outputs)),
-            DisposalOps.Release)
-        select drawn,
-        retain);
+            from unique in IO.lift(() => Callbacks.Unique(clips, identity, nameof(HiddenLineDrawingParameters.AddClippingPlane)))
+            let parameters = new HiddenLineDrawingParameters { AbsoluteTolerance = tolerances.Absolute }
+            from configured in IO.lift(() => {
+                _ = unique.Iter(parameters.AddClippingPlane);
+                return subjects(parameters);
+            })
+            from projected in DisposalOps.Within<IDisposable, Unit>(temporary => Projected(frame, bounds, parameters, temporary), DisposalOps.Release)
+            from drawn in DisposalOps.Within<IDisposable, LineDrawing>(
+                temporary => Computed(parameters, multipleThreads, progress, temporary).Bind(drawing => Drawn(drawing, rejoin, outputs)),
+                DisposalOps.Release)
+            select drawn,
+            retain);
 
     private static IO<Unit> Projected(ProjectionFrame frame, BoundingBox bounds, HiddenLineDrawingParameters parameters, Action<IDisposable> temporary) =>
         frame.Switch(

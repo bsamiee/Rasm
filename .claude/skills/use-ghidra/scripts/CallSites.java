@@ -9,9 +9,6 @@ import ghidra.program.model.listing.Function;
 
 import util.CollectionUtils;
 
-import java.io.IOException;
-import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
@@ -23,6 +20,7 @@ import java.util.SequencedMap;
 import java.util.Set;
 import java.util.stream.Collector;
 import java.util.stream.Collectors;
+import java.util.stream.Gatherers;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -41,20 +39,84 @@ public class CallSites extends GhidraScript {
 
     record Stub(Function function, Function target, Optional<String> selector) implements Callee {}
 
-    private Stream<Callee> reaching(Function target) {
-        List<Function> direct = Stream.concat(Stream.of(target), Functions.thunks(target)).toList();
-        Stream<Callee> stubs =
-                direct.stream()
-                        .flatMap(function -> function.getCallingFunctions(monitor).stream())
-                        .filter(Functions::isStub)
-                        .distinct()
-                        .map(stub -> new Stub(stub, target, Functions.selector(stub)));
-        return Stream.concat(direct.stream().map(function -> new Direct(function, target)), stubs);
-    }
-
     // --- [CALLS]
 
     record Call(Callee callee, Function caller, Address address, List<String> arguments) {
+        static Report.Result<Call> of(Callee callee, Function caller, ClangFuncNameToken name) {
+            Address address = name.getPcodeOp().getSeqnum().getTarget();
+            Optional<ClangSyntaxToken> open =
+                    CollectionUtils.asStream(name.iterator(true))
+                            .filter(ClangSyntaxToken.class::isInstance)
+                            .map(ClangSyntaxToken.class::cast)
+                            .filter(token -> token.getOpen() >= 0)
+                            .findFirst();
+            List<ClangToken> tokens =
+                    open.stream()
+                            .flatMap(
+                                    paren ->
+                                            CollectionUtils.asStream(paren.iterator(true))
+                                                    .skip(1)
+                                                    .takeWhile(
+                                                            token ->
+                                                                    !(token
+                                                                                    instanceof
+                                                                                    ClangSyntaxToken
+                                                                                            close
+                                                                            && close.getClose()
+                                                                                    == paren
+                                                                                            .getOpen())))
+                            .toList();
+            List<String> texts =
+                    tokens.stream()
+                            .map(token -> token instanceof ClangBreak ? " " : token.getText())
+                            .toList();
+            IntStream commas =
+                    IntStream.range(0, tokens.size())
+                            .filter(index -> ",".equals(tokens.get(index).getText()))
+                            .filter(index -> name.Parent().equals(tokens.get(index).Parent()));
+            List<String> arguments =
+                    IntStream.concat(
+                                    IntStream.of(-1),
+                                    IntStream.concat(commas, IntStream.of(tokens.size())))
+                            .boxed()
+                            .gather(Gatherers.windowSliding(2))
+                            .map(
+                                    cut ->
+                                            String.join(
+                                                            "",
+                                                            texts.subList(
+                                                                    cut.getFirst() + 1,
+                                                                    cut.getLast()))
+                                                    .strip())
+                            .toList();
+            return open.<Report.Result<Call>>map(
+                            _ -> new Report.Success<>(new Call(callee, caller, address, arguments)))
+                    .orElseGet(
+                            () ->
+                                    new Report.Failure<>(
+                                            "%s at %s: call to `%s` holds no argument list"
+                                                    .formatted(
+                                                            caller.getName(true),
+                                                            address,
+                                                            callee.function().getName(true))));
+        }
+
+        static Stream<Report.Result<Call>> read(
+                Map<Address, List<Callee>> callees, Function caller, DecompileResults decompiled) {
+            return CollectionUtils.asStream(decompiled.getCCodeMarkup().tokenIterator(true))
+                    .filter(ClangFuncNameToken.class::isInstance)
+                    .map(ClangFuncNameToken.class::cast)
+                    .filter(name -> name.getPcodeOp() != null)
+                    .flatMap(
+                            name ->
+                                    callees
+                                            .getOrDefault(
+                                                    name.getPcodeOp().getInput(0).getAddress(),
+                                                    List.of())
+                                            .stream()
+                                            .map(callee -> of(callee, caller, name)));
+        }
+
         String row() {
             String selector =
                     switch (callee) {
@@ -65,156 +127,6 @@ public class CallSites extends GhidraScript {
                     .formatted(
                             address, caller.getName(true), selector, String.join(",", arguments));
         }
-    }
-
-    private static Stream<Report.Result<Call>> calls(
-            Function caller,
-            Report.Result<DecompileResults> decompiled,
-            Map<Address, List<Callee>> callees) {
-        return switch (decompiled) {
-            case Report.Success<DecompileResults>(DecompileResults results) ->
-                    CollectionUtils.asStream(results.getCCodeMarkup().tokenIterator(true))
-                            .filter(ClangFuncNameToken.class::isInstance)
-                            .map(ClangFuncNameToken.class::cast)
-                            .filter(name -> name.getPcodeOp() != null)
-                            .flatMap(
-                                    name ->
-                                            callees
-                                                    .getOrDefault(
-                                                            name.getPcodeOp()
-                                                                    .getInput(0)
-                                                                    .getAddress(),
-                                                            List.of())
-                                                    .stream()
-                                                    .map(callee -> call(callee, caller, name)));
-            case Report.Failure<DecompileResults>(String cause) ->
-                    Stream.of(
-                            new Report.Failure<>(
-                                    "%s at %s: %s"
-                                            .formatted(
-                                                    caller.getName(true),
-                                                    caller.getEntryPoint(),
-                                                    cause)));
-        };
-    }
-
-    private static Report.Result<Call> call(
-            Callee callee, Function caller, ClangFuncNameToken name) {
-        Address address = name.getPcodeOp().getSeqnum().getTarget();
-        return arguments(name)
-                .<Report.Result<Call>>map(
-                        arguments ->
-                                new Report.Success<>(new Call(callee, caller, address, arguments)))
-                .orElseGet(
-                        () ->
-                                new Report.Failure<>(
-                                        "%s at %s: call to `%s` holds no argument list"
-                                                .formatted(
-                                                        caller.getName(true),
-                                                        address,
-                                                        callee.function().getName(true))));
-    }
-
-    private static Optional<List<String>> arguments(ClangToken name) {
-        return CollectionUtils.asStream(name.iterator(true))
-                .filter(ClangSyntaxToken.class::isInstance)
-                .map(ClangSyntaxToken.class::cast)
-                .filter(open -> open.getOpen() >= 0)
-                .findFirst()
-                .map(
-                        open ->
-                                split(
-                                        CollectionUtils.asStream(open.iterator(true))
-                                                .skip(1)
-                                                .takeWhile(token -> !closes(token, open.getOpen()))
-                                                .toList()));
-    }
-
-    private static boolean closes(ClangToken token, int pair) {
-        return token instanceof ClangSyntaxToken syntax && syntax.getClose() == pair;
-    }
-
-    private static List<String> split(List<ClangToken> tokens) {
-        int[] depth = tokens.stream().mapToInt(CallSites::nesting).toArray();
-        Arrays.parallelPrefix(depth, Integer::sum);
-        IntStream commas =
-                IntStream.range(0, tokens.size())
-                        .filter(index -> depth[index] == 0)
-                        .filter(index -> ",".equals(tokens.get(index).getText()));
-        int[] cuts =
-                IntStream.concat(
-                                IntStream.concat(IntStream.of(-1), commas),
-                                IntStream.of(tokens.size()))
-                        .toArray();
-        return IntStream.range(1, cuts.length)
-                .mapToObj(cut -> tokens.subList(cuts[cut - 1] + 1, cuts[cut]))
-                .map(part -> part.stream().map(CallSites::text).collect(Collectors.joining()))
-                .map(String::strip)
-                .toList();
-    }
-
-    private static int nesting(ClangToken token) {
-        return token instanceof ClangSyntaxToken syntax
-                ? (syntax.getOpen() >= 0 ? 1 : 0) - (syntax.getClose() >= 0 ? 1 : 0)
-                : 0;
-    }
-
-    private static String text(ClangToken token) {
-        return token instanceof ClangBreak ? " " : token.getText();
-    }
-
-    // --- [WRITE]
-
-    private String write(
-            Path out,
-            SequencedMap<Function, Set<Function>> callersByTarget,
-            int callers,
-            List<Report.Result<Call>> results,
-            String arguments)
-            throws IOException {
-        List<String> failed = results.stream().flatMap(Report.Result::failures).toList();
-        Comparator<Call> order =
-                Comparator.comparing((Call call) -> call.caller().getEntryPoint())
-                        .thenComparing(Call::address);
-        Map<Function, List<Call>> calls =
-                results.stream()
-                        .flatMap(Report.Result::values)
-                        .sorted(order)
-                        .collect(Collectors.groupingBy(call -> call.callee().target()));
-        long total = calls.values().stream().mapToLong(List::size).sum();
-        String counts =
-                "targets=%d callers=%d calls=%d failed=%d args=%s"
-                        .formatted(
-                                callersByTarget.size(), callers, total, failed.size(), arguments);
-        Stream<String> sections =
-                callersByTarget.entrySet().stream()
-                        .flatMap(
-                                entry ->
-                                        section(
-                                                entry.getKey(),
-                                                entry.getValue(),
-                                                calls.getOrDefault(entry.getKey(), List.of())));
-        Stream<String> body =
-                Stream.of(
-                                sections,
-                                Stream.of(Report.section("FAILED")),
-                                failed.stream().map("// "::concat))
-                        .flatMap(section -> section);
-        return Report.write(out, currentProgram, counts, body);
-    }
-
-    private static Stream<String> section(
-            Function target, Set<Function> callers, List<Call> calls) {
-        String header =
-                "// %s @ %s callers=%d calls=%d"
-                        .formatted(
-                                target.getName(true),
-                                target.getEntryPoint(),
-                                callers.size(),
-                                calls.size());
-        return Stream.concat(
-                Stream.of(Report.subsection(target.getName(true)), header),
-                calls.stream().map(Call::row));
     }
 
     // --- [RUN]
@@ -231,7 +143,33 @@ public class CallSites extends GhidraScript {
                 request.seeds().stream()
                         .map(Functions::thunked)
                         .distinct()
-                        .flatMap(this::reaching)
+                        .flatMap(
+                                target -> {
+                                    List<Function> direct =
+                                            Stream.concat(
+                                                            Stream.of(target),
+                                                            Functions.thunks(target))
+                                                    .toList();
+                                    return Stream.<Callee>concat(
+                                            direct.stream()
+                                                    .map(function -> new Direct(function, target)),
+                                            direct.stream()
+                                                    .flatMap(
+                                                            function ->
+                                                                    function
+                                                                            .getCallingFunctions(
+                                                                                    monitor)
+                                                                            .stream())
+                                                    .filter(Functions::isStub)
+                                                    .distinct()
+                                                    .map(
+                                                            stub ->
+                                                                    new Stub(
+                                                                            stub,
+                                                                            target,
+                                                                            Functions.selector(
+                                                                                    stub))));
+                                })
                         .toList();
         Map<Address, List<Callee>> callees =
                 reached.stream()
@@ -246,12 +184,68 @@ public class CallSites extends GhidraScript {
                         .collect(Collectors.groupingBy(Callee::target, LinkedHashMap::new, union));
         List<Function> callers =
                 callersByTarget.values().stream().flatMap(Set::stream).distinct().toList();
-        List<Report.Result<Call>> calls =
+        List<Report.Result<Call>> results =
                 Functions.decompile(currentProgram, callers, request.settings(), monitor)
                         .entrySet()
                         .stream()
-                        .flatMap(entry -> calls(entry.getKey(), entry.getValue(), callees))
+                        .flatMap(
+                                entry ->
+                                        switch (entry.getValue()) {
+                                            case Report.Success<DecompileResults>(
+                                                            DecompileResults decompiled) ->
+                                                    Call.read(callees, entry.getKey(), decompiled);
+                                            case Report.Failure<DecompileResults>(String cause) ->
+                                                    Stream.of(
+                                                            new Report.Failure<Call>(
+                                                                    "%s at %s: %s"
+                                                                            .formatted(
+                                                                                    entry.getKey()
+                                                                                            .getName(
+                                                                                                    true),
+                                                                                    entry.getKey()
+                                                                                            .getEntryPoint(),
+                                                                                    cause)));
+                                        })
                         .toList();
-        println(write(request.out(), callersByTarget, callers.size(), calls, request.arguments()));
+        List<String> failed = results.stream().flatMap(Report.Result::failures).toList();
+        Map<Function, List<Call>> calls =
+                results.stream()
+                        .flatMap(Report.Result::values)
+                        .sorted(
+                                Comparator.comparing((Call call) -> call.caller().getEntryPoint())
+                                        .thenComparing(Call::address))
+                        .collect(Collectors.groupingBy(call -> call.callee().target()));
+        String counts =
+                "targets=%d callers=%d calls=%d failed=%d args=%s"
+                        .formatted(
+                                callersByTarget.size(),
+                                callers.size(),
+                                calls.values().stream().mapToLong(List::size).sum(),
+                                failed.size(),
+                                request.arguments());
+        Stream<String> sections =
+                callersByTarget.entrySet().stream()
+                        .flatMap(
+                                entry -> {
+                                    Function target = entry.getKey();
+                                    List<Call> targetCalls = calls.getOrDefault(target, List.of());
+                                    return Stream.concat(
+                                            Stream.of(
+                                                    Report.subsection(target.getName(true)),
+                                                    "// %s @ %s callers=%d calls=%d"
+                                                            .formatted(
+                                                                    target.getName(true),
+                                                                    target.getEntryPoint(),
+                                                                    entry.getValue().size(),
+                                                                    targetCalls.size())),
+                                            targetCalls.stream().map(Call::row));
+                                });
+        Stream<String> body =
+                Stream.of(
+                                sections,
+                                Stream.of(Report.section("FAILED")),
+                                failed.stream().map("// "::concat))
+                        .flatMap(section -> section);
+        println(Report.write(request.out(), currentProgram, counts, body));
     }
 }

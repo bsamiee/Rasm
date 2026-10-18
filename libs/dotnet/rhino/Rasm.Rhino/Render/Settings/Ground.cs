@@ -30,10 +30,10 @@ public sealed record GroundPlaneState(
 
     public static IO<GroundPlaneState> Write(RenderSettingsScope scope, GroundPlaneState state) =>
         from values in IO.lift((
-            state.Altitude.Traverse(height => Model(height, scope.Units, GroundPlaneParameter.Height)).As(),
-            Model(state.TextureOffsetX, scope.Units, GroundPlaneParameter.Offset), Model(state.TextureOffsetY, scope.Units, GroundPlaneParameter.Offset),
-            Model(state.TextureSizeX, scope.Units, GroundPlaneParameter.Size), Model(state.TextureSizeY, scope.Units, GroundPlaneParameter.Size))
-            .Apply(static (altitude, x, y, width, height) => (Altitude: altitude, Offset: new Vector2d(x, y), Size: new Vector2d(width, height))).As().ToFin())
+                   state.Altitude.Traverse(height => Model(height, scope.Units, GroundPlaneParameter.Height)).As(),
+                   Model(state.TextureOffsetX, scope.Units, GroundPlaneParameter.Offset), Model(state.TextureOffsetY, scope.Units, GroundPlaneParameter.Offset),
+                   Model(state.TextureSizeX, scope.Units, GroundPlaneParameter.Size), Model(state.TextureSizeY, scope.Units, GroundPlaneParameter.Size))
+                   .Apply(static (altitude, x, y, width, height) => (Altitude: altitude, Offset: new Vector2d(x, y), Size: new Vector2d(width, height))).As())
         let accepted = state with { MaterialInstanceId = Material(Conversions.Unset(state.MaterialInstanceId)) }
         from written in RenderSettingsSources.SubOwner(scope, static settings => settings.GroundPlane, plane => IO.lift(() => {
             GroundMapper.Update(accepted, plane, values.Offset, values.Size);
@@ -48,11 +48,11 @@ public sealed record GroundPlaneState(
                 (Callbacks.Found(!plane.AutoAltitude, plane.Altitude).Traverse(height => Measured(height, units, GroundPlaneParameter.Height)).As(),
                  Measured(offset.X, units, GroundPlaneParameter.Offset), Measured(offset.Y, units, GroundPlaneParameter.Offset),
                  Measured(size.X, units, GroundPlaneParameter.Size), Measured(size.Y, units, GroundPlaneParameter.Size),
-                 NorthAngle.Validated(plane.TextureRotation).ToValidation())
+                 NorthAngle.Validated(plane.TextureRotation))
                     .Apply((altitude, offsetX, offsetY, sizeX, sizeY, rotation) => new GroundPlaneState(
                         plane.Enabled, plane.ShowUnderside, altitude, plane.ShadowOnly, plane.TextureOffsetLocked, offsetX, offsetY,
                         plane.TextureSizeLocked, sizeX, sizeY, rotation, Material(plane.MaterialInstanceId)))
-                    .As().ToFin(),
+                    .As(),
         };
 
     public static RowRules Rules(RowSource<GroundPlaneState> source, GroundPlaneParameter parameter) =>
@@ -65,22 +65,22 @@ public sealed record GroundPlaneState(
             },
         };
 
-    private static Validation<Error, Length> Measured(double value, LengthUnit units, NumericDomain<Length, double> domain) =>
-        domain.Admit(Quantities.From(value, units)).ToValidation();
+    private static Fin<Length> Measured(double value, LengthUnit units, NumericDomain<Length, double> domain) =>
+        domain.Checked(Quantities.From(value, units));
 
     private static Option<Guid> Material(Guid id) => Conversions.Present(id).Filter(static held => held != ContentUuids.DefaultMaterialInstance);
 
-    private static Validation<Error, double> Model(Length length, LengthUnit units, NumericDomain<Length, double> domain) =>
-        domain.Admit(length).Map(held => Quantities.As(held, units)).ToValidation();
+    private static Fin<double> Model(Length length, LengthUnit units, NumericDomain<Length, double> domain) =>
+        domain.Checked(length).Map(held => Quantities.As(held, units));
 }
 
 [SmartEnum<string>]
 [KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
 [KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class GroundPlaneParameter : IStateParameter<GroundPlaneState> {
-    internal static readonly NumericDomain<Length, double> Height = NumericDomain.Metres((double.MinValue, double.MaxValue), new() { Form = NumberForm.Field, Origin = 0d });
-    internal static readonly NumericDomain<Length, double> Offset = NumericDomain.Metres((double.MinValue, double.MaxValue), new() { Soft = (-1d, 1d), Step = 0.01d, Decimals = 2 });
-    internal static readonly NumericDomain<Length, double> Size = NumericDomain.Metres((0d, double.MaxValue), new() { Soft = (0.01d, 10d), Step = 0.01d, Decimals = 2 });
+    internal static readonly NumericDomain<Length, double> Height = NumericDomain.Meters((double.MinValue, double.MaxValue), new() { Form = NumberForm.Field, Origin = 0d });
+    internal static readonly NumericDomain<Length, double> Offset = NumericDomain.Meters((double.MinValue, double.MaxValue), new() { Soft = (-1d, 1d), Step = 0.01d, Decimals = 2 });
+    internal static readonly NumericDomain<Length, double> Size = NumericDomain.Meters((0d, double.MaxValue), new() { Soft = (0.01d, 10d), Step = 0.01d, Decimals = 2 });
 
     public static readonly GroundPlaneParameter Enabled = new("enabled", new StateParameter<GroundPlaneState>.Toggle(
         Lens<GroundPlaneState, bool>.New(static state => state.Enabled, static on => state => state with { Enabled = on })),

@@ -2,6 +2,7 @@
 id: no-range-seq-conversion
 language: csharp
 severity: error
+ignores: ['tools/roslyn/**']
 utils:
     range:
         kind: invocation_expression

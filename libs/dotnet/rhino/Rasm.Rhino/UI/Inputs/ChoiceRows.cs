@@ -169,12 +169,11 @@ public static class ChoiceRows {
                 .Bind(static prior => IO.lift(() => prior.Iter(static listing => listing.Themed.Dispose()))).Uninterruptible().Run())), retain)
         let replace = (Func<Seq<ChoiceItem<TModel>>, IO<Unit>>)(roster => DisposalOps.Replace(
             keep => Listed(popup, roster, site, keep),
-            (rows, release) => atomic(() => {
-                _ = owned.Held.ToFin(Errors.Cancelled).ThrowIfFail();
+            (rows, release) => atomicIO(() => {
                 Option<Listing<TModel>> prior = held.Value;
-                held.Value = Some(new Listing<TModel>(rows, release));
-                return IO.lift(() => prior.Iter(static listing => listing.Themed.Dispose()));
-            })).Map(static _ => unit))
+                held.Value = owned.Held.Map(_ => new Listing<TModel>(rows, release)) | prior;
+                return owned.Held.ToFin(Errors.Cancelled).Map(_ => prior);
+            }).Bind(IO.lift).Bind(static prior => IO.lift(() => prior.Iter(static listing => listing.Themed.Dispose())))).Map(static _ => unit))
         from first in replace(items)
         select (
             popup,

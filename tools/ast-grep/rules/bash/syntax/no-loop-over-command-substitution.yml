@@ -2,6 +2,24 @@
 id: no-loop-over-command-substitution
 language: bash
 severity: error
+utils:
+    line-tool:
+        kind: command
+        any:
+            - has: {field: name, regex: '^(?:\S*/)?(grep|fgrep|egrep|sed|cat|awk|cut|sort)$'}
+            - all:
+                - has: {field: name, regex: '^(command|builtin)$'}
+                - has: {kind: word, nthChild: 2, regex: '^(?:\S*/)?(grep|fgrep|egrep|sed|cat|awk|cut|sort)$'}
+    shellcheck-owned:
+        kind: command_substitution
+        all:
+            - follows: {regex: '^in$'}
+            - precedes: {any: [{regex: '^;$'}, {kind: do_group}]}
+            - not: {has: {nthChild: 2}}
+            - any:
+                - has: {matches: line-tool}
+                - has: {kind: pipeline, not: {has: {pattern: $_, not: {matches: line-tool}}}}
+                - has: {kind: command, has: {field: name, regex: '^(ls|find)$'}}
 rule:
     kind: command_substitution, simple_expansion, expansion
     pattern: $SUB
@@ -10,6 +28,9 @@ rule:
         - has: {kind: variable_name}
     inside: {kind: for_statement}
     follows: {stopBy: end, regex: '^in$'}
-    not: {inside: {matches: bash-sh-program, stopBy: end}}
+    not:
+        any:
+            - matches: shellcheck-owned
+            - inside: {matches: bash-sh-program, stopBy: end}
 message: '`for` word-splits and glob-expands `$SUB` into its items'
-note: 'Read items into an array with `mapfile -t <items> < <(<command>)` and loop over `"${<items>[@]}"`'
+note: 'Read items into an array with `mapfile -t <items> < <(<command>)` and loop over `"${<items>[@]}"`. ShellCheck reports a loop over the sole output of `ls`, `find`, or a pipeline of line tools (SC2013, SC2044, SC2045)'

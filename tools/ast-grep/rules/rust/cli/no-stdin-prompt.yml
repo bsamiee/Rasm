@@ -8,16 +8,19 @@ utils:
         all:
             - has: {field: function, regex: '^((::)?(std|tokio)::)?(io::)?stdin$'}
             - has: {field: arguments, not: {has: {pattern: $_}}}
+    stdin-binding:
+        kind: identifier
+        pattern: $IN
+        inside:
+            kind: block
+            stopBy: {kind: 'function_item, closure_expression'}
+            has: {kind: let_declaration, all: [{has: {field: pattern, pattern: $IN}}, {has: {field: value, any: [{matches: stdin-call}, {has: {stopBy: end, matches: stdin-call}}]}}]}
     stdin-value:
         any:
             - matches: stdin-call
             - has: {stopBy: end, matches: stdin-call}
-            - kind: identifier
-              pattern: $IN
-              inside:
-                kind: block
-                stopBy: {kind: 'function_item, closure_expression'}
-                has: {kind: let_declaration, all: [{has: {field: pattern, pattern: $IN}}, {has: {field: value, any: [{matches: stdin-call}, {has: {stopBy: end, matches: stdin-call}}]}}]}
+            - matches: stdin-binding
+            - has: {stopBy: end, matches: stdin-binding}
     line-read:
         kind: call_expression
         has:

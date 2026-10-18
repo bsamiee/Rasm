@@ -149,12 +149,12 @@ class EffectBody(Line, frozen=True, kw_only=True):
             def lock(line: bpy.types.UILayout, key: Key) -> tuple[BlenderResult[None], ...]:
                 return tuple(locked(line, entry, path, context) for path in Option.of_optional(paths.get(key)).to_list())
 
-            def panel(owner: bpy.types.UILayout, key: Key, name: str, closed: bool, toggle: Option[bool]) -> tuple[Option[bpy.types.UILayout], tuple[BlenderResult[None], ...]]:
-                header, body = owner.panel(f"{entry.name}_{key}", default_closed=closed)
-                if toggle.is_none():
-                    header.label(text=name)
+            def panel(owner: bpy.types.UILayout, key: Key, section: InterfacePanel) -> tuple[Option[bpy.types.UILayout], tuple[BlenderResult[None], ...]]:
+                header, body = owner.panel(f"{entry.name}_{key}", default_closed=section.closed)
+                if section.toggle.is_none():
+                    header.label(text=section.name)
                 return Option.of_optional(body), (
-                    *(entry_input(identity, entry, key).map(lambda value: toggled(header, Option.of_optional(body), name, value)) for _ in toggle.to_list()),
+                    *(entry_input(identity, entry, key).map(lambda value: toggled(header, Option.of_optional(body), section.name, value)) for _ in section.toggle.to_list()),
                     *lock(header, key),
                 )
 
@@ -167,8 +167,8 @@ class EffectBody(Line, frozen=True, kw_only=True):
             for key, item, parent, _ in face.walked():
                 host = bodies[parent] if key not in hidden else Nothing
                 match item:
-                    case InterfacePanel(name=name, closed=closed, toggle=toggle):
-                        bodies[Some(key)], drawn = host.map(lambda owner: panel(owner, key, name, closed, toggle)).default_value((Nothing, ()))
+                    case InterfacePanel() as section:
+                        bodies[Some(key)], drawn = host.map(lambda owner: panel(owner, key, section)).default_value((Nothing, ()))
                         answers.extend(drawn)
                     case (Socket(name=name, members=members), "INPUT") if key != Shell.image and not any(
                         descriptor.prop.identifier == "hide_in_modifier" and value for descriptor, value in members.items()

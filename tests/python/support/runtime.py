@@ -11,7 +11,7 @@ import pytest
 from structlog.testing import capture_logs
 from structlog.types import EventDict, Processor
 
-from tests.python.support.properties import PROPERTY_RECORDS, PropertyRecord
+from tests.python.support.properties import PROPERTY_RECORDS
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
@@ -25,7 +25,7 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
             function.add_marker(pytest.mark.network, append=False)
         if sum(mark.name == "property" for mark in function.own_markers) > 1:
             raise pytest.UsageError(f"@property_test applied twice to {function.nodeid}, remove the duplicate decorator")
-    config.stash[PROPERTY_RECORDS] = tuple(dict.fromkeys(record for item in items for mark in item.iter_markers("property") if isinstance(record := mark.kwargs.get("record"), PropertyRecord)))
+    config.stash[PROPERTY_RECORDS] = tuple(dict.fromkeys(mark.kwargs["record"] for item in items for mark in item.iter_markers("property")))
 
 
 @pytest.fixture(scope="session")

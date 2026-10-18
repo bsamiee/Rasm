@@ -77,6 +77,15 @@ actor CodexClient: ProviderClient {
         _ account: Account,
         outgoing: Account?,
     ) async -> Result<AccountIdentity, ProviderError> {
+        func installFile(_ data: Data, to destination: URL) -> Result<Void, CodexFailure> {
+            Result {
+                let file: FileWrapper = FileWrapper(regularFileWithContents: data)
+                file.fileAttributes = [FileAttributeKey.posixPermissions.rawValue: 0o600]
+                try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
+                try file.write(to: destination, options: .atomic, originalContentsURL: nil)
+            }
+            .mapError(CodexFailure.storage)
+        }
         let incoming: URL = paths.codexHome(account.id).appending(path: CodexAuthFile.name)
         return await preconditions()
             .bind { _ in
@@ -118,16 +127,6 @@ actor CodexClient: ProviderClient {
                 await CodexDesktop.relaunchIfRunning().map { _ in saved }
             }
             .mapError(ProviderError.init(failure:))
-    }
-
-    private func installFile(_ data: Data, to destination: URL) -> Result<Void, CodexFailure> {
-        Result {
-            let file: FileWrapper = FileWrapper(regularFileWithContents: data)
-            file.fileAttributes = [FileAttributeKey.posixPermissions.rawValue: 0o600]
-            try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try file.write(to: destination, options: .atomic, originalContentsURL: nil)
-        }
-        .mapError(CodexFailure.storage)
     }
 
     private func remove(_ url: URL) -> Result<Void, CodexFailure> {
@@ -227,22 +226,20 @@ actor CodexClient: ProviderClient {
         isSelected: Bool,
     ) async -> Result<AccountUsage, ProviderError> {
         let home: URL = home(for: account, isSelected: isSelected)
+        let workingDirectory: URL = paths.workingDirectory
         return await usage(for: account, isSelected: isSelected).bind { current in
             if case .ready = current.availability(at: Date()) {
-                await greet(home: home).mapError(ProviderError.init(failure:)).bind { _ in await usage(for: account, isSelected: isSelected) }
+                await connection(for: home).bind { connection in
+                    await ProcessRun.withDeadline(.seconds(120)) {
+                        await CodexProtocol.greetingEffort(connection).bind { effort in
+                            await CodexProtocol.sendGreeting(connection, effort: effort, workingDirectory: workingDirectory)
+                        }
+                    }
+                }
+                .mapError(ProviderError.init(failure:))
+                .bind { _ in await usage(for: account, isSelected: isSelected) }
             } else {
                 .success(current)
-            }
-        }
-    }
-
-    private func greet(home: URL) async -> Result<Void, CodexFailure> {
-        let workingDirectory: URL = paths.workingDirectory
-        return await connection(for: home).bind { connection in
-            await ProcessRun.withDeadline(.seconds(120)) {
-                await CodexProtocol.greetingEffort(connection).bind { effort in
-                    await CodexProtocol.sendGreeting(connection, effort: effort, workingDirectory: workingDirectory)
-                }
             }
         }
     }
@@ -277,65 +274,56 @@ actor CodexClient: ProviderClient {
                 }
                 .mapError(CodexFailure.storage).map { _ in executable }
             }
-            .bind { executable in
-                await startServer(
-                    home: home,
-                    invocation: ProcessRun.configuration(
-                        executable: .path(FilePath(executable.path(percentEncoded: false))),
-                        arguments: ["app-server"],
-                        environment: variables,
-                        workingDirectory: workingDirectory,
-                    ),
+            .bind { executable -> Result<CodexConnection, CodexFailure> in
+                let invocation: Configuration = ProcessRun.configuration(
+                    executable: .path(FilePath(executable.path(percentEncoded: false))),
+                    arguments: ["app-server"],
+                    environment: variables,
+                    workingDirectory: workingDirectory,
                 )
-            }
-    }
-
-    private func startServer(
-        home: URL,
-        invocation: Configuration,
-    ) async -> Result<CodexConnection, CodexFailure> {
-        let ready:
-            (
-                stream: AsyncStream<Result<CodexConnection, CodexFailure>>,
-                continuation: AsyncStream<Result<CodexConnection, CodexFailure>>.Continuation
-            ) = AsyncStream.makeStream()
-        let continuation: AsyncStream<URL>.Continuation = updatesContinuation
-        let task: Task<Void, Never> = Task(name: "codex app-server \(home.lastPathComponent)") {
-            let outcome: Result<(Void, TerminationStatus), ProcessFailure> = await ProcessRun.stream(
-                invocation,
-                deadline: nil,
-            ) { execution in
-                .success(
-                    await Self.serve(
-                        CodexConnection(execution: execution),
-                        home: home,
-                        updates: continuation,
-                        ready: ready.continuation,
-                    )
-                )
-            }
-            if case .failure(let error) = outcome {
-                let failure: CodexFailure =
-                    switch error {
-                        case .launch(let launch) where launch.code == .executableNotFound: .applicationUnavailable
-                        default: CodexFailure(process: error)
+                let ready:
+                    (
+                        stream: AsyncStream<Result<CodexConnection, CodexFailure>>,
+                        continuation: AsyncStream<Result<CodexConnection, CodexFailure>>.Continuation
+                    ) = AsyncStream.makeStream()
+                let continuation: AsyncStream<URL>.Continuation = updatesContinuation
+                let task: Task<Void, Never> = Task(name: "codex app-server \(home.lastPathComponent)") {
+                    let outcome: Result<(Void, TerminationStatus), ProcessFailure> = await ProcessRun.stream(
+                        invocation,
+                        deadline: nil,
+                    ) { execution in
+                        .success(
+                            await Self.serve(
+                                CodexConnection(execution: execution),
+                                home: home,
+                                updates: continuation,
+                                ready: ready.continuation,
+                            )
+                        )
                     }
-                ready.continuation.yield(.failure(failure))
-                ready.continuation.finish()
+                    if case .failure(let error) = outcome {
+                        let failure: CodexFailure =
+                            switch error {
+                                case .launch(let launch) where launch.code == .executableNotFound: .applicationUnavailable
+                                default: CodexFailure(process: error)
+                            }
+                        ready.continuation.yield(.failure(failure))
+                        ready.continuation.finish()
+                    }
+                }
+                var iterator: AsyncStream<Result<CodexConnection, CodexFailure>>.Iterator =
+                    ready.stream.makeAsyncIterator()
+                let first: Result<CodexConnection, CodexFailure> =
+                    await iterator.next() ?? .failure(.connectionClosed)
+                switch first {
+                    case .success(let connection):
+                        servers[home] = CodexServer(connection: connection, task: task)
+                    case .failure:
+                        task.cancel()
+                        await task.value
+                }
+                return first
             }
-        }
-        var iterator: AsyncStream<Result<CodexConnection, CodexFailure>>.Iterator =
-            ready.stream.makeAsyncIterator()
-        let first: Result<CodexConnection, CodexFailure> =
-            await iterator.next() ?? .failure(.connectionClosed)
-        switch first {
-            case .success(let connection):
-                servers[home] = CodexServer(connection: connection, task: task)
-            case .failure:
-                task.cancel()
-                await task.value
-        }
-        return first
     }
 
     private nonisolated static func serve(

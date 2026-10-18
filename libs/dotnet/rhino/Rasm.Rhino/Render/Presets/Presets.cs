@@ -142,7 +142,7 @@ public sealed class PresetBinding {
                 .Map(static file => PresetName.Validated(Path.GetFileNameWithoutExtension(file.Name)).ToOption()
                     .Map(name => (Name: name, Preset: new Preset(name, Read(file)) { File = Some(file) })))
                 .Somes().Strict())
-            .Bind(static rows => IO.lift(Callbacks.Unique(rows, static row => row.Name, nameof(Listed)).ToFin()))
+            .Bind(static rows => IO.lift(Callbacks.Unique(rows, static row => row.Name, nameof(Listed))))
             .Map(static rows => toMap(rows));
 
     private static Fin<ValueSet> Read(FileInfo file) =>
@@ -301,13 +301,9 @@ public static class LockSets {
             None);
 
     // --- [ARCHIVE]
-    private const uint TypeCode = 0x4C4F_434Bu;
-
-    private static DictionaryCodec<HashMap<Guid, LanguageExt.HashSet<EntryKey>>> Codec { get; } = DictionaryCodec.Json<HashMap<Guid, LanguageExt.HashSet<EntryKey>>>(nameof(LockSets), 2);
-
     public static DocumentFrame<HashMap<Guid, LanguageExt.HashSet<EntryKey>>> Frame { get; } = new(
-        TypeCode,
-        Codec,
+        0x4C4F_434Bu,
+        DictionaryCodec.Json<HashMap<Guid, LanguageExt.HashSet<EntryKey>>>(nameof(LockSets), 2),
         HashMap<Guid, LanguageExt.HashSet<EntryKey>>(),
         static (doc, _) => Registry(doc).Bind(static registry => registry.ValueIO),
         static (doc, locks) => Registry(doc).Bind(registry => atomicIO(() => registry.Value = registry.Value.AddOrUpdateRange(locks.AsIterable()))).Map(unit));

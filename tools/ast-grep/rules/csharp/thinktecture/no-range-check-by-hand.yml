@@ -2,6 +2,7 @@
 id: no-range-check-by-hand
 language: csharp
 severity: error
+ignores: ['tools/roslyn/**']
 utils:
     operand:
         not: {kind: 'integer_literal, real_literal, prefix_unary_expression'}

@@ -64,4 +64,4 @@ labels:
     READ: {style: primary, message: 'Lists one directory level'}
     STEP: {style: secondary, message: 'Descends into each entry'}
 message: '`$READ` walks a directory tree by hand from each entry'
-note: 'Iterate `ignore::WalkBuilder::new(<root>).standard_filters(false).build()`, with `max_depth`, `follow_links`, `sort_by_file_name`, or `build_parallel` for the cases the walk codes, and `standard_filters(true)` for `.gitignore` and hidden-file rules'
+note: 'Iterate `ignore::WalkBuilder::new(<root>).standard_filters(false).build()`, set `max_depth`, `follow_links`, `sort_by_file_name`, or `build_parallel` where the walk limits depth, follows links, sorts, or runs in parallel, and `standard_filters(true)` applies `.gitignore` and hidden-file rules'

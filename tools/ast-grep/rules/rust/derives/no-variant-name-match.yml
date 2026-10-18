@@ -21,7 +21,7 @@ utils:
     unit-arm:
         kind: match_arm
         all:
-            - has: {field: pattern, kind: match_pattern, has: {nthChild: 1, kind: scoped_identifier}, not: {has: {field: condition, pattern: $_}}}
+            - has: {field: pattern, kind: match_pattern, regex: '^\w+::\w+\s*(\(\s*(_|\.\.)(\s*,\s*(_|\.\.))*\s*,?\s*\)|\{\s*\.\.\s*\})?$', not: {has: {field: condition, pattern: $_}}}
             - has: {field: value, matches: variant-text}
     naming-method:
         kind: function_item
@@ -49,5 +49,5 @@ rule:
         - inside: {kind: function_item, stopBy: {kind: 'function_item, closure_expression'}, has: {field: name, pattern: $METHOD}}
         - inside: {kind: impl_item, stopBy: end, has: {field: type, pattern: $T}}
         - any: [{matches: rust-variant-name-match}, {matches: name-match}]
-message: '`$METHOD` of `$T` spells one string literal per unit variant'
+message: '`$METHOD` of `$T` spells one string literal per variant'
 note: 'Derive `derive_more::Display` for `fmt` with `#[display("<text>")]` per variant, or `strum::IntoStaticStr` for a `&''static str` method or `strum::AsRefStr` for `as_ref` with `#[strum(serialize = "<text>")]` per variant or one `#[strum(serialize_all = "<case>")]`, and call `<value>.into()` or `<value>.to_string()` in place of the method'

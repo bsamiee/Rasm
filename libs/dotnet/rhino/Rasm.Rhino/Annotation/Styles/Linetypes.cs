@@ -109,10 +109,9 @@ public static partial class Linetypes {
     private static Fin<LinetypeWidth> Width(Linetype linetype, Seq<Point2d> taper) =>
         linetype.WidthUnits is UnitSystem.None
             ? Taper(taper, identity).Map<LinetypeWidth>(profile => new LinetypeWidth.Screen(linetype.Width, profile))
-            : Measured(linetype.Width, taper, LengthUnit.FromKnownUnitSystem(linetype.WidthUnits));
-
-    private static Fin<LinetypeWidth> Measured(double width, Seq<Point2d> taper, LengthUnit widthUnit) =>
-        Taper(taper, value => Quantities.From(value, widthUnit)).Map<LinetypeWidth>(profile => new LinetypeWidth.Distance(Quantities.From(width, widthUnit), profile));
+            : LengthUnit.FromKnownUnitSystem(linetype.WidthUnits) switch {
+                var widthUnit => Taper(taper, value => Quantities.From(value, widthUnit)).Map<LinetypeWidth>(profile => new LinetypeWidth.Distance(Quantities.From(linetype.Width, widthUnit), profile)),
+            };
 
     private static Fin<Option<LinetypeTaper<TWidth>>> Taper<TWidth>(Seq<Point2d> points, Func<double, TWidth> width) where TWidth : struct, IComparable<TWidth> =>
         (from start in points.Head

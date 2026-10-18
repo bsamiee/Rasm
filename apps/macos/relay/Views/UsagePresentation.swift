@@ -2,7 +2,7 @@ import Foundation
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-nonisolated enum UsagePresentation {
+enum UsagePresentation {
     private static let dayStyle: Date.FormatStyle = .dateTime.month(.abbreviated).day()
     private static let detailStyle: Date.FormatStyle = .dateTime.weekday(.wide).month().day().hour().minute()
     private static let separator: String = " · "

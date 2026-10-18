@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: swift-result-bind-switch
+language: swiftlang
+rule:
+    kind: switch_statement
+    all:
+        - not: {has: {field: expr, kind: self_expression}}
+        - not: {has: {kind: switch_entry, nthChild: {position: 3, ofRule: {kind: switch_entry}}}}
+        - has:
+            kind: switch_entry
+            all:
+                - has: {kind: switch_pattern, regex: '^(let\s+)?\.success\b'}
+                - not: {has: {kind: switch_pattern, nthChild: {position: 2, ofRule: {kind: switch_pattern}}}}
+                - not: {has: {kind: statements, has: {nthChild: 1, matches: swift-failure-value}}}
+        - has:
+            kind: switch_entry
+            all:
+                - has: {kind: switch_pattern, regex: '^(let\s+)?\.failure\b'}
+                - has: {kind: statements, has: {nthChild: 1, matches: swift-failure-value}, not: {has: {nthChild: 2}}}

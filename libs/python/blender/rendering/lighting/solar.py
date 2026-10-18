@@ -172,19 +172,19 @@ class SolarDay(msgspec.Struct, frozen=True, kw_only=True):
             offset = hour - side * np.arccos(np.clip(ratio, -1.0, 1.0))
             return seconds - np.arctan2(np.sin(offset), np.cos(offset)) * DAY_SECONDS / math.tau
 
+        solved = functools.reduce(step, range(3), np.full(side.shape, datetime.datetime.combine(date, datetime.time(12), tzinfo=zone).timestamp(), dtype=np.float64))
+        epoch = datetime.datetime(1970, 1, 1, tzinfo=datetime.UTC)
+        _, ratios = reach(solved)
+        ratio = float(ratios[0])
         try:
-            initial = datetime.datetime.combine(date, datetime.time(12), tzinfo=zone).timestamp()
-            solved = functools.reduce(step, range(3), np.full(side.shape, initial, dtype=np.float64))
-            epoch = datetime.datetime(1970, 1, 1, tzinfo=datetime.UTC)
-            noon = (epoch + datetime.timedelta(seconds=float(solved[0]))).astimezone(zone)
-            _, ratios = reach(solved)
-            ratio = float(ratios[0])
-            if -1.0 < ratio < 1.0:
-                sunrise, sunset = ((epoch + datetime.timedelta(seconds=float(moment))).astimezone(zone) for moment in solved[1:])
-                return Ok(cls(noon=noon, light=Daylight(sunrise=sunrise, sunset=sunset)))
-            return Ok(cls(noon=noon, light=Polar.DAY if ratio <= -1.0 else Polar.NIGHT))
+            noon, *crossings = ((epoch + datetime.timedelta(seconds=float(moment))).astimezone(zone) for moment in solved[: 3 if -1.0 < ratio < 1.0 else 1])
         except OverflowError as error:
             return Error((RenderingTimeFault(request=date, error=error),))
+        match crossings:
+            case [sunrise, sunset]:
+                return Ok(cls(noon=noon, light=Daylight(sunrise=sunrise, sunset=sunset)))
+            case _:
+                return Ok(cls(noon=noon, light=Polar.DAY if ratio <= -1.0 else Polar.NIGHT))
 
 
 class SunPaths(msgspec.Struct, frozen=True, kw_only=True, eq=False):

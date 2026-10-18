@@ -13,6 +13,13 @@ utils:
             - kind: statement_block
               not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
               has: {kind: 'return_statement, expression_statement', has: {matches: forwarded}}
+    host-arguments-dropped:
+        inside:
+            kind: arguments
+            inside:
+                kind: call_expression
+                has: {field: function, kind: member_expression, has: {field: property, regex: '^(map|flatMap|filter|forEach|some|every|find|findIndex|findLast|findLastIndex|reduce|reduceRight|replace|replaceAll)$'}}
+        not: {has: {field: parameters, has: {kind: rest_pattern}}}
 rule:
     kind: function_declaration, function_expression, arrow_function, method_definition
     all:
@@ -31,5 +38,6 @@ rule:
         - not: {has: {field: name, pattern: $F}}
         - not: {has: {field: parameters, has: {stopBy: end, kind: identifier, pattern: $F}}}
         - not: {has: {field: parameter, pattern: $F}}
+        - not: {matches: host-arguments-dropped}
 message: 'Function forwards its parameters unchanged to `$F`'
 note: 'Call or pass the callee in place of the function where its callers pass no further arguments'

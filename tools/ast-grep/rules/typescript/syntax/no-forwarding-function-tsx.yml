@@ -2,7 +2,6 @@
 id: no-forwarding-function-tsx
 language: tsx
 severity: error
-ignores: ['plugins/function-hooks/**']
 utils:
     named-callee:
         any:
@@ -74,6 +73,32 @@ utils:
         all: [{pattern: $BODY}, {pattern: '$F($A, $B, $C)'}, {has: {field: function, matches: named-callee}}]
     forwarded-rest:
         all: [{pattern: $BODY}, {pattern: $F(...$A)}, {has: {field: function, matches: named-callee}}]
+    indexed-callback:
+        inside:
+            kind: arguments
+            inside:
+                kind: call_expression
+                has:
+                    field: function
+                    kind: member_expression
+                    all:
+                        - has: {field: property, regex: '^(map|flatMap|filter|filterMap|forEach|some|every|find|findIndex|findLast|findLastIndex|findFirst|reduce|reduceRight|partition|validate|replace|replaceAll)$'}
+                        - any:
+                            - has: {field: object, not: {matches: {effect-module: {name: {regex: '.'}}}}}
+                            - has: {field: object, matches: {effect-module: {name: {regex: '\b(Array|Chunk|Iterable|Record|HashMap)$'}}}}
+                            - all:
+                                - has: {field: property, regex: '^(forEach|filter|filterMap|findFirst|reduce|partition|validate)$'}
+                                - has: {field: object, matches: {effect-module: {name: {regex: '\bEffect$'}}}}
+    host-free-forward:
+        any:
+            - kind: identifier
+            - pattern: '$M.$OP($A, $$$REST)'
+              has: {field: function, matches: dual-operation}
+    host-arguments-dropped:
+        all:
+            - matches: indexed-callback
+            - not: {matches: parameters-rest}
+            - not: {has: {field: body, any: [{matches: host-free-forward}, {kind: statement_block, has: {kind: return_statement, has: {matches: host-free-forward}}}]}}
     single-return:
         kind: statement_block
         not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
@@ -96,5 +121,6 @@ rule:
             - all: [{matches: parameters-2}, {has: {field: body, matches: result-2}}]
             - all: [{matches: parameters-3}, {has: {field: body, matches: result-3}}]
             - all: [{matches: parameters-rest}, {has: {field: body, matches: result-rest}}]
+        - not: {matches: host-arguments-dropped}
 message: 'Function forwards its parameters unchanged into `$BODY`'
 note: 'Pass `<callee>`, `flow(<inner>, <callee>)`, data-last `<Module>.<operation>(<arguments>)`, or `Function.identity` in place of the wrapper when `<callee>` takes no more arguments than its caller passes'

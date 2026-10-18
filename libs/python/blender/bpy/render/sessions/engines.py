@@ -132,7 +132,7 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
         for viewport in self.viewport.to_list():
             updated, drawn = identity.reports.reported(viewport.update), identity.reports.reported(viewport.draw)
 
-            def view_update(engine: bpy.types.RenderEngine, context: bpy.types.Context, depsgraph: bpy.types.Depsgraph) -> None:
+            def view_update(_engine: bpy.types.RenderEngine, context: bpy.types.Context, depsgraph: bpy.types.Depsgraph) -> None:
                 """Translates the viewport update result at its native callback boundary."""
                 return updated(context, depsgraph).to_optional()
 

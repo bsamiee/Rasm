@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-growing-method
+language: rust
+rule:
+    kind: field_identifier
+    regex: '^(push|push_mut|push_back|push_back_mut|push_front|push_front_mut|push_str|insert|insert_mut|insert_str|try_insert|extend|extend_from_slice|extend_from_within|append)$'

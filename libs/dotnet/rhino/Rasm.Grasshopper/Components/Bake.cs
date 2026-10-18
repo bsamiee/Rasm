@@ -99,7 +99,7 @@ public static class BakeOps {
             (previous, geometry, attributes) =>
                 from removed in IO.lift(() => previous.Match(
                     Some: id => Refused.Unless(file.Objects.Delete(id), nameof(File3dmObjectTable.Delete)),
-                    None: static () => Fin.Succ(unit)))
+                    None: static () => unit))
                 from added in IO.lift(() => Conversions.Required(file.Objects.Add(geometry, attributes), nameof(File3dmObjectTable.Add)))
                 select added,
             stale => IO.lift(() => Callbacks.Each(stale, id => file.Objects.Delete(id), nameof(File3dmObjectTable.Delete))),

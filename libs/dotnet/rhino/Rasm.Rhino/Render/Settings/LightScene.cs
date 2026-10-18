@@ -16,9 +16,9 @@ namespace Rasm.Rhino.Render.Settings;
 
 // --- [MODELS] --------------------------------------------------------------------------
 [ValueObject<double>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
-public readonly partial struct MetresPerUnit : System.Numerics.IMinMaxValue<MetresPerUnit> {
-    public static MetresPerUnit MinValue { get; } = new(double.BitIncrement(0d));
-    public static MetresPerUnit MaxValue { get; } = new(double.MaxValue);
+public readonly partial struct MetersPerUnit : System.Numerics.IMinMaxValue<MetersPerUnit> {
+    public static MetersPerUnit MinValue { get; } = new(double.BitIncrement(0d));
+    public static MetersPerUnit MaxValue { get; } = new(double.MaxValue);
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
@@ -69,14 +69,14 @@ internal sealed partial record SceneFile(string Captured, string Key, SceneFile.
     internal sealed record Body(Light[] Lights, Sun Sun, Skylight? Skylight);
 }
 
-[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals)]
+[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase, NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals, RespectNullableAnnotations = true, RespectRequiredConstructorParameters = true)]
 [JsonSerializable(typeof(SceneFile))]
 [JsonSerializable(typeof(SceneFile.Body))]
 internal sealed partial class SceneFileContext : JsonSerializerContext;
 
 public sealed record LightScene(
     Instant Captured,
-    MetresPerUnit Scale,
+    MetersPerUnit Scale,
     Transfer LightTransfer,
     Seq<LightState> Emitters,
     SunState SunState,
@@ -87,7 +87,7 @@ public sealed record LightScene(
     // --- [CAPTURE]
     public static IO<LightScene> Capture(RhinoDoc doc, TimeProvider clock) =>
         from captured in IO.lift(clock.GetCurrentInstant)
-        from scale in IO.lift(() => MetresPerUnit.Validated(Quantities.From(1d, doc.ModelUnits).Meters.ToDouble()))
+        from scale in IO.lift(() => MetersPerUnit.Validated(Quantities.From(1d, doc.ModelUnits).Meters.ToDouble()))
         from transfer in Lights.Gamma(doc)
         from read in Lights.States(doc)
         from _ in unless(read.Fails.IsEmpty, IO.fail<Unit>(Error.Many(read.Fails))).As()
@@ -97,14 +97,11 @@ public sealed record LightScene(
             from moment in SunState.Moment(scope, clock).Read
             from color in IO.lift(() => Sun.ColorFromAltitude(angles.Altitude))
             select (State: state, Angles: angles, Moment: moment, Color: color))
-        from skylight in Skylights(doc)
-        select new LightScene(captured, scale, transfer, read.Succs, sun.State, sun.Angles, sun.Moment, sun.Color, skylight);
-
-    private static IO<Option<SkylightReference>> Skylights(RhinoDoc doc) =>
-        Environments.Current(doc, RenderSettings.EnvironmentUsage.Skylighting).Bind(static environment => environment.Traverse(static lit =>
+        from skylight in Environments.Current(doc, RenderSettings.EnvironmentUsage.Skylighting).Bind(static environment => environment.Traverse(static lit =>
             from gain in Environments.Intensity(lit)
-            from hash in Contents.Hash(lit, CrcRenderHashFlags.Normal, Seq<string>(), None)
-            select new SkylightReference(lit.Id, hash, gain)).As());
+            from hash in Contents.Hash(lit, CrcRenderHashFlags.Normal, [], None)
+            select new SkylightReference(lit.Id, hash, gain)).As())
+        select new LightScene(captured, scale, transfer, read.Succs, sun.State, sun.Angles, sun.Moment, sun.Color, skylight);
 
     // --- [EMISSION]
     private static float[] Emission(LightColor color, Transfer transfer) =>
@@ -137,8 +134,8 @@ public sealed record LightScene(
     private static ContentKey Keyed(SceneFile.Body body) =>
         ContentKey.Of(KeyDomain.Scene, stream => stream.Rows(toSeq(JsonSerializer.SerializeToUtf8Bytes(body, SceneFileContext.Default.Body)), ContentKeys.Integer));
 
-    private SceneFile.Body Body() =>
-        new(
+    private SceneFile.Body Body() {
+        return new(
             [.. Emitters.Map(light => Entry(light, (double)Scale, LightTransfer))],
             new SceneFile.Sun(
                 SunState.Enabled, (double)SunState.Intensity, Decoded(SunColor, LightTransfer),
@@ -148,25 +145,26 @@ public sealed record LightScene(
                 Moment.Map(static moment => moment.ToValue()).ValueUnsafe()),
             Skylight.Map(static reference => new SceneFile.Skylight(reference.Environment, reference.RenderHash, reference.Gain.Map(static gain => (double)gain).ToNullable())).ValueUnsafe());
 
-    private static SceneFile.Light Entry(LightState light, double scale, Transfer transfer) =>
-        new(
-            light.Id, light.Spec.Name.ValueUnsafe(), light.Spec.Enabled, Shape(light.Spec.Shape, scale), Emission(light.Spec.Color, transfer),
-            (double)light.Spec.Watts > 0d ? new SceneFile.Power.Watts((double)light.Spec.Watts) : new SceneFile.Power.Scale((double)light.Spec.Intensity),
-            (double)light.Spec.ShadowIntensity,
-            [light.Spec.AttenuationVector.X, light.Spec.AttenuationVector.Y / scale, light.Spec.AttenuationVector.Z / scale / scale]);
+        static SceneFile.Light Entry(LightState light, double scale, Transfer transfer) =>
+            new(
+                light.Id, light.Spec.Name.ValueUnsafe(), light.Spec.Enabled, Shape(light.Spec.Shape, scale), Emission(light.Spec.Color, transfer),
+                (double)light.Spec.Watts > 0d ? new SceneFile.Power.Watts((double)light.Spec.Watts) : new SceneFile.Power.Scale((double)light.Spec.Intensity),
+                (double)light.Spec.ShadowIntensity,
+                [light.Spec.AttenuationVector.X, light.Spec.AttenuationVector.Y / scale, light.Spec.AttenuationVector.Z / scale / scale]);
 
-    private static SceneFile.Shape Shape(LightShape shape, double scale) =>
-        shape.Switch<double, SceneFile.Shape>(
-            scale,
-            pointLight: static (s, point) => new SceneFile.Shape.PointLight(Metres((Vector3d)point.Location, s), (double)point.Radius * s, point.CameraRelative),
-            spotLight: static (s, spot) => new SceneFile.Shape.SpotLight(
-                Metres((Vector3d)spot.Location, s), Metres(spot.Direction, s), (double)spot.Angle, (double)spot.HotSpot, (double)spot.Radius * s, spot.CameraRelative),
-            directionalLight: static (s, directional) => new SceneFile.Shape.DirectionalLight(
-                Metres((Vector3d)directional.Location, s), Metres(directional.Direction, s), (double)directional.Angle, directional.CameraRelative),
-            linearLight: static (s, linear) => new SceneFile.Shape.LinearLight(Metres((Vector3d)linear.Location, s), Metres(linear.Length, s), Metres(linear.Width, s)),
-            rectangularLight: static (s, rectangle) => new SceneFile.Shape.RectangularLight(
-                Metres((Vector3d)rectangle.Location, s), Metres(rectangle.Length, s), Metres(rectangle.Width, s), Metres(rectangle.Direction, s)),
-            ambientLight: static (_, _) => new SceneFile.Shape.AmbientLight());
+        static SceneFile.Shape Shape(LightShape shape, double scale) =>
+            shape.Switch<double, SceneFile.Shape>(
+                scale,
+                pointLight: static (s, point) => new SceneFile.Shape.PointLight(Meters((Vector3d)point.Location, s), (double)point.Radius * s, point.CameraRelative),
+                spotLight: static (s, spot) => new SceneFile.Shape.SpotLight(
+                    Meters((Vector3d)spot.Location, s), Meters(spot.Direction, s), (double)spot.Angle, (double)spot.HotSpot, (double)spot.Radius * s, spot.CameraRelative),
+                directionalLight: static (s, directional) => new SceneFile.Shape.DirectionalLight(
+                    Meters((Vector3d)directional.Location, s), Meters(directional.Direction, s), (double)directional.Angle, directional.CameraRelative),
+                linearLight: static (s, linear) => new SceneFile.Shape.LinearLight(Meters((Vector3d)linear.Location, s), Meters(linear.Length, s), Meters(linear.Width, s)),
+                rectangularLight: static (s, rectangle) => new SceneFile.Shape.RectangularLight(
+                    Meters((Vector3d)rectangle.Location, s), Meters(rectangle.Length, s), Meters(rectangle.Width, s), Meters(rectangle.Direction, s)),
+                ambientLight: static (_, _) => new SceneFile.Shape.AmbientLight());
 
-    private static double[] Metres(Vector3d model, double scale) => [model.X * scale, model.Y * scale, model.Z * scale];
+        static double[] Meters(Vector3d model, double scale) => [model.X * scale, model.Y * scale, model.Z * scale];
+    }
 }

@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-change-count-read
+language: sql
+severity: error
+rule:
+    kind: function_call
+    pattern: _CALL
+    has: {field: name, regex: '(?i)^(changes|total_changes|last_insert_rowid)$'}
+message: '`$CALL` reads in a later statement what an earlier write did'
+note: 'Return written rows through `returning <columns>` on the write, an empty result means no row changed'

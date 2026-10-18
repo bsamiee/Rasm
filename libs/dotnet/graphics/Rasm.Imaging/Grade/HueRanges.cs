@@ -240,7 +240,7 @@ public sealed record HueIsolation(HueRange Range) : IStateRecord<HueIsolation, H
         color => Range.Membership(Hsy.From(color)) switch {
             1f => color,
             var membership => ((1d - membership) * LuminanceSamples.Luminance(color.X, color.Y, color.Z, luminance)) switch {
-                var grey => new((float)(grey + (membership * (double)color.X)), (float)(grey + (membership * (double)color.Y)), (float)(grey + (membership * (double)color.Z)), color.W),
+                var gray => new((float)(gray + (membership * (double)color.X)), (float)(gray + (membership * (double)color.Y)), (float)(gray + (membership * (double)color.Z)), color.W),
             },
         };
 

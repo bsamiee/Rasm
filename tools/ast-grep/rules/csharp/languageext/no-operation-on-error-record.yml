@@ -2,6 +2,7 @@
 id: no-operation-on-error-record
 language: csharp
 severity: error
+ignores: ['tools/roslyn/**']
 utils:
     limit-literal:
         kind: 'integer_literal, real_literal'

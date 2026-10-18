@@ -120,7 +120,7 @@ class Aberration(Effect, frozen=True, kw_only=True, tag=26):
         across = 2.0 * waves - 1.0
         weights = np.stack((np.maximum(-across, 0.0), 1.0 - np.abs(across), np.maximum(across, 0.0)), axis=-1)
         weights /= weights.sum(axis=0)
-        return tuple(zip((-0.25 * across).tolist(), msgspec.convert(weights.tolist(), tuple[Rgb, ...]), strict=True))
+        return tuple(zip((-0.25 * across).tolist(), msgspec.convert(weights.tolist(), tuple[Rgb, ...])))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

@@ -49,7 +49,7 @@ public sealed record CdlState(
     public static Fin<IterableNE<(Option<string> Id, CdlState State)>> Read(string text) =>
         Try.lift(() => XDocument.Parse(text)).Run()
             .MapFail(static error => error.Exception.Case is XmlException xml ? Errors.ParseError($"CDL text is unreadable: {xml.Message}") : error)
-            .Bind(static document => toSeq(document.Descendants()).Filter(static element => string.Equals(element.Name.LocalName, CorrectionNode, StringComparison.Ordinal))
+            .Bind(static document => toSeq(document.Descendants()).Filter(static element => element.Name.LocalName is CorrectionNode)
                 .Traverse(static correction => Corrected(correction).Map(state => (Optional(correction.Attribute(IdAttribute)?.Value), state))).As())
             .Bind(static corrections => corrections.AsIterableNE().ToFin(Errors.ParseError($"CDL text holds no {CorrectionNode}")));
 

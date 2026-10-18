@@ -1,15 +1,18 @@
 # --- [PACKAGE] --------------------------------------------------------------------------
 
+# --- [IDENTITY]
 [package]
 name              = "lints"
 edition.workspace = true
 publish           = false
 
+# --- [RUST_ANALYZER]
 [package.metadata.rust-analyzer]
 rustc_private = true
 
-# --- [LIB] ------------------------------------------------------------------------------
+# --- [TARGETS] --------------------------------------------------------------------------
 
+# --- [LIB]
 [lib]
 path       = "lib.rs"
 crate-type = ["cdylib"]
@@ -17,8 +20,7 @@ test       = false
 doctest    = false
 bench      = false
 
-# --- [EXAMPLES] -------------------------------------------------------------------------
-
+# --- [EXAMPLE]
 [[example]]
 name       = "foreign_error_return"
 crate-type = ["lib"]
@@ -40,7 +42,7 @@ name       = "optional_channel_sender_exported"
 crate-type = ["lib"]
 
 [[example]]
-name       = "single_caller_exported"
+name       = "single_reader_exported"
 crate-type = ["lib"]
 
 [[example]]
@@ -58,12 +60,15 @@ workspace = true
 
 # --- [DEPENDENCIES] ---------------------------------------------------------------------
 
+# --- [RUNTIME]
 [dependencies]
 clippy_utils   = { workspace = true }
 derive-where   = { workspace = true }
 dylint_linting = { workspace = true }
 itertools      = { workspace = true }
+strum          = { workspace = true }
 
+# --- [TESTING]
 [dev-dependencies]
 anyhow               = { workspace = true }
 cargo_metadata       = { workspace = true }
@@ -80,7 +85,6 @@ rmcp                 = { workspace = true }
 serde                = { workspace = true }
 serde_json           = { workspace = true }
 serde_path_to_error  = { workspace = true }
-strum                = { workspace = true }
 thiserror            = { workspace = true }
 tokio                = { workspace = true }
 tokio-stream         = { workspace = true }

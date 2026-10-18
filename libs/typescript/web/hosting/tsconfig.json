@@ -2,6 +2,6 @@
     "extends": "../../../../tsconfig.base.json",
     "compilerOptions": {
         "lib": [ "esnext", "dom" ],
-        "types": [ "@cloudflare/workers-types" ]
+        "types": [ "node", "./.cloudflare/types", "@cloudflare/vitest-plugin/types" ]
     }
 }

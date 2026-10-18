@@ -102,10 +102,10 @@ public sealed record FilmDamage(
 
     private static Func<long, long, (float Coverage, float Value)> Scratch(FilmDamage state, PixelExtent extent, Clock clock, uint field) {
         ERational count = ERational.FromSingle(state.ScratchCount);
-        ERational lane = ERational.FromSingle(clock).Multiply(ERational.FromSingle(state.ScratchRate));
+        ERational drift = ERational.FromSingle(clock).Multiply(ERational.FromSingle(state.ScratchRate));
         double width = state.ScratchWidth.Pixels(extent);
         (uint sites, uint tones) = (CoordinateHash.Branch(field, 0u), CoordinateHash.Branch(field, 1u));
-        return (column, _) => NoiseFunctions.F1(ERational.Create((2L * column) + 1 - extent.Width, 2L * extent.Width).Multiply(count), lane, Cellular.Default, sites) switch {
+        return (column, _) => NoiseFunctions.F1(ERational.Create((2L * column) + 1 - extent.Width, 2L * extent.Width).Multiply(count), drift, Cellular.Default, sites) switch {
             var feature => ShapeEdge.Strip(feature.Delta.X.Abs().Divide(count).Multiply(extent.Width).ToDouble(), width, 1d) switch {
                 var coverage => (coverage, CoordinateHash.Uniforms(feature.Cell.X, feature.Cell.Y, tones).X < state.Scratches.White ? coverage : 0f),
             },
@@ -116,7 +116,7 @@ public sealed record FilmDamage(
         (double pixels, double width) = (state.HairLength.Pixels(extent), state.HairWidth.Pixels(extent));
         ERational length = ERational.FromSingle(state.HairLength).Multiply(extent.ShortSide);
         ERational curl = ERational.FromSingle(state.HairCurl);
-        ERational lane = ERational.FromSingle(clock).Multiply(ERational.FromSingle(state.HairRate));
+        ERational drift = ERational.FromSingle(clock).Multiply(ERational.FromSingle(state.HairRate));
         double share = state.HairCount * pixels * pixels / ((double)extent.Width * extent.Height);
         (uint across, uint down, uint sites, uint tones, uint strands) =
             (CoordinateHash.Branch(field, 0u), CoordinateHash.Branch(field, 1u), CoordinateHash.Branch(field, 2u), CoordinateHash.Branch(field, 3u), CoordinateHash.Branch(field, 4u));
@@ -124,7 +124,7 @@ public sealed record FilmDamage(
             LatticePoint strand = new(ERational.Create((2L * column) + 1 - extent.Width, 2).Divide(length),
                 ERational.Create((2L * line) + 1 - extent.Height, 2).Divide(length), ERational.Zero, ERational.Zero);
             LatticePoint bent = new(strand.X.Add(curl.Multiply(ERational.FromSingle(NoiseDimensions.Two.Fbm(strand, Octaves.Default, across)))),
-                strand.Y.Add(curl.Multiply(ERational.FromSingle(NoiseDimensions.Two.Fbm(strand, Octaves.Default, down)))), lane, ERational.Zero);
+                strand.Y.Add(curl.Multiply(ERational.FromSingle(NoiseDimensions.Two.Fbm(strand, Octaves.Default, down)))), drift, ERational.Zero);
             (float Value, float EdgeDistance, LatticeCell Cell) = NoiseDimensions.Three.Voronoi(bent, Cellular.Default, sites);
             Vector4 cell = NoiseFunctions.White(Cell, tones);
             float edge = ShapeEdge.Strip(EdgeDistance * pixels, width, 1d);

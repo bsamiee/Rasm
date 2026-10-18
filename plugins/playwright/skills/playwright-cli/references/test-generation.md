@@ -1,92 +1,105 @@
 # [TEST_GENERATION]
 
-Native planner, generator, and healer roles use the owning suite's config, fixtures, and evidence.
+Planner, generator, and healer agents drive the `playwright-test` server over the suite projects of the test MCP config.
 
-## [01]-[ASSIGNMENT]
+## [01]-[SERVER]
 
-Dispatch names application, config/project, scenarios, writable files, session, application-state scope, and artifact destination.
+Server loads `tests/typescript/playwright.config.ts`, one project per `tests/typescript/e2e-<app>` directory, named after it with `testDir` at it:
+- Tools take no config, `project` of a setup tool, `projects` and `locations` of `test_run`, and the test id of `test_debug` select a suite
+- `project` names a `projects[].name`, the first top-level project without it, a missing name fails `Project <name> not found`
+- `seedFile` resolves against the project's `testDir`, the config directory, then the client root, a miss fails `seed test not found.`
+- Setup without `seedFile` takes the project's first test file with `seed` in its name, or writes `<testDir>/seed.spec.ts` with one empty test
+- Suite fixtures start one app instance per worker and set `baseURL`, a setup or debug run starts its own instance
+- Setup tools and `test_debug` run one headless worker with no test timeout
+- Setup pauses the seed at its end, `### Paused at end of test. ready for interaction` and `### Page state` holding URL, title, and snapshot
+- Setup results ending `Error: seed test not found.` or `Error while running the seed test.` hold no page
+- Action, assertion, and input tools require `intent`, read tools take none
+- `browser_navigate` takes an absolute URL, a path without a scheme gains `https://`
+- `browser_wait_for` with `text` or `textGone` waits up to the suite's `actionTimeout`, `time` in seconds up to 30 bounds it or waits alone
 
-- Read the config, assigned plan, seed, imported fixtures, and related tests before browser work
-- One generator owns a complete feature file; `generator_write_test` replaces that file
-- Keep one active Test MCP investigation per process, including inherited subagent connections
-- Named CLI sessions isolate browsers, not application data; serialize replays that share configured runtime storage
-- Portfolio replays serialize per checkout, including read-only selections
-- Every browser launch stays headless through CLI, MCP, and suite configuration
+Each Streamable HTTP session to the server holds its own test runner, paused test, and generator log:
+- Calls of one session queue, each setup, `test_list`, `test_run`, and `test_debug` releases the session's paused test first
+- Plugin agents of one Claude Code session share its server session and run one at a time
+- Sessions share the server process, its stdout capture and environment, and each project's `outputDir` a run clears at its start
 
-Use `playwright-tests.md` for replay and debugging, `session-management.md` for CLI session ownership.
+Paused tests serve `browser_*` tools under the config `{ capabilities: ["testing"] }`, which no `PLAYWRIGHT_MCP_*` variable reaches:
+- Unnamed outputs (action snapshots as `page-<stamp>.yml`, screenshots without `filename`) go to `.playwright-mcp/` of the client root
+- `filename` resolves against the client root and must sit inside it
+- `browser_take_screenshot` with `filename` writes the file and returns no image
 
 ## [02]-[PLANNING]
 
-Call `planner_setup_page` with the selected `seedFile` and `project`, then explore observed behavior through native browser tools.
+Plans sit at `<testDir>/specs/<name>.plan.md` and name each test file at `<testDir>/<suite>/<test>.spec.ts`, both relative to the client root:
+- `planner_save_plan` with an absolute or escaping `fileName` fails `Plan file name must be a relative path inside the workspace: <fileName>`
+- `suites` hold `name`, `seedFile`, and `tests`, each test `name`, `file`, and `steps`, each step an optional `perform` and an `expect` list
+- Generators take each suite's `**Seed:**` line as every scenario's seed
 
-- Seed and fixture source establish initial navigation, authentication, and state
-- `browser_snapshot` supplies roles, names, states, and transient refs
-- Named screenshots supply visual facts absent from snapshots
-- Console and network tools expose failures and requests around each action
-- `browser_evaluate` reads page values; `browser_run_code_unsafe` runs an `async (page) => {}` function in the test process
-- Actions and evaluations supply `intent` describing their purpose
-- `browser_tabs` with `action: "list"` identifies the current page
+Saved plans hold this form, a step without `perform` reading `-`:
 
-Scenarios describe independent user journeys with observable expected outcomes:
+```text
+# <name>
 
+## Application Overview
+
+<overview>
+
+## Test Scenarios
+
+### 1. <suite>
+
+**Seed:** `<seedFile>`
+
+#### 1.1. <test>
+
+**File:** `<file>`
+
+**Steps:**
+  1. <perform>
+    - expect: <expect>
+```
+
+Scenarios describe independent user journeys with observable outcomes:
 - Forms, buttons, lists, filters, menus, and dialogs
 - Empty states, validation, long input, and boundary values
 - Persistence across reload, storage, and navigation
 - Keyboard, focus, responsive, visual, and accessibility behavior
 
-Submit transient plans through `planner_submit_plan`. Use `planner_save_plan` when generation or maintenance consumes a Markdown file.
+## [03]-[TEST_FILES]
 
-- Plan fields are `overview` and `suites`; saved plans add `name` and workspace-relative `fileName`
-- Suites name `seedFile` and `tests`; tests name their feature `file`, scenario `name`, and `steps`
-- Steps hold optional `perform` and expected outcomes in `expect`
-- Test files stay beneath the config's `testDir`, with paths relative to workspace root
-- Preserve evidence selected for delivery and release the paused runner through `test_list`
-
-## [03]-[GENERATION]
-
-Run every assigned scenario through the server before writing its feature file:
-
-1. Call `generator_setup_page` with the scenario's `plan`, `seedFile`, and selected `project`
-2. Execute each step with a current snapshot ref and its step text as `intent`
-3. Record assertions through the appropriate `browser_verify_*` tool
-4. Read `generator_read_log` after the last verification
-5. Write the complete owned file through `generator_write_test`
-6. Preserve selected evidence, call `test_list`, then replay through the suite's native command
-
-- Setup opens the generator journal before running its seed; reading a log before setup fails
-- Journal records seed source and successful action/assertion code beneath each `intent`
-- List verification records `toMatchAriaSnapshot`; text verification records visible matching elements
-- `fileName` is workspace-relative and must fall within a configured `testDir`
-- Scenario and suite names come from the plan without ordinals
-- Import the fixture required by the test; native `@playwright/test` suits tests that navigate or mount themselves
-- Use web-first assertions and semantic locators; a locator read twice takes one local variable
-- Group related scenarios in one feature file, adding `test.describe` only for shared suite behavior
+Generated files hold one `test.describe` named for the suite and one test named for the scenario, both without ordinals:
+- `generator_setup_page` opens the log with `plan` before it runs the seed, `generator_read_log` before setup fails `Please setup page using "generator_setup_page" first.`
+- Log holds `# Plan`, `# Seed file: <path>` relative to the client root with the seed source, `# Steps`, then `# Best practices`
+- `# Steps` holds one `### <intent>` heading and `ts` fence per call that ran without error
+- `browser_verify_list_visible` records `toMatchAriaSnapshot` over `page.locator('body')` with a `- list:` of the items
+- `browser_verify_text_visible` records `toBeVisible()` on visible elements containing `text` in any case
+- Locators and assertions come from the log as recorded, a locator read twice takes one local variable
+- Files import `test` from the module the seed imports it from, the fixture opening the page and setting `baseURL`
+- `generator_write_test` replaces the whole file, a `fileName` outside every project's `testDir` fails `Test file did not match any of the test dirs: <dirs>`
 
 ## [04]-[HEALING]
 
-Use `test_list` to select test IDs, then `test_run` for the assigned locations and projects.
+`test_list` prints one `[id=<id>] [project=<name>] › <file>:<line>:<column> › <title>` row per test, `<file>` relative to `tests/typescript/`, the config directory:
+- `test_run` takes `locations` as a folder, a file, or `file:line`, and `projects` as `projects[].name` entries, every project without them
+- `test_run` prints each failure with its id, error, call log, and source lines, then `<n> failed` with the failing rows and `<n> passed`
+- `test_debug` runs one test by id with a 5 second action timeout and pauses at the first error
+- Debug results hold `### Paused on error:` with each error, then `### Page state` with URL, title, logged console errors, and snapshot
+- Passing tests under `test_debug` return their pass row with no page
 
-1. Read each failing spec and use `test_debug` with its listed `id` and `title`
-2. Inspect the paused snapshot, console messages, and requests around the failure
-3. Correct the demonstrated cause within assigned source ownership
-4. Release the paused runner with `test_list`, then replay the corrected scope
-5. Update a consumed plan when user-visible steps or outcomes changed
+Failures take the correction their cause decides:
 
-- `test_run` accepts folders, files, and `file:line` locations, with native project names
-- `test_debug` pauses on the first error with a five-second action timeout; a passing debug run leaves no page
-- `browser_generate_locator` derives a locator from a current snapshot ref
-- Network request indices select recorded headers or bodies; console reads can include messages since test start
-- Locator, timing, data isolation, environment, and product defects need different corrections
-- Product defects remain failing tests; attempt counts do not justify `test.fixme()` or skipped assertions
-- Report findings outside assigned source ownership with retained evidence
+| [INDEX] | [CAUSE]        | [CORRECTION]                                                    |
+| :-----: | :------------- | :-------------------------------------------------------------- |
+|  [01]   | Locator        | Locator `browser_generate_locator` derives from the paused page |
+|  [02]   | Timing         | Web-first assertion on the state the page reaches               |
+|  [03]   | Data isolation | Test state the test creates through its own fixture             |
+|  [04]   | Environment    | Fixture or suite config line that serves the app                |
+|  [05]   | Product defect | Test stays failing, the report holds the paused page evidence   |
+
+Plans a test came from change with the steps and outcomes a correction changed.
 
 ## [05]-[EVIDENCE]
 
-Test MCP setup, debug, and replay disable configured reporters. An ordinary suite replay supplies the retained report.
-
-- Finish tracing and recording before closing their producer
-- `test_list` stops the paused runner and completes teardown before ordinary replay clears configured output
-- Await replay exit and server shutdown before retaining reports or deleting disposable task output
-- Keep complete HTML reports with attachments and `open: 'never'`
-- Return replay result, changed files, and retained evidence paths
-- Close only the assigned CLI session; persistent profiles use native `delete-data`
+Server runs disable config reporters, an ordinary run `playwright test -c tests/typescript/e2e-<app>` writes the retained report:
+- Suite runs write outputs under `.artifacts/playwright-test/e2e-<app>` and HTML reports under `.artifacts/playwright-report/e2e-<app>`, server runs write outputs under `.artifacts/playwright-test/typescript`
+- Failed tests keep `trace.zip` with DOM, aria, and screen snapshots, read through playwright-trace
+- `test_list` releases the paused test before an ordinary run of its suite clears the `outputDir` the paused test writes

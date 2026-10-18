@@ -26,40 +26,42 @@ public readonly partial struct Tint : IMinMaxValue<Tint> {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref double value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
-[SmartEnum]
+[SmartEnum<string>]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
 public sealed partial class StandardIlluminant {
-    public static readonly StandardIlluminant A = new(2856d, 0d);
-    public static readonly StandardIlluminant B = new(4873d, -0.001267d);
-    public static readonly StandardIlluminant C = new(6774d, -0.002133d);
-    public static readonly StandardIlluminant D50 = new(5002d, 0.0032d);
-    public static readonly StandardIlluminant D55 = new(5501d, 0.003333d);
-    public static readonly StandardIlluminant D65 = new(6502d, 0.003267d);
-    public static readonly StandardIlluminant D75 = new(7506d, 0.0032d);
-    public static readonly StandardIlluminant D93 = new(9298d, 0.003167d);
-    public static readonly StandardIlluminant E = new(5454d, -0.004333d);
-    public static readonly StandardIlluminant F1 = new(6424d, 0.007267d);
-    public static readonly StandardIlluminant F2 = new(4225d, 0.001967d);
-    public static readonly StandardIlluminant F3 = new(3447d, 0.000833d);
-    public static readonly StandardIlluminant F4 = new(2940d, -0.000667d);
-    public static readonly StandardIlluminant F5 = new(6342d, 0.0109d);
-    public static readonly StandardIlluminant F6 = new(4148d, 0.0062d);
-    public static readonly StandardIlluminant F7 = new(6489d, 0.003333d);
-    public static readonly StandardIlluminant F8 = new(4995d, 0.003233d);
-    public static readonly StandardIlluminant F9 = new(4147d, 0.0001d);
-    public static readonly StandardIlluminant F10 = new(4991d, 0.0037d);
-    public static readonly StandardIlluminant F11 = new(4001d, 0.000167d);
-    public static readonly StandardIlluminant F12 = new(3002d, 0.0002d);
-    public static readonly StandardIlluminant LedB1 = new(2733d, -0.000667d);
-    public static readonly StandardIlluminant LedB2 = new(2997d, -0.000933d);
-    public static readonly StandardIlluminant LedB3 = new(4103d, -0.0006d);
-    public static readonly StandardIlluminant LedB4 = new(5108d, 0.000533d);
-    public static readonly StandardIlluminant LedB5 = new(6598d, 0.0009d);
-    public static readonly StandardIlluminant LedBh1 = new(2852d, -0.0003d);
-    public static readonly StandardIlluminant LedRgb1 = new(2840d, 0.004267d);
-    public static readonly StandardIlluminant LedV1 = new(3079d, 0.0163d);
-    public static readonly StandardIlluminant LedV2 = new(4070d, 0.0011d);
+    public static readonly StandardIlluminant A = new("A", 2856d, 0d);
+    public static readonly StandardIlluminant B = new("B", 4873d, -0.001267d);
+    public static readonly StandardIlluminant C = new("C", 6774d, -0.002133d);
+    public static readonly StandardIlluminant D50 = new("D50", 5002d, 0.0032d);
+    public static readonly StandardIlluminant D55 = new("D55", 5501d, 0.003333d);
+    public static readonly StandardIlluminant D65 = new("D65", 6502d, 0.003267d);
+    public static readonly StandardIlluminant D75 = new("D75", 7506d, 0.0032d);
+    public static readonly StandardIlluminant D93 = new("D93", 9298d, 0.003167d);
+    public static readonly StandardIlluminant E = new("E", 5454d, -0.004333d);
+    public static readonly StandardIlluminant F1 = new("F1", 6424d, 0.007267d);
+    public static readonly StandardIlluminant F2 = new("F2", 4225d, 0.001967d);
+    public static readonly StandardIlluminant F3 = new("F3", 3447d, 0.000833d);
+    public static readonly StandardIlluminant F4 = new("F4", 2940d, -0.000667d);
+    public static readonly StandardIlluminant F5 = new("F5", 6342d, 0.0109d);
+    public static readonly StandardIlluminant F6 = new("F6", 4148d, 0.0062d);
+    public static readonly StandardIlluminant F7 = new("F7", 6489d, 0.003333d);
+    public static readonly StandardIlluminant F8 = new("F8", 4995d, 0.003233d);
+    public static readonly StandardIlluminant F9 = new("F9", 4147d, 0.0001d);
+    public static readonly StandardIlluminant F10 = new("F10", 4991d, 0.0037d);
+    public static readonly StandardIlluminant F11 = new("F11", 4001d, 0.000167d);
+    public static readonly StandardIlluminant F12 = new("F12", 3002d, 0.0002d);
+    public static readonly StandardIlluminant LedB1 = new("LED-B1", 2733d, -0.000667d);
+    public static readonly StandardIlluminant LedB2 = new("LED-B2", 2997d, -0.000933d);
+    public static readonly StandardIlluminant LedB3 = new("LED-B3", 4103d, -0.0006d);
+    public static readonly StandardIlluminant LedB4 = new("LED-B4", 5108d, 0.000533d);
+    public static readonly StandardIlluminant LedB5 = new("LED-B5", 6598d, 0.0009d);
+    public static readonly StandardIlluminant LedBh1 = new("LED-BH1", 2852d, -0.0003d);
+    public static readonly StandardIlluminant LedRgb1 = new("LED-RGB1", 2840d, 0.004267d);
+    public static readonly StandardIlluminant LedV1 = new("LED-V1", 3079d, 0.0163d);
+    public static readonly StandardIlluminant LedV2 = new("LED-V2", 4070d, 0.0011d);
 
-    private StandardIlluminant(double kelvin, double duv) : this(ColorTemperature.Create(kelvin), Tint.Create(duv)) { }
+    private StandardIlluminant(string key, double kelvin, double duv) : this(key, ColorTemperature.Create(kelvin), Tint.Create(duv)) { }
 
     public ColorTemperature Temperature { get; }
     public Tint Tint { get; }

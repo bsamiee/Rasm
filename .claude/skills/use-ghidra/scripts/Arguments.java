@@ -16,7 +16,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.BiFunction;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
@@ -28,13 +27,13 @@ import java.util.stream.Stream;
 final class Arguments {
     // --- [OPERANDS]
 
-    private static final Pattern COUNT = Pattern.compile("\\d{1,9}");
-
     enum Setting {
         CALLERS("depth", 0, 0),
         CALLEES("depth", 0, 0),
         TIMEOUT("seconds", DecompileOptions.SUGGESTED_DECOMPILE_TIMEOUT_SECS, 1),
         PAYLOAD("megabytes", DecompileOptions.SUGGESTED_MAX_PAYLOAD_BYTES, 1);
+
+        private static final Pattern COUNT = Pattern.compile("\\d{1,9}");
 
         final String unit;
         final int defaultValue;
@@ -57,30 +56,131 @@ final class Arguments {
         String usage() {
             return "[%s<%s>]".formatted(key(), unit);
         }
+
+        static Optional<Setting> of(String argument) {
+            return Arrays.stream(values())
+                    .filter(setting -> argument.startsWith(setting.key()))
+                    .findFirst();
+        }
+
+        Report.Result<Operand> assign(String argument, String script, Set<Setting> accepted) {
+            return accepted.contains(this)
+                    ? Optional.of(argument.substring(key().length()))
+                            .filter(COUNT.asMatchPredicate())
+                            .map(Integer::valueOf)
+                            .filter(count -> count >= minimum)
+                            .<Report.Result<Operand>>map(
+                                    count -> new Report.Success<>(new SettingValue(this, count)))
+                            .orElseGet(
+                                    () ->
+                                            new Report.Failure<>(
+                                                    "Setting `%s` takes an integer from %d"
+                                                            .formatted(argument, minimum)))
+                    : new Report.Failure<>(
+                            "Script `%s` takes no setting `%s`".formatted(script, label()));
+        }
     }
 
     enum Seed {
-        ADDRESS("0x", "<hex>", Arguments::containing),
-        REGEX("re:", "<regex>", Arguments::matching),
-        STRING("str:", "<needle>", Arguments::referencing),
-        TAG("tag:", "<tag>", Arguments::tagged),
-        NAME("", "<name> | <namespace>::<name>", Arguments::named);
+        ADDRESS("0x", "<hex>") {
+            @Override
+            Report.Result<List<Function>> find(String hex, Program program) {
+                return Optional.ofNullable(program.getAddressFactory().getAddress(hex))
+                        .<Report.Result<List<Function>>>map(
+                                address ->
+                                        new Report.Success<>(
+                                                Stream.ofNullable(
+                                                                program.getFunctionManager()
+                                                                        .getFunctionContaining(
+                                                                                address))
+                                                        .toList()))
+                        .orElseGet(() -> new Report.Failure<>("names no address"));
+            }
+        },
+        REGEX("re:", "<regex>") {
+            @Override
+            Report.Result<List<Function>> find(String regex, Program program) {
+                try {
+                    return new Report.Success<>(
+                            named(Pattern.compile(regex).asPredicate(), program));
+                } catch (PatternSyntaxException exception) {
+                    return new Report.Failure<>("fails to compile: " + exception.getDescription());
+                }
+            }
+        },
+        STRING("str:", "<needle>") {
+            @Override
+            Report.Result<List<Function>> find(String needle, Program program) {
+                String lowercase = needle.toLowerCase(Locale.ROOT);
+                Predicate<Data> holdsNeedle =
+                        data ->
+                                StringDataInstance.isString(data)
+                                        && data.getValue() instanceof String value
+                                        && value.toLowerCase(Locale.ROOT).contains(lowercase);
+                return new Report.Success<>(
+                        CollectionUtils.asStream(
+                                        DefinedDataIterator.byDataInstance(program, holdsNeedle))
+                                .flatMap(Functions::referrers)
+                                .distinct()
+                                .toList());
+            }
+        },
+        TAG("tag:", "<tag>") {
+            @Override
+            Report.Result<List<Function>> find(String name, Program program) {
+                return program.getFunctionManager().getFunctionTagManager().getFunctionTag(name)
+                                instanceof FunctionTag tag
+                        ? new Report.Success<>(
+                                Functions.internal(program)
+                                        .filter(function -> function.getTags().contains(tag))
+                                        .toList())
+                        : new Report.Failure<>("names no function tag");
+            }
+        },
+        NAME("", "<name> | <namespace>::<name>") {
+            @Override
+            Report.Result<List<Function>> find(String name, Program program) {
+                return new Report.Success<>(named(name::equals, program));
+            }
+        };
 
         final String prefix;
         final String placeholder;
-        final BiFunction<String, Program, Report.Result<List<Function>>> resolver;
 
-        Seed(
-                String prefix,
-                String placeholder,
-                BiFunction<String, Program, Report.Result<List<Function>>> resolver) {
+        Seed(String prefix, String placeholder) {
             this.prefix = prefix;
             this.placeholder = placeholder;
-            this.resolver = resolver;
         }
+
+        abstract Report.Result<List<Function>> find(String text, Program program);
 
         String usage() {
             return prefix + placeholder;
+        }
+
+        static Report.Result<Operand> resolve(String seed, Program program) {
+            Seed form =
+                    Arrays.stream(values())
+                            .filter(each -> seed.startsWith(each.prefix))
+                            .findFirst()
+                            .orElseThrow();
+            return switch (form.find(seed.substring(form.prefix.length()), program)) {
+                case Report.Success<List<Function>>(List<Function> found) when found.isEmpty() ->
+                        new Report.Failure<>("Seed `%s` matches no function".formatted(seed));
+                case Report.Success<List<Function>>(List<Function> found) ->
+                        new Report.Success<>(new SeedMatch(found));
+                case Report.Failure<List<Function>>(String cause) ->
+                        new Report.Failure<>("Seed `%s` %s".formatted(seed, cause));
+            };
+        }
+
+        private static List<Function> named(Predicate<String> test, Program program) {
+            return Functions.internal(program)
+                    .filter(
+                            function ->
+                                    test.test(function.getName(true))
+                                            || test.test(function.getName()))
+                    .toList();
         }
     }
 
@@ -143,11 +243,19 @@ final class Arguments {
         }
         List<String> arguments = Arrays.asList(args).subList(1, args.length);
         Stream<Report.Result<Operand>> missing =
-                arguments.stream().allMatch(argument -> setting(argument).isPresent())
+                arguments.stream().map(Setting::of).allMatch(Optional::isPresent)
                         ? Stream.of(new Report.Failure<>("Arguments name no seed"))
                         : Stream.empty();
         Stream<Report.Result<Operand>> resolved =
-                arguments.stream().map(argument -> operand(argument, script, accepted, program));
+                arguments.stream()
+                        .map(
+                                argument ->
+                                        Setting.of(argument)
+                                                .map(
+                                                        setting ->
+                                                                setting.assign(
+                                                                        argument, script, accepted))
+                                                .orElseGet(() -> Seed.resolve(argument, program)));
         List<Operand> operands = values(Stream.concat(resolved, missing).toList(), usage);
         Stream<SettingValue> defaults =
                 accepted.stream().map(setting -> new SettingValue(setting, setting.defaultValue));
@@ -161,111 +269,5 @@ final class Arguments {
                                         () -> new EnumMap<>(Setting.class)));
         List<Function> seeds = operands.stream().flatMap(Operand::seeds).distinct().toList();
         return new Request(Path.of(args[0]), seeds, settings, String.join(" ", arguments));
-    }
-
-    private static Optional<Setting> setting(String argument) {
-        return Arrays.stream(Setting.values())
-                .filter(setting -> argument.startsWith(setting.key()))
-                .findFirst();
-    }
-
-    private static Report.Result<Operand> operand(
-            String argument, String script, Set<Setting> accepted, Program program) {
-        return setting(argument)
-                .map(setting -> assign(setting, argument, script, accepted))
-                .orElseGet(() -> resolve(argument, program));
-    }
-
-    private static Report.Result<Operand> assign(
-            Setting setting, String argument, String script, Set<Setting> accepted) {
-        Optional<Integer> value =
-                Optional.of(argument.substring(setting.key().length()))
-                        .filter(COUNT.asMatchPredicate())
-                        .map(Integer::valueOf)
-                        .filter(count -> count >= setting.minimum);
-        return accepted.contains(setting)
-                ? value.<Report.Result<Operand>>map(
-                                count -> new Report.Success<>(new SettingValue(setting, count)))
-                        .orElseGet(
-                                () ->
-                                        new Report.Failure<>(
-                                                "Setting `%s` takes an integer from %d"
-                                                        .formatted(argument, setting.minimum)))
-                : new Report.Failure<>(
-                        "Script `%s` takes no setting `%s`".formatted(script, setting.label()));
-    }
-
-    // --- [SEEDS]
-
-    private static Report.Result<Operand> resolve(String seed, Program program) {
-        Seed form =
-                Arrays.stream(Seed.values())
-                        .filter(each -> seed.startsWith(each.prefix))
-                        .findFirst()
-                        .orElseThrow();
-        return switch (form.resolver.apply(seed.substring(form.prefix.length()), program)) {
-            case Report.Success<List<Function>>(List<Function> found) when found.isEmpty() ->
-                    new Report.Failure<>("Seed `%s` matches no function".formatted(seed));
-            case Report.Success<List<Function>>(List<Function> found) ->
-                    new Report.Success<>(new SeedMatch(found));
-            case Report.Failure<List<Function>>(String cause) ->
-                    new Report.Failure<>("Seed `%s` %s".formatted(seed, cause));
-        };
-    }
-
-    private static Report.Result<List<Function>> containing(String hex, Program program) {
-        return Optional.ofNullable(program.getAddressFactory().getAddress(hex))
-                .<Report.Result<List<Function>>>map(
-                        address ->
-                                new Report.Success<>(
-                                        Stream.ofNullable(
-                                                        program.getFunctionManager()
-                                                                .getFunctionContaining(address))
-                                                .toList()))
-                .orElseGet(() -> new Report.Failure<>("names no address"));
-    }
-
-    private static Report.Result<List<Function>> matching(String regex, Program program) {
-        try {
-            return new Report.Success<>(select(Pattern.compile(regex).asPredicate(), program));
-        } catch (PatternSyntaxException exception) {
-            return new Report.Failure<>("fails to compile: " + exception.getDescription());
-        }
-    }
-
-    private static Report.Result<List<Function>> referencing(String needle, Program program) {
-        String lowercase = needle.toLowerCase(Locale.ROOT);
-        Predicate<Data> holdsNeedle =
-                data ->
-                        StringDataInstance.isString(data)
-                                && data.getValue() instanceof String value
-                                && value.toLowerCase(Locale.ROOT).contains(lowercase);
-        return new Report.Success<>(
-                CollectionUtils.asStream(DefinedDataIterator.byDataInstance(program, holdsNeedle))
-                        .flatMap(Functions::referrers)
-                        .distinct()
-                        .toList());
-    }
-
-    private static Report.Result<List<Function>> tagged(String name, Program program) {
-        return program.getFunctionManager().getFunctionTagManager().getFunctionTag(name)
-                        instanceof FunctionTag tag
-                ? new Report.Success<>(
-                        Functions.internal(program)
-                                .filter(function -> function.getTags().contains(tag))
-                                .toList())
-                : new Report.Failure<>("names no function tag");
-    }
-
-    private static Report.Result<List<Function>> named(String name, Program program) {
-        return new Report.Success<>(select(name::equals, program));
-    }
-
-    private static List<Function> select(Predicate<String> test, Program program) {
-        return Functions.internal(program)
-                .filter(
-                        function ->
-                                test.test(function.getName(true)) || test.test(function.getName()))
-                .toList();
     }
 }

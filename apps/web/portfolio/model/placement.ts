@@ -1,5 +1,5 @@
 import { Array, Context, Effect, Match, Schema, SchemaGetter, SchemaIssue } from 'effect';
-import { type Asset, type AssetCollection, type Dimensions, Id, ImageAsset, PdfAsset, Sheet, sheets, VideoAsset } from './asset.ts';
+import { type Asset, type AssetCollection, Id, ImageAsset, PdfAsset, Sheet, sheets, VideoAsset } from './asset.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -40,7 +40,7 @@ const ResolvedPlacement = Schema.Union([
 const Placement = StoredPlacement.pipe(
     Schema.decodeTo(ResolvedPlacement, {
         decode: SchemaGetter.transformEffect(
-            Effect.fnUntraced(function* ({ assetId, ...stored }: typeof StoredPlacement.Type): Effect.fn.Return<typeof ResolvedPlacement.Type, SchemaIssue.Issue, Assets> {
+            Effect.fnUntraced(function* ({ assetId, ...stored }: typeof StoredPlacement.Type) {
                 return yield* Match.value({ placement: stored, asset: (yield* Assets)[assetId] }).pipe(
                     Match.when({ placement: { kind: 'pdf' }, asset: { mime: 'application/pdf' } }, ({ placement, asset }) =>
                         Effect.fromNullishOr(sheets(asset)[placement.page - 1]).pipe(
@@ -54,7 +54,7 @@ const Placement = StoredPlacement.pipe(
                 );
             }),
         ),
-        encode: SchemaGetter.transform(({ asset, ...placement }: typeof ResolvedPlacement.Type): typeof StoredPlacement.Type => (placement.kind === 'pdf' ? { ...placement, assetId: asset.id, page: placement.page.number } : { ...placement, assetId: asset.id })),
+        encode: SchemaGetter.transform(({ asset, ...placement }: typeof ResolvedPlacement.Type) => (placement.kind === 'pdf' ? { ...placement, assetId: asset.id, page: placement.page.number } : { ...placement, assetId: asset.id })),
     }),
 );
 const Composition = Schema.Struct({ id: Id, items: Schema.Union([Schema.Tuple([Placement]), Schema.Tuple([Placement, Placement])]), scale: Schema.Literals(['full', 'medium', 'small']), align: Schema.Literals(['left', 'center', 'right']) });
@@ -65,13 +65,13 @@ class Assets extends Context.Service<Assets, typeof AssetCollection.Type>()('arc
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const placementsFor = (asset: typeof Asset.Type, allPages: boolean): Array.NonEmptyReadonlyArray<typeof Placement.Type> =>
+const placementsFor = (asset: typeof Asset.Type): Array.NonEmptyReadonlyArray<typeof Placement.Type> =>
     Match.value(asset).pipe(
-        Match.when({ mime: 'application/pdf' }, (document) => Array.map(allPages ? sheets(document) : Array.of(Array.headNonEmpty(sheets(document))), (page): typeof Placement.Type => ({ kind: 'pdf', asset: document, page, caption: '' }))),
+        Match.when({ mime: Match.is(...PdfAsset.fields.mime.literals) }, (document) => Array.map(sheets(document), (page) => ({ kind: 'pdf', asset: document, page, caption: '' }) as const)),
         Match.when({ mime: Match.is(...VideoAsset.fields.mime.literals) }, (video) => [{ kind: 'video', asset: video, caption: '' }] as const),
         Match.orElse((image) => [{ kind: 'image', asset: image, caption: '', role: 'drawing', framing: { mode: 'contain' } }] as const),
     );
-const placementDimensions = (placement: typeof Placement.Type): typeof Dimensions.Type => (placement.kind === 'pdf' ? placement.page : placement.asset);
+const placementDimensions = (placement: typeof Placement.Type) => (placement.kind === 'pdf' ? placement.page : placement.asset);
 const createComposition = (id: string, ...items: typeof Composition.Type.items): typeof Composition.Type => ({ id, items, scale: 'full', align: 'center' });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

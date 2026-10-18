@@ -7,7 +7,7 @@ use crate::generated;
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-lint!(MANUAL_ENUM_MAP: "`BTreeMap`s built with one entry per variant of a fieldless local enum", MANUAL_VARIANT_ARRAY: "arrays listing every variant of a fieldless local enum in declaration order");
+lint!(MANUAL_ENUM_MAP: "maps built with one entry per variant of a fieldless local enum", MANUAL_VARIANT_ARRAY: "arrays listing every variant of a fieldless local enum in declaration order");
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
     fn check_expr(&mut self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) {
@@ -18,9 +18,9 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             let (lint, message, help) = match collection {
                 VariantCollection::Array =>
                     (MANUAL_VARIANT_ARRAY, format!("array lists every variant of `{name}` in declaration order"), format!("derive `strum::VariantArray` on `{name}` and read `{name}::VARIANTS`")),
-                VariantCollection::Map => (
+                VariantCollection::Map(map) => (
                     MANUAL_ENUM_MAP,
-                    format!("`BTreeMap` built with one entry per variant of `{name}`"),
+                    format!("`{}` built with one entry per variant of `{name}`", cx.tcx.item_name(map)),
                     format!("build the map with `enum_map::enum_map!` over `#[derive(enum_map::Enum)]` on `{name}`"),
                 ),
             };

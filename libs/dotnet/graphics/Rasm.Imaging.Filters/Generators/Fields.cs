@@ -409,7 +409,7 @@ public sealed record Fog(
         Attenuation = Default.Attenuation with { Enabled = false },
         Amount = AxisFraction.Create(0.35f),
         Diffusion = new(Enabled: true, ShortSideLength.Create(0.75f * ReferenceFrame.GreaterSide)),
-        Colors = Looks.Sampled(RampInterpolation.Linear, static _ => new Vector4(new Vector3(Exposure.MiddleGrey), 1f), 0f),
+        Colors = Looks.Sampled(RampInterpolation.Linear, static _ => new Vector4(new Vector3(Exposure.MiddleGray), 1f), 0f),
     };
 
     public static Seq<GuideChannel> Channels(Fog state) => state.Attenuation.Active.Map(static _ => GuideChannel.Depth).ToSeq();
@@ -469,8 +469,7 @@ public sealed partial class FogParameter : IStateParameter<Fog> {
         new("Variation", "Density the wisps vary by, 0% a uniform medium"));
     public static readonly FogParameter Start = new("start", StateParameter.Bounded(Lens<Fog, FogDistance>.New(static fog => fog.Start, static start => fog => fog with { Start = start }), Reach with { Soft = (0f, 100f) }),
         new("Start", "Distance from the camera where the medium begins"));
-    public static readonly FogParameter Attenuation = new("attenuation", StateParameter.OptionalBounded(Lens<Fog, Gated<FogAttenuation>>.New(static fog => fog.Attenuation, static attenuation => fog => fog with { Attenuation = attenuation }),
-    new Presentation<float> { Unit = Quantity.GetUnitInfo(LengthUnit.Meter), Soft = (0.3f, 1000f), Scale = TrackScale.Log }),
+    public static readonly FogParameter Attenuation = new("attenuation", StateParameter.OptionalBounded(Lens<Fog, Gated<FogAttenuation>>.New(static fog => fog.Attenuation, static attenuation => fog => fog with { Attenuation = attenuation }), Reach with { Soft = (0.3f, 1000f), Scale = TrackScale.Log }),
         new("Attenuation", "Distance through the medium that passes 1/e of the light behind it"));
     public static readonly FogParameter Cutoff = new("cutoff", StateParameter.OptionalBounded(Lens<Fog, Gated<FogDistance>>.New(static fog => fog.Cutoff, static cutoff => fog => fog with { Cutoff = cutoff }), Reach with { Soft = (0f, 1000f) }),
         new("Cutoff", "Distance past which a surface keeps its own light, the background clear"));

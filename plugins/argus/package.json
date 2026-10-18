@@ -6,6 +6,7 @@
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@parcel/watcher": "catalog:",
+        "@rasm/mcp": "workspace:*",
         "effect": "catalog:",
         "minimatch": "catalog:",
         "vscode-languageserver-protocol": "catalog:"

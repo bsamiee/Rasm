@@ -33,7 +33,7 @@ impl Pass {
                 PathNS::Value,
                 &["futures::stream::TryStreamExt::try_collect", "futures::stream::TryStreamExt::try_next", "futures::stream::TryStreamExt::try_for_each", "futures::stream::TryStreamExt::try_fold"],
             ),
-            join_all: paths(tcx, PathNS::Value, &["futures::future::join_all"]),
+            join_all: paths(tcx, PathNS::Value, &["futures::future::join_all", "tokio::task::JoinSet::join_all"]),
             try_collect: path(tcx, PathNS::Value, "core::iter::Iterator::try_collect"),
         }
     }
@@ -68,7 +68,14 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 ControlFlow::Continue(())
             });
             if tried.len() > 1 {
-                report(cx, local.hir_id, local.span, format!("`{join}` runs futures together, and `?` on its results keeps only the first error"), tried);
+                report(
+                    cx,
+                    local.hir_id,
+                    local.span,
+                    format!("`{join}` runs futures together, and `?` on its results keeps only the first error"),
+                    tried,
+                    "combine the results with `validated::Validated::from(..).map2(..)` and `.ok()`, or race a future that outlives its partner through `select`",
+                );
             }
         }
     }
@@ -80,12 +87,25 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             return;
         }
         match self.stops.contains(&stop).then(|| receivers().find_map(|step| fn_def_id(cx, step).filter(|called| self.buffers.contains(called)))).flatten() {
-            Some(buffer) =>
-                report(cx, expr.hir_id, expr.span, format!("`{}` after `{}` stops at the first error of the buffered futures", cx.tcx.item_name(stop), cx.tcx.item_name(buffer)), Vec::new()),
+            Some(buffer) => report(
+                cx,
+                expr.hir_id,
+                expr.span,
+                format!("`{}` after `{}` stops at the first error of the buffered futures", cx.tcx.item_name(stop), cx.tcx.item_name(buffer)),
+                Vec::new(),
+                "collect the stream into a `Vec`, then collect its results into `validated::Validated<_, _>` and call `.ok()`",
+            ),
             None if matches!(expr.kind, ExprKind::MethodCall(..))
                 && (result_parts(cx, cx.typeck_results().expr_ty(expr)).is_some() && cx.tcx.is_diagnostic_item(sym::iterator_collect_fn, stop) || self.try_collect == Some(stop))
-                && receivers().any(|step| fn_def_id(cx, step).is_some_and(|called| self.join_all.contains(&called))) =>
-                report(cx, expr.hir_id, expr.span, format!("`{}` over `join_all` keeps only the first error of the joined futures", cx.tcx.item_name(stop)), Vec::new()),
+                && let Some(joined) = receivers().find_map(|step| fn_def_id(cx, step).filter(|called| self.join_all.contains(called) || self.buffers.contains(called))) =>
+                report(
+                    cx,
+                    expr.hir_id,
+                    expr.span,
+                    format!("`{}` over `{}` keeps only the first error of the joined futures", cx.tcx.item_name(stop), cx.tcx.item_name(joined)),
+                    Vec::new(),
+                    "collect the results into `validated::Validated<_, _>` and call `.ok()`",
+                ),
             None => {}
         }
     }
@@ -93,11 +113,11 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-fn report(cx: &LateContext<'_>, node: HirId, span: Span, message: String, tried: Vec<Span>) {
+fn report(cx: &LateContext<'_>, node: HirId, span: Span, message: String, tried: Vec<Span>, help: &'static str) {
     span_lint_hir_and_then(cx, SHORT_CIRCUITED_JOIN, node, span, message, |diag| {
         if !tried.is_empty() {
             diag.span_note(tried, "each `?` returns here before the remaining results are read");
         }
-        diag.help("accumulate every error before returning, through `validated::Validated` or a non-empty error collection");
+        diag.help(help);
     });
 }

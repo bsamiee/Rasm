@@ -30,48 +30,15 @@ utils:
             any:
                 - has: {field: parameters, has: {kind: parameter, all: [{has: {field: pattern, pattern: $INPUT}}, {has: {field: type, regex: 'Parse(Stream|Buffer)\b'}}]}}
                 - has: {stopBy: end, kind: let_declaration, all: [{has: {field: pattern, pattern: $INPUT}}, {has: {field: value, regex: '\.(fork|lookahead1)\(\)$'}}]}
-    keyed-parse:
-        kind: call_expression
-        any:
-            - all:
-                - has: {field: function, kind: generic_function, all: [{has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^parse$'}}, {has: {field: value, pattern: $ARGUMENT}}]}}, {has: {field: type_arguments, has: {nthChild: 1, pattern: $KEY}, not: {has: {nthChild: 2}}}}]}
-                - has: {field: arguments, not: {has: {pattern: $_}}}
-            - all:
-                - has: {field: function, matches: parser-path, any: [{regex: '::from_str$', has: {field: path, pattern: $KEY}}, {not: {regex: '::from_str$'}, pattern: $KEY}]}
-                - has: {field: arguments, has: {nthChild: 1, pattern: $ARGUMENT}, not: {has: {nthChild: 2}}}
-    owner-parse:
-        kind: call_expression
-        any:
-            - all:
-                - has: {field: function, kind: generic_function, all: [{has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^parse$'}}, {has: {field: value, kind: identifier, pattern: $PARAMETER}}]}}, {has: {field: type_arguments, has: {nthChild: 1, pattern: $KEY}, not: {has: {nthChild: 2}}}}]}
-                - has: {field: arguments, not: {has: {pattern: $_}}}
-            - all:
-                - has: {field: function, matches: parser-path, any: [{regex: '::from_str$', has: {field: path, pattern: $KEY}}, {not: {regex: '::from_str$'}, pattern: $KEY}]}
-                - has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $PARAMETER}, not: {has: {nthChild: 2}}}
-    owner-shape:
-        kind: function_item
-        all:
-            - has: {field: parameters, all: [{has: {kind: parameter, nthChild: 1, all: [{has: {field: pattern, kind: identifier, pattern: $PARAMETER}}, {has: {field: type, kind: reference_type, has: {field: type, kind: primitive_type, regex: '^str$'}}}]}}, {not: {has: {nthChild: 2}}}]}
-            - has: {field: body, kind: block, all: [{has: {nthChild: {position: 1, ofRule: {matches: rust-statement}}, matches: owner-parse}}, {not: {has: {nthChild: {position: 2, ofRule: {matches: rust-statement}}}}}]}
-    owner:
-        matches: owner-shape
-        has: {field: name, pattern: $OWNER}
 rule:
+    kind: call_expression
     pattern: $SECOND
     all:
+        - matches: parse-of
         - any:
-            - all:
-                - matches: parse-of
-                - any:
-                    - matches: after-parse
-                    - inside: {stopBy: {kind: 'function_item, closure_expression'}, matches: after-parse}
-                - not: {matches: parse-stream}
-            - all:
-                - matches: keyed-parse
-                - inside: {kind: source_file, stopBy: end, regex: '\bfn\s+\w+\s*(<[^>]*>)?\s*\(\s*\w+\s*:\s*&\s*(''\w+\s+)?str\s*,?\s*\)', has: {stopBy: end, matches: owner}}
-                - not: {inside: {kind: function_item, stopBy: end, has: {field: name, pattern: $OWNER}}}
+            - matches: after-parse
+            - inside: {stopBy: {kind: 'function_item, closure_expression'}, matches: after-parse}
+        - not: {matches: parse-stream}
         - not: {matches: rust-test-scope}
-labels:
-    OWNER: {style: secondary, message: 'Function performing the parse'}
-message: '`$SECOND` repeats a parse an earlier expression or a one-parameter function of the file performs'
-note: 'Parse the input once at the boundary into its domain type and pass the value, or call the file''s one-parameter parsing function'
+message: '`$SECOND` repeats a parse of `$INPUT` an earlier expression of the block performs'
+note: 'Parse the input once at the boundary into its domain type and pass the value'

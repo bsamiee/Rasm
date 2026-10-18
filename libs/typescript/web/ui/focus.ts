@@ -1,6 +1,6 @@
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const focus = (id: string): number => requestAnimationFrame(() => document.querySelector<HTMLElement>(`#${CSS.escape(id)}`)?.focus());
+const focus = (id: string) => requestAnimationFrame(() => document.querySelector<HTMLElement>(`#${CSS.escape(id)}`)?.focus());
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

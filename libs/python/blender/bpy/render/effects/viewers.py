@@ -9,7 +9,6 @@ import bpy
 from expression import Nothing, Ok, Option, Result, Some
 import msgspec
 import numpy as np
-import PyOpenColorIO
 
 from blender.bpy.commands.operators import Call, Done, Operator, Outcome, Unchanged
 from blender.bpy.data.ids.images import built, intermediates, read
@@ -19,18 +18,18 @@ from blender.bpy.data.rna.descriptors import written
 from blender.bpy.extension.events.handlers import PathHandler, SceneHandler
 from blender.bpy.extension.identity import Identity, Key, Name
 from blender.bpy.extension.registration import Acquisitions
-from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderImagingFault, BlenderResult
+from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderResult
 from blender.bpy.nodes.changes import Added, applied, Connected, owned, Removed
 from blender.bpy.nodes.graphs import End, INPUTS, Link, OUTPUTS
 from blender.bpy.nodes.interface import addresses, slot
 from blender.bpy.nodes.trees import socket_at
 from blender.bpy.render.color.exposure import Consume
+from blender.bpy.render.color.spaces import config_of
 from blender.bpy.render.effects.stack import EffectStack, Named, Placeable, Shell, StackEntry
 from blender.bpy.settings.attachments import Stored
 from blender.bpy.ui.screens.areas import AreaQuery
 from blender.bpy.ui.screens.editors import EditorState
 from blender.imaging.analysis.metering import Region
-from blender.imaging.color.config import admitted
 from blender.imaging.files.images import ImageFile
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -123,7 +122,10 @@ class ViewerRead(msgspec.Struct, frozen=True, kw_only=True, eq=False):
                         .filter(lambda arm: arm not in self.armed.captured)
                         .bind(
                             lambda arm: (
-                                Option.of_optional(scene.compositor_effects.get(arm.name)).filter(lambda entry: entry.is_active).map(lambda _: plane().map(lambda file: queued(handle, arm, file)))
+                                Option
+                                .of_optional(scene.compositor_effects.get(arm.name))
+                                .filter(lambda entry: entry.is_active)
+                                .map(lambda _: config_of().bind(lambda config: built("COMPOSITING").bind(lambda image: read(image, config))).map(lambda file: queued(handle, arm, file)))
                             )
                         )
                         .default_value(Ok(None))
@@ -311,12 +313,12 @@ def shown(identity: Identity, entry: bpy.types.SceneCompositorEffect, target: En
 def cleared(identity: Identity, entry: bpy.types.SceneCompositorEffect) -> BlenderResult[bool]:
     """Removes the owned viewer and its stored target while preserving unmarked native nodes, answering whether either existed."""
 
-    def removed(tree: bpy.types.NodeTree, name: str, stored: bool) -> BlenderResult[bool]:
+    def removed(tree: bpy.types.NodeTree, name: str, *, stored: bool) -> BlenderResult[bool]:
         return marked(identity, tree).map(lambda viewer: applied(Removed(name=viewer.name), tree, identity, name, owned(tree, identity)).map(lambda _: True)).default_value(Ok(stored))
 
     return grouped(identity, entry).bind(
         lambda pair: (
-            identity.name(Name.ATTACHMENT, Shell.viewer).bind(lambda name: Stored(name=name, decoder=msgspec.msgpack.Decoder(End)).removed(pair[0])).bind(lambda stored: removed(*pair, stored))
+            identity.name(Name.ATTACHMENT, Shell.viewer).bind(lambda name: Stored(name=name, decoder=msgspec.msgpack.Decoder(End)).removed(pair[0])).bind(lambda stored: removed(*pair, stored=stored))
         )
     )
 
@@ -330,12 +332,6 @@ def grouped(identity: Identity, entry: bpy.types.SceneCompositorEffect) -> Blend
 def marked(identity: Identity, tree: bpy.types.NodeTree) -> Option[bpy.types.Node]:
     """Returns the native viewer carrying this extension's reserved mark."""
     return Option.of_optional(owned(tree, identity).get(Shell.viewer))
-
-
-def plane() -> BlenderResult[ImageFile[np.float32]]:
-    """Reads the native compositor viewer with the current admitted OCIO config."""
-    config: BlenderResult[PyOpenColorIO.Config] = admitted(PyOpenColorIO.GetCurrentConfig(), ()).map_error(BlenderImagingFault.lifted)
-    return Result[PyOpenColorIO.Config, BlenderFaults].bind(config, lambda config: built("COMPOSITING").bind(lambda image: read(image, config)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

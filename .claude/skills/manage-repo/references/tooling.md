@@ -5,20 +5,28 @@ mise owns tool binaries, the process environment, and local services.
 ## [01]-[TOOLS]
 
 - Processes inherit mise's activated environment from their launch shell and call tools by name
-- `[tools]` rows name a registry short name or a backend (`github:<owner>/<repo>`, `pypi:<package>`, `npm:<package>`)
+- `[tools]` rows name a registry short name or a backend (`github:<owner>/<repo>`, `pypi:<package>`, `npm:<package>`, `cargo:<crate>`), a `[tool_alias]` row names the backend of a short name the registry lacks
+- `cargo:` rows take a crate the registry lacks, `cargo-binstall` fetches its release binary before a source build
 - `http:<tool>` rows install a release source archive for a tool with no registry entry and no release asset
 - `http:` rows reading a releases API set `version_order = "semver"`, mise takes the last entry of a listing ordered newest first
 - `prereleases = true` includes prereleases in `latest`, `minimum_release_age = "0s"` removes the 24h delay on a new release
 - `registry_floating = true` reads current mise and aqua registries, snapshots baked into the mise binary answer when no cached copy loads
+- `[settings]` holds no `lockfile` row, lock entries replay recorded versions and `conda:` closures in place of `latest`
 - `idiomatic_version_file_enable_tools` names the tools with a version file mise reads, `global.json` for `dotnet`, `rust-toolchain.toml` for `rust`
 - .NET SDKs install into one root Parametric Forge names, a running process's `DOTNET_ROOT` reaches each SDK a later `global.json` names
 - Shared root holds runtimes of installed SDKs alone, `DOTNET_ROLL_FORWARD = "Major"` runs an older-major tool on it
 - `MSBuildLocator` skips an SDK newer than its host runtime, a tool loading MSBuild rolls forward to the SDK's runtime
 - Restores share NuGet's default packages folder `~/.nuget/packages`, the folder Parametric Forge's `NUGET_PACKAGES` names
-- `mise upgrade` resolves within each request's range; `--bump` crosses that range and rewrites it at the original precision
+- `mise upgrade` installs missing tools and resolves within each request's range, `--bump` crosses that range and rewrites it at the original precision
 - `pypi:git+` rows off GitHub name a tag prefix, at `latest` mise runs `git ls-remote` per `mise exec`, reads missing in shells, and fails offline
-- `postinstall` hooks see the tools of the install that ran them alone, `"{{ mise_bin }}" exec --` reaches the project's whole toolset
+- Install side effects sit in their tool row's `postinstall`, a failing command fails the install
+- Row `postinstall` reads `[env]` without `tools = true` rows, `[hooks] postinstall` renders `[env]` from the tools one install names
+- `[hooks] postinstall` skips with a warning when a `tools = true` row names a tool outside the install
+- `postinstall = { run, when = "always" }` reruns on every `mise install`, a link into the checkout (`.cargo/rustc-source`) takes it
 - Pixi owns native-library closures and activation through `pyproject.toml` and `pixi.lock`
+- Tools a target calls keep their row where Parametric Forge installs the same tool machine-wide, CI runners and other hosts hold no Forge
+- Rows the registry resolves to `conda:` (`imagemagick`) install a conda-forge closure into the tool's own prefix linked through `@rpath`, reaching no Homebrew, Nix, or Pixi library
+- `mise install` keeps a `conda:` closure while its package version holds, `mise install --force <tool>` takes a conda-forge dependency rebuild
 
 ## [02]-[ENVIRONMENT]
 
@@ -27,37 +35,67 @@ mise owns tool binaries, the process environment, and local services.
 - Rows render in file order, later rows read a shared value from one earlier `[env]` row as `{{ env.<NAME> }}`
 - Deferred `tools.<name>.path` supplies installation paths; consumers inherit the owner's environment variable
 - `exec(command=...)` templates fail every mise call on a host without their command on PATH
-- `[env]` holds values shells and repository programs read, a value one local service alone reads sits on its launchd row
+- `[env]` holds values shells and repository programs read, a value one daemon alone reads sits in its `[daemons]` row `env`
 
 ## [03]-[SERVICES]
 
-Launchd agents run each local MCP server once as a Streamable HTTP service on a loopback port, harness rows hold the service URL:
-- Ports a repository program also reads sit once in `[vars]`, rendered into the launchd row and an `[env]` URL row
-- Harnesses read no `[env]` value into MCP config
-- `[bootstrap.macos.launchd.agents]` rows run `{{ mise_bin }}` with `args` opening `exec --` and `working_directory` at `{{config_root}}`
-- `keep_alive` restarts an exited process, and launchd starts a `KeepAlive` agent at login with no `RunAtLoad`
-- Row `environment` tables render into plist `EnvironmentVariables`
-- Row values render no `exec(command=...)` template
-- Programs on no PATH mise builds take an absolute path in `args`, `args` expand no `~`
-- Agents inherit the GUI domain environment, and `exec --` adds repository `[env]` and tool paths
-- `mise bootstrap macos launchd-agents apply` writes and loads `~/Library/LaunchAgents/dev.mise.<name>.plist`, an unchanged plist keeps its process
-- Running agents keep the environment they started with, `launchctl kickstart -k gui/$UID/dev.mise.<name>` restarts one onto current values
-- `[vars]` `log_dir` names README's log directory for `[env]` and launchd rows
-- Rows set `stdout_path` and `stderr_path` under `log_dir`, launchd creates the directory and discards unnamed output
-- `mise bootstrap macos launchd-agents status` lists each agent's state, `launchctl print gui/$UID/dev.mise.<name>` its pid and last exit code
-- `mise exec` prefers cached resolution and can fetch a missing answer
-- Servers speaking stdio alone run as `rasm-mcp-bridge --listen 127.0.0.1:<port> -- <command>`
+`[daemons]` rows run every persistent local process under one pitchfork supervisor, each local MCP server once as a Streamable HTTP service on a loopback port:
+- `experimental = true` under `[settings]` enables `[daemons]`, `[daemons_settings]` `namespace` names daemon IDs `rasm/<name>`
+- Rows declare `run` as a shell command opening with `exec`, mise runs it from `{{config_root}}` with project tools and `[env]`
+- `run` renders `{{ env.<NAME> }}` and `{{ vars.<name> }}` alone, a daemon reads its own port as `$PORT`
+- Row `env` tables reach pitchfork unrendered by mise, pitchfork renders `{{ dir }}` there as project root
+- Fixed `port` rows export `<NAME>_PORT` to every mise process, `[env]` URL rows read it as `{{ env.<NAME>_PORT }}`
+- Daemon names fold into exported variable names, a name another program reads as its own variable (`BLENDER_PORT`) takes a longer name
+- `proxy = false` keeps a row without proxy hostname or `<NAME>_URL`
+- `ready_port` makes start wait for the listener, `ready_cmd` for a command's success
+- `retry = true` restarts a failed process on the supervisor interval, a process exiting 0 stays stopped
+- `boot_start = true` rows start when the supervisor starts in boot mode, and restart selection reads the flag
+- `docker` row runs `colima start --foreground` from `$COLIMA_HOME` with CPU and memory flags on macOS, `docker events` on Linux beside the host engine
+- `COLIMA_HOME` and `DOCKER_CONFIG` sit under `$XDG_DATA_HOME/rasm`, the VM disk and CLI plugin links outlive `rasm:clean`'s `.cache` removal
+- Readiness checks without `timeout` wait while the process lives, `docker` row's timeout fails a start when the VM boots with its engine down
+- `docker` row takes no `boot_start`, and nothing stops the engine on idle
+- Root target `docker` runs `mise daemons start docker`, every `test:integration` target depends on it
+- `[env]` `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE` names the socket inside the engine's host, Testcontainers' Ryuk mounts it and fails on the Colima client socket path
+- Container images name `latest` with an always-pull policy, each run starts the newest image
+- Harness rows hold service URLs and read no `[env]` value into MCP config
+- Servers speaking stdio alone run as `rasm-mcp-bridge --listen 127.0.0.1:$PORT -- <command>`
 - Servers starting one process per connection, or approving the connecting process by its code signature, keep a stdio row
+- Pitchfork keeps daemon output in its log store, `mise daemons logs <name>` reads one daemon's output
+- `mise exec` prefers cached resolution and can fetch a missing answer
+
+Pitchfork has no login start, one `[bootstrap.macos.launchd.agents]` row runs its supervisor at login:
+- Row runs `{{ mise_bin }}` with `args` `exec -- pitchfork supervisor run --boot`, `working_directory` at `{{config_root}}`, and `keep_alive`
+- Row sets `stdout_path` and `stderr_path` under `[vars]` `log_dir`, launchd creates the directory and discards unnamed output
+- `PITCHFORK_SUPERVISOR_AUTO_START` is false on macOS, a client waits for the launchd supervisor and fails without one
+- `mise bootstrap macos launchd-agents apply` writes and loads `~/Library/LaunchAgents/dev.mise.pitchfork.plist`, an unchanged plist keeps its process
+- `launchctl kickstart -k gui/$UID/dev.mise.pitchfork` sends SIGTERM, the supervisor stops its daemons and launchd starts it with its boot daemons
+
+Daemon operations:
+- `mise daemons restart [<name>…]` registers current rows and restarts named daemons onto installed tools, starting a stopped one
+- `mise daemons start [<name>…]` registers every row and waits for readiness
+- `mise daemons stop [<name>…]` waits for each process group to exit, a stopped daemon stays down until a start
+- `mise daemons register` writes current rows to pitchfork without starting, supervisor boot reads registered rows
+- `mise daemons ls --json` lists each daemon's ID, root, status, pid, and port
+- `mise daemons prune --yes` stops and deletes daemon state of deleted checkouts
+- Linked worktrees take namespace `rasm-<hash>`, their fixed ports collide with the persistent checkout's daemons
 
 ## [04]-[MAINTENANCE]
 
-Run service installs, restarts, upgrades, and cleanup from the persistent checkout owning the installed launchd agents, before Nx builds its graph. Finish test/container fixtures and close Python-native consumers, Python-capable editors, and development sessions through their owners before maintenance. Root `upgrade` updates repository catalogs and binaries; mise replaces tools before a fresh Nx process starts.
-
-After initial container setup, `scripts/maintain.sh` runs the sequence from that checkout: unload its declared launchd agents, stop Colima, upgrade mise tools, run `rasm:upgrade` between Nx resets, start and update Colima from `$COLIMA_HOME`, open a fresh editor under both Pixi activations, then prune old installations.
-
-The Python upgrade installs the locked Pixi closures, starts fresh activation, clears all native-consumer wheel caches, and reinstalls those consumers before services resume. Root apply runs after successful prerequisites; it restores no service after failure. Repair a failed operation and resume there; rerun `rasm:upgrade` for a failed Nx prerequisite. Keep native consumers closed and retain old installations until the remaining sequence succeeds.
-
-Nx resets clear its daemon and workspace graph data while retaining task cache. Ordinary tasks need no reset. Generic cleanup deletes no Pixi prefix and keeps `PULUMI_HOME`, prunes caches, and installs no browser or tool. The final maintenance command alone retires old mise installations. Fresh editor launch requires every earlier VS Code instance to have exited.
+Run service installs, restarts, upgrades, and cleanup from the persistent checkout that registered the daemons, before Nx builds its graph:
+- Finish test and container fixtures, then close Python-native consumers, Python-capable editors, and development sessions through their owners
+- `scripts/maintain.sh` runs maintenance from that checkout after initial container setup
+- `mise prune --yes` closes maintenance and alone retires old mise installations
+- Orphan removal runs outside Nx, a running Nx process loads modules from the version an upgrade orphans
+- Root `upgrade` runs its prerequisites in parallel, then fails on each package a resolver moved below its `upgrade:baseline` lock copy
+- `upgrade:baseline` copies `Cargo.lock`, `uv.lock`, and `pnpm-lock.yaml` to `.cache/upgrade` before any lock-writing upgrade runs
+- `upgrade:docker` runs mise task `docker:update`, its VM restart on macOS starts the upgraded engine past systemd's `docker.service` start limit
+- Failed steps restore no daemon, the sequence resumes at a repaired step, a failed Nx prerequisite through a `rasm:upgrade` rerun
+- Native consumers stay closed and old installations stay until the remaining sequence succeeds
+- Nx resets clear its daemon and workspace graph data and keep task cache, ordinary tasks need no reset
+- Generic cleanup keeps Pixi prefixes and `PULUMI_HOME` and installs no browser or tool
+- Generic cleanup prunes caches and each Pulumi plugin no installed provider package declares
+- Cleanup renames each target into a temporary sibling before removing it, a concurrent writer recreates the original path
+- `maintain.sh` quits VS Code before its fresh launch, the `code` CLI otherwise reuses a running instance and its old environment
 
 ## [05]-[TOML]
 

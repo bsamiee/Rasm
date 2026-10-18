@@ -154,37 +154,6 @@ def vector(kind: native.Type) -> bool:
             return False
 
 
-def tagged(kind: native.UnionType) -> Option[Tagged]:
-    """Returns a union's case records, nested union aliases flattened, absent unless every member is a tagged case."""
-
-    def members(union: native.UnionType) -> tuple[native.Type, ...]:
-        return tuple(inner for member in union.types for inner in (members(member) if isinstance(member, native.UnionType) else (member,)))
-
-    flat = members(kind)
-    cases = tuple(
-        (member.cls, member.tag, member.tag_field)
-        for member in flat
-        if isinstance(member, native.StructType) and isinstance(member.tag, int) and isinstance(member.tag_field, str) and issubclass(member.cls, Case)
-    )
-    fields = {tag_field for _, _, tag_field in cases}
-    return (
-        Option
-        .of_optional(next(iter(fields), None))
-        .filter(lambda _: len(cases) == len(flat) and len(fields) == 1)
-        .map(lambda tag_field: Tagged(tag_field=tag_field, cases=tuple((record, tag) for record, tag, _ in cases)))
-    )
-
-
-def titled(held: Declared, schema: dict[str, object] | None) -> Declared:
-    """Folds an outer metadata layer into an inner shape, the innermost title and description winning."""
-    outer = Option.of_optional(schema).default_value({})
-    return msgspec.structs.replace(
-        held,
-        title=held.title.or_else(Option.of_optional(outer.get("title")).filter(lambda text: isinstance(text, str)).map(str)),
-        description=held.description.or_else(Option.of_optional(outer.get("description")).filter(lambda text: isinstance(text, str)).map(str)),
-    )
-
-
 def refused[T](annotation: object, kind: object) -> BlenderResult[T]:
     """Returns the fault naming an annotation whose declaration has no supported shape."""
     return Error((BlenderReadFault(request=repr(annotation), error=TypeError(f"No supported field shape for {annotation!r}: {kind!r}")),))
@@ -210,6 +179,32 @@ def gate(record: Record) -> BlenderResult[Gate]:
 
 def field_shape(annotation: object) -> BlenderResult[Declared]:
     """Parses one field annotation into its field shape or the refusal naming the annotation."""
+
+    def tagged(kind: native.UnionType) -> Option[Tagged]:
+        def members(union: native.UnionType) -> tuple[native.Type, ...]:
+            return tuple(inner for member in union.types for inner in (members(member) if isinstance(member, native.UnionType) else (member,)))
+
+        flat = members(kind)
+        cases = tuple(
+            (member.cls, member.tag, member.tag_field)
+            for member in flat
+            if isinstance(member, native.StructType) and isinstance(member.tag, int) and isinstance(member.tag_field, str) and issubclass(member.cls, Case)
+        )
+        fields = {tag_field for _, _, tag_field in cases}
+        return (
+            Option
+            .of_optional(next(iter(fields), None))
+            .filter(lambda _: len(cases) == len(flat) and len(fields) == 1)
+            .map(lambda tag_field: Tagged(tag_field=tag_field, cases=tuple((record, tag) for record, tag, _ in cases)))
+        )
+
+    def titled(held: Declared, schema: dict[str, object] | None) -> Declared:
+        outer = Option.of_optional(schema).default_value({})
+        return msgspec.structs.replace(
+            held,
+            title=held.title.or_else(Option.of_optional(outer.get("title")).filter(lambda text: isinstance(text, str)).map(str)),
+            description=held.description.or_else(Option.of_optional(outer.get("description")).filter(lambda text: isinstance(text, str)).map(str)),
+        )
 
     def leaf(shape: Shape) -> BlenderResult[Declared]:
         return Ok(Declared(shape=shape))

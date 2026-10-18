@@ -51,9 +51,9 @@ public sealed record SnapSession(SnappingConstraints Constraints, RectangleF Sta
             RectangleF target = Start.Move(offset.Width, offset.Height);
             (SnappingAction? edgeX, SnappingAction? edgeY) = Settings.CanvasSnapToObjects.Value ? Snaps() : (null, null);
             bool wide = Math.Abs(offset.Width) > Math.Abs(offset.Height);
-            PointF centre = Eto.Drawing.Point.Round(Start.Center);
-            SnappingAction? x = orthogonal && !wide ? SnappingAction.VerticalOrthoAction(centre, canvas.VisibleFrame) : edgeX;
-            SnappingAction? y = orthogonal && wide ? SnappingAction.HorizontalOrthoAction(centre, canvas.VisibleFrame) : edgeY;
+            PointF center = Eto.Drawing.Point.Round(Start.Center);
+            SnappingAction? x = orthogonal && !wide ? SnappingAction.VerticalOrthoAction(center, canvas.VisibleFrame) : edgeX;
+            SnappingAction? y = orthogonal && wide ? SnappingAction.HorizontalOrthoAction(center, canvas.VisibleFrame) : edgeY;
             canvas.SnapXAction = x;
             canvas.SnapYAction = y;
             return new SizeF(

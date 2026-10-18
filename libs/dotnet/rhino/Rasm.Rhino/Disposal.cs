@@ -72,17 +72,14 @@ public static class DisposalOps {
             static (_, value) => IO.pure(value));
 
     public static IO<TResult> Acquire<TResult>(Func<Action<IDisposable>, IO<TResult>> body, Action<TResult, IDisposable> retain) =>
-        Replace(body, (value, lease) => {
-            retain(value, lease);
-            return IO.pure(unit);
-        });
+        Replace(body, (value, lease) => IO.lift(() => retain(value, lease)));
 
     public static IO<TResult> Replace<TResult>(Func<Action<IDisposable>, IO<TResult>> body, Func<TResult, IDisposable, IO<Unit>> publish) =>
         Transacted(
             IO.lift(static () => new Retained<IDisposable>(Release)),
             held => body(held.Retain),
             static held => held.Close,
-            (held, value) => OnFailure(IO.lift(() => publish(value, held)), held.Close).Bind(static retire => retire).Map(_ => value));
+            (held, value) => OnFailure(IO.lift(() => publish(value, held)).Bind(static published => published), held.Close).Map(_ => value));
 
     public static IO<TResult> Within<T, TResult>(Func<T> acquire, Func<T, IO<TResult>> body) where T : IDisposable =>
         Within(acquire, body, static held => IO.lift(held.Dispose));

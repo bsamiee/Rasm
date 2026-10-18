@@ -23,7 +23,11 @@ public enum Keychain {
         account: String,
     ) async -> Result<Data?, KeychainFailure> {
         await security(["find-generic-password", "-a", account, "-s", service, "-w"]).map { printed in
-            printed.map(decode)
+            printed.map { output in
+                let text: String = output.replacing(/\n\z/, with: "")
+                return text.wholeMatch(of: /(?:[0-9a-fA-F]{2})+/) == nil
+                    ? Data(text.utf8) : Data(text.matches(of: /[0-9a-fA-F]{2}/).compactMap { pair in UInt8(pair.output, radix: 16) })
+            }
         }
     }
 
@@ -32,6 +36,9 @@ public enum Keychain {
         account: String,
         data: Data,
     ) async -> Result<Void, KeychainFailure> {
+        func quoted(_ value: String) -> String {
+            "\"" + value.replacing("\\", with: "\\\\").replacing("\"", with: "\\\"") + "\""
+        }
         let interactiveLineLimit: Int = 4095
         let command: String =
             "add-generic-password -U -a \(quoted(account)) -s \(quoted(service)) -X \(data.hexEncoded)"
@@ -74,16 +81,6 @@ public enum Keychain {
 
     private static func exitStatus(of status: OSStatus) -> Int32 {
         Int32(UInt32(bitPattern: status) & 0x00FF_FFFF)
-    }
-
-    private static func decode(_ printed: String) -> Data {
-        let text: String = printed.replacing(/\n\z/, with: "")
-        return text.wholeMatch(of: /(?:[0-9a-fA-F]{2})+/) == nil
-            ? Data(text.utf8) : Data(text.matches(of: /[0-9a-fA-F]{2}/).compactMap { pair in UInt8(pair.output, radix: 16) })
-    }
-
-    private static func quoted(_ value: String) -> String {
-        "\"" + value.replacing("\\", with: "\\\\").replacing("\"", with: "\\\"") + "\""
     }
 }
 

@@ -8,7 +8,7 @@ use clippy_utils::{
     visitors::for_each_expr,
 };
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
-use rustc_hir::{ClosureKind, CoroutineKind, CoroutineSource, Expr, ExprKind, LetStmt, Node, PatKind, def_id::DefId};
+use rustc_hir::{ClosureKind, CoroutineKind, CoroutineSource, Expr, ExprKind, HirId, LetStmt, Node, Param, Pat, PatKind, def_id::DefId};
 use rustc_lint::{LateContext, LateLintPass};
 use rustc_middle::ty::{self, Ty, TyCtxt};
 use rustc_span::Span;
@@ -17,6 +17,12 @@ use super::{PlaceUses, boxed_future, in_drop_impl, stored_place};
 use crate::{impl_owner, method_call_on, paths, pointee, resolve};
 
 // --- [TYPES] ---------------------------------------------------------------------------
+
+#[derive(Clone, Copy)]
+enum Guard {
+    Returned,
+    Lent,
+}
 
 #[derive(Clone, Copy)]
 enum Method {
@@ -34,7 +40,7 @@ struct Usage<'tcx> {
 // --- [SERVICES] ------------------------------------------------------------------------
 
 pub(crate) struct Pass<'tcx> {
-    guards: FxHashSet<DefId>,
+    guards: FxHashMap<DefId, Guard>,
     locks: FxHashSet<DefId>,
     maps: FxHashSet<DefId>,
     pending: FxHashSet<DefId>,
@@ -47,7 +53,18 @@ lint!(Pass<'_>; UNBOUNDED_PENDING_MAP: "locked maps of pending senders, futures,
 impl<'tcx> Pass<'tcx> {
     pub(crate) fn new(tcx: TyCtxt<'tcx>) -> Self {
         let owner = |method: DefId| impl_owner(tcx, method).opt_def_id();
-        let guards = paths(tcx, PathNS::Value, &["std::sync::nonpoison::Mutex::lock", "std::sync::nonpoison::RwLock::write", "std::sync::nonpoison::RwLock::read"]);
+        let guards = resolve(
+            tcx,
+            PathNS::Value,
+            &[
+                ("std::sync::nonpoison::Mutex::lock", Guard::Returned),
+                ("std::sync::nonpoison::RwLock::write", Guard::Returned),
+                ("std::sync::nonpoison::RwLock::read", Guard::Returned),
+                ("std::sync::nonpoison::Mutex::with_mut", Guard::Lent),
+                ("std::sync::nonpoison::RwLock::with_mut", Guard::Lent),
+                ("std::sync::nonpoison::RwLock::with", Guard::Lent),
+            ],
+        );
         let methods = resolve(
             tcx,
             PathNS::Value,
@@ -102,7 +119,7 @@ impl<'tcx> Pass<'tcx> {
                 "std::thread::JoinHandle",
             ],
         );
-        let locks = guards.iter().copied().filter_map(owner).collect();
+        let locks = guards.keys().copied().filter_map(owner).collect();
         Self { guards, locks, maps: methods.keys().copied().filter_map(owner).collect(), pending, methods, usages: PlaceUses::default() }
     }
 }
@@ -138,23 +155,31 @@ impl<'tcx> LateLintPass<'tcx> for Pass<'tcx> {
                 None => (!released(cx, call)).then_some(None),
             }
         };
-        let bound = |local: &'tcx LetStmt<'tcx>| {
-            let PatKind::Binding(_, binding, _, None) = local.pat.kind else { return None };
+        let first_insert = |binding: HirId, scope: &'tcx Expr<'tcx>| {
             let mut first = None;
-            let escaped = for_each_expr(cx.tcx, get_enclosing_block(cx, local.hir_id)?, |used| match (used.res_local_id() == Some(binding)).then(|| inserted(used)) {
+            for_each_expr(cx.tcx, scope, |used| match (used.res_local_id() == Some(binding)).then(|| inserted(used)) {
                 Some(Some(call)) => {
                     first = first.or(call);
                     ControlFlow::Continue(())
                 }
                 Some(None) => ControlFlow::Break(()),
                 None => ControlFlow::Continue(()),
-            });
-            escaped.is_none().then_some(first)
+            })
+            .is_none()
+            .then_some(first)
         };
         let Some((place, entry)) = stored_place(cx, expr).and_then(|(place, ty)| Some((place, entry(pointee(cx, ty))?))) else { return };
-        let guarded = method_call_on(cx, expr)
-            .filter(|&(_, guard)| self.guards.contains(&guard))
-            .and_then(|(lock, _)| if let Node::LetStmt(local) = cx.tcx.parent_hir_node(lock.hir_id) { bound(local) } else { inserted(lock) });
+        let guarded = method_call_on(cx, expr).and_then(|(call, guard)| match (self.guards.get(&guard)?, cx.tcx.parent_hir_node(call.hir_id), call.kind) {
+            (Guard::Returned, Node::LetStmt(&LetStmt { pat: &Pat { kind: PatKind::Binding(_, binding, _, None), .. }, hir_id, .. }), _)
+                if let Node::Expr(scope) = cx.tcx.parent_hir_node(get_enclosing_block(cx, hir_id)?.hir_id) =>
+                first_insert(binding, scope),
+            (Guard::Returned, ..) => inserted(call),
+            (Guard::Lent, _, ExprKind::MethodCall(_, _, [Expr { kind: ExprKind::Closure(closure), .. }], _))
+                if let body = cx.tcx.hir_body(closure.body)
+                    && let [Param { pat: Pat { kind: PatKind::Binding(_, binding, _, None), .. }, .. }] = body.params =>
+                first_insert(*binding, &body.value),
+            (Guard::Lent, ..) => None,
+        });
         match guarded {
             Some(call) =>
                 if let Some(usage) = self.usages.record(place, || Usage { entry, inserted: None }) {
