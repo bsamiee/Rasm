@@ -133,6 +133,8 @@ enum Stage {
     Runtime,
     #[display("cannot bind {_0}")]
     Bind(SocketAddr),
+    #[display("cannot read the bound socket address")]
+    Address,
     #[display("cannot listen for shutdown signals")]
     Signal,
     #[display("HTTP server failed")]
@@ -943,14 +945,15 @@ where
         };
         let mut signals = signals.into_iter().try_collect::<stream::SelectAll<_>>().map_err(|source| Failed::Io { stage: Stage::Signal, source })?;
         let socket = net::TcpListener::bind(options.listen).await.map_err(|source| Failed::Io { stage: Stage::Bind(options.listen), source })?;
-        tracing::info!(listen = %options.listen, "listening");
+        let address = socket.local_addr().map_err(|source| Failed::Io { stage: Stage::Address, source })?;
         let notifier = Notifier::default();
         let future::Either::Left((started, _)) = future::select(pin!(build(args, identity, notifier.clone())), signals.next()).await else { return Ok(()) };
         let endpoint = started.map_err(Failed::Endpoint)?;
+        tracing::info!(listen = %address, "listening");
         let host = Arc::new(Hosting { endpoint, notifier, stopping: CancellationToken::new(), requests: TaskTracker::new(), watches: TaskTracker::new(), leases: Mutex::default() });
         let manager = Arc::new(LocalSessionManager::default());
         let mut config = StreamableHttpServerConfig::default().with_json_response(true).enforce_origin_validation();
-        config.allowed_hosts.extend(options.hosts.iter().map(Authority::to_string).chain((!options.listen.ip().is_unspecified()).then(|| options.listen.ip().to_string())));
+        config.allowed_hosts.extend(options.hosts.iter().map(Authority::to_string).chain(Some(address.ip()).filter(|ip| !ip.is_unspecified()).map(|ip| ip.to_string())));
         let factory = Arc::clone(&host);
         let service = StreamableHttpService::new(move || Ok(Session { host: Arc::clone(&factory), subscribed: watch::Sender::default(), relay: OnceLock::new() }), Arc::clone(&manager), config);
         let mut http = pin!(future::maybe_done(axum::serve(socket, axum::Router::new().route_service("/", service)).with_graceful_shutdown(host.stopping.clone().cancelled_owned()).into_future()));

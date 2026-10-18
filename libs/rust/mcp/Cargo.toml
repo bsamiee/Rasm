@@ -10,7 +10,7 @@ license.workspace    = true
 repository.workspace = true
 description          = "MCP server foundation over Streamable HTTP: routers, resources, validation, telemetry"
 
-# --- [LIB] ------------------------------------------------------------------------------
+# --- [TARGETS] --------------------------------------------------------------------------
 
 [lib]
 path    = "lib.rs"
