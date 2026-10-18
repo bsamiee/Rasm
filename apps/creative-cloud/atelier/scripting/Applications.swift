@@ -1,7 +1,9 @@
 import AppKit
+import Carbon.OpenScripting
+import ImageIO
 import RasmMacOS
-import Subprocess
-import System
+import ScreenCaptureKit
+import UniformTypeIdentifiers
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -65,7 +67,7 @@ struct Application: Encodable {
 
     // --- [EXECUTION]
 
-    static func send(_ event: NSAppleEventDescriptor, decoding dictionary: ScriptingDictionary, as types: Set<String>) -> Result<Descriptor, AggregateError<Failure>> {
+    static func send(_ event: NSAppleEventDescriptor, decoding dictionary: ScriptingDictionary) -> Result<AppleEventReply, AggregateError<Failure>> {
         let undelivered: Set<OSStatus> = [OSStatus(procNotFound), OSStatus(errAEEventNotPermitted)]
         return Result { try event.sendEvent(options: [.waitForReply, .neverInteract], timeout: TimeInterval(kNoTimeOut)) }
             .mapError { error in
@@ -79,119 +81,69 @@ struct Application: Encodable {
                     case .some(let status) where status != noErr:
                         .failure(AggregateError(first: .reply(status: status, message: reply.paramDescriptor(forKeyword: AEKeyword(keyErrorString))?.stringValue)))
                     default:
-                        .success(reply.paramDescriptor(forKeyword: AEKeyword(keyDirectObject)).map { value in dictionary.decode(value, as: types) } ?? .null)
+                        .success(AppleEventReply(descriptor: reply.paramDescriptor(forKeyword: AEKeyword(keyDirectObject)) ?? .null(), dictionary: dictionary))
                 }
             }
     }
 
-    func runningApplication() -> Result<NSRunningApplication, AggregateError<Failure>> {
-        let instances: [NSRunningApplication] = Self.instances(at: url, among: NSWorkspace.shared.runningApplications)
-        guard instances.count == 1, let runningApplication: NSRunningApplication = instances.first else {
-            return .failure(AggregateError(first: .instances(count: instances.count)))
+    func open() async -> Result<NSRunningApplication, AggregateError<Failure>> {
+        await Result {
+            let configuration: NSWorkspace.OpenConfiguration = NSWorkspace.OpenConfiguration()
+            configuration.activates = false
+            configuration.promptsUserIfNeeded = false
+            configuration.allowsRunningApplicationSubstitution = false
+            configuration.appleEvent = NSAppleEventDescriptor(
+                eventClass: AEEventClass(kASAppleScriptSuite),
+                eventID: AEEventID(kASLaunchEvent),
+                targetDescriptor: NSAppleEventDescriptor(applicationURL: url),
+                returnID: AEReturnID(kAutoGenerateReturnID),
+                transactionID: AETransactionID(kAnyTransactionID),
+            )
+            return try await NSWorkspace.shared.openApplication(at: url, configuration: configuration)
         }
-        let settled: DispatchSemaphore = DispatchSemaphore(value: 0)
-        let observations: [NSKeyValueObservation] = [\NSRunningApplication.isFinishedLaunching, \.isTerminated].map { keyPath in
-            runningApplication.observe(keyPath) { _, _ in settled.signal() }
-        }
-        withExtendedLifetime(observations) {
-            if !(runningApplication.isFinishedLaunching || runningApplication.isTerminated) { settled.wait() }
-        }
-        return runningApplication.isTerminated ? .failure(AggregateError(first: .instances(count: 0))) : .success(runningApplication)
+        .mapError { error in AggregateError(first: .unreadable(error)) }
     }
 
-    func execute(_ command: String, arguments: [String: Descriptor]) -> Result<Descriptor, AggregateError<Failure>> {
-        runningApplication()
+    func execute(_ command: String, arguments: [String: JSONValue]) async -> Result<AppleEventReply, AggregateError<Failure>> {
+        await open()
             .flatMap { runningApplication in
                 ScriptingDictionary.read(self, process: runningApplication.processIdentifier).flatMap { dictionary in
                     dictionary.events(command, arguments: arguments, target: NSAppleEventDescriptor(processIdentifier: runningApplication.processIdentifier)).map { events in (dictionary, events) }
                 }
             }
             .flatMap { dictionary, events in
-                events.reduce(Result.success(.null)) { previous, request in
-                    previous.flatMap { _ in Self.send(request.event, decoding: dictionary, as: request.result) }
+                events.reduce(Result.success(AppleEventReply(descriptor: .null(), dictionary: dictionary))) { previous, event in
+                    previous.flatMap { _ in Self.send(event, decoding: dictionary) }
                 }
             }
     }
 }
 
-struct Window: Encodable {
-    // --- [DISCOVERY]
+struct Screenshot: Encodable {
+    private enum Key: CodingKey { case window, windows, image, id, title, width, height }
 
-    private struct Row: Decodable {
-        private enum Key: CodingKey { case kCGWindowOwnerPID, kCGWindowNumber, kCGWindowName, kCGWindowLayer, kCGWindowBounds }
-        private enum Bounds: String, CodingKey {
-            case width = "Width"
-            case height = "Height"
+    let window: SCWindow
+    let windows: [SCWindow]
+    let image: SCScreenshotOutput
+
+    func encode(to encoder: any Encoder) throws {
+        func encode(_ window: SCWindow, to encoder: any Encoder) throws {
+            var container: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
+            try container.encode(window.windowID, forKey: .id)
+            try container.encodeIfPresent(window.title, forKey: .title)
         }
-
-        let owner: pid_t
-        let window: Window
-
-        init(from decoder: any Decoder) throws {
-            let row: KeyedDecodingContainer<Key> = try decoder.container(keyedBy: Key.self)
-            let bounds: KeyedDecodingContainer<Bounds> = try row.nestedContainer(keyedBy: Bounds.self, forKey: .kCGWindowBounds)
-            owner = try row.decode(pid_t.self, forKey: .kCGWindowOwnerPID)
-            window = try Window(
-                id: row.decode(Int.self, forKey: .kCGWindowNumber),
-                title: row.decodeIfPresent(String.self, forKey: .kCGWindowName),
-                level: Level(layer: row.decode(Int.self, forKey: .kCGWindowLayer)),
-                width: bounds.decode(Double.self, forKey: .width),
-                height: bounds.decode(Double.self, forKey: .height),
-            )
-        }
-    }
-
-    enum Level: String, Encodable {
-        case normal, modal, other
-
-        init(layer: Int) {
-            self =
-                switch layer {
-                    case Int(CGWindowLevelForKey(.normalWindow)): .normal
-                    case Int(CGWindowLevelForKey(.modalPanelWindow)): .modal
-                    default: .other
-                }
-        }
-    }
-
-    let id: Int
-    let title: String?
-    let level: Level
-    let width: Double
-    let height: Double
-
-    static func onScreen(of application: NSRunningApplication) -> Result<[Self], AggregateError<Failure>> {
-        switch CGWindowListCopyWindowInfo(.optionOnScreenOnly, kCGNullWindowID).flatMap({ rows in unsafe CFPropertyListCreateData(nil, rows, .binaryFormat_v1_0, 0, nil)?.takeRetainedValue() }) {
-            case .some(let rows):
-                Result { try PropertyListDecoder().decode([Row].self, from: rows as Data) }
-                    .mapError { error in AggregateError(first: .unreadable(error)) }
-                    .map { rows in rows.filter { row in row.owner == application.processIdentifier }.map(\.window) }
-            case .none:
-                .failure(AggregateError(first: .sessionless))
-        }
-    }
-
-    // --- [CAPTURE]
-
-    static func capture(_ id: Int) async -> Result<Data, AggregateError<Failure>> {
-        let tool: FilePath = "/usr/sbin/screencapture"
-        let url: URL = URL.temporaryDirectory.appending(path: "\(UUID().uuidString).jpg")
-        defer { try? FileManager.default.removeItem(at: url) }
-        let captured: Result<Void, AggregateError<Failure>> = await ProcessRun.collect(
-            ProcessRun.configuration(
-                executable: .path(tool),
-                arguments: ["-x", "-o", "-t", "jpg", "-l", String(id), url.path(percentEncoded: false)],
-                environment: ProcessInfo.processInfo.environment,
-                workingDirectory: url.deletingLastPathComponent(),
-            ),
-            deadline: .seconds(30),
-        )
-        .mapError { error in AggregateError(first: .unreadable(error)) }
-        .flatMap { result in
-            result.terminationStatus.isSuccess
-                ? .success(())
-                : .failure(AggregateError(first: .exited(tool: tool, status: result.terminationStatus, message: result.standardError.trimmingCharacters(in: .newlines))))
-        }
-        return captured.flatMap { _ in Result { try Data(contentsOf: url) }.mapError { error in AggregateError(first: .unreadable(error)) } }
+        var container: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
+        try encode(window, to: container.superEncoder(forKey: .window))
+        var windows: any UnkeyedEncodingContainer = container.nestedUnkeyedContainer(forKey: .windows)
+        for window: SCWindow in self.windows { try encode(window, to: windows.superEncoder()) }
+        guard let image: CGImage = image.sdrImage,
+            let data: CFMutableData = CFDataCreateMutable(nil, 0),
+            let destination: CGImageDestination = CGImageDestinationCreateWithData(data, UTType.png.identifier as CFString, 1, nil)
+        else { throw CocoaError(.coderInvalidValue) }
+        CGImageDestinationAddImage(destination, image, [kCGImageDestinationOptimizeColorForSharing: true] as CFDictionary)
+        guard CGImageDestinationFinalize(destination) else { throw CocoaError(.coderInvalidValue) }
+        try container.encode(image.width, forKey: .width)
+        try container.encode(image.height, forKey: .height)
+        try container.encode(data as Data, forKey: .image)
     }
 }

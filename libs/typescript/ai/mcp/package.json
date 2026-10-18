@@ -9,7 +9,7 @@
     },
     "dependencies": {
         "@effect/platform-node": "catalog:",
-        "@leeoniya/ufuzzy": "catalog:",
+        "@rasm/search": "workspace:*",
         "effect": "catalog:"
     },
     "devDependencies": {

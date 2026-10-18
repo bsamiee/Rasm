@@ -33,7 +33,12 @@ const main = <E>(manifest: { readonly name: string; readonly version: string; re
                         ...manifest,
                         name,
                         get instructions() {
-                            return Array.dedupe([manifest.description, ...[...server.tools, ...server.resources, ...server.resourceTemplates, ...server.prompts].flatMap(({ annotations }) => Context.get(annotations, Instructions))]).join('\n');
+                            return [
+                                ...Array.dedupe([manifest.description, ...[...server.tools, ...server.resources, ...server.resourceTemplates, ...server.prompts].flatMap(({ annotations }) => Context.get(annotations, Instructions))]),
+                                ...[...server.resources.map(({ resource }) => [resource.uri, resource.description]), ...server.resourceTemplates.map(({ template }) => [template.uriTemplate, template.description]), ...server.prompts.map(({ prompt }) => [`Prompt ${prompt.name}`, prompt.description])].map(
+                                    ([reference, description]) => `- ${reference}${description === undefined ? '' : `: ${description}`}`,
+                                ),
+                            ].join('\n');
                         },
                         path: '/',
                         allowSessionTermination: true,

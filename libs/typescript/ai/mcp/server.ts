@@ -1,5 +1,5 @@
-import uFuzzy from '@leeoniya/ufuzzy';
-import { Array, Cause, Clock, Context, Data, Deferred, Duration, Effect, Exit, Function, flow, Layer, Metric, Option, Predicate, pipe, Record, Ref, Schema, SchemaGetter, Stream, Struct, SubscriptionRef } from 'effect';
+import { ranked, Unmatched } from '@rasm/search';
+import { Array, Cause, Clock, Context, Data, Deferred, Duration, Effect, Exit, Function, Layer, Metric, Option, Predicate, pipe, Record, Ref, Schema, SchemaGetter, Stream, Struct, SubscriptionRef } from 'effect';
 import { McpSchema, McpServer, Tool, Toolkit } from 'effect/ai';
 import { Headers, HttpTraceContext } from 'effect/http';
 
@@ -11,6 +11,7 @@ type Source = Parameters<(typeof McpServer.McpServer.Service)['addTool']>[0];
 
 const READING = Context.make(Tool.Readonly, true).pipe(Context.add(Tool.Idempotent, true), Context.add(Tool.Destructive, false), Context.add(Tool.OpenWorld, false));
 const DURATION = Metric.timer('mcp.server.operation.duration', { description: 'Duration of MCP server operations' });
+const SUGGESTIONS = 100;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -35,14 +36,6 @@ class Attachment extends Data.Class<{ readonly uri: string; readonly mimeType: s
     });
 }
 
-// --- [ERRORS] --------------------------------------------------------------------------
-
-class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique symbol }>()('Unmatched', { subject: Schema.String, query: Schema.String, candidates: Schema.Array(Schema.String) }) {
-    override get message(): string {
-        return `No ${this.subject}${this.query === '' ? '' : ` matching ${this.query}`}${this.candidates.length === 0 ? '' : `, candidates: ${this.candidates.join(', ')}`}`;
-    }
-}
-
 // --- [SERVICES] ------------------------------------------------------------------------
 
 const Instructions = Context.Reference<readonly string[]>('@rasm/mcp/server/Instructions', { defaultValue: () => [] });
@@ -51,12 +44,6 @@ const Blocks = Context.Reference<(block: McpSchema.ContentBlock) => Effect.Effec
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const ranked = (query: string, candidates: readonly string[]): readonly string[] => {
-    const listed = 100;
-    const [found, info, order] = new uFuzzy({ intraMode: 1 }).search([...candidates], query, 0, Number.POSITIVE_INFINITY);
-    const matched = (order === null || info === null ? (found ?? []) : order.flatMap((position) => info.idx[position] ?? [])).flatMap((index) => candidates[index] ?? []);
-    return (matched.length === 0 ? candidates : matched).slice(0, listed);
-};
 const observed =
     (method: string, name: string, attributes: Readonly<Record<string, string>>) =>
     <A, E, R>(self: Effect.Effect<A, E, R>) =>
@@ -79,27 +66,26 @@ const observed =
         });
 const merged = (sources: Array.NonEmptyReadonlyArray<Source>): Source => {
     const [newest] = sources;
-    const union = (schemas: readonly Schema.JsonObject[]): Schema.JsonObject => Array.match(Array.dedupe(schemas.map(({ $defs: _, ...schema }) => schema)), { onEmpty: () => ({}), onNonEmpty: ([only, ...rest]) => (rest.length === 0 ? only : { anyOf: [only, ...rest] }) });
-    const definitions = (schemas: readonly Schema.JsonObject[]) => ({ $defs: Object.assign({}, ...schemas.map(({ $defs }) => (Schema.is(Schema.JsonObject)($defs) ? $defs : {}))) });
-    const inputs = sources.map(({ tool }) => tool.inputSchema);
+    const union = ([only, ...rest]: Array.NonEmptyReadonlyArray<Schema.JsonObject>, kind: 'input' | 'output'): Schema.JsonObject => (rest.length === 0 ? only : { anyOf: [only, ...rest].map((schema, index) => ({ $id: `urn:mcp:${encodeURIComponent(newest.tool.name)}:${kind}:${index}`, ...schema })) });
     const hints = sources.map(({ tool }) => tool.annotations);
     return {
         tool: McpSchema.Tool.make({
             ...newest.tool,
             description: Option.getOrUndefined(Array.findFirst(sources.toReversed(), ({ tool }) => Option.fromUndefinedOr(tool.description))),
             inputSchema: {
-                type: 'object',
-                properties: Record.map(
-                    Array.groupBy(
-                        inputs.flatMap((schema) => Record.toEntries(schema.properties ?? {})),
-                        ([key]) => key,
-                    ),
-                    (entries) => union(entries.map(([, schema]) => schema)),
+                ...union(
+                    Array.map(sources, ({ tool }) => tool.inputSchema),
+                    'input',
                 ),
-                required: inputs.map((schema) => schema.required ?? []).reduce(Array.intersection),
-                ...definitions(inputs),
+                type: 'object',
             },
-            outputSchema: Option.getOrUndefined(Option.map(Option.all(sources.map(({ tool }) => Option.fromUndefinedOr(tool.outputSchema))), (schemas) => ({ ...union(schemas), ...definitions(schemas) }))),
+            outputSchema: pipe(
+                sources,
+                Array.map(({ tool }) => Option.fromUndefinedOr(tool.outputSchema)),
+                Option.all,
+                Option.map((schemas) => union(schemas, 'output')),
+                Option.getOrUndefined,
+            ),
             annotations: McpSchema.ToolAnnotations.make({
                 ...newest.tool.annotations,
                 readOnlyHint: hints.every((each) => each?.readOnlyHint === true),
@@ -134,7 +120,7 @@ const register = Effect.fnUntraced(function* <P extends Schema.Codec<unknown, un
     handle: (parameters: P['Type']) => Effect.Effect<S['Type'], Error, R>,
 ) {
     const context = yield* Effect.context<R>();
-    const called = (given: P['Type']) => Effect.provide(handle(given), context).pipe(Effect.catchIf(Schema.is(Unmatched), ({ subject, query, candidates }) => Effect.fail(Unmatched.make({ subject, query, candidates: ranked(query, candidates) }))));
+    const called = (given: P['Type']) => Effect.provide(handle(given), context).pipe(Effect.catchIf(Schema.is(Unmatched), ({ subject, query, candidates }) => Effect.fail(Unmatched.make({ subject, query, candidates: ranked(query, candidates).slice(0, SUGGESTIONS) }))));
     const [parameters, success]: readonly [Schema.Codec<Effect.Effect<unknown, Error>, unknown>, Schema.Codec<unknown, unknown>] = [
         Schema.toCodecJson(tool.parametersSchema).pipe(Schema.decodeTo(Schema.Any, { decode: SchemaGetter.transform(called), encode: SchemaGetter.forbidden(() => 'calls decode only') })),
         Schema.toCodecJson(tool.successSchema),
@@ -148,7 +134,7 @@ const register = Effect.fnUntraced(function* <P extends Schema.Codec<unknown, un
 const layer = (scheme: string) =>
     Layer.effect(McpServer.McpServer)(
         Effect.gen(function* () {
-            const Row = Schema.Struct({ tool: Schema.String, arguments: Schema.Json, result: Schema.OptionFromOptionalKey(McpSchema.CallToolResult) });
+            const Row = Schema.Struct({ tool: Schema.String, arguments: Schema.Json, result: Schema.OptionFromOptionalKey(Schema.Exit(Schema.Union([McpSchema.CallToolResult, Schema.instanceOf(McpSchema.InputRequired, { toCodecJson: () => undefined })]), McpSchema.McpError, Schema.Defect())) });
             const [server, scope, held, stacks] = yield* Effect.all([McpServer.McpServer, Effect.scope, Ref.make(Array.empty<Effect.Effect<typeof Row.Type>>()), Ref.make(Record.empty<string, Array.NonEmptyReadonlyArray<Source>>())]);
             const uri = `${scheme}://executions`;
             const encode = Schema.encodeEffect(Schema.fromJsonString(Schema.toCodecJson(Schema.Array(Row))));
@@ -156,22 +142,21 @@ const layer = (scheme: string) =>
                 McpServer.registerResource({
                     uri,
                     name: 'executions',
-                    description: 'Calls that change state, cancelled before their response, each with its arguments and, once finished, its result. Reads drop a finished call after listing it',
-                    annotations: Context.make(Instructions, [`- ${uri}: results of calls that change state, cancelled before their response.`]),
+                    description: 'Calls that change state, cancelled before their response, each with its arguments and completed outcome, including failures and requested input. Reads drop a completed call after listing it',
                     mimeType: 'application/json',
                     content: Effect.gen(function* () {
                         const rows = yield* Ref.get(held);
                         const read = yield* Effect.all(rows);
                         yield* Ref.update(held, Array.difference(Array.getSomes(Array.zipWith(rows, read, (row, { result }) => Option.as(result, row)))));
-                        return yield* Effect.orDie(encode(read));
+                        return { contents: [{ uri, mimeType: 'application/json', text: yield* Effect.orDie(encode(read)) }] };
                     }),
                 }).pipe(Effect.provideService(McpServer.McpServer, server)),
             );
             const kept = Effect.fnUntraced(function* (tool: string, given: Schema.Json, answer: ReturnType<Source['handle']>) {
                 const done = yield* Deferred.make<Effect.Success<typeof answer>, Effect.Error<typeof answer>>();
-                const row = Effect.map(Deferred.poll(done), (polled) => ({ tool, arguments: given, result: Option.flatMap(polled, flow(Effect.runSyncExit, Exit.match({ onFailure: Option.none, onSuccess: Option.liftPredicate(Schema.is(McpSchema.CallToolResult)) }))) }));
+                const row = Effect.map(Deferred.poll(done), (result) => ({ tool, arguments: given, result: Option.map(result, Effect.runSyncExit) }));
                 yield* Effect.forkIn(Deferred.complete(done, answer), scope, { uninterruptible: true });
-                return yield* Effect.interruptible(Deferred.await(done)).pipe(Effect.onInterrupt(() => Effect.andThen(Ref.update(held, Array.append(row)), Effect.forkIn(Effect.andThen(Deferred.await(done), server.notifications['notifications/resources/updated']({ uri })), scope))));
+                return yield* Effect.interruptible(Deferred.await(done)).pipe(Effect.onInterrupt(() => Effect.andThen(Ref.update(held, Array.append(row)), Effect.forkIn(Effect.andThen(Effect.exit(Deferred.await(done)), server.notifications['notifications/resources/updated']({ uri })), scope))));
             }, Effect.uninterruptible);
             const served = ({ tool, handle }: Source, destructive: boolean) =>
                 Effect.fnUntraced(
@@ -190,7 +175,7 @@ const layer = (scheme: string) =>
                         const answer = Effect.gen(function* () {
                             const result = yield* handle(payload);
                             const added = yield* Ref.get(blocks);
-                            return Schema.is(McpSchema.CallToolResult)(result) ? McpSchema.CallToolResult.make({ ...result, content: [...result.content, ...added] }) : result;
+                            return result instanceof McpSchema.InputRequired ? result : McpSchema.CallToolResult.make({ ...result, content: [...result.content, ...added] });
                         }).pipe(
                             Effect.provideService(Blocks, (block) => Ref.update(blocks, Array.append(block))),
                             Effect.provideService(Progress, (message) => SubscriptionRef.set(stage, message)),
@@ -204,7 +189,7 @@ const layer = (scheme: string) =>
                 (input: string, context: C) =>
                     Effect.map(complete(input, context), ({ completion: { values }, ...rest }) => {
                         const ordered = ranked(input, values);
-                        return McpSchema.CompleteResult.make({ ...rest, completion: { values: [...ordered], total: values.length, hasMore: ordered.length < values.length } });
+                        return McpSchema.CompleteResult.make({ ...rest, completion: { values: ordered.slice(0, SUGGESTIONS), total: ordered.length, hasMore: ordered.length > SUGGESTIONS } });
                     });
             return McpServer.McpServer.of({
                 ...server,
@@ -226,4 +211,4 @@ const layer = (scheme: string) =>
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Activity, Attachment, Image, Instructions, layer, Progress, READING, register, Unmatched };
+export { Activity, Attachment, Blocks, Image, Instructions, layer, Progress, READING, register };

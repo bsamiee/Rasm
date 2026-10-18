@@ -65,10 +65,8 @@ rule:
                                             - has: {stopBy: end, matches: derivable-mutation}
                                             - {kind: assignment, has: {field: target, has: {pattern: $NAME}}}
                                             - {kind: assignment, has: {field: target, has: {kind: call_expression, has: {pattern: $NAME}}}}
-                                            - {kind: 'for_statement, while_statement, repeat_while_statement', has: {stopBy: end, pattern: $NAME}}
                                             - has: {stopBy: end, kind: assignment, has: {field: target, has: {pattern: $NAME}}}
                                             - has: {stopBy: end, kind: assignment, has: {field: target, has: {kind: call_expression, has: {pattern: $NAME}}}}
-                                            - has: {stopBy: end, kind: 'for_statement, while_statement, repeat_while_statement', has: {stopBy: end, pattern: $NAME}}
                             - precedes: {stopBy: end, any: [{matches: awaiting-loop}, {has: {stopBy: end, matches: awaiting-loop}}]}
                             - precedes:
                                 stopBy: end

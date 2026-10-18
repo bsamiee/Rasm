@@ -1,15 +1,18 @@
 # [INDESIGN]
 
-Each InDesign member read and call is one host round trip that returns before the next statement, and a collection returns one field of every member in one call. Typings declare DOM classes as interfaces, `instanceof` holds for the exact class alone (`Rectangle instanceof PageItem` reads false), and code discriminates instances on their literal `constructorName` field.
+InDesign DOM calls return synchronously, storage getters can return promises, and a collection returns one field of every member in one call. Typings declare DOM classes as interfaces, `instanceof` holds for the exact class alone (`Rectangle instanceof PageItem` reads false), and code discriminates instances on their literal `constructorName` field.
 
 ## [01]-[MEMBERS]
 
-InDesign holds its running object model as `$.dictionary`, read per class by `Model` of `@rasm/indesign/dom` through one ExtendScript source sent with `app.doScript(<source>, ScriptLanguage.JAVASCRIPT, [<class>])` and returned by `inspect` of a class or enumeration name:
+InDesign holds its running object model as ExtendScript's `$.dictionary`, read through `app.doScript(<source>, ScriptLanguage.JAVASCRIPT, [<class>])`:
 - `$.dictionary.toXML().descendants("topicref").@href` lists every class and enumeration name, each equal to the `indesign` module's
 - `getClass(<name>).toXML()` rows include inherited members, its `@type == "class"` rows hold enumerators and class constants, and readers index each `XMLList`, where `for each` yields unnamed rows
-- `varies=any` rows list their types in a closing "Can accept:" or "Can return:" clause
+- `varies=any` rows keep accepted types in English descriptions, not a schema for coercing values
 - "(Optional)" marks a parameter optional with no default, and reserved-word parameters are `in`, `with`, and `from`
 - `Object.getOwnPropertyDescriptors(indesign.<Class>.prototype)` lists what the installed build exposes, getters as fields: the object model's members with `constructorName`, `equals`, `toSource`, `toSpecifier`, and `toString`
+- Read getters separately with their metadata; aggregate `.properties` invokes nested getters before a failure can be isolated
+- Find/Change drop-shadow and inner-shadow `angle`, `distance`, `xOffset`, and `yOffset` accessors crash without a native owner
+- Await storage getters before encoding; entry `url` can be a URL object, serialized through `String(entry.url)`
 
 ## [02]-[SPECIFIERS]
 
@@ -45,10 +48,9 @@ const resolved = (specifier: string): Option.Option<Hosted | readonly Hosted[]> 
         (found): found is Hosted | readonly Hosted[] => (hosted(found) || (Array.isArray(found) && found.every(hosted))) && Array.ensure(found).every((each: Hosted) => kind(specifier) === undefined || kind(each.toSpecifier()) === kind(specifier)),
     );
 };
-const item = (target: unknown, key: PropertyKey): unknown => (collected(target) && !Predicate.isSymbol(key) && !(key in target) ? target.item(key) : Reflect.get(new Object(target), key));
 ```
 
-`getElements()` returns each member as its concrete class and throws on an invalid specifier. Reading a native getter (`constructorName`, `length`) with a class prototype as receiver crashes InDesign. `hosted` and `collected` read no getter: a DOM object's prototype is an exported class prototype owning `toSpecifier`, and a collection's owns `everyItem`. `resolved` turns any `toSpecifier()` string (ids, `[@name]` selectors, group paths, text ranges, collections) back into its object through ExtendScript's `resolve`, with the specifier passed as an argument and an id step's class compared. Supplied source compiles with `item` as its computed member read: a collection lacking the key returns `item(key)`, and arrays, records, and `length` keep their own.
+`getElements()` returns each member as its concrete class and throws on an invalid specifier. Reading a native getter (`constructorName`, `length`) with a class prototype as receiver crashes InDesign. `hosted` and `collected` read no getter: a DOM object's prototype is an exported class prototype owning `toSpecifier`, and a collection's owns `everyItem`. `resolved` passes saved specifiers to ExtendScript's `resolve` as arguments and compares an id step's class. Empty collections resolve as `undefined`; read known collections through `everyItem().getElements()` for an empty array. Supplied source calls native collection methods without computed-member rewriting.
 
 | [INDEX] | [NEED]                     | [FORM]                                           | [DECIDING_FACT]                                |
 | :-----: | :------------------------- | :----------------------------------------------- | :--------------------------------------------- |
@@ -69,43 +71,31 @@ const item = (target: unknown, key: PropertyKey): unknown => (collected(target) 
 
 ## [03]-[FIELDS]
 
-Enumerators are objects: `===` between reads of one member is false, `JSON.stringify` yields `{}`, and `String` yields the member name. Each `Enumeration` holds every member under upper snake, camel, and lowercase keys (`CENTER_ALIGN`, `centerAlign`, `centeralign`), and one field write form retries a refused string as each enumerator of that name:
+Enumerators are objects: `===` between reads of one member is false, `JSON.stringify` yields `{}`, and `String` yields the member name. Each `Enumeration` holds every member under upper snake, camel, and lowercase keys (`CENTER_ALIGN`, `centerAlign`, `centeralign`). Scripts pass native values; JSON inputs decode explicit object and enumeration references before field writes:
 
 ```ts
-import indesign from 'adobe:indesign';
-
 const Reason = Schema.TaggedUnion({
     Rejected: { field: Schema.String, cause: Schema.Defect() },
     Modal: { step: Schema.String },
     Refused: { step: Schema.String, cause: Schema.Defect() },
     Unrendered: { page: Schema.Int },
-    Untranslatable: { pattern: Schema.String, constructs: Schema.NonEmptyArray(Schema.String) },
     Unavailable: { name: Schema.String },
-    Unwritten: { file: Schema.String, cause: Schema.Defect() },
 });
 class InDesignError extends Schema.TaggedError<InDesignError, { readonly brand: unique symbol }>()('InDesignError', { reason: Reason }) {}
 
-const written = (target: object, values: object): Effect.Effect<void, Array.NonEmptyArray<InDesignError>> => {
-    const enumerations = Object.getOwnPropertyNames(indesign).flatMap((name) => {
-        const value: unknown = Reflect.get(indesign, name);
-        return value instanceof indesign.Enumeration ? [value] : [];
-    });
-    return Effect.validate(
+const written = (target: object, values: object): Effect.Effect<void, Array.NonEmptyArray<InDesignError>> =>
+    Effect.validate(
         Object.entries(values),
-        ([field, value]: readonly [string, unknown]) => {
-            const put = (candidate: unknown): Effect.Effect<object, InDesignError> => Effect.try({ try: () => Object.assign(target, { [field]: candidate }), catch: (cause) => InDesignError.make({ reason: { _tag: 'Rejected', field, cause } }) });
-            const named = enumerations.flatMap((enumeration) => {
-                const member: unknown = Predicate.isString(value) ? Reflect.get(enumeration, value) : undefined;
-                return member instanceof indesign.Enumerator ? [put(member)] : [];
-            });
-            return Effect.catch(put(value), (refused) => Effect.firstSuccessOf([...named, Effect.fail(refused)]));
-        },
+        ([field, value]: readonly [string, unknown]) =>
+            Effect.try({
+                try: () => Object.assign(target, { [field]: value }),
+                catch: (cause) => InDesignError.make({ reason: { _tag: 'Rejected', field, cause } }),
+            }),
         { discard: true },
     );
-};
 ```
 
-Refusals throw one field at a time with the host's expected type ("Expected Unit or Leading enumerator"), and the host's type check picks the enumeration: `justification: 'centerAlign'` writes `Justification.CENTER_ALIGN`. Values leave through a `JSON.stringify` replacer that tests enumerators before strings, since a text read can return a `SpecialCharacters` enumerator, and writes each object `hosted` accepts as class, specifier, and `isValid`.
+Refusals throw one field at a time with the host's expected type ("Expected Unit or Leading enumerator"). `written` assigns each decoded value once, preserving literal strings. Values leave through a `JSON.stringify` replacer that tests enumerators before strings, since a text read can return a `SpecialCharacters` enumerator, and writes each object `hosted` accepts as class, specifier, and `isValid`.
 
 - Enumeration members are the prototype keys holding an `Enumerator` whose `String` equals the key, compared through `Justification.CENTER_ALIGN.equals(value)`
 - New members take `add()` with required arguments, then `written` fields, and `properties` drops each key it refuses
@@ -132,18 +122,14 @@ Throws inside a step roll back every change in every document and record no undo
 ```ts
 import { app, SaveOptions, ScriptLanguage, UndoModes } from 'adobe:indesign';
 
-const transacted = Effect.fn('transacted')(function* <A, E, R>(step: string, preview: boolean, body: Effect.Effect<A, E, R>) {
+const transacted = Effect.fn('transacted')(function* <A, E, R>(step: string, body: Effect.Effect<A, E, R>) {
     yield* Effect.filterOrFail(
         Effect.sync(() => app.modalState),
         (modal) => !modal,
         () => InDesignError.make({ reason: { _tag: 'Modal', step } }),
     );
     const [services, outcome, opened] = [yield* Effect.context<R>(), yield* Deferred.make<A, E | InDesignError>(), app.documents.everyItem().id];
-    const recorded = Effect.flatMap(
-        Effect.tap(Effect.exit(body), (exit) => Deferred.done(outcome, exit)),
-        (exit) => (preview ? Effect.interrupt : exit),
-    );
-    const run = (): A => Effect.runSyncWith(services)(recorded);
+    const run = (): A => Effect.runSyncWith(services)(Effect.onExit(body, (exit) => Deferred.done(outcome, exit)));
     const close = Effect.sync(() =>
         Array.difference(app.documents.everyItem().id, opened).forEach((id) => {
             app.documents.itemByID(id).close(SaveOptions.NO);
@@ -157,9 +143,10 @@ const transacted = Effect.fn('transacted')(function* <A, E, R>(step: string, pre
 });
 ```
 
-`entered` holds its step where the peer's call runs it and repeats `app.doScript('$.sleep(<ms>)', ScriptLanguage.JAVASCRIPT)` until the step ran, a host refusal failing `Refused`. `transacted` returns the body's value, or its typed failure with every change rolled back. Under `preview` the body's value returns and the interruption rolls the document back with no undo step: a dry run, a rendered preview, or a host refusal reported as data. `Deferred.fail` completes `outcome` only when `doScript` refused before the body ran, and documents a rolled-back step opened close by id difference. An async body fails `Refused`.
+`entered` holds its step where the peer's call runs it and repeats `app.doScript('$.sleep(<ms>)', ScriptLanguage.JAVASCRIPT)` until the step ran, a host refusal failing `Refused`. `transacted` returns the body's value, or its typed failure with every change rolled back. `Deferred.fail` completes `outcome` only when `doScript` refused before the body ran, and documents a rolled-back step opened close by id difference. An async body fails `Refused`.
 
 - Nested `doScript` calls are savepoints inside their outer step, where `document.undo()` throws, and `document.undoHistory` lists step names newest first
+- Promise rejection leaves prior writes intact; a synchronous `doScript` after awaited work groups subsequent edits
 - Rollback restores documents and app-wide find, change, and export preferences, and leaves `app.scriptPreferences` and files on disk
 - `app.modalState` reads true under the Preferences dialog, where a plug-in `doScript` drops its field writes with no error
 - `app.modalState` reads true under an ExtendScript dialog open through `do script`, where writes take effect, and reads return under either
@@ -189,7 +176,7 @@ value`;
 
 ## [05]-[PREFERENCES]
 
-`app.scriptPreferences` and app-wide export and find/change preferences are shared with the user's dialogs and persist across scripts and launches, and one scope restores the keys it wrote:
+`app.scriptPreferences` and app-wide export and find/change preferences are shared with the user's dialogs and persist across scripts and launches. Export and scripting scopes restore written keys:
 
 ```ts
 const held = <T extends { readonly constructorName: string }, K extends keyof T & string>(owner: T, values: Pick<T, K>): Effect.Effect<void, Array.NonEmptyArray<InDesignError>, Scope.Scope> =>
@@ -204,9 +191,11 @@ const held = <T extends { readonly constructorName: string }, K extends keyof T 
 
 Preference members are prototype accessors that own-key copies (`Struct.pick`, a spread) skip. `held` reads each key by name before `written` sets any, and the scope restores every key whether its write succeeded or failed.
 
+Find/Change scopes save, load, and delete a native query. Native serialization preserves unset `NothingEnum.NOTHING` values and nested preferences that property copies lose.
+
 - `MeasurementUnits.POINTS` makes every measurement field read and write points, text size and leading included
 - `AutoEnum.AUTO_VALUE` varies units per field by ruler axis and stroke setting, and unit strings (`'9mm'`) parse under every unit
-- Reads that change export or find preferences hold them through `held` with no transaction, each write setting `app.undoName` alone and leaving `document.undoHistory` unchanged
+- Reads that change export preferences hold them through `held` without a transaction or document undo entry
 - Scripts start at `INTERACT_WITH_ALL`, and an uncaught script throw alerts under it and `NEVER_INTERACT`
 - `NEVER_INTERACT` turns a PDF font embedding refusal into a silent omission and completes `createSubsetFont` of a synced face and `menuAction.invoke()` in place of a modal
 
@@ -265,7 +254,6 @@ const rendered = Effect.fn('rendered')(function* (document: Document, page: numb
         exportResolution: (longPixels * pointsPerInch) / Math.max(bottom - top, right - left),
         useDocumentBleeds: false,
     });
-    fs.writeFileSync(file.read, '');
     document.exportFile(ExportFormat.JPG, file.native);
     return yield* Effect.filterOrFail(
         Effect.sync(() => new Uint8Array(fs.readFileSync(file.read))),
@@ -275,19 +263,14 @@ const rendered = Effect.fn('rendered')(function* (document: Document, page: numb
 }, Effect.scoped);
 ```
 
-`rendered` runs on its own or inside a `transacted` preview, where rollback discards the rendered state. `file` is one entry from `getTemporaryFolder().createFile(name, { overwrite: true })` in a plug-in: `exportFile` takes its `nativePath`, `fs` its `url`. Emptying the file first makes zero bytes the one sign of a failed render, and pixel size is points times `exportResolution` (1 to 2400) over 72.
+`file` comes from a new `getTemporaryFolder().createFile(name, { overwrite: true })` entry for each export: `exportFile` takes `nativePath`, and `fs` takes `String(url)`. Scope release deletes the entry after its byte read. Page pixel size is points times `exportResolution` (1 to 2400) over 72.
 
 - Leftover `pageString` from another script makes a one-page export write nothing unless range and page are set together
 - `exportFile` on an item ignores the page range and writes nothing for a zero-area item, and `exportingSpread` true exports the whole spread
 - Export composes on its own and leaves out hidden, non-printing, and invisible items
 - Native writes take any absolute path except a file directly in `/tmp` or `/private/tmp`, which fails with "Cannot find the folder"
 
-Regions export from a scratch document that matches what InDesign draws:
-1. `app.documents.add(false, undefined, { documentPreferences })` opens a windowless page of the region's size with `facingPages` false, then a layer per source layer
-2. Master items come first: pages in descending index, each page's `masterPageItems` reversed and deduplicated by `id`
-3. Copies keep their spread-center offset, and `duplicate(layer, by)` of a master item takes `by` as its page's `extent` corner less its master page's
-4. Shown top-level spread items follow back to front, each `duplicate` going to `layers.item(item.itemLayer.index)`
-5. `rendered` exports the scratch page, and `close(SaveOptions.NO)` releases the document
+Whole items export through `PageItem.exportFile`, pages and spreads through `Document.exportFile`. Native item raster extents differ from geometric bounds; returned image dimensions describe pixels without a derived coordinate transform. Application screenshots retain dialogs, panels, and pasteboard context.
 
 ## [08]-[TEXT]
 
@@ -301,75 +284,43 @@ Text members return a range's first-run value, and `textStyleRanges.everyItem().
 |  [04]   | Overset characters           | `story.length` less frame `characters.length`      | `overflows` returns a boolean alone           |
 |  [05]   | Anchored object position     | `U+FFFC` in `story.contents`                       | Marker is one character                       |
 
-- Characters a GREP style matches read the resolved attribute while `appliedCharacterStyle` stays `[None]` and `textStyleRanges` keeps one run
+- GREP styles can leave `appliedCharacterStyle` as `[None]` and keep one `textStyleRange` across different formatting
+- Overlapping GREP rules can render differently from character getters; read `appliedNestedStyles` and rule order, then render
 
 ## [09]-[GREP]
 
-InDesign's GREP dialect reads some JavaScript pattern syntax with another meaning, and finds nothing with no error for a pattern it cannot parse. A `RegExp` translates through a parser: each node the dialect misreads becomes one splice of the source at the node's range, and every construct with no dialect form fails the translation:
+`findWhat`, `grepExpression`, and `changeTo` take native strings unchanged. Invalid expressions can return no matches without throwing; test an intended passage through the native search scope:
 
-```ts
-import MagicString from 'magic-string';
-import regjsparser, { type AstNode } from 'regjsparser';
-
-const features = { lookbehind: true, namedGroups: true, unicodePropertyEscape: true, unicodeSet: true } as const;
-const splices = (node: AstNode<typeof features>): readonly Result.Result<readonly [start: number, end: number, text: string], string>[] => {
-    const radix = 16;
-    return Match.value(node).pipe(
-        Match.discriminators('type')({
-            value: ({ kind, codePoint, range: [start, end] }) => (kind === 'unicodeEscape' || String.fromCodePoint(codePoint).length > 1 ? [Result.succeed([start, end, `\\x{${codePoint.toString(radix).toUpperCase()}}`] as const)] : []),
-            group: ({ behavior, body, raw }) => (behavior.endsWith('ookbehind') && body.some((child) => child.type === 'quantifier' && child.min !== child.max) ? [Result.fail(raw)] : body.flatMap(splices)),
-        }),
-        Match.discriminator('type')('alternative', 'disjunction', 'quantifier', ({ body }) => body.flatMap(splices)),
-        Match.orElse(() => []),
-    );
-};
-const grep = ({ source, flags, ignoreCase, dotAll, multiline }: RegExp): Result.Result<string, InDesignError> => {
-    const untranslatable = (constructs: Array.NonEmptyArray<string>): InDesignError => InDesignError.make({ reason: { _tag: 'Untranslatable', pattern: source, constructs } });
-    return Result.try(() => splices(regjsparser.parse(source, flags.includes('v') ? 'v' : 'u', features))).pipe(
-        Result.mapError(() => untranslatable([source])),
-        Result.flatMap((kept) =>
-            Array.match(Array.getFailures(kept), {
-                onNonEmpty: flow(untranslatable, Result.fail),
-                onEmpty: () =>
-                    Result.succeed(
-                        `${ignoreCase ? '(?i)' : ''}${dotAll ? '(?s)' : ''}${multiline ? '' : '(?-m)'}${Array.getSuccesses(kept).reduce((edited, [start, end, text]) => edited.overwrite(start, end, text), new MagicString(source)).toString()}`,
-                    ),
-            }),
-        ),
-    );
-};
-```
-
-`splices` holds one rewrite (an escaped or astral code point as `\x{…}`) and one rejection (a lookbehind of unbounded length), and each table row is one more arm of its `Match`. Rows the dialect cannot spell as written (a script, a property inside a class, `\d`) take a class of code points built from the runtime's Unicode data under the pattern's flags, one range boundary per membership change. A lookbehind's fixed width is the sum of its children's widths, a quantifier counting when `min` equals `max`.
-
-| [INDEX] | [JAVASCRIPT]                  | [GREP_READS]                            | [GREP_FORM]                              |
-| :-----: | :---------------------------- | :-------------------------------------- | :--------------------------------------- |
-|  [01]   | `\uXXXX`, surrogate pairs     | `\u` as uppercase, pairs match nothing  | `\x{XXXX}`, `\x{1F600}`                  |
-|  [02]   | `\p{L}`, `\p{N}`, `\p{P}`     | Lowercase alone, nothing, nothing       | `\p{Letter}`, `\p{Number}`               |
-|  [03]   | `\p{Script=X}`, `[a-z\p{Lu}]` | Nothing, property as literal characters | Class of code points                     |
-|  [04]   | `^`, `$` inside alternation   | Anchor binds every alternative          | Lookaround per branch                    |
-|  [05]   | `^`, `$` without `m`          | Paragraph start and end                 | `(?-m)` opening the pattern              |
-|  [06]   | `\d`, `\w`, `\b`              | Unicode digits, letters, boundaries     | ASCII classes and lookarounds            |
-|  [07]   | `i`, `s` flags                | No flags, `.` stops at `\r` alone       | `(?i)`, `(?s)` opening the pattern       |
-|  [08]   | `(?<=\$\|USD)`, `(?<!a\|bc)`  | Invalid, alternatives differ in length  | `(?:(?<=\$)\|(?<=USD))`, `(?<!a)(?<!bc)` |
-|  [09]   | `(?<=a+)`                     | Invalid, unbounded lookbehind           | `a+\K` in GREP written directly          |
-|  [10]   | `\n`                          | Forced line break U+000A alone          | `\r` ends a paragraph                    |
+| [INDEX] | [PATTERN]                    | [GREP_READS]                           | [GREP_FORM]                              |
+| :-----: | :--------------------------- | :------------------------------------- | :--------------------------------------- |
+|  [01]   | `\uXXXX`, surrogate pairs    | `\u` as uppercase, pairs match nothing | `\x{XXXX}`, `\x{1F600}`                  |
+|  [02]   | `\p{L}`, `\p{N}`, `\p{P}`    | Lowercase alone, nothing, nothing      | `\p{Letter}`, `\p{Number}`               |
+|  [03]   | `[a-z\p{Lu}]`                | Property as literal characters         | `(?:[a-z]\|\p{Lu})`                      |
+|  [04]   | `^`, `$` inside alternation  | Branch-order-dependent missed matches  | Lookaround per branch                    |
+|  [05]   | `^`, `$` without `m`         | Paragraph start and end                | `(?-m)` opening the pattern              |
+|  [06]   | `\d`, `\w`, `\b`             | Unicode digits, letters, boundaries    | Native form, ASCII classes when required |
+|  [07]   | `i`, `s` flags               | No flags, `.` stops at `\r` alone      | `(?i)`, `(?s)` opening the pattern       |
+|  [08]   | `(?<=\$\|USD)`, `(?<!a\|bc)` | Invalid, alternatives differ in length | `(?:(?<=\$)\|(?<=USD))`, `(?<!a)(?<!bc)` |
+|  [09]   | `(?<=a+)`                    | Invalid, unbounded lookbehind          | `a+\K` in GREP written directly          |
+|  [10]   | `\n`                         | Forced line break U+000A alone         | `\r` ends a paragraph                    |
 
 Searches and changes run in one sequence:
-1. Find, change, and options preferences take `NothingEnum.NOTHING`, then `written` sets every key the search reads
-2. `findGrep()` of `(?:<pattern>)|<sentinel>` over a scratch story holding `<sentinel>`, as a rolled-back read, hits exactly when `<pattern>` parses, and a pattern holding `\K` joins `|<sentinel>` ungrouped
-3. `findGrep()` returns `Text` subclasses with `contents`, `index`, and `parentStory`, zero-length `InsertionPoint` matches included
-4. `changeGrep()` returns ranges that later changes in their story leave stale, and changed text reads through `story.paragraphs.item(<ordinal>)` after the change
+1. Find and change preferences take `NothingEnum.NOTHING`, then native fields set patterns, formatting, and inclusion options
+2. `findGrep()` returns `Text` subclasses and zero-length `InsertionPoint` matches
+3. Read match text and `paragraphs.everyItem().contents` before changing; cell and footnote indices belong to their local text
+4. `changeGrep()` can return stale ranges or an empty array after changing text; array length does not report an edit count
 
-- Field writes pass `findWhat` and `grepExpression` values through `grep` and `changeTo` values through Change To translation before `written`
 - Change To takes `$0` through `$9`, `\r`, `\t`, `\n`, `\x{XXXX}`, and `\U`, `\u`, `\L`, and inserts `\1`, `$&`, `${1}`, and `$$` as literal text
-- JavaScript replacements map `\1` to `$1`, `$&` to `$0`, `$$` to `\$`, and a named reference to `$` with its group's ordinal, and a reference past `$9` has no form
-- `saveFindChangeQuery(name, SearchModes.GREP_SEARCH)` stores queries `loadFindChangeQuery` restores, and `findChangeGrepOptions` holds no case option
-- GREP styles are `nestedGrepStyles.add()` on a paragraph style, then `written` with `grepExpression` and `appliedCharacterStyle`
+- `saveFindChangeQuery(name, SearchModes.GREP_SEARCH)` stores application preferences, excluding search scope
+- `findChangeGrepOptions` holds no case option; case matching uses pattern modifiers
+- Locked-layer and locked-story options permit finding, not replacement; hidden conditional text remains excluded
+- `nestedGrepStyles.add({ grepExpression, appliedCharacterStyle })` creates rules on paragraph styles and text objects
+- GREP styles inherit through paragraph styles and apply character formatting within paragraphs without changing text
+- Find/Change can match across paragraph returns; find formatting and change formatting remain separate from pattern text
 
 ## [10]-[FONTS]
 
-`Font.name` is family and style joined by a tab, giving both from one bulk read, `location` is a file path or a label for a face with no readable file, and `createSubsetFont` writes a single-face file for any installed face:
+`fontFamily` and `fontStyleName` supply face metadata that splitting `Font.name` can misstate. `location` is a file path or a label for a face with no readable file, and `createSubsetFont` supplies bytes when a source file is absent:
 
 ```ts
 import { readFileSync } from 'adobe:fs';
@@ -383,19 +334,27 @@ const face = Effect.fn('face')(function* (name: string, characters: string, fold
     );
     const { location, postscriptName } = font;
     const subset = `${folder}/${postscriptName}`;
-    const unwritten = (file: string) => (cause: unknown): InDesignError => InDesignError.make({ reason: { _tag: 'Unwritten', file, cause } });
-    const path = yield* location.startsWith('/')
-        ? Effect.succeed(location)
-        : Effect.as(Effect.try({ try: () => font.createSubsetFont(characters, subset), catch: unwritten(subset) }), subset);
-    const bytes = yield* Effect.try({ try: () => new Uint8Array(readFileSync(path)), catch: unwritten(path) });
-    return { bytes, postscriptName, subset: path === subset };
+    const source = yield* Effect.try(() => new Uint8Array(readFileSync(location))).pipe(
+        Effect.map((bytes) => ({ bytes, subset: false })),
+        Effect.catchIf(
+            ({ cause }) => Schema.is(Schema.Struct({ code: Schema.Literal(-2) }))(cause),
+            () => Effect.andThen(
+                Effect.try(() => font.createSubsetFont(characters, subset)),
+                Effect.map(Effect.try(() => new Uint8Array(readFileSync(subset))), (bytes) => ({ bytes, subset: true })),
+            ),
+        ),
+        Effect.mapError((cause) => InDesignError.make({ reason: { _tag: 'Refused', step: font.name, cause } })),
+    );
+    return { postscriptName, ...source };
 });
 ```
 
-`face` returns a file face's bytes, and an Adobe Fonts or system face ("Added from Adobe Fonts", "System Font") through a subset of `characters` under `NEVER_INTERACT`. `status` decides first, since `itemByName` returns a valid specifier for a face InDesign lacks, and its `location` read throws. `postscriptName` selects one face inside a collection file.
+`face` reads original bytes and recovers missing-file code -2 through a subset of `characters` under `NEVER_INTERACT`. Permission failures remain failures. `status` decides first, since `itemByName` returns a valid specifier for a face InDesign lacks, and its `location` read throws. `postscriptName` selects one face inside a collection file.
 
 - `Font.checkOpenTypeFeature(<tag>)` reports GSUB and GPOS features alone, and text applies `morx` features too
 - Variable faces read axes through `designAxesName` and `designAxesValues`, a subset drops them, and every `designAxes*` and `numDesignAxes` read throws for a static face, a bulk read holding one included
+- Application font rows can repeat equal objects; document and application fonts for one face can compare unequal
+- Point-size changes can reset `opsz`; set size before explicit optical-size coordinates
 
 ## [11]-[PREFLIGHT]
 
@@ -404,6 +363,7 @@ Preflight runs as a process object over one document and one profile:
 - `app.preflightProcesses.add(document, profile)` starts a process that a scope releases through `remove()` on every exit
 - `waitForProcess(seconds)` can return false with results complete, and a decode of `aggregatedResults` decides
 - `aggregatedResults` is `[name, profile, rows]`, each row `[node, label, page, text, [key, value][]]` with category rows first and an empty page
+- Report node IDs describe report hierarchy, not page items; `processResults` text supplies no object specifier
 
 ## [12]-[SCRIPTS]
 

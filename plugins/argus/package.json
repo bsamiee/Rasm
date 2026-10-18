@@ -7,6 +7,7 @@
         "@effect/platform-node": "catalog:",
         "@parcel/watcher": "catalog:",
         "@rasm/mcp": "workspace:*",
+        "@rasm/search": "workspace:*",
         "effect": "catalog:",
         "minimatch": "catalog:",
         "vscode-languageserver-protocol": "catalog:"

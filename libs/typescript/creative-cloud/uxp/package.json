@@ -1,7 +1,7 @@
 {
     "name": "@rasm/uxp",
     "private": true,
-    "description": "Runtime for UXP panels in any Adobe host: dialed RPC serving one host call at a time, link and activity status, host clock, and the plugin temporary folder",
+    "description": "Effect runtime and resource lifetime for Adobe UXP hosts, with optional RPC serving and status UI",
     "type": "module",
     "exports": {
         "./*": "./*.ts"

@@ -260,10 +260,8 @@ catalog:
     '@exodus/bytes': 1.16.0 # WHATWG TextEncoder and TextDecoder for hosts without them
     acorn: 8.19.0 # JavaScript parser to ESTree syntax trees
     acorn-walk: 8.3.5 # ESTree syntax tree walker
-    magic-string: 1.4.3 # Source text splices by position
+    amaro: 1.2.1 # Node's TypeScript syntax stripping
     astring: 1.9.0 # JavaScript source text from ESTree syntax trees
-    regjsparser: 0.13.4 # Regular expression parser to syntax trees with source ranges
-    unicode-property-value-aliases: 4.0.0 # Unicode property value aliases mapped to their long names
     image-size: 2.0.4 # Image width and height read from encoded bytes
     # --- [INFRASTRUCTURE]
     '@pulumi/pulumi': "3.271.0-alpha.x7b4b596"

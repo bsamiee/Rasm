@@ -1,10 +1,10 @@
 # [ILLUSTRATOR]
 
-Illustrator runs ExtendScript sent through `do javascript` (`«event miscDjxM»`) and answers each call with its last expression's value as Unicode text (`utxt`).
+Illustrator runs ExtendScript through `do javascript` (`«event miscDjxM»`) and answers with its last expression as Unicode text (`utxt`). `do script` executes an Actions panel action.
 
 ## [01]-[CALLS]
 
-One fixed wrapper is the source of every call, with a body function and its JSON argument array passed as `with arguments` (`«class JArg»`) data. The wrapper replies `Result` JSON, a failure carrying the thrown value's text and an `Error`'s number and line:
+Calls needing structured results encode JSON in ExtendScript. A body function and JSON argument array pass as `with arguments` (`«class JArg»`) data. Returned `Result` JSON preserves thrown text and an `Error`'s number and line:
 
 ```js
 (function (body, given) {
@@ -48,7 +48,7 @@ const called = Effect.fn('called')(function* <A, E, R>(send: (body: string, give
 });
 ```
 
-`send` runs the wrapper with `body` and `given` through an in-process Apple event sender (Atelier), which skips the process start each `osascript` launch adds to a round trip. Host objects in a reply encode as their `String` form (`[Document Untitled-1]`), and the body returns JSON-shaped data. Thrown strings and numbers carry no `number`, `message`, or `line`, and a member read on a thrown `null` throws 21. The wrapper reads members of an `Error` alone, and `error` is `None` for any other thrown value.
+`send` passes `body` and `given` through an in-process Apple Event sender. Host objects encode as their `String` form (`[Document Untitled-1]`), and bodies return JSON-shaped data. Thrown strings and numbers have no `number`, `message`, or `line`, and a member read on thrown `null` throws 21. Read members of an `Error` alone; `error` is `None` for other thrown values.
 
 - `with arguments` carries text, numbers, booleans, and lists, `null` and records arrive `undefined`, and `osascript` `argv` items arrive as text
 - ExtendScript reads U+2028 and U+2029 as line terminators, and a string literal holding one raw fails to compile, in source and in JSON alike

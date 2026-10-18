@@ -8,7 +8,8 @@
     },
     "dependencies": {
         "effect": "catalog:",
-        "fontkit": "catalog:"
+        "fontkit": "catalog:",
+        "harfbuzzjs": "catalog:"
     },
     "devDependencies": {
         "@types/fontkit": "catalog:"

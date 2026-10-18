@@ -1,3 +1,4 @@
+import AppKit
 import CoreText
 import Foundation
 import RasmMacOS
@@ -33,15 +34,15 @@ struct Face: Encodable {
 enum Request: Decodable {
     case applications(running: Bool)
     case application(url: URL)
-    case definition(application: URL)
-    case execute(application: URL, command: String, arguments: [String: Descriptor])
+    case definition(application: URL, selection: ScriptingDictionary.Selection?)
+    case terms(application: URL, kind: String?)
+    case execute(application: URL, command: String, arguments: [String: JSONValue])
     case contentType(url: URL)
-    case windows(application: URL)
-    case capture(window: Int)
+    case screenshot(application: URL, window: CGWindowID?)
     case faces
 
-    private enum Method: String, Decodable { case applications, application, definition, execute, contentType, windows, capture, faces }
-    private enum Key: CodingKey { case method, params, running, application, command, arguments, url, window }
+    private enum Method: String, Decodable { case applications, application, definition, terms, execute, contentType, screenshot, faces }
+    private enum Key: CodingKey { case method, params, running, application, command, arguments, url, window, selection, kind }
 
     init(from decoder: any Decoder) throws {
         let call: KeyedDecodingContainer<Key> = try decoder.container(keyedBy: Key.self)
@@ -50,16 +51,17 @@ enum Request: Decodable {
             switch try call.decode(Method.self, forKey: .method) {
                 case .applications: try .applications(running: params().decode(Bool.self, forKey: .running))
                 case .application: try .application(url: params().decode(URL.self, forKey: .url))
-                case .definition: try .definition(application: params().decode(URL.self, forKey: .application))
+                case .definition:
+                    try .definition(application: params().decode(URL.self, forKey: .application), selection: params().decodeIfPresent(ScriptingDictionary.Selection.self, forKey: .selection))
+                case .terms: try .terms(application: params().decode(URL.self, forKey: .application), kind: params().decodeIfPresent(String.self, forKey: .kind))
                 case .execute:
                     try .execute(
                         application: params().decode(URL.self, forKey: .application),
                         command: params().decode(String.self, forKey: .command),
-                        arguments: params().decode([String: Descriptor].self, forKey: .arguments),
+                        arguments: params().decode([String: JSONValue].self, forKey: .arguments),
                     )
                 case .contentType: try .contentType(url: params().decode(URL.self, forKey: .url))
-                case .windows: try .windows(application: params().decode(URL.self, forKey: .application))
-                case .capture: try .capture(window: params().decode(Int.self, forKey: .window))
+                case .screenshot: try .screenshot(application: params().decode(URL.self, forKey: .application), window: params().decodeIfPresent(CGWindowID.self, forKey: .window))
                 case .faces: .faces
             }
     }
@@ -70,20 +72,22 @@ enum Request: Decodable {
                 Application.all(running: running).map(\.self)
             case .application(let url):
                 Application.at(url).map(\.self)
-            case .definition(let url):
-                Application.at(url).flatMap(ScriptingDictionary.definition(of:)).flatMap { definition in
-                    String(bytes: definition, encoding: .utf8).map(Result.success) ?? .failure(AggregateError(first: .unreadable(CocoaError(.fileReadInapplicableStringEncoding))))
-                }
+            case .definition(let url, let selection):
+                await Application.at(url).bind(ScriptingDictionary.definition(of:)).flatMap { document in ScriptingDictionary.definition(document, selecting: selection) }.map(\.self)
+            case .terms(let url, let kind):
+                await Application.at(url).bind(ScriptingDictionary.definition(of:)).flatMap { document in ScriptingDictionary.terms(document, kind: kind) }.map(\.self)
             case .execute(let url, let command, let arguments):
-                Application.at(url).flatMap { application in application.execute(command, arguments: arguments) }.map(\.self)
+                await Application.at(url).bind { application in await application.execute(command, arguments: arguments) }.map(\.self)
             case .contentType(let url):
                 Result { try url.resourceValues(forKeys: [.contentTypeKey]).contentType?.preferredMIMEType ?? "application/octet-stream" }
                     .mapError { error in AggregateError(first: .unreadable(error)) }
                     .map(\.self)
-            case .windows(let url):
-                Application.at(url).flatMap { application in application.runningApplication() }.flatMap(Window.onScreen(of:)).map(\.self)
-            case .capture(let window):
-                await Window.capture(window).map(\.self)
+            case .screenshot(let url, let window):
+                await Application.at(url).bind { application in await application.open() }.bind { application in
+                    await application.screenshot(windowID: window)
+                        .map { result in Screenshot(window: result.window, windows: result.windows, image: result.image) }
+                        .mapError { error in AggregateError(first: .unreadable(error)) }
+                }.map(\.self)
             case .faces:
                 .success(Face.installed())
         }
@@ -178,6 +182,7 @@ enum Scripting {
         let (replies, sink): (AsyncStream<Data>, AsyncStream<Data>.Continuation) = AsyncStream.makeStream()
         do {
             try takeResponsibility()
+            _ = NSApplication.shared
             try await withThrowingDiscardingTaskGroup { group in
                 group.addTask {
                     for await reply: Data in replies { try FileHandle.standardOutput.write(contentsOf: reply + Data("\n".utf8)) }

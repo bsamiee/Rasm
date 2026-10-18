@@ -7,6 +7,7 @@
     "dependencies": {
         "@rasm/indesign": "workspace:*",
         "@rasm/mcp": "workspace:*",
+        "@rasm/search": "workspace:*",
         "@rasm/typography": "workspace:*",
         "effect": "catalog:"
     },

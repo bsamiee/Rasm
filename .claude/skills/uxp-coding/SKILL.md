@@ -12,20 +12,19 @@ UXP runs each plug-in and script in one V8 context inside an Adobe host, with ho
 - [02]-[PHOTOSHOP](references/photoshop.md): Photoshop's modal scopes, history, descriptors, DOM members, events, export, fonts, and plug-in load
 - [03]-[PREMIERE](references/premiere.md): Premiere Pro's members, reads, transactions, events, projects, export, and Media Encoder
 - [04]-[ILLUSTRATOR](references/illustrator.md): Illustrator's ExtendScript calls, object model, undo steps, export, and plug-in load
-- [05]-[REWRITING](references/rewriting.md): Supplied source compiled through positional splices, with thrown lines mapped back
-- [06]-[TRANSPORT](references/transport.md): Typed calls a plug-in serves over a socket it dials
+- [05]-[TRANSPORT](references/transport.md): Typed calls a plug-in serves over a socket it dials
 
 ## [01]-[CONTEXTS]
 
 Host modules differ in call form, and code is written for one host's form:
 
-| [INDEX] | [HOST]       | [MODULE]      | [DOM_CALLS]                            | [PLUG_INS]  |
-| :-----: | :----------- | :------------ | :------------------------------------- | :---------- |
-|  [01]   | InDesign     | `indesign`    | Synchronous                            | Third-party |
-|  [02]   | Photoshop    | `photoshop`   | Promises inside a modal scope          | Third-party |
-|  [03]   | Premiere Pro | `premierepro` | Async getters, action objects          | Third-party |
-|  [04]   | Illustrator  | None          | ExtendScript through `do javascript`   | Adobe's own |
-|  [05]   | Acrobat      | None          | Acrobat JavaScript through `do script` | None        |
+| [INDEX] | [HOST]       | [MODULE]      | [DOM_CALLS]                            |
+| :-----: | :----------- | :------------ | :------------------------------------- |
+|  [01]   | InDesign     | `indesign`    | Synchronous, storage getters async     |
+|  [02]   | Photoshop    | `photoshop`   | Promises inside a modal scope          |
+|  [03]   | Premiere Pro | `premierepro` | Async getters, action objects          |
+|  [04]   | Illustrator  | None          | ExtendScript through `do javascript`   |
+|  [05]   | Acrobat      | None          | Acrobat JavaScript through `do script` |
 
 - `require` resolves the running host's DOM module alone, `uxp.host.name` names that host, and code shared between hosts takes host calls as arguments
 - Illustrator and Acrobat run supplied source through one Apple event each, sent in raw form with no terminology read:
@@ -58,15 +57,15 @@ Context decides what code can hold across time:
 
 Each difference from a browser or Node holds in InDesign, Photoshop, and Premiere Pro, and has one owner:
 
-| [INDEX] | [DIFFERENCE]                                  | [OWNER]             | [FORM]                                   |
-| :-----: | :-------------------------------------------- | :------------------ | :--------------------------------------- |
-|  [01]   | Global constructed at load (`TextEncoder`)    | Bundle              | Package implementation injected per read |
-|  [02]   | Member of another type (`hrtime.bigint`)      | `@rasm/uxp/runtime` | `Clock` layer over `performance.now()`   |
-|  [03]   | Absent global or module (`Worker`, `node:*`)  | Bundle              | Dependencies reading one stay out        |
-|  [04]   | Module typed as Node's (`fs`, `path`)         | Read site           | Value decoded where read                 |
-|  [05]   | Feature with a missing part (`Response.body`) | Call site           | Whole-body read, flag on whole pattern   |
+| [INDEX] | [DIFFERENCE]                                  | [OWNER]   | [FORM]                                   |
+| :-----: | :-------------------------------------------- | :-------- | :--------------------------------------- |
+|  [01]   | Global constructed at load (`TextEncoder`)    | Bundle    | Package implementation injected per read |
+|  [02]   | Member of another type (`hrtime.bigint`)      | Runtime   | `Clock` layer over `performance.now()`   |
+|  [03]   | Absent global or module (`Worker`, `node:*`)  | Bundle    | Dependencies reading one stay out        |
+|  [04]   | Module typed as Node's (`fs`, `path`)         | Read site | Value decoded where read                 |
+|  [05]   | Feature with a missing part (`Response.body`) | Call site | Whole-body read, flag on whole pattern   |
 
-Effect's `encoding/Base64`, `socket/Socket`, and `encoding/SchemaBinary` modules construct a `TextEncoder` while they load, before any module body of the plug-in runs. Root `uxp()` in `vite.config.ts` gives rolldown `transform.inject` rows that turn each read of an encoding global into an import of its `@exodus/bytes` class, with no global assigned and no import order to keep. Effect's default clock reads `process.hrtime.bigint`, a `number` in UXP, at each span start, span end, and log inside a span, and throws "Cannot mix BigInt and other types". Every runtime and `run*` call provides a `Clock` layer over `performance.now()`, which `launch` of `@rasm/uxp/runtime` provides to a panel, and a `run*With` inside a host callback passes the caller's services on.
+Effect's encoding and socket modules construct `TextEncoder` during module load. Bundler injection can replace encoding-global reads with imports from `@exodus/bytes` before dependencies load. Effect's default clock expects bigint nanoseconds, but UXP's `process.hrtime.bigint` returns a number. Provide a `Clock` layer with nanoseconds derived from `performance.now()`, preserving native sleep and wall-clock behavior. Host callbacks running effects receive caller services through `run*With`.
 
 - Effect decodes with `{ stream: true }`, which an encoding package must implement
 - `structuredClone`, `Buffer`, `MessageChannel`, and `Worker` are absent in every host, and `require` of `util`, `buffer`, or a `node:` name throws
@@ -139,11 +138,12 @@ Class, property, method, parameter, and enumeration facts come from the owner th
 |  [05]   | Acrobat      | `acrohelp` argument to a native method              | `HelpError.extMessage` per parameter            |
 
 - Acrobat's `extMessage` lists parameters as `name: type`, optional ones in brackets
-- AppleScript dictionaries hold AppleScript names and forms with method parameters missing or changed, and serve Apple event encoding alone
+- Native scripting dictionaries declare Apple Event commands and parameter types; script commands select their own language and undo behavior
 - Typings can predate the installed build and rename parameters a host names by reserved words, and renamed parameters call correctly by position
 - Rejected calls complete each model: host errors name a parameter with its expected type and range, and whether a member applies now
-- Probes run as a preview or undoable unit, return failures as data, and leave no host dialog, test plug-in, registry row, or test document behind
+- Probes run as undoable units, return failures as data, and leave no host dialog, test plug-in, registry row, or test document behind
 - Use `Skill(search-code)` for a declaration in `types-for-adobe` or `@types/photoshop`
+- `OSACopyScriptingDefinitionFromURL` returns XML that can contain XInclude references
 
 ## [05]-[HOST_ERRORS]
 
@@ -278,7 +278,7 @@ const registered = <R, ER, E>(
 
 `clock` is the host `Clock` layer. `@adobe-uxp-types/uxp` merges the `setup` parameter with `entrypoints`, which a handler record fails for lacking `getCommand`, `getPanel`, `setup`, and `_pluginInfo`. `satisfies` checks each handler against the declared `plugin` and `commands` members, and `Reflect.apply` calls the untyped overload with `entrypoints` as receiver. `Effect.onExit` renders every failed `Exit` through `Cause.pretty` before `runPromise` rejects with the squashed cause. `create` builds every layer at load, and `dispose` closes every scope they opened.
 
-- Panels run `launch(<layer>, { peer, origin })` of `@rasm/uxp/runtime` at load, which renders link and call status into `document.body`
+- Plug-in create and destroy entries build and dispose one runtime; optional network services use that runtime's scope
 - `setup` throws for a `plugin` record without `create`, for a command or panel key its manifest lacks, and after one successful call
 - Panel handlers receive their root node: `create(rootNode)`, `show(rootNode, data)`, `hide(rootNode, data)`, `destroy(rootNode)`
 - `main` builds every state a panel reads, since a host can run `main` at launch with no panel shown
@@ -288,16 +288,16 @@ const registered = <R, ER, E>(
 
 One manifest serves one host application: `host.app` takes `ID`, `PS`, `premierepro`, or `ame` with a `minVersion`, `entrypoints` rows name a `panel` or `command` `id` with `label.default`, and each `requiredPermissions` key is a boundary its host enforces:
 
-| [INDEX] | [KEY]                             | [GRANTS]                                | [WITHOUT]                                      |
-| :-----: | :-------------------------------- | :-------------------------------------- | :--------------------------------------------- |
-|  [01]   | `network.domains`                 | Dial and fetch to each listed origin    | Dial throws a manifest denial                  |
-|  [02]   | `localFileSystem: "fullAccess"`   | `fs` on absolute paths and `file:` URLs | `fs` throws "Route not found"                  |
-|  [03]   | `allowCodeGenerationFromStrings`  | `eval` and `new Function` in Photoshop  | `EvalError`, InDesign and Premiere Pro compile |
-|  [04]   | `featureFlags.unhandledRejection` | `unhandledrejection` events             | Rejection logged, no caller told               |
+| [INDEX] | [KEY]                             | [GRANTS]                                | [WITHOUT]                        |
+| :-----: | :-------------------------------- | :-------------------------------------- | :------------------------------- |
+|  [01]   | `network.domains`                 | Dial and fetch to each listed origin    | Dial throws a manifest denial    |
+|  [02]   | `localFileSystem: "fullAccess"`   | Access outside plug-in storage          | Defaults to plug-in storage      |
+|  [03]   | `allowCodeGenerationFromStrings`  | `eval`, `new Function`, inline handlers | Disabled by default              |
+|  [04]   | `featureFlags.unhandledRejection` | `unhandledrejection` events             | Rejection logged, no caller told |
 
 - `plugin-temp:` reads and writes the folder `getTemporaryFolder()` returns under every permission level, and `plugin:` is read-only
-- Storage providers hold no `unlinkSync`, and code releases a temporary file by overwriting it
-- Host-native writes take a folder's `nativePath`, and `fs` reads that file back under its scheme
+- Storage providers hold no `unlinkSync`; a temporary file's native storage entry releases it through `delete()`
+- Storage entries preserve native `url` schemes for file reads and expose `nativePath` for host-native writes
 - `domains` entries name a host with a top-level domain or `localhost`, and an IP literal entry is discarded
 
 Packaged plug-ins are `.ccx` zips, one per host, with `manifest.json` at their root. `UnifiedPluginInstallerAgent --install <file>.ccx` installs into the release hosts Adobe's installer serves, and a Beta host loads a plug-in folder through a registry row written beside it:

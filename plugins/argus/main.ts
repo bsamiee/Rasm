@@ -5,8 +5,9 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 import { NodeStream } from '@effect/platform-node';
 import { type Event, getEventsSince, subscribe, writeSnapshot } from '@parcel/watcher';
 import { main } from '@rasm/mcp/main';
-import { READING, register, Unmatched } from '@rasm/mcp/server';
-import { Array, type Cause, Config, Deferred, Duration, Effect, Equal, Fiber, FileSystem, Function, flow, HashMap, HashSet, Layer, Match, Number, Option, Order, Predicate, Queue, RcMap, Record, Schema, SchemaTransformation, Scope, Stream, Struct, SubscriptionRef } from 'effect';
+import { READING, register } from '@rasm/mcp/server';
+import { Unmatched } from '@rasm/search';
+import { Array, type Cause, Config, Deferred, Duration, Effect, Equal, Fiber, FileSystem, Function, flow, HashMap, HashSet, Layer, Match, Option, Order, Predicate, Queue, RcMap, Record, Schema, SchemaTransformation, Scope, Stream, Struct, SubscriptionRef } from 'effect';
 import { Tool } from 'effect/ai';
 import { ChildProcess } from 'effect/process';
 import { escape, minimatch } from 'minimatch';
@@ -115,13 +116,22 @@ const watch = (root: string, ignore: string[], snapshot: string) => {
                 ),
             ),
         ),
-    ).pipe(Stream.mapEffect(([error, events]) => (error === null ? Effect.succeed(events) : Effect.tryPromise(() => getEventsSince(root, snapshot, scanned)).pipe(Effect.tap(() => record), Effect.map((missed) => [...events, ...missed])))));
+    ).pipe(
+        Stream.mapEffect(([error, events]) =>
+            error === null
+                ? Effect.succeed(events)
+                : Effect.tryPromise(() => getEventsSince(root, snapshot, scanned)).pipe(
+                      Effect.tap(() => record),
+                      Effect.map((missed) => [...events, ...missed]),
+                  ),
+        ),
+    );
 };
 
 const listen = (connection: MessageConnection, settings: Schema.Json | undefined, listening: Deferred.Deferred<void>) => {
-    const setting = (section: string | undefined): unknown => (section?.split('.') ?? []).reduce((value: unknown, key) => (Predicate.hasProperty(value, key) ? value[key] : undefined), settings) ?? null;
+    const setting = (section: string | undefined) => (section?.split('.') ?? []).reduce((value, key) => Option.flatMap(value, (owner) => Option.fromNullishOr(Predicate.hasProperty(owner, key) ? owner[key] : undefined)), Option.fromNullishOr(settings));
     return Stream.callback<(current: typeof INITIAL) => typeof INITIAL>((queue) => {
-        connection.onRequest(ConfigurationRequest.type, ({ items }) => items.map(flow(Struct.get('section'), setting)));
+        connection.onRequest(ConfigurationRequest.type, ({ items }) => items.map(flow(Struct.get('section'), setting, Option.getOrNull)));
         connection.onRequest(RegistrationRequest.type, ({ registrations }) => {
             Queue.offerUnsafe(queue, (current) => ({ ...current, invalidated: current.invalidated + 1, registrations: HashMap.setMany(current.registrations, Array.zip(registrations.map(Struct.get('id')), registrations)) }));
         });
@@ -133,9 +143,7 @@ const listen = (connection: MessageConnection, settings: Schema.Json | undefined
         });
         connection.onRequest(WorkDoneProgressCreateRequest.type, Function.constVoid);
         connection.onUnhandledProgress(({ token, value: { kind } }) => {
-            Queue.offerUnsafe(queue, (current) =>
-                kind === 'report' ? current : { ...current, invalidated: current.invalidated + 1, begun: current.begun + (kind === 'begin' ? 1 : 0), progress: kind === 'begin' ? HashSet.add(current.progress, token) : HashSet.remove(current.progress, token) },
-            );
+            Queue.offerUnsafe(queue, (current) => (kind === 'report' ? current : { ...current, invalidated: current.invalidated + 1, begun: current.begun + (kind === 'begin' ? 1 : 0), progress: kind === 'begin' ? HashSet.add(current.progress, token) : HashSet.remove(current.progress, token) }));
         });
         connection.onNotification(PublishDiagnosticsNotification.type, (params) => {
             Queue.offerUnsafe(queue, (current) => ({ ...current, published: HashMap.set(current.published, params.uri, params) }));
@@ -162,12 +170,15 @@ const start = Effect.fn('start')(function* (root: string, config: typeof Server.
         Effect.forkScoped,
     );
     yield* Deferred.await(listening);
-    const registered = <RO>({ method }: RegistrationType<RO>, current: typeof INITIAL): readonly RO[] => Array.fromIterable(HashMap.values(current.registrations)).filter((entry) => entry.method === method).map(({ registerOptions }): RO => registerOptions);
+    const registered = <RO>({ method }: RegistrationType<RO>, current: typeof INITIAL): readonly RO[] =>
+        Array.fromIterable(HashMap.values(current.registrations))
+            .filter((entry) => entry.method === method)
+            .map(({ registerOptions }): RO => registerOptions);
     const classify = ({ cause }: Cause.UnknownError) =>
         Match.value(cause).pipe(
-            Match.when(Match.instanceOf(ResponseError), (error) => Effect.fail(error)),
+            Match.when(Match.instanceOf(ResponseError), Effect.fail<ResponseError<unknown>>),
             Match.when(Match.instanceOf(ConnectionError), () => exited),
-            Match.orElse((defect) => Effect.die(defect)),
+            Match.orElse(Effect.die),
         );
     const notify = <P>(type: NotificationType<P>, params: RequestParam<P>) => Effect.tryPromise(() => connection.sendNotification(type, params)).pipe(Effect.catchTag('UnknownError', classify));
     const announce = <P, RO>(type: ProtocolNotificationType<P, RO>, current: typeof INITIAL, params: RequestParam<P>) => (registered(type, current).length > 0 ? notify(type, params) : Effect.void);
@@ -214,12 +225,7 @@ const start = Effect.fn('start')(function* (root: string, config: typeof Server.
     yield* notify(InitializedNotification.type, {});
     yield* config.settings === undefined ? Effect.void : notify(DidChangeConfigurationNotification.type, { settings: config.settings });
     yield* Effect.addFinalizer(() =>
-        Effect.tryPromise(() => connection.sendRequest(ShutdownRequest.type)).pipe(
-            Effect.andThen(Effect.tryPromise(() => connection.sendNotification(ExitNotification.type))),
-            Effect.andThen(child.exitCode),
-            Effect.timeout(config.shutdownTimeout),
-            Effect.ignore({ log: 'Warn', message: 'shutdown did not complete' }),
-        ),
+        Effect.tryPromise(() => connection.sendRequest(ShutdownRequest.type)).pipe(Effect.andThen(Effect.tryPromise(() => connection.sendNotification(ExitNotification.type))), Effect.andThen(child.exitCode), Effect.timeout(config.shutdownTimeout), Effect.ignore({ log: 'Warn', message: 'shutdown did not complete' })),
     );
     const synchronize = Effect.fn('synchronize')(function* (uri: string, languageId: string) {
         const text = yield* fs.readFileString(fileURLToPath(uri));
@@ -236,27 +242,23 @@ const start = Effect.fn('start')(function* (root: string, config: typeof Server.
             }),
         );
     });
-    const close = (uri: string) =>
-        SubscriptionRef.modifyEffect(state, (current) =>
-            Effect.as(announce(DidCloseTextDocumentNotification.type, current, { textDocument: { uri } }), [undefined, { ...current, documents: HashMap.remove(current.documents, uri), published: HashMap.remove(current.published, uri) }] as const),
-        );
+    const close = (uri: string) => SubscriptionRef.modifyEffect(state, (current) => Effect.as(announce(DidCloseTextDocumentNotification.type, current, { textDocument: { uri } }), [undefined, { ...current, documents: HashMap.remove(current.documents, uri), published: HashMap.remove(current.published, uri) }] as const));
     const settled = (uri: string, current: typeof INITIAL) =>
         HashSet.isEmpty(current.progress) &&
-        (registered(DocumentDiagnosticRequest.type, current).length > 0 ||
-            Option.exists(HashMap.get(current.documents, uri), ({ item, begun }) => (current.begun === 0 || current.begun > begun) && Option.exists(HashMap.get(current.published, uri), ({ version }) => version === undefined || version === item.version)));
+        (registered(DocumentDiagnosticRequest.type, current).length > 0 || Option.exists(HashMap.get(current.documents, uri), ({ item, begun }) => (current.begun === 0 || current.begun > begun) && Option.exists(HashMap.get(current.published, uri), ({ version }) => version === undefined || version === item.version)));
     const pull = (uri: string, current: typeof INITIAL) =>
         Stream.fromEffect(
             Effect.forEach(
                 registered(DocumentDiagnosticRequest.type, current),
-                ({ identifier }) =>
-                    ask(DocumentDiagnosticRequest.type, { textDocument: { uri }, ...(identifier === undefined ? {} : { identifier }) }, config.requestTimeout).pipe(
-                        Effect.flatMap((report) => (report.kind === DocumentDiagnosticReportKind.Full ? Effect.succeed(report.items) : Effect.die(report))),
-                    ),
+                ({ identifier }) => ask(DocumentDiagnosticRequest.type, { textDocument: { uri }, ...(identifier === undefined ? {} : { identifier }) }, config.requestTimeout).pipe(Effect.flatMap((report) => (report.kind === DocumentDiagnosticReportKind.Full ? Effect.succeed(report.items) : Effect.die(report)))),
                 { concurrency: 'unbounded' },
             ),
         ).pipe(
             Stream.mapEffect((pulled) => Effect.map(SubscriptionRef.get(state), (latest) => [...pulled.flat(), ...Option.match(HashMap.get(latest.published, uri), { onNone: Array.empty, onSome: Struct.get('diagnostics') })])),
-            Stream.catchIf((error) => error instanceof ResponseError && error.code === LSPErrorCodes.ServerCancelled, () => Stream.empty),
+            Stream.catchIf(
+                (error) => error instanceof ResponseError && error.code === LSPErrorCodes.ServerCancelled,
+                () => Stream.empty,
+            ),
         );
     const forward = Effect.fn('forward')(function* (events: readonly Event[]) {
         const kinds = { create: [FileChangeType.Created, WatchKind.Create], update: [FileChangeType.Changed, WatchKind.Change], delete: [FileChangeType.Deleted, WatchKind.Delete] } as const;
@@ -313,16 +315,13 @@ const initialize = Effect.fn('initialize')(function* () {
         Array.sortWith(outermost, (path) => [path.endsWith('/') ? 0 : 1, path.split('/').length] as const, Order.Tuple([Order.Number, Order.Number])),
         exclusionPaths,
     );
-    const workspace = yield* Stream.share(
-        watch(root, [...excluded.map((path) => resolve(root, path)), ...matched.map((path) => `${escape(path.replace(/\/$/u, ''), { magicalBraces: true })}{,/**}`)], resolve(yield* fs.makeTempDirectoryScoped(), 'snapshot')),
-        { capacity: 'unbounded' },
-    );
+    const workspace = yield* Stream.share(watch(root, [...excluded.map((path) => resolve(root, path)), ...matched.map((path) => `${escape(path.endsWith('/') ? path.slice(0, -1) : path, { magicalBraces: true })}{,/**}`)], resolve(yield* fs.makeTempDirectoryScoped(), 'snapshot')), { capacity: 'unbounded' });
     const reference = /\$\{(?<name>\w+)\}/gu;
     const names = [...(yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Json))(lsp)).matchAll(reference)].flatMap(({ groups }) => groups?.name ?? []);
     const variables = Record.set(Record.getSomes(yield* Config.all(Record.fromIterableWith(names, (name) => [name, Config.option(Config.String(name))]))), 'CLAUDE_PROJECT_DIR', root);
     const substitute = (value: Schema.Json): Schema.Json =>
         Match.value(value).pipe(
-            Match.when(Match.string, (template) => template.replace(reference, (match, name: string) => Option.getOrElse(Record.get(variables, name), () => match))),
+            Match.when(Match.string, (template) => template.replace(reference, (match, name: string) => variables[name] ?? match)),
             Match.when(Array.isArray<Schema.Json>, (items) => items.map(substitute)),
             Match.when(Predicate.isObjectKeyword, Record.map(substitute)),
             Match.orElse(() => value),
@@ -364,11 +363,12 @@ const initialize = Effect.fn('initialize')(function* () {
                             diagnostics.filter(({ range, message }) => !related.some(Equal.equals({ range, message }))),
                             ({ range: { start: position } }) => [position.line, position.character] as const,
                             Order.Tuple([Order.Number, Order.Number]),
-                        ).map(({ severity, range, source, code, codeDescription, message, relatedInformation }) =>
-                            [
-                                `${location(item.uri, range)} ${severities.get(severity ?? DiagnosticSeverity.Error)} ${source ?? ''}${code === undefined ? '' : `(${code})`}: ${flattened(message)}${codeDescription === undefined ? '' : ` ${codeDescription.href}`}`,
-                                ...(relatedInformation ?? []).map((entry) => `  ${location(entry.location.uri, entry.location.range)} ${flattened(entry.message)}`),
-                            ].join('\n'),
+                        ).map(
+                            flow(
+                                Struct.evolve({ relatedInformation: flow(Option.fromNullishOr, Option.map(Array.map((entry: NonNullable<Diagnostic['relatedInformation']>[number]) => `  ${location(entry.location.uri, entry.location.range)} ${flattened(entry.message)}`)), Option.getOrElse(Array.empty<string>)) }),
+                                ({ severity, range, source, code, codeDescription, message, relatedInformation }) =>
+                                    [`${location(item.uri, range)} ${severities.get(severity ?? DiagnosticSeverity.Error)} ${source ?? ''}${code === undefined ? '' : `(${code})`}: ${flattened(message)}${codeDescription === undefined ? '' : ` ${codeDescription.href}`}`, ...(relatedInformation ?? [])].join('\n'),
+                            ),
                         ),
                     };
                 }, Effect.scoped),

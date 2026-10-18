@@ -6,7 +6,8 @@ import { Socket } from 'effect/socket';
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Application = Schema.Struct({ name: Schema.String, identifier: Schema.String, running: Schema.Boolean, scriptable: Schema.Boolean, url: Schema.URL, version: Schema.OptionFromOptionalKey(Schema.String) });
-const Window = Schema.Struct({ id: Schema.Int, title: Schema.OptionFromOptionalKey(Schema.String), level: Schema.Literals(['normal', 'modal', 'other']), width: Schema.Finite, height: Schema.Finite });
+const Window = Schema.Struct({ id: Schema.Finite.check(Schema.isUint32()), title: Schema.OptionFromOptionalKey(Schema.String) });
+const Screenshot = Schema.Struct({ window: Window, windows: Schema.Array(Window), image: Schema.Uint8ArrayFromBase64, width: Schema.Int.annotate({ description: 'Image width in pixels' }), height: Schema.Int.annotate({ description: 'Image height in pixels' }) });
 const Face = Schema.Struct({ postscriptName: Schema.String, family: Schema.String, style: Schema.String, fullName: Schema.String, file: Schema.String });
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -26,11 +27,11 @@ class Scripting extends Context.Service<Scripting>()('@rasm/atelier/scripting', 
             RpcGroup.make(
                 Rpc.make('applications', { payload: { running: Schema.Boolean }, success: Schema.Array(Application), error: ScriptingError }),
                 Rpc.make('application', { payload: { url: Schema.URL }, success: Application, error: ScriptingError }),
-                Rpc.make('definition', { payload: { application: Schema.URL }, success: Schema.String, error: ScriptingError }),
+                Rpc.make('definition', { payload: { application: Schema.URL, selection: Schema.optionalKey(Schema.Struct({ kind: Schema.String, name: Schema.String })) }, success: Schema.String, error: ScriptingError }),
+                Rpc.make('terms', { payload: { application: Schema.URL, kind: Schema.optionalKey(Schema.String) }, success: Schema.Array(Schema.String).pipe(Schema.mutable), error: ScriptingError }),
                 Rpc.make('execute', { payload: { application: Schema.URL, command: Schema.String, arguments: Schema.JsonObject }, success: Schema.Json, error: ScriptingError }),
                 Rpc.make('contentType', { payload: { url: Schema.URL }, success: Schema.String, error: ScriptingError }),
-                Rpc.make('windows', { payload: { application: Schema.URL }, success: Schema.Array(Window), error: ScriptingError }),
-                Rpc.make('capture', { payload: { window: Schema.Int }, success: Schema.Uint8ArrayFromBase64, error: ScriptingError }),
+                Rpc.make('screenshot', { payload: { application: Schema.URL, window: Schema.OptionFromOptionalKey(Window.fields.id) }, success: Screenshot, error: ScriptingError }),
                 Rpc.make('faces', { success: Schema.Array(Face), error: ScriptingError }),
             ),
             { disableTracing: true },
@@ -58,4 +59,4 @@ class Scripting extends Context.Service<Scripting>()('@rasm/atelier/scripting', 
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Application, Face, Scripting, Window };
+export { Application, Face, Screenshot, Scripting };

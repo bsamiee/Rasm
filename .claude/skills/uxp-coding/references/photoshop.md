@@ -1,6 +1,6 @@
 # [PHOTOSHOP]
 
-Photoshop's DOM is a layer over Action Manager descriptors: `action.batchPlay` plays changes inside one modal scope and reads anywhere, and replies one descriptor per command.
+Photoshop's UXP DOM uses Action Manager descriptors: `action.batchPlay` plays changes inside one modal scope and reads anywhere, replying with one descriptor per command. Native Apple Event `do javascript` runs ExtendScript.
 
 ## [01]-[MODAL_SCOPES]
 

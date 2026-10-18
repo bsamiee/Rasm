@@ -18,7 +18,7 @@ export default {
             version: npm.version,
             host: { app: 'ID', minVersion: '18.5.0' },
             entrypoints: [{ type: 'panel', id: 'galley', label: { default: 'Galley' }, minimumSize: { width: 200, height: 60 } }],
-            requiredPermissions: { network: { domains: [origin] } },
+            requiredPermissions: { localFileSystem: 'fullAccess', allowCodeGenerationFromStrings: true, network: { domains: [origin] } },
         },
     }),
     define: { 'import.meta.env.ATELIER': JSON.stringify(origin) },

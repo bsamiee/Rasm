@@ -1,9 +1,7 @@
 import Carbon.OpenScripting
 import Foundation
 import RasmMacOS
-import Subprocess
 import Synchronization
-import System
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -17,16 +15,20 @@ struct Term: Sendable {
 struct ScriptingDictionary: Sendable {
     // --- [TERMS]
 
+    struct Selection: Decodable {
+        let kind: String
+        let name: String
+    }
+
     static let held: Mutex<[URL: (process: pid_t, dictionary: ScriptingDictionary)]> = Mutex([:])
 
-    let commands: [(name: String, eventClass: AEEventClass, eventID: AEEventID, parameters: [Term], result: Set<String>)]
+    let commands: [(name: String, eventClass: AEEventClass, eventID: AEEventID, parameters: [Term])]
     let classes: [Term]
     let properties: [Term]
     let enumerations: [Term]
 
-    init(definition: Data) throws {
-        let document: XMLDocument = try XMLDocument(data: definition)
-        let elements: (String) throws -> [XMLElement] = { path in try document.nodes(forXPath: path).compactMap { node in node as? XMLElement } }
+    init(definition: XMLDocument) throws {
+        let elements: (String) throws -> [XMLElement] = { path in try definition.nodes(forXPath: path).compactMap { node in node as? XMLElement } }
         let declarations: [XMLElement] = try elements("//class | //record-type | //value-type")
         let named: [String: [XMLElement]] = Dictionary(
             declarations.compactMap { element in element.attribute(forName: "name")?.stringValue.map { name in (name, [element]) } },
@@ -36,10 +38,10 @@ struct ScriptingDictionary: Sendable {
             element.elements(forName: "property") + (element.attribute(forName: "inherits")?.stringValue.flatMap { name in named[name] } ?? []).flatMap(inherited)
         }
         let specifier: Term = Term(name: "direct", code: AEKeyword(keyDirectObject), types: ["specifier"])
-        let language: [(name: String, eventClass: AEEventClass, eventID: AEEventID, parameters: [Term], result: Set<String>)] = [
-            (name: "activate", eventClass: AEEventClass(kAEMiscStandards), eventID: AEEventID(kAEActivate), parameters: [], result: []),
-            (name: "get", eventClass: AEEventClass(kAECoreSuite), eventID: AEEventID(kAEGetData), parameters: [specifier], result: []),
-            (name: "set", eventClass: AEEventClass(kAECoreSuite), eventID: AEEventID(kAESetData), parameters: [specifier, Term(name: "to", code: AEKeyword(keyAEData), types: ["any"])], result: []),
+        let language: [(name: String, eventClass: AEEventClass, eventID: AEEventID, parameters: [Term])] = [
+            (name: "activate", eventClass: AEEventClass(kAEMiscStandards), eventID: AEEventID(kAEActivate), parameters: []),
+            (name: "get", eventClass: AEEventClass(kAECoreSuite), eventID: AEEventID(kAEGetData), parameters: [specifier]),
+            (name: "set", eventClass: AEEventClass(kAECoreSuite), eventID: AEEventID(kAESetData), parameters: [specifier, Term(name: "to", code: AEKeyword(keyAEData), types: ["any"])]),
         ]
         commands =
             try elements("//command").compactMap { element in
@@ -56,7 +58,6 @@ struct ScriptingDictionary: Sendable {
                     eventClass: eventClass,
                     eventID: eventID,
                     parameters: Self.terms(element.elements(forName: "parameter")) + direct,
-                    result: element.elements(forName: "result").first.map(Self.types(of:)) ?? [],
                 )
             } + language
         classes = Self.terms(declarations) { element in Self.terms(inherited(element)) }
@@ -66,7 +67,7 @@ struct ScriptingDictionary: Sendable {
 
     static func read(_ application: Application, process: pid_t) -> Result<Self, AggregateError<Failure>> {
         held.withLock { held in held[application.url] }.flatMap { hit in hit.process == process ? Result.success(hit.dictionary) : nil }
-            ?? definition(of: application)
+            ?? definition(at: application.url)
             .flatMap { definition in Result { try Self(definition: definition) }.mapError { error in AggregateError(first: .unreadable(error)) } }
             .map { dictionary in
                 held.withLock { held in held[application.url] = (process, dictionary) }
@@ -74,22 +75,58 @@ struct ScriptingDictionary: Sendable {
             }
     }
 
-    static func definition(of application: Application) -> Result<Data, AggregateError<Failure>> {
+    static func definition(of application: Application) async -> Result<XMLDocument, AggregateError<Failure>> {
         let readable: Result<Void, AggregateError<Failure>> =
             if application.running {
-                application.runningApplication().map { _ in }
+                await application.open().map { _ in }
             } else if Bundle(url: application.url)?.object(forInfoDictionaryKey: "OSAScriptingDefinition") != nil {
                 .success(())
             } else {
-                .failure(AggregateError(first: .instances(count: 0)))
+                .failure(AggregateError(first: .dictionaryUnavailable))
             }
-        return readable.flatMap {
-            var definition: Unmanaged<CFData>?
-            let status: OSStatus = unsafe OSACopyScriptingDefinitionFromURL(application.url as CFURL, 0, &definition)
-            return if status == noErr, let data: CFData = unsafe definition?.takeRetainedValue() { .success(data as Data) } else {
-                .failure(AggregateError(first: .undefined(status: status)))
+        return readable.flatMap { definition(at: application.url) }
+    }
+
+    static func definition(at url: URL) -> Result<XMLDocument, AggregateError<Failure>> {
+        var definition: Unmanaged<CFData>?
+        let status: OSStatus = unsafe OSACopyScriptingDefinitionFromURL(url as CFURL, 0, &definition)
+        return if status == noErr, let data: CFData = unsafe definition?.takeRetainedValue() {
+            Result { try XMLDocument(data: data as Data, options: .documentXInclude) }.mapError { error in AggregateError(first: .unreadable(error)) }
+        } else {
+            .failure(AggregateError(first: .undefined(status: status)))
+        }
+    }
+
+    static func definition(_ document: XMLDocument, selecting selection: Selection?) -> Result<String, AggregateError<Failure>> {
+        let suites: [XMLElement] = document.rootElement()?.elements(forName: "suite") ?? []
+        let selected: [XMLNode] =
+            selection.map { selection in
+                suites.flatMap { suite in [suite] + (suite.children?.compactMap { node in node as? XMLElement } ?? []) }
+                    .filter { node in node.name == selection.kind && node.attribute(forName: "name")?.stringValue == selection.name }
+            } ?? suites
+        if let selection, selected.isEmpty { return .failure(AggregateError(first: .unknownTerm(name: "\(selection.kind)/\(selection.name)"))) }
+        for suite: XMLElement in suites {
+            switch selection {
+                case .none: suite.setChildren(nil)
+                case .some where selected.contains(suite):
+                    for child: XMLNode in suite.children ?? [] { (child as? XMLElement)?.setChildren(nil) }
+                case .some:
+                    for child: XMLNode in suite.children ?? [] where !selected.contains(child) { child.detach() }
+                    if suite.childCount == 0 { suite.detach() }
             }
         }
+        return .success(document.xmlString)
+    }
+
+    static func terms(_ document: XMLDocument, kind: String?) -> Result<[String], AggregateError<Failure>> {
+        Result {
+            let declarations: [XMLElement] = try document.nodes(forXPath: "/dictionary/suite | /dictionary/suite/*[@name]").compactMap { node in node as? XMLElement }
+            return Set(
+                declarations.filter { node in kind.map { kind in node.name == kind } ?? true }.compactMap { node in
+                    kind == nil ? node.name : node.attribute(forName: "name")?.stringValue
+                }
+            ).sorted()
+        }.mapError { error in AggregateError(first: .unreadable(error)) }
     }
 
     static func code(_ text: String) -> FourCharCode? {
@@ -135,12 +172,18 @@ struct ScriptingDictionary: Sendable {
         [classes.filter { term in term.code == code }.flatMap(\.members), properties]
     }
 
-    func classCode(_ want: Descriptor?) -> FourCharCode? {
-        if case .text(let name) = want, case .success(let term) = Self.resolve(name, in: [classes]) { term.code } else { nil }
+    func classCode(_ want: JSONValue?) -> FourCharCode? {
+        switch want {
+            case .string(let name):
+                if case .success(let term) = Self.resolve(name, in: [classes]) { term.code } else { nil }
+            case .object(let fields) where fields["type"] == .string(NSFileTypeForHFSTypeCode(DescType(typeType))):
+                if case .success(let descriptor) = encode(.object(fields), as: []) { descriptor.typeCodeValue } else { nil }
+            default: nil
+        }
     }
 
     func enumerators(of types: Set<String>) -> [Term] {
-        enumerations.filter { enumeration in types.contains("any") || types.contains(enumeration.name) }.flatMap(\.members)
+        enumerations.filter { enumeration in types.contains(enumeration.name) }.flatMap(\.members)
     }
 }
 
@@ -148,7 +191,7 @@ struct ScriptingDictionary: Sendable {
 
 enum Failure: LocalizedError {
     case notApplication(URL)
-    case instances(count: Int)
+    case dictionaryUnavailable
     case unreadable(any Error)
     case undefined(status: OSStatus)
     case absentCommand(name: String)
@@ -158,26 +201,22 @@ enum Failure: LocalizedError {
     case undelivered(status: OSStatus)
     case unanswered(status: OSStatus)
     case reply(status: OSStatus, message: String?)
-    case sessionless
-    case exited(tool: FilePath, status: TerminationStatus, message: String)
 
     var errorDescription: String? {
         switch self {
             case .notApplication(let url): "No Adobe application at \(url.absoluteString)"
-            case .instances(let count): "The application has \(count) running instances, it needs exactly one"
+            case .dictionaryUnavailable: "The application must be running to read its dynamic scripting dictionary"
             case .unreadable(let error): error.localizedDescription
             case .undefined(let status): "The application gave no scripting dictionary (\(status))"
             case .absentCommand(let name): "No command \(name) in the scripting dictionary"
             case .unknownTerm(let name): "No term \(name) in the scripting dictionary"
             case .ambiguousTerm(let name, let codes): "Term \(name) names several codes, pass one of \(codes.joined(separator: ", "))"
-            case .unspecified: "A record with want and form does not make an object specifier"
+            case .unspecified: "The supplied record does not make an Apple Event descriptor"
             case .undelivered(OSStatus(errAEEventNotPermitted)):
                 "macOS Automation does not let Atelier control the application, nothing ran: allow it under System Settings, Privacy & Security, Automation"
             case .undelivered(let status): "The application did not receive the event (\(status)), nothing ran"
             case .unanswered(let status): "The application did not answer the event (\(status)), its outcome in the application is unknown"
             case .reply(let status, let message): "\(message ?? "The application answered with an error") (\(status))"
-            case .sessionless: "Atelier runs outside a Quartz GUI session, the window server lists no windows"
-            case .exited(let tool, let status, let message): "\(tool) \(status): \(message)"
         }
     }
 }

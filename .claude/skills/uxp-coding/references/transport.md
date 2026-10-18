@@ -6,7 +6,7 @@ UXP cannot listen, and a plug-in serving calls to a process outside its host dia
 
 `RpcServer` reads its transport from one `SocketServer` service with a `run` member, and a `SocketServer` that dials makes the plug-in the server.
 
-`serve` from `@rasm/mcp/link` is a stream of link states that, while run, dials the peer and serves an `RpcGroup` over the socket, redialing after each close. `linked` of `@rasm/uxp/runtime` serves a panel's group through `serve` at the origin `launch` takes:
+Plug-in runtime scopes own socket serving and status UI independently of document operations:
 - One `RpcGroup` is the whole contract, imported by both ends, and a typed failure reaches the caller through its schema
 - Calls run one at a time over synchronous DOM calls and modal scopes, and a handler returning `Rpc.fork` answers while a host call runs
 - Middleware a host library adds to its group holds host state for each call, and the group omits a forked call before the middleware and adds it back
