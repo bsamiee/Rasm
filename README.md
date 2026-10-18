@@ -6,13 +6,18 @@ Rasm is a polyglot monorepo with macOS-first development and portable code and t
 
 ```text
 Rasm/
-├── apps/                     # Products
+├── apps/
 │   ├── blender/
 │   ├── creative-cloud/
 │   ├── macos/
 │   ├── rhino/
 │   └── web/
-├── libs/                     # Packages
+├── libs/
+│   ├── dotnet/
+│   ├── python/
+│   ├── rust/
+│   ├── swift/
+│   └── typescript/
 ├── tests/
 ├── eng/
 ├── infra/                    # IaC programs declaring repository and app hosting resources
@@ -156,6 +161,7 @@ Targets run tools with their arguments on the command, a pipeline or command lis
 ## [06]-[STRUCTURE]
 
 - Libraries group under `libs/<language>/<group>/` by domain or by host
+- Tests sit under `tests/<language>/` at their source path without the language folder, Playwright suites in `tests/typescript/e2e-<app>/`
 - Task graph takes the host list from `apps/<host>/` folders and tags a project by the host name in its path
 - .NET build takes Rhino hosts from the `rhino/` path folder
 - `Grasshopper2` package references add Grasshopper 2 global usings

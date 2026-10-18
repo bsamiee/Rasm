@@ -1467,9 +1467,15 @@ importers:
       '@qualithm/arrow-flight-client':
         specifier: 'catalog:'
         version: 0.2.2(apache-arrow@21.2.0)
+      '@rasm/database':
+        specifier: workspace:*
+        version: link:libs/typescript/data/database
       '@rasm/hosting':
         specifier: workspace:*
         version: link:libs/typescript/web/hosting
+      '@rasm/ui':
+        specifier: workspace:*
+        version: link:libs/typescript/web/ui
       '@react-aria/live-announcer':
         specifier: 'catalog:'
         version: 3.5.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -1620,6 +1626,9 @@ importers:
       apache-arrow:
         specifier: 'catalog:'
         version: 21.2.0
+      architectural-portfolio:
+        specifier: workspace:*
+        version: link:apps/web/portfolio
       astring:
         specifier: 'catalog:'
         version: 1.9.0
@@ -2124,9 +2133,6 @@ importers:
       vite:
         specifier: 'catalog:'
         version: 8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@3.0.0-2)
-      vitest:
-        specifier: 'catalog:'
-        version: 5.0.5(@opentelemetry/api@1.10.0-rc.0)(@types/node@26.6.5)(@vitest/browser-playwright@5.0.5)(@vitest/coverage-v8@5.0.5)(@vitest/ui@5.0.5)(jsdom@30.1.3(@noble/hashes@2.4.0))(vite@8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@3.0.0-2))
 
   libs/typescript/ai/mcp:
     dependencies:
@@ -2236,12 +2242,9 @@ importers:
       '@electric-sql/pglite':
         specifier: 'catalog:'
         version: 0.5.10
-      '@rasm/test-support':
-        specifier: workspace:*
-        version: link:../../../../tests/typescript/support
       '@testcontainers/postgresql':
         specifier: 'catalog:'
-        version: 12.2.1(supports-color@7.2.0)
+        version: 12.2.1(supports-color@10.2.2)
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.5
@@ -2250,10 +2253,7 @@ importers:
         version: 1.0.0-beta.18(@types/node@26.6.5)
       testcontainers:
         specifier: 'catalog:'
-        version: 12.2.1(supports-color@7.2.0)
-      vitest:
-        specifier: 'catalog:'
-        version: 5.0.5(@opentelemetry/api@1.10.0-rc.0)(@types/node@26.6.5)(@vitest/browser-playwright@5.0.5)(@vitest/coverage-v8@5.0.5)(@vitest/ui@5.0.5)(jsdom@30.1.3(@noble/hashes@2.4.0))(vite@8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@3.0.0-2))
+        version: 12.2.1(supports-color@10.2.2)
 
   libs/typescript/graphics/typography:
     dependencies:
@@ -2310,9 +2310,6 @@ importers:
       '@effect/vitest':
         specifier: 'catalog:'
         version: 4.0.5(effect@4.0.5)(vitest@5.0.5)
-      '@rasm/test-support':
-        specifier: workspace:*
-        version: link:../../../../tests/typescript/support
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.5
@@ -2457,9 +2454,6 @@ importers:
 
   tests/typescript/support:
     dependencies:
-      '@effect/vitest':
-        specifier: 'catalog:'
-        version: 4.0.5(effect@4.0.5)(vitest@5.0.5)
       '@playwright/test':
         specifier: 'catalog:'
         version: 1.65.0-alpha-2026-10-17
@@ -2475,22 +2469,10 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.0.5
-      fast-check:
-        specifier: 'catalog:'
-        version: 4.10.2
       vite:
         specifier: 'catalog:'
         version: 8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@3.0.0-2)
-      vitest:
-        specifier: 'catalog:'
-        version: 5.0.5(@opentelemetry/api@1.10.0-rc.0)(@types/node@26.6.5)(@vitest/browser-playwright@5.0.5)(@vitest/coverage-v8@5.0.5)(@vitest/ui@5.0.5)(jsdom@30.1.3(@noble/hashes@2.4.0))(vite@8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@3.0.0-2))
     devDependencies:
-      '@cloudflare/vitest-plugin':
-        specifier: 'catalog:'
-        version: 1.4.4(@cloudflare/workers-types@5.20261018.1)(@types/node@26.6.5)(vitest@5.0.5)
-      '@cloudflare/workers-types':
-        specifier: 'catalog:'
-        version: 5.20261018.1
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.5
@@ -21468,6 +21450,15 @@ snapshots:
       '@tanstack/store': 0.11.2
 
   '@tanstack/virtual-core@3.19.6': {}
+
+  '@testcontainers/postgresql@12.2.1(supports-color@10.2.2)':
+    dependencies:
+      testcontainers: 12.2.1(supports-color@10.2.2)
+    transitivePeerDependencies:
+      - bare-abort-controller
+      - bare-buffer
+      - react-native-b4a
+      - supports-color
 
   '@testcontainers/postgresql@12.2.1(supports-color@7.2.0)':
     dependencies:

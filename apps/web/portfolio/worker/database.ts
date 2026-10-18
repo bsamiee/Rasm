@@ -6,7 +6,7 @@ import { HttpApiError } from 'effect/http-api';
 import { SqlClient, SqlSchema } from 'effect/sql';
 import { PreconditionFailed } from '../model/api.ts';
 import { ImageAsset, PdfAsset, VideoAsset } from '../model/asset.ts';
-import { PortfolioData, StoredPortfolio } from '../model/document.ts';
+import { Portfolio, PortfolioData, StoredPortfolio } from '../model/document.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -30,18 +30,19 @@ const readDocument = flow(
         Request: documents.fields.state,
         Result: Schema.Struct({
             revision: documents.fields.revision,
-            data: Schema.fromJsonString(Schema.Struct({ portfolio: Schema.Unknown, assets: Schema.Record(Schema.String, Schema.Unknown) }).pipe(Schema.decodeTo(PortfolioData))),
+            data: Schema.fromJsonString(PortfolioData),
         }),
-        execute: (selected) =>
-            SqlClient.SqlClient.use(
-                (sql) => sql`SELECT COALESCE(d.revision, 0) AS revision, json_object('portfolio', json(COALESCE(d.body, ${JSON.stringify({ name: '', introduction: '', email: '', entries: [] } satisfies typeof StoredPortfolio.Type)})), 'assets', (
-                    SELECT json_group_object(a.id, json(json_set(json_remove(a.body,'$.uploads','$.objectKey','$.removing'),'$.id',a.id))) FROM assets a
-                    WHERE a.${sql('objectKey')} IS NOT NULL AND a.removing IS NOT TRUE AND (
-                        s.state = 'draft' OR a.id IN (SELECT asset_id FROM (${portfolioReferences(sql)}) WHERE state = s.state)
-                    )
-                )) AS data
-                FROM (SELECT ${selected} AS state) s LEFT JOIN documents d ON d.state = s.state`,
-            ),
+        execute: Effect.fnUntraced(function* (selected) {
+            const sql = yield* SqlClient.SqlClient;
+            const empty = yield* Schema.encodeEffect(Schema.fromJsonString(Portfolio))(Portfolio.make({}));
+            return yield* sql`SELECT COALESCE(d.revision, 0) AS revision, json_object('portfolio', json(COALESCE(d.body, ${empty})), 'assets', (
+                SELECT json_group_object(a.id, json(json_set(json_remove(a.body,'$.uploads','$.objectKey','$.removing'),'$.id',a.id))) FROM assets a
+                WHERE a.${sql('objectKey')} IS NOT NULL AND a.removing IS NOT TRUE AND (
+                    s.state = 'draft' OR a.id IN (SELECT asset_id FROM (${portfolioReferences(sql)}) WHERE state = s.state)
+                )
+            )) AS data
+            FROM (SELECT ${selected} AS state) s LEFT JOIN documents d ON d.state = s.state`;
+        }),
     }),
     Effect.catchTag(['SqlError', 'SchemaError', 'NoSuchElementError'], unavailable),
 );

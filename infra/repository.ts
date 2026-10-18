@@ -9,7 +9,7 @@ const stack = { projectName: 'rasm-infra', stackName: 'rasm' };
 
 const program = Effect.fnUntraced(
     function* () {
-        const [path, url] = yield* Effect.all([Path.Path, stdout('git', ['remote', 'get-url', 'origin'], { cwd: import.meta.dirname, stderr: 'inherit' })]);
+        const [path, url] = yield* Effect.all([Path.Path, stdout('git', ['remote', 'get-url', 'origin'], { cwd: import.meta.dirname })]);
         const name = path.basename(url.trim(), '.git');
         const { name: repository, fullName } = new Repository(
             name,

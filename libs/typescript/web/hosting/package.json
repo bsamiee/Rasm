@@ -22,7 +22,6 @@
     "devDependencies": {
         "@cloudflare/vitest-plugin": "catalog:",
         "@effect/vitest": "catalog:",
-        "@rasm/test-support": "workspace:*",
         "@types/node": "catalog:",
         "@types/react": "catalog:",
         "@types/react-dom": "catalog:",

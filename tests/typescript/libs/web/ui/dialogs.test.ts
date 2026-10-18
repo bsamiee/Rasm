@@ -1,6 +1,6 @@
+import { dialogOpen, openDialogs } from '@rasm/ui/dialogs.ts';
 import { AtomRegistry } from 'effect/reactivity';
 import { expect, it } from 'vitest';
-import { dialogOpen, openDialogs } from './dialogs.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

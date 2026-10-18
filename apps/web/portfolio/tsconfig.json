@@ -4,5 +4,6 @@
         "jsx": "react-jsx",
         "lib": [ "esnext", "dom" ],
         "types": [ "vite/client", "./.cloudflare/types", "@cloudflare/vitest-plugin/types" ]
-    }
+    },
+    "include": [ "**/*", ".storybook/*.stories.tsx", "../../../tests/typescript/apps/web/portfolio" ]
 }

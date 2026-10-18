@@ -1,7 +1,7 @@
 import { type ComponentProps, useState } from 'react';
 import { fn } from 'storybook/test';
-import preview from './.storybook/preview.ts';
-import { ReorderableList } from './reorderable.tsx';
+import { ReorderableList } from '../reorderable.tsx';
+import preview from './preview.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -29,7 +29,7 @@ const Sheets = ({ items, onChange, ...props }: ComponentProps<typeof Reorderable
 const meta = preview.meta({
     component: Sheets,
     args: {
-        label: 'Sheets',
+        'aria-label': 'Sheets',
         items: [
             { id: 'plan', title: 'Plan' },
             { id: 'section', title: 'Section' },
@@ -39,8 +39,6 @@ const meta = preview.meta({
         textValue: ({ title }) => title,
         actions: (keys) => <output>{`${keys.size} selected`}</output>,
         children: ({ title }) => <span>{title}</span>,
-        classNames: { list: '', item: '', controls: '', selection: '', checkbox: '', check: '', drag: '', grip: '', position: '', move: '', popover: '', option: '', dropIndicator: '' },
-        dragLabel: 'Drag',
         moveLabel: 'Move',
     },
 });

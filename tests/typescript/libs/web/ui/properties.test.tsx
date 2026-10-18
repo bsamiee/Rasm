@@ -1,6 +1,6 @@
+import { CustomProperties } from '@rasm/ui/properties.tsx';
 import { expect, it } from 'vitest';
 import { render } from 'vitest-browser-react';
-import { CustomProperties } from './properties.tsx';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

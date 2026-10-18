@@ -189,6 +189,5 @@ Log reads follow host rules:
 Blender resolves a `BLENDER_USER_*` variable naming a missing folder through `BLENDER_USER_RESOURCES` to the user's profile. `scripts/evaluate.py` runs from the repository root, launching Blender with factory settings in a fresh `.artifacts/blender/evaluate/<name>/` tree, every `BLENDER_USER_*` folder and `TMPDIR` created before launch:
 - `python .claude/skills/use-blender/scripts/evaluate.py run <name> -- <arguments>` runs Blender with the arguments and prints its output
 - `run` passes `--python-use-system-env` and the process's `PYTHONPYCACHEPREFIX` ahead of the arguments, and arguments omit them
-- `run` installs the distributions `nx run <id>:pack` bundles into tree folder `scripts/modules` before launch
-- Blender lists `scripts/modules` first on `sys.path` and keeps it through `wm.read_factory_settings`, and `--factory-startup` leaves it off, `run` arguments omitting the flag
+- `run` syncs `.cache/blender/scripts/modules` to wheels `nx run <id>:pack` bundles, first on `sys.path`, and adds `libs/python` through `PYTHONPATH`
 - Crash reports sit in the tree's `tmp`, output in its `blender.log`

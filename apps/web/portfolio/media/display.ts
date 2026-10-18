@@ -7,7 +7,6 @@ import { type Composition, type Placement, placementDimensions } from '../model/
 const byteSize = new Intl.NumberFormat('en', { notation: 'compact', style: 'unit', unit: 'byte', unitDisplay: 'narrow' });
 const numeral = new Intl.NumberFormat('en', { minimumIntegerDigits: 2, useGrouping: false }).format;
 const plural = new Intl.PluralRules('en');
-const entryKind = { project: 'Project', study: 'Study' } as const satisfies Record<typeof Entry.Type.kind, string>;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -27,4 +26,4 @@ const compositionLabel = (composition: typeof Composition.Type) => composition.i
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { byteSize, compositionLabel, descriptionLabel, entryKind, entryTitle, imageSourceSet, mediaRatio, mediaUrl, numeral, placementAlt, placementTitle, quantity, sheetLabel };
+export { byteSize, compositionLabel, descriptionLabel, entryTitle, imageSourceSet, mediaRatio, mediaUrl, numeral, placementAlt, placementTitle, quantity, sheetLabel };

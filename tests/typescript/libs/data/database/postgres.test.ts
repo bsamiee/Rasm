@@ -1,15 +1,15 @@
 import { PgClient } from '@effect/sql-pg';
 import { layer } from '@effect/vitest';
+import type { names } from '@rasm/database/catalog.ts';
+import { types } from '@rasm/database/pg.ts';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import { type Cause, Context, Effect, Function, Layer, Redacted } from 'effect';
 import { PullPolicy } from 'testcontainers';
 import { cases } from './cases.ts';
-import type { names } from './catalog.ts';
-import { types } from './pg.ts';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Postgres extends Context.Service<Postgres, { readonly restored: Effect.Effect<Redacted.Redacted, Cause.UnknownError> }>()('@rasm/database/postgres.test/Postgres') {}
+class Postgres extends Context.Service<Postgres, { readonly restored: Effect.Effect<Redacted.Redacted, Cause.UnknownError> }>()('rasm/tests/typescript/libs/data/database/postgres.test/Postgres') {}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

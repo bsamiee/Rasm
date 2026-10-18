@@ -11,8 +11,8 @@ import { catalog } from './database.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-serve(config.worker({ mode: 'production', isPreview: false }), (env, assets) => ({
-    routes: app(assets, env.OWNER_EMAIL),
+serve(config.worker({ mode: 'production', isPreview: false }), (env) => ({
+    routes: app(env.OWNER_EMAIL),
     services: Layer.mergeAll(
         store(catalog, (options) => SqliteClient.layer({ filename: env.DB, ...options })),
         s3(env.BUCKET),

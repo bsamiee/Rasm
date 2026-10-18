@@ -1,18 +1,13 @@
 import { assert, type Vitest } from '@effect/vitest';
+import { Bytes, type Catalog, names, type Table, table, Uuid } from '@rasm/database/catalog.ts';
+import { plan, reconcile } from '@rasm/database/reconcile.ts';
+import { atomic, insert, latest, remove, search, select, store, tenant, upsert } from '@rasm/database/store.ts';
 import { Array, DateTime, Effect, Exit, type Layer, Option, Schema, type Scope } from 'effect';
 import { SqlClient, SqlSchema } from 'effect/sql';
-import { Bytes, type Catalog, names, type Table, table, Uuid } from './catalog.ts';
-import { plan, reconcile } from './reconcile.ts';
-import { atomic, insert, latest, remove, search, select, store, tenant, upsert } from './store.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Client<F, Q> = (options: typeof names) => Layer.Layer<SqlClient.SqlClient, F, Q>;
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const tenants = [0, 1, 2] as const;
-const start = DateTime.makeUnsafe('2026-01-01T00:00:00.000Z');
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -264,8 +259,9 @@ const cases = <R, F, Q>(it: Vitest.MethodsNonLive<R>, client: Client<F, Q>, isol
     define('writes and reads collections through one parameter with upsert, delete, and latest per key', (apply) =>
         Effect.gen(function* () {
             const volume = 150;
+            const tenants = [0, 1, 2] as const;
             yield* apply(declared(events));
-            const written = Array.makeBy(volume, (index) => ({ id: `e${index}`, tenant: index % tenants.length, at: DateTime.add(start, { seconds: index }), kind: 'view' as const }));
+            const written = Array.makeBy(volume, (index) => ({ id: `e${index}`, tenant: index % tenants.length, at: DateTime.add(DateTime.makeUnsafe('2026-01-01T00:00:00.000Z'), { seconds: index }), kind: 'view' as const }));
             const decode = Schema.decodeUnknownEffect(Schema.Array(events));
             assert.deepStrictEqual((yield* yield* insert(events, written)).length, volume);
             assert.deepStrictEqual(yield* yield* upsert(events, written), []);

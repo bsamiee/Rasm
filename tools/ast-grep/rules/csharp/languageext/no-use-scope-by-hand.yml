@@ -169,6 +169,4 @@ transform:
 fix: $USE_CALL$BRACKET_CALL$SECOND_FIXED$TAIL_FIXED
 message: "`$ACQUIRE_TEXT$SACQ_TEXT` scope closes through `Bracket` by hand"
 note: >-
-    Write `use(<acquire>).Bind(<resource> => <body>).Bracket()` with `Bracket()` at the scope's first `use`, which releases every `use` inside it.
-    A file-based app that references RhinoCommon or Grasshopper keeps `Bracket`: `use` hashes its resource through LanguageExt's type resolver,
-    which loads every assembly the entry assembly references and throws outside Rhino
+    Write `use(<acquire>).Bind(<resource> => <body>).Bracket()` with `Bracket()` at the scope's first `use`, which releases every `use` inside it. A file-based app that references RhinoCommon or Grasshopper keeps `Bracket`: `use` hashes its resource through LanguageExt's type resolver, which loads every assembly the entry assembly references and throws outside Rhino

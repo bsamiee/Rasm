@@ -94,12 +94,10 @@ const _store = (root: string) =>
     );
 const _cached = Effect.fnUntraced(function* <A>(schema: Schema.Codec<A, string>, { root, cache }: Store, inputs: string[], [command, ...args]: [string, ...string[]]) {
     const [key, hash] = [[command, ...args].join(' '), yield* Effect.tryPromise(() => hashWithWorkspaceContext(root, inputs))];
-    const text = yield* Option.match(
-        Option.map(
-            Option.filter(Option.fromUndefinedOr(cache.get(key)), (entry) => entry.hash === hash),
-            Struct.get('output'),
-        ),
-        { onSome: Effect.succeed, onNone: () => stdout(command, args, { cwd: root, stderr: 'inherit' }) },
+    const text = yield* Option.fromUndefinedOr(cache.get(key)).pipe(
+        Option.filter((entry) => entry.hash === hash),
+        Option.map(Struct.get('output')),
+        Option.match({ onSome: Effect.succeed, onNone: () => stdout(command, args, { cwd: root }) }),
     );
     return yield* Effect.tap(Schema.decodeEffect(schema)(text), () => Effect.sync(() => cache.set(key, { hash, output: text })));
 });
@@ -151,9 +149,14 @@ const _sources = (root: string, { projectFileMap }: FileMap) =>
         Object.values(projectFileMap).flatMap((files) => files.map(({ file }) => file).filter((file) => file.endsWith('.py'))),
         {
             onEmpty: () => Effect.succeed([]),
-            onNonEmpty: (files) => Effect.map(Effect.flatMap(stdout('ruff', ['analyze', 'graph', ...files], { cwd: root, stderr: 'inherit' }), Schema.decodeEffect(_ImportGraph)), (graph) => Object.entries(graph).flatMap(([file, imports]) => imports.map((target) => [file, target] as const))),
+            onNonEmpty: (files) => Effect.map(Effect.flatMap(stdout('ruff', ['analyze', 'graph', ...files], { cwd: root }), Schema.decodeEffect(_ImportGraph)), (graph) => Object.entries(graph).flatMap(([file, imports]) => imports.map((target) => [file, target] as const))),
         },
     );
+const _suite = Effect.fnUntraced(function* (language: string, dir: string, root: string) {
+    const path = yield* Path.Path;
+    const suite = path.join('tests', language, ...dir.split(path.sep).filter((segment) => segment !== language));
+    return Array.match(yield* _glob(root, [`${suite}/**/*`]), { onEmpty: () => ({}), onNonEmpty: () => ({ namedInputs: { default: ['{projectRoot}/**/*', `{workspaceRoot}/${suite}/**/*`] } }) });
+});
 const _swift = (build: string, targets: Record<string, TargetConfiguration>) => ({ tags: ['language:swift', 'host:macos', `build:${build}`], targets: { build: {}, upgrade: {}, check: {}, ...targets } });
 
 const _PROJECTS = {
@@ -196,8 +199,8 @@ const _PROJECTS = {
         };
     }),
     '.swcrc': () => Effect.succeed({ tags: ['host:extendscript'], targets: { build: {} } }),
-    [_CARGO_MANIFEST]: Effect.fnUntraced(function* (_, { file, crates, mise }) {
-        const [all, { daemons }] = yield* Effect.all([crates, mise], { concurrency: 'unbounded' });
+    [_CARGO_MANIFEST]: Effect.fnUntraced(function* ({ dir }, { file, root, crates, mise }) {
+        const [all, { daemons }, suite] = yield* Effect.all([crates, mise, _suite('rust', dir, root)], { concurrency: 'unbounded' });
         const crate = yield* Effect.fromOption(Array.findFirst(all, ({ manifest }) => manifest === file));
         const bins = crate.targets.filter(({ kind }) => kind.includes('bin'));
         const named = new Set(bins.map(({ name }) => name));
@@ -206,6 +209,7 @@ const _PROJECTS = {
         const dylint = crate.dependencies.some(({ name }) => name === 'dylint_linting');
         const selection = tested ? { options: { args: crate.targets.some(({ kind, types }) => kind.some((type) => type !== 'bin' && types.includes(type))) ? ['--lib', '--bins', '--tests'] : ['--all-targets'] } } : {};
         return {
+            ...suite,
             name: crate.name,
             tags: ['language:rust', ...(dylint ? ['host:dylint'] : [])],
             targets: {
@@ -243,7 +247,7 @@ const _PROJECTS = {
         return { name: dir, ..._swift('swiftpm', tested ? { test: {} } : {}) };
     }),
     'py.typed': ({ dir }, workspace) => Effect.map(Effect.all([Path.Path, workspace.pyproject, _python(dir, workspace)]), ([path, { moduleRoot }, targets]) => ({ name: path.relative(moduleRoot, dir).replaceAll(path.sep, '.'), tags: ['language:python'], targets })),
-    'tsconfig.json': () => Effect.succeed({ tags: ['language:typescript'], targets: { 'typecheck:tsc': {}, check: {} } }),
+    'tsconfig.json': ({ dir }, { root }) => Effect.map(_suite('typescript', dir, root), (suite) => ({ ...suite, tags: ['language:typescript'], targets: { 'typecheck:tsc': {}, check: {} } })),
     'vite.config.ts': ({ dir }, { configFiles }) => Effect.map(Path.Path, (path) => ({ tags: ['bundler:vite', ...(configFiles.includes(path.join(dir, _CLOUDFLARE_CONFIG)) ? ['output:cloudflare'] : [])], targets: { build: {}, serve: {} } })),
     'uxp.config.ts': () => Effect.succeed({ tags: ['host:uxp'], targets: { build: {}, install: {} } }),
     [_CLOUDFLARE_CONFIG]: () => Effect.succeed({ targets: { types: {}, 'typecheck:tsc': { dependsOn: ['types'] } } }),

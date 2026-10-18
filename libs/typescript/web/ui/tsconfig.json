@@ -3,5 +3,6 @@
     "compilerOptions": {
         "jsx": "react-jsx",
         "lib": [ "esnext", "dom" ]
-    }
+    },
+    "include": [ "**/*", ".storybook/*.stories.tsx", "../../../../tests/typescript/libs/web/ui" ]
 }

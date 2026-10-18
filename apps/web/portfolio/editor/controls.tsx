@@ -1,14 +1,13 @@
-import { ReorderableList } from '@rasm/ui/reorderable.tsx';
-import { Array, Function, Match, Option, SchemaIssue } from 'effect';
+import { Array, Match, Option, SchemaIssue } from 'effect';
 import type { Atom } from 'effect/reactivity';
 import { ChevronDown } from 'lucide-react';
-import type { ComponentProps, ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Button, Dialog, DialogTrigger, Heading, Input, Label, ListBox, ListBoxItem, Menu, MenuItem, MenuTrigger, Modal, ModalOverlay, Popover, Select, SelectValue, Slider, SliderOutput, SliderThumb, SliderTrack, Text, TextArea, TextField, type TextFieldProps } from 'react-aria-components';
-import type { deleteRequest, draftState, saveRequest } from './services.ts';
+import type { deleteRequest, draft, saveRequest } from './services.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type RequestFailure = Atom.Failure<typeof saveRequest>['error'] | Atom.Failure<typeof draftState> | Atom.Failure<typeof deleteRequest>;
+type RequestFailure = Atom.Failure<typeof saveRequest>['error'] | Atom.Failure<typeof draft> | Atom.Failure<typeof deleteRequest>;
 interface Choice {
     readonly id: string;
     readonly label: string;
@@ -16,28 +15,6 @@ interface Choice {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const SequenceList = <T extends { readonly id: string }>(props: Omit<ComponentProps<typeof ReorderableList<T>>, 'classNames' | 'dragLabel' | 'moveLabel'>) => (
-    <ReorderableList
-        {...props}
-        classNames={{
-            list: 'editor-sequence',
-            item: 'editor-sequence-item border-line border-t bg-background dragging:opacity-50',
-            controls: 'flex items-center gap-1 py-1 text-muted',
-            selection: 'group grid min-h-11 min-w-11 place-items-center',
-            checkbox: 'editor-checkbox',
-            check: 'editor-check',
-            drag: 'grid min-h-11 min-w-11 cursor-grab touch-none place-items-center',
-            grip: 'size-5',
-            position: 'mr-auto whitespace-nowrap font-mono text-muted text-xs before:content-ordinal',
-            move: 'button button-ghost px-2 text-xs',
-            popover: 'editor-popover',
-            option: 'editor-option disabled:opacity-40',
-            dropIndicator: 'h-0.5 bg-transparent drop-target:bg-accent-text',
-        }}
-        dragLabel="Drag"
-        moveLabel="Move"
-    />
-);
 const Field = ({ label, placeholder, description, multiline, ...props }: Omit<TextFieldProps, 'children' | 'className'> & { readonly label: string; readonly placeholder?: string; readonly description?: string; readonly multiline?: boolean }) => (
     <TextField {...props} className="field">
         <Label>{label}</Label>
@@ -53,9 +30,9 @@ const SelectField = <T extends Choice>({ label, value, options, onChange }: { la
     <Select
         className="field"
         onChange={(key) =>
-            Option.match(
+            Option.map(
                 Array.findFirst(options, (item) => item.id === key),
-                { onNone: Function.constVoid, onSome: onChange },
+                onChange,
             )
         }
         value={value}
@@ -167,4 +144,4 @@ const RequestAlert = <E extends RequestFailure>({ error, conflict, onField }: { 
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ConfirmDialog, Field, MenuButton, RequestAlert, SelectField, SequenceList, SliderField };
+export { ConfirmDialog, Field, MenuButton, RequestAlert, SelectField, SliderField };

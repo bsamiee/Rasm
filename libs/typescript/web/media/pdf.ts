@@ -1,4 +1,4 @@
-import { Cause, Effect, Match, Record, Struct } from 'effect';
+import { Array, Cause, Effect, Match, Record, Struct } from 'effect';
 import { Atom } from 'effect/reactivity';
 import { GlobalWorkerOptions, getDocument, InvalidPDFException, PasswordException } from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
@@ -16,32 +16,17 @@ const openPdf = Effect.fn('openPdf')(function* (source: DocumentInitParameters) 
     return yield* Effect.tryPromise({
         try: () => task.promise,
         catch: Match.type<unknown>().pipe(
-            Match.when(Match.instanceOf(PasswordException), () => InspectError.make({ reason: { _tag: 'Protected' } })),
-            Match.when(Match.instanceOf(InvalidPDFException), (cause) => InspectError.make({ reason: { _tag: 'Invalid', cause } })),
+            Match.when(Match.instanceOf(PasswordException), (cause) => InspectError.make({ reason: { _tag: 'Protected' }, cause })),
+            Match.when(Match.instanceOf(InvalidPDFException), (cause) => InspectError.make({ reason: { _tag: 'Unreadable' }, cause })),
             Match.orElse((cause) => new Cause.UnknownError(cause)),
         ),
     });
 });
 const inspectPdf = Effect.fn('inspectPdf')(function* (file: Blob) {
     const document = yield* openPdf({ data: yield* Effect.tryPromise(() => file.arrayBuffer()) });
-    const [labels, pages] = yield* Effect.all(
-        [
-            Effect.tryPromise(() => document.getPageLabels()),
-            Effect.forEach(
-                Array.from({ length: document.numPages }, (_, index) => index + 1),
-                (number) => Effect.tryPromise(() => document.getPage(number)),
-                { concurrency: 'unbounded' },
-            ),
-        ],
-        { concurrency: 'unbounded' },
-    );
-    return {
-        pages: pages.map((page, index) => {
-            const label = labels?.[index];
-            return { ...Struct.pick(page.getViewport({ scale: 1 }), ['width', 'height']), ...(label === undefined ? {} : { label }) };
-        }),
-    };
-});
+    const [labels, pages] = yield* Effect.all([Effect.tryPromise(() => document.getPageLabels()), Effect.forEach(Array.range(1, document.numPages), (number) => Effect.tryPromise(() => document.getPage(number)), { concurrency: 'unbounded' })], { concurrency: 'unbounded' });
+    return { pages: pages.map((page, index) => ({ ...Struct.pick(page.getViewport({ scale: 1 }), ['width', 'height']), ...(labels && { label: labels[index] }) })) };
+}, Effect.scoped);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

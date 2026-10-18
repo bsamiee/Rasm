@@ -1,12 +1,12 @@
 import { useAtom, useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import { useUppyEvent, useUppyState } from '@uppy/react';
 import Dashboard from '@uppy/react/dashboard';
-import { Schema, Struct } from 'effect';
+import { Schema, String, Struct } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { useState } from 'react';
 import '@uppy/core/css/style.min.css';
 import '@uppy/dashboard/css/style.min.css';
-import { byteSize, entryKind, entryTitle } from '../media/display.ts';
+import { byteSize, entryTitle } from '../media/display.ts';
 import type { PendingUpload } from '../model/api.ts';
 import { type AssetCollection, mediaTypes, PdfAsset, uploadLimit } from '../model/asset.ts';
 import type { Entry } from '../model/document.ts';
@@ -34,12 +34,14 @@ const Uploads = ({ assets, entries, onChoose }: { assets: typeof AssetCollection
     const [selected, setSelected] = useState<string>();
     const [target, setTarget] = useAtom(destination);
     const key = (value: Destination) => (value.kind === 'entry' ? value.id : value.kind);
-    const options = [{ target: { kind: 'library' } as const, label: 'Private file library' }, { target: { kind: 'hero' } as const, label: 'Hero placement — one file' }, ...entries.map((entry) => ({ target: { kind: 'entry', id: entry.id } as const, label: `${entryTitle(entry)} · ${entryKind[entry.kind]}` }))].map(
-        (option) => ({
-            ...option,
-            id: key(option.target),
-        }),
-    );
+    const options = [
+        { target: { kind: 'library' } as const, label: 'Private file library' },
+        { target: { kind: 'hero' } as const, label: 'Hero placement — one file' },
+        ...entries.map((entry) => ({ target: { kind: 'entry', id: entry.id } as const, label: `${entryTitle(entry)} · ${String.capitalize(entry.kind)}` })),
+    ].map((option) => ({
+        ...option,
+        id: key(option.target),
+    }));
     const actions = {
         incomplete: { label: 'Discard incomplete upload', description: 'Discard the incomplete upload and its stored data. Add the original file again to upload it.' },
         cleanup: { label: 'Clean up upload data', description: 'Remove leftover upload data. The completed source file and its placements are kept.' },
@@ -84,9 +86,9 @@ const Uploads = ({ assets, entries, onChoose }: { assets: typeof AssetCollection
                 <div className={files.length > 0 ? 'h-88' : 'h-50'}>
                     <Dashboard disableInformer={true} doneButtonHandler={() => uploader.removeFiles(files.map(Struct.get('id')))} height="100%" proudlyDisplayPoweredByUppy={false} uppy={uploader} width="100%" />
                 </div>
-                {notices.map(({ message }) => (
-                    <p className="hint wrap-anywhere mt-3" key={message} role="alert">
-                        {message}
+                {notices.map(({ message, details }) => (
+                    <p className="hint wrap-anywhere mt-3" key={`${message}${details}`} role="alert">
+                        {[message, details].filter(Boolean).join(' ')}
                     </p>
                 ))}
                 {documents.length > 0 && (

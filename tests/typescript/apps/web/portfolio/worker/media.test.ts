@@ -1,14 +1,16 @@
+import { reset } from 'cloudflare:test';
 import { env } from 'cloudflare:workers';
 import { BrowserCrypto } from '@effect/platform-browser';
 import { D1Client } from '@effect/sql-d1';
-import { assert, it } from '@effect/vitest';
+import { assert, beforeEach, it } from '@effect/vitest';
 import { store } from '@rasm/database/store.ts';
+import { Assets } from '@rasm/hosting/render.ts';
 import { contract } from '@rasm/hosting/sites.ts';
 import { r2 } from '@rasm/hosting/storage.ts';
+import { app } from 'architectural-portfolio/worker/app.ts';
+import { catalog } from 'architectural-portfolio/worker/database.ts';
 import { Effect, Layer, Schema } from 'effect';
 import { HttpRouter } from 'effect/http';
-import { app } from './app.ts';
-import { catalog } from './database.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -26,12 +28,13 @@ const client = Effect.gen(function* () {
     const { handler } = yield* Effect.acquireRelease(
         Effect.sync(() =>
             HttpRouter.toWebHandler(
-                app({ fetch: globalThis.fetch }, owner[contract.headers.email]).pipe(
+                app(owner[contract.headers.email]).pipe(
                     Layer.provideMerge(
                         Layer.mergeAll(
                             store(catalog, (options) => D1Client.layer({ db: env.DB, ...options })),
                             r2(env.BUCKET),
                             BrowserCrypto.layer,
+                            Layer.succeed(Assets, { fetch: globalThis.fetch }),
                         ),
                     ),
                 ),
@@ -56,6 +59,7 @@ const client = Effect.gen(function* () {
     return { send, upload, write };
 });
 
+beforeEach(reset);
 it.effect('serves ranges and preconditions to the owner and keeps an asset private until a published document places it', () =>
     Effect.gen(function* () {
         const { send, upload, write } = yield* client;

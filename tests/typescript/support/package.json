@@ -1,31 +1,23 @@
 {
     "name": "@rasm/test-support",
     "private": true,
-    "description": "Reusable test support: algebraic laws over Schema-derived values, model-based and interleaving properties, telemetry capture, Workers runtime tests with per-test storage, Storybook addons that fail stories on axe violations, and Playwright suite settings with one app instance per worker",
+    "description": "Reusable test support: Storybook addons that fail stories on axe violations, and Playwright suite settings with one app instance per worker",
     "type": "module",
     "exports": {
         "./app": "./app.ts",
         "./playwright": "./playwright.ts",
         "./preset": "./preset.ts",
-        "./preview": "./preview.ts",
-        "./properties": "./properties.ts",
-        "./telemetry": "./telemetry.ts",
-        "./workers": "./workers.ts"
+        "./preview": "./preview.ts"
     },
     "dependencies": {
-        "@effect/vitest": "catalog:",
         "@playwright/test": "catalog:",
         "@storybook/addon-a11y": "catalog:",
         "@storybook/addon-docs": "catalog:",
         "@storybook/addon-vitest": "catalog:",
         "effect": "catalog:",
-        "fast-check": "catalog:",
-        "vite": "catalog:",
-        "vitest": "catalog:"
+        "vite": "catalog:"
     },
     "devDependencies": {
-        "@cloudflare/vitest-plugin": "catalog:",
-        "@cloudflare/workers-types": "catalog:",
         "@types/node": "catalog:"
     }
 }

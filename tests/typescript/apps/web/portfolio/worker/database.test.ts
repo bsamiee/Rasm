@@ -1,17 +1,19 @@
+import { reset } from 'cloudflare:test';
 import { env } from 'cloudflare:workers';
 import { BrowserCrypto } from '@effect/platform-browser';
 import { D1Client } from '@effect/sql-d1';
-import { assert, it } from '@effect/vitest';
+import { assert, beforeEach, it } from '@effect/vitest';
 import { names } from '@rasm/database/catalog.ts';
 import { reconcile } from '@rasm/database/reconcile.ts';
+import { catalog, ownerUserId, readDocument, registerOwner, writeDocument } from 'architectural-portfolio/worker/database.ts';
 import { Effect, Layer, Option } from 'effect';
 import { SqlClient } from 'effect/sql';
-import { catalog, ownerUserId, readDocument, registerOwner, writeDocument } from './database.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const store = Layer.mergeAll(D1Client.layer({ db: env.DB, ...names }), BrowserCrypto.layer);
 
+beforeEach(reset);
 it.effect('rebuilds the hosted documents, assets, and owner tables and keeps their rows', () =>
     Effect.gen(function* () {
         const sql = yield* SqlClient.SqlClient;

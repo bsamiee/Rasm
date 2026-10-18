@@ -16,6 +16,7 @@ const _project = Effect.fnUntraced(function* (directory: string) {
     const [fs, path, ci] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Config.withDefault(Config.Boolean('CI'), false)]);
     const { name, devDependencies } = yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Struct({ name: Schema.String, devDependencies: Schema.Record(Schema.String, Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))) })))(yield* fs.readFileString(path.join(directory, 'package.json')));
     const artifacts = path.join(_ROOT, '.artifacts', 'typescript', 'vitest', name);
+    const segments = path.relative(_ROOT, directory).split(path.sep);
     return {
         test: {
             attachmentsDir: path.join(artifacts, 'attachments'),
@@ -31,9 +32,10 @@ const _project = Effect.fnUntraced(function* (directory: string) {
                   }
                 : {}),
             chaiConfig: { includeStack: true, truncateThreshold: 0 },
+            dir: path.join(_ROOT, 'tests', 'typescript', ...segments.filter((segment) => segment !== 'typescript')),
             coverage: {
                 enabled: true,
-                exclude: ['**/*.d.ts', '**/*.config.ts', '**/tests/**', '**/*.stories.tsx', '**/.storybook/**'],
+                exclude: ['**/*.d.ts', '**/*.config.ts', '**/tests/**', '**/.storybook/**'],
                 include: ['**/*.{ts,tsx,mts,cts}'],
                 reporter: ['text', 'html'],
                 reportOnFailure: true,
@@ -66,7 +68,7 @@ const createVitestConfig =
                 ...Option.toArray(Option.map(Option.fromNullishOr(app), ({ config: loaded }) => loaded)),
                 project,
                 config,
-                ...(stories ? [{ test: { projects: [{ plugins: [storybookTest({ configDir: storybook })], test: { name: 'storybook', browser: { enabled: true }, api: { allowWrite: true } } }] } }] : []),
+                ...(stories ? [{ test: { projects: [{ plugins: [storybookTest({ configDir: storybook })], test: { name: 'storybook', dir: storybook, browser: { enabled: true }, api: { allowWrite: true } } }] } }] : []),
             ];
             return layers.reduce((merged: ViteUserConfig, layer) => mergeConfig(merged, layer), {});
         }).pipe(Effect.provide(NodeServices.layer), Effect.runPromise);

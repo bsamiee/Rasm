@@ -1,10 +1,9 @@
 import { unavailable } from '@rasm/hosting/http.ts';
-import { putObject, releaseObject, type Storage, serveObject } from '@rasm/hosting/storage.ts';
-import { Array, Crypto, Effect, type Layer, Match, Option, Schema, Stream } from 'effect';
-import { HttpRouter, type HttpServerRequest, type Multipart } from 'effect/http';
-import { HttpApiBuilder, HttpApiError, type HttpApiGroup } from 'effect/http-api';
-import type { SqlClient } from 'effect/sql';
-import { Api, type Owner } from '../model/api.ts';
+import { createUpload, releaseObject, serveObject } from '@rasm/hosting/storage.ts';
+import { Array, Crypto, Effect, Match, Option, Schema, Stream } from 'effect';
+import { HttpRouter, type Multipart } from 'effect/http';
+import { HttpApiBuilder, HttpApiError } from 'effect/http-api';
+import { Api } from '../model/api.ts';
 import { Asset, Id } from '../model/asset.ts';
 import { readAsset } from './database.ts';
 import { authorize } from './session.ts';
@@ -18,7 +17,7 @@ type Upload =
           readonly stage: 'files' | 'stored';
           readonly asset: typeof Asset.Type;
           readonly attemptId: string;
-          readonly files: readonly { readonly key: string; readonly field: 'file' | 'renditions'; readonly name?: string; readonly mime: string; readonly size: number }[];
+          readonly files: readonly { readonly key: string; readonly field: 'file' | 'renditions'; readonly name?: string; readonly size: number }[];
       };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -35,12 +34,8 @@ const advance = Match.type<{ readonly current: Upload; readonly part: Multipart.
     Match.when({ current: { stage: 'asset' }, part: { _tag: 'Field', key: 'asset' } }, ({ part: field }) =>
         Effect.gen(function* () {
             const asset = yield* Schema.decodeEffect(Schema.fromJsonString(Asset))(field.value).pipe(Effect.mapError(() => HttpApiError.BadRequest.make()));
-            const crypto = yield* Crypto.Crypto;
-            const attemptId = yield* crypto.randomUUIDv7();
-            const files: Extract<Upload, { stage: 'files' | 'stored' }>['files'] = [
-                ...('renditions' in asset ? (asset.renditions ?? []).map((rendition) => ({ ...rendition, key: `${attemptId}/${rendition.width}`, field: 'renditions' as const, name: String(rendition.width) })) : []),
-                { key: attemptId, field: 'file', mime: asset.mime, size: asset.size },
-            ];
+            const attemptId = yield* Crypto.Crypto.use((crypto) => crypto.randomUUIDv7());
+            const files: Extract<Upload, { stage: 'files' | 'stored' }>['files'] = [...('renditions' in asset ? (asset.renditions ?? []).map(({ width, size }) => ({ key: `${attemptId}/${width}`, field: 'renditions' as const, name: String(width), size })) : []), { key: attemptId, field: 'file', size: asset.size }];
             const existing = yield* Effect.acquireRelease(
                 beginUpload(
                     asset,
@@ -58,26 +53,26 @@ const advance = Match.type<{ readonly current: Upload; readonly part: Multipart.
             if (file.key !== object.field || (object.name !== undefined && file.name !== object.name)) {
                 return yield* HttpApiError.BadRequest.make();
             }
-            yield* state.stage === 'stored' ? Stream.runDrain(file.content) : putObject(object, file.content, (uploadId) => attachUpload({ key: object.key, uploadId }));
+            yield* state.stage === 'stored' ? Stream.runDrain(file.content) : Effect.flatMap(createUpload(object), ({ uploadToken, write }) => Effect.andThen(attachUpload({ key: object.key, uploadId: uploadToken }), write(file.content)));
             return { ...state, files: state.files.slice(1) } satisfies Upload;
         }),
     ),
     Match.orElse(() => Effect.fail(HttpApiError.BadRequest.make())),
 );
 const readMedia = Effect.fn('readMedia')(
-    function* (email: string, request: HttpServerRequest.HttpServerRequest) {
+    function* (email: string) {
         const asset = yield* HttpRouter.schemaPathParams(Schema.Struct({ id: Id, width: Schema.OptionFromOptionalKey(Schema.FiniteFromString) })).pipe(Effect.flatMap(readAsset));
         if (!asset.published) {
             yield* authorize(email);
         }
-        return yield* serveObject(request, { key: asset.objectKey, mime: asset.mime });
+        return yield* serveObject({ key: asset.objectKey, mime: asset.mime });
     },
     Effect.catchTag('SchemaError', () => Effect.fail(HttpApiError.NotFound.make())),
 );
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const media: Layer.Layer<HttpApiGroup.ToService<typeof Api.identifier, typeof Api.groups.media>, never, Owner | HttpRouter.Request.From<'Requires', SqlClient.SqlClient | Crypto.Crypto | Storage>> = HttpApiBuilder.group(Api, 'media', (handlers) =>
+const media = HttpApiBuilder.group(Api, 'media', (handlers) =>
     handlers.handleAll({
         upload: Effect.fn('upload')(
             function* ({ payload }) {
@@ -103,8 +98,7 @@ const media: Layer.Layer<HttpApiGroup.ToService<typeof Api.identifier, typeof Ap
         delete: ({ params }) => releaseObjects({ assetId: params.id, remove: true }),
     }),
 );
-const download = (email: string): Layer.Layer<never, never, HttpRouter.HttpRouter | HttpRouter.Request.From<'Requires', SqlClient.SqlClient | Storage> | HttpRouter.Request.From<'Error', Effect.Error<ReturnType<typeof readMedia>>>> =>
-    HttpRouter.addAll((['/api/media/:id', '/api/media/:id/:width'] as const).map((path) => HttpRouter.route('GET', path, (request) => readMedia(email, request))));
+const download = (email: string) => HttpRouter.add('GET', '/api/media/:id/:width?', readMedia(email));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

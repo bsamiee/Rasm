@@ -1,7 +1,6 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import { pdfDocument } from '@rasm/media/pdf.ts';
 import { usePdfPage, usePdfViewer } from '@rasm/media/viewer.ts';
-import { Match } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { ChevronLeft, ChevronRight, RotateCw } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -9,7 +8,6 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { LinkTarget } from 'pdfjs-dist/web/pdf_viewer.mjs';
 import { useState } from 'react';
 import { Button, Input, SearchField, ToggleButton, Toolbar } from 'react-aria-components';
-import { useErrorBoundary } from 'react-error-boundary';
 import { sheets } from '../model/asset.ts';
 import type { Placement } from '../model/placement.ts';
 import { ZoomControls } from './controls.tsx';
@@ -22,9 +20,8 @@ const SheetViewer = ({ document, placement, layoutId }: { document: PDFDocumentP
     const [query, setQuery] = useState('');
     const [pan, setPan] = useState(false);
     const quarterTurn = 90;
-    const { showBoundary } = useErrorBoundary();
     const pages = sheets(placement.asset);
-    const { ref, viewer } = usePdfViewer(document, { page: placement.page.number, scale: 'page-fit', linkTarget: LinkTarget.BLANK, onError: showBoundary });
+    const { ref, viewer } = usePdfViewer(document, { page: placement.page.number, scale: 'page-fit', linkTarget: LinkTarget.BLANK });
     const current = pages[(viewer?.page ?? placement.page.number) - 1] ?? placement.page;
     return (
         <>
@@ -32,34 +29,33 @@ const SheetViewer = ({ document, placement, layoutId }: { document: PDFDocumentP
                 <ZoomControls
                     fit={
                         <>
-                            <ToggleButton className="button button-ghost" isSelected={viewer.fit === 'page-fit'} onPress={() => viewer.controls.fit('page-fit')}>
+                            <ToggleButton className="button button-ghost" isSelected={viewer.scale === 'page-fit'} onPress={() => viewer.fit('page-fit')}>
                                 Fit page
                             </ToggleButton>
-                            <ToggleButton className="button button-ghost" isSelected={viewer.fit === 'page-width'} onPress={() => viewer.controls.fit('page-width')}>
+                            <ToggleButton className="button button-ghost" isSelected={viewer.scale === 'page-width'} onPress={() => viewer.fit('page-width')}>
                                 Fit width
                             </ToggleButton>
                         </>
                     }
                     href={`${mediaUrl(placement.asset)}#page=${current.number}`}
-                    linkLabel="Original"
-                    zoomIn={viewer.controls.zoomIn}
-                    zoomOut={viewer.controls.zoomOut}
+                    zoomIn={() => viewer.pdf.increaseScale()}
+                    zoomOut={() => viewer.pdf.decreaseScale()}
                 >
                     <div className="flex w-fit min-w-0 max-w-full items-center">
                         <span className="sr-only" role="status">
                             {sheetLabel(current, document.numPages)}
                         </span>
-                        <Button aria-label="Previous sheet" className="button button-ghost min-w-11 px-2" isDisabled={current.number === 1} onPress={viewer.controls.previous}>
+                        <Button aria-label="Previous sheet" className="button button-ghost min-w-11 px-2" isDisabled={current.number === 1} onPress={() => viewer.pdf.previousPage()}>
                             <ChevronLeft className="size-4" />
                         </Button>
-                        <select aria-label="Sheet" className="min-h-11 min-w-0 max-w-48 bg-transparent px-1 font-mono text-xs tabular-nums" onChange={(event) => viewer.controls.page(event.currentTarget.selectedIndex + 1)} value={current.number}>
+                        <select aria-label="Sheet" className="min-h-11 min-w-0 max-w-48 bg-transparent px-1 font-mono text-xs tabular-nums" onChange={(event) => viewer.pdf.linkService.goToPage(event.currentTarget.selectedIndex + 1)} value={current.number}>
                             {pages.map(({ label, number }) => (
                                 <option key={number} value={number}>
                                     {[`${numeral(number)} / ${numeral(document.numPages)}`, label].filter(Boolean).join(' · ')}
                                 </option>
                             ))}
                         </select>
-                        <Button aria-label="Next sheet" className="button button-ghost min-w-11 px-2" isDisabled={current.number === document.numPages} onPress={viewer.controls.next}>
+                        <Button aria-label="Next sheet" className="button button-ghost min-w-11 px-2" isDisabled={current.number === document.numPages} onPress={() => viewer.pdf.nextPage()}>
                             <ChevronRight className="size-4" />
                         </Button>
                     </div>
@@ -69,14 +65,14 @@ const SheetViewer = ({ document, placement, layoutId }: { document: PDFDocumentP
                             <ToggleButton className="button button-ghost" isSelected={pan} onChange={setPan}>
                                 Pan
                             </ToggleButton>
-                            <Button className="button button-ghost" onPress={() => viewer.controls.rotate(quarterTurn)}>
+                            <Button className="button button-ghost" onPress={() => viewer.rotate(quarterTurn)}>
                                 <RotateCw className="size-4" />
                                 Rotate view
                             </Button>
                         </Toolbar>
                         <p className="hint py-2">Select text to copy. Use Pan or focus the drawing and press arrow keys to move.</p>
                     </details>
-                    <details className="min-w-0 open:basis-full" onToggle={(event) => event.currentTarget.open || viewer.controls.closeFind()}>
+                    <details className="min-w-0 open:basis-full" onToggle={(event) => event.currentTarget.open || viewer.pdf.eventBus.dispatch('findbarclose', {})}>
                         <summary className="min-h-11 cursor-pointer content-center text-sm">Find</summary>
                         <div className="flex flex-wrap items-center gap-2 pb-1">
                             <SearchField
@@ -84,9 +80,9 @@ const SheetViewer = ({ document, placement, layoutId }: { document: PDFDocumentP
                                 className="flex min-w-0 flex-1 basis-40 items-center border border-control-line"
                                 onChange={(text) => {
                                     setQuery(text);
-                                    viewer.controls.find(text, 'first');
+                                    viewer.find(text, 'first');
                                 }}
-                                onSubmit={() => viewer.controls.find(query, 'next')}
+                                onSubmit={() => viewer.find(query, 'next')}
                                 value={query}
                             >
                                 <Input className="min-h-11 w-full min-w-0 bg-transparent px-3 text-base" />
@@ -94,10 +90,10 @@ const SheetViewer = ({ document, placement, layoutId }: { document: PDFDocumentP
                                     Clear
                                 </Button>
                             </SearchField>
-                            <Button aria-label="Previous match" className="button button-ghost min-w-11 px-3" isDisabled={viewer.matches.total === 0} onPress={() => viewer.controls.find(query, 'previous')}>
+                            <Button aria-label="Previous match" className="button button-ghost min-w-11 px-3" isDisabled={viewer.matches.total === 0} onPress={() => viewer.find(query, 'previous')}>
                                 <ChevronLeft className="size-4" />
                             </Button>
-                            <Button aria-label="Next match" className="button button-ghost min-w-11 px-3" isDisabled={viewer.matches.total === 0} onPress={() => viewer.controls.find(query, 'next')}>
+                            <Button aria-label="Next match" className="button button-ghost min-w-11 px-3" isDisabled={viewer.matches.total === 0} onPress={() => viewer.find(query, 'next')}>
                                 <ChevronRight className="size-4" />
                             </Button>
                             <span className="basis-full text-muted text-xs" role="status">
@@ -107,7 +103,7 @@ const SheetViewer = ({ document, placement, layoutId }: { document: PDFDocumentP
                     </details>
                 </ZoomControls>
             )}
-            <motion.div aria-label={sheetLabel(current, document.numPages)} className="viewer-stage relative" layoutId={layoutId} onDoubleClick={() => pan && viewer?.controls.zoomIn()} onPan={(_event, info) => pan && viewer?.controls.pan(info.delta.x, info.delta.y)} role="region">
+            <motion.div aria-label={sheetLabel(current, document.numPages)} className="viewer-stage relative" layoutId={layoutId} onDoubleClick={() => pan && viewer?.pdf.increaseScale()} onPan={(_event, info) => pan && viewer?.pdf.panBy(info.delta.x, info.delta.y)} role="region">
                 {/* biome-ignore lint/a11y/noNoninteractiveTabindex: Safari leaves scroll containers out of keyboard focus, arrow-key panning needs a focusable PDF.js container */}
                 <div className="sheet-scroller" data-pan={pan || undefined} ref={ref} tabIndex={0}>
                     <div className="pdfViewer" />
@@ -117,7 +113,7 @@ const SheetViewer = ({ document, placement, layoutId }: { document: PDFDocumentP
     );
 };
 const SheetPreview = ({ document, page }: { document: PDFDocumentProxy; page: number }) => {
-    const { ref } = usePdfPage(document, page, useErrorBoundary().showBoundary);
+    const ref = usePdfPage(document, page);
     return <div className="pdfViewer singlePageView pointer-events-none size-full overflow-hidden" ref={ref} />;
 };
 const PdfSheet = ({ placement, layoutId }: { placement: Extract<typeof Placement.Type, { kind: 'pdf' }>; layoutId: string | undefined }) => {
@@ -125,12 +121,7 @@ const PdfSheet = ({ placement, layoutId }: { placement: Extract<typeof Placement
     const retry = useAtomRefresh(pdfDocument(url));
     return AsyncResult.builder(useAtomValue(pdfDocument(url)))
         .onInitial(() => <MediaLoading />)
-        .onError((error) =>
-            Match.value(error).pipe(
-                Match.when({ _tag: 'InspectError', reason: { _tag: 'Protected' } }, () => <MediaFailure href={url} linkLabel="Open original PDF" message="This PDF is protected. Upload an unlocked export." />),
-                Match.orElse(() => <MediaFailure href={url} linkLabel="Open original PDF" message="This document could not be displayed." onRetry={retry} />),
-            ),
-        )
+        .onError(() => <MediaFailure href={url} linkLabel="Open original PDF" message="This document could not be displayed." onRetry={retry} />)
         .onSuccess((document) => (layoutId === undefined ? <SheetPreview document={document} page={placement.page.number} /> : <SheetViewer document={document} layoutId={layoutId} placement={placement} />))
         .render();
 };

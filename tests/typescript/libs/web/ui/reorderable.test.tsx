@@ -1,7 +1,7 @@
+import { Default, Single } from '@rasm/ui/.storybook/reorderable.stories.tsx';
 import { expect, it, vi } from 'vitest';
 import { page, userEvent } from 'vitest/browser';
 import { render } from 'vitest-browser-react';
-import { Default, Single } from './reorderable.stories.tsx';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

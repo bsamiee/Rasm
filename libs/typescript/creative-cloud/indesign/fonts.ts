@@ -1,11 +1,10 @@
 import indesign from 'adobe:indesign';
-import { Unmatched } from '@rasm/mcp/link';
-import { Temporary } from '@rasm/uxp/runtime';
+import { storage } from 'adobe:uxp';
+import { Unmatched } from '@rasm/mcp/server';
 import { Array, Effect, Option, Predicate, pipe, String, Struct } from 'effect';
 import type { Rpc } from 'effect/rpc';
 import { Font, InDesignError, type Subset } from './contract.ts';
-import { active, read } from './dom.ts';
-import { find } from './find.ts';
+import { active, read, transacted } from './dom.ts';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -49,27 +48,25 @@ const face = Effect.fn('face')(function* ({ name }: Rpc.Payload<typeof Font>) {
     );
     const [family, ...rest] = String.split(listed, '\t');
     const style = rest.join('\t');
-    const uses = yield* Option.match(document, {
-        onNone: () => Effect.succeed([]),
-        onSome: Effect.fnUntraced(function* (open) {
-            const { matches } = yield* find(
-                {
-                    description: `Finding uses of ${name}`,
-                    preview: Option.some(true),
-                    mode: 'Text',
-                    find: Option.some({ appliedFont: family, fontStyle: style }),
-                    action: Option.none(),
-                    options: Option.some({ includeFootnotes: true, includeHiddenLayers: true, includeLockedLayersForFind: true, includeLockedStoriesForFind: true, includeMasterPages: true }),
-                    scope: Option.none(),
-                    query: Option.none(),
-                    save: Option.none(),
-                },
-                Number.POSITIVE_INFINITY,
-            );
-            return [...Array.map(matches, Struct.get('specifier')), ...[...open.allParagraphStyles, ...open.allCharacterStyles].filter(({ appliedFont, fontStyle }) => fontStyle === style && (Predicate.isString(appliedFont) ? appliedFont : appliedFont?.fontFamily) === family)];
-        }),
-    });
     const used = Array.findFirst(held, ([each]) => each === listed);
+    const uses = yield* Option.match(Option.all([document, used]), {
+        onNone: () => Effect.succeed([]),
+        onSome: ([open]) =>
+            transacted(
+                `Finding uses of ${name}`,
+                false,
+                Effect.try({
+                    try: () => {
+                        app.findTextPreferences = indesign.NothingEnum.NOTHING;
+                        app.findChangeTextOptions = indesign.NothingEnum.NOTHING;
+                        Object.assign(app.findTextPreferences, { appliedFont: open.fonts.itemByName(listed) });
+                        Object.assign(app.findChangeTextOptions, { includeFootnotes: true, includeHiddenLayers: true, includeLockedLayersForFind: true, includeLockedStoriesForFind: true, includeMasterPages: true });
+                        return [...open.findText(), ...[...open.allParagraphStyles, ...open.allCharacterStyles].filter(({ appliedFont, fontStyle }) => fontStyle === style && (Predicate.isString(appliedFont) ? appliedFont : appliedFont?.fontFamily) === family)].map((each) => each.toSpecifier());
+                    },
+                    catch: InDesignError.refused(Option.some(`uses of ${listed}`)),
+                }),
+            ),
+    });
     const installed = Option.map(
         Option.liftPredicate(app.fonts.item(index), () => index < listing.length),
         (font) => ({
@@ -99,9 +96,10 @@ const subset = Effect.fn('subset')(function* ({ postscriptName, text }: Rpc.Payl
         Array.findFirstIndex(app.fonts.everyItem().postscriptName, (each) => each === postscriptName),
         () => Unmatched.make({ subject: 'installed face', query: postscriptName, candidates: app.fonts.everyItem().postscriptName }),
     );
-    const { native } = (yield* Temporary)(`${postscriptName}.otf`);
-    yield* Effect.try({ try: () => app.fonts.item(at).createSubsetFont(text, native), catch: InDesignError.thrown });
-    return native;
+    const folder = yield* Effect.promise(() => storage.localFileSystem.getTemporaryFolder());
+    const { nativePath } = yield* Effect.promise(() => folder.createFile(`${postscriptName}.otf`, { overwrite: true }));
+    yield* Effect.try({ try: () => app.fonts.item(at).createSubsetFont(text, nativePath), catch: InDesignError.refused(Option.some(postscriptName)) });
+    return nativePath;
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

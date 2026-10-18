@@ -10,7 +10,7 @@ Entries state rules a maintainer acts on when adding the next project, tool, plu
 [REFERENCES]:
 - [01]-[NX](references/nx.md): Plugin inference, target defaults, run-commands, dependencies, inputs, affected selection
 - [02]-[TOOLING](references/tooling.md): Tool rows, backends, releases, version files, install paths, environment, daemons, TOML files
-- [03]-[TYPESCRIPT](references/typescript.md): Catalog, overrides, install scripts, compiler projects, execution, Vite, Storybook, browser tests, Playwright suites, Biome rows, type-aware checks
+- [03]-[TYPESCRIPT](references/typescript.md): Catalog, overrides, install scripts, compiler projects, execution, Vite, Storybook, Biome rows, type-aware checks
 - [04]-[PYTHON](references/python.md): Dependency groups, lock, workspace members, interpreter, checkers
 - [05]-[DOTNET](references/dotnet.md): Central row and SDK upgrades, file-based apps, library groups, BuildCheck, Roslyn analyzers
 - [06]-[SWIFT](references/swift.md): Project files, build settings, compiler policy, packages, checkers, CI, SwiftPM, new projects, language server

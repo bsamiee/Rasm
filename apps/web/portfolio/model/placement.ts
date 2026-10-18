@@ -42,7 +42,7 @@ const Placement = StoredPlacement.pipe(
         decode: SchemaGetter.transformEffect(
             Effect.fnUntraced(function* ({ assetId, ...stored }: typeof StoredPlacement.Type) {
                 return yield* Match.value({ placement: stored, asset: (yield* Assets)[assetId] }).pipe(
-                    Match.when({ placement: { kind: 'pdf' }, asset: { mime: 'application/pdf' } }, ({ placement, asset }) =>
+                    Match.when({ placement: { kind: 'pdf' }, asset: { mime: Match.is(...PdfAsset.fields.mime.literals) } }, ({ placement, asset }) =>
                         Effect.fromNullishOr(sheets(asset)[placement.page - 1]).pipe(
                             Effect.map((page) => ({ ...placement, asset, page })),
                             Effect.mapError(() => new SchemaIssue.InvalidValue({ message: 'The PDF does not contain this sheet' })),

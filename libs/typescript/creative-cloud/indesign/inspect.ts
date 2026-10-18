@@ -1,10 +1,10 @@
 import indesign, { type Document, type MasterSpread, type Page, type Spread } from 'adobe:indesign';
 import { host as running } from 'adobe:uxp';
-import { Unmatched } from '@rasm/mcp/link';
+import { Unmatched } from '@rasm/mcp/server';
 import { Array, Cache, Effect, Option, Predicate, Record, Schema, Struct } from 'effect';
 import type { Rpc } from 'effect/rpc';
 import { Inspect, Menu, Preflight } from './contract.ts';
-import { active, collection, encoded, exported, type Host, host, Model, members, owning, plurals, read, record, resolve, transacted } from './dom.ts';
+import { active, collection, encoded, type Host, host, kinds, Model, members, owning, plural, read, record, resolve, transacted } from './dom.ts';
 import { extent, holder, ruled } from './render.ts';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -78,7 +78,7 @@ const lineage: (name: string) => Effect.Effect<readonly string[], never, Model> 
     return Option.isSome(parent) ? [parent.value, ...(yield* lineage(parent.value))] : [];
 });
 const measured = (value: unknown): unknown => {
-    const [[, paged], [, spreadLike]] = [owning<Page>('masterPageItems'), owning<Spread | MasterSpread>('showMasterItems')];
+    const [paged, spreadLike] = [owning<Page>('masterPageItems'), owning<Spread | MasterSpread>('showMasterItems')];
     const surface = (each: unknown): each is Page | Spread | MasterSpread => paged(each) || spreadLike(each);
     const laid = Option.liftPredicate(value, surface);
     const pages: readonly Page[] = [...(paged(value) ? [value] : []), ...(spreadLike(value) ? value.pages.everyItem().getElements() : [])];
@@ -126,7 +126,7 @@ const taken = (found: Host, wanted: readonly string[]) =>
     );
 const object = Effect.fn('object')(function* (found: Host, fields: Rpc.Payload<typeof Inspect>['fields']) {
     const model = yield* Model;
-    const [, documented] = owning<Document>('masterSpreads');
+    const documented = owning<Document>('masterSpreads');
     const wanted = Option.getOrElse(fields, (): readonly string[] => []);
     const entries = Option.isSome(fields) ? yield* taken(found, wanted) : Object.entries(record(found.properties) ? found.properties : {});
     const own: Record.ReadonlyRecord<string, { readonly type?: string | undefined }> = Option.getOrElse(Option.map(yield* Effect.option(Cache.get(model, found.constructorName)), Struct.get('fields')), () => ({}));
@@ -146,12 +146,13 @@ const object = Effect.fn('object')(function* (found: Host, fields: Rpc.Payload<t
     const owner = (value: unknown): Option.Option<Document> => (documented(value) ? Option.some(value) : Option.flatMap(Option.liftPredicate(value, host), (child) => owner(child.parent)));
     const document = owner(found);
     const accessors = Option.isSome(document) ? Record.toEntries(Option.getOrElse(Option.map(yield* Effect.option(Cache.get(model, 'Document')), Struct.get('fields')), () => ({}))) : [];
-    const plural = Array.flatMap(accessors, ([accessor, { type }]) => (type !== undefined && plurals.has(type) ? [[accessor, type] as const] : []));
-    const elements = yield* Effect.forEach(plural, ([accessor, type]) =>
-        Effect.map(Effect.option(Cache.get(model, type)), (shape) => {
-            const element = Option.getOrUndefined(shape)?.methods.item?.returns?.type;
-            return element === undefined ? [] : [[element, accessor] as const];
-        }),
+    const elements = yield* Effect.forEach(
+        Array.flatMap(accessors, ([accessor, { type }]) => (type !== undefined && plural(type) ? [[accessor, type] as const] : [])),
+        ([accessor, type]) =>
+            Effect.map(Effect.option(Cache.get(model, type)), (shape) => {
+                const element = Option.getOrUndefined(shape)?.methods.item?.returns?.type;
+                return element === undefined ? [] : [[element, accessor] as const];
+            }),
     );
     const sources = Record.fromEntries(Array.flatten(elements));
     const ranges = found.textStyleRanges;
@@ -171,16 +172,12 @@ const object = Effect.fn('object')(function* (found: Host, fields: Rpc.Payload<t
           );
     const field = ([name, value]: readonly [string, unknown]): readonly unknown[] => {
         const row = own[name];
-        const typed =
-            row?.type !== undefined &&
-            Array.contains(
-                Array.map(exported, ([each]) => each),
-                row.type,
-            )
-                ? row.type
-                : undefined;
         const base = Option.filter(Option.fromNullishOr(styled[name]), (style) => style !== encoded(value, false));
-        const source = Option.flatMap(Option.all([document, Record.get(sources, typed ?? (host(value) ? value.constructorName : ''))]), ([open, accessor]) => Option.fromNullishOr(Reflect.get(open, accessor)));
+        const accessor = Option.orElse(
+            Option.flatMap(Option.fromNullishOr(row?.type), (type) => Record.get(sources, type)),
+            () => (host(value) ? Record.get(sources, value.constructorName) : Option.none()),
+        );
+        const source = Option.flatMap(Option.all([document, accessor]), ([open, from]) => Option.fromNullishOr(Reflect.get(open, from)));
         return collection(value) ? [] : [{ ...(row ?? { name }), value: value ?? null, mixed: Option.getOrUndefined(Record.get(mixed, name)), style: Option.getOrUndefined(Option.flatMap(base, Schema.decodeUnknownOption(Schema.fromJsonString(Schema.Json)))), source: Option.getOrUndefined(source) }];
     };
     return {
@@ -216,7 +213,6 @@ const items = Effect.fn('items')(function* (target: string, found: readonly Host
     return { _tag: 'Items', specifier: target, total: found.length, items: Array.zipWith(found, values, (item, entries) => ({ type: item.constructorName, specifier: item, name: item.name, values: Object.fromEntries(entries), geometry: measured(item) })) };
 });
 const described = Effect.fn('described')(function* (target: string, fields: Rpc.Payload<typeof Inspect>['fields']) {
-    const kinds = Array.flatMap(exported, ([name, value]) => (Predicate.isFunction(value) || value instanceof indesign.Enumeration ? [name] : []));
     const resolved = Effect.fnUntraced(function* () {
         const found = yield* Effect.catchTag(resolve(target), 'Unmatched', (missed) => Effect.fail(Array.isReadonlyArrayEmpty(missed.candidates) ? Unmatched.make({ ...missed, candidates: kinds }) : missed));
         return host(found) ? yield* object(found, fields) : yield* items(target, found, fields);

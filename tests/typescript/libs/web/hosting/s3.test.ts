@@ -1,14 +1,14 @@
 import { CreateBucketCommand, S3Client } from '@aws-sdk/client-s3';
 import { layer } from '@effect/vitest';
+import { s3 } from '@rasm/hosting/storage.ts';
 import { Context, Effect, Layer, Random } from 'effect';
 import { GenericContainer, PullPolicy, type StartedTestContainer, Wait } from 'testcontainers';
 import { vi } from 'vitest';
 import { cases } from './cases.ts';
-import { s3 } from './storage.ts';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class RustFS extends Context.Service<RustFS, StartedTestContainer>()('@rasm/hosting/s3.test/RustFS') {}
+class RustFS extends Context.Service<RustFS, StartedTestContainer>()('rasm/tests/typescript/libs/web/hosting/s3.test/RustFS') {}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

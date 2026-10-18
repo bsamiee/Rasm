@@ -7,7 +7,7 @@ import { cases } from './cases.ts';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Storage extends Context.Service<Storage, DurableObjectStorage>()('@rasm/database/durable.test/Storage') {}
+class Storage extends Context.Service<Storage, DurableObjectStorage>()('rasm/tests/typescript/libs/data/database/durable.test/Storage') {}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

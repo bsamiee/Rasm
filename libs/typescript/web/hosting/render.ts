@@ -1,6 +1,6 @@
 import { load } from 'cheerio/slim';
-import { Effect, Option, Schema } from 'effect';
-import { HttpServerResponse } from 'effect/http';
+import { Context, Effect, Option, Schema } from 'effect';
+import { HttpServerRequest, HttpServerResponse } from 'effect/http';
 import type { ReactNode } from 'react';
 import { renderToReadableStream } from 'react-dom/server';
 
@@ -12,26 +12,14 @@ interface Shell<S extends Schema.Codec<unknown, unknown>> {
     readonly schema: S;
 }
 
+// --- [SERVICES] ------------------------------------------------------------------------
+
+class Assets extends Context.Service<Assets, { readonly fetch: (request: Request) => Promise<Response> }>()('@rasm/hosting/render/Assets') {}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const renderPage = Effect.fn('renderPage')(function* <S extends Schema.Codec<unknown, unknown>>(
-    shell: Shell<S>,
-    {
-        assets,
-        request,
-        value,
-        render,
-        title,
-        description,
-    }: {
-        readonly assets: { readonly fetch: (request: Request) => Promise<Response> };
-        readonly request: Request;
-        readonly value: S['Type'];
-        readonly render: (value: S['Type']) => ReactNode;
-        readonly title: Option.Option<string>;
-        readonly description: Option.Option<string>;
-    },
-) {
+const renderPage = Effect.fn('renderPage')(function* <S extends Schema.Codec<unknown, unknown>>(shell: Shell<S>, { value, render, title, description }: { readonly value: S['Type']; readonly render: (value: S['Type']) => ReactNode; readonly title: Option.Option<string>; readonly description: Option.Option<string> }) {
+    const [assets, request] = yield* Effect.all([Assets, Effect.flatMap(HttpServerRequest.HttpServerRequest, HttpServerRequest.toWeb)]);
     const [serialized, markup, template] = yield* Effect.all(
         [
             Schema.encodeEffect(Schema.fromJsonString(shell.schema))(value),
@@ -46,15 +34,11 @@ const renderPage = Effect.fn('renderPage')(function* <S extends Schema.Codec<unk
     const page = load(template);
     page(`#${shell.root}`).html(markup);
     page(`#${shell.data}`).text(serialized.replaceAll('<', '\\u003c'));
-    Option.toArray(title).forEach((text) => {
-        page('title').text(text);
-    });
-    Option.toArray(description).forEach((text) => {
-        page('meta[name="description"]').attr('content', text);
-    });
+    page('title').text((_, current) => Option.getOrElse(title, () => current));
+    page('meta[name="description"]').attr('content', (_, current) => Option.getOrElse(description, () => current));
     return HttpServerResponse.html(page.html());
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { renderPage, type Shell };
+export { Assets, renderPage, type Shell };

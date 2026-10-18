@@ -17,9 +17,9 @@ const content = HttpApiBuilder.group(Api, 'content', (handlers) => {
         publish: ({ payload, headers }) => withEtag(writeDocument(payload, true, headers['if-match'])),
     });
 });
-const app = (assets: { readonly fetch: (request: Request) => Promise<Response> }, ownerEmail: string) => {
+const app = (ownerEmail: string) => {
     const email = ownerEmail.toLowerCase();
-    return Layer.mergeAll(page(assets, email), download(email), HttpApiBuilder.layer(Api).pipe(Layer.provide([Layer.merge(content, media).pipe(Layer.provide(owner(email))), HttpServer.layerServices])));
+    return Layer.mergeAll(page(email), download(email), HttpApiBuilder.layer(Api).pipe(Layer.provide([Layer.merge(content, media).pipe(Layer.provide(owner(email))), HttpServer.layerServices])));
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

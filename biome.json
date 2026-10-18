@@ -130,7 +130,7 @@
         },
         { "includes": [ "**/*.tsx" ], "linter": { "domains": { "react": "all" } } },
         { "includes": [ "**/*.config.ts", "**/worker/index.ts", "**/.storybook/*.{ts,tsx}", "tools/ast-grep/grammars/*/grammar.js" ], "linter": { "rules": { "style": { "noDefaultExport": "off" } } } },
-        { "includes": [ "**/*.stories.tsx" ], "linter": { "rules": { "style": { "useComponentExportOnlyModules": "off" } } } },
+        { "includes": [ "**/.storybook/*.stories.tsx" ], "linter": { "rules": { "style": { "useComponentExportOnlyModules": "off" } } } },
         { "includes": [ "**/cloudflare.config.ts" ], "linter": { "rules": { "performance": { "noNamespaceImport": "off" } } } },
         { "includes": [ "plugins/function-hooks/**" ], "linter": { "rules": { "correctness": { "noUndeclaredDependencies": "off" } } } }
     ]

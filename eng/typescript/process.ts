@@ -12,7 +12,7 @@ class ExitError extends Schema.TaggedError<ExitError, { readonly brand: unique s
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const stdout = Effect.fn('stdout')(function* (command: string, args: readonly string[], options?: ChildProcess.CommandOptions) {
-    const handle = yield* ChildProcess.make(command, args, options);
+    const handle = yield* ChildProcess.make(command, args, { stdin: 'ignore', stderr: 'inherit', ...options });
     const [text, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), handle.exitCode], { concurrency: 'unbounded' });
     return code === 0 ? text : yield* ExitError.make({ command, args, code });
 }, Effect.scoped);

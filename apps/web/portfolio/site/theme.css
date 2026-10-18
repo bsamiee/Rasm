@@ -400,21 +400,60 @@
 @utility editor-choice {
     @apply grid min-h-11 min-w-14 place-items-center px-2 text-sm peer-checked:text-accent-text peer-checked:underline peer-checked:underline-offset-4 peer-focus-visible:outline-2 peer-focus-visible:outline-accent-text;
 }
-@utility editor-checkbox {
-    @apply grid size-5 shrink-0 place-items-center border border-control-line group-selected:border-accent-text group-selected:bg-accent-text group-selected:text-background;
-}
-@utility editor-check {
-    @apply size-3.5 opacity-0 group-selected:opacity-100;
-}
 @utility editor-scroll {
     max-height: 65dvh;
     @apply overflow-y-auto pr-4;
 }
 @utility editor-sequence {
     counter-reset: ordinal;
+    & .react-aria-GridListItem {
+        grid-template-columns: auto auto minmax(0, 1fr) auto;
+        counter-increment: ordinal;
+        @apply grid items-center gap-x-1 border-line border-t bg-background dragging:opacity-50 before:col-start-3 before:row-start-1 before:whitespace-nowrap before:font-mono before:text-muted before:text-xs before:content-ordinal;
+        & [role="gridcell"] > * {
+            grid-column: 1 / -1;
+        }
+        & [role="gridcell"] > .react-aria-CheckboxField {
+            grid-area: 1 / 1;
+        }
+        & [role="gridcell"] > [slot="drag"] {
+            grid-area: 1 / 2;
+            @apply grid min-h-11 min-w-11 cursor-grab touch-none place-items-center text-muted;
+        }
+        & [role="gridcell"] > [aria-haspopup] {
+            grid-area: 1 / 4;
+            @apply button bg-transparent px-2 text-muted text-xs;
+        }
+    }
+    & .react-aria-CheckboxButton {
+        @apply justify-center text-muted;
+    }
+    & .lucide-grip-vertical {
+        @apply size-5;
+    }
+    & .react-aria-DropIndicator {
+        @apply h-0.5 drop-target:bg-accent-text;
+    }
 }
-@utility editor-sequence-item {
-    counter-increment: ordinal;
+@layer components {
+    .react-aria-CheckboxButton {
+        @apply flex min-h-11 min-w-11 cursor-pointer items-center gap-2 text-left;
+        & .lucide-check {
+            @apply size-5 shrink-0 border border-control-line p-0.5 text-transparent;
+        }
+        &[data-selected] .lucide-check {
+            @apply border-accent-text bg-accent-text text-background;
+        }
+    }
+    .react-aria-Popover {
+        @apply editor-popover;
+    }
+    .react-aria-Menu {
+        @apply outline-none;
+    }
+    .react-aria-MenuItem {
+        @apply editor-option;
+    }
 }
 @utility pb-safe {
     padding-bottom: max(--spacing(9), env(safe-area-inset-bottom));

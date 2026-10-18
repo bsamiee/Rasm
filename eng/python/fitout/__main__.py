@@ -1,4 +1,4 @@
-"""Build and install Blender extensions through the native CLI, and install their runtime closure into a folder Blender imports from."""
+"""Build and install Blender extensions through the native CLI, and sync the distributions they bundle as wheels into a folder Blender imports from."""
 
 import subprocess
 import sys

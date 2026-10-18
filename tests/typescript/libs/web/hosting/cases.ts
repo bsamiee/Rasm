@@ -1,9 +1,9 @@
 import { assert, type Vitest } from '@effect/vitest';
+import { createUpload, releaseObject, Storage, serveObject } from '@rasm/hosting/storage.ts';
 import { Cause, Deferred, Effect, Function, type Layer, Option, Stream } from 'effect';
 import { HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { checkObjectStore, checkResumableWriteStore } from 'partial-content/conformance';
 import { isUploadNotFoundError } from 'partial-content/upload';
-import { putObject, releaseObject, Storage, serveObject } from './storage.ts';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -13,9 +13,9 @@ const cases = <E, R>(it: Vitest.MethodsNonLive<R>, storage: Layer.Layer<Storage,
     const object = { key: 'media/object', size: content.length, mime: 'text/plain' };
     const code = { ok: 200, partial: 206, unchanged: 304, missing: 404, failed: 412 };
     const ignore = Function.constant(Effect.void);
-    const put = (key: string, body: Stream.Stream<Uint8Array, unknown>, started: (uploadToken: string) => Effect.Effect<unknown>) => Effect.scoped(putObject({ key, size: object.size }, body, started));
+    const put = (key: string, body: Stream.Stream<Uint8Array, unknown>, started: (uploadToken: string) => Effect.Effect<unknown>) => Effect.scoped(Effect.flatMap(createUpload({ key, size: object.size }), ({ uploadToken, write }) => Effect.andThen(started(uploadToken), write(body))));
     const read = Effect.fn('read')(function* (key: string, headers: Record<string, string>) {
-        const response = HttpServerResponse.toWeb(yield* serveObject(HttpServerRequest.fromWeb(new Request(`https://storage.test/${key}`, { headers })), { key, mime: object.mime }));
+        const response = HttpServerResponse.toWeb(yield* Effect.provideService(serveObject({ key, mime: object.mime }), HttpServerRequest.HttpServerRequest, HttpServerRequest.fromWeb(new Request(`https://storage.test/${key}`, { headers }))));
         return { status: response.status, headers: response.headers, text: yield* Effect.promise(() => response.text()) };
     });
     it.effect('serves byte ranges and answers If-None-Match and If-Match against the stored object', () =>

@@ -6,8 +6,12 @@
         "**/node_modules": true,
         "**/.artifacts": true,
         "**/.cache": true,
+        "**/.cloudflare": true,
+        "**/dist": true,
         "**/.pixi": true,
         "**/.venv": true,
+        "**/.vs": true,
+        "**/xcuserdata": true,
         "**/__pycache__": true
     },
 
@@ -33,10 +37,6 @@
         "CLAUDE.md": ".mcp.json, AGENTS.md",
         "README.md": "LICENSE",
         "Directory.Build.props": "Directory.Build.targets, Directory.Packages.props, Directory.Build.rsp, global.json, NuGet.config, Workspace.slnx",
-        "*.cts": "${capture}.spec.cts, ${capture}.test.cts",
-        "*.mts": "${capture}.spec.mts, ${capture}.test.mts",
-        "*.ts": "${capture}.spec.ts, ${capture}.test.ts",
-        "*.tsx": "${capture}.spec.tsx, ${capture}.test.tsx",
         ".gitignore": ".gitattributes",
         "pyproject.toml": "uv.lock, pixi.lock",
         "Cargo.toml": "rust-toolchain.toml, rustfmt.toml, clippy.toml, Cargo.lock",

@@ -1,7 +1,7 @@
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Option<A> = { readonly kind: 'some'; readonly value: A } | { readonly kind: 'none' };
-type Fault = { readonly kind: 'exited'; readonly subject: string; readonly code: number; readonly output: string } | { readonly kind: 'unstarted' | 'undecoded'; readonly subject: string; readonly cause: unknown };
+type Fault = { readonly kind: 'exited'; readonly program: string; readonly code: number; readonly output: string } | { readonly kind: 'thrown'; readonly program: string; readonly cause: unknown };
 type Result<T> = { readonly kind: 'ok'; readonly value: T } | { readonly kind: 'fault'; readonly faults: readonly [Fault, ...Fault[]] };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

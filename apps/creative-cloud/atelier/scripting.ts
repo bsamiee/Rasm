@@ -1,4 +1,4 @@
-import { Config, Context, Duration, Effect, identity, Layer, Schema, Stream, Struct } from 'effect';
+import { Config, Context, Duration, Effect, identity, Layer, Schema, Stream } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { Rpc, RpcClient, RpcGroup, RpcSerialization } from 'effect/rpc';
 import { Socket } from 'effect/socket';
@@ -6,18 +6,14 @@ import { Socket } from 'effect/socket';
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Application = Schema.Struct({ name: Schema.String, identifier: Schema.String, running: Schema.Boolean, scriptable: Schema.Boolean, url: Schema.URL, version: Schema.OptionFromOptionalKey(Schema.String) });
-const Window = Schema.Struct({ id: Schema.Int, title: Schema.OptionFromOptionalKey(Schema.String), level: Schema.Literals(['normal', 'modal', 'other']), ...Struct.Record(['width', 'height'], Schema.Finite) });
-const Size = Schema.Struct(Struct.Record(['width', 'height'], Schema.Int));
-const Face = Schema.Struct(Struct.Record(['postscriptName', 'family', 'style', 'fullName', 'file'], Schema.String));
+const Window = Schema.Struct({ id: Schema.Int, title: Schema.OptionFromOptionalKey(Schema.String), level: Schema.Literals(['normal', 'modal', 'other']), width: Schema.Finite, height: Schema.Finite });
+const Face = Schema.Struct({ postscriptName: Schema.String, family: Schema.String, style: Schema.String, fullName: Schema.String, file: Schema.String });
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-class ScriptingError extends Schema.TaggedError<ScriptingError, { readonly brand: unique symbol }>()('ScriptingError', { reason: Schema.TaggedUnion({ Refused: { failures: Schema.NonEmptyArray(Schema.String) }, Unpreviewable: { application: Schema.String } }) }) {
+class ScriptingError extends Schema.TaggedError<ScriptingError, { readonly brand: unique symbol }>()('ScriptingError', { failures: Schema.NonEmptyArray(Schema.String) }) {
     override get message(): string {
-        return ScriptingError.fields.reason.match(this.reason, {
-            Refused: ({ failures }) => failures.join('\n'),
-            Unpreviewable: ({ application }) => `${application} records no undo step for this command, run it without preview`,
-        });
+        return this.failures.join('\n');
     }
 }
 
@@ -32,9 +28,9 @@ class Scripting extends Context.Service<Scripting>()('@rasm/atelier/scripting', 
                 Rpc.make('application', { payload: { url: Schema.URL }, success: Application, error: ScriptingError }),
                 Rpc.make('definition', { payload: { application: Schema.URL }, success: Schema.String, error: ScriptingError }),
                 Rpc.make('execute', { payload: { application: Schema.URL, command: Schema.String, arguments: Schema.JsonObject }, success: Schema.Json, error: ScriptingError }),
-                Rpc.make('contentType', { payload: { url: Schema.URL }, success: Schema.OptionFromNullOr(Schema.String), error: ScriptingError }),
+                Rpc.make('contentType', { payload: { url: Schema.URL }, success: Schema.String, error: ScriptingError }),
                 Rpc.make('windows', { payload: { application: Schema.URL }, success: Schema.Array(Window), error: ScriptingError }),
-                Rpc.make('capture', { payload: { window: Schema.Int, url: Schema.URL }, success: Size, error: ScriptingError }),
+                Rpc.make('capture', { payload: { window: Schema.Int }, success: Schema.Uint8ArrayFromBase64, error: ScriptingError }),
                 Rpc.make('faces', { success: Schema.Array(Face), error: ScriptingError }),
             ),
             { disableTracing: true },
@@ -62,4 +58,4 @@ class Scripting extends Context.Service<Scripting>()('@rasm/atelier/scripting', 
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Application, Face, Scripting, ScriptingError, Size, Window };
+export { Application, Face, Scripting, Window };

@@ -46,7 +46,6 @@
         "cf": "catalog:",
         "react-dom": "catalog:",
         "storybook": "catalog:",
-        "vite": "catalog:",
-        "vitest": "catalog:"
+        "vite": "catalog:"
     }
 }

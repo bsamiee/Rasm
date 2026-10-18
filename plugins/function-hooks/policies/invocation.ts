@@ -14,8 +14,7 @@ interface Program {
     readonly stdinless?: readonly string[];
     readonly code?: readonly string[];
     readonly shell?: readonly string[] | 'joined';
-    readonly writes?: readonly string[];
-    readonly defaultOperand?: string;
+    readonly chdir?: readonly string[];
     readonly informational?: readonly string[];
     readonly wholeWords?: true;
     readonly runs?: readonly (readonly string[])[] | '--';
@@ -30,12 +29,11 @@ interface Operands {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const _ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/u;
-const _TILDE = /^~(?<user>[^/]*)/u;
-const _PYTHON: Program = { valued: ['-W', '-X'], stdin: 'default', stdinless: ['-m'], code: ['-c'], informational: ['-V'] };
-const _SHELL: Program = { valued: ['-o', '-O'], stdin: 'default', shell: ['-c'] };
-const _DIRECTORY: Program = { writes: ['PWD'] };
-const _FD: Program = {
+const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/u;
+const TILDE = /^~(?<user>[^/]*)/u;
+const PYTHON: Program = { valued: ['-W', '-X'], stdin: 'default', stdinless: ['-m'], code: ['-c'], informational: ['-V'] };
+const SHELL: Program = { valued: ['-o', '-O'], stdin: 'default', shell: ['-c'] };
+const FD: Program = {
     valued: [
         '-e',
         '--extension',
@@ -72,8 +70,8 @@ const _FD: Program = {
     informational: ['-h', '-V'],
     execs: ['-x', '-X', '--exec', '--exec-batch'],
 };
-const _FIND: Program = { wholeWords: true, execs: ['-exec', '-execdir', '-ok', '-okdir'] };
-const _SQL: Program = {
+const FIND: Program = { wholeWords: true, execs: ['-exec', '-execdir', '-ok', '-okdir'] };
+const SQL: Program = {
     valued: ['-cmd', '-init', '-newline', '-nullvalue', '-separator', '-storage-version'],
     leading: 1,
     stdin: 'default',
@@ -81,7 +79,7 @@ const _SQL: Program = {
     informational: ['-h', '-help', '-version'],
     wholeWords: true,
 };
-const _PROGRAMS: ReadonlyMap<string, Program> = new Map(
+const PROGRAMS: ReadonlyMap<string, Program> = new Map(
     Object.entries({
         sudo: {
             valued: ['-C', '-D', '-g', '-h', '-p', '-R', '-T', '-U', '-u', '--close-from', '--chdir', '--group', '--host', '--prompt', '--chroot', '--command-timeout', '--other-user', '--user'],
@@ -205,10 +203,10 @@ const _PROGRAMS: ReadonlyMap<string, Program> = new Map(
             arities: { '-P': 3, '--parameter-scan': 3, '-L': 2, '--parameter-list': 2 },
             bodies: ['-s', '--setup', '--reference', '-p', '--prepare', '-C', '--conclude', '-c', '--cleanup'],
         },
-        fd: _FD,
-        fdfind: _FD,
-        find: _FIND,
-        gfind: _FIND,
+        fd: FD,
+        fdfind: FD,
+        find: FIND,
+        gfind: FIND,
         git: { valued: ['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--config-env', '--exec-path'] },
         grep: {
             valued: [
@@ -292,18 +290,18 @@ const _PROGRAMS: ReadonlyMap<string, Program> = new Map(
         perl: { valued: ['-I'], stdin: 'default', code: ['-e', '-E'], informational: ['-v', '-V', '-h'] },
         ruby: { valued: ['-I', '-r', '-C', '-E'], stdin: 'default', code: ['-e'], informational: ['-v', '-h', '--copyright'] },
         eval: { shell: 'joined' },
-        cd: { ..._DIRECTORY, defaultOperand: '~' },
-        pushd: _DIRECTORY,
-        popd: _DIRECTORY,
-        python: _PYTHON,
-        python3: _PYTHON,
-        bash: _SHELL,
-        sh: _SHELL,
-        zsh: _SHELL,
-        dash: _SHELL,
-        ksh: _SHELL,
-        sqlite3: _SQL,
-        duckdb: _SQL,
+        cd: { chdir: ['~'] },
+        pushd: { chdir: [] },
+        popd: { chdir: [] },
+        python: PYTHON,
+        python3: PYTHON,
+        bash: SHELL,
+        sh: SHELL,
+        zsh: SHELL,
+        dash: SHELL,
+        ksh: SHELL,
+        sqlite3: SQL,
+        duckdb: SQL,
     } satisfies Record<string, Program>),
 );
 
@@ -311,9 +309,9 @@ const _PROGRAMS: ReadonlyMap<string, Program> = new Map(
 
 // --- [OPTIONS]
 
-const declared = (program: string): Program => _PROGRAMS.get(program) ?? {};
+const declared = (program: string): Program => PROGRAMS.get(program) ?? {};
 
-const _option = (row: Program, word: string) => {
+const option = (row: Program, word: string) => {
     const arity = (name: string): number => row.arities?.[name] ?? ([row.valued, row.bodies, row.code].some((listed) => listed?.includes(name) === true) ? 1 : 0);
     const cut = word.indexOf('=');
     const given = cut < 0 ? word : word.slice(0, cut);
@@ -333,22 +331,22 @@ const _option = (row: Program, word: string) => {
 const firstOperand = (invocation: Invocation, index: number): number => {
     const [program] = invocation;
     const word = invocation[index];
-    return word === undefined || word === '-' || word === '--' || !word.startsWith('-') ? index : firstOperand(invocation, index + 1 + _option(declared(program), word).taken);
+    return word === undefined || word === '-' || word === '--' || !word.startsWith('-') ? index : firstOperand(invocation, index + 1 + option(declared(program), word).taken);
 };
 
-const _split = (row: Program, [head, ...rest]: readonly string[]): Operands => {
+const separated = (row: Program, [head, ...rest]: readonly string[]): Operands => {
     if (head === undefined || head === '--') {
         return { inputs: rest, options: [], values: [], inner: [] };
     }
     if (head === '-' || !head.startsWith('-')) {
-        const tail = _split(row, rest);
+        const tail = separated(row, rest);
         return { ...tail, inputs: [head, ...tail.inputs] };
     }
-    const { names, taken, joined } = _option(row, head);
+    const { names, taken, joined } = option(row, head);
     const launches = names.some((name) => row.execs?.includes(name) === true);
     const end = rest.findIndex((word) => word === ';' || word === '+');
     const launched = launches ? rest.slice(0, end < 0 ? rest.length : end) : [];
-    const tail = _split(row, rest.slice(launches ? launched.length + 1 : taken));
+    const tail = separated(row, rest.slice(launches ? launched.length + 1 : taken));
     return {
         inputs: tail.inputs,
         options: [...names, ...tail.options],
@@ -359,10 +357,12 @@ const _split = (row: Program, [head, ...rest]: readonly string[]): Operands => {
 
 const operands = ([program, ...args]: Invocation) => {
     const row = declared(program);
-    const split = _split(row, args);
-    const inputs = split.inputs.slice(split.options.some((name) => row.leadingOptions?.includes(name) === true) ? 0 : (row.leading ?? 0));
+    const { inputs: all, ...split } = separated(row, args);
+    const count = split.options.some((name) => row.leadingOptions?.includes(name) === true) ? 0 : (row.leading ?? 0);
+    const inputs = all.slice(count);
     return {
         ...split,
+        leading: all.slice(0, count),
         inputs,
         bodies: [...(row.shell === 'joined' ? [args.join(' ')] : inputs.slice(0, Number(split.options.some((name) => row.shell?.includes(name) === true)))), ...(row.bodies === undefined ? [] : inputs), ...split.values.filter(([name]) => row.bodies?.includes(name) === true).map(([, value]) => value)],
     };
@@ -381,10 +381,8 @@ const waits = (invocation: Invocation): boolean => {
 
 // --- [INVOCATIONS]
 
-const basename = (path: string): string => path.slice(path.lastIndexOf('/') + 1);
-
 const placed = (word: string, cwd: Option<string>, home: Option<string>): Option<string> => {
-    const expanded = home.kind === 'none' ? word : word.replace(_TILDE, (_match, user: string) => (user === '' ? home.value : `${home.value.slice(0, home.value.lastIndexOf('/'))}/${user}`));
+    const expanded = home.kind === 'none' ? word : word.replace(TILDE, (_match, user: string) => (user === '' ? home.value : `${home.value.slice(0, home.value.lastIndexOf('/'))}/${user}`));
     const absolute = cwd.kind === 'some' && !expanded.startsWith('/') ? `${cwd.value}/${expanded}` : expanded;
     return absolute.startsWith('/')
         ? some(
@@ -405,16 +403,16 @@ const invocations = ([head, ...rest]: readonly string[]): readonly Invocation[] 
     if (head === undefined) {
         return [];
     }
-    if (_ASSIGNMENT.test(head)) {
+    if (ASSIGNMENT.test(head)) {
         return invocations(rest);
     }
-    const program = basename(head);
+    const program = head.slice(head.lastIndexOf('/') + 1);
     const row = declared(program);
     const wrapped = (words: readonly string[], pending: readonly (readonly string[])[]): readonly string[] => {
         const [first, ...more] = words;
         const deeper = pending.flatMap(([step, ...steps]) => (step !== undefined && step === first ? [steps] : []));
         if (first?.startsWith('-') === true) {
-            return wrapped(more.slice(_option(row, first).taken), pending);
+            return wrapped(more.slice(option(row, first).taken), pending);
         }
         if (deeper.length > 0) {
             return wrapped(more, deeper);
@@ -428,4 +426,4 @@ const invocations = ([head, ...rest]: readonly string[]): readonly Invocation[] 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export type { Invocation };
-export { basename, declared, firstOperand, informational, invocations, operands, placed, unquoted, waits, within };
+export { declared, firstOperand, informational, invocations, operands, placed, unquoted, waits, within };

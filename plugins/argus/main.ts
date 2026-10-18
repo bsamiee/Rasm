@@ -1,27 +1,25 @@
-import { basename, dirname, extname, isAbsolute, relative, resolve } from 'node:path';
+import { basename, extname, relative, resolve } from 'node:path';
 import process from 'node:process';
 import { PassThrough } from 'node:stream';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { NodeStream } from '@effect/platform-node';
 import { type Event, getEventsSince, subscribe, writeSnapshot } from '@parcel/watcher';
-import { READING } from '@rasm/mcp/link';
-import { main, register } from '@rasm/mcp/server';
-import { Array, Cause, Config, Duration, Effect, Equal, Fiber, FileSystem, Function, HashMap, HashSet, Latch, Layer, Match, Option, Order, Predicate, Queue, RcRef, Record, Schema, Scope, Stream, Struct, SubscriptionRef } from 'effect';
+import { main } from '@rasm/mcp/main';
+import { READING, register, Unmatched } from '@rasm/mcp/server';
+import { Array, type Cause, Config, Deferred, Duration, Effect, Equal, Fiber, FileSystem, Function, flow, HashMap, HashSet, Layer, Match, Number, Option, Order, Predicate, Queue, RcMap, Record, Schema, SchemaTransformation, Scope, Stream, Struct, SubscriptionRef } from 'effect';
 import { Tool } from 'effect/ai';
 import { ChildProcess } from 'effect/process';
 import { escape, minimatch } from 'minimatch';
 import {
-    type CancellationToken,
     CancellationTokenSource,
     ConfigurationRequest,
     ConnectionError,
-    createProtocolConnection,
+    createMessageConnection,
     type Definition,
     type DefinitionLink,
     DefinitionRequest,
     type Diagnostic,
     DiagnosticRefreshRequest,
-    type DiagnosticRelatedInformation,
     DiagnosticSeverity,
     DidChangeConfigurationNotification,
     DidChangeTextDocumentNotification,
@@ -33,337 +31,266 @@ import {
     DocumentDiagnosticRequest,
     ExitNotification,
     FileChangeType,
-    type FileEvent,
-    type Hover,
     HoverRequest,
     InitializedNotification,
     InitializeRequest,
+    type Location,
     LSPErrorCodes,
     MarkupKind,
+    type MessageConnection,
+    type NotificationType,
     type ProgressToken,
-    type ProtocolConnection,
+    type ProtocolNotificationType,
     PublishDiagnosticsNotification,
+    type PublishDiagnosticsParams,
     type Range,
     ReferencesRequest,
+    type Registration,
     RegistrationRequest,
-    type RelatedFullDocumentDiagnosticReport,
+    type RegistrationType,
+    type RequestParam,
+    type RequestType,
     ResponseError,
     ShutdownRequest,
     type TextDocumentItem,
-    type TextDocumentPositionParams,
     TextDocumentSyncKind,
     UnregistrationRequest,
     WatchKind,
-    WorkDoneProgress,
-    type WorkDoneProgressCreateParams,
     WorkDoneProgressCreateRequest,
 } from 'vscode-languageserver-protocol/node';
 import plugin from './.codex-plugin/plugin.json' with { type: 'json' };
 import lsp from './.lsp.json' with { type: 'json' };
 
-// --- [TYPES] ---------------------------------------------------------------------------
+// --- [CONSTANTS] -----------------------------------------------------------------------
 
-interface Workspace {
-    readonly fs: FileSystem.FileSystem;
-    readonly root: string;
-    readonly observers: Set<(batch: Batch) => Effect.Effect<void>>;
-    readonly current: Latch.Latch;
-    readonly watching: Effect.Effect<never>;
-}
-interface Batch {
-    readonly events: readonly FileEvent[];
-    readonly stale: boolean;
-}
-interface Opened extends TextDocumentItem {
-    readonly synced: number;
-}
-interface Finding extends Diagnostic {
-    readonly severity: DiagnosticSeverity;
-    readonly relatedInformation: DiagnosticRelatedInformation[];
-}
-interface Status {
-    readonly sequence: number;
-    readonly invalidated: number;
-    readonly began: number;
-    readonly active: HashSet.HashSet<ProgressToken>;
-    readonly registrations: HashMap.HashMap<string, typeof Registration.Type>;
-    readonly published: HashMap.HashMap<string, { readonly sequence: number; readonly version: number | undefined; readonly findings: readonly Finding[] }>;
-}
+const INITIAL = {
+    registrations: HashMap.empty<string, Registration>(),
+    progress: HashSet.empty<ProgressToken>(),
+    begun: 0,
+    invalidated: 0,
+    documents: HashMap.empty<string, { readonly item: TextDocumentItem; readonly begun: number }>(),
+    published: HashMap.empty<string, PublishDiagnosticsParams>(),
+};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Timeout = Schema.Int.check(Schema.isGreaterThan(0));
-const LanguageServer = Schema.Struct({
+const Timeout = Schema.Int.check(Schema.isGreaterThan(0)).pipe(Schema.decodeTo(Schema.Duration, SchemaTransformation.durationFromMillis));
+const Server = Schema.Struct({
     command: Schema.String,
     args: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
     env: Schema.optionalKey(Schema.Record(Schema.String, Schema.String)),
     extensionToLanguage: Schema.Record(Schema.String, Schema.String),
     initializationOptions: Schema.optionalKey(Schema.Json),
-    settings: Schema.OptionFromOptionalKey(Schema.Json),
-    workspaceFolder: Schema.OptionFromOptionalKey(Schema.String),
-    startupTimeout: Schema.OptionFromOptionalKey(Timeout),
-    shutdownTimeout: Schema.OptionFromOptionalKey(Timeout),
-    requestTimeout: Timeout.pipe(Schema.withDecodingDefaultKey(Effect.succeed(Duration.toMillis(Duration.minutes(1))))),
+    settings: Schema.optionalKey(Schema.Json),
+    workspaceFolder: Schema.String.pipe(Schema.withDecodingDefaultKey(Effect.succeed('.'))),
+    startupTimeout: Timeout.pipe(Schema.withDecodingDefaultTypeKey(Effect.succeed(Duration.infinity))),
+    shutdownTimeout: Timeout.pipe(Schema.withDecodingDefaultTypeKey(Effect.succeed(Duration.infinity))),
+    requestTimeout: Timeout.pipe(Schema.withDecodingDefaultTypeKey(Effect.succeed(Duration.minutes(1)))),
 });
-const Registration = Schema.Union([
-    Schema.Struct({
-        id: Schema.String,
-        method: Schema.Literal(DidChangeWatchedFilesNotification.method),
-        registerOptions: Schema.Struct({
-            watchers: Schema.Array(
-                Schema.Struct({
-                    globPattern: Schema.Union([Schema.String, Schema.Struct({ baseUri: Schema.Union([Schema.String, Schema.Struct({ uri: Schema.String })]), pattern: Schema.String })]),
-                    kind: Schema.OptionFromOptionalKey(Schema.Int),
-                }),
-            ),
-        }),
-    }),
-    Schema.Struct({ id: Schema.String, method: Schema.Literal(DocumentDiagnosticRequest.method), registerOptions: Schema.Struct({ identifier: Schema.optionalKey(Schema.String) }) }),
-    Schema.Struct({ id: Schema.String, method: Schema.Literal(DidSaveTextDocumentNotification.method), registerOptions: Schema.Struct({ includeText: Schema.optionalKey(Schema.Boolean) }) }),
-]);
-const Document = Schema.Struct({ file: Schema.String.annotate({ description: 'File path, absolute or relative to project root' }) });
+const File = Schema.Struct({ file: Schema.String.annotate({ description: 'File path, absolute or relative to project root' }) });
 const Coordinate = Schema.Int.check(Schema.isGreaterThanOrEqualTo(1));
-const Position = Schema.Struct({ ...Document.fields, line: Coordinate.annotate({ description: '1-based line' }), column: Coordinate.annotate({ description: '1-based UTF-16 column' }) });
+const Position = Schema.Struct({ ...File.fields, line: Coordinate.annotate({ description: '1-based line' }), column: Coordinate.annotate({ description: '1-based UTF-16 column' }) });
 const Lines = Schema.Struct({ lines: Schema.Array(Schema.String) });
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-class LanguageError extends Schema.TaggedError<LanguageError, { readonly brand: unique symbol }>()('LanguageError', {
-    reason: Schema.TaggedUnion({
-        Unsupported: { file: Schema.String },
-        Unreadable: { file: Schema.String },
-        Unstarted: { language: Schema.String },
-        Exited: { language: Schema.String, code: Schema.OptionFromOptionalKey(Schema.Int) },
-        Rejected: { code: Schema.Int, message: Schema.String, data: Schema.optionalKey(Schema.Json) },
-        Unanswered: { timeout: Timeout },
-    }),
-}) {
+class Exited extends Schema.TaggedError<Exited, { readonly brand: unique symbol }>()('Exited', { command: Schema.String, args: Schema.Array(Schema.String), code: Schema.Int }) {
     override get message(): string {
-        return LanguageError.fields.reason.match(this.reason, {
-            Unsupported: ({ file }) => `No language server reads ${file}`,
-            Unreadable: ({ file }) => `${file} cannot be read`,
-            Unstarted: ({ language }) => `The ${language} language server did not start`,
-            Exited: ({ language, code }) => `The ${language} language server exited${Option.match(code, { onNone: () => '', onSome: (status) => ` with code ${status}` })}`,
-            Rejected: ({ code, message }) => `The language server refused the request (${code}): ${message}`,
-            Unanswered: ({ timeout }) => `The language server sent no answer within ${timeout} ms`,
-        });
+        return `${[this.command, ...this.args].join(' ')} exited with code ${this.code}`;
     }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const location = (root: string, uri: string, { start: { line, character } }: Range): string => `${URL.parse(uri)?.protocol === 'file:' ? relative(root, fileURLToPath(uri)) : uri}:${line + 1}:${character + 1}`;
+const watch = (root: string, ignore: string[], snapshot: string) => {
+    const scanned = { ignore, backend: 'brute-force' as const };
+    const record = Effect.tryPromise(() => writeSnapshot(root, snapshot, scanned));
+    return Stream.unwrap(
+        Effect.as(
+            record,
+            Stream.callback<readonly [Error | null, readonly Event[]], Cause.UnknownError>((queue) =>
+                Effect.acquireRelease(
+                    Effect.tryPromise(() => subscribe(root, (error, events) => Queue.offerUnsafe(queue, [error, events]), { ignore })),
+                    (subscription) => Effect.promise(() => subscription.unsubscribe()),
+                ),
+            ),
+        ),
+    ).pipe(Stream.mapEffect(([error, events]) => (error === null ? Effect.succeed(events) : Effect.tryPromise(() => getEventsSince(root, snapshot, scanned)).pipe(Effect.tap(() => record), Effect.map((missed) => [...events, ...missed])))));
+};
 
-const start = Effect.fn('start')(function* (language: string, config: typeof LanguageServer.Type, workspace: Workspace) {
-    const folder = resolve(workspace.root, ...Option.toArray(config.workspaceFolder));
-    const workspaceFolder = { uri: pathToFileURL(folder).href, name: basename(folder) };
-    const input = new PassThrough();
-    const child = yield* ChildProcess.make(config.command, config.args, { cwd: folder, env: config.env, extendEnv: true, stdin: NodeStream.fromReadable({ evaluate: () => input }).pipe(Stream.orDie) }).pipe(Effect.mapError(() => LanguageError.make({ reason: { _tag: 'Unstarted', language } })));
-    yield* Stream.runForEach(child.stderr.pipe(Stream.decodeText(), Stream.splitLines), Effect.logInfo).pipe(Effect.ignore({ log: 'Warn', message: 'stderr read failed' }), Effect.forkScoped);
-    const connection = yield* Effect.acquireRelease(
-        Effect.sync(() => createProtocolConnection(NodeStream.toReadableNever(child.stdout), input)),
-        (acquired) => Effect.sync(() => acquired.dispose()),
-    );
-    const status = yield* SubscriptionRef.make<Status>({ sequence: 0, invalidated: 0, began: 0, active: HashSet.empty(), registrations: HashMap.empty(), published: HashMap.empty() });
-    const advance = (next: (current: Status) => Status): Effect.Effect<number> =>
-        SubscriptionRef.modify(status, (current) => {
-            const advanced = next({ ...current, sequence: current.sequence + 1 });
-            return [advanced.sequence, advanced];
+const listen = (connection: MessageConnection, settings: Schema.Json | undefined, listening: Deferred.Deferred<void>) => {
+    const setting = (section: string | undefined): unknown => (section?.split('.') ?? []).reduce((value: unknown, key) => (Predicate.hasProperty(value, key) ? value[key] : undefined), settings) ?? null;
+    return Stream.callback<(current: typeof INITIAL) => typeof INITIAL>((queue) => {
+        connection.onRequest(ConfigurationRequest.type, ({ items }) => items.map(flow(Struct.get('section'), setting)));
+        connection.onRequest(RegistrationRequest.type, ({ registrations }) => {
+            Queue.offerUnsafe(queue, (current) => ({ ...current, invalidated: current.invalidated + 1, registrations: HashMap.setMany(current.registrations, Array.zip(registrations.map(Struct.get('id')), registrations)) }));
         });
-    const run = Effect.runSyncWith(yield* Effect.context<never>());
-    const observe = (next: (current: Status) => Status): void => run(Effect.asVoid(advance(next)));
-    const registered = <M extends (typeof Registration.Type)['method']>(current: Status, method: M): Extract<typeof Registration.Type, { readonly method: M }>[] => [...HashMap.values(current.registrations)].filter((entry): entry is Extract<typeof Registration.Type, { readonly method: M }> => entry.method === method);
-    const exited = Effect.raceFirst(
-        Effect.flatMap(Effect.option(child.exitCode), (code) => Effect.fail(LanguageError.make({ reason: { _tag: 'Exited', language, code } }))),
-        workspace.watching,
+        connection.onRequest(UnregistrationRequest.type, ({ unregisterations }) => {
+            Queue.offerUnsafe(queue, (current) => ({ ...current, invalidated: current.invalidated + 1, registrations: HashMap.removeMany(current.registrations, unregisterations.map(Struct.get('id'))) }));
+        });
+        connection.onRequest(DiagnosticRefreshRequest.type, () => {
+            Queue.offerUnsafe(queue, (current) => ({ ...current, invalidated: current.invalidated + 1 }));
+        });
+        connection.onRequest(WorkDoneProgressCreateRequest.type, Function.constVoid);
+        connection.onUnhandledProgress(({ token, value: { kind } }) => {
+            Queue.offerUnsafe(queue, (current) =>
+                kind === 'report' ? current : { ...current, invalidated: current.invalidated + 1, begun: current.begun + (kind === 'begin' ? 1 : 0), progress: kind === 'begin' ? HashSet.add(current.progress, token) : HashSet.remove(current.progress, token) },
+            );
+        });
+        connection.onNotification(PublishDiagnosticsNotification.type, (params) => {
+            Queue.offerUnsafe(queue, (current) => ({ ...current, published: HashMap.set(current.published, params.uri, params) }));
+        });
+        connection.listen();
+        return Deferred.succeed(listening, undefined);
+    });
+};
+
+const start = Effect.fn('start')(function* (root: string, config: typeof Server.Type, workspace: Stream.Stream<readonly Event[], Error>) {
+    const fs = yield* FileSystem.FileSystem;
+    const folder = resolve(root, config.workspaceFolder);
+    const input = new PassThrough();
+    const child = yield* ChildProcess.make(config.command, config.args, { cwd: folder, env: config.env, extendEnv: true, stdin: NodeStream.fromReadable({ evaluate: () => input }).pipe(Stream.orDie) });
+    const exited = Effect.flatMap(child.exitCode, (code) => Effect.fail(Exited.make({ command: config.command, args: config.args, code })));
+    yield* child.stderr.pipe(Stream.decodeText(), Stream.splitLines, Stream.runForEach(Effect.logInfo), Effect.ignore({ log: 'Warn', message: 'stderr read failed' }), Effect.forkScoped);
+    const connection = yield* Effect.acquireRelease(
+        Effect.sync(() => createMessageConnection(NodeStream.toReadableNever(child.stdout), input)),
+        (opened) => Effect.sync(() => opened.dispose()),
     );
-    const send = <R>(message: (token: CancellationToken) => Promise<R>) =>
+    const [state, listening] = yield* Effect.all([SubscriptionRef.make(INITIAL), Deferred.make<void>()]);
+    yield* listen(connection, config.settings, listening).pipe(
+        Stream.runForEach((update) => SubscriptionRef.update(state, update)),
+        Effect.forkScoped,
+    );
+    yield* Deferred.await(listening);
+    const registered = <RO>({ method }: RegistrationType<RO>, current: typeof INITIAL): readonly RO[] => Array.fromIterable(HashMap.values(current.registrations)).filter((entry) => entry.method === method).map(({ registerOptions }): RO => registerOptions);
+    const classify = ({ cause }: Cause.UnknownError) =>
+        Match.value(cause).pipe(
+            Match.when(Match.instanceOf(ResponseError), (error) => Effect.fail(error)),
+            Match.when(Match.instanceOf(ConnectionError), () => exited),
+            Match.orElse((defect) => Effect.die(defect)),
+        );
+    const notify = <P>(type: NotificationType<P>, params: RequestParam<P>) => Effect.tryPromise(() => connection.sendNotification(type, params)).pipe(Effect.catchTag('UnknownError', classify));
+    const announce = <P, RO>(type: ProtocolNotificationType<P, RO>, current: typeof INITIAL, params: RequestParam<P>) => (registered(type, current).length > 0 ? notify(type, params) : Effect.void);
+    const ask = <P, R>(type: RequestType<P, R, unknown>, params: RequestParam<P>, timeout: Duration.Duration) =>
         Effect.acquireUseRelease(
             Effect.sync(() => new CancellationTokenSource()),
-            (source) => Effect.tryPromise({ try: () => message(source.token), catch: (cause) => (cause instanceof ResponseError ? LanguageError.make({ reason: { _tag: 'Rejected', ...cause.toJson() } }) : new Cause.UnknownError(cause)) }),
+            (source) => Effect.tryPromise(() => connection.sendRequest(type, params, source.token)),
             (source) =>
                 Effect.sync(() => {
                     source.cancel();
                     source.dispose();
                 }),
-        ).pipe(Effect.catchTag('UnknownError', ({ cause }) => (cause instanceof ConnectionError ? exited : Effect.die(cause))));
-    const deadline = (timeout: number) => Effect.timeoutOrElse({ duration: timeout, orElse: () => Effect.fail(LanguageError.make({ reason: { _tag: 'Unanswered', timeout } })) });
-    const ask = <R>(message: (token: CancellationToken) => Promise<R>) => send(message).pipe(deadline(config.requestTimeout));
-    const finding = (diagnostic: Diagnostic): Finding => ({ ...diagnostic, severity: diagnostic.severity ?? DiagnosticSeverity.Error, relatedInformation: diagnostic.relatedInformation ?? [] });
-    const watchKinds = { [FileChangeType.Created]: WatchKind.Create, [FileChangeType.Changed]: WatchKind.Change, [FileChangeType.Deleted]: WatchKind.Delete };
-    const documents = new Map<string, Opened>();
-    const dirty = new Map<string, Opened['languageId']>();
-    const results = new Map<string, Map<string | undefined, RelatedFullDocumentDiagnosticReport>>();
-    const receive = ({ events, stale }: Batch) => {
-        const current = SubscriptionRef.getUnsafe(status);
-        (stale ? [...documents.values()] : events.flatMap(({ uri }) => documents.get(uri) ?? [])).forEach(({ uri, languageId }) => {
-            dirty.set(uri, languageId);
-        });
-        const watchers = registered(current, DidChangeWatchedFilesNotification.method).flatMap(({ registerOptions }) => registerOptions.watchers);
-        const changes = events.filter(({ uri, type }) =>
-            watchers.some(({ globPattern, kind }) => {
-                const [base, pattern] = typeof globPattern === 'string' ? [folder, globPattern] : [fileURLToPath(typeof globPattern.baseUri === 'string' ? globPattern.baseUri : globPattern.baseUri.uri), globPattern.pattern];
-                return (Option.isNone(kind) || (kind.value & watchKinds[type]) !== 0) && minimatch(fileURLToPath(uri), resolve(escape(base), pattern), { dot: true });
-            }),
-        );
-        return changes.length === 0 ? Effect.void : Effect.ignore(send(() => connection.sendNotification(DidChangeWatchedFilesNotification.type, { changes })));
-    };
-    yield* Effect.acquireRelease(
-        Effect.sync(() => workspace.observers.add(receive)),
-        () => Effect.sync(() => workspace.observers.delete(receive)),
-    );
-    const setting = (section: string | undefined) => Option.getOrNull((section?.split('.') ?? []).reduce((value: Option.Option<unknown>, key) => value.pipe(Option.filter(Predicate.isObject), Option.flatMap(Record.get(key))), config.settings));
-    const created = ({ token }: WorkDoneProgressCreateParams) => {
-        const progress = connection.onProgress(WorkDoneProgress.type, token, ({ kind }) => {
-            observe(
-                (current) =>
-                    ({
-                        begin: { ...current, invalidated: current.sequence, began: current.sequence, active: HashSet.add(current.active, token) },
-                        report: current,
-                        end: { ...current, invalidated: current.sequence, active: HashSet.remove(current.active, token) },
-                    })[kind],
-            );
-            if (kind === 'end') {
-                progress.dispose();
-            }
-        });
-    };
-    connection.onRequest(ConfigurationRequest.type, ({ items }) => items.map(({ section }) => setting(section)));
-    connection.onRequest(RegistrationRequest.type, ({ registrations }) => {
-        const added = HashMap.fromIterable(registrations.flatMap((entry) => Option.toArray(Schema.decodeUnknownOption(Registration)(entry))).map((entry) => [entry.id, entry] as const));
-        observe((current) => ({ ...current, invalidated: current.sequence, registrations: HashMap.union(current.registrations, added) }));
-    });
-    connection.onRequest(UnregistrationRequest.type, ({ unregisterations }) => {
-        const removed = unregisterations.map(({ id }) => id);
-        observe((current) => ({ ...current, invalidated: current.sequence, registrations: HashMap.removeMany(current.registrations, removed) }));
-    });
-    connection.onRequest(DiagnosticRefreshRequest.type, () => observe((current) => ({ ...current, invalidated: current.sequence })));
-    connection.onRequest(WorkDoneProgressCreateRequest.type, created);
-    connection.onNotification(PublishDiagnosticsNotification.type, ({ uri, version, diagnostics }) => observe((current) => ({ ...current, published: HashMap.set(current.published, uri, { sequence: current.sequence, version, findings: diagnostics.map(finding) }) })));
-    connection.listen();
-    const handshake = (token: CancellationToken) =>
-        connection.sendRequest(
-            InitializeRequest.type,
-            {
-                processId: process.pid,
-                rootUri: workspaceFolder.uri,
-                workspaceFolders: [workspaceFolder],
-                initializationOptions: config.initializationOptions,
-                capabilities: {
-                    window: { workDoneProgress: true },
-                    workspace: { configuration: true, didChangeWatchedFiles: { dynamicRegistration: true, relativePatternSupport: true }, diagnostics: { refreshSupport: true } },
-                    textDocument: {
-                        synchronization: { dynamicRegistration: true, didSave: true },
-                        diagnostic: { dynamicRegistration: true },
-                        publishDiagnostics: { versionSupport: true, relatedInformation: true, codeDescriptionSupport: true },
-                        hover: { contentFormat: [MarkupKind.PlainText] },
-                    },
+        ).pipe(Effect.catchTag('UnknownError', classify), Effect.timeout(timeout), Effect.raceFirst(exited));
+    const workspaceFolder = { uri: pathToFileURL(folder).href, name: basename(folder) };
+    const { capabilities } = yield* ask(
+        InitializeRequest.type,
+        {
+            processId: process.pid,
+            rootUri: workspaceFolder.uri,
+            workspaceFolders: [workspaceFolder],
+            initializationOptions: config.initializationOptions,
+            capabilities: {
+                window: { workDoneProgress: true },
+                workspace: { configuration: true, didChangeWatchedFiles: { dynamicRegistration: true, relativePatternSupport: true }, diagnostics: { refreshSupport: true } },
+                textDocument: {
+                    synchronization: { dynamicRegistration: true, didSave: true },
+                    diagnostic: { dynamicRegistration: true },
+                    publishDiagnostics: { versionSupport: true, relatedInformation: true, codeDescriptionSupport: true },
+                    hover: { contentFormat: [MarkupKind.PlainText] },
                 },
             },
-            token,
-        );
-    const { capabilities } = yield* Option.match(config.startupTimeout, { onNone: () => send(handshake), onSome: (timeout) => send(handshake).pipe(deadline(timeout)) }).pipe(Effect.raceFirst(exited));
-    const { openClose = false, change = TextDocumentSyncKind.None, save = false } = typeof capabilities.textDocumentSync === 'number' ? { openClose: capabilities.textDocumentSync !== TextDocumentSyncKind.None, change: capabilities.textDocumentSync } : (capabilities.textDocumentSync ?? {});
-    const declared = HashMap.fromIterable(
-        (
-            [
-                ...(capabilities.diagnosticProvider === undefined ? [] : [capabilities.diagnosticProvider]).map(({ identifier }) => ({ id: DocumentDiagnosticRequest.method, method: DocumentDiagnosticRequest.method, registerOptions: identifier === undefined ? {} : { identifier } })),
-                ...(save === false ? [] : [{ id: DidSaveTextDocumentNotification.method, method: DidSaveTextDocumentNotification.method, registerOptions: save === true || save.includeText === undefined ? {} : { includeText: save.includeText } }]),
-            ] satisfies (typeof Registration.Type)[]
-        ).map((entry) => [entry.id, entry] as const),
+        },
+        config.startupTimeout,
     );
-    yield* advance((current) => ({ ...current, registrations: declared }));
-    yield* send(() => connection.sendNotification(InitializedNotification.type, {}));
-    yield* Effect.transposeOption(Option.map(config.settings, (settings) => send(() => connection.sendNotification(DidChangeConfigurationNotification.type, { settings }))));
+    const sync = typeof capabilities.textDocumentSync === 'number' ? { openClose: capabilities.textDocumentSync !== TextDocumentSyncKind.None, change: capabilities.textDocumentSync } : (capabilities.textDocumentSync ?? {});
+    const declared = Object.entries({
+        [DidOpenTextDocumentNotification.method]: sync.openClose === true && {},
+        [DidCloseTextDocumentNotification.method]: sync.openClose === true && {},
+        [DidChangeTextDocumentNotification.method]: sync.change !== undefined && sync.change !== TextDocumentSyncKind.None && { syncKind: sync.change },
+        [DidSaveTextDocumentNotification.method]: sync.save === true ? {} : sync.save,
+        [DocumentDiagnosticRequest.method]: capabilities.diagnosticProvider,
+    }).flatMap(([method, registerOptions]) => (Predicate.isObject(registerOptions) ? [[method, { id: method, method, registerOptions }] as const] : []));
+    yield* SubscriptionRef.update(state, (current) => ({ ...current, registrations: HashMap.setMany(current.registrations, declared) }));
+    yield* notify(InitializedNotification.type, {});
+    yield* config.settings === undefined ? Effect.void : notify(DidChangeConfigurationNotification.type, { settings: config.settings });
     yield* Effect.addFinalizer(() =>
-        send((token) => connection.sendRequest(ShutdownRequest.type, token)).pipe(
-            Effect.andThen(send(() => connection.sendNotification(ExitNotification.type))),
+        Effect.tryPromise(() => connection.sendRequest(ShutdownRequest.type)).pipe(
+            Effect.andThen(Effect.tryPromise(() => connection.sendNotification(ExitNotification.type))),
             Effect.andThen(child.exitCode),
-            Effect.timeout(Option.getOrElse(config.shutdownTimeout, () => Duration.infinity)),
+            Effect.timeout(config.shutdownTimeout),
             Effect.ignore({ log: 'Warn', message: 'shutdown did not complete' }),
         ),
     );
-    const close = Effect.fn('close')(function* (uri: string) {
-        if (openClose) {
-            yield* send(() => connection.sendNotification(DidCloseTextDocumentNotification.type, { textDocument: { uri } }));
-        }
-        documents.delete(uri);
-        dirty.delete(uri);
-        results.delete(uri);
-    });
     const synchronize = Effect.fn('synchronize')(function* (uri: string, languageId: string) {
-        const text = yield* workspace.fs.readFileString(fileURLToPath(uri));
-        dirty.delete(uri);
-        const previous = documents.get(uri);
-        if (previous?.text === text) {
-            return previous;
-        }
-        const document: Opened = { uri, languageId, version: (previous?.version ?? 0) + 1, text, synced: yield* advance(Function.identity) };
-        documents.set(uri, document);
-        if (previous === undefined ? openClose : change !== TextDocumentSyncKind.None) {
-            yield* send(() =>
-                previous === undefined ? connection.sendNotification(DidOpenTextDocumentNotification.type, { textDocument: Struct.omit(document, ['synced']) }) : connection.sendNotification(DidChangeTextDocumentNotification.type, { textDocument: { uri, version: document.version }, contentChanges: [{ text }] }),
-            );
-        }
-        return document;
-    }, Effect.uninterruptible);
-    const pull = (document: Opened, identifier: string | undefined) => {
-        const previous = results.get(document.uri)?.get(identifier);
-        return ask((token) => connection.sendRequest(DocumentDiagnosticRequest.type, { textDocument: { uri: document.uri }, ...(identifier === undefined ? {} : { identifier }), ...(previous?.resultId === undefined ? {} : { previousResultId: previous.resultId }) }, token)).pipe(
-            Effect.filterOrElse(
-                (report): report is RelatedFullDocumentDiagnosticReport => report.kind === DocumentDiagnosticReportKind.Full,
-                (report) => (previous === undefined ? Effect.die(report) : Effect.succeed({ ...previous, resultId: report.resultId })),
-            ),
-            Effect.tap((full) => Effect.sync(() => results.getOrInsert(document.uri, new Map()).set(identifier, full))),
-            Effect.map(({ items }) => Option.some(items.map(finding))),
-            Effect.catchIf(
-                (failure) => failure.reason._tag === 'Rejected' && failure.reason.code === LSPErrorCodes.ServerCancelled,
-                () => Effect.succeedNone,
-            ),
+        const text = yield* fs.readFileString(fileURLToPath(uri));
+        return yield* SubscriptionRef.modifyEffect(
+            state,
+            Effect.fnUntraced(function* (current) {
+                const previous = HashMap.get(current.documents, uri);
+                if (Option.isSome(previous) && previous.value.item.text === text) {
+                    return [previous.value.item, current] as const;
+                }
+                const item = { uri, languageId, text, version: Option.isSome(previous) ? previous.value.item.version + 1 : 1 };
+                yield* Option.isSome(previous) ? announce(DidChangeTextDocumentNotification.type, current, { textDocument: { uri, version: item.version }, contentChanges: [{ text }] }) : announce(DidOpenTextDocumentNotification.type, current, { textDocument: item });
+                return [item, { ...current, documents: HashMap.set(current.documents, uri, { item, begun: current.begun }), published: HashMap.remove(current.published, uri) }] as const;
+            }),
         );
-    };
-    const collect = Effect.fnUntraced(function* (document: Opened, invalidated: number): Effect.fn.Return<readonly Finding[], LanguageError> {
-        const pushed = (current: Status) => Option.filter(HashMap.get(current.published, document.uri), ({ sequence, version }) => (version === undefined ? sequence > document.synced : version === document.version));
-        yield* SubscriptionRef.changes(status).pipe(
-            Stream.takeUntil((current) => current.invalidated >= invalidated && HashSet.isEmpty(current.active) && (registered(current, DocumentDiagnosticRequest.method).length > 0 || ((current.began === 0 || current.began > document.synced) && Option.isSome(pushed(current))))),
-            Stream.runDrain,
-        );
-        const before = yield* SubscriptionRef.get(status);
-        const pulled = Option.all(yield* Effect.forEach(registered(before, DocumentDiagnosticRequest.method), ({ registerOptions: { identifier } }) => pull(document, identifier), { concurrency: 'unbounded' }));
-        const after = yield* SubscriptionRef.get(status);
-        if (Option.isNone(pulled) || after.invalidated !== before.invalidated) {
-            return yield* collect(document, Math.max(before.invalidated + 1, after.invalidated));
-        }
-        return [...pulled.value.flat(), ...Option.toArray(Option.map(pushed(after), Struct.get('findings'))).flat()];
     });
-    const severities = new Map(Object.entries(DiagnosticSeverity).map(([name, value]) => [value, name.toLowerCase()]));
-    const oneLine = (message: Diagnostic['message']): string => (typeof message === 'string' ? message : message.value).replaceAll('\n', ' ');
+    const close = (uri: string) =>
+        SubscriptionRef.modifyEffect(state, (current) =>
+            Effect.as(announce(DidCloseTextDocumentNotification.type, current, { textDocument: { uri } }), [undefined, { ...current, documents: HashMap.remove(current.documents, uri), published: HashMap.remove(current.published, uri) }] as const),
+        );
+    const settled = (uri: string, current: typeof INITIAL) =>
+        HashSet.isEmpty(current.progress) &&
+        (registered(DocumentDiagnosticRequest.type, current).length > 0 ||
+            Option.exists(HashMap.get(current.documents, uri), ({ item, begun }) => (current.begun === 0 || current.begun > begun) && Option.exists(HashMap.get(current.published, uri), ({ version }) => version === undefined || version === item.version)));
+    const pull = (uri: string, current: typeof INITIAL) =>
+        Stream.fromEffect(
+            Effect.forEach(
+                registered(DocumentDiagnosticRequest.type, current),
+                ({ identifier }) =>
+                    ask(DocumentDiagnosticRequest.type, { textDocument: { uri }, ...(identifier === undefined ? {} : { identifier }) }, config.requestTimeout).pipe(
+                        Effect.flatMap((report) => (report.kind === DocumentDiagnosticReportKind.Full ? Effect.succeed(report.items) : Effect.die(report))),
+                    ),
+                { concurrency: 'unbounded' },
+            ),
+        ).pipe(
+            Stream.mapEffect((pulled) => Effect.map(SubscriptionRef.get(state), (latest) => [...pulled.flat(), ...Option.match(HashMap.get(latest.published, uri), { onNone: Array.empty, onSome: Struct.get('diagnostics') })])),
+            Stream.catchIf((error) => error instanceof ResponseError && error.code === LSPErrorCodes.ServerCancelled, () => Stream.empty),
+        );
+    const forward = Effect.fn('forward')(function* (events: readonly Event[]) {
+        const kinds = { create: [FileChangeType.Created, WatchKind.Create], update: [FileChangeType.Changed, WatchKind.Change], delete: [FileChangeType.Deleted, WatchKind.Delete] } as const;
+        const changes = Array.dedupe(
+            Array.cartesian(events, registered(DidChangeWatchedFilesNotification.type, yield* SubscriptionRef.get(state)).flatMap(Struct.get('watchers'))).flatMap(([{ path, type }, { globPattern, kind }]) => {
+                const [change, mask] = kinds[type];
+                const [base, pattern] = typeof globPattern === 'string' ? [folder, globPattern] : [fileURLToPath(typeof globPattern.baseUri === 'string' ? globPattern.baseUri : globPattern.baseUri.uri), globPattern.pattern];
+                return (kind === undefined || (kind & mask) !== 0) && minimatch(path, resolve(escape(base, { magicalBraces: true }), pattern), { dot: true }) ? [{ uri: pathToFileURL(path).href, type: change }] : [];
+            }),
+        );
+        yield* changes.length === 0 ? Effect.void : notify(DidChangeWatchedFilesNotification.type, { changes });
+    });
+    const watching = yield* workspace.pipe(Stream.runForEach(forward), Effect.forkScoped);
     return {
-        connection,
-        exited,
-        ask,
-        synchronize,
-        refresh: Latch.await(workspace.current).pipe(Effect.andThen(Effect.forEach(dirty, ([uri, languageId]) => synchronize(uri, languageId).pipe(Effect.catchTag('PlatformError', () => close(uri))), { concurrency: 'unbounded', discard: true }))),
-        diagnose: Effect.fn('diagnose')(function* (document: Opened) {
-            const [saved] = registered(yield* SubscriptionRef.get(status), DidSaveTextDocumentNotification.method);
-            if (saved !== undefined) {
-                yield* send(() => connection.sendNotification(DidSaveTextDocumentNotification.type, { textDocument: { uri: document.uri }, ...(saved.registerOptions.includeText === true ? { text: document.text } : {}) }));
-            }
-            const current = Array.dedupe(yield* collect(document, 0));
-            const referenced = current
-                .flatMap(({ relatedInformation }) => relatedInformation)
-                .filter(({ location: { uri } }) => uri === document.uri)
-                .map(({ location: { range }, message }) => ({ range, message }));
-            const render = ({ severity, range, source, code, codeDescription, message, relatedInformation }: Finding): string =>
-                [
-                    `${location(workspace.root, document.uri, range)} ${severities.get(severity)} ${source ?? ''}${code === undefined ? '' : `(${code})`}: ${oneLine(message)}${codeDescription === undefined ? '' : ` ${codeDescription.href}`}`,
-                    ...relatedInformation.map((related) => `  ${location(workspace.root, related.location.uri, related.location.range)} ${oneLine(related.message)}`),
-                ].join('\n');
-            return current
-                .filter(({ range, message }) => !referenced.some(Equal.equals({ range, message })))
-                .toSorted(Order.mapInput(Order.Tuple([Order.Number, Order.Number, Order.Number]), ({ range: { start: position }, severity }: Finding) => [position.line, position.character, severity] as const))
-                .map(render);
-        }),
+        stopped: Effect.raceFirst(exited, Fiber.join(watching)),
+        ask: <P, R>(type: RequestType<P, R, unknown>, params: RequestParam<P>) => ask(type, params, config.requestTimeout),
+        open: (uri: string, languageId: string) =>
+            Stream.fromIterableEffect(Effect.map(SubscriptionRef.get(state), (current) => HashMap.values(current.documents))).pipe(
+                Stream.mapEffect(({ item }) => synchronize(item.uri, item.languageId).pipe(Effect.catchTag('PlatformError', () => close(item.uri))), { concurrency: 'unbounded' }),
+                Stream.runDrain,
+                Effect.andThen(synchronize(uri, languageId)),
+                Effect.raceFirst(exited),
+            ),
+        diagnose: Effect.fn('diagnose')(function* (item: TextDocumentItem) {
+            const [saved] = registered(DidSaveTextDocumentNotification.type, yield* SubscriptionRef.get(state));
+            yield* saved === undefined ? Effect.void : notify(DidSaveTextDocumentNotification.type, { textDocument: { uri: item.uri }, ...(saved.includeText === true ? { text: item.text } : {}) });
+            return yield* SubscriptionRef.changes(state).pipe(
+                Stream.changesWith((left, right) => left.invalidated === right.invalidated && settled(item.uri, left) === settled(item.uri, right)),
+                Stream.switchMap((current) => (settled(item.uri, current) ? pull(item.uri, current) : Stream.empty)),
+                Stream.take(1),
+                Stream.flattenIterable,
+                Stream.runCollect,
+            );
+        }, Effect.raceFirst(exited)),
     };
 });
 
@@ -372,111 +299,102 @@ const query = <const Name extends string, P extends Schema.Struct.Fields>(name: 
 const initialize = Effect.fn('initialize')(function* () {
     const fs = yield* FileSystem.FileSystem;
     const root = process.cwd();
-    const ignored = yield* Effect.validate(
-        [
-            { args: ['ls-files', '--others', '--ignored', '--exclude-standard', '--directory', '-z'], separator: '\0' },
-            { args: ['rev-parse', '--path-format=absolute', '--git-dir', '--git-common-dir'], separator: '\n' },
-        ],
-        ({ args, separator }) =>
-            Effect.scoped(Effect.flatMap(ChildProcess.make('git', args, { cwd: root }), (handle) => Effect.all({ text: Stream.mkString(Stream.decodeText(handle.stdout)), code: handle.exitCode }, { concurrency: 'unbounded' }))).pipe(
-                Effect.filterOrFail(
-                    ({ code }) => code === 0,
-                    ({ code }) => new Cause.UnknownError(code, `git ${args.join(' ')} exited with code ${code}`),
-                ),
-                Effect.map(({ text }) => text.split(separator)),
-            ),
-        { concurrency: 'unbounded' },
+    const listing = ['ls-files', '--others', '--ignored', '--exclude-standard', '--directory', '-z'];
+    const ignored = yield* Effect.scoped(
+        Effect.gen(function* () {
+            const git = yield* ChildProcess.make('git', listing, { cwd: root });
+            const [text, code] = yield* Effect.all([Stream.mkString(Stream.decodeText(git.stdout)), git.exitCode], { concurrency: 'unbounded' });
+            return code === 0 ? [...text.split('\0').filter((path) => path.length > 0), '.git/'] : yield* Exited.make({ command: 'git', args: listing, code });
+        }),
+    );
+    const outermost = ignored.filter((path) => !ignored.some((other) => other !== path && other.endsWith('/') && path.startsWith(other)));
+    const exclusionPaths = 8;
+    const [excluded, matched] = Array.splitAt(
+        Array.sortWith(outermost, (path) => [path.endsWith('/') ? 0 : 1, path.split('/').length] as const, Order.Tuple([Order.Number, Order.Number])),
+        exclusionPaths,
+    );
+    const workspace = yield* Stream.share(
+        watch(root, [...excluded.map((path) => resolve(root, path)), ...matched.map((path) => `${escape(path.replace(/\/$/u, ''), { magicalBraces: true })}{,/**}`)], resolve(yield* fs.makeTempDirectoryScoped(), 'snapshot')),
+        { capacity: 'unbounded' },
     );
     const reference = /\$\{(?<name>\w+)\}/gu;
-    const references = [...(yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Json))(lsp)).matchAll(reference)];
-    const variables = new Map(Object.entries({ ...(yield* Config.all(Object.fromEntries(references.flatMap(({ 0: match, groups }) => (groups?.name === undefined ? [] : [[groups.name, Config.withDefault(Config.String(groups.name), match)] as const]))))), CLAUDE_PROJECT_DIR: root }));
+    const names = [...(yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Json))(lsp)).matchAll(reference)].flatMap(({ groups }) => groups?.name ?? []);
+    const variables = Record.set(Record.getSomes(yield* Config.all(Record.fromIterableWith(names, (name) => [name, Config.option(Config.String(name))]))), 'CLAUDE_PROJECT_DIR', root);
     const substitute = (value: Schema.Json): Schema.Json =>
         Match.value(value).pipe(
-            Match.when(Match.string, (template) => template.replace(reference, (match, name: string) => variables.get(name) ?? match)),
+            Match.when(Match.string, (template) => template.replace(reference, (match, name: string) => Option.getOrElse(Record.get(variables, name), () => match))),
             Match.when(Array.isArray<Schema.Json>, (items) => items.map(substitute)),
             Match.when(Predicate.isObjectKeyword, Record.map(substitute)),
             Match.orElse(() => value),
         );
-    const entries = Array.dedupeWith(
-        ignored
-            .flat()
-            .filter((path) => path.length > 0)
-            .map((path) => ({ path: relative(root, resolve(root, path)), directory: path.endsWith('/') || isAbsolute(path) })),
-        (left, right) => left.path === right.path,
-    );
-    const outermost = entries.filter(({ path }) => !entries.some((other) => other.directory && path.startsWith(`${other.path}/`)));
-    const exclusionLimit = 8;
-    const [excluded, filtered] = Array.splitAt(
-        Array.sortWith(outermost, ({ directory, path }) => [directory ? 0 : 1, path.split('/').length] as const, Order.Tuple([Order.Number, Order.Number])),
-        exclusionLimit,
-    );
-    const ignore = [...excluded.map(({ path }) => resolve(root, path)), ...filtered.map(({ path }) => `${path.replaceAll(/[*?[\]{}()!@+|,\\]/gu, '\\$&')}{,/**}`)];
-    const snapshot = resolve(root, '.cache', plugin.name, 'watcher.snapshot');
-    const scanned = { ignore: [...ignore, snapshot], backend: 'brute-force' as const };
-    const record = fs.makeDirectory(dirname(snapshot), { recursive: true }).pipe(Effect.andThen(Effect.tryPromise(() => writeSnapshot(root, snapshot, scanned))));
-    const fileEvent = ({ path, type }: Event): FileEvent => ({ uri: pathToFileURL(path).href, type: ({ create: FileChangeType.Created, update: FileChangeType.Changed, delete: FileChangeType.Deleted } as const)[type] });
-    const observers: Workspace['observers'] = new Set();
-    const [current, scope, batches] = yield* Effect.all([Latch.make(true), Scope.fork(yield* Effect.scope, 'parallel'), Queue.unbounded<Batch>()]);
-    const notify = (batch: Batch) => Effect.forEach(observers, Function.apply(batch), { concurrency: 'unbounded', discard: true });
-    yield* record;
-    yield* Effect.acquireRelease(
-        Effect.tryPromise(() => subscribe(root, (error, events) => Queue.offerUnsafe(batches, { events: events.map(fileEvent), stale: error !== null }), { ignore })),
-        (subscription) => Effect.promise(() => subscription.unsubscribe()),
-    );
-    const watcher = yield* Stream.fromQueue(batches).pipe(
-        Stream.runForEach((batch) =>
-            batch.stale
-                ? Latch.close(current).pipe(
-                      Effect.andThen(Effect.tryPromise(() => getEventsSince(root, snapshot, scanned))),
-                      Effect.tap(() => record),
-                      Effect.flatMap((missed) => notify({ events: [...batch.events, ...missed.map(fileEvent)], stale: true })),
-                      Effect.ensuring(Latch.open(current)),
-                  )
-                : notify(batch),
-        ),
-        Effect.orDie,
-        Effect.forkIn(scope),
-    );
-    const workspace = { fs, root, observers, current, watching: Fiber.join(watcher).pipe(Effect.andThen(Effect.interrupt)) };
-    const languages = new Map(
-        (yield* Effect.forEach(
-            Object.entries(yield* Schema.decodeUnknownEffect(Schema.Record(Schema.String, LanguageServer))(substitute(lsp))),
-            Effect.fnUntraced(function* ([language, config]: readonly [string, typeof LanguageServer.Type]) {
-                const server: RcRef.RcRef<Effect.Success<ReturnType<typeof start>>, Effect.Error<ReturnType<typeof start>>> = yield* RcRef.make({
-                    acquire: start(language, config, workspace).pipe(
-                        Effect.annotateLogs({ language }),
-                        Effect.tap((started) => started.exited.pipe(Effect.ignore, Effect.andThen(RcRef.invalidate(server)), Effect.forkIn(scope))),
-                    ),
-                    idleTimeToLive: '30 minutes',
-                }).pipe(Scope.provide(scope));
-                return Object.entries(config.extensionToLanguage).map(([extension, languageId]) => [extension, { server, languageId }] as const);
-            }),
-        )).flat(),
-    );
-    const open = Effect.fn('open')(function* (file: string, use: (server: Effect.Success<ReturnType<typeof start>>, document: Opened) => Effect.Effect<readonly string[], LanguageError>) {
-        const { server: shared, languageId } = yield* Effect.fromNullishOr(languages.get(extname(file))).pipe(Effect.mapError(() => LanguageError.make({ reason: { _tag: 'Unsupported', file } })));
-        const server = yield* RcRef.get(shared);
-        return {
-            lines: yield* server.refresh.pipe(
-                Effect.andThen(server.synchronize(pathToFileURL(resolve(root, file)).href, languageId)),
-                Effect.catchTag('PlatformError', () => Effect.fail(LanguageError.make({ reason: { _tag: 'Unreadable', file } }))),
-                Effect.flatMap((document) => use(server, document)),
-                Effect.raceFirst(server.exited),
+    const servers = Object.entries(yield* Schema.decodeUnknownEffect(Schema.Record(Schema.String, Server))(substitute(lsp)));
+    const scope = yield* Scope.fork(yield* Effect.scope, 'parallel');
+    const running = yield* RcMap.make({
+        lookup: (entry: (typeof servers)[number]) =>
+            start(root, entry[1], workspace).pipe(
+                Effect.annotateLogs({ language: entry[0] }),
+                Effect.tap((server): Effect.Effect<unknown, never, Scope.Scope> => server.stopped.pipe(Effect.ignore({ log: 'Warn', message: 'language server stopped' }), Effect.andThen(Effect.forkIn(RcMap.invalidate(running, entry), scope)), Effect.forkScoped)),
             ),
-        };
-    }, Effect.scoped);
-    const request = <R>({ file, line, column }: typeof Position.Type, call: (connection: ProtocolConnection, params: TextDocumentPositionParams, token: CancellationToken) => Promise<R>, lines: (result: R) => readonly string[]) =>
-        open(file, (server, { uri }) => server.ask((token) => call(server.connection, { textDocument: { uri }, position: { line: line - 1, character: column - 1 } }, token)).pipe(Effect.map(lines)));
-    const locations = (targets: Definition | DefinitionLink[] | null): readonly string[] => [targets ?? []].flat().map((target) => ('targetUri' in target ? location(root, target.targetUri, target.targetSelectionRange) : location(root, target.uri, target.range)));
-    const hovered = (hover: Hover | null): readonly string[] => [hover?.contents ?? []].flat().map((content) => (typeof content === 'string' ? content : content.value));
+        idleTimeToLive: '30 minutes',
+    }).pipe(Scope.provide(scope));
+    const languages = new Map(servers.flatMap((entry) => Object.entries(entry[1].extensionToLanguage).map(([extension, languageId]) => [extension, { entry, languageId }] as const)));
+    const serve = Effect.fn('serve')(function* (file: string) {
+        const language = languages.get(extname(file));
+        if (language === undefined) {
+            return yield* Unmatched.make({ subject: 'language server', query: file, candidates: [...languages.keys()] });
+        }
+        const server = yield* RcMap.get(running, language.entry);
+        return { server, item: yield* server.open(pathToFileURL(resolve(root, file)).href, language.languageId) };
+    });
+    const location = (uri: string, { start: { line, character } }: Range) => `${URL.parse(uri)?.protocol === 'file:' ? relative(root, fileURLToPath(uri)) : uri}:${line + 1}:${character + 1}`;
+    const locations = (targets: Definition | DefinitionLink[] | Location[] | null) => ({ lines: [targets ?? []].flat().map((target) => ('targetUri' in target ? location(target.targetUri, target.targetSelectionRange) : location(target.uri, target.range))) });
+    const point = (item: TextDocumentItem, { line, column }: typeof Position.Type) => ({ textDocument: { uri: item.uri }, position: { line: line - 1, character: column - 1 } });
+    const flattened = (message: Diagnostic['message']) => (typeof message === 'string' ? message : message.value).replaceAll('\n', ' ');
+    const severities = new Map(Object.entries(DiagnosticSeverity).map(([name, value]) => [value, name.toLowerCase()]));
     yield* Effect.all(
         [
-            register(query('diagnostics', 'Language server diagnostics of a file, one `path:line:column severity source(code): message` line each with indented related locations', Document), ({ file }) => open(file, (server, document) => server.diagnose(document))),
-            register(query('definition', 'Definition locations of the symbol at a line and column, one `path:line:column` line each', Position), (position) => request(position, (connection, params, token) => connection.sendRequest(DefinitionRequest.type, params, token), locations)),
-            register(query('references', 'Reference locations of the symbol at a line and column, declaration included, one `path:line:column` line each', Position), (position) =>
-                request(position, (connection, params, token) => connection.sendRequest(ReferencesRequest.type, { ...params, context: { includeDeclaration: true } }, token), locations),
+            register(
+                query('diagnostics', 'Language server diagnostics of a file, one `path:line:column severity source(code): message` line each with indented related locations', File),
+                Effect.fnUntraced(function* ({ file }: typeof File.Type) {
+                    const { server, item } = yield* serve(file);
+                    const diagnostics = Array.dedupe(yield* server.diagnose(item));
+                    const related = diagnostics.flatMap(({ relatedInformation }) => relatedInformation ?? []).flatMap(({ location: { uri, range }, message }) => (uri === item.uri ? [{ range, message }] : []));
+                    return {
+                        lines: Array.sortWith(
+                            diagnostics.filter(({ range, message }) => !related.some(Equal.equals({ range, message }))),
+                            ({ range: { start: position } }) => [position.line, position.character] as const,
+                            Order.Tuple([Order.Number, Order.Number]),
+                        ).map(({ severity, range, source, code, codeDescription, message, relatedInformation }) =>
+                            [
+                                `${location(item.uri, range)} ${severities.get(severity ?? DiagnosticSeverity.Error)} ${source ?? ''}${code === undefined ? '' : `(${code})`}: ${flattened(message)}${codeDescription === undefined ? '' : ` ${codeDescription.href}`}`,
+                                ...(relatedInformation ?? []).map((entry) => `  ${location(entry.location.uri, entry.location.range)} ${flattened(entry.message)}`),
+                            ].join('\n'),
+                        ),
+                    };
+                }, Effect.scoped),
             ),
-            register(query('hover', 'Type signature and documentation of the symbol at a line and column', Position), (position) => request(position, (connection, params, token) => connection.sendRequest(HoverRequest.type, params, token), hovered)),
+            register(
+                query('definition', 'Definition locations of the symbol at a line and column, one `path:line:column` line each', Position),
+                Effect.fnUntraced(function* (position: typeof Position.Type) {
+                    const { server, item } = yield* serve(position.file);
+                    return locations(yield* server.ask(DefinitionRequest.type, point(item, position)));
+                }, Effect.scoped),
+            ),
+            register(
+                query('references', 'Reference locations of the symbol at a line and column, declaration included, one `path:line:column` line each', Position),
+                Effect.fnUntraced(function* (position: typeof Position.Type) {
+                    const { server, item } = yield* serve(position.file);
+                    return locations(yield* server.ask(ReferencesRequest.type, { ...point(item, position), context: { includeDeclaration: true } }));
+                }, Effect.scoped),
+            ),
+            register(
+                query('hover', 'Type signature and documentation of the symbol at a line and column', Position),
+                Effect.fnUntraced(function* (position: typeof Position.Type) {
+                    const { server, item } = yield* serve(position.file);
+                    const hover = yield* server.ask(HoverRequest.type, point(item, position));
+                    return { lines: [hover?.contents ?? []].flat().map((content) => (typeof content === 'string' ? content : content.value)) };
+                }, Effect.scoped),
+            ),
         ],
         { discard: true },
     );

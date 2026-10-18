@@ -2,19 +2,17 @@ import { Array, flow, Match, Option, Predicate, pipe, Record, Result } from 'eff
 import MagicString from 'magic-string';
 import regjsparser, { type AstNode, type CharacterClass, type CharacterClassBody, type Group, type UnicodePropertyEscape, type Value } from 'regjsparser';
 import aliases from 'unicode-property-value-aliases';
+import type { InDesignError } from './contract.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-interface Construct {
-    readonly construct: string;
-    readonly alternative: Option.Option<string>;
-}
 interface Walk {
     readonly script: boolean;
     readonly sets: boolean;
     readonly word: string;
     readonly wild: string;
 }
+type Construct = Extract<InDesignError['reasons'][number], { readonly _tag: 'Untranslatable' }>['constructs'][number];
 type Node = AstNode<typeof FEATURES>;
 type Rows = readonly Result.Result<readonly [start: number, end: number, text: string, construct: string], Construct>[];
 

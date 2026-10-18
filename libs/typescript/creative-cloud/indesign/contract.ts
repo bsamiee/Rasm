@@ -1,5 +1,7 @@
-import { Enter, Image, Instructions, READING, Surface, TypeScript, Unmatched, unit, WRITING } from '@rasm/mcp/link';
-import { Array, Formatter, Option, Schema, SchemaTransformation, Struct } from 'effect';
+import { Surface } from '@rasm/mcp/link';
+import { Activity, Image, Instructions, READING, Unmatched } from '@rasm/mcp/server';
+import { Array, Context, Effect, Formatter, Option, Schema, SchemaGetter, type SchemaIssue, SchemaTransformation, Struct } from 'effect';
+import { Tool } from 'effect/ai';
 import { Rpc, RpcGroup } from 'effect/rpc';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -17,18 +19,13 @@ const Flag = Schema.OptionFromOptionalKey(Schema.Literal(true));
 const Reference = Schema.Struct({ type: Schema.String, specifier: Specifier, name: Schema.OptionFromOptionalKey(Schema.String) });
 const Field = Schema.Struct({
     name: Schema.String,
-    ...Struct.Record(['type', 'description'], Schema.OptionFromOptionalKey(Schema.String)),
+    type: Schema.OptionFromOptionalKey(Schema.String),
+    description: Schema.OptionFromOptionalKey(Schema.String),
     array: Flag,
     ...Struct.Record(['minimum', 'maximum'], Schema.OptionFromOptionalKey(Schema.Finite)),
     settable: Schema.OptionFromOptionalKey(Schema.Boolean),
     members: Schema.OptionFromOptionalKey(Schema.NonEmptyArray(Schema.String)),
 }).annotate({ identifier: 'Field' });
-const Method = Field.mapFields(Struct.pick(['name', 'description'])).pipe(
-    Schema.fieldsAssign({
-        parameters: Schema.Array(Field.mapFields(Struct.omit(['settable'])).pipe(Schema.fieldsAssign({ optional: Schema.Boolean }))),
-        returns: Schema.OptionFromOptionalKey(Field.mapFields(Struct.pick(['type', 'array']))),
-    }),
-);
 const Geometry = Schema.Struct({
     bleed: Sides,
     baseline: Schema.Struct({ start: Points, division: Points, relativeTo: Schema.String }),
@@ -36,11 +33,14 @@ const Geometry = Schema.Struct({
     items: Schema.Array(
         Reference.pipe(
             Schema.fieldsAssign({
-                ...Struct.Record(['layer', 'appliedObjectStyle'], Schema.String),
-                ...Struct.Record(['locked', 'anchored'], Flag),
-                ...Struct.Record(['parent', 'story'], Schema.OptionFromOptionalKey(Specifier)),
-                label: Schema.OptionFromOptionalKey(Schema.String),
+                layer: Schema.String,
+                appliedObjectStyle: Schema.String,
+                locked: Flag,
+                anchored: Flag,
                 hidden: Flag,
+                parent: Schema.OptionFromOptionalKey(Specifier),
+                story: Schema.OptionFromOptionalKey(Specifier),
+                label: Schema.OptionFromOptionalKey(Schema.String),
                 bounds: Box,
                 overflows: Schema.OptionFromOptionalKey(Schema.Boolean),
                 effectivePpi: Schema.OptionFromOptionalKey(Schema.Tuple([Schema.Finite, Schema.Finite])),
@@ -52,7 +52,7 @@ const Target = Schema.TaggedUnion({
     Page: {
         index: Index,
         region: Schema.OptionFromOptionalKey(
-            Schema.Struct(Struct.Record(['top', 'left', 'bottom', 'right'], Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: 1 }))))
+            Schema.Struct(Struct.Record(Struct.keys(Box.fields), Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: 1 }))))
                 .annotate({ description: 'Part of the page as fractions of its width and height from the top-left corner' })
                 .check(Schema.makeFilter((region) => region.top < region.bottom && region.left < region.right, { expected: 'top above bottom and left before right, as fractions of the page' })),
         ),
@@ -62,7 +62,8 @@ const Target = Schema.TaggedUnion({
 }).annotate({ identifier: 'Target' });
 const Shot = Schema.Struct({
     image: Image('image/jpeg'),
-    ...Struct.Record(['width', 'height'], Schema.Int),
+    width: Schema.Int,
+    height: Schema.Int,
     bounds: Box,
     omitted: Schema.OptionFromOptionalKey(Schema.NonEmptyArray(Reference.pipe(Schema.fieldsAssign({ cause: Schema.Defect() }))).annotate({ description: 'Items the image leaves out, each with the cause InDesign gave' })),
     item: Schema.OptionFromOptionalKey(
@@ -77,47 +78,44 @@ const Shot = Schema.Struct({
 const Peer = Schema.Struct({ version: Schema.String.pipe(Schema.decodeTo(Schema.Int, SchemaTransformation.transform({ decode: (version) => Number.parseInt(version, 10), encode: String }))) });
 const Mode = Schema.Literals(['Text', 'Grep', 'Glyph', 'Object']);
 const Outcome = Schema.Struct({ corrections: Schema.OptionFromOptionalKey(Schema.NonEmptyArray(Schema.String)), preview: Schema.OptionFromOptionalKey(Shot) });
-const Query = Schema.Struct({ name: Schema.String, mode: Mode, origin: Schema.Literals(['user', 'factory']), ...Struct.Record(['find', 'change', 'options'], Schema.JsonObject) });
+const Phase = Schema.Literals(['Idle', 'Held', 'Entered']);
+const unit = <P extends Schema.Top>(preview: P) =>
+    Activity.mapFields(
+        Struct.assign({
+            description: Activity.fields.description.annotate({ description: 'Present-progressive sentence shown while the call runs, naming its undo step' }),
+            preview: Schema.OptionFromOptionalKey(Schema.Union([Schema.Literal(true), preview]).annotate({ description: 'Runs the call, then undoes every change, returning its result or refusal, with an image of a given target' })),
+        }),
+    );
+const TypeScript = Schema.String.annotate({ description: 'JavaScript or TypeScript function body' }).pipe(Schema.decodeTo(Schema.String, { decode: SchemaGetter.transformEffect((code: string) => Effect.flatMap(Transpile, (strip) => strip(code))), encode: SchemaGetter.passthrough() }));
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-const At = { target: Schema.OptionFromOptionalKey(Specifier), field: Schema.String };
-const Refusal = Schema.TaggedUnion({
-    Refused: { ...At, cause: Schema.Defect() },
-    Untranslatable: { ...At, pattern: Schema.String, constructs: Schema.NonEmptyArray(Schema.Struct({ construct: Schema.String, alternative: Schema.OptionFromOptionalKey(Schema.String) })) },
+const Reason = Schema.TaggedUnion({
+    Refused: { at: Schema.OptionFromOptionalKey(Schema.String), cause: Schema.Defect() },
+    Untranslatable: { at: Schema.String, constructs: Schema.NonEmptyArray(Schema.Struct({ construct: Schema.String, alternative: Schema.OptionFromOptionalKey(Schema.String) })) },
+    Unrendered: { at: Schema.String },
+    Modal: {},
+    Unsettled: {},
 });
-class InDesignError extends Schema.TaggedError<InDesignError, { readonly brand: unique symbol }>()('InDesignError', {
-    reason: Schema.TaggedUnion({
-        Thrown: { cause: Schema.Defect() },
-        Script: { cause: Schema.Defect(), line: Schema.OptionFromOptionalKey(Schema.Int), source: Schema.OptionFromOptionalKey(Schema.String), corrections: Outcome.fields.corrections, kept: Schema.Boolean },
-        Rejected: { fields: Schema.NonEmptyArray(Refusal) },
-        Blocked: {},
-        Unsettled: {},
-    }),
-}) {
-    static readonly thrown = (cause: unknown): InDesignError => InDesignError.make({ reason: { _tag: 'Thrown', cause } });
+class InDesignError extends Schema.TaggedError<InDesignError, { readonly brand: unique symbol }>()('InDesignError', { reasons: Schema.NonEmptyArray(Reason) }) {
+    static readonly refused = (at: Option.Option<string>) => (cause: unknown) => InDesignError.make({ reasons: [{ _tag: 'Refused', at, cause }] });
     override get message(): string {
-        return InDesignError.fields.reason.match(this.reason, {
-            Thrown: ({ cause }) => Formatter.format(cause),
-            Script: ({ cause, line, source, corrections, kept }) =>
-                [Formatter.format(cause), ...Option.toArray(Option.map(line, (at) => [`line ${at}`, ...Option.toArray(source)].join(': '))), ...Option.toArray(Option.map(corrections, (applied) => `corrections: ${applied.join('; ')}`)), kept ? 'changes kept' : 'changes undone'].join('\n'),
-            Rejected: ({ fields }) =>
-                [
-                    ...Array.map(fields, (refusal) =>
-                        [
-                            ...Option.toArray(refusal.target),
-                            `${refusal.field}:`,
-                            Refusal.guards.Refused(refusal) ? Formatter.format(refusal.cause) : `InDesign GREP cannot read ${Array.map(refusal.constructs, ({ construct, alternative }) => (Option.isSome(alternative) ? `${construct} (write ${alternative.value})` : construct)).join(', ')} in ${refusal.pattern}`,
-                        ].join(' '),
-                    ),
-                    'changes undone',
-                ].join('\n'),
-            Blocked: () => 'A dialog open in InDesign blocks the call: close it, then retry',
-            Unsettled: () => 'A preview body returned a promise: work before its first await is undone, and work after it runs outside the rollback and stays',
-        });
+        return Array.map(this.reasons, (reason) =>
+            Reason.match(reason, {
+                Refused: ({ at, cause }) => [...Option.toArray(at), Formatter.format(cause)].join(': '),
+                Untranslatable: ({ at, constructs }) => `${at}: InDesign GREP cannot read ${Array.map(constructs, ({ construct, alternative }) => Option.match(alternative, { onNone: () => construct, onSome: (form) => `${construct} (write ${form})` })).join(', ')}`,
+                Unrendered: ({ at }) => `${at}: InDesign exported no image`,
+                Modal: () => 'A dialog open in InDesign blocks the call: close it, then retry',
+                Unsettled: () => 'A preview body returned a promise: work after its first await runs outside the rollback and stays',
+            }),
+        ).join('\n');
     }
 }
 const Failure = Schema.Union([InDesignError, Unmatched]);
+
+// --- [SERVICES] ------------------------------------------------------------------------
+
+const Transpile = Context.Reference<(code: string) => Effect.Effect<string, SchemaIssue.Issue>>('@rasm/indesign/contract/Transpile', { defaultValue: () => Effect.succeed });
 
 // --- [RPCS] ----------------------------------------------------------------------------
 
@@ -176,7 +174,19 @@ const Inspect = Rpc.make('inspect', {
             geometry: Schema.OptionFromOptionalKey(Geometry),
         },
         Items: { specifier: Specifier, total: Schema.Int, items: Schema.Array(Reference.pipe(Schema.fieldsAssign({ values: Schema.JsonObject, geometry: Schema.OptionFromOptionalKey(Geometry) }))) },
-        Class: { name: Schema.String, parents: Schema.Array(Schema.String), fields: Schema.Array(Field), methods: Schema.Array(Method) },
+        Class: {
+            name: Schema.String,
+            parents: Schema.Array(Schema.String),
+            fields: Schema.Array(Field),
+            methods: Schema.Array(
+                Field.mapFields(Struct.pick(['name', 'description'])).pipe(
+                    Schema.fieldsAssign({
+                        parameters: Schema.Array(Field.mapFields(Struct.omit(['settable'])).pipe(Schema.fieldsAssign({ optional: Schema.Boolean }))),
+                        returns: Schema.OptionFromOptionalKey(Field.mapFields(Struct.pick(['type', 'array']))),
+                    }),
+                ),
+            ),
+        },
         Enumeration: { name: Schema.String, members: Schema.Array(Field.mapFields(Struct.pick(['name', 'description']))) },
     }),
     error: Failure,
@@ -207,7 +217,7 @@ const Execute = Rpc.make('execute', {
     success: Outcome.pipe(Schema.fieldsAssign({ result: Schema.OptionFromOptionalKey(Schema.Json) })),
     error: Failure,
 })
-    .annotateMerge(WRITING)
+    .annotate(Tool.OpenWorld, false)
     .annotate(Instructions, ['- execute: Set writes fields, dialog fields included, and Script runs UXP JavaScript for the rest.']);
 const Render = Rpc.make('render', {
     payload: Schema.Struct({ target: Target }).annotate({
@@ -227,7 +237,7 @@ const FindChange = Rpc.make('find_change', {
         action: Schema.OptionFromOptionalKey(
             Schema.TaggedUnion({
                 Change: { preferences: Schema.JsonObject.annotate({ description: "Fields of the mode's change preferences, written to every match" }) },
-                Style: Struct.Record(['paragraphStyle', 'characterStyle'], Specifier),
+                Style: { paragraphStyle: Specifier, characterStyle: Specifier },
             }).annotate({ description: 'Change every match, or add the pattern to the paragraph style as a GREP style applying the character style; absent, the call finds alone' }),
         ),
         options: Schema.OptionFromOptionalKey(Schema.JsonObject.annotate({ description: "Fields of the mode's find/change options" })),
@@ -242,25 +252,40 @@ const FindChange = Rpc.make('find_change', {
         Schema.fieldsAssign({
             find: Schema.JsonObject,
             change: Schema.OptionFromOptionalKey(Schema.JsonObject),
-            count: Schema.Struct(Struct.Record(['matches', 'changes'], Schema.Int)),
-            matches: Schema.Array(Schema.Struct({ specifier: Specifier, ...Struct.Record(['text', 'context', 'page'], Schema.OptionFromOptionalKey(Schema.String)), paragraphStyle: Schema.OptionFromOptionalKey(Specifier) })),
-            changes: Schema.Array(Schema.Struct({ specifier: Specifier, ...Struct.Record(['before', 'after'], Schema.String) })),
+            count: Schema.Struct({ matches: Schema.Int, changes: Schema.Int }),
+            matches: Schema.Array(
+                Schema.Struct({
+                    specifier: Specifier,
+                    text: Schema.OptionFromOptionalKey(Schema.String),
+                    context: Schema.OptionFromOptionalKey(Schema.String),
+                    page: Schema.OptionFromOptionalKey(Schema.String),
+                    paragraphStyle: Schema.OptionFromOptionalKey(Specifier),
+                }),
+            ),
+            changes: Schema.Array(Schema.Struct({ specifier: Specifier, before: Schema.String, after: Schema.String })),
         }),
     ),
     error: Failure,
 })
-    .annotateMerge(WRITING)
+    .annotate(Tool.OpenWorld, false)
     .annotate(Instructions, ['- find_change: read indesign://grep/reference before writing GREP, or start from the grep prompt.']);
 const Font = Rpc.make('font', {
     payload: { name: Schema.String },
     success: Schema.Struct({
-        ...Struct.Record(['family', 'style', 'status'], Schema.String),
+        family: Schema.String,
+        style: Schema.String,
+        status: Schema.String,
         uses: Schema.Array(Specifier),
         autoLeading: Schema.Finite,
         installed: Schema.OptionFromOptionalKey(
             Schema.Struct({
-                ...Struct.Record(['postscriptName', 'fullName', 'version', 'type', 'location'], Schema.String),
-                ...Struct.Record(['styles', 'axes'], Schema.Array(Schema.String)),
+                postscriptName: Schema.String,
+                fullName: Schema.String,
+                version: Schema.String,
+                type: Schema.String,
+                location: Schema.String,
+                styles: Schema.Array(Schema.String),
+                axes: Schema.Array(Schema.String),
                 coordinates: Schema.Array(Schema.Finite),
                 allows: Schema.Struct(Struct.Record(['outlines', 'pdfEmbedding', 'editableEmbedding', 'restrictedPrinting'], Schema.Boolean)),
             }),
@@ -285,7 +310,7 @@ const Preflight = Rpc.make('preflight', {
 }).annotate(Surface, { _tag: 'Resource', uri: 'indesign://preflight' });
 const Queries = Rpc.make('queries', {
     payload: Schema.Struct({ name: Schema.OptionFromOptionalKey(Schema.String) }).annotate({ description: 'Saved Find/Change queries of every mode with their find, change, and options records, every query or one' }),
-    success: Schema.Array(Query),
+    success: Schema.Array(Schema.Struct({ name: Schema.String, mode: Mode, origin: Schema.Literals(['user', 'factory']), find: Schema.JsonObject, change: Schema.JsonObject, options: Schema.JsonObject })),
     error: Failure,
 }).annotate(Surface, { _tag: 'Resource', uri: 'indesign://grep/query' });
 const Dialect = Rpc.make('grep_reference', {
@@ -300,8 +325,9 @@ const Prompt = Rpc.make('grep', {
 })
     .annotate(Surface, { _tag: 'Prompt' })
     .annotate(Instructions, ['- indesign://menu{/area}, indesign://preflight{/profile}, indesign://grep/query{/name}, indesign://grep/reference: menu actions, preflight results, saved queries, the GREP dialect.']);
+const Enter = Rpc.make('enter', { payload: {}, success: Phase }).annotate(Surface, { _tag: 'None' });
 const InDesign = RpcGroup.make(Inspect, Execute, Render, FindChange, Font, Subset, Menu, Preflight, Queries, Dialect, Prompt, Enter).annotate(Instructions, ['InDesign is served through its panel, which links when InDesign starts. Measurements are numbers in points.']);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Box, Dialect, Execute, FindChange, Font, InDesign, InDesignError, Inspect, Menu, Mode, PATH, Peer, Preflight, Prompt, Queries, Refusal, Render, Specifier, Subset, Target };
+export { type Box, Enter, Execute, FindChange, Font, InDesign, InDesignError, Inspect, Menu, PATH, Peer, type Phase, Preflight, type Prompt, Queries, Specifier, Subset, Target, Transpile, unit };

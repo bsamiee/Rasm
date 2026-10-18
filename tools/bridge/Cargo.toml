@@ -24,6 +24,11 @@ path  = "main.rs"
 test  = false
 bench = false
 
+# --- [TEST]
+[[test]]
+name = "transport"
+path = "../../tests/rust/tools/bridge/transport.rs"
+
 # --- [LINTS] ----------------------------------------------------------------------------
 
 [lints]

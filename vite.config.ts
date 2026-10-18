@@ -28,7 +28,6 @@ const worker =
 const uxp = (directory: string, { main, manifest }: { readonly main: string; readonly manifest: object }): UserConfig => {
     const load = createRequire(import.meta.url);
     const encoding = load.resolve('@exodus/bytes/encoding-lite.js');
-    const injected = (name: string): readonly [string, [string, string]] => [name, [encoding, name]];
     return {
         build: {
             ssr: true,
@@ -40,7 +39,7 @@ const uxp = (directory: string, { main, manifest }: { readonly main: string; rea
                 transform: {
                     inject: Record.fromIterableWith(
                         Array.filter(Object.keys(load(encoding)), (name) => name in globalThis),
-                        injected,
+                        (name) => [name, [encoding, name] satisfies [string, string]],
                     ),
                 },
                 output: { format: 'cjs', entryFileNames: '[name].js', codeSplitting: false, paths: String.replace(_HOSTED, '') },

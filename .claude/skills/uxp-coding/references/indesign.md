@@ -275,7 +275,7 @@ const rendered = Effect.fn('rendered')(function* (document: Document, page: numb
 }, Effect.scoped);
 ```
 
-`rendered` runs on its own or inside a `transacted` preview, where rollback discards the rendered state. `file` names one file for `exportFile` and for `fs`, in a plug-in `<getTemporaryFolder().nativePath>page.jpg` and `plugin-temp:/page.jpg`, with the native path read from `Temporary` of `@rasm/uxp/runtime`. Emptying the file first makes zero bytes the one sign of a failed render, and pixel size is points times `exportResolution` (1 to 2400) over 72.
+`rendered` runs on its own or inside a `transacted` preview, where rollback discards the rendered state. `file` is one entry from `getTemporaryFolder().createFile(name, { overwrite: true })` in a plug-in: `exportFile` takes its `nativePath`, `fs` its `url`. Emptying the file first makes zero bytes the one sign of a failed render, and pixel size is points times `exportResolution` (1 to 2400) over 72.
 
 - Leftover `pageString` from another script makes a one-page export write nothing unless range and page are set together
 - `exportFile` on an item ignores the page range and writes nothing for a zero-area item, and `exportingSpread` true exports the whole spread
@@ -420,11 +420,11 @@ const scripted = <A, E>(work: (args: readonly string[]) => Effect.Effect<A, E>):
         const exit = yield* Effect.exit(work(args));
         const result = yield* Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(Exit.match(exit, { onSuccess: (value) => ({ value }), onFailure: (cause) => ({ failure: Cause.pretty(cause) }) }));
         Reflect.apply(setResult, script, [result]);
-    }).pipe(Effect.provide(HostClock), Effect.runSync);
+    }).pipe(Effect.provide(clock), Effect.runSync);
 };
 ```
 
-Typings omit `script` from `uxp`, and `Reflect.apply` keeps the host's `script` object as receiver. A `script` that fails the decode throws from `runSync` and the host alerts it. Each `do script` call loads a fresh context, `language javascript` running ExtendScript and `language uxpscript` UXP, and state for a later call goes through `insertLabel`.
+`clock` is the host `Clock` layer. Typings omit `script` from `uxp`, and `Reflect.apply` keeps the host's `script` object as receiver. A `script` that fails the decode throws from `runSync` and the host alerts it. Each `do script` call loads a fresh context, `language javascript` running ExtendScript and `language uxpscript` UXP, and state for a later call goes through `insertLabel`.
 
 - Source text holding `async ` before a function or `await ` before an expression switches the runner to async mode, replying empty before the body runs
 - Runner tests match `async ` and `await ` inside strings and comments

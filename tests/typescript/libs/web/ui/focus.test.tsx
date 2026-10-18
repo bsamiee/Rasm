@@ -1,6 +1,6 @@
+import { focus } from '@rasm/ui/focus.ts';
 import { expect, it } from 'vitest';
 import { render } from 'vitest-browser-react';
-import { focus } from './focus.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

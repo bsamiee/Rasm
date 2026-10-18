@@ -12,6 +12,7 @@ from cyclopts import App, Parameter
 from cyclopts.types import ResolvedExistingFile
 from expression import Result
 from expression.extra.result import catch
+import msgspec
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -20,6 +21,7 @@ type Failure = OSError | subprocess.CalledProcessError
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 ROOT = Path(__file__).resolve().parents[4]
+SCRIPTS = ROOT / ".cache" / "blender" / "scripts"
 FOLDERS = {
     "BLENDER_USER_RESOURCES": ".",
     "BLENDER_USER_CONFIG": "config",
@@ -28,6 +30,25 @@ FOLDERS = {
     "BLENDER_USER_DATAFILES": "datafiles",
     "TMPDIR": "tmp",
 }
+
+# --- [MODELS] ---------------------------------------------------------------------------
+
+
+class _Backend(msgspec.Struct, frozen=True, rename="kebab"):
+    module_root: str
+
+
+class _Uv(msgspec.Struct, frozen=True, rename="kebab"):
+    build_backend: _Backend
+
+
+class _Tool(msgspec.Struct, frozen=True):
+    uv: _Uv
+
+
+class _Project(msgspec.Struct, frozen=True):
+    tool: _Tool
+
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -83,12 +104,13 @@ def opened(folder: Path, environment: dict[str, str], blender: Path, arguments: 
     return catch(gui, exception=OSError)()
 
 
-def provisioned(folder: Path, environment: dict[str, str], blender: Path) -> Result[Path, Failure]:
-    """Tree whose user `scripts/modules` folder, first on Blender's `sys.path` and untouched by its extension wheel sync, holds the distributions `fitout pack` bundles as wheels."""
+def provisioned(folder: Path, environment: dict[str, str], blender: Path) -> Result[dict[str, str], Failure]:
+    """Environment with `PYTHONPATH` at the checkout's module root and `BLENDER_SYSTEM_SCRIPTS` at the shared folder whose `modules`, first on Blender's `sys.path` and untouched by its extension wheel sync, `fitout site` syncs to the distributions `fitout pack` bundles as wheels."""
     return (
-        launched(folder, environment, (sys.executable, "-m", "eng.python.fitout", "site", "--blender", blender, folder / FOLDERS["BLENDER_USER_SCRIPTS"] / "modules"))
+        launched(folder, environment, (sys.executable, "-m", "eng.python.fitout", "site", "--blender", blender, SCRIPTS / "modules"))
         .bind(lambda done: catch(done.check_returncode, exception=subprocess.CalledProcessError)())
-        .map(lambda _: folder)
+        .bind(lambda _: catch((ROOT / "pyproject.toml").read_bytes, exception=OSError)())
+        .map(lambda project: environment | {"BLENDER_SYSTEM_SCRIPTS": str(SCRIPTS), "PYTHONPATH": str(ROOT / msgspec.toml.decode(project, type=_Project).tool.uv.build_backend.module_root)})
     )
 
 
@@ -104,7 +126,7 @@ def run(
         pycache: Bytecode cache folder for Blender's Python, supplied by PYTHONPYCACHEPREFIX.
 
     Returns:
-        Exit code of a headless Blender or of a GUI's `open` with the merged output printed, or the filesystem, launch, or package install error.
+        Exit code of a headless Blender or of a GUI's `open` with the merged output printed, or the filesystem, launch, or package sync error.
     """
 
     def shown(done: subprocess.CompletedProcess[bytes]) -> int:
@@ -115,7 +137,7 @@ def run(
         environment = {variable: str(folder / child) for variable, child in FOLDERS.items()} | {"PYTHONPYCACHEPREFIX": str(pycache)}
         given = ("--python-use-system-env", *arguments)
         background = not {"-b", "--background"}.isdisjoint(takewhile(lambda argument: argument != "--", arguments))
-        return provisioned(folder, environment, blender).bind(lambda _: launched(folder, environment, (blender, *given)) if background else opened(folder, environment, blender, given))
+        return provisioned(folder, environment, blender).bind(lambda provided: launched(folder, provided, (blender, *given)) if background else opened(folder, provided, blender, given))
 
     return tree(name).bind(started).map(shown)
 

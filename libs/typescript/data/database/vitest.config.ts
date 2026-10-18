@@ -10,7 +10,7 @@ export default createVitestConfig(import.meta.dirname, {
             { test: { name: 'postgres', include: ['postgres.test.ts'] } },
             {
                 plugins: [cloudflareTest({ experimental: { newConfig: true } })],
-                test: { name: 'workers', include: ['d1.test.ts', 'durable.test.ts'], setupFiles: ['@rasm/test-support/workers'] },
+                test: { name: 'workers', include: ['d1.test.ts', 'durable.test.ts'] },
             },
         ],
     },

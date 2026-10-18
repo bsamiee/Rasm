@@ -1,15 +1,16 @@
-import { Unmatched } from '@rasm/mcp/link';
+import { Unmatched } from '@rasm/mcp/server';
 import { type AnyNode, getLineInfo, parse } from 'acorn';
 import { fullAncestor } from 'acorn-walk';
-import { Array, Cache, Effect, flow, Match, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
+import { Array, Cache, Effect, flow, Match, Option, Predicate, Record, Schema, Struct } from 'effect';
 import type { Rpc } from 'effect/rpc';
 import MagicString from 'magic-string';
 import { type Execute, InDesignError } from './contract.ts';
-import { collection, encoded, exported, type Host, host, Model, plurals, record, resolve, write } from './dom.ts';
+import { collection, encoded, exported, type Host, host, Model, plural, record, resolve, write } from './dom.ts';
 import { previewed } from './render.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
+type Unit = Omit<Rpc.Payload<typeof Execute>, 'run'>;
 interface Splice {
     readonly node: AnyNode;
     readonly call: '__item' | '__set' | '__add';
@@ -23,19 +24,10 @@ const LINE_BREAK = /\r\n?|[\n\p{Zl}\p{Zp}]/u;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const decoded = Effect.fnUntraced(function* (pending: PromiseLike<Result.Result<string | undefined, InDesignError>> | string | undefined) {
-    const json = Predicate.isPromiseLike(pending)
-        ? yield* Effect.flatMap(
-              Effect.promise(() => Promise.resolve(pending)),
-              Effect.fromResult,
-          )
-        : pending;
-    return Option.fromUndefinedOr(yield* Effect.orDie(Schema.decodeEffect(Schema.UndefinedOr(Schema.fromJsonString(Schema.Json)))(json)));
-});
-const script = Effect.fn('script')(function* ({ code }: { readonly code: string }, unit: Omit<Rpc.Payload<typeof Execute>, 'run'>) {
+const parsed = (json: string | undefined): Option.Option<Schema.Json> => Option.flatMap(Option.fromUndefinedOr(json), Schema.decodeOption(Schema.fromJsonString(Schema.Json)));
+const script = Effect.fn('script')(function* (code: string, unit: Unit) {
     const [notes, lines, runSync] = [new Set<string>(), code.split(LINE_BREAK), Effect.runSyncWith(yield* Effect.context<Model>())];
-    const applied = () => Option.liftPredicate(Array.fromIterable(notes), Array.isArrayNonEmpty);
-    const failed = (kept: boolean, locate: (cause: unknown) => Option.Option<number>) => (cause: unknown) => InDesignError.make({ reason: { _tag: 'Script', cause, line: locate(cause), source: Option.flatMap(locate(cause), (at) => Array.get(lines, at - 1)), corrections: applied(), kept } });
+    const failed = (position: Option.Option<number>) => InDesignError.refused(Option.map(position, (at) => [`line ${at}`, ...Option.toArray(Array.get(lines, at - 1))].join(': ')));
     const corrected = (site: string, target: Host, values: Record.ReadonlyRecord<string, unknown>): void => {
         runSync(write(target, values)).forEach((note) => {
             notes.add(`${site}.${note}`);
@@ -70,12 +62,11 @@ const script = Effect.fn('script')(function* ({ code }: { readonly code: string 
     };
     const tree = yield* Effect.try({
         try: () => parse(code, { ecmaVersion: 2024, preserveParens: true, allowReturnOutsideFunction: true, allowAwaitOutsideFunction: Option.isNone(unit.preview) }),
-        catch: failed(false, (cause) => Option.map(Schema.decodeUnknownOption(Schema.Struct({ loc: Schema.Struct({ line: Schema.Int }) }))(cause), ({ loc }) => loc.line)),
+        catch: (cause) => failed(Option.map(Schema.decodeUnknownOption(Schema.Struct({ loc: Schema.Struct({ line: Schema.Int }) }))(cause), ({ loc }) => loc.line))(cause),
     });
     const visits: { readonly node: AnyNode; readonly up: readonly AnyNode[] }[] = [];
-    const lineage = (ancestors: readonly AnyNode[]): readonly AnyNode[] => Array.drop(Array.reverse(ancestors), 1).filter((above) => above.type !== 'ParenthesizedExpression');
     fullAncestor(tree, (node, _state, ancestors) => {
-        visits.push({ node, up: lineage(ancestors) });
+        visits.push({ node, up: Array.drop(Array.reverse(ancestors), 1).filter((above) => above.type !== 'ParenthesizedExpression') });
     });
     const source = (node: AnyNode): string => code.slice(node.start, node.end);
     const line = (at: number): number => getLineInfo(code, at).line;
@@ -106,7 +97,7 @@ const script = Effect.fn('script')(function* ({ code }: { readonly code: string 
                               swaps: [
                                   [member.object.end, member.property.start, ', '],
                                   [member.property.end, member.end, ''],
-                              ] as const,
+                              ],
                           },
                       ],
             ),
@@ -143,19 +134,14 @@ const script = Effect.fn('script')(function* ({ code }: { readonly code: string 
     const compiled = yield* Effect.try({
         // biome-ignore lint/nursery/noImpliedEval: Galley Script compiles caller-supplied source to run in InDesign
         try: () => new Function(...Object.keys(given), awaiting ? `return (async () => ${text})();` : text),
-        catch: failed(false, Option.none),
+        catch: failed(Option.none()),
     });
     const header = compiled.toString().slice(0, compiled.toString().indexOf(text)).split('\n').length;
-    const located = (_error: Error, frames: readonly NodeJS.CallSite[]): number | undefined =>
-        Array.findFirst(frames, (frame) => frame.isEval()).pipe(
-            Option.flatMapNullishOr((frame) => frame.getLineNumber()),
-            Option.getOrUndefined,
-        );
-    const thrown = (cause: unknown): Option.Option<number> => {
+    const thrown = (cause: unknown): InDesignError => {
         const prepare = Error.prepareStackTrace;
-        Error.prepareStackTrace = located;
+        Error.prepareStackTrace = (_error, frames) => frames.find((frame) => frame.isEval())?.getLineNumber();
         try {
-            return Option.map(Option.liftPredicate(Predicate.hasProperty(cause, 'stack') ? cause.stack : undefined, Predicate.isNumber), (at) => at - header);
+            return failed(Option.map(Option.liftPredicate(Predicate.hasProperty(cause, 'stack') ? cause.stack : undefined, Predicate.isNumber), (at) => at - header))(cause);
         } finally {
             Error.prepareStackTrace = prepare;
         }
@@ -163,20 +149,16 @@ const script = Effect.fn('script')(function* ({ code }: { readonly code: string 
     const stepped = yield* previewed(
         unit,
         Effect.gen(function* () {
-            const value = yield* Effect.try({ try: (): unknown => Reflect.apply(compiled, undefined, Object.values(given)), catch: failed(false, thrown) });
-            const unsettled = Predicate.isPromiseLike(value) && Option.isSome(unit.preview);
-            yield* unsettled ? Effect.fail(InDesignError.make({ reason: { _tag: 'Unsettled' } })) : Effect.void;
-            return Predicate.isPromiseLike(value)
-                ? value.then(
-                      (settled) => Result.succeed(encoded(settled, true)),
-                      (cause: unknown) => Result.fail(failed(true, thrown)(cause)),
-                  )
-                : encoded(value, true);
+            const value = yield* Effect.try({ try: (): unknown => Reflect.apply(compiled, undefined, Object.values(given)), catch: thrown });
+            yield* Predicate.isPromiseLike(value) && Option.isSome(unit.preview) ? Effect.fail(InDesignError.make({ reasons: [{ _tag: 'Unsettled' }] })) : Effect.void;
+            return Predicate.isPromiseLike(value) ? value : encoded(value, true);
         }),
     );
-    return { result: yield* decoded(stepped.result), corrections: applied(), preview: stepped.preview };
+    const settled = stepped.result;
+    const json = Predicate.isPromiseLike(settled) ? encoded(yield* Effect.tryPromise({ try: () => Promise.resolve(settled), catch: thrown }), true) : settled;
+    return { result: parsed(json), corrections: Option.liftPredicate(Array.fromIterable(notes), Array.isArrayNonEmpty), preview: stepped.preview };
 });
-const set = Effect.fn('set')(function* ({ target, properties, add }: { readonly target: string; readonly properties: Record.ReadonlyRecord<string, unknown>; readonly add: Option.Option<string> }, unit: Omit<Rpc.Payload<typeof Execute>, 'run'>) {
+const set = Effect.fn('set')(function* ({ target, properties, add }: Extract<Rpc.Payload<typeof Execute>['run'], { readonly _tag: 'Set' }>, unit: Unit) {
     const model = yield* Model;
     const shaped = (owner: Host, fields: Record.ReadonlyRecord<string, unknown>): Record.ReadonlyRecord<string, unknown> =>
         Record.map(fields, (value, field) => {
@@ -184,31 +166,29 @@ const set = Effect.fn('set')(function* ({ target, properties, add }: { readonly 
             return record(value) && host(held) ? shaped(held, value) : held;
         });
     const added = Effect.fnUntraced(function* (owner: Host, field: string) {
-        const [items, shape] = [owner[field], yield* Effect.option(Cache.get(model, owner.constructorName))];
-        const fields = Option.getOrElse(Option.map(shape, Struct.get('fields')), () => ({}));
-        return yield* collection(items)
-            ? Effect.filterOrFail(Effect.try({ try: (): unknown => items.add(), catch: InDesignError.thrown }), host, InDesignError.thrown)
-            : Effect.fail(Unmatched.make({ subject: `collection of ${owner.toSpecifier()}`, query: field, candidates: Record.keys(Record.filter(fields, ({ type }) => type !== undefined && plurals.has(type))) }));
+        const items = owner[field];
+        const fields = Effect.map(Effect.option(Cache.get(model, owner.constructorName)), Option.match({ onNone: () => ({}), onSome: Struct.get('fields') }));
+        return collection(items)
+            ? yield* Effect.try({ try: () => items.add(), catch: InDesignError.refused(Option.some(`${owner.toSpecifier()} ${field}.add()`)) })
+            : yield* Unmatched.make({ subject: `collection of ${owner.toSpecifier()}`, query: field, candidates: Record.keys(Record.filter(yield* fields, ({ type }) => type !== undefined && plural(type))) });
     });
     const changed = Effect.fnUntraced(function* (member: Host) {
-        const before = Option.liftPredicate(shaped(member, properties), () => Option.isNone(add));
+        const before = Option.isNone(add) ? shaped(member, properties) : {};
         const written = yield* write(member, properties);
         const after = shaped(member, properties);
-        return { written, rows: Array.map(Record.keys(properties), (field) => ({ target: member, field, before: Option.isSome(before) ? before.value[field] : null, after: after[field] })) };
+        return { written, rows: Array.map(Record.keys(properties), (field) => ({ target: member, field, before: before[field] ?? null, after: after[field] })) };
     });
     const stepped = yield* previewed(
         unit,
         Effect.gen(function* () {
-            const found = yield* resolve(target);
-            const members = host(found) ? [found] : found;
-            const targets = yield* Option.match(add, { onNone: () => Effect.succeed(members), onSome: (field) => Effect.forEach(members, (owner) => added(owner, field)) });
-            const results = yield* Effect.forEach(targets, changed);
-            return { json: encoded(Array.flatMap(results, Struct.get('rows')), false), notes: Array.flatMap(results, ({ written }) => written) };
+            const members = Array.ensure(yield* resolve(target));
+            const results = yield* Effect.forEach(yield* Option.match(add, { onNone: () => Effect.succeed(members), onSome: (field) => Effect.forEach(members, (owner) => added(owner, field)) }), changed);
+            return { json: encoded(Array.flatMap(results, Struct.get('rows')), true), notes: Array.flatMap(results, Struct.get('written')) };
         }),
     );
-    return { result: yield* decoded(stepped.result.json), corrections: Option.liftPredicate(stepped.result.notes, Array.isArrayNonEmpty), preview: stepped.preview };
+    return { result: parsed(stepped.result.json), corrections: Option.liftPredicate(stepped.result.notes, Array.isArrayNonEmpty), preview: stepped.preview };
 });
-const execute = ({ run, ...unit }: Rpc.Payload<typeof Execute>) => Match.valueTags(run, { Script: (form) => script(form, unit), Set: (form) => set(form, unit) });
+const execute = ({ run, ...unit }: Rpc.Payload<typeof Execute>) => Match.valueTags(run, { Script: ({ code }) => script(code, unit), Set: (form) => set(form, unit) });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

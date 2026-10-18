@@ -1,7 +1,7 @@
 {
     "name": "@rasm/uxp",
     "private": true,
-    "description": "Runtime for UXP panels in any Adobe host: dialed RPC serving one host call at a time, link and activity status, held-call hand-off, host clock, and the plugin temporary folder",
+    "description": "Runtime for UXP panels in any Adobe host: dialed RPC serving one host call at a time, link and activity status, host clock, and the plugin temporary folder",
     "type": "module",
     "exports": {
         "./*": "./*.ts"

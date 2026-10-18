@@ -53,6 +53,11 @@ crate-type = ["lib"]
 name       = "untyped_error_exported"
 crate-type = ["lib"]
 
+# --- [TEST]
+[[test]]
+name = "ui"
+path = "../../tests/rust/tools/dylint/main.rs"
+
 # --- [LINTS] ----------------------------------------------------------------------------
 
 [lints]

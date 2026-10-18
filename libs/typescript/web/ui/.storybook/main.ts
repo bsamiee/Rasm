@@ -4,4 +4,4 @@ import { react } from '../../../../../vite.config.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default defineMain({ framework: '@storybook/react-vite', stories: ['../*.stories.tsx'], addons: ['@rasm/test-support/preset'], viteFinal: (config) => mergeConfig(config, { plugins: [react()] }) });
+export default defineMain({ framework: '@storybook/react-vite', stories: ['./*.stories.tsx'], addons: ['@rasm/test-support/preset'], viteFinal: (config) => mergeConfig(config, { plugins: [react()] }) });

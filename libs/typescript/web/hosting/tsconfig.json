@@ -3,5 +3,6 @@
     "compilerOptions": {
         "lib": [ "esnext", "dom" ],
         "types": [ "node", "./.cloudflare/types", "@cloudflare/vitest-plugin/types" ]
-    }
+    },
+    "include": [ "**/*", "../../../../tests/typescript/libs/web/hosting" ]
 }

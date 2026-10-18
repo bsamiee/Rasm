@@ -58,15 +58,15 @@ Context decides what code can hold across time:
 
 Each difference from a browser or Node holds in InDesign, Photoshop, and Premiere Pro, and has one owner:
 
-| [INDEX] | [DIFFERENCE]                                  | [OWNER]              | [FORM]                                      |
-| :-----: | :-------------------------------------------- | :------------------- | :------------------------------------------ |
-|  [01]   | Global constructed at load (`TextEncoder`)    | `@rasm/uxp/encoding` | Package implementation assigned before load |
-|  [02]   | Member of another type (`hrtime.bigint`)      | `@rasm/uxp/runtime`  | `Clock` layer over `performance.now()`      |
-|  [03]   | Absent global or module (`Worker`, `node:*`)  | Bundle               | Dependencies reading one stay out           |
-|  [04]   | Module typed as Node's (`fs`, `path`)         | Read site            | Value decoded where read                    |
-|  [05]   | Feature with a missing part (`Response.body`) | Call site            | Whole-body read, flag on whole pattern      |
+| [INDEX] | [DIFFERENCE]                                  | [OWNER]             | [FORM]                                   |
+| :-----: | :-------------------------------------------- | :------------------ | :--------------------------------------- |
+|  [01]   | Global constructed at load (`TextEncoder`)    | Bundle              | Package implementation injected per read |
+|  [02]   | Member of another type (`hrtime.bigint`)      | `@rasm/uxp/runtime` | `Clock` layer over `performance.now()`   |
+|  [03]   | Absent global or module (`Worker`, `node:*`)  | Bundle              | Dependencies reading one stay out        |
+|  [04]   | Module typed as Node's (`fs`, `path`)         | Read site           | Value decoded where read                 |
+|  [05]   | Feature with a missing part (`Response.body`) | Call site           | Whole-body read, flag on whole pattern   |
 
-Imports evaluate before the body of the module importing them, and Effect 4.0.5 constructs a `TextEncoder` while `encoding/Base64` loads, through the barrel and deep imports alike. `@rasm/uxp/encoding` imports nothing from Effect and assigns the encoding globals in its body, and each entry file imports it first as a bare import, which Biome import sorting keeps in place. Effect's default clock reads `process.hrtime.bigint`, a `number` in UXP, at each span start, span end, and log inside a span, and throws "Cannot mix BigInt and other types". Every runtime and `run*` call provides `HostClock` from `@rasm/uxp/runtime`, and a `run*With` inside a host callback passes the caller's services on.
+Effect's `encoding/Base64`, `socket/Socket`, and `encoding/SchemaBinary` modules construct a `TextEncoder` while they load, before any module body of the plug-in runs. Root `uxp()` in `vite.config.ts` gives rolldown `transform.inject` rows that turn each read of an encoding global into an import of its `@exodus/bytes` class, with no global assigned and no import order to keep. Effect's default clock reads `process.hrtime.bigint`, a `number` in UXP, at each span start, span end, and log inside a span, and throws "Cannot mix BigInt and other types". Every runtime and `run*` call provides a `Clock` layer over `performance.now()`, which `launch` of `@rasm/uxp/runtime` provides to a panel, and a `run*With` inside a host callback passes the caller's services on.
 
 - Effect decodes with `{ stream: true }`, which an encoding package must implement
 - `structuredClone`, `Buffer`, `MessageChannel`, and `Worker` are absent in every host, and `require` of `util`, `buffer`, or a `node:` name throws
@@ -261,7 +261,7 @@ const registered = <R, ER, E>(
     status: HTMLElement,
     commands: Record.ReadonlyRecord<string, Effect.Effect<string, E, R>>,
 ): void => {
-    const runtime = ManagedRuntime.make(Layer.provideMerge(layer, HostClock));
+    const runtime = ManagedRuntime.make(Layer.provideMerge(layer, clock));
     const rendered = Effect.onExit((exit: Exit.Exit<string, E>) =>
         Effect.sync(() => {
             status.setAttribute('data-state', exit._tag);
@@ -276,9 +276,9 @@ const registered = <R, ER, E>(
 };
 ```
 
-`@adobe-uxp-types/uxp` merges the `setup` parameter with `entrypoints`, which a handler record fails for lacking `getCommand`, `getPanel`, `setup`, and `_pluginInfo`. `satisfies` checks each handler against the declared `plugin` and `commands` members, and `Reflect.apply` calls the untyped overload with `entrypoints` as receiver. `Effect.onExit` renders every failed `Exit` through `Cause.pretty` before `runPromise` rejects with the squashed cause. `create` builds every layer at load, and `dispose` closes every scope they opened.
+`clock` is the host `Clock` layer. `@adobe-uxp-types/uxp` merges the `setup` parameter with `entrypoints`, which a handler record fails for lacking `getCommand`, `getPanel`, `setup`, and `_pluginInfo`. `satisfies` checks each handler against the declared `plugin` and `commands` members, and `Reflect.apply` calls the untyped overload with `entrypoints` as receiver. `Effect.onExit` renders every failed `Exit` through `Cause.pretty` before `runPromise` rejects with the squashed cause. `create` builds every layer at load, and `dispose` closes every scope they opened.
 
-- Session plug-ins run `Layer.launch(<layer>).pipe(Effect.provide(HostClock), Effect.runFork)` at load, the layer rendering its state into `document.body`
+- Panels run `launch(<layer>, { peer, origin })` of `@rasm/uxp/runtime` at load, which renders link and call status into `document.body`
 - `setup` throws for a `plugin` record without `create`, for a command or panel key its manifest lacks, and after one successful call
 - Panel handlers receive their root node: `create(rootNode)`, `show(rootNode, data)`, `hide(rootNode, data)`, `destroy(rootNode)`
 - `main` builds every state a panel reads, since a host can run `main` at launch with no panel shown

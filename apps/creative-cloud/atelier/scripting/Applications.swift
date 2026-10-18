@@ -1,5 +1,4 @@
 import AppKit
-import ImageIO
 import RasmMacOS
 import Subprocess
 import System
@@ -174,13 +173,10 @@ struct Window: Encodable {
 
     // --- [CAPTURE]
 
-    struct Size: Encodable {
-        let width: Int
-        let height: Int
-    }
-
-    static func capture(_ id: Int, into url: URL) async -> Result<Size, AggregateError<Failure>> {
+    static func capture(_ id: Int) async -> Result<Data, AggregateError<Failure>> {
         let tool: FilePath = "/usr/sbin/screencapture"
+        let url: URL = URL.temporaryDirectory.appending(path: "\(UUID().uuidString).jpg")
+        defer { try? FileManager.default.removeItem(at: url) }
         let captured: Result<Void, AggregateError<Failure>> = await ProcessRun.collect(
             ProcessRun.configuration(
                 executable: .path(tool),
@@ -196,10 +192,6 @@ struct Window: Encodable {
                 ? .success(())
                 : .failure(AggregateError(first: .exited(tool: tool, status: result.terminationStatus, message: result.standardError.trimmingCharacters(in: .newlines))))
         }
-        return captured.flatMap { _ in
-            let image: CGImage? = CGImageSourceCreateWithURL(url as CFURL, nil).flatMap { source in CGImageSourceCreateImageAtIndex(source, 0, nil) }
-            let unreadable: AggregateError<Failure> = AggregateError(first: .unreadable(CocoaError(.fileReadCorruptFile, userInfo: [NSURLErrorKey: url])))
-            return image.map { captured in .success(Size(width: captured.width, height: captured.height)) } ?? .failure(unreadable)
-        }
+        return captured.flatMap { _ in Result { try Data(contentsOf: url) }.mapError { error in AggregateError(first: .unreadable(error)) } }
     }
 }

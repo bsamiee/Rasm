@@ -81,9 +81,6 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 
 - Clippy is each member's type check over its library, binary, and test targets, a separate `cargo check` repeats its compile
 - Tested libraries select `--lib --bins --tests`, tested binary-only packages `--all-targets`, untested packages Cargo defaults
-- Container cases carry `#[ignore = "<reason>"]`, the package's `test:integration` target runs them through `--run-ignored only`
-- Container cases pull their `latest` image through `AsyncRunner::pull_image`
-- Integration test crates hold no `#![cfg(test)]`, rustc compiles them under `--test` and Dylint passes skip test code through `Session::is_test_crate`
 - Joins stay on `futures::future::join` until a rust-analyzer release resolves the def-site helper macro of `core::future::join!`
 - Editors and harnesses run locked workspace Clippy with `-- -D warnings` to reject warnings in JSON output
 - `check.allTargets` and `check.extraArgs` check a saved example or binary alone by `--example` or `--bin`, an override runs one command per save
@@ -118,16 +115,7 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - Lint modules hold one pass and its `Warn` lints in Clippy file order: one root `lint!` call, the pass's own `new` if any, then `impl LateLintPass`
 - Lint modules are plain `mod` items rustfmt reaches, one root `lints!` call registers each pass by `<module path>::<Pass>`
 - `lint!` writes a unit `Pass` with `new`, `lint!(default <Pass>; ..)` adds `new` over a derived `Default`, `lint!(Pass; ..)` leaves a pass holding resolved items to its own `new` from `TyCtxt`
-- Fixtures are examples `examples/<lint>.rs` and `examples/<lint>_<case>.rs` per entry-function case, importing dev-dependencies the library lacks
-- `examples/` stays flat, Cargo discovers `examples/*.rs` and `examples/*/main.rs` alone and a nested fixture takes an `[[example]]` row
-- Fixtures of lints skipping exported items take an `[[example]]` row with `crate-type = ["lib"]`, a binary example exports nothing
 - Forms a lint splits by export belong to the lint whatever their `pub` text, an ast-grep rule over the same form excludes it through one shared util
-- `tests/ui/main.rs` holds one `#[test] fn ui` that runs `cargo dylint --no-deps` once over every fixture and groups diagnostics by lint name
-- `tests/ui/<folder>.rs` holds one function per lint of its lint folder, asserting diagnostics and suggestion applicability as an inline snapshot
-- Each `tests/ui/<folder>.rs` ends in one `snapshots!` row naming its functions, `ui` reads each folder's `SNAPSHOTS` and names each differing lint
-- Lint folders join `tests/ui/main.rs` as a `mod` line and a `<folder>::SNAPSHOTS` entry
-- `cargo insta test -p lints` records a changed snapshot as pending, `cargo insta review` writes it
-- Fixtures compile in that run alone under `[workspace.lints]` rustc rows, library checks select no example target
 - `host:dylint` members take no `coverage`, the dylint driver runs their lints outside instrumentation
 - Drivers stay under `~/.dylint_drivers`, dylint refuses a missing driver directory and `rasm:clean` removes `.cache`
 

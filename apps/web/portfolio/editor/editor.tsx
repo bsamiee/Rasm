@@ -1,20 +1,19 @@
 import { useAtom, useAtomRefresh, useAtomSet, useAtomSubscribe, useAtomValue } from '@effect/atom-react';
 import { focus } from '@rasm/ui/focus.ts';
-import { Array, Effect, Match, Optic, Option } from 'effect';
+import { Array, Effect, Match, Option } from 'effect';
 import { AsyncResult, type Atom } from 'effect/reactivity';
 import { ArrowLeft, X } from 'lucide-react';
 import { lazy, type ReactNode, Suspense, useEffect, useId, useRef, useState } from 'react';
 import { Button, Dialog, Heading, type Key, Modal, ModalOverlay, Tab, TabList, TabPanel, Tabs, Text } from 'react-aria-components';
 import { entryTitle, quantity } from '../media/display.ts';
-import { createEntry, type Entry, type Portfolio, type PortfolioData } from '../model/document.ts';
-import { type Placement, placementsFor } from '../model/placement.ts';
+import { Entry, type Portfolio, type PortfolioData } from '../model/document.ts';
 import { Compositions } from './compositions.tsx';
 import { ConfirmDialog, RequestAlert } from './controls.tsx';
 import { EntryFields, EntryList } from './entries.tsx';
 import { Identity } from './identity.tsx';
 import { Library } from './library.tsx';
 import { ReuseFile } from './reuse.tsx';
-import { deleteRequest, draft, draftState, identifier, reloadRequest, saveRequest } from './services.ts';
+import { deleteRequest, draft, identifier, portfolio, reloadRequest, saveRequest } from './services.ts';
 import { destination, pendingUploads } from './uploader.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -42,31 +41,28 @@ const EditorDialog = ({ description, busy, children }: { description?: string; b
         </Modal>
     </ModalOverlay>
 );
-const DraftEditor = ({ data, revision, changed, published, onPreview }: Atom.Success<typeof draftState> & { published: typeof Portfolio.Type; onPreview: (data: typeof PortfolioData.Type) => void }) => {
+const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof draft> & { published: typeof Portfolio.Type; onPreview: (data: typeof PortfolioData.Type) => void }) => {
     const ids = useId();
     const publish = useRef<HTMLButtonElement>(null);
     const save = useRef<HTMLButtonElement>(null);
     const setDraft = useAtomSet(draft);
     const setTarget = useAtomSet(destination);
     const pending = useAtomValue(pendingUploads);
+    const deletion = useAtomValue(deleteRequest);
+    const [operation, submit] = useAtom(saveRequest);
+    const [reloading, reload] = useAtom(reloadRequest);
     const [selected, setSelected] = useState<string>();
     const [workspace, setWorkspace] = useState<'projects' | 'entry' | 'sources'>('projects');
     const [composition, setComposition] = useState<string>();
     const [source, setSource] = useState(Option.none<string>());
-    const [sheets, setSheets] = useState<readonly number[]>([]);
     const [tab, setTab] = useState<Key>(`${ids}entries`);
-    const [operation, submit] = useAtom(saveRequest);
-    const [deletion, deleteAsset] = useAtom(deleteRequest);
-    const [reloading, reload] = useAtom(reloadRequest);
     useEffect(() => {
         if (AsyncResult.isSuccess(reloading) && !reloading.waiting) {
             save.current?.focus();
         }
     }, [reloading]);
-    const portfolio = Optic.id<typeof PortfolioData.Type>().key('portfolio');
-    const entries = portfolio.key('entries');
     const busy = operation.waiting || deletion.waiting || reloading.waiting;
-    const current = data.portfolio.entries.find((item) => item.id === selected);
+    const current = state.portfolio.entries.find((item) => item.id === selected);
     const show = (name: 'entries' | 'files' | 'identity') => setTab(`${ids}${name}`);
     const openEntry = (id: string) => {
         setSelected(id);
@@ -77,16 +73,13 @@ const DraftEditor = ({ data, revision, changed, published, onPreview }: Atom.Suc
         setSelected(entryId);
         setTarget({ kind: 'entry', id: entryId });
         setSource(Option.some(assetId));
-        setSheets([]);
         setWorkspace('sources');
         show('entries');
         focus(`${ids}source`);
     };
-    const setHero = (hero: typeof Placement.Type | undefined) => setDraft(AsyncResult.map(Optic.replace(portfolio.optionalKey('hero'), hero)));
-    const updateEntry = (update: (entry: typeof Entry.Type) => typeof Entry.Type) => setDraft(AsyncResult.map(entries.modify(Array.map((item) => (item.id === selected ? update(item) : item)))));
     const create = (kind: typeof Entry.Type.kind) => {
-        const created = createEntry(Effect.runSync(identifier), kind);
-        setDraft(AsyncResult.map(entries.modify(Array.append(created))));
+        const created = Entry.make({ id: Effect.runSync(identifier), kind });
+        setDraft(AsyncResult.map(portfolio.key('entries').modify(Array.append(created))));
         setSelected(created.id);
         setWorkspace('entry');
         setTarget({ kind: 'entry', id: created.id });
@@ -104,7 +97,7 @@ const DraftEditor = ({ data, revision, changed, published, onPreview }: Atom.Suc
             }),
             Match.orElse(() => show('files')),
         );
-    const status = Match.value({ reloading: reloading.waiting, saving: operation.waiting, changed, saved: AsyncResult.value(operation) }).pipe(
+    const status = Match.value({ reloading: reloading.waiting, saving: operation.waiting, changed: state.portfolio !== state.saved, saved: AsyncResult.value(operation) }).pipe(
         Match.when({ reloading: true }, () => 'Loading the latest draft…'),
         Match.when({ saving: true }, () => 'Saving…'),
         Match.when({ changed: true }, () => 'Unsaved draft'),
@@ -118,7 +111,7 @@ const DraftEditor = ({ data, revision, changed, published, onPreview }: Atom.Suc
                 <button className="button button-ghost" disabled={busy} form={`${ids}form`} ref={save} type="submit">
                     Save draft
                 </button>
-                <Button className="button button-ghost" isDisabled={busy} onPress={() => onPreview(data)} slot="close">
+                <Button className="button button-ghost" isDisabled={busy} onPress={() => onPreview(state)} slot="close">
                     Preview draft
                 </Button>
                 <button aria-describedby={pending.length > 0 ? `${ids}uploads` : undefined} className="button" disabled={busy || pending.length > 0} form={`${ids}form`} ref={publish} type="submit">
@@ -179,15 +172,14 @@ const DraftEditor = ({ data, revision, changed, published, onPreview }: Atom.Suc
                                         </button>
                                     </div>
                                     <ReuseFile
-                                        assets={data.assets}
-                                        onAdd={(compositions) => {
-                                            updateEntry((item) => ({ ...item, compositions: [...item.compositions, ...compositions] }));
-                                            setComposition(compositions[0]?.id);
+                                        assets={state.assets}
+                                        entryId={entry.id}
+                                        key={Option.getOrUndefined(source)}
+                                        onAdd={(id) => {
+                                            setComposition(id);
                                             openEntry(entry.id);
                                         }}
-                                        onSelect={setSheets}
                                         onSource={setSource}
-                                        selected={sheets}
                                         sourceId={source}
                                     />
                                 </>
@@ -202,12 +194,10 @@ const DraftEditor = ({ data, revision, changed, published, onPreview }: Atom.Suc
                                             Change project
                                         </button>
                                     </div>
-                                    <EntryFields entry={entry} onChange={updateEntry} titleId={`${ids}title`} />
+                                    <EntryFields entry={entry} titleId={`${ids}title`} />
                                     <Compositions
-                                        assets={data.assets}
+                                        assets={state.assets}
                                         entry={entry}
-                                        onChange={updateEntry}
-                                        onHero={setHero}
                                         onLibrary={() => {
                                             setWorkspace('sources');
                                             focus(`${ids}source`);
@@ -232,43 +222,24 @@ const DraftEditor = ({ data, revision, changed, published, onPreview }: Atom.Suc
                                         </button>
                                     </div>
                                     <EntryList
-                                        entries={data.portfolio.entries}
-                                        locked={(item) => pending.some((target) => target.kind === 'entry' && target.id === item.id)}
-                                        onChange={(items) => setDraft(AsyncResult.map(Optic.replace(entries, items)))}
-                                        onRemove={(keys) => {
-                                            setDraft(AsyncResult.map(entries.modify(Array.filter((candidate) => !keys.has(candidate.id)))));
-                                            setSelected((value) => (value !== undefined && keys.has(value) ? undefined : value));
-                                            setTarget((target) => (target.kind === 'entry' && keys.has(target.id) ? { kind: 'library' } : target));
-                                            focus(`${ids}new`);
-                                        }}
+                                        entries={state.portfolio.entries}
+                                        onRemove={() => focus(`${ids}new`)}
                                         onSelect={(item) => {
                                             openEntry(item.id);
                                             setTarget({ kind: 'entry', id: item.id });
                                         }}
                                         selected={selected}
                                     />
-                                    {data.portfolio.entries.length === 0 && <p className="hint py-8">Create a project or an independent study, then add its files.</p>}
+                                    {state.portfolio.entries.length === 0 && <p className="hint py-8">Create a project or an independent study, then add its files.</p>}
                                 </>
                             )),
                         )}
                     </TabPanel>
                     <TabPanel className="editor-panel" id={`${ids}files`}>
                         <Suspense fallback={<p role="status">Loading files…</p>}>
-                            <Uploads assets={data.assets} entries={data.portfolio.entries} onChoose={chooseSource} />
+                            <Uploads assets={state.assets} entries={state.portfolio.entries} onChoose={chooseSource} />
                         </Suspense>
-                        <Library
-                            assets={data.assets}
-                            draft={data.portfolio}
-                            onDelete={(asset) => deleteAsset(asset.id)}
-                            onHero={(asset) => setHero(Array.headNonEmpty(placementsFor(asset)))}
-                            onSelect={(id) => {
-                                setSource(id);
-                                setSheets([]);
-                            }}
-                            onUse={chooseSource}
-                            published={published}
-                            sourceId={source}
-                        />
+                        <Library assets={state.assets} onSelect={setSource} onUse={chooseSource} portfolio={state.portfolio} published={published} sourceId={source} />
                     </TabPanel>
                     <TabPanel className="editor-panel" id={`${ids}identity`} shouldForceMount={true}>
                         <form
@@ -281,19 +252,17 @@ const DraftEditor = ({ data, revision, changed, published, onPreview }: Atom.Suc
                             }}
                             onSubmit={(event) => {
                                 event.preventDefault();
-                                submit({ snapshot: data, publish: event.submitter === publish.current, revision });
+                                submit({ ...state, publish: event.submitter === publish.current });
                             }}
                         >
                             <Identity
-                                assets={data.assets}
+                                assets={state.assets}
                                 emailId={`${ids}email`}
-                                onChange={(update) => setDraft(AsyncResult.map(portfolio.modify(update)))}
                                 onChooseHero={() => {
                                     setTarget({ kind: 'hero' });
                                     show('files');
                                 }}
-                                onHero={setHero}
-                                portfolio={data.portfolio}
+                                portfolio={state.portfolio}
                             />
                         </form>
                     </TabPanel>
@@ -303,13 +272,13 @@ const DraftEditor = ({ data, revision, changed, published, onPreview }: Atom.Suc
     );
 };
 const Editor = ({ onPublish, ...props }: { published: typeof Portfolio.Type; onPreview: (data: typeof PortfolioData.Type) => void; onPublish: (data: typeof PortfolioData.Type) => void }) => {
-    const state = useAtomValue(draftState);
+    const state = useAtomValue(draft);
     const reload = useAtomRefresh(draft);
     const pending = useAtomValue(pendingUploads);
-    const unsaved = Option.exists(AsyncResult.value(state), ({ changed }) => changed) || pending.length > 0;
+    const unsaved = Option.exists(AsyncResult.value(state), ({ portfolio: edited, saved }) => edited !== saved) || pending.length > 0;
     useAtomSubscribe(saveRequest, (result) => {
         if (AsyncResult.isSuccess(result) && !result.waiting && result.value.publish) {
-            onPublish(result.value.snapshot);
+            onPublish(result.value);
         }
     });
     useEffect(() => {

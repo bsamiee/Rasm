@@ -12,15 +12,11 @@ import { ownerUserId, registerOwner } from './database.ts';
 const session = Effect.fn('session')(function* (email: string) {
     return yield* Option.match(user(yield* HttpServerRequest.HttpServerRequest), {
         onNone: () => Effect.succeed<typeof Session.Type>({ kind: 'visitor', signedIn: false }),
-        onSome: (signedIn) => {
-            const matches = (id: string): boolean => id === signedIn.id;
-            return (Option.exists(signedIn.email, (address) => address.toLowerCase() === email) ? registerOwner({ email, userId: signedIn.id }).pipe(Effect.map(matches)) : ownerUserId(email).pipe(Effect.map(Option.exists(matches)))).pipe(
-                Effect.map((isOwner): typeof Session.Type => (isOwner ? { kind: 'owner' } : { kind: 'visitor', signedIn: true })),
-            );
-        },
+        onSome: ({ id, email: address }) =>
+            (Option.exists(address, (value) => value.toLowerCase() === email) ? registerOwner({ email, userId: id }) : Effect.map(ownerUserId(email), Option.getOrUndefined)).pipe(Effect.map((ownerId): typeof Session.Type => (ownerId === id ? { kind: 'owner' } : { kind: 'visitor', signedIn: true }))),
     });
 });
-const authorize = (email: string): Effect.Effect<typeof Session.Type, HttpApiError.Forbidden | HttpApiError.ServiceUnavailable, HttpServerRequest.HttpServerRequest | SqlClient.SqlClient> =>
+const authorize = (email: string) =>
     Effect.filterOrFail(
         session(email),
         (current) => current.kind === 'owner',
@@ -29,7 +25,7 @@ const authorize = (email: string): Effect.Effect<typeof Session.Type, HttpApiErr
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const owner = (email: string): Layer.Layer<Owner, never, SqlClient.SqlClient> =>
+const owner = (email: string) =>
     Layer.effect(
         Owner,
         Effect.map(

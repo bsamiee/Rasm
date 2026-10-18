@@ -18,10 +18,7 @@ const run = Effect.fn('run')(function* (select: 'selectStack' | 'createOrSelectS
     const workDir = path.join(home, args.projectName);
     yield* fs.makeDirectory(workDir, { recursive: true });
     const selected = yield* Effect.tryPromise(() => LocalWorkspace[select](args, { workDir }));
-    yield* Effect.when(
-        Effect.tryPromise(() => selected.previewDestroy()),
-        Effect.succeed(operation === 'destroy'),
-    );
+    yield* operation === 'destroy' ? Effect.tryPromise(() => selected.previewDestroy()) : Effect.void;
     yield* Stream.callback<EngineEvent, Cause.UnknownError>((queue) => Effect.tryPromise<unknown>(() => selected[operation]({ onEvent: (event) => Queue.offerUnsafe(queue, event) })).pipe(Effect.uninterruptible, Queue.into(queue))).pipe(
         Stream.filterMap(
             Match.type<EngineEvent>().pipe(

@@ -1,5 +1,7 @@
+import { useAtomSet } from '@effect/atom-react';
 import { focus } from '@rasm/ui/focus.ts';
-import { Array, Match, Option, Record, Schema } from 'effect';
+import { Array, Match, Optic, Option, Record, Schema } from 'effect';
+import { AsyncResult } from 'effect/reactivity';
 import { FileText, Film } from 'lucide-react';
 import { useId } from 'react';
 import { GridList, GridListItem } from 'react-aria-components';
@@ -9,31 +11,30 @@ import { type Asset, type AssetCollection, PdfAsset, VideoAsset } from '../model
 import { type Portfolio, placements } from '../model/document.ts';
 import { placementsFor } from '../model/placement.ts';
 import { ConfirmDialog, MenuButton } from './controls.tsx';
+import { deleteRequest, draft, hero } from './services.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const Library = ({
     assets,
-    draft,
+    portfolio,
     published,
     sourceId,
     onSelect,
     onUse,
-    onHero,
-    onDelete,
 }: {
+    assets: typeof AssetCollection.Type;
+    portfolio: typeof Portfolio.Type;
+    published: typeof Portfolio.Type;
     sourceId: Option.Option<string>;
     onSelect: (id: Option.Option<string>) => void;
     onUse: (entryId: string, assetId: string) => void;
-    assets: typeof AssetCollection.Type;
-    draft: typeof Portfolio.Type;
-    published: typeof Portfolio.Type;
-    onHero: (asset: typeof Asset.Type) => void;
-    onDelete: (asset: typeof Asset.Type) => void;
 }) => {
     const ids = useId();
+    const setDraft = useAtomSet(draft);
+    const remove = useAtomSet(deleteRequest);
     const selected = Option.flatMap(sourceId, (id) => Record.get(assets, id));
-    const used = (portfolio: typeof Portfolio.Type) => new Set(placements(portfolio).flatMap((placement) => [placement.asset.id, ...(placement.kind === 'video' && placement.poster !== undefined ? [placement.poster.id] : [])]));
+    const used = (work: typeof Portfolio.Type) => new Set(placements(work).flatMap((placement) => [placement.asset.id, ...(placement.kind === 'video' && placement.poster !== undefined ? [placement.poster.id] : [])]));
     const summary = (asset: typeof Asset.Type) => [byteSize.format(asset.size), ...(Schema.is(PdfAsset)(asset) ? [quantity(asset.pages.length, { one: 'sheet', other: 'sheets' })] : [])];
     return (
         <section className="min-w-0 border-line border-t pt-5">
@@ -69,7 +70,7 @@ const Library = ({
                 {Option.match(selected, {
                     onNone: () => <p className="hint">Select a source to preview or place it.</p>,
                     onSome: (asset) => {
-                        const uses = [...(used(draft).has(asset.id) ? ['your draft'] : []), ...(used(published).has(asset.id) ? ['published work'] : [])];
+                        const uses = [...(used(portfolio).has(asset.id) ? ['your draft'] : []), ...(used(published).has(asset.id) ? ['published work'] : [])];
                         return (
                             <div className="flex min-w-0 flex-col gap-4 editor:border-line editor:border-l editor:pl-6">
                                 <button
@@ -89,12 +90,12 @@ const Library = ({
                                     <MediaFigure active={true} placement={Array.headNonEmpty(placementsFor(asset))} presentation="expandable" priority={false} renderMedia={true} />
                                 </div>
                                 <div className="actions">
-                                    {draft.entries.length > 0 && (
-                                        <MenuButton label="Add to entry" onAction={({ id }) => onUse(id, asset.id)} options={draft.entries.map((entry) => ({ id: entry.id, label: entryTitle(entry) }))}>
+                                    {portfolio.entries.length > 0 && (
+                                        <MenuButton label="Add to entry" onAction={({ id }) => onUse(id, asset.id)} options={portfolio.entries.map((entry) => ({ id: entry.id, label: entryTitle(entry) }))}>
                                             Add to entry
                                         </MenuButton>
                                     )}
-                                    <button className="button button-ghost" onClick={() => onHero(asset)} type="button">
+                                    <button className="button button-ghost" onClick={() => setDraft(AsyncResult.map(Optic.replace(hero, Array.headNonEmpty(placementsFor(asset)))))} type="button">
                                         Use as hero
                                     </button>
                                 </div>
@@ -102,7 +103,7 @@ const Library = ({
                                 <details className="hint">
                                     <summary className="min-h-11 cursor-pointer content-center">Source removal</summary>
                                     {uses.length > 0 && <p>Remove this file from saved and published work before deleting.</p>}
-                                    <ConfirmDialog description="Permanently delete this source file. This cannot be undone." disabled={uses.length > 0} label="Delete file" onConfirm={() => onDelete(asset)} />
+                                    <ConfirmDialog description="Permanently delete this source file. This cannot be undone." disabled={uses.length > 0} label="Delete file" onConfirm={() => remove(asset.id)} />
                                 </details>
                             </div>
                         );

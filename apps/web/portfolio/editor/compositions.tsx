@@ -1,21 +1,25 @@
-import { Array, Effect, Optic, String } from 'effect';
+import { useAtomSet } from '@effect/atom-react';
+import { ReorderableList } from '@rasm/ui/reorderable.tsx';
+import { Array, Effect, String, Struct } from 'effect';
+import { AsyncResult } from 'effect/reactivity';
 import { useState } from 'react';
 import { Button } from 'react-aria-components';
 import { CompositionGrid } from '../media/composition.tsx';
 import { compositionLabel, entryTitle, placementTitle, quantity } from '../media/display.ts';
 import type { AssetCollection } from '../model/asset.ts';
 import type { Entry } from '../model/document.ts';
-import { Composition, type Placement } from '../model/placement.ts';
-import { ConfirmDialog, MenuButton, SequenceList } from './controls.tsx';
+import { Composition } from '../model/placement.ts';
+import { ConfirmDialog, MenuButton } from './controls.tsx';
 import { PlacementFields } from './placement.tsx';
-import { identifier } from './services.ts';
+import { draft, identifier, updateEntry } from './services.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const CompositionEditor = ({ assets, entry, item, onChange, onHero }: { assets: typeof AssetCollection.Type; entry: typeof Entry.Type; item: typeof Composition.Type; onChange: (update: (entry: typeof Entry.Type) => typeof Entry.Type) => void; onHero: (placement: typeof Placement.Type) => void }) => {
+const CompositionEditor = ({ assets, entry, item }: { assets: typeof AssetCollection.Type; entry: typeof Entry.Type; item: typeof Composition.Type }) => {
+    const setDraft = useAtomSet(draft);
     const [first, second] = item.items;
-    const replace = (...values: readonly (typeof Composition.Type)[]) => onChange((current) => ({ ...current, compositions: current.compositions.flatMap((candidate) => (candidate.id === item.id ? values : [candidate])) }));
-    const cover = (placement: typeof Placement.Type) => onChange((current) => ({ ...current, cover: placement }));
+    const update = (change: (compositions: readonly (typeof Composition.Type)[]) => readonly (typeof Composition.Type)[]) => setDraft(AsyncResult.map(updateEntry(entry.id, Struct.evolve({ compositions: change }))));
+    const replace = (...values: readonly (typeof Composition.Type)[]) => update(Array.flatMap((candidate) => (candidate.id === item.id ? values : [candidate])));
     const singles = entry.compositions.filter((candidate) => candidate.id !== item.id && candidate.items.length === 1);
     return (
         <div className="flex min-w-0 flex-col gap-4.5 outline-none" id={item.id} tabIndex={-1}>
@@ -38,14 +42,14 @@ const CompositionEditor = ({ assets, entry, item, onChange, onHero }: { assets: 
                     </fieldset>
                 ))}
             </div>
-            <PlacementFields assets={assets} onChange={(placement) => replace({ ...item, items: second === undefined ? [placement] : [placement, second] })} onCover={cover} onHero={onHero} value={first} />
-            {second && <PlacementFields assets={assets} onChange={(placement) => replace({ ...item, items: [first, placement] })} onCover={cover} onHero={onHero} value={second} />}
+            <PlacementFields assets={assets} entryId={entry.id} onChange={(placement) => replace({ ...item, items: second === undefined ? [placement] : [placement, second] })} value={first} />
+            {second && <PlacementFields assets={assets} entryId={entry.id} onChange={(placement) => replace({ ...item, items: [first, placement] })} value={second} />}
             <div className="actions">
                 {second === undefined ? (
                     singles.length > 0 && (
                         <MenuButton
                             label="Pair with"
-                            onAction={({ pair }) => onChange((current) => ({ ...current, compositions: current.compositions.filter((candidate) => candidate.id !== pair.id).map((candidate) => (candidate.id === item.id ? { ...candidate, items: [first, pair.items[0]] } : candidate)) }))}
+                            onAction={({ pair }) => update((compositions) => compositions.filter((candidate) => candidate.id !== pair.id).map((candidate) => (candidate.id === item.id ? { ...candidate, items: [first, pair.items[0]] } : candidate)))}
                             options={singles.map((pair) => ({ id: pair.id, label: placementTitle(pair.items[0]), pair }))}
                         >
                             Pair with
@@ -66,28 +70,10 @@ const CompositionEditor = ({ assets, entry, item, onChange, onHero }: { assets: 
         </div>
     );
 };
-const Compositions = ({
-    assets,
-    entry,
-    selected,
-    onSelect,
-    onChange,
-    onHero,
-    onUpload,
-    onLibrary,
-}: {
-    assets: typeof AssetCollection.Type;
-    selected: string | undefined;
-    onSelect: (id: string | undefined) => void;
-    entry: typeof Entry.Type;
-    onChange: (update: (entry: typeof Entry.Type) => typeof Entry.Type) => void;
-    onHero: (placement: typeof Placement.Type) => void;
-    onUpload: () => void;
-    onLibrary: () => void;
-}) => {
-    const item = entry.compositions.find((candidate) => candidate.id === selected) ?? entry.compositions[0];
-    const compositions = Optic.id<typeof Entry.Type>().key('compositions');
+const Compositions = ({ assets, entry, selected, onSelect, onUpload, onLibrary }: { assets: typeof AssetCollection.Type; entry: typeof Entry.Type; selected: string | undefined; onSelect: (id: string) => void; onUpload: () => void; onLibrary: () => void }) => {
+    const setDraft = useAtomSet(draft);
     const [choosing, setChoosing] = useState(false);
+    const item = entry.compositions.find((candidate) => candidate.id === selected) ?? entry.compositions[0];
     return (
         <>
             <div className="actions">
@@ -106,18 +92,20 @@ const Compositions = ({
             </div>
             <div className="grid min-w-0 editor:grid-cols-sequence gap-6">
                 <div className="editor:editor-scroll min-w-0 max-editor:not-data-open:hidden" data-open={choosing || undefined}>
-                    <SequenceList
+                    <ReorderableList
                         actions={(keys) => (
                             <ConfirmDialog
                                 description="Remove the selected compositions from this draft. Source files remain in the library. Published work changes only when you publish."
                                 disabled={false}
                                 label={`Remove ${quantity(keys.size, { one: 'selected composition', other: 'selected compositions' })}`}
-                                onConfirm={() => onChange(compositions.modify(Array.filter((candidate) => !keys.has(candidate.id))))}
+                                onConfirm={() => setDraft(AsyncResult.map(updateEntry(entry.id, Struct.evolve({ compositions: Array.filter((candidate) => !keys.has(candidate.id)) }))))}
                             />
                         )}
+                        aria-label={`${entryTitle(entry)} compositions`}
+                        className="editor-sequence"
                         items={entry.compositions}
-                        label={`${entryTitle(entry)} compositions`}
-                        onChange={(reordered) => onChange(Optic.replace(compositions, reordered))}
+                        moveLabel="Move"
+                        onChange={(reordered) => setDraft(AsyncResult.map(updateEntry(entry.id, Struct.evolve({ compositions: () => reordered }))))}
                         textValue={compositionLabel}
                     >
                         {(candidate) => (
@@ -137,9 +125,9 @@ const Compositions = ({
                                 {compositionLabel(candidate)}
                             </Button>
                         )}
-                    </SequenceList>
+                    </ReorderableList>
                 </div>
-                {item && <CompositionEditor assets={assets} entry={entry} item={item} key={item.id} onChange={onChange} onHero={onHero} />}
+                {item && <CompositionEditor assets={assets} entry={entry} item={item} key={item.id} />}
             </div>
         </>
     );

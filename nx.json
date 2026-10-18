@@ -3,7 +3,7 @@
     "cacheDirectory": ".cache/nx/cache",
     "neverConnectToCloud": true,
     "namedInputs": {
-        "production": [ "default", "!{projectRoot}/**/*.{spec,test,bench}.{ts,tsx,mts,cts}", "!{projectRoot}/**/*.stories.tsx", "!{projectRoot}/.storybook/**/*" ],
+        "production": [ "{projectRoot}/**/*", "!{projectRoot}/.storybook/**/*" ],
         "dotnet": [ "{workspaceRoot}/{global.json,NuGet.config,Directory.Build.props,Directory.Build.rsp,Directory.Build.targets,Directory.Packages.props}", "{workspaceRoot}/tools/roslyn/**/*", { "externalDependencies": [] }, { "env": "NUGET_PACKAGES" } ],
         "python": [ "{workspaceRoot}/pyproject.toml", "{workspaceRoot}/uv.lock", "{workspaceRoot}/pixi.lock", { "externalDependencies": [] }, { "runtime": "uv --version" }, { "runtime": "python --version" } ],
         "vite": [ "{workspaceRoot}/vite.config.ts", { "externalDependencies": [ "vite", "effect", "@vitejs/plugin-react", "@cloudflare/vite-plugin" ] } ],
@@ -11,7 +11,7 @@
         "rust": [ "{workspaceRoot}/{Cargo.toml,Cargo.lock,rust-toolchain.toml,.cargo/config.toml}", { "externalDependencies": [] } ],
         "pythonFiles": [ "{workspaceRoot}/**/*.{py,pyi}" ],
         "rustFiles": [ "{workspaceRoot}/**/*.rs" ],
-        "lintLibrary": [ "{projectRoot}/**/*.rs", "!{projectRoot}/examples/**/*", "!{projectRoot}/tests/**/*", "{projectRoot}/Cargo.toml" ],
+        "lintLibrary": [ "{projectRoot}/**/*.rs", "!{projectRoot}/examples/**/*", "{projectRoot}/Cargo.toml" ],
         "yamlFiles": [ "{workspaceRoot}/**/*.{yml,yaml}", "!{workspaceRoot}/pnpm-lock.yaml" ],
         "javaFiles": [ "{workspaceRoot}/**/*.java" ]
     },

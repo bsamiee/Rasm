@@ -1,13 +1,13 @@
 import { useAtom } from '@effect/atom-react';
 import { dialogOpen } from '@rasm/ui/dialogs.ts';
-import { Match } from 'effect';
+import { Match, String } from 'effect';
 import useEmblaCarousel from 'embla-carousel-react';
 import { ArrowLeft, ArrowRight, Grid2x2, X } from 'lucide-react';
 import { useInView, useReducedMotion } from 'motion/react';
 import { type KeyboardEvent, useEffect, useEffectEvent, useId, useRef, useSyncExternalStore } from 'react';
 import { Button, Dialog, DialogTrigger, GridLayout, GridList, GridListItem, Heading, Modal, ModalOverlay, Size, Virtualizer } from 'react-aria-components';
 import { CompositionGrid } from '../media/composition.tsx';
-import { compositionLabel, entryKind, entryTitle, numeral } from '../media/display.ts';
+import { compositionLabel, entryTitle, numeral } from '../media/display.ts';
 import { MediaFigure } from '../media/figure.tsx';
 import type { Entry } from '../model/document.ts';
 import type { useNavigation } from './navigation.ts';
@@ -76,7 +76,7 @@ const Chapter = ({ entry, index, navigation }: { entry: typeof Entry.Type; index
                 <div className="eyebrow col-start-1 row-start-1 flex min-w-0 flex-col gap-2 text-muted">
                     <span className="inline-flex items-baseline gap-3">
                         <span className="text-accent-text">[{numeral(index + 1)}]</span>
-                        {entryKind[entry.kind]}
+                        {String.capitalize(entry.kind)}
                     </span>
                     <span className="wrap-anywhere empty:hidden">{[entry.year, entry.location].filter(Boolean).join(' / ')}</span>
                 </div>

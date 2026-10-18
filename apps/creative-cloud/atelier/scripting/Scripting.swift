@@ -37,7 +37,7 @@ enum Request: Decodable {
     case execute(application: URL, command: String, arguments: [String: Descriptor])
     case contentType(url: URL)
     case windows(application: URL)
-    case capture(window: Int, url: URL)
+    case capture(window: Int)
     case faces
 
     private enum Method: String, Decodable { case applications, application, definition, execute, contentType, windows, capture, faces }
@@ -59,7 +59,7 @@ enum Request: Decodable {
                     )
                 case .contentType: try .contentType(url: params().decode(URL.self, forKey: .url))
                 case .windows: try .windows(application: params().decode(URL.self, forKey: .application))
-                case .capture: try .capture(window: params().decode(Int.self, forKey: .window), url: params().decode(URL.self, forKey: .url))
+                case .capture: try .capture(window: params().decode(Int.self, forKey: .window))
                 case .faces: .faces
             }
     }
@@ -77,13 +77,13 @@ enum Request: Decodable {
             case .execute(let url, let command, let arguments):
                 Application.at(url).flatMap { application in application.execute(command, arguments: arguments) }.map(\.self)
             case .contentType(let url):
-                Result { try url.resourceValues(forKeys: [.contentTypeKey]).contentType?.preferredMIMEType }
+                Result { try url.resourceValues(forKeys: [.contentTypeKey]).contentType?.preferredMIMEType ?? "application/octet-stream" }
                     .mapError { error in AggregateError(first: .unreadable(error)) }
                     .map(\.self)
             case .windows(let url):
                 Application.at(url).flatMap { application in application.runningApplication() }.flatMap(Window.onScreen(of:)).map(\.self)
-            case .capture(let window, let url):
-                await Window.capture(window, into: url).map(\.self)
+            case .capture(let window):
+                await Window.capture(window).map(\.self)
             case .faces:
                 .success(Face.installed())
         }
@@ -116,7 +116,7 @@ struct Answer: Encodable {
     }
 
     private enum Key: String, CodingKey {
-        case jsonrpc, id, result, error, code, message, reason, failures
+        case jsonrpc, id, result, error, code, message, failures
         case tag = "_tag"
     }
 
@@ -141,10 +141,8 @@ struct Answer: Encodable {
                 try error.encode(code, forKey: .code)
                 try error.encode(message, forKey: .message)
                 if let failures {
-                    var reason: KeyedEncodingContainer<Key> = error.nestedContainer(keyedBy: Key.self, forKey: .reason)
                     try error.encode("ScriptingError", forKey: .tag)
-                    try reason.encode("Refused", forKey: .tag)
-                    try reason.encode(failures, forKey: .failures)
+                    try error.encode(failures, forKey: .failures)
                 }
         }
     }

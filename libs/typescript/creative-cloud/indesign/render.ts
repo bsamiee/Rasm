@@ -1,11 +1,22 @@
 import fs from 'adobe:fs';
 import indesign, { type BaseCollection, type EndnoteTextFrame, type MasterSpread, type Page, type PageItem, type PageSideOptions, type Spread, type TextFrame } from 'adobe:indesign';
-import { Unmatched } from '@rasm/mcp/link';
-import { Temporary } from '@rasm/uxp/runtime';
-import { Array, Effect, Match, Number, Option, Result, Schema, Struct } from 'effect';
+import { storage } from 'adobe:uxp';
+import { Unmatched } from '@rasm/mcp/server';
+import { Array, Context, Effect, Layer, Match, Number, Option, Result, Schema, Struct } from 'effect';
 import { JPG } from 'image-size/types/jpg';
-import { type Box, Specifier, Target } from './contract.ts';
+import { type Box, InDesignError, Specifier, Target } from './contract.ts';
 import { active, owning, resolve, transacted } from './dom.ts';
+
+// --- [SERVICES] ------------------------------------------------------------------------
+
+class Scratch extends Context.Service<Scratch>()('@rasm/indesign/render/Scratch', {
+    make: Effect.flatMap(
+        Effect.promise(() => storage.localFileSystem.getTemporaryFolder()),
+        (folder) => Effect.promise(() => folder.createFile('render.jpg', { overwrite: true })),
+    ),
+}) {
+    static readonly layer = Layer.effect(this, this.make);
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -43,7 +54,7 @@ const touches = (region: typeof Box.Type, item: PageItem): boolean =>
 const reference = (item: PageItem) => ({ type: item.constructorName, specifier: Specifier.make(item.toSpecifier()), name: Option.some(item.name) });
 const composited = (region: typeof Box.Type, spread: Spread | MasterSpread) => {
     const { app, PageBindingOptions } = indesign;
-    const [, contained] = owning<PageItem>('allPageItems');
+    const contained = owning<PageItem>('allPageItems');
     const [pages, stacked]: readonly [readonly Page[], readonly PageItem[]] = [spread.pages.everyItem().getElements(), spread.pageItems.everyItem().getElements()];
     const leading = spread.parent.documentPreferences.pageBinding.equals(PageBindingOptions.RIGHT_TO_LEFT) ? indesign.PageSideOptions.RIGHT_HAND : indesign.PageSideOptions.LEFT_HAND;
     const spine = (sides: readonly PageSideOptions[]): number => sides.filter((each) => each.equals(leading)).length;
@@ -65,8 +76,8 @@ const composited = (region: typeof Box.Type, spread: Spread | MasterSpread) => {
 };
 const render = Effect.fn('render')(function* (target: typeof Target.Type) {
     const { app, ExportFormat, ExportRangeOrAllPages, JpegColorSpaceEnum } = indesign;
-    const [file, resolution] = [(yield* Temporary)('render.jpg'), app.jpegExportPreferences.exportResolution];
-    const [, framed] = owning<PageItem>('itemLayer');
+    const resolution = app.jpegExportPreferences.exportResolution;
+    const framed = owning<PageItem>('itemLayer');
     const indexed = <T>(items: Pick<BaseCollection<T>, 'length' | 'item'>, index: number, kind: string): Effect.Effect<T, Unmatched> =>
         index < items.length ? Effect.succeed(items.item(index)) : Effect.fail(Unmatched.make({ subject: `${kind} among indexes 0 to ${items.length - 1}`, query: `${index}`, candidates: [] }));
     const placed = (child: PageItem): Option.Option<readonly [Spread | MasterSpread, PageItem]> => (child.parent.constructorName === 'Spread' || child.parent.constructorName === 'MasterSpread' ? Option.some([child.parent, child]) : Option.flatMap(holder(child), placed));
@@ -109,14 +120,14 @@ const render = Effect.fn('render')(function* (target: typeof Target.Type) {
         }),
     });
     const { output, omitted } = Option.match(plan.composed, { onNone: () => ({ output: plan.source, omitted: [] }), onSome: ({ region, spread }) => composited(region, spread) });
-    yield* Effect.sync(() => fs.writeFileSync(file.url, ''));
+    const file = yield* Scratch;
+    fs.writeFileSync(file.url, '');
     Object.assign(app.jpegExportPreferences, { jpegColorSpace: JpegColorSpaceEnum.RGB, antiAlias: true, useDocumentBleeds: false, jpegExportRange: ExportRangeOrAllPages.EXPORT_RANGE, pageString: Option.isSome(plan.composed) ? '+1' : plan.range, exportingSpread: plan.spreading, exportResolution: plan.dpi });
-    output.exportFile(ExportFormat.JPG, file.native);
-    const subject = Target.match(target, { Page: ({ index }) => `page ${index}`, Spread: ({ index }) => `spread ${index}`, Item: ({ specifier }) => specifier });
+    output.exportFile(ExportFormat.JPG, file.nativePath);
     const image = yield* Effect.filterOrFail(
         Effect.sync(() => new Uint8Array(fs.readFileSync(file.url))),
         (bytes) => bytes.length > 0,
-        () => Unmatched.make({ subject: 'rendered image', query: subject, candidates: [] }),
+        () => InDesignError.make({ reasons: [{ _tag: 'Unrendered', at: Target.match(target, { Page: ({ index }) => `page ${index}`, Spread: ({ index }) => `spread ${index}`, Item: ({ specifier }) => specifier }) }] }),
     );
     return { image, ...JPG.calculate(image), bounds: plan.bounds, omitted: Option.liftPredicate(omitted, Array.isArrayNonEmpty), item: plan.item };
 });
@@ -125,4 +136,4 @@ const previewed = <A, E, R>({ description, preview }: { readonly description: st
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { extent, holder, previewed, render, ruled };
+export { extent, holder, previewed, render, ruled, Scratch };

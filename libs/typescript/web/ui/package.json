@@ -1,7 +1,7 @@
 {
     "name": "@rasm/ui",
     "private": true,
-    "description": "Foundation for web app interfaces over React Aria: reorderable lists, page-wide dialog state, focus after render, and CSS custom properties from hoisted rules",
+    "description": "Foundation for web app interfaces over React Aria: reorderable lists, checkboxes, page-wide dialog state, focus after render, and CSS custom properties from hoisted rules",
     "type": "module",
     "exports": {
         "./*": "./*"

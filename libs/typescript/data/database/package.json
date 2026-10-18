@@ -19,12 +19,10 @@
         "@effect/sql-sqlite-node": "catalog:",
         "@effect/vitest": "catalog:",
         "@electric-sql/pglite": "catalog:",
-        "@rasm/test-support": "workspace:*",
         "@testcontainers/postgresql": "catalog:",
         "@types/node": "catalog:",
         "cf": "catalog:",
-        "testcontainers": "catalog:",
-        "vitest": "catalog:"
+        "testcontainers": "catalog:"
     },
     "nx": {
         "targets": {

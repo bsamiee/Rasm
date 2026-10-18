@@ -25,7 +25,6 @@ const ZoomViewer = ({ placement, layoutId }: { placement: Exclude<typeof Placeme
                             </Button>
                         }
                         href={mediaUrl(placement.asset)}
-                        linkLabel="Original"
                         zoomIn={() => zoomIn(undefined, animationTime)}
                         zoomOut={() => zoomOut(undefined, animationTime)}
                     />
