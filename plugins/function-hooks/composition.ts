@@ -24,5 +24,4 @@ const all = <T>(results: readonly Result<T>[]): Result<readonly T[]> => {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { Fault, Option, Result };
-export { all, bind, fault, map, none, ok, some };
+export { all, bind, type Fault, fault, map, none, type Option, ok, type Result, some };

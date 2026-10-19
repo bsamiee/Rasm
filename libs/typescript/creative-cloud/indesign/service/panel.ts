@@ -1,82 +1,56 @@
-import fs from 'adobe:fs';
 import indesign from 'adobe:indesign';
-import uxp from 'adobe:uxp';
-import type { Unmatched } from '@rasm/search';
-import { Array, type Cause, Effect, Layer, Option, Record, Schema, Struct } from 'effect';
-import { Rpc, RpcMiddleware } from 'effect/rpc';
-import { FontView } from '../fonts.ts';
-import { Host } from '../host.ts';
-import { Classes } from '../objects/classes.ts';
-import { active, read } from '../objects/specifiers.ts';
-import { Handoff, Mutation } from '../objects/transactions.ts';
-import { preserve } from '../objects/values.ts';
-import { Preflight, Reports } from '../preflight.ts';
-import { Query } from '../search.ts';
-import { MenuAction } from '../session.ts';
-import { Complete, Enter, InDesign } from './contract.ts';
-
-// --- [SERVICES] ------------------------------------------------------------------------
-
-class Hold extends RpcMiddleware.Service<Hold>()('@rasm/indesign/service/panel/Hold', { error: Schema.ErrorInstance() }) {}
+import { Link, linked } from '@rasm/uxp/link';
+import { Plugin } from '@rasm/uxp/runtime';
+import { Effect, Layer, Option, Schema, Stream, Struct, SubscriptionRef } from 'effect';
+import { Rpc } from 'effect/rpc';
+import { Dom } from '../dom.ts';
+import { Model } from '../model.ts';
+import { Mutation, preserve, Transactions } from '../transactions.ts';
+import { Hold, InDesign, PATH, Peer, WIRE } from './contract.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const group = InDesign.omit(Enter._tag).middleware(Hold).add(Enter);
-const identity = Effect.map(
-    Effect.tryPromise(() => indesign.app.fullName),
-    (entry) => ({ application: String(entry.url) }),
-);
 const hold = Layer.effect(Hold)(
-    Effect.map(
-        Effect.acquireRelease(
-            Effect.sync(() => document.body.appendChild(document.createElement('sp-label'))),
-            (element) => Effect.sync(() => element.remove()),
-        ),
-        (shown) =>
-            (effect, { payload, rpc }) => {
-                const { app, MeasurementUnits, UserInteractionLevels } = indesign;
-                const label = Schema.is(Mutation)(payload) ? payload.label : rpc._tag;
-                return Effect.andThen(
-                    Effect.all([
-                        preserve(app.scriptPreferences, { userInteractionLevel: UserInteractionLevels.NEVER_INTERACT, enableRedraw: false, measurementUnit: MeasurementUnits.POINTS }),
-                        Effect.acquireRelease(
-                            Effect.sync(() => shown.replaceChildren(label)),
-                            () => Effect.sync(() => shown.replaceChildren()),
-                        ),
-                    ]),
-                    effect,
-                );
-            },
-    ),
+    Effect.map(Link, ({ call }) => (effect, { payload, rpc }) => {
+        const { app, MeasurementUnits, UserInteractionLevels } = indesign;
+        return Effect.andThen(
+            Effect.all([
+                preserve(app.scriptPreferences, { userInteractionLevel: UserInteractionLevels.NEVER_INTERACT, enableRedraw: false, measurementUnit: MeasurementUnits.POINTS }),
+                Effect.acquireRelease(SubscriptionRef.set(call, Option.some(Schema.is(Mutation)(payload) ? payload.label : rpc._tag)), () => SubscriptionRef.set(call, Option.none())),
+            ]),
+            effect,
+        );
+    }),
 );
 const handlers = InDesign.toLayer({
-    enter: () => Rpc.fork(Effect.flatMap(Handoff, ({ enter }) => enter)),
-    complete: ({ operation, parameter }) => {
-        const candidates: Record.ReadonlyRecord<string, Record.ReadonlyRecord<string, Effect.Effect<readonly string[], Cause.UnknownError | Unmatched, Classes | Host>>> = {
-            menu: { area: Effect.map(MenuAction.listed(Option.none()), (rows) => Array.dedupe(Array.map(rows, Struct.get('area')))) },
-            preflight: { profile: read(Complete.successSchema, () => indesign.app.preflightProfiles.everyItem().name) },
-            queries: { name: Effect.map(Query.listed(Option.none()), Array.map(Struct.get('name'))) },
-        };
-        return Option.getOrElse(Option.flatMap(Record.get(candidates, operation), Record.get(parameter)), () => Effect.succeed([]));
-    },
+    enter: () => Rpc.fork(Effect.flatMap(Transactions, ({ enter }) => enter)),
+    changed: () => Rpc.fork(Stream.unwrap(Effect.map(Transactions, ({ changed }) => Stream.fromPubSub(changed)))),
     inspect: (payload) => payload.run(),
     change: (payload) => payload.run(),
     create: (payload) => payload.run(),
     remove: (payload) => payload.run(),
     execute_script: (payload) => payload.run(),
     find_change: (payload) => payload.run(),
-    invoke: (payload) => payload.run(),
+    font: (payload) => payload.run(),
+    kinds: () => Effect.map(Model, Struct.get('kinds')),
+    kind: (payload) => payload.run(),
     render: (payload) => payload.run(),
-    font: Effect.fnUntraced(function* ({ name, text }) {
-        const font = yield* FontView.named(name);
-        const [view, source] = yield* Effect.all([FontView.of(font), FontView.source(font, text)]);
-        return { ...view, installed: Option.zipWith(view.installed, source, (installed, bytes) => ({ ...installed, source: bytes })) };
-    }),
-    menu: ({ area }) => MenuAction.listed(area),
-    preflight: ({ profile }) => Effect.flatMap(active, (document) => Preflight.of(document, profile)),
-    queries: ({ name }) => Query.listed(name),
-}).pipe(Layer.provideMerge(hold), Layer.provide([Classes.layer, Handoff.layer, Reports.layer]), Layer.provide(Layer.succeed(Host, { indesign, fs, uxp })));
+    menu: (payload) => payload.run(),
+    invoke: (payload) => payload.run(),
+    preflight: (payload) => payload.run(),
+    queries: (payload) => payload.run(),
+}).pipe(Layer.provideMerge(hold), Layer.provide([Layer.effect(Model, Model.make), Layer.effect(Transactions, Transactions.make)]), Layer.provide(Layer.succeed(Dom, indesign)));
+const panel = ({ peer, origin }: { readonly peer: string; readonly origin: string }) =>
+    linked(InDesign, handlers, {
+        peer,
+        url: `${origin}${PATH}`,
+        identity: Effect.gen(function* () {
+            const [{ url }, { name }] = yield* Effect.all([Effect.tryPromise(() => indesign.app.fullName), Plugin]);
+            return yield* Schema.encodeEffect(Peer)({ application: new URL(url), extension: name });
+        }),
+        serialization: WIRE,
+    });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { group, handlers, identity };
+export { panel };

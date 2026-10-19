@@ -1,33 +1,74 @@
-import { single } from '@rasm/search';
+import { single, Unmatched } from '@rasm/search';
 import { transformSync } from 'amaro';
-import { Array, Cause, Duration, Effect, FileSystem, identity, Layer, Option, Path, Schema, Stream, Struct } from 'effect';
+import { Array, Cause, Context, Effect, FileSystem, identity, Layer, Option, Schedule, Schema, Stream } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { Rpc, RpcClient, type RpcClientError, RpcGroup, RpcSerialization } from 'effect/rpc';
 import { Socket } from 'effect/socket';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+const WindowID = Schema.Finite.check(Schema.isUint32()).annotate({ description: 'CoreGraphics window number of a window, dialog, sheet, or menu; status, press, and screenshot share it' });
 const Status = Schema.Struct({
     responding: Schema.Boolean.annotate({ description: 'False when the application answered no accessibility request within the messaging timeout' }),
-    frontWindow: Schema.OptionFromOptionalKey(Schema.Int),
+    frontWindow: Schema.OptionFromOptionalKey(WindowID),
     elements: Schema.Array(
         Schema.Struct({
-            id: Schema.Int.annotate({ description: 'Window number of a window, else the helper-assigned number of the element while it stays open' }),
+            id: WindowID,
             kind: Schema.Literals(['window', 'dialog', 'sheet', 'menu']),
             role: Schema.String,
             title: Schema.OptionFromOptionalKey(Schema.String),
             text: Schema.Array(Schema.String).annotate({ description: 'Static text the element shows' }),
-            buttons: Schema.Array(Schema.String).annotate({ description: 'Button labels press accepts' }),
+            controls: Schema.Array(
+                Schema.Union([
+                    Schema.Struct({ field: Schema.Struct({ label: Schema.OptionFromOptionalKey(Schema.String), value: Schema.OptionFromOptionalKey(Schema.String) }) }),
+                    Schema.Struct({ checkBox: Schema.Struct({ label: Schema.OptionFromOptionalKey(Schema.String), on: Schema.Boolean }) }),
+                    Schema.Struct({ popUp: Schema.Struct({ label: Schema.OptionFromOptionalKey(Schema.String), value: Schema.OptionFromOptionalKey(Schema.String) }) }),
+                ]),
+            ).annotate({ description: 'Text fields, check boxes, and pop-up buttons with their values' }),
+            actions: Schema.Array(Schema.String).annotate({ description: 'Actions press accepts: an enabled control label, AXCloseButton for the close button, AXCancel for a menu' }),
         }),
     ),
 });
-const Window = Schema.Struct({ id: Schema.Finite.check(Schema.isUint32()), title: Schema.OptionFromOptionalKey(Schema.String) });
+const Window = Schema.Struct({ id: WindowID, title: Schema.OptionFromOptionalKey(Schema.String) });
 const Screenshot = Schema.Struct({ window: Window, windows: Schema.Array(Window), image: Schema.Uint8ArrayFromBase64, width: Schema.Int.annotate({ description: 'Image width in pixels' }), height: Schema.Int.annotate({ description: 'Image height in pixels' }) });
-class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')({ postscriptName: Schema.String, family: Schema.String, style: Schema.String, fullName: Schema.String, file: Schema.String }) {
-    static get installed() {
-        return sent((client) => client.faces());
+const Kind = Schema.Literals(['suite', 'command', 'class', 'record-type', 'value-type', 'enumeration']).annotate({ description: 'Scripting definition element kind' });
+type Native = null | boolean | number | string | readonly Native[] | { readonly [term: string]: Native };
+const Native: Schema.Codec<Native> = Schema.Union([
+    Schema.Null,
+    Schema.Boolean,
+    Schema.Finite,
+    Schema.String.annotate({ description: 'Text, or an enumerator, class, date, or file URL where the parameter type takes one' }),
+    Schema.Array(Schema.suspend(() => Native)),
+    Schema.TaggedStruct('type', { name: Schema.String }).annotate({ description: 'Class or property type by name or four-character code' }),
+    Schema.TaggedStruct('enumerator', { name: Schema.String }).annotate({ description: 'Enumerator by name or four-character code' }),
+    Schema.TaggedStruct('date', { date: Schema.String.annotate({ description: 'ISO 8601 date' }) }),
+    Schema.TaggedStruct('file', { url: Schema.String.annotate({ description: 'File URL' }) }),
+    Schema.TaggedStruct('specifier', {
+        want: Schema.String.annotate({ description: 'Class of the objects specified' }),
+        form: Schema.Literals(['property', 'index', 'name', 'id', 'relative', 'range', 'test', 'whose']),
+        seld: Schema.suspend(() => Native).annotate({ description: 'Selector data: a property name, an index or first, middle, last, any, every, a name, or an id' }),
+        from: Schema.optionalKey(Schema.suspend(() => Native).annotate({ description: 'Container specifier, null or absent for the application' })),
+    }).annotate({ description: 'Object specifier' }),
+    Schema.TaggedStruct('opaque', { type: Schema.String.annotate({ description: 'Four-character descriptor type' }), data: Schema.String.annotate({ description: 'Descriptor bytes in base64' }), value: Schema.optionalKey(Schema.String) }).annotate({
+        description: 'Descriptor the dictionary does not model, reused unchanged',
+    }),
+    Schema.Record(
+        Schema.String,
+        Schema.suspend(() => Native),
+    ).annotate({ description: 'Record by property name' }),
+]);
+class InstalledFace extends Schema.Class<InstalledFace, { readonly brand: unique symbol }>('InstalledFace')({ postscriptName: Schema.String, family: Schema.String, style: Schema.String, fullName: Schema.String, file: Schema.String }) {
+    static get all() {
+        return Atelier.use((client) => client.faces());
     }
-    static readonly named = (name: string) => Effect.flatMap(Face.installed, (faces) => single('installed face', name)(faces, { names: (each) => [each.postscriptName, each.fullName, ...(each.style === 'Regular' ? [each.family] : [])], label: Struct.get('postscriptName') }));
+    static readonly named = (name: string) => Atelier.use((client) => client.face({ name }));
+
+    source() {
+        return Effect.map(
+            FileSystem.FileSystem.use((files) => files.readFile(this.file)),
+            (data) => ({ data, postscriptName: Option.some(this.postscriptName) }),
+        );
+    }
 }
 class Installation extends Schema.Class<Installation, { readonly brand: unique symbol }>('Installation')({
     url: Schema.URL,
@@ -40,67 +81,52 @@ class Installation extends Schema.Class<Installation, { readonly brand: unique s
 }) {
     // --- [DISCOVERY]
     static get installed() {
-        return sent((client) => client.installations());
+        return Atelier.use((client) => client.installations());
     }
     static readonly located = (query: string) => Effect.flatMap(Installation.installed, (rows) => single('installed Adobe application', query)(rows, { names: (row) => [row.identifier, row.name, row.url.href], label: (row) => row.url.href }));
 
     // --- [LIFECYCLE]
     launch() {
-        return sent((client) => client.launch({ url: this.url }));
+        return Atelier.use((client) => client.launch({ application: this.url }));
     }
     status() {
-        return sent((client) => client.status({ url: this.url }));
+        return Atelier.use((client) => client.status({ application: this.url }));
     }
     watch() {
-        return Stream.unwrap(Effect.map(RpcClient.make(Protocol), (client) => client.watch({ url: this.url })));
+        return Stream.unwrap(Effect.map(Atelier, (client) => client.watch({ application: this.url })));
     }
 
     // --- [ELEMENTS]
-    press(element: number, button: string) {
-        return sent((client) => client.press({ url: this.url, element, button }));
+    press(element: typeof WindowID.Type, action: string) {
+        return Atelier.use((client) => client.press({ application: this.url, element, action }));
     }
-    screenshot(window: Option.Option<number>) {
-        return sent((client) => client.screenshot({ application: this.url, window }));
+    screenshot(window: Option.Option<typeof WindowID.Type>) {
+        return Atelier.use((client) => client.screenshot({ application: this.url, window }));
     }
 
     // --- [DICTIONARY]
-    definition(selection: Option.Option<{ readonly kind: string; readonly name: string }>) {
-        return sent((client) => client.definition({ application: this.url, selection }));
+    definition(selection: Option.Option<{ readonly kind: typeof Kind.Type; readonly name: string }>) {
+        return Atelier.use((client) => client.definition({ application: this.url, selection }));
     }
-    terms(kind: string) {
-        return sent((client) => client.terms({ application: this.url, kind }));
+    terms(kind: typeof Kind.Type) {
+        return Atelier.use((client) => client.terms({ application: this.url, kind }));
     }
-    command(name: string, parameters: Schema.JsonObject, artifacts: readonly URL[]) {
-        const { url } = this;
-        return sent((client) =>
-            Effect.gen(function* () {
-                const [files, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-                const reply = yield* client.execute({ application: url, command: name, arguments: parameters });
-                const [read, failures] = yield* Effect.partition(artifacts, (artifact) => Effect.all({ uri: Effect.succeed(artifact.href), mimeType: client.contentType({ url: artifact }), data: Effect.flatMap(path.fromFileUrl(artifact), files.readFile) }, { concurrency: 'unbounded' }), { concurrency: 'unbounded' });
-                return { reply, artifacts: read, unread: failures.map(Struct.get('message')) };
-            }),
-        );
+
+    // --- [EVENTS]
+    static readonly Command = Schema.Struct({
+        reply: Native,
+        artifacts: Schema.Array(Schema.Result(Schema.Struct({ uri: Schema.String, mimeType: Schema.OptionFromOptionalKey(Schema.String), data: Schema.Uint8ArrayFromBase64 }), Schema.ErrorInstance())).annotate({
+            description: 'Each named artifact file with its media type, or why it could not be read',
+        }),
+    });
+    command(name: string, parameters: Readonly<Record<string, Native>>, artifacts: readonly URL[]) {
+        return Atelier.use((client) => client.execute({ application: this.url, command: name, arguments: parameters, artifacts }));
     }
 
     // --- [SCRIPTS]
-    language() {
-        const commands = [
-            { name: 'do script', code: 'K2  dosc', runtime: 'uxpscript' },
-            { name: 'do javascript', code: 'miscDjxM', runtime: 'extendscript' },
-            { name: 'DoScript', code: 'miscdosc', runtime: 'extendscript' },
-            { name: 'do script', code: 'miscdosc', runtime: 'acrobat' },
-        ] as const;
-        return Effect.flatMap(this.terms('command'), (declared) =>
-            Effect.fromOption(
-                Array.findFirst(commands, (row) => declared.some(({ name, code }) => name === row.name && code === row.code)),
-                () => new Cause.NoSuchElementError(`${this.name} declares no script command`),
-            ),
-        );
-    }
-    script(code: string) {
-        const encoders = {
-            uxpscript: Option.none(),
-            extendscript: Option.some(`function encoded(value) {
+    static readonly Script = Schema.Struct({ runtime: Schema.String.annotate({ description: 'Runtime that ran the source' }), result: Schema.Json });
+    runtime() {
+        const es3 = Option.some(`function encoded(value) {
         var parts = [], key, at;
         if (value === null || value === undefined || (typeof value === "number" && !isFinite(value))) return "null";
         if (typeof value === "number" || typeof value === "boolean") return String(value);
@@ -109,18 +135,27 @@ class Installation extends Schema.Class<Installation, { readonly brand: unique s
         if (value.typename !== undefined) return encoded(String(value));
         for (key in value) parts.push(encoded(key) + ":" + encoded(value[key]));
         return "{" + parts.join(",") + "}";
-    }`),
-            acrobat: Option.some('JSON.stringify'),
-        };
-        const { url, name: product } = this;
-        return Effect.flatMap(this.language(), ({ name, runtime }) =>
-            Effect.gen(function* () {
-                const encoder = yield* Effect.fromOption(encoders[runtime], () => new Cause.IllegalArgumentError(`${product} runs scripts in its extension, its dictionary script command keeps no context between calls`));
-                const reply = yield* sent((client) =>
-                    client.execute({
-                        application: url,
-                        command: name,
-                        arguments: {
+    }`);
+        const runtimes = [
+            { command: 'do script', code: 'K2  dosc', runtime: 'uxpscript', encoder: Option.none() },
+            { command: 'do javascript', code: 'miscDjxM', runtime: 'extendscript', encoder: es3 },
+            { command: 'DoScript', code: 'miscdosc', runtime: 'extendscript', encoder: es3 },
+            { command: 'do script', code: 'miscdosc', runtime: 'acrobat', encoder: Option.some('JSON.stringify') },
+        ] as const;
+        return Effect.flatMap(this.terms('command'), (declared) =>
+            Effect.fromOption(
+                Array.findFirst(runtimes, (row) => declared.some(({ name, code }) => name === row.command && code === row.code)),
+                () => new Cause.NoSuchElementError(`${this.name} declares no script command`),
+            ),
+        );
+    }
+    script(code: string) {
+        return Effect.flatMap(this.runtime(), ({ command, runtime, encoder }) =>
+            Effect.fromOption(encoder, () => new Cause.IllegalArgumentError(`${this.name}'s ${command} keeps no context between calls`)).pipe(
+                Effect.flatMap((source) =>
+                    this.command(
+                        command,
+                        {
                             direct: `(function (body, encoded) {
     var outcome;
     try {
@@ -133,59 +168,61 @@ class Installation extends Schema.Class<Installation, { readonly brand: unique s
         outcome = { _tag: "Failure", failure: thrown };
     }
     return encodeURIComponent(encoded(outcome));
-}).call(this, "${encodeURIComponent(code)}", ${encoder})`,
+}).call(this, "${encodeURIComponent(code)}", ${source})`,
                         },
-                    }),
-                );
-                const outcome = yield* Schema.decodeEffect(Schema.fromJsonString(Schema.toCodecJson(Schema.Result(Schema.Json, Schema.ErrorInstance()))))(decodeURIComponent(yield* Schema.decodeUnknownEffect(Schema.String)(reply)));
-                return { runtime, result: yield* Effect.fromResult(outcome) };
-            }),
+                        [],
+                    ),
+                ),
+                Effect.flatMap(({ reply }) => Schema.decodeUnknownEffect(Schema.String)(reply)),
+                Effect.flatMap((text) => Schema.decodeEffect(Schema.fromJsonString(Schema.toCodecJson(Schema.Result(Schema.Json, Schema.ErrorInstance()))))(decodeURIComponent(text))),
+                Effect.flatMap(Effect.fromResult),
+                Effect.map((result) => ({ runtime, result })),
+            ),
         );
     }
 }
-const Protocol = RpcGroup.make(
+const Requests = RpcGroup.make(
     Rpc.make('installations', { success: Schema.Array(Installation), error: Schema.ErrorInstance() }),
-    Rpc.make('launch', { payload: { url: Schema.URL }, success: Installation, error: Schema.ErrorInstance() }),
-    Rpc.make('status', { payload: { url: Schema.URL }, success: Status, error: Schema.ErrorInstance() }),
-    Rpc.make('watch', { payload: { url: Schema.URL }, success: Status, error: Schema.ErrorInstance(), stream: true }),
-    Rpc.make('press', { payload: { url: Schema.URL, element: Status.fields.elements.value.fields.id, button: Schema.String }, success: Status, error: Schema.ErrorInstance() }),
-    Rpc.make('definition', { payload: { application: Schema.URL, selection: Schema.OptionFromOptionalKey(Schema.Struct({ kind: Schema.String, name: Schema.String })) }, success: Schema.String, error: Schema.ErrorInstance() }),
-    Rpc.make('terms', { payload: { application: Schema.URL, kind: Schema.String }, success: Schema.Array(Schema.Struct({ name: Schema.String, code: Schema.String.annotate({ description: "Four-character code in the dictionary's quoted form" }) })), error: Schema.ErrorInstance() }),
-    Rpc.make('execute', { payload: { application: Schema.URL, command: Schema.String, arguments: Schema.JsonObject }, success: Schema.Json, error: Schema.ErrorInstance() }),
-    Rpc.make('contentType', { payload: { url: Schema.URL }, success: Schema.String, error: Schema.ErrorInstance() }),
-    Rpc.make('screenshot', { payload: { application: Schema.URL, window: Schema.OptionFromOptionalKey(Screenshot.fields.window.fields.id) }, success: Screenshot, error: Schema.ErrorInstance() }),
-    Rpc.make('faces', { success: Schema.Array(Face), error: Schema.ErrorInstance() }),
+    Rpc.make('launch', { payload: { application: Schema.URL }, success: Installation, error: Schema.ErrorInstance() }),
+    Rpc.make('status', { payload: { application: Schema.URL }, success: Status, error: Schema.ErrorInstance() }),
+    Rpc.make('watch', { payload: { application: Schema.URL }, success: Status, error: Schema.ErrorInstance(), stream: true }),
+    Rpc.make('press', { payload: { application: Schema.URL, element: WindowID, action: Schema.String }, success: Status, error: Schema.ErrorInstance() }),
+    Rpc.make('definition', { payload: { application: Schema.URL, selection: Schema.OptionFromOptionalKey(Schema.Struct({ kind: Kind, name: Schema.String })) }, success: Schema.String, error: Schema.ErrorInstance() }),
+    Rpc.make('terms', { payload: { application: Schema.URL, kind: Kind }, success: Schema.Array(Schema.Struct({ name: Schema.String, code: Schema.String.annotate({ description: 'Code as the scripting definition writes it' }) })), error: Schema.ErrorInstance() }),
+    Rpc.make('execute', { payload: { application: Schema.URL, command: Schema.String, arguments: Schema.Record(Schema.String, Native), artifacts: Schema.Array(Schema.URL) }, success: Installation.Command, error: Schema.ErrorInstance() }),
+    Rpc.make('screenshot', { payload: { application: Schema.URL, window: Schema.OptionFromOptionalKey(WindowID) }, success: Screenshot, error: Schema.ErrorInstance() }),
+    Rpc.make('faces', { success: Schema.Array(InstalledFace), error: Schema.ErrorInstance() }),
+    Rpc.make('face', { payload: { name: Schema.String }, success: InstalledFace, error: Schema.Union([Unmatched, Schema.ErrorInstance()]) }),
 );
+
+// --- [SERVICES] ------------------------------------------------------------------------
+
+class Atelier extends Context.Service<Atelier, RpcClient.FromGroup<typeof Requests, RpcClientError.RpcClientError>>()('@rasm/automation/main/Atelier') {
+    static readonly spawned = (executable: string) =>
+        Layer.effect(Atelier)(RpcClient.make(Requests)).pipe(
+            Layer.provide(RpcClient.layerProtocolSocket({ retryPolicy: Schedule.recurs(0) })),
+            Layer.provide(
+                Layer.effect(Socket.Socket)(
+                    Socket.fromTransformStream(
+                        Effect.gen(function* () {
+                            const requests = new TransformStream<Uint8Array, Uint8Array>();
+                            const child = yield* (yield* ChildProcessSpawner.ChildProcessSpawner).spawn(ChildProcess.make(executable, { stdin: Stream.orDie(Stream.fromReadableStream({ evaluate: () => requests.readable, onError: identity })), stderr: 'inherit' }));
+                            return { readable: Stream.toReadableStream(child.stdout), writable: requests.writable };
+                        }).pipe(Effect.mapError((cause) => Socket.SocketError.make({ reason: Socket.SocketOpenError.make({ kind: 'Unknown', cause }) }))),
+                    ),
+                ),
+            ),
+            Layer.provide(RpcSerialization.layerNdJsonRpc()),
+        );
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const sent = <A, E, R>(call: (client: RpcClient.RpcClient<RpcGroup.Rpcs<typeof Protocol>, RpcClientError.RpcClientError>) => Effect.Effect<A, E, R>) => Effect.scoped(Effect.flatMap(RpcClient.make(Protocol), call));
 const stripped = (code: string) => {
     const [open, close] = ['async function body() {\n', '\n}'];
     return Effect.try(() => transformSync(`${open}${code}${close}`, { mode: 'strip-only' }).code.slice(open.length, -close.length));
 };
 
-// --- [COMPOSITION] ---------------------------------------------------------------------
-
-const helper = (executable: string) =>
-    RpcClient.layerProtocolSocket({ pingInterval: Duration.infinity }).pipe(
-        Layer.provide(
-            Layer.effect(Socket.Socket)(
-                Socket.fromTransformStream(
-                    Effect.gen(function* () {
-                        const requests = new TransformStream<Uint8Array, Uint8Array>();
-                        const child = yield* (yield* ChildProcessSpawner.ChildProcessSpawner).spawn(ChildProcess.make(executable, { stdin: Stream.orDie(Stream.fromReadableStream({ evaluate: () => requests.readable, onError: identity })), stderr: 'inherit' }));
-                        return { readable: Stream.toReadableStream(child.stdout), writable: requests.writable };
-                    }).pipe(
-                        Effect.tapCause(Effect.logError),
-                        Effect.mapError((cause) => Socket.SocketError.make({ reason: Socket.SocketOpenError.make({ kind: 'Unknown', cause }) })),
-                    ),
-                ),
-            ),
-        ),
-        Layer.provide(RpcSerialization.layerNdJsonRpc()),
-    );
-
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Face, helper, Installation, Protocol, Screenshot, Status, stripped };
+export { Atelier, Installation, InstalledFace, Kind, Native, Screenshot, Status, stripped, WindowID };

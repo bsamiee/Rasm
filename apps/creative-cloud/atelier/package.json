@@ -10,12 +10,12 @@
         "@rasm/mcp": "workspace:*",
         "@rasm/search": "workspace:*",
         "@rasm/typography": "workspace:*",
+        "@rasm/uxp": "workspace:*",
         "effect": "catalog:"
     },
     "devDependencies": {
-        "@types/node": "catalog:"
-    },
-    "nx": {
-        "implicitDependencies": [ "Atelier" ]
+        "@adobe-uxp-types/uxp": "catalog:",
+        "@types/node": "catalog:",
+        "indesign-uxp-types": "catalog:"
     }
 }

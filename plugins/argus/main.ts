@@ -296,7 +296,7 @@ const start = Effect.fn('start')(function* (root: string, config: typeof Server.
     };
 });
 
-const query = <const Name extends string, P extends Schema.Struct.Fields>(name: Name, description: string, parameters: Schema.Struct<P>) => Tool.make(name, { description, parameters, success: Lines }).annotateMerge(READING);
+const query = <const Name extends string, P extends Schema.Struct.Fields>(name: Name, description: string, parameters: Schema.Struct<P>) => Tool.make(name, { description, parameters, success: Lines }).annotateMerge(READING).annotate(Tool.OpenWorld, false);
 
 const initialize = Effect.fn('initialize')(function* () {
     const fs = yield* FileSystem.FileSystem;

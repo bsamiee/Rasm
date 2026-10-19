@@ -1470,6 +1470,9 @@ importers:
       '@rasm/ui':
         specifier: workspace:*
         version: link:libs/typescript/web/ui
+      '@rasm/uxp':
+        specifier: workspace:*
+        version: link:libs/typescript/creative-cloud/uxp
       '@react-aria/live-announcer':
         specifier: 'catalog:'
         version: 3.5.1(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
@@ -1965,13 +1968,22 @@ importers:
       '@rasm/typography':
         specifier: workspace:*
         version: link:../../../libs/typescript/graphics/typography
+      '@rasm/uxp':
+        specifier: workspace:*
+        version: link:../../../libs/typescript/creative-cloud/uxp
       effect:
         specifier: 'catalog:'
         version: 4.0.5
     devDependencies:
+      '@adobe-uxp-types/uxp':
+        specifier: 'catalog:'
+        version: 0.1.4
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.5
+      indesign-uxp-types:
+        specifier: 'catalog:'
+        version: 1.0.0(@adobe/cc-ext-uxp-types@7.3.1)
 
   apps/creative-cloud/indesign/galley:
     dependencies:
@@ -1994,9 +2006,6 @@ importers:
       indesign-uxp-types:
         specifier: 'catalog:'
         version: 1.0.0(@adobe/cc-ext-uxp-types@7.3.1)
-      vite:
-        specifier: 'catalog:'
-        version: 8.3.4(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@3.0.0-2)
 
   apps/web/portfolio:
     dependencies:
@@ -2159,18 +2168,12 @@ importers:
 
   libs/typescript/creative-cloud/indesign:
     dependencies:
-      '@rasm/automation':
-        specifier: workspace:*
-        version: link:../automation
-      '@rasm/mcp':
-        specifier: workspace:*
-        version: link:../../ai/mcp
       '@rasm/search':
         specifier: workspace:*
         version: link:../../data/search
-      '@rasm/typography':
+      '@rasm/uxp':
         specifier: workspace:*
-        version: link:../../graphics/typography
+        version: link:../uxp
       acorn:
         specifier: 'catalog:'
         version: 8.19.0

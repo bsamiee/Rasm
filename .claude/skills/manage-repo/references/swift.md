@@ -135,6 +135,8 @@ SwiftPM joins with the first Swift library:
 - Library targets exclude their test target folders, sources overlap otherwise
 - One `let settings: [SwiftSetting]` per manifest applies to every target, no mechanism shares settings across manifests
 - Settings state compiler policy in typed forms (`.strictMemorySafety()`, `.enableUpcomingFeature`, `.treatAllWarnings`)
+- Settings rows follow the order of root `Xcode.xcconfig`'s `[SWIFT]` section, SwiftPM reads no xcconfig and a policy change edits both lists
+- Executables a skill drives are `executableTarget`s under a folder the library target excludes, the skill runs them through `swift run --quiet` with the `build` scratch path
 - Sibling packages reference each other by `.package(path:)` with no lock entry, each keeps its own settings under a sibling's build
 - Apps reference a library as a `packages` row with `kind: "local"` and project-relative `path`, `package-product-members` name it by folder
 - `upgrade` runs `swift package update`, `Package.resolved` appears at the package root with the first remote dependency

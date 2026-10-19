@@ -425,5 +425,4 @@ const invocations = ([head, ...rest]: readonly string[]): readonly Invocation[] 
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { Invocation };
-export { declared, firstOperand, informational, invocations, operands, placed, unquoted, waits, within };
+export { declared, firstOperand, type Invocation, informational, invocations, operands, placed, unquoted, waits, within };

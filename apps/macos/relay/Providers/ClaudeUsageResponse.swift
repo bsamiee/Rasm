@@ -12,7 +12,7 @@ nonisolated struct ClaudeUsageResponse: Decodable, Sendable {
         func quotaWindow(kind: QuotaKind) -> Result<QuotaWindow?, AggregateError<QuotaFailure>> {
             utilization.map { utilization in
                 combine(
-                    UsageAmount.make(percent: utilization).mapError { failure in AggregateError(first: failure) },
+                    UsageAmount.make(percent: utilization).aggregated(\.self),
                     ClaudeUsageResponse.resetDate(resetsAt),
                 ).map { amount, reset in
                     QuotaWindow(kind: kind, used: amount, resetsAt: reset, rejected: status == "rejected")
@@ -83,7 +83,7 @@ nonisolated struct ClaudeUsageResponse: Decodable, Sendable {
         value.map { value in
             Result { try Date(value, strategy: .iso8601) }
                 .map(Optional.some)
-                .mapError { _ in AggregateError(first: .invalidResetDate) }
+                .aggregated { _ in .invalidResetDate }
         } ?? .success(nil)
     }
 }

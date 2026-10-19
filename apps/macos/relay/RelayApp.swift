@@ -57,7 +57,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
                 case .success(let exported): environment = exported
                 case .failure(.run(.cancelled)): return
                 case .failure(let error):
-                    Logger(subsystem: Bundle.identity, category: "Launch").error("Login shell environment: \(String(describing: error), privacy: .public)")
+                    Logger(category: "Launch")?.error("Login shell environment: \(String(describing: error), privacy: .public)")
                     environment = LoginShell.initialEnvironment
             }
             let launched: AccountStore = AccountStore(environment: environment)

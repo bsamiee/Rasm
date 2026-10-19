@@ -1,6 +1,7 @@
 import AppKit
 import RasmMacOS
 import SwiftUI
+import os
 
 // --- [VIEWS] ---------------------------------------------------------------------------
 
@@ -119,7 +120,11 @@ struct MenuBarExtraContent: View {
     private func showSettings() {
         dismiss()
         openWindow(id: RelayApp.settingsWindow)
-        Task(name: "Bring Relay to front") { await Activation.bringToFront() }
+        Task(name: "Bring Relay to front") {
+            if case .failure(let error) = await NSApplication.shared.bringToFront() {
+                Logger(category: "Activation")?.error("Bringing Relay to front: \(String(describing: error), privacy: .public)")
+            }
+        }
     }
 }
 

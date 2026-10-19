@@ -1,8 +1,10 @@
 import AppKit
+import AsyncAlgorithms
 import Foundation
 import Network
 import Observation
 import RasmMacOS
+import ServiceManagement
 import SwiftUI
 import os
 
@@ -56,7 +58,7 @@ final class AccountStore {
     // --- [STATE]
     private(set) var accounts: [AccountModel] = []
     private(set) var authentication: AuthenticationPresentation?
-    private(set) var loginItem: LoginItem = .current
+    private(set) var loginItem: Result<SMAppService.Status, any Error> = .success(SMAppService.mainApp.status)
     private(set) var storageState: StorageState = .loading
     private(set) var isMenuBarExtraVisible: Bool = false
     private(set) var codexPrecondition: CodexFailure?
@@ -69,7 +71,7 @@ final class AccountStore {
     private let storage: AccountStorage
     private let claude: ClaudeClient
     private let codex: CodexClient
-    private let logger: Logger = Logger(subsystem: Bundle.identity, category: "Accounts")
+    private let logger: Logger? = Logger(category: "Accounts")
     @ObservationIgnored private var root: Task<Void, Never>?
     @ObservationIgnored private var authenticationTask: Task<Void, Never>?
     @ObservationIgnored private var authenticationCodes: AsyncStream<String>.Continuation?
@@ -189,7 +191,7 @@ final class AccountStore {
             switch locations.orphanAccountDirectories(excluding: Set(accounts.map(\.account.id) + [authentication?.id].compactMap(\.self))) {
                 case .success(let found): orphans = found
                 case .failure(let error):
-                    logger.error("Accounts directory listing: \(String(describing: error), privacy: .public)")
+                    logger?.error("Accounts directory listing: \(String(describing: error), privacy: .public)")
                     orphans = []
             }
             await withDiscardingTaskGroup { group in
@@ -197,7 +199,7 @@ final class AccountStore {
                     for provider: Provider in Provider.allCases {
                         group.addTask(name: "\(provider.name) orphan deletion") { [client = client(for: provider), logger] in
                             if case .failure(let error) = await client.deletePrivateStore(id: id) {
-                                logger.error(
+                                logger?.error(
                                     "\(provider.name, privacy: .public) orphan \(id.uuidString, privacy: .public) deletion: \(String(describing: error.failure), privacy: .public)"
                                 )
                             }
@@ -209,11 +211,7 @@ final class AccountStore {
         }
         func observe(file: URL, provider: Provider) async {
             do {
-                for try await _ in FileWatch.values(
-                    of: file,
-                    read: FileWatch.contentDigest,
-                    debounce: .milliseconds(300),
-                ).dropFirst() {
+                for try await _ in FileWatch.events(of: file).map({ try FileWatch.contentDigest(file) }).removeDuplicates().dropFirst().debounce(for: .milliseconds(300)) {
                     let before: [UUID: Bool] = Dictionary(
                         uniqueKeysWithValues: accounts.map { model in (model.account.id, model.isSelected) }
                     )
@@ -225,7 +223,7 @@ final class AccountStore {
                     refresh(changed, trigger: .background)
                 }
             } catch {
-                logger.error(
+                logger?.error(
                     "Watch on \(file.path(percentEncoded: false), privacy: .private): \(String(describing: error), privacy: .public)"
                 )
             }
@@ -249,12 +247,11 @@ final class AccountStore {
         func observeRefreshLock() async {
             let lock: URL = ClaudeLock.refreshLockfile(in: claude.shared.directory)
             do {
-                for try await present: Bool in FileWatch.values(of: lock, read: FileWatch.exists, debounce: nil).dropFirst()
-                where !present {
+                for try await present: Bool in FileWatch.events(of: lock).map({ FileWatch.exists(lock) }).removeDuplicates().dropFirst() where !present {
                     await readSelection(.claude)
                 }
             } catch {
-                logger.error(
+                logger?.error(
                     "Watch on \(lock.path(percentEncoded: false), privacy: .private): \(String(describing: error), privacy: .public)"
                 )
             }
@@ -341,7 +338,7 @@ final class AccountStore {
             case .failure(let error):
                 storageState = .unavailable
                 storageIssue = error
-                logger.error("accounts.json load: \(String(describing: error), privacy: .public)")
+                logger?.error("accounts.json load: \(String(describing: error), privacy: .public)")
         }
     }
 
@@ -350,7 +347,7 @@ final class AccountStore {
         isMenuBarExtraVisible = visible
         guard visible else { return }
         lastPanelOpen = .now
-        loginItem = .current
+        refreshLoginItem()
         Task(name: "Panel opened") { [self] in
             await readSelection()
             refresh(accounts, trigger: .background)
@@ -359,11 +356,15 @@ final class AccountStore {
     }
 
     func refreshLoginItem() {
-        loginItem = .current
+        loginItem = .success(SMAppService.mainApp.status)
     }
 
-    func setLoginItemEnabled(_ enabled: Bool) {
-        Task(name: "Login item") { [self] in loginItem = await LoginItem.setEnabled(enabled) }
+    func registerLoginItem() {
+        loginItem = Result { try SMAppService.mainApp.register() }.map { SMAppService.mainApp.status }
+    }
+
+    func unregisterLoginItem() async {
+        loginItem = await Result { try await SMAppService.mainApp.unregister() }.map { SMAppService.mainApp.status }
     }
 
     // --- [ACCOUNT_ACTIONS]
@@ -749,7 +750,7 @@ final class AccountStore {
     // --- [FAILURES]
     private func record(_ error: ProviderError, for model: AccountModel, owning: Set<CredentialStore>) async {
         guard !error.failure.isCancellation else { return }
-        logger.error(
+        logger?.error(
             "\(model.running?.kind.description ?? "Account operation", privacy: .public) failed for \(model.account.id.uuidString, privacy: .public) \(model.account.identity.email, privacy: .private): \(String(describing: error), privacy: .public)"
         )
         model.issue = error
@@ -767,7 +768,7 @@ final class AccountStore {
     private func report(_ error: ProviderError, provider: Provider) {
         guard !error.failure.isCancellation else { return }
         providerIssues[provider] = error
-        logger.error("\(provider.name, privacy: .public) provider operation failed: \(String(describing: error), privacy: .public)")
+        logger?.error("\(provider.name, privacy: .public) provider operation failed: \(String(describing: error), privacy: .public)")
     }
 
     // --- [PERSISTENCE]
@@ -793,13 +794,13 @@ final class AccountStore {
             case .success: storageIssue = nil
             case .failure(let error):
                 storageIssue = error
-                logger.error("accounts.json save: \(String(describing: error), privacy: .public)")
+                logger?.error("accounts.json save: \(String(describing: error), privacy: .public)")
         }
     }
 
     private func removeAccountDirectory(_ id: UUID) {
         if case .failure(let error) = ifPresent({ try FileManager.default.removeItem(at: locations.accountDirectory(id)) }) {
-            logger.error("Account directory \(id.uuidString, privacy: .public) removal: \(String(describing: error), privacy: .public)")
+            logger?.error("Account directory \(id.uuidString, privacy: .public) removal: \(String(describing: error), privacy: .public)")
         }
     }
 }

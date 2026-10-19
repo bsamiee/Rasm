@@ -12,13 +12,6 @@
   },
   "packages": [
     { "kind": "local", "path": "../../../../libs/swift/macos" },
-    {
-      "kind": "remote",
-      "repository": "https://github.com/swiftlang/swift-subprocess",
-      "version": {
-        "up-to-next-major-version": "1.0.0",
-      },
-    },
   ],
   "files": [
     { "path": "<PROJECT>/../../../../Xcode.xcconfig" },
@@ -45,11 +38,6 @@
         {
           "package": "macos",
           "product-name": "RasmMacOS",
-          "build-phase": { "build-phase": "frameworks" },
-        },
-        {
-          "package": "swift-subprocess",
-          "product-name": "Subprocess",
           "build-phase": { "build-phase": "frameworks" },
         },
       ],

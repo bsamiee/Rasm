@@ -1,7 +1,7 @@
 {
     "name": "@rasm/uxp",
     "private": true,
-    "description": "Effect runtime and resource lifetime for Adobe UXP hosts, with RPC serving over a dialed socket and link status UI",
+    "description": "Effect in Adobe UXP hosts: clock, host modules, the plug-in manifest, plug-in and script entries, and the dialed link serving a contract with its status",
     "type": "module",
     "exports": {
         "./*": "./*.ts"

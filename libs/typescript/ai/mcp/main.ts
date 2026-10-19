@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { NodeHttpServer, NodeRuntime, NodeServices } from '@effect/platform-node';
-import { Array, Cause, Config, Context, Effect, Exit, Layer, Logger, References, Runtime, Schema } from 'effect';
+import { Array, Cause, Config, Context, Effect, Exit, Layer, Logger, LogLevel, References, Runtime, Schema } from 'effect';
 import { McpProtocol, McpServer } from 'effect/ai';
 import { Command, Flag } from 'effect/cli';
 import { FetchHttpClient, HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
@@ -15,7 +15,7 @@ const main = <E>(manifest: { readonly name: string; readonly version: string; re
     const settings = {
         listen: Flag.String('listen').pipe(Flag.withFallbackConfig(Config.String('MCP_LISTEN')), Flag.withDescription('Socket address the Streamable HTTP endpoint listens on, as host:port or [IPv6]:port')),
         hosts: Flag.String('allowed-host').pipe(Flag.atLeast(1), Flag.withFallbackConfig(Config.Array(Schema.String, 'MCP_ALLOWED_HOSTS')), Flag.withDefault([]), Flag.withDescription('Host authority answered beside loopback names and the bound address')),
-        log: Flag.Literals('log', ['All', 'Fatal', 'Error', 'Warn', 'Info', 'Debug', 'Trace', 'None']).pipe(Flag.withFallbackConfig(Config.LogLevel('MCP_LOG')), Flag.withDefault('Info' as const), Flag.withDescription('Minimum log level')),
+        log: Flag.Literals('log', LogLevel.values).pipe(Flag.withFallbackConfig(Config.LogLevel('MCP_LOG')), Flag.withDefault('Info' as const), Flag.withDescription('Minimum log level')),
         otlp: Flag.Boolean('otlp').pipe(Flag.withFallbackConfig(Config.Boolean('MCP_OTLP')), Flag.withDefault(false), Flag.withDescription('Exports traces, metrics, and logs over OTLP/HTTP to the endpoints OTEL_EXPORTER_OTLP_* variables name')),
     };
     Command.make(

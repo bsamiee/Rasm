@@ -1,8 +1,9 @@
 import { createRequire } from 'node:module';
 import { join, relative } from 'node:path';
 import { cloudflare } from '@cloudflare/vite-plugin';
+import { Manifest } from '@rasm/uxp/manifest';
 import compiler from '@vitejs/plugin-react';
-import { Array, Config, Effect, Record, String } from 'effect';
+import { Array, Config, Effect, Record, Schema, String } from 'effect';
 import { defaultClientConditions, defaultServerConditions, type PluginOption, type Rollup, type UserConfig, type UserConfigFnObject } from 'vite';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -25,7 +26,7 @@ const worker =
         ],
     });
 
-const uxp = (directory: string, { main, manifest }: { readonly main: string; readonly manifest: object }): UserConfig => {
+const uxp = (directory: string, { main, manifest }: { readonly main: string; readonly manifest: Manifest }): UserConfig => {
     const load = createRequire(import.meta.url);
     const encoding = load.resolve('@exodus/bytes/encoding-lite.js');
     return {
@@ -50,7 +51,7 @@ const uxp = (directory: string, { main, manifest }: { readonly main: string; rea
             {
                 name: 'manifest',
                 generateBundle(this: Rollup.PluginContext): void {
-                    this.emitFile({ type: 'asset', fileName: 'manifest.json', source: JSON.stringify(manifest) });
+                    this.emitFile({ type: 'asset', fileName: 'manifest.json', source: Effect.runSync(Schema.encodeEffect(Manifest.json)(manifest)) });
                 },
             },
         ],

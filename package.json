@@ -165,6 +165,7 @@
         "@rasm/database": "workspace:*",
         "@rasm/hosting": "workspace:*",
         "@rasm/ui": "workspace:*",
+        "@rasm/uxp": "workspace:*",
         "@react-aria/live-announcer": "catalog:",
         "@renovatebot/pep440": "catalog:",
         "@simplewebauthn/browser": "catalog:",

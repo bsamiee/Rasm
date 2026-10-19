@@ -1,11 +1,9 @@
 {
     "name": "@rasm/typography",
     "private": true,
-    "description": "Foundation for font-aware apps and extensions: opens any face of a font file or collection at a named or coordinate instance and point size, reads its names, coverage, metrics, features, and axes, and shapes text runs with feature settings",
+    "description": "Foundation for font-aware apps and extensions: opens a face of a font file or collection by PostScript name at a named, generated, or set instance and point size, reads its names, coverage, metrics, embedding rights, language systems, features, axes, instances, and color data, and shapes text runs with feature settings",
     "type": "module",
-    "exports": {
-        "./*": "./*.ts"
-    },
+    "exports": "./main.ts",
     "dependencies": {
         "@rasm/search": "workspace:*",
         "effect": "catalog:",

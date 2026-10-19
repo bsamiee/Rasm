@@ -113,6 +113,7 @@ rule:
                                 not: {inside: {stopBy: end, all: [{matches: typescript-function-boundary}, {pattern: $READER}]}}
             - all:
                 - not: {matches: nests-thrice}
+                - not: {has: {field: value, any: [{kind: number}, {has: {stopBy: end, kind: number}}]}}
                 - inside:
                     kind: program
                     stopBy: end

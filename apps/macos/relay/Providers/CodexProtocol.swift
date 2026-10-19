@@ -339,7 +339,7 @@ nonisolated enum CodexProtocol {
                 }
             return kind.map { kind in
                 UsageAmount.make(percent: window.usedPercent)
-                    .mapError { _ in AggregateError(first: "\(kind.name) usage percentage") }
+                    .aggregated { _ in "\(kind.name) usage percentage" }
                     .map { amount in
                         QuotaWindow(kind: kind, used: amount, resetsAt: window.resetsAt, rejected: reached && amount.isExhausted)
                     }

@@ -6,7 +6,7 @@ import { stdout } from '../process.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export const format = flow(
+const format = flow(
     Effect.fn('format')(
         function* (options: { readonly project: string; readonly files: readonly string[] }, context: ExecutorContext) {
             const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
@@ -44,3 +44,7 @@ export const format = flow(
     ),
     Effect.runPromise,
 );
+
+// --- [EXPORTS] -------------------------------------------------------------------------
+
+export { format };

@@ -9,45 +9,24 @@ Photoshop's UXP DOM uses Action Manager descriptors: `action.batchPlay` plays ch
 ```ts
 import { type ActionDescriptor, action, core, type ExecutionContext } from 'adobe:photoshop';
 
-const PlayReason = Schema.TaggedUnion({
-    Refused: { command: Schema.String, message: Schema.String, result: Schema.Int },
-    Cancelled: { command: Schema.String },
-    Busy: { message: Schema.String },
-});
-class PlayError extends Schema.TaggedError<PlayError, { readonly brand: unique symbol }>()('PlayError', { reason: PlayReason }) {}
-
-const { message, result } = PlayReason.cases.Refused.fields;
-const Failed = Schema.Struct({ _obj: Schema.Literal('error'), message, result });
-const played = (commands: ActionDescriptor[]): Effect.Effect<ActionDescriptor[], PlayError | Cause.UnknownError> =>
-    Effect.flatMap(Effect.tryPromise(() => action.batchPlay(commands, {})), (replies) => {
-        const userCancelled = -128;
-        const refused = Array.findFirst(Array.zip(commands, replies), ([{ _obj: command }, reply]) =>
-            Option.map(Schema.decodeUnknownOption(Failed)(reply), (failed) =>
-                failed.result === userCancelled
-                    ? { _tag: 'Cancelled' as const, command }
-                    : { _tag: 'Refused' as const, command, message: failed.message, result: failed.result },
-            ),
-        );
-        return Option.match(refused, { onNone: () => Effect.succeed(replies), onSome: (reason) => Effect.fail(PlayError.make({ reason })) });
-    });
-const modal = <A, E, R>(commandName: string, body: (context: ExecutionContext) => Effect.Effect<A, E, R>): Effect.Effect<A, E | PlayError | Cause.UnknownError, R> => {
-    const busy = 9;
-    const cancelled = 2;
-    const Rejected = Schema.Struct({ number: Schema.Literals([busy, cancelled]), message });
-    return Effect.flatMap(Effect.context<R>(), (services) =>
+const Failed = Schema.Struct({ _obj: Schema.Literal('error'), message: Schema.String, result: Schema.Int });
+const played = (commands: ActionDescriptor[]): Effect.Effect<ActionDescriptor[], Cause.UnknownError> =>
+    Effect.flatMap(Effect.tryPromise(() => action.batchPlay(commands, {})), (replies) =>
+        Option.match(
+            Array.findFirst(Array.zip(commands, replies), ([{ _obj: command }, reply]) => Option.map(Schema.decodeUnknownOption(Failed)(reply), (failed) => new Cause.UnknownError(failed, command))),
+            { onNone: () => Effect.succeed(replies), onSome: Effect.fail },
+        ),
+    );
+const modal = <A, E, R>(commandName: string, body: (context: ExecutionContext) => Effect.Effect<A, E, R>): Effect.Effect<A, E | Cause.UnknownError, R> =>
+    Effect.flatMap(Effect.context<R>(), (services) =>
         Effect.flatten(
             Effect.tryPromise({
                 try: (signal) => core.executeAsModal((context) => Effect.runPromiseExitWith(services)(body(context), { signal }), { commandName }),
-                catch: (cause) =>
-                    Option.match(Schema.decodeUnknownOption(Rejected)(cause), {
-                        onNone: () => new Cause.UnknownError(cause),
-                        onSome: (rejected) => PlayError.make({ reason: rejected.number === busy ? { _tag: 'Busy', message: rejected.message } : { _tag: 'Cancelled', command: commandName } }),
-                    }),
+                catch: (cause) => new Cause.UnknownError(cause, commandName),
             }),
         ),
     );
-};
-const committed = (documentID: number, name: string, commands: ActionDescriptor[]): Effect.Effect<ActionDescriptor[], PlayError | Cause.UnknownError> =>
+const committed = (documentID: number, name: string, commands: ActionDescriptor[]): Effect.Effect<ActionDescriptor[], Cause.UnknownError> =>
     modal(name, ({ hostControl }) =>
         Effect.scoped(
             Effect.andThen(
@@ -60,7 +39,7 @@ const committed = (documentID: number, name: string, commands: ActionDescriptor[
     );
 ```
 
-`committed` plays a command list as one history state named `name`, or fails with the first refused command and leaves no change: `resumeHistory` commits on the body's success and drops every change on failure or interruption, since a suspension left open commits when its body resolves. A rejection numbered neither 9 nor 2 fails `Cause.UnknownError` with the rejection as cause. `modal` runs its body on the caller's services and passes its `signal`, and an interrupted caller interrupts the body. The body returns its `Exit` as a value that `Effect.flatten` unwraps.
+`committed` plays a command list as one history state named `name`, or fails with the first refused command's error descriptor as cause and leaves no change. `resumeHistory` commits on the body's success and drops every change on failure or interruption, since a suspension left open commits when its body resolves. Each refusal keeps its host code in `cause`, and a consumer decodes the code it branches on. `modal` runs its body on the caller's services and passes its `signal`, and an interrupted caller interrupts the body. The body returns its `Exit` as a value that `Effect.flatten` unwraps.
 
 | [INDEX] | [CALL]                                                    | [REPLY]                                                         |
 | :-----: | :-------------------------------------------------------- | :-------------------------------------------------------------- |
@@ -76,7 +55,7 @@ const committed = (documentID: number, name: string, commands: ActionDescriptor[
 
 - `resumeHistory({ ...suspension, finalName }, true)` renames the state at commit, and a suspension holding no change records no state
 - Plays outside a suspension record one state each under Photoshop's name (`New Layer`, `Master Opacity Change`) and stay when their body throws
-- `Document.suspendHistory(callback, name)` wraps both calls in `executeAsModal`, passes `document` in place of `hostControl`, and resolves `undefined`
+- `Document.suspendHistory(callback, name)` wraps both calls in `executeAsModal`, passes `document` for `hostControl`, and resolves `undefined`
 - `interactive: true` scopes open `display` dialogs and no progress window, which other scopes open after about 2 s and fill from `reportProgress`
 - `@adobe-uxp-types/photoshop` types `executeAsModal` as its target's value, which it resolves with, and `@types/photoshop` as `Promise<void>`
 
@@ -102,7 +81,7 @@ const layers = (documentID: number) =>
     );
 ```
 
-`layers` runs outside every modal scope and fails `Refused` for a closed document. `index: 1` starts above a background layer, `count: -1` runs to the last element, and `failOnMissingProperty: false` leaves an absent property out of its record.
+`layers` runs outside every modal scope and fails with an error descriptor as cause for a closed document. `index: 1` starts above a background layer, `count: -1` runs to the last element, and `failOnMissingProperty: false` leaves an absent property out of its record.
 
 | [INDEX] | [VALUE]     | [FORM]                                                             |
 | :-----: | :---------- | :----------------------------------------------------------------- |
@@ -134,7 +113,8 @@ DOM members are JavaScript over descriptors: a getter plays a synchronous `get`,
 |  [05]   | Element by name               | `getByName`, then a null check               | Returns `null` for no match                        |
 |  [06]   | Element held across edits     | Its DOM object or `id`                       | One object per id, members of a deleted one throw  |
 
-- `document.layers` and a group's `layers` hold the ids one `getLayerTreeSync` or `getLayerGroupContentsSync` call read, and their `getByName` gets each `name`
+- `document.layers` and a group's `layers` hold the ids one `getLayerTreeSync` or `getLayerGroupContentsSync` call read
+- `getByName` on a layer list gets each layer's `name`
 - `app.documents` and `app.fonts` play a get at each `length` and index read, and an array method on either plays one list read
 - Preference members reach a subset of application keys, and a `get` of the application property reaches the rest (`guidesPrefs`, `interfacePrefs`)
 - Unlocking a background layer gives it a new `id`, which its DOM object takes
@@ -156,20 +136,27 @@ Failures leave each member in its own form:
 `action.addNotificationListener(events, handler)` calls `handler(event, descriptor)` for each listed event name, and `removeNotificationListener` with the same names and function removes it:
 - User commands arrive with `_isCommand: true` in the descriptor
 - Plays from a plug-in's own modal scope, interactive included, and plays from ExtendScript reach no listener of that plug-in
-- `core.addNotificationListener('UI', events, handler)` delivers interface events, `panelVisibilityChanged` carrying `panelID` and `visible` for every panel, and group `'OS'` system ones (`displayConfigurationChanged`)
+- `core.addNotificationListener('UI', events, handler)` delivers interface events, and group `'OS'` system ones (`displayConfigurationChanged`)
+- `panelVisibilityChanged` holds `panelID` and `visible` for every panel
 
 ## [05]-[EXPORT]
 
 `document.saveAs` holds `psd`, `psb`, `jpg`, `gif`, `png`, and `bmp`, each taking `(file, options, asCopy)` inside a modal scope with a UXP `File` entry:
 - `localFileSystem.getEntryWithUrl('file:<folder>')`, then `createFile(<name>, { overwrite: true })`, gives the entry under `fullAccess`
 - `asCopy` true writes the file and leaves `title` and `path` unchanged
-- `close()` opens a save dialog under its default `SaveOptions.PROMPTTOSAVECHANGES`, and `closeWithoutSaving()` in a scope discards changes synchronously
+- `close()` opens a save dialog under its default `SaveOptions.PROMPTTOSAVECHANGES`
+- `closeWithoutSaving()` in a scope discards changes synchronously
 - `hostControl.registerAutoCloseDocument(documentID)` closes a working document unsaved when its scope ends
-- `save` descriptors take `in: { _path: localFileSystem.createSessionToken(file), _kind: 'local' }`, and a plain path rejects "invalid file token used"
-- `exportmanager`, which neither typing declares, serves any plug-in outside a modal scope: `exportImageAsync({ documentID, exportPath, exportOptions, formatOptions, exportTaskID })` writes the file, `exportOptions` holding `scaleHorizontal` and `scaleVertical` in percent and `formatOptions` `{ name: 'png', colorType: 'png24' }`
+- `save` descriptors take `in: { _path: localFileSystem.createSessionToken(file), _kind: 'local' }`
+- `save` of a plain path rejects "invalid file token used"
+- `exportmanager`, which neither typing declares, serves any plug-in outside a modal scope
+- `exportImageAsync({ documentID, exportPath, exportOptions, formatOptions, exportTaskID })` writes the file
+- `exportOptions` hold `scaleHorizontal` and `scaleVertical` in percent, and `formatOptions` `{ name: 'png', colorType: 'png24' }`
 - `imaging` calls other than `createImageDataFromBuffer` throw `number` 1000 outside a modal scope, and `putPixels` records one history state
-- `imaging.getPixels` under a `targetSize` reads the smallest cache level at least that size, `level` n at 1/2ⁿ scale with `sourceBounds` in its pixels
-- `imaging.encodeImageData` encodes RGB or Grayscale data as JPEG, resolving a `Uint8Array` where typings state `number[]`, or base64 text under `base64: true`
+- `imaging.getPixels` under a `targetSize` reads the smallest cache level at least that size
+- Cache `level` n holds 1/2ⁿ scale, with `sourceBounds` in its pixels
+- `imaging.encodeImageData` encodes RGB or Grayscale data as JPEG
+- `encodeImageData` resolves a `Uint8Array` where typings state `number[]`, or base64 text under `base64: true`
 
 ## [06]-[FONTS]
 
@@ -190,8 +177,10 @@ Manifest host data decides when Photoshop loads a plug-in and which calls need a
 
 - Load runs panel `create` and `show`, and quit runs panel `hide`, panel `destroy`, then plugin `destroy`, whether the panel shows or not
 - Showing or hiding a panel calls no handler and fires `uxpcommand` on `document` with `commandId` `uxpshowpanel` or `uxphidepanel`
-- `.psjs` scripts run once the user confirms a JavaScript load warning, write `fs` at absolute paths, and throw `EvalError` for `eval` and `new Function`
-- `require('uxp').script.executionContext` of a `.psjs` script holds `hostControl`, `reportProgress`, and `onCancel`, and `Object.keys(require('uxp').script)` reads empty
+- `.psjs` scripts run once the user confirms a JavaScript load warning, and write `fs` at absolute paths
+- `.psjs` scripts throw `EvalError` for `eval` and `new Function`
+- `require('uxp').script.executionContext` of a `.psjs` script holds `hostControl`, `reportProgress`, and `onCancel`
+- `Object.keys(require('uxp').script)` reads empty
 - `~/Library/Logs/Adobe/<app name>/UXPLogs_*.log` records each plug-in load and each rejection no `unhandledRejection` flag delivers
 
 ## [08]-[MEMBERS]
@@ -220,7 +209,8 @@ moveAbove	method	undeclared (e)
 name	readwrite	get name(): string
 ```
 
-- Rows list what the installed build holds, a member the declarations lack reads `undeclared` with its parameters, and its `app.js` body names its plays
+- Rows list what the installed build holds, and a member the declarations lack reads `undeclared` with its parameters
+- A member's `app.js` body names its plays
 - `rg -o 'class \w+' "<app>/Contents/Required/UXP/app.js"` lists every class, and `constants.js` beside it holds each `constants` group's values
 - `strings -n 6 "<app>/Contents/MacOS/<executable>" | rg -o -m1 '/<event> \[\(.*?\)[^<\]]*(<<.*?>>)?\]'` prints a command's terminology keys
 - Terminology keys are the Actions panel's vocabulary, typed as scalar, class, enumerated, or unit, and `/list` marks a list

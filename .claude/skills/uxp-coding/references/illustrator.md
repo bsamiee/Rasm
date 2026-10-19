@@ -4,59 +4,52 @@ Illustrator runs ExtendScript through `do javascript` (`«event miscDjxM»`) and
 
 ## [01]-[CALLS]
 
-Calls needing structured results encode JSON in ExtendScript. A body function and JSON argument array pass as `with arguments` (`«class JArg»`) data. Returned `Result` JSON preserves thrown text and an `Error`'s number and line:
+Calls needing structured results encode JSON in ExtendScript. Source holds the body as an `encodeURIComponent` string literal, runs it through `new Function`, and returns one encoded `Result` holding the value or the thrown `name`, `message`, and `Error` `number` and `line`:
 
 ```js
-(function (body, given) {
-    function encoded(value) {
-        var parts = [], key, at;
-        if (value === null || value === undefined || (typeof value === "number" && !isFinite(value))) return "null";
-        if (typeof value === "number" || typeof value === "boolean") return String(value);
-        if (typeof value === "string") return '"' + value.replace(/[\x00-\x1f"\\]/g, function (c) { return "\\u" + ("000" + c.charCodeAt(0).toString(16)).slice(-4); }) + '"';
-        if (value instanceof Array) {
-            for (at = 0; at < value.length; at++) parts.push(encoded(value[at]));
-            return "[" + parts.join(",") + "]";
-        }
-        if (value.typename !== undefined) return encoded(String(value));
-        for (key in value) parts.push(encoded(key) + ":" + encoded(value[key]));
-        return "{" + parts.join(",") + "}";
-    }
+(function (body, encoded) {
+    var outcome;
     try {
-        return encoded({ _tag: "Success", success: eval("(" + body + ")").apply(null, eval("(" + given.replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029") + ")")) });
+        var value = new Function(decodeURIComponent(body)).call(this);
+        outcome = { _tag: "Success", success: value === undefined ? null : value };
     } catch (error) {
         var known = error instanceof Error;
-        return encoded({ _tag: "Failure", failure: { _tag: "ScriptError", text: known ? error.message : String(error), error: known ? { number: error.number, line: error.line } : null } });
+        var thrown = known ? { name: error.name, message: error.message } : { message: String(error) };
+        if (known && typeof error.number === "number" && typeof error.line === "number") thrown.cause = { number: error.number, line: error.line };
+        outcome = { _tag: "Failure", failure: thrown };
     }
-})(arguments[0], arguments[1])
+    return encodeURIComponent(encoded(outcome));
+}).call(this, "<body>", function encoded(value) {
+    var parts = [], key, at;
+    if (value === null || value === undefined || (typeof value === "number" && !isFinite(value))) return "null";
+    if (typeof value === "number" || typeof value === "boolean") return String(value);
+    if (typeof value === "string") return '"' + value.replace(/[\x00-\x1f"\\]/g, function (c) { return "\\u" + ("000" + c.charCodeAt(0).toString(16)).slice(-4); }) + '"';
+    if (value instanceof Array) {
+        for (at = 0; at < value.length; at++) parts.push(encoded(value[at]));
+        return "[" + parts.join(",") + "]";
+    }
+    if (value.typename !== undefined) return encoded(String(value));
+    for (key in value) parts.push(encoded(key) + ":" + encoded(value[key]));
+    return "{" + parts.join(",") + "}";
+})
 ```
 
 ```ts
-import { Effect, Option, Schema } from 'effect';
-
-class ScriptError extends Schema.TaggedError<ScriptError, { readonly brand: unique symbol }>()('ScriptError', {
-    text: Schema.String,
-    error: Schema.OptionFromNullOr(Schema.Struct({ number: Schema.Int, line: Schema.Int })),
-}) {
-    override get message(): string {
-        return Option.match(this.error, { onNone: () => this.text, onSome: ({ number, line }) => `Error ${number}: ${this.text}, line ${line}` });
-    }
-}
-
-const called = Effect.fn('called')(function* <A, E, R>(send: (body: string, given: string) => Effect.Effect<string, E, R>, body: string, values: readonly Schema.Json[], value: Schema.Codec<A, Schema.Json>) {
-    const reply = yield* send(body, yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Json))(values));
-    return yield* Effect.fromResult(yield* Schema.decodeEffect(Schema.fromJsonString(Schema.toCodecJson(Schema.Result(value, ScriptError))))(reply));
-});
+const Outcome = Schema.fromJsonString(Schema.toCodecJson(Schema.Result(Schema.Json, Schema.ErrorInstance())));
+const ran = <E, R>(send: (source: string) => Effect.Effect<string, E, R>, source: string) =>
+    Effect.flatMap(send(source), (reply) => Effect.flatMap(Schema.decodeEffect(Outcome)(decodeURIComponent(reply)), Effect.fromResult));
 ```
 
-`send` passes `body` and `given` through an in-process Apple Event sender. Host objects encode as their `String` form (`[Document Untitled-1]`), and bodies return JSON-shaped data. Thrown strings and numbers have no `number`, `message`, or `line`, and a member read on thrown `null` throws 21. Read members of an `Error` alone; `error` is `None` for other thrown values.
+`send` passes `source` as the direct parameter of `do javascript` through an Apple Event sender, and a failure decodes as an `Error` with ExtendScript's `number` and `line` as `cause`. Host objects encode as their `String` form (`[Document Untitled-1]`), and bodies return JSON-shaped data. Thrown strings and numbers have no `number`, `message`, or `line`, and a member read on thrown `null` throws 21.
 
-- `with arguments` carries text, numbers, booleans, and lists, `null` and records arrive `undefined`, and `osascript` `argv` items arrive as text
+- `with arguments` (`«class JArg»`) passes text, numbers, booleans, and lists, and `null` and records arrive `undefined`
+- `osascript` `argv` items arrive as text
 - ExtendScript reads U+2028 and U+2029 as line terminators, and a string literal holding one raw fails to compile, in source and in JSON alike
 - Uncaught throws and syntax errors answer Apple event error 5001 with no dialog and text `Error <number>: <message>.Line: <line>->  <source line>`
 - Top-level `var` and `$.global` members persist between calls, and a source holds its state inside one function
 - `do javascript` runs a file passed as direct parameter (`POSIX file "<path>"`) with the same `arguments`
 - Events sent before Illustrator finishes launching fail -600 or get no reply, and a `launch` event to it returns once it accepts them
-- `AIAgenticSystem.aip` serves MCP at `http://127.0.0.1:18412/v1/mcp` behind the bearer token `plugin/AIMCPServer/AuthToken` in `Adobe Illustrator Prefs`
+- `AIAgenticSystem.aip` serves MCP at `http://127.0.0.1:18412/v1/mcp` with bearer token `plugin/AIMCPServer/AuthToken` of `Adobe Illustrator Prefs`
 
 ## [02]-[RUNTIME]
 
@@ -82,7 +75,8 @@ ExtendScript is ES3 with `const`, `toSource`, and `uneval`:
 - Geometry is in points under `app.coordinateSystem` `DOCUMENTCOORDINATESYSTEM`, y growing upward from the first artboard's bottom edge
 - `pathItems.rectangle(top, left, width, height)` places an item with `position` `[left, top]` and `geometricBounds` `[left, top, right, bottom]`
 - ExtendScript holds no listener API (`app.addEventListener` reads `undefined`), and a script reads state when it runs
-- `app.preferences` getters of an unregistered key return a varying value and store the key, and `preferenceExists(key)` reads presence without storing it
+- `app.preferences` getters of an unregistered key return a varying value and store the key
+- `preferenceExists(key)` reads presence without storing the key
 - Illustrator rewrites `Adobe Illustrator Prefs` whole at quit, and edits to the file while it runs are lost
 
 ## [04]-[UNITS_OF_WORK]
@@ -124,7 +118,8 @@ Caught `Error` values carry `number`, `message`, and `line`, and code branches o
 |  [03]   | Raster of a rect   | `document.imageCapture(file, rect, new ImageCaptureOptions())`              |
 |  [04]   | Artboards at scale | `document.exportForScreens(folder, ExportForScreensType.SE_PNG24, options)` |
 
-- Untitled documents read `fullName` `/Untitled-1` and an empty `path.fsName`, and `saveAs` renames the open document to the written file and marks it saved
+- Untitled documents read `fullName` `/Untitled-1` and an empty `path.fsName`
+- `saveAs` renames the open document to the written file and marks it saved
 - `exportForScreens` writes `<factor>x/<artboard name>.png`, into the target's parent when the target folder does not exist
 - Image capture, raster, and export resolutions take 72 to 2400
 

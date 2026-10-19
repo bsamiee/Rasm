@@ -53,15 +53,6 @@ const types = {
     sqlite: { text: 'TEXT', uuid: 'TEXT', json: 'TEXT', instant: 'TEXT', integer: 'INTEGER', int64: 'INTEGER', real: 'REAL', number: 'REAL', boolean: 'INTEGER', blob: 'BLOB' },
     pg: { text: 'text', uuid: 'uuid', json: 'jsonb', instant: 'timestamptz(3)', integer: 'bigint', int64: 'bigint', real: 'double precision', number: 'double precision', boolean: 'boolean', blob: 'bytea' },
 } as const;
-const operators = {
-    minimum: { inclusive: '>=', exclusive: '>', flag: 'exclusiveMinimum' },
-    exclusiveMinimum: { inclusive: '>', exclusive: '>', flag: 'exclusiveMinimum' },
-    maximum: { inclusive: '<=', exclusive: '<', flag: 'exclusiveMaximum' },
-    exclusiveMaximum: { inclusive: '<', exclusive: '<', flag: 'exclusiveMaximum' },
-    minCodePoints: { inclusive: '>=', exclusive: '>=', flag: 'minCodePoints' },
-    maxCodePoints: { inclusive: '<=', exclusive: '<=', flag: 'maxCodePoints' },
-    divisor: { inclusive: '%', exclusive: '%', flag: 'divisor' },
-} as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -86,6 +77,15 @@ const column = (field: string, schema: Fields[string], options: Settled) => {
     const decoded = walk(SchemaAST.toType(schema.ast)).filter(({ _tag }) => _tag !== 'Null');
     const checks = values.flatMap((node) => ('checks' in node ? node.checks.flatMap(({ representation }) => Option.toArray(Option.fromUndefinedOr(representation))) : []));
     const has = (id: string) => checks.some((check) => check.id === `effect/schema/${id}`);
+    const operators = {
+        minimum: { inclusive: '>=', exclusive: '>', flag: 'exclusiveMinimum' },
+        exclusiveMinimum: { inclusive: '>', exclusive: '>', flag: 'exclusiveMinimum' },
+        maximum: { inclusive: '<=', exclusive: '<', flag: 'exclusiveMaximum' },
+        exclusiveMaximum: { inclusive: '<', exclusive: '<', flag: 'exclusiveMaximum' },
+        minCodePoints: { inclusive: '>=', exclusive: '>=', flag: 'minCodePoints' },
+        maxCodePoints: { inclusive: '<=', exclusive: '<=', flag: 'maxCodePoints' },
+        divisor: { inclusive: '%', exclusive: '%', flag: 'divisor' },
+    } as const;
     const boolean = decoded[0]?._tag === 'Boolean';
     const literals = values.flatMap((node) =>
         Match.value(node).pipe(
@@ -180,5 +180,4 @@ const dialects = {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { Catalog, Column, Fields, Table };
-export { Bytes, dialects, identifier, limits, literal, names, quote, table, Uuid };
+export { Bytes, type Catalog, type Column, dialects, type Fields, identifier, limits, literal, names, quote, type Table, table, Uuid };

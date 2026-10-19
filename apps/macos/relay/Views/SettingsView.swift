@@ -1,5 +1,4 @@
 import AppKit
-import RasmMacOS
 import ServiceManagement
 import SwiftUI
 
@@ -212,13 +211,22 @@ private struct GeneralSettings: View {
             Section {
                 Toggle(
                     "Open at login",
-                    isOn: Binding(get: { store.loginItem.isEnabled }, set: store.setLoginItemEnabled),
+                    isOn: Binding(
+                        get: { if case .success(let status) = store.loginItem { [.enabled, .requiresApproval].contains(status) } else { false } },
+                        set: { enabled in
+                            if enabled { store.registerLoginItem() } else { Task(name: "Unregister login item") { await store.unregisterLoginItem() } }
+                        },
+                    ),
                 )
-                if store.loginItem.status == .requiresApproval {
+                if case .success(.requiresApproval) = store.loginItem {
                     Button("Open Login Items") { SMAppService.openSystemSettingsLoginItems() }
                 }
             } footer: {
-                if let issue: String = store.loginItem.issue { Text(issue) }
+                switch store.loginItem {
+                    case .success(.requiresApproval): Text("Approval pending in Login Items")
+                    case .success: EmptyView()
+                    case .failure(let error): Text(error.localizedDescription)
+                }
             }
         }
         .formStyle(.grouped)

@@ -1,10 +1,6 @@
 {
-    "extends": "../../../../tsconfig.base.json",
+    "extends": "../uxp/tsconfig.json",
     "compilerOptions": {
-        "allowJs": true,
-        "lib": [ "es2023", "es2024.arraybuffer", "es2024.collection", "es2024.object", "es2024.regexp", "es2024.sharedmemory", "es2024.string", "dom" ],
-        "maxNodeModuleJsDepth": 1,
-        "types": [ "node", "@adobe-uxp-types/uxp/with-protocol" ],
         "paths": { "adobe:indesign": [ "./node_modules/indesign-uxp-types/flat/module.d.ts" ] }
     }
 }

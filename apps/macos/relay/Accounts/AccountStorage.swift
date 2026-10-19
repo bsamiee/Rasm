@@ -145,7 +145,7 @@ actor AccountStorage {
 
         func quotaWindow(id: UUID) -> Result<QuotaWindow, AggregateError<AccountStorageError>> {
             UsageAmount.make(percent: percent)
-                .mapError { failure in AggregateError(first: .invalidUsage(id: id, kind: kind, failure: failure)) }
+                .aggregated { failure in .invalidUsage(id: id, kind: kind, failure: failure) }
                 .map { amount in QuotaWindow(kind: kind, used: amount, resetsAt: resetsAt, rejected: rejected) }
         }
     }

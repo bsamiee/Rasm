@@ -204,5 +204,4 @@ const parse = async (system: System, command: string): Promise<Result<Script>> =
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { Script };
-export { parse };
+export { parse, type Script };

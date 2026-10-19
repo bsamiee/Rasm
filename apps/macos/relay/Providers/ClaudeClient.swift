@@ -231,34 +231,35 @@ actor ClaudeClient: ProviderClient {
         return await createDirectories(store: store)
             .bind { _ in await executable() }
             .bind { binary -> Result<Void, ClaudeFailure> in
-                await ProcessRun.stream(
-                    ProcessRun.configuration(
-                        executable: binary,
-                        arguments: ["auth", "login", "--claudeai"] + (expected.map { identity in ["--email", identity.email] } ?? []),
-                        environment: processEnvironment(store: store),
-                        workingDirectory: paths.workingDirectory,
-                    ),
-                    deadline: .seconds(300),
-                ) { execution in
-                    await withTaskGroup { group in
-                        group.addTask(name: "Login code") {
-                            for await code: String in codes {
-                                return await Result { () async throws(SubprocessError) in
-                                    _ = try await execution.standardInputWriter.write(code + "\n", using: UTF8.self)
-                                    try await execution.standardInputWriter.finish()
+                let invocation: Configuration = ProcessRun.configuration(
+                    executable: binary,
+                    arguments: ["auth", "login", "--claudeai"] + (expected.map { identity in ["--email", identity.email] } ?? []),
+                    environment: processEnvironment(store: store),
+                    workingDirectory: paths.workingDirectory,
+                )
+                return await ProcessRun.run(deadline: .seconds(300)) {
+                    try await Subprocess.run(invocation, input: .inputWriter, output: .sequence, error: .discarded) { execution in
+                        await withTaskGroup { group in
+                            group.addTask(name: "Login code") {
+                                for await code: String in codes {
+                                    return await Result { () async throws(SubprocessError) in
+                                        _ = try await execution.standardInputWriter.write(code + "\n", using: UTF8.self)
+                                        try await execution.standardInputWriter.finish()
+                                    }
+                                    .mapError(ProcessRun.failure)
                                 }
-                                .mapError(ProcessRun.failure)
+                                return .success(())
                             }
-                            return .success(())
+                            _ = await Result { for try await _ in execution.standardOutput.strings() {} }
+                            group.cancelAll()
+                            let delivered: Result<Void, ProcessFailure> = await group.next() ?? .success(())
+                            return Task.isCancelled ? .failure(.cancelled) : delivered
                         }
-                        _ = await Result { for try await _ in execution.standardOutput.strings() {} }
-                        group.cancelAll()
-                        let delivered: Result<Void, ProcessFailure> = await group.next() ?? .success(())
-                        return Task.isCancelled ? .failure(.cancelled) : delivered
                     }
                 }
+                .flatMap { result in result.closureResult.map { result.terminationStatus } }
                 .mapError(ClaudeFailure.init(process:))
-                .flatMap { _, status in
+                .flatMap { status in
                     status.isSuccess ? .success(()) : .failure(.authenticationFailed(status))
                 }
             }
@@ -300,15 +301,13 @@ actor ClaudeClient: ProviderClient {
         await createDirectories(store: store)
             .bind { _ in await executable() }
             .bind { binary in
-                await ProcessRun.collect(
-                    ProcessRun.configuration(
-                        executable: binary,
-                        arguments: ["auth", "logout"],
-                        environment: processEnvironment(store: store),
-                        workingDirectory: paths.workingDirectory,
-                    ),
-                    deadline: .seconds(60),
-                ).mapError(ClaudeFailure.init(process:))
+                let invocation: Configuration = ProcessRun.configuration(
+                    executable: binary,
+                    arguments: ["auth", "logout"],
+                    environment: processEnvironment(store: store),
+                    workingDirectory: paths.workingDirectory,
+                )
+                return await ProcessRun.run(deadline: .seconds(60)) { try await Subprocess.run(invocation, output: .discarded) }.mapError(ClaudeFailure.init(process:))
             }
             .bind { _ in await store.deleteItem() }
     }
@@ -594,16 +593,9 @@ actor ClaudeClient: ProviderClient {
         environment: [String: String],
         in directory: URL,
     ) async -> String? {
-        let printed: Result<ExecutionResult<Void, StringOutput<UTF8>, StringOutput<UTF8>>, ClaudeFailure> = await executable.bind { binary in
-            await ProcessRun.collect(
-                ProcessRun.configuration(
-                    executable: binary,
-                    arguments: ["--version"],
-                    environment: environment,
-                    workingDirectory: directory,
-                ),
-                deadline: .seconds(15),
-            ).mapError(ClaudeFailure.init(process:))
+        let printed: Result<ExecutionResult<Void, StringOutput<UTF8>, DiscardedOutput>, ClaudeFailure> = await executable.bind { binary in
+            let invocation: Configuration = ProcessRun.configuration(executable: binary, arguments: ["--version"], environment: environment, workingDirectory: directory)
+            return await ProcessRun.run(deadline: .seconds(15)) { try await Subprocess.run(invocation, output: .string(limit: 1 << 10)) }.mapError(ClaudeFailure.init(process:))
         }
         return
             if case .success(let output) = printed, output.terminationStatus.isSuccess,

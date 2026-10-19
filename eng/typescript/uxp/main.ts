@@ -1,8 +1,9 @@
 import { DatabaseSync } from 'node:sqlite';
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
+import { Manifest } from '@rasm/uxp/manifest';
 import { ge } from '@renovatebot/pep440';
-import { Array, Cause, Config, Effect, Exit, FileSystem, Filter, Path, Schema, String, Struct } from 'effect';
+import { Array, Cause, Config, Effect, FileSystem, Filter, Path, Schema, String, Struct } from 'effect';
 import { Argument, Command } from 'effect/cli';
 import { XMLParser } from 'fast-xml-parser';
 import { stdout } from '../process.ts';
@@ -15,11 +16,10 @@ const ADOBE = '/Library/Application Support/Adobe';
 
 const install = Effect.fn('install')(function* (built: string, installer: string, agent: string) {
     const [fs, path, home] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Config.String('HOME')]);
-    const Manifest = Schema.fromJsonString(Schema.StructWithRest(Schema.Struct({ id: Schema.String, name: Schema.String, version: Schema.String, host: Schema.ArrayEnsure(Schema.StructWithRest(Schema.Struct({ app: Schema.String, minVersion: Schema.String }), [Schema.JsonObject])) }), [Schema.JsonObject]));
     const product = Schema.decodeUnknownOption(Schema.Struct({ sapCode: Schema.String, minVersion: Schema.String, platform: Schema.optionalKey(Schema.Literal('mac')), Data: Schema.Array(Schema.Struct({ key: Schema.String, '#text': Schema.String })) }));
     const [manifest, products, installed] = yield* Effect.all(
         [
-            fs.readFileString(path.join(built, 'manifest.json')).pipe(Effect.flatMap(Schema.decodeEffect(Manifest))),
+            fs.readFileString(path.join(built, 'manifest.json')).pipe(Effect.flatMap(Schema.decodeEffect(Manifest.json))),
             fs.readFileString(path.join(installer, 'ExManCoreLib', 'Contents', 'Resources', 'XManConfig.xml')).pipe(
                 Effect.flatMap((xml) => Effect.try(() => new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '', parseTagValue: false, isArray: (name) => name === 'Product' || name === 'Data' }).parse(xml))),
                 Effect.flatMap(Schema.decodeUnknownEffect(Schema.Struct({ Configuration: Schema.Struct({ Product: Schema.Array(Schema.Unknown) }) }))),
@@ -33,12 +33,9 @@ const install = Effect.fn('install')(function* (built: string, installer: string
         { concurrency: 'unbounded' },
     );
     const owned = products.flatMap(({ sapCode, minVersion, Data }) => (installed.some(({ SAPCode, ProductVersion }) => SAPCode === sapCode && ge(ProductVersion, minVersion)) ? Data.filter(({ key }) => key === 'UxpHostCode').map(Struct.get('#text')) : []));
-    const stage = Effect.fn('stage')(function* (folder: string, host: (typeof manifest.host)[number]) {
-        yield* fs.remove(folder, { recursive: true, force: true });
-        yield* fs.copy(built, folder);
-        yield* fs.writeFileString(path.join(folder, 'manifest.json'), yield* Schema.encodeEffect(Manifest)({ ...manifest, host: [host] }));
-    });
-    const register = Effect.fn('register')(function* (host: (typeof manifest.host)[number]) {
+    const { host } = manifest;
+    const stage = (folder: string) => Effect.andThen(fs.remove(folder, { recursive: true, force: true }), fs.copy(built, folder));
+    const register = Effect.fn('register')(function* () {
         const Registry = Schema.fromJsonString(Schema.Struct({ plugins: Schema.Array(Schema.StructWithRest(Schema.Struct({ pluginId: Schema.String, path: Schema.String }), [Schema.JsonObject])) }));
         const [uxp, token] = [path.join(home, ADOBE, 'UXP'), '$localPlugins'];
         const [local, registry, folder] = [path.join(uxp, 'Plugins'), path.join(uxp, 'PluginsInfo', 'v1', `${host.app}.json`), path.join('External', `${manifest.id}_${host.app}`)];
@@ -51,7 +48,7 @@ const install = Effect.fn('install')(function* (built: string, installer: string
             Filter.fromPredicate(({ pluginId }) => pluginId !== manifest.id),
         );
         yield* Effect.forEach(replaced, (row) => fs.remove(String.replace(token, local)(row.path), { recursive: true, force: true }), { discard: true });
-        yield* stage(path.join(local, folder), host);
+        yield* stage(path.join(local, folder));
         yield* fs.makeDirectory(path.dirname(registry), { recursive: true });
         yield* fs.writeFileString(
             registry,
@@ -60,13 +57,13 @@ const install = Effect.fn('install')(function* (built: string, installer: string
             }),
         );
     });
-    const submit = Effect.fn('submit')(function* (host: (typeof manifest.host)[number]) {
+    const submit = Effect.fn('submit')(function* () {
         const staged = path.join(yield* fs.makeTempDirectoryScoped(), `${manifest.id}_${host.app}`);
-        yield* stage(staged, host);
+        yield* stage(staged);
         yield* stdout('ditto', ['-c', '-k', '--norsrc', staged, `${staged}.ccx`]);
         yield* stdout(agent, ['--install', `${staged}.ccx`]).pipe(Effect.filterOrFail(String.includes('Installation Successful'), (answer) => new Cause.UnknownError(undefined, `Adobe plug-in installer refused the ${host.app} archive: ${answer.trim()}`)));
     }, Effect.scoped);
-    yield* Effect.forEach(manifest.host, (host) => Effect.exit(owned.includes(host.app) ? submit(host) : register(host))).pipe(Effect.flatMap(Exit.asVoidAll));
+    yield* owned.includes(host.app) ? submit() : register();
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

@@ -179,17 +179,24 @@ nonisolated enum ClaudeSession {
                 let source: Int32 = descriptor.rawValue
                 unsafe invocation.platformOptions.preSpawnProcessConfigurator = { _, actions in
                     guard unsafe posix_spawn_file_actions_addinherit_np(&actions, source) == 0 else {
-                        throw ProcessFailure.descriptorNotInherited(source)
+                        throw ClaudeFailure.descriptorNotInherited(source)
                     }
                 }
-                return await ProcessRun.stream(invocation, deadline: .seconds(120)) { execution in
-                    await readMessages(execution: execution, sessionID: sessionID)
+                return await ProcessRun.run(deadline: .seconds(120)) { [invocation] in
+                    try await Subprocess.run(invocation, input: .inputWriter, output: .sequence, error: .discarded) { execution in
+                        await readMessages(execution: execution, sessionID: sessionID)
+                    }
                 }
-                .mapError(ClaudeFailure.init(process:))
+                .mapError { failure in
+                    switch failure {
+                        case .io(let cause as ClaudeFailure): cause
+                        default: ClaudeFailure(process: failure)
+                    }
+                }
             }
-            .flatMap { result, status in
-                result.flatMap { reset in
-                    status.isSuccess ? .success(reset) : .failure(.process(.exit(status)))
+            .flatMap { result in
+                result.closureResult.flatMap { reset in
+                    result.terminationStatus.isSuccess ? .success(reset) : .failure(.process(.exit(result.terminationStatus)))
                 }
             }
     }
@@ -197,7 +204,7 @@ nonisolated enum ClaudeSession {
     private static func readMessages(
         execution: Execution<CustomWriteInput, SequenceOutput, DiscardedOutput>,
         sessionID: UUID,
-    ) async -> Result<Result<Date?, ClaudeFailure>, ProcessFailure> {
+    ) async -> Result<Date?, ClaudeFailure> {
         func send(_ message: some Encodable, closingInput: Bool) async -> Result<Void, ClaudeFailure> {
             await Result {
                 let encoder: JSONEncoder = JSONEncoder()
@@ -276,6 +283,6 @@ nonisolated enum ClaudeSession {
                 case .awaiting: .failure(Task.isCancelled ? .cancelled : .protocolFailure)
             }
         }
-        return read.mapError(ProcessRun.failure).map { _ in outcome }
+        return read.mapError { error in ClaudeFailure(process: ProcessRun.failure(error)) }.flatMap { _ in outcome }
     }
 }

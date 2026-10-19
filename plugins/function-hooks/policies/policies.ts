@@ -241,5 +241,4 @@ const commandDecision = async (system: System, command: string, project: string)
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { System };
-export { commandDecision, unrun, WORKTREE };
+export { commandDecision, type System, unrun, WORKTREE };

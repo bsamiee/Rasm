@@ -65,11 +65,12 @@ Each difference from a browser or Node holds in InDesign, Photoshop, and Premier
 |  [04]   | Module typed as Node's (`fs`, `path`)         | Read site | Value decoded where read                 |
 |  [05]   | Feature with a missing part (`Response.body`) | Call site | Whole-body read, flag on whole pattern   |
 
-Effect's encoding and socket modules construct `TextEncoder` during module load. Bundler injection can replace encoding-global reads with imports from `@exodus/bytes` before dependencies load. Effect's default clock expects bigint nanoseconds, but UXP's `process.hrtime.bigint` returns a number. Provide a `Clock` layer with nanoseconds derived from `performance.now()`, preserving native sleep and wall-clock behavior. Host callbacks running effects receive caller services through `run*With`.
+Effect's encoding and socket modules construct `TextEncoder` during module load, and bundles replace each encoding-global read with an `@exodus/bytes` import. Effect's default clock expects bigint nanoseconds, and UXP's `process.hrtime.bigint` returns a number. The host `Clock` layer derives monotonic nanoseconds from `performance.now()` and wall nanoseconds from each `currentTimeMillis` read, keeping native sleep and wall time. An offset anchored once drops the re-anchoring Effect's wall clock performs on skew. Host callbacks running effects receive caller services through `run*With`.
 
 - Effect decodes with `{ stream: true }`, which an encoding package must implement
 - `structuredClone`, `Buffer`, `MessageChannel`, and `Worker` are absent in every host, and `require` of `util`, `buffer`, or a `node:` name throws
-- `fs` holds synchronous reads, writes, and `lstatSync` without `existsSync`, `appendFileSync`, `mkdirSync`, or `statSync`, and `writeFileSync` reads its receiver, called on the module's default import
+- `fs` holds synchronous reads, writes, and `lstatSync`, and no `existsSync`, `appendFileSync`, `mkdirSync`, or `statSync`
+- `writeFileSync` reads its receiver, and code calls it on the module's default import
 - `path` is a function with `resolve` and `basename`
 
 Bundles keep one form:
@@ -86,7 +87,7 @@ Typings declare a host module under its `require` name, under an `adobe:` scheme
 |  [01]   | `uxp`, `fs`, `os`, `path` | `@adobe-uxp-types/uxp`       | `uxp` by name, each module under `adobe:` from `with-protocol`    |
 |  [02]   | `photoshop`               | `@adobe-uxp-types/photoshop` | `photoshop` by name, `adobe:photoshop` from `with-protocol`       |
 |  [03]   | `photoshop`               | `@types/photoshop`           | Adobe's declarations, `photoshop` and `photoshop/dom/*` by name   |
-|  [04]   | `indesign`                | `indesign-uxp-types`         | `indesign` by name from its root entry, a module file from `flat` |
+|  [04]   | `indesign`                | `indesign-uxp-types`         | `indesign` by name, `adobe:indesign` from `flat` through `paths`  |
 |  [05]   | `premierepro`             | `@adobe/premierepro`         | Type `premierepro` of the module object, no module                |
 |  [06]   | Illustrator ExtendScript  | `types-for-adobe`            | Global classes per host folder, no module                         |
 
@@ -109,21 +110,12 @@ Typings for `fs` declare bytes as `Buffer` and a failure's `code` as a string, w
 ```ts
 import { readFileSync } from 'adobe:fs';
 
-class FileError extends Schema.TaggedError<FileError, { readonly brand: unique symbol }>()('FileError', { path: Schema.String, code: Schema.Int }) {}
-
-const Coded = Schema.Struct({ code: FileError.fields.code });
-const bytes = (path: string): Effect.Effect<Uint8Array, FileError> =>
-    Effect.sync(() => new Uint8Array(readFileSync(path))).pipe(
-        Effect.catchDefect((cause) =>
-            Option.match(Schema.decodeUnknownOption(Coded)(cause), {
-                onNone: () => Effect.die(cause),
-                onSome: ({ code }) => Effect.fail(FileError.make({ path, code })),
-            }),
-        ),
-    );
+const Missing = Schema.Struct({ code: Schema.Literal(-2) });
+const bytes = (path: string): Effect.Effect<Option.Option<Uint8Array>, Cause.UnknownError> =>
+    Effect.try(() => Option.some(new Uint8Array(readFileSync(path)))).pipe(Effect.catchIf(({ cause }) => Schema.is(Missing)(cause), () => Effect.succeedNone));
 ```
 
-`new Uint8Array` accepts both representations, `Coded` takes its field from `FileError`, a thrown value without that shape reaches `Cause` unchanged as a defect, and a missing file throws `code` -2.
+`new Uint8Array` accepts both representations, and `Effect.try` fails `Cause.UnknownError` with the thrown value as `cause`. `Missing` decodes the numeric `code` a missing file throws into absence, and every other failure stays on the error channel.
 
 ## [04]-[OBJECT_MODELS]
 
@@ -147,52 +139,38 @@ Class, property, method, parameter, and enumeration facts come from the owner th
 
 ## [05]-[HOST_ERRORS]
 
-Hosts throw `Error` values with text in the user's locale, return some failures as values, and return an invalid reference for an unmatched lookup. Each package declares one `Schema.TaggedError` over a `Schema.TaggedUnion` of reasons, and the operation that raised a failure builds its reason:
+Hosts throw `Error` values with text in the user's locale, return some failures as values, and return an invalid reference for an unmatched lookup. A host refusal fails `Cause.UnknownError` with the thrown value or returned failure as `cause` and a message naming the refused step. A lookup fails `Unmatched` from `@rasm/search` with its candidates, and independent writes accumulate every refusal in one cause:
 
 ```ts
-const Reason = Schema.TaggedUnion({
-    Absent: { subject: Schema.String, candidates: Schema.Array(Schema.String) },
-    Rejected: { field: Schema.String, cause: Schema.Defect() },
-});
-class HostError extends Schema.TaggedError<HostError, { readonly brand: unique symbol }>()('HostError', { reason: Reason }) {
-    override get message(): string {
-        return Reason.match(this.reason, {
-            Absent: ({ subject, candidates }) => [`No ${subject}`, ...candidates].join(', '),
-            Rejected: ({ field, cause }) => `${field}: ${Formatter.format(cause)}`,
-        });
-    }
-}
-
-const Change = Schema.Struct({ name: Schema.String, values: Schema.Record(Schema.String, Schema.Json) });
-const changed = Effect.fn('changed')(function* (find: (name: string) => Option.Option<object>, names: () => readonly string[], input: unknown) {
-    const { name, values } = yield* Schema.decodeUnknownEffect(Change)(input);
-    const target = yield* Effect.fromOption(find(name), () => HostError.make({ reason: { _tag: 'Absent', subject: name, candidates: names() } }));
-    yield* Effect.validate(
+const written: (target: object, values: Record.ReadonlyRecord<string, unknown>) => Effect.Effect<readonly string[], Cause.UnknownError> = Effect.fnUntraced(function* (target, values) {
+    return yield* Effect.validate(
         Object.entries(values),
-        ([field, value]) =>
-            Effect.try({
-                try: () => Object.assign(target, { [field]: value }),
-                catch: (cause) => HostError.make({ reason: { _tag: 'Rejected', field, cause } }),
-            }),
-        { discard: true },
+        Effect.fnUntraced(function* ([field, value]: readonly [string, unknown]) {
+            const refused = (cause: unknown) => new Cause.UnknownError(cause, field);
+            const inner: unknown = Predicate.isObject(value) ? yield* Effect.try({ try: () => Reflect.get(target, field), catch: refused }) : undefined;
+            if (Predicate.isObject(value) && Predicate.isObject(inner)) {
+                return Array.map(yield* written(inner, value), (name) => `${field}.${name}`);
+            }
+            yield* Effect.try({ try: () => Object.assign(target, { [field]: value }), catch: refused });
+            return [field];
+        }, Effect.sandbox),
+    ).pipe(
+        Effect.map(Array.flatten),
+        Effect.catch((causes) => Effect.failCause(Cause.fromReasons(causes.flatMap(Struct.get('reasons'))))),
     );
-    return name;
 });
-const lenient = flow(
-    changed,
-    Effect.catchReason('HostError', 'Absent', ({ subject }) => Effect.succeed(subject)),
-);
 ```
 
-Decode, lookup, and write stop at their first failure, while field writes run to their last element and fail with `NonEmptyArray<HostError>`, one `Rejected` per refused field. `names` runs on the failure path alone. `Object.assign` throws for every refused write, where `Reflect.set` returns `false` for a getter-only member and `true` for a key the object lacks. `catchReason` in `lenient` recovers `Absent` alone, and `SchemaError` and `Rejected` stay on the error channel.
+`written` writes every field and fails with one reason per refused field, a nested field named by its path. `Effect.validate` partitions each element through `Effect.result`, so a nested write's reasons survive only under `Effect.sandbox`, and `Cause.fromReasons` merges the sandboxed causes. `Object.assign` throws for every refused write, where `Reflect.set` returns `false` for a getter-only member and `true` for a key the object lacks.
 
-- `catch` builds its reason from arguments of the failed call, and `Schema.Defect()` keeps the thrown value typed until a view renders it
-- `message` is a getter over the reason, a stored `message` field replaces the rendered text and drops every other field from it
+- `catch` names the refused step from arguments of the failed call, and `cause` keeps the host's value until a boundary renders it
+- Consumers decode a host code from `cause` where they branch on it, and an error case that only wraps a cause goes
+- Panels render a cause through `Cause.pretty` and MCP servers through `Cause.prettyErrors` with `Formatter.format`, once at their boundary
 
 | [INDEX] | [REJECTED]                                                | [REQUIRED]                                | [REASON]                         |
 | :-----: | :-------------------------------------------------------- | :---------------------------------------- | :------------------------------- |
-|  [01]   | Reason chosen by matching host message text               | Reason built by operation that threw      | Text changes per locale, release |
-|  [02]   | Pre-check copying a host rule                             | Host answer mapped to its reason          | Copy drifts from host rule       |
+|  [01]   | Failure chosen by matching host message text              | Failure built by operation that threw     | Text changes per locale, release |
+|  [02]   | Pre-check copying a host rule                             | Host answer as the failure's cause        | Copy drifts from host rule       |
 |  [03]   | Literal table of facts a host states                      | One bulk host read where consumed         | Table drifts per install         |
 |  [04]   | Host call built as a string template                      | Typed source, arguments passed as data    | Template skips compiler          |
 |  [05]   | `Effect.result` run in a host callback, then `fromResult` | One `Exit` returned through host callback | Failure translated twice         |
@@ -233,7 +211,7 @@ Each host groups changes into one undo step through one primitive, and every sta
 |  [02]   | Photoshop    | `core.executeAsModal` with `suspendHistory`       | Async function, awaited | One state named at suspension  |
 |  [03]   | Premiere Pro | `project.lockedAccess`, then `executeTransaction` | Synchronous callbacks   | One entry named by transaction |
 
-- One primitive call holds one user-visible change, and its name is the text a user reads in the undo menu
+- One primitive call holds one user-visible change, named by undo menu text derived from the operation and its target
 - Bodies hold host calls alone, and network, file, and decode work finishes before a body starts and enters as values
 - Values and typed failures leave a body as data, and a throw rolls back an InDesign body
 - Photoshop rolls back a throwing body under an open history suspension alone, and Premiere Pro executes the actions added before the throw
@@ -251,34 +229,33 @@ Each host entry translates one `Exit` into that entry's host form:
 |  [03]   | Panel `create`, `show`, `hide` | Forks its work and returns inside a 300 ms default timeout    |
 |  [04]   | Command `run`                  | Promise resolved on success, rejected with the squashed cause |
 
-Hosts show nothing for a rejected command, and Photoshop logs nothing for it. One registration runs every command through one runtime and renders each outcome:
+Hosts show nothing for a rejected command, and Photoshop logs nothing for it. One registration takes every command and panel, since `setup` accepts one call, and runs each through one runtime that renders its failure:
 
 ```ts
+import fs from 'adobe:fs';
 import { entrypoints } from 'adobe:uxp';
 
-const registered = <R, ER, E>(
-    layer: Layer.Layer<R, ER>,
-    status: HTMLElement,
-    commands: Record.ReadonlyRecord<string, Effect.Effect<string, E, R>>,
+const plugin = <R, E, F, C extends string, P extends string>(
+    layer: Layer.Layer<R, E, Uxp | Plugin>,
+    entries: {
+        readonly commands: Record.ReadonlyRecord<C, Effect.Effect<void, F, R | Uxp | Plugin>>;
+        readonly panels: Record.ReadonlyRecord<P, Record.ReadonlyRecord<'show' | 'hide', Effect.Effect<void, F, R | Uxp | Plugin>>>;
+    },
 ): void => {
-    const runtime = ManagedRuntime.make(Layer.provideMerge(layer, clock));
-    const rendered = Effect.onExit((exit: Exit.Exit<string, E>) =>
-        Effect.sync(() => {
-            status.setAttribute('data-state', exit._tag);
-            status.replaceChildren(Exit.match(exit, { onSuccess: identity, onFailure: Cause.pretty }));
-        }),
-    );
+    const runtime = ManagedRuntime.make(Layer.provideMerge(layer, Effect.try(() => fs.readFileSync('plugin:/manifest.json', 'utf-8')).pipe(Effect.flatMap(Schema.decodeEffect(Manifest.json)), Layer.effect(Plugin), Layer.merge(hosted))));
+    const run = (work: Effect.Effect<void, F, R | Uxp | Plugin>) => (): Promise<void> =>
+        runtime.runPromise(Effect.tapCause(work, (cause) => Effect.sync(() => document.body.append(Object.assign(document.createElement('sp-body'), { textContent: Cause.pretty(cause) })))));
     const handlers = {
         plugin: { create: (): Promise<void> => runtime.runPromise(Effect.void), destroy: (): Promise<void> => runtime.dispose() },
-        commands: Record.map(commands, (work) => (): Promise<void> => runtime.runPromise(Effect.asVoid(rendered(work)))),
-    } satisfies Pick<Parameters<typeof entrypoints.setup>[0], 'plugin' | 'commands'>;
+        commands: Record.map(entries.commands, run),
+        panels: Record.map(entries.panels, Record.map(run)),
+    } satisfies Pick<Parameters<typeof entrypoints.setup>[0], 'plugin' | 'commands' | 'panels'>;
     Reflect.apply(entrypoints.setup, entrypoints, [handlers]);
 };
 ```
 
-`clock` is the host `Clock` layer. `@adobe-uxp-types/uxp` merges the `setup` parameter with `entrypoints`, which a handler record fails for lacking `getCommand`, `getPanel`, `setup`, and `_pluginInfo`. `satisfies` checks each handler against the declared `plugin` and `commands` members, and `Reflect.apply` calls the untyped overload with `entrypoints` as receiver. `Effect.onExit` renders every failed `Exit` through `Cause.pretty` before `runPromise` rejects with the squashed cause. `create` builds every layer at load, and `dispose` closes every scope they opened.
+`hosted` merges the host `Clock` layer with `Uxp`, the service holding `uxp`, `fs`, and a scoped temporary file, and `Plugin` holds the manifest `Manifest.json` decodes from the plug-in's own folder. `Layer.provideMerge` keeps every service in the runtime's context, where `Layer.provide` feeds the layer alone and every `runPromise` reads Effect's default clock. `@adobe-uxp-types/uxp` merges the `setup` parameter with `entrypoints`, which a handler record fails for lacking `getCommand`, `getPanel`, `setup`, and `_pluginInfo`. `satisfies` checks each handler against the declared `plugin`, `commands`, and `panels` members, and `Reflect.apply` calls the untyped overload with `entrypoints` as receiver. `Effect.tapCause` renders every failure through `Cause.pretty` before `runPromise` rejects with the squashed cause. `create` builds every layer at load, a linked socket included, and `dispose` closes every scope they opened.
 
-- Plug-in create and destroy entries build and dispose one runtime; optional network services use that runtime's scope
 - `setup` throws for a `plugin` record without `create`, for a command or panel key its manifest lacks, and after one successful call
 - Panel handlers receive their root node: `create(rootNode)`, `show(rootNode, data)`, `hide(rootNode, data)`, `destroy(rootNode)`
 - `main` builds every state a panel reads, since a host can run `main` at launch with no panel shown
@@ -286,13 +263,13 @@ const registered = <R, ER, E>(
 
 ## [09]-[MANIFESTS]
 
-One manifest serves one host application: `host.app` takes `ID`, `PS`, `premierepro`, or `ame` with a `minVersion`, `entrypoints` rows name a `panel` or `command` `id` with `label.default`, and each `requiredPermissions` key is a boundary its host enforces:
+One manifest serves one host application: `host.app` takes `ID`, `PS`, `premierepro`, `ame`, or `XD` with a `minVersion`, `entrypoints` rows name a `panel` or `command` `id` with `label.default`, and each `requiredPermissions` key is a boundary its host enforces:
 
 | [INDEX] | [KEY]                             | [GRANTS]                                | [WITHOUT]                        |
 | :-----: | :-------------------------------- | :-------------------------------------- | :------------------------------- |
 |  [01]   | `network.domains`                 | Dial and fetch to each listed origin    | Dial throws a manifest denial    |
 |  [02]   | `localFileSystem: "fullAccess"`   | Access outside plug-in storage          | Defaults to plug-in storage      |
-|  [03]   | `allowCodeGenerationFromStrings`  | `eval`, `new Function`, inline handlers | Disabled by default              |
+|  [03]   | `allowCodeGenerationFromStrings`  | `eval`, `new Function`, inline handlers | InDesign v5 runs `new Function`  |
 |  [04]   | `featureFlags.unhandledRejection` | `unhandledrejection` events             | Rejection logged, no caller told |
 
 - `plugin-temp:` reads and writes the folder `getTemporaryFolder()` returns under every permission level, and `plugin:` is read-only
@@ -300,6 +277,6 @@ One manifest serves one host application: `host.app` takes `ID`, `PS`, `premiere
 - Storage entries preserve native `url` schemes for file reads and expose `nativePath` for host-native writes
 - `domains` entries name a host with a top-level domain or `localhost`, and an IP literal entry is discarded
 
-Packaged plug-ins are `.ccx` zips, one per host, with `manifest.json` at their root. `UnifiedPluginInstallerAgent --install <file>.ccx` installs into the release hosts Adobe's installer serves, and a Beta host loads a plug-in folder through a registry row written beside it:
+Packaged plug-ins are `.ccx` zips, one per host, with `manifest.json` at their root. `UnifiedPluginInstallerAgent --install <file>.ccx` installs into the release hosts Adobe's installer serves, and a Beta host loads a plug-in folder through a row in `UXP/PluginsInfo/v1/<host.app>.json`:
 - Row `path` reads `$localPlugins/External/<folder>`, a folder under `UXP/Plugins/External`
 - Plug-in data sits under `UXP/PluginsStorage/<product>/<major>/External/<pluginId>/PluginData`

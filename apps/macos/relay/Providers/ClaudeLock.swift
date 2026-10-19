@@ -147,7 +147,7 @@ actor ClaudeLock {
             case .success(let lockfiles): return .success(ClaudeLock(lockfiles: lockfiles))
             case .failure(.lockHeld(let url)):
                 return await ProcessRun.withDeadline(ClaudeLockfile.staleAfter) {
-                    await Result { try await FileWatch.values(of: url, read: FileWatch.exists, debounce: nil).first { present in !present } }
+                    await Result { try await FileWatch.events(of: url).map { FileWatch.exists(url) }.first { present in !present } }
                         .mapError(ClaudeFailure.filesystem)
                         .flatMap { removed in removed.map { _ in .success(()) } ?? .failure(.cancelled) }
                 }

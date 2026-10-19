@@ -1,14 +1,18 @@
-import { Face, helper, Installation, Screenshot, Status } from '@rasm/automation';
-import { Invocation } from '@rasm/indesign/service/contract';
-import { extension } from '@rasm/indesign/service/peer';
-import { routed } from '@rasm/mcp/link';
+import { Atelier, Installation, InstalledFace, Kind, Native, Screenshot, Status, stripped, WindowID } from '@rasm/automation';
+import { FontView } from '@rasm/indesign/fonts';
+import { Render } from '@rasm/indesign/render';
+import { Script } from '@rasm/indesign/scripts';
+import { Hold, InDesign, PATH, Peer, WIRE } from '@rasm/indesign/service/contract';
+import { Invoke } from '@rasm/indesign/session';
+import { Phase } from '@rasm/indesign/transactions';
+import { listen, PublishedResource, PublishedTool, publish } from '@rasm/mcp/link';
 import { main } from '@rasm/mcp/main';
-import { Attachment, Blocks, Image, Instructions, READING, register } from '@rasm/mcp/server';
+import { Attachment, Image, Instructions, Progress, READING, targeted } from '@rasm/mcp/server';
 import { Unmatched } from '@rasm/search';
-import { Instance, Run, Shaped, Face as Typeface } from '@rasm/typography/face';
-import { Array, Cause, Config, Context, Effect, FileSystem, Function, flow, Layer, Match, Option, Path, pipe, Schema, SchemaGetter, SchemaIssue, Struct } from 'effect';
+import { Face, Instance, Run, Shaped } from '@rasm/typography';
+import { ORIGIN } from '@rasm/uxp/runtime';
+import { Array, Config, Context, Effect, flow, Layer, Match, Option, pipe, Schema, SchemaAST, Stream, Struct } from 'effect';
 import { McpSchema, McpServer, Tool } from 'effect/ai';
-import { RpcClient } from 'effect/rpc';
 import manifest from './package.json' with { type: 'json' };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -17,214 +21,242 @@ main(
     manifest,
     Layer.effectDiscard(
         Effect.gen(function* () {
-            const [protocol, files, path] = yield* Effect.all([RpcClient.Protocol, FileSystem.FileSystem, Path.Path]);
-            const galley = { name: 'Galley', identifier: 'com.adobe.InDesign' };
-            const dictionary = ((segments: TemplateStringsArray, ..._: readonly string[]) => segments)`adobe://dictionary/${'application'}`;
-            const serves = (row: Installation) => (peer: { readonly application: URL }) => Option.isSome(row.running) && path.relative(row.url.pathname, peer.application.pathname) === '';
-            const application = Schema.OptionFromOptionalKey(
-                Schema.String.annotate({ description: 'Bundle identifier, name, or url of an installed Adobe application; absent for the one application with a linked extension' }).pipe(
-                    Schema.decodeTo(Schema.toType(Installation), {
-                        decode: SchemaGetter.transformEffect((given: string) =>
-                            Installation.located(given).pipe(
-                                Effect.provideService(RpcClient.Protocol, protocol),
-                                Effect.mapError(({ message }) => new SchemaIssue.InvalidValue({ message }, given)),
-                            ),
-                        ),
-                        encode: SchemaGetter.transform((row) => row.url.href),
-                    }),
-                ),
-            );
-            const status = (found: Installation) =>
-                found.status().pipe(
-                    Effect.flatMap(Schema.encodeEffect(Schema.fromJsonString(Schema.toCodecJson(Status)))),
-                    Effect.map((text) => McpSchema.TextContent.make({ text })),
-                );
-            const Route = Schema.Struct({ application });
-            const targeted = <P extends Schema.Codec<unknown, unknown> & { readonly fields: Readonly<Record<string, Schema.Codec<unknown, unknown>>> }, S extends Schema.Codec<unknown, unknown>, R>(
-                tool: Tool.Tool<string, { readonly parameters: P; readonly success: S; readonly failure: Schema.Top; readonly failureMode: Tool.FailureMode }>,
-                handle: (parameters: P['Type'], installation: Installation) => Effect.Effect<S['Type'], Error, R>,
-            ) =>
-                register(
-                    tool.setParameters(routed(tool.parametersSchema, Route)),
-                    Effect.fnUntraced(function* ([parameters, { application: given }]) {
-                        const chosen = yield* target(given);
-                        const value = yield* handle(parameters, chosen);
-                        const [block, add] = yield* Effect.all([status(chosen), Blocks]);
-                        yield* add(block);
-                        return value;
-                    }),
-                );
-            const panel = yield* extension(
-                galley.name,
-                {
-                    schema: Route,
-                    select: ({ application: given }, peers) => Option.match(given, { onNone: () => Option.liftPredicate(Function.constTrue, () => peers.length > 0), onSome: (row) => Option.liftPredicate(serves(row), () => row.identifier === galley.identifier) }),
-                    completion: { application: (peers) => peers.map(({ application: url }) => url.href) },
-                },
-                (_, peer) =>
-                    Installation.installed.pipe(
-                        Effect.flatMap(
-                            flow(
-                                Array.findFirst((row) => serves(row)(peer)),
-                                Effect.fromOption(() => new Cause.NoSuchElementError(`No running installation serves the linked ${peer.application.href}`)),
-                            ),
-                        ),
-                        Effect.flatMap(status),
-                        Effect.provideService(RpcClient.Protocol, protocol),
+            const server = yield* McpServer.McpServer;
+            const peer = 'InDesign panel';
+            const preflight = 'indesign://preflight';
+            const json = <S extends Schema.Top>(schema: S) => Schema.encodeEffect(Schema.fromJsonString(Schema.toCodecJson(schema)));
+            const serves = (row: Installation) => (linked: typeof Peer.Type) => row.url.href === linked.application.href;
+            const panel = yield* listen(InDesign, {
+                path: PATH,
+                origin: ORIGIN,
+                peer,
+                identity: Peer,
+                serialization: WIRE,
+                middleware: Hold.client((phase) =>
+                    Effect.flatMap(Progress, (report) =>
+                        Option.match(phase, {
+                            onNone: () => report(`${peer}: awaiting an answer; an open menu, dialog, or drag, or long work, holds the call until released`),
+                            onSome: Phase.match({ Idle: () => Effect.void, Entered: () => report(`${peer}: running the call`) }),
+                        }),
                     ),
+                ),
+                serves,
+                follow: (client) => Stream.runForEach(client('changed', {}), () => server.notifications['notifications/resources/updated']({ uri: preflight })),
+            });
+            const listed = Effect.map(Effect.all([Installation.installed, panel.peers]), ([rows, peers]) =>
+                rows.map((installation) => ({ installation, extension: Option.map(Array.findFirst(peers, serves(installation)), Struct.get('extension')) })).filter(({ installation, extension }) => installation.scriptable || Option.isSome(extension)),
             );
-            const listed = Effect.gen(function* () {
-                const [rows, peers] = yield* Effect.all([Installation.installed, panel.peers]);
-                return rows
-                    .map((row) => ({
-                        installation: row,
-                        dictionary: Option.liftPredicate(dictionary.join(encodeURIComponent(row.url.href)), Function.constant(row.scriptable)),
-                        extension: Option.liftPredicate({ name: galley.name, linked: peers.some(serves(row)) }, Function.constant(row.identifier === galley.identifier)),
-                    }))
-                    .filter(({ installation, extension: owner }) => installation.scriptable || Option.exists(owner, Struct.get('linked')));
+            const application = Schema.String.annotate({ description: 'Bundle identifier, name, or url of an installed Adobe application' });
+            const route = {
+                fields: { application: Schema.OptionFromOptionalKey(application) },
+                resolve: ({ application: given }: { readonly application: Option.Option<string> }) =>
+                    Option.match(given, {
+                        onSome: Installation.located,
+                        onNone: Effect.fnUntraced(function* () {
+                            const running = (yield* listed).filter(({ installation }) => Option.isSome(installation.running));
+                            const linked = running.filter(({ extension }) => Option.isSome(extension));
+                            const candidates = (linked.length === 0 ? running : linked).map(({ installation }) => installation.url.href);
+                            return yield* Effect.fromOption(Option.map(linked.length === 1 ? Array.head(linked) : Option.none(), Struct.get('installation')), () => Unmatched.make({ subject: 'single application with a linked extension', query: '', candidates }));
+                        }),
+                    }),
+                trailer: (found: Installation, value: unknown) =>
+                    Schema.is(Status)(value)
+                        ? Effect.succeedNone
+                        : found.status().pipe(
+                              Effect.flatMap(json(Status)),
+                              Effect.map((text) => Option.some(McpSchema.TextContent.make({ text }))),
+                          ),
+                annotations: Context.make(Tool.OpenWorld, false),
+                completion: {
+                    application: () =>
+                        Effect.map(
+                            panel.peers,
+                            Array.map(({ application: linked }) => linked.href),
+                        ),
+                },
+            };
+            const register = targeted(route);
+            yield* McpServer.registerResource({
+                uri: 'adobe://applications',
+                name: 'applications',
+                description: 'Installed Adobe applications with their running state, channel, version, scriptability, and linked extension; each url is the application other tools take',
+                mimeType: 'application/json',
+                annotations: Context.make(Instructions, ["Tools given no application act on the one application with a linked extension, and every result ends with that application's status: responsiveness, front window, and open windows, dialogs, sheets, and menus with their text, controls, and actions."]),
+                content: Effect.flatMap(listed, json(Schema.Array(Schema.Struct({ installation: Installation, extension: Schema.OptionFromOptionalKey(Peer.fields.extension) })))),
             });
-            const target = Effect.fnUntraced(function* (given: Option.Option<Installation>) {
-                const rows = Option.isSome(given) ? [] : (yield* listed).filter(({ installation }) => Option.isSome(installation.running));
-                const linked = rows.filter(({ extension: owner }) => Option.exists(owner, Struct.get('linked')));
-                const candidates = (linked.length === 0 ? rows : linked).map(({ installation }) => installation.url.href);
-                return yield* Effect.fromOption(
-                    Option.orElse(given, () => Option.map(linked.length === 1 ? Array.head(linked) : Option.none(), Struct.get('installation'))),
-                    () => Unmatched.make({ subject: 'single application with a linked extension', query: '', candidates }),
-                );
-            });
+            const installed = McpSchema.param('application', Schema.URL);
             const definition = {
                 name: 'dictionary',
                 description: 'Installed application scripting suites; read a suite for its declarations, then a declaration for native parameters, types, and properties',
                 mimeType: 'application/xml',
                 completion: { application: () => Effect.map(Installation.installed, (rows) => rows.filter(Struct.get('scriptable')).map(Struct.get('url'))) },
             };
-            const applications = { uri: 'adobe://applications', name: 'applications', description: 'Installed Adobe applications with their running state, channel, version, dictionary, and linked extension; each url is the application other tools take', mimeType: 'application/json' };
-            yield* McpServer.registerResource({
-                ...applications,
-                annotations: Context.make(Instructions, [
-                    `- ${applications.uri}: ${applications.description}. Tools given no application act on the one application with a linked extension, and every result ends with that application's status: responsiveness, front window, and open windows, dialogs, sheets, and menus with their text and buttons.`,
-                ]),
-                content: Effect.map(
-                    Effect.flatMap(
-                        Effect.map(
-                            listed,
-                            Array.map(({ installation, ...owned }) => ({ ...installation, ...owned })),
-                        ),
-                        Schema.encodeEffect(Schema.fromJsonString(Schema.toCodecJson(Schema.Array(Schema.Struct({ ...Installation.fields, dictionary: Schema.OptionFromOptionalKey(Schema.String), extension: Schema.OptionFromOptionalKey(Schema.Struct({ name: Schema.String, linked: Schema.Boolean })) }))))),
-                    ),
-                    (text) => ({ contents: [{ uri: applications.uri, mimeType: applications.mimeType, text }] }),
-                ),
-            });
-            yield* McpServer.registerResource(
-                dictionary,
-                McpSchema.param('application', Schema.URL),
-            )({
+            yield* McpServer.registerResource`adobe://dictionary/${installed}`({
                 ...definition,
-                content: (uri, url) =>
-                    Installation.located(url.href).pipe(
-                        Effect.flatMap((found) => found.definition(Option.none())),
-                        Effect.map((text) => ({ contents: [{ uri, mimeType: definition.mimeType, text }] })),
-                    ),
+                content: (_, url) => Effect.flatMap(Installation.located(url.href), (found) => found.definition(Option.none())),
             });
-            yield* McpServer.registerResource`adobe://dictionary/${McpSchema.param('application', Schema.URL)}/${McpSchema.param('kind', Schema.String)}/${McpSchema.param('name', Schema.String)}`({
+            yield* McpServer.registerResource`adobe://dictionary/${installed}/${McpSchema.param('kind', Kind)}/${McpSchema.param('name', Schema.String)}`({
                 ...definition,
                 name: 'dictionary_term',
                 description: 'Suite declaration index or complete native definition by kind and name, including every matching overload; completion supplies installed names',
                 completion: {
                     ...definition.completion,
-                    kind: () => Effect.succeed(['command', 'class', 'enumeration']),
-                    name: (_, context) =>
-                        Option.match(Option.all({ application: Option.fromUndefinedOr(context?.arguments?.application), kind: Option.fromUndefinedOr(context?.arguments?.kind) }), {
-                            onNone: () => Effect.succeed([]),
-                            onSome: ({ application: address, kind }) =>
-                                Installation.located(address).pipe(
-                                    Effect.flatMap((found) => found.terms(kind)),
-                                    Effect.map(Array.map(Struct.get('name'))),
-                                ),
-                        }),
+                    kind: () => Effect.succeed([...Kind.literals]),
+                    name: Effect.fnUntraced(function* (_: string, context: typeof McpSchema.Complete.payloadSchema.Type.context) {
+                        const { application: given, kind } = yield* Schema.decodeUnknownEffect(Schema.Struct({ application: Schema.String, kind: Kind }))(context?.arguments);
+                        return Array.map(yield* (yield* Installation.located(given)).terms(kind), Struct.get('name'));
+                    }),
                 },
-                content: (uri, url, kind, name) =>
-                    Installation.located(url.href).pipe(
-                        Effect.flatMap((found) => found.definition(Option.some({ kind, name }))),
-                        Effect.map((text) => ({ contents: [{ uri, mimeType: definition.mimeType, text }] })),
-                    ),
+                content: (_, url, kind, name) => Effect.flatMap(Installation.located(url.href), (found) => found.definition(Option.some({ kind, name }))),
             });
-            yield* targeted(
+            yield* targeted({ ...route, fields: { application }, resolve: ({ application: given }: { readonly application: string }) => Installation.located(given) })(
                 Tool.make('launch', {
-                    description: 'Opens an installed Adobe application, or finds its running instance, without substituting another version, and returns it once it has finished launching',
+                    description: 'Opens an installed Adobe application without substituting another version and returns it once it has finished launching; a running instance returns as it is',
                     parameters: Schema.Struct({}),
                     success: Installation,
-                }).annotate(Instructions, [`- launch: opens or finds any installed Adobe application by identifier, name, or url from ${applications.uri}, across versions and channels.`]),
+                }),
                 (_, chosen) => chosen.launch(),
             );
-            yield* targeted(
+            yield* register(
                 Tool.make('screenshot', {
                     description: 'Brings the application forward and captures its frontmost window or a given window at native pixel size as a lossless PNG',
-                    parameters: Schema.Struct({ window: Schema.OptionFromOptionalKey(Screenshot.fields.window.fields.id.annotate({ description: 'Window id from a previous screenshot result or status' })) }),
+                    parameters: Schema.Struct({ window: Schema.OptionFromOptionalKey(WindowID.annotate({ description: 'Window id from a previous screenshot result or status' })) }),
                     success: Screenshot.pipe(Schema.fieldsAssign({ image: Image('image/png') })),
-                })
-                    .annotateMerge(READING)
-                    .annotate(Instructions, ['- screenshot: brings the application forward and captures its frontmost window or dialog at native pixel size; pass a window id from a status or screenshot result to capture another window.']),
+                }).annotateMerge(READING),
                 ({ window: id }, chosen) => chosen.screenshot(id),
             );
+            const faces = { uri: 'atelier://faces', name: 'faces', description: 'Installed faces CoreText finds, each with the file holding it', mimeType: 'application/json' };
+            yield* McpServer.registerResource({ ...faces, content: Effect.flatMap(InstalledFace.all, json(Schema.Array(InstalledFace))) });
             yield* register(
                 Tool.make('font', {
-                    description: "Lists installed faces when name is absent; a name reads that face's names, coverage, metrics in em, features, axes, and named instances, and shapes the text with the feature settings, reporting missing characters. An application's extension adds its view of the named face",
-                    parameters: Instance.pipe(Schema.fieldsAssign({ ...Run.fields, name: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'PostScript name, full name, or family for its Regular style, in any case; absent lists installed faces' })) })),
-                    success: Schema.Union([Schema.Array(Face), Schema.Struct({ ...Face.fields, face: Typeface, shaped: Shaped })]),
+                    description: `Opens a face by name at its named instance, a generated instance PostScript name, or the variation settings, and reads its names, coverage, metrics in em, embedding rights, language systems, features, axes, named instances, and color data, then shapes the text with the feature settings, reporting missing characters; ${faces.uri} lists installed faces. An application's linked extension answers with its view of the named face`,
+                    parameters: Instance.pipe(Schema.fieldsAssign({ ...Run.fields, name: Schema.String.annotate({ description: 'PostScript name, full name, or family for its default face, in any case, as CoreText matches it; a linked extension takes its native font name or specifier' }) })),
+                    success: Schema.Union([Schema.Struct({ ...InstalledFace.fields, face: Face, shaped: Shaped }), Schema.Struct({ ...FontView.fields, face: Schema.OptionFromOptionalKey(Face), shaped: Schema.OptionFromOptionalKey(Shaped) })]),
                 }).annotateMerge(READING),
-                Effect.fnUntraced(function* ({ name, text, features, ...instance }) {
-                    return yield* Option.match(name, {
-                        onNone: () => Face.installed,
-                        onSome: flow(
-                            Face.named,
-                            Effect.flatMap(
-                                Effect.fnUntraced(function* (found) {
-                                    const typeface = yield* Typeface.open(yield* files.readFile(found.file), Option.some(found.postscriptName), instance);
-                                    return { ...found, face: typeface, shaped: yield* typeface.shape({ text, features }) };
-                                }),
-                            ),
-                        ),
+                Effect.fnUntraced(function* ({ name, text, features, variations, size }, chosen) {
+                    const typeset = ({ data, postscriptName }: Effect.Success<ReturnType<InstalledFace['source']>>) => Effect.map(Face.open(data, postscriptName, { variations, size }), (face) => ({ face, shaped: face.shape({ text, features }) }));
+                    return yield* Option.match(yield* Effect.catchNoSuchElement(panel.call(chosen)), {
+                        onNone: Effect.fnUntraced(function* () {
+                            const found = yield* InstalledFace.named(name);
+                            return { ...found, ...(yield* Effect.flatMap(found.source(), typeset)) };
+                        }),
+                        onSome: Effect.fnUntraced(function* (use) {
+                            const { view, source } = yield* use('font', { name, text });
+                            const set = yield* Effect.transposeOption(Option.map(source, typeset));
+                            return { ...view, face: Option.map(set, Struct.get('face')), shaped: Option.map(set, Struct.get('shaped')) };
+                        }),
                     });
                 }),
             );
-            yield* targeted(
+            yield* register(
                 Tool.make('execute_script', {
-                    description: "Runs source in one application's script runtime: ExtendScript (ES3) through do javascript or DoScript, Acrobat JavaScript through do script, and UXP JavaScript or TypeScript through a linked extension. The result names the runtime that ran the source",
+                    description:
+                        "Runs source in one application's script runtime: ExtendScript (ES3) through do javascript or DoScript, Acrobat JavaScript through do script, and UXP JavaScript or TypeScript through a linked extension, which strips TypeScript before the source runs. The result names the runtime that ran the source",
                     parameters: Schema.Struct({ code: Schema.String.annotate({ description: 'Function body in the runtime the application takes; its return value is the result' }) }),
-                    success: Schema.Struct({ runtime: Schema.String.annotate({ description: 'Runtime that ran the source' }), result: Schema.Json }),
-                }).annotate(Instructions, ['- execute_script: one runtime per application, stated in the result; ExtendScript hosts take ES3 source, UXP hosts take modern JavaScript or TypeScript. An unanswered mutation can have run; read application state before repeating it.']),
-                ({ code }, chosen) => chosen.script(code),
+                    success: Schema.Union([Installation.Script, Script.Result]),
+                }),
+                Effect.fnUntraced(function* ({ code }, chosen) {
+                    return yield* Option.match(yield* Effect.catchNoSuchElement(panel.call(chosen)), {
+                        onNone: () => chosen.script(code),
+                        onSome: (use) => Effect.flatMap(stripped(code), (plain) => use('execute_script', { code: plain })),
+                    });
+                }),
             );
-            yield* targeted(
+            yield* register(
                 Tool.make('command', {
-                    description: "Drives one application's native commands: an Apple Event command from its dictionary, a button on an open dialog, sheet, or window from its status, or a menu action its linked extension lists",
+                    description: "Drives one application's native commands: an Apple Event command from its dictionary, an action of an open dialog, sheet, window, or menu from its status, or a menu action its linked extension lists",
                     parameters: Schema.Struct({
                         run: Schema.TaggedUnion({
                             Command: {
                                 command: Schema.String.annotate({ description: 'Command name from the application dictionary' }),
-                                arguments: Schema.JsonObject.annotate({ description: 'Dictionary parameters by name; direct supplies the direct parameter. Reuse native reply values unchanged' }).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
+                                arguments: Schema.Record(Schema.String, Native)
+                                    .annotate({ description: 'Dictionary parameters by name; direct supplies the direct parameter. Reuse native reply values unchanged' })
+                                    .pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
                                 artifacts: Schema.Array(Schema.URLFromString)
                                     .annotate({ description: 'File URLs the command writes, returned with the reply' })
                                     .pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
                             },
-                            Dialog: { element: Status.fields.elements.value.fields.id.annotate({ description: 'Element id from a status' }), button: Schema.String.annotate({ description: 'Button label the element lists' }) },
-                            Menu: { action: Invocation.payloadSchema.fields.action },
+                            Dialog: { element: WindowID.annotate({ description: 'Element id from a status' }), action: Schema.String.annotate({ description: 'Action the element lists' }) },
+                            Menu: { action: Invoke.fields.action },
                         }),
                     }),
-                    success: Schema.Union([Schema.Struct({ reply: Schema.Json, artifacts: Schema.Array(Attachment), unread: Schema.Array(Schema.String).annotate({ description: 'Why each artifact the reply does not carry could not be read' }) }), Status, Invocation.successSchema]),
-                }).annotate(Instructions, [
-                    "- command Command: read the application's dictionary for its commands, parameters, and script languages; Dialog presses a listed button on an open element; Menu invokes an action from indesign://menu by id or name. An unanswered mutation can have run; read application state before repeating it.",
-                ]),
+                    success: Schema.Union([Installation.Command.pipe(Schema.fieldsAssign({ artifacts: Schema.Array(Schema.Result(Attachment, Schema.ErrorInstance())) })), Status, Invoke.Result]),
+                }),
                 ({ run }, found) =>
                     Match.value(run).pipe(
                         Match.tag('Command', ({ command, arguments: parameters, artifacts }) => found.command(command, parameters, artifacts)),
-                        Match.tag('Dialog', ({ element, button }) => found.press(element, button)),
-                        Match.tag('Menu', ({ action }) => panel.invoke({ application: Option.some(found) }, action)),
+                        Match.tag('Dialog', ({ element, action }) => found.press(element, action)),
+                        Match.tag(
+                            'Menu',
+                            Effect.fnUntraced(function* ({ action }) {
+                                return yield* (yield* panel.call(found))('invoke', { action });
+                            }),
+                        ),
                         Match.exhaustive,
                     ),
             );
-            yield* panel.publish;
+            yield* publish(
+                InDesign.omit('enter', 'changed'),
+                {
+                    inspect: new PublishedTool({ annotations: READING }),
+                    change: new PublishedTool({ annotations: Context.empty() }),
+                    create: new PublishedTool({ annotations: Context.empty() }),
+                    remove: new PublishedTool({ annotations: Context.empty() }),
+                    find_change: new PublishedTool({ annotations: Context.empty() }),
+                    render: new PublishedTool({ annotations: READING, success: Render.Result.mapFields(Struct.assign({ image: Image('image/png') })) }),
+                    menu: new PublishedResource({
+                        uri: 'indesign://menu',
+                        complete: {
+                            area: flow(
+                                panel.call,
+                                Effect.flatMap((use) => use('menu', { area: Option.none() })),
+                                Effect.map((rows) => Array.dedupe(Array.map(rows, Struct.get('area')))),
+                            ),
+                        },
+                    }),
+                    preflight: new PublishedResource({
+                        uri: preflight,
+                        complete: {
+                            profile: flow(
+                                panel.call,
+                                Effect.flatMap((use) => use('preflight', { profile: Option.none() })),
+                                Effect.map(Struct.get('profiles')),
+                            ),
+                        },
+                    }),
+                    queries: new PublishedResource({
+                        uri: 'indesign://queries',
+                        complete: {
+                            name: flow(
+                                panel.call,
+                                Effect.flatMap((use) => use('queries', { name: Option.none() })),
+                                Effect.map(Array.map(Struct.get('name'))),
+                            ),
+                        },
+                    }),
+                    kinds: new PublishedResource({ uri: 'indesign://kinds', complete: {} }),
+                    kind: new PublishedResource({
+                        uri: 'indesign://kinds',
+                        complete: {
+                            name: flow(
+                                panel.call,
+                                Effect.flatMap((use) => use('kinds', {})),
+                            ),
+                        },
+                    }),
+                },
+                {
+                    route,
+                    invoke: (rpc) =>
+                        Effect.fnUntraced(function* (payload, chosen) {
+                            return yield* (yield* panel.call(chosen))(rpc._tag, payload);
+                        }),
+                    annotations: Context.make(Instructions, [
+                        'InDesign is served through its panel, which links when InDesign starts. Measurements are numbers in points. Every mutation runs as one undo step named by its verb and target, and its result carries the preflight of each document it touched: issue count and the issues it introduced. A mutation failing with modalState as its cause met an open dialog or alert: close it through command Dialog, then retry. Resource templates select an application; base resource URIs use the single linked application.',
+                        ...Option.toArray(Option.fromUndefinedOr(SchemaAST.resolveDescription(Script.ast))),
+                    ]),
+                },
+            );
         }),
-    ).pipe(Layer.provide(pipe(Config.String('ATELIER_PATH'), Effect.map(helper), Layer.unwrap))),
+    ).pipe(Layer.provide(pipe(Config.String('ATELIER_PATH'), Effect.map(Atelier.spawned), Layer.unwrap))),
 );

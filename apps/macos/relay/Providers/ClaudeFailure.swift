@@ -58,6 +58,7 @@ nonisolated enum ClaudeFailure: DeadlineFailure, ProviderFailure {
     case accountOnHold(URL)
     case authenticationFailed(TerminationStatus)
     case process(ProcessFailure)
+    case descriptorNotInherited(Int32)
     case keychainLocked
     case keychainFailed(TerminationStatus)
     case credentialTooLarge
@@ -120,6 +121,7 @@ nonisolated enum ClaudeFailure: DeadlineFailure, ProviderFailure {
             case .accountOnHold(let url): "Account on hold: \(url.absoluteString)"
             case .authenticationFailed(let status): "Claude Code sign-in failed: \(status)"
             case .process(let failure): failure.localizedDescription
+            case .descriptorNotInherited(let descriptor): "posix_spawn could not inherit descriptor \(descriptor)"
             case .keychainLocked: "Login keychain locked"
             case .keychainFailed(let status): "Keychain access failed: \(status)"
             case .credentialTooLarge: "Claude credential too large to save"
@@ -180,6 +182,7 @@ nonisolated extension Result where Failure == KeychainFailure {
             switch failure {
                 case .interactionNotAllowed: .keychainLocked
                 case .itemTooLarge: .credentialTooLarge
+                case .unprinted: .invalidCredentials
                 case .failed(let status): .keychainFailed(status)
                 case .process(let error): ClaudeFailure(process: error)
             }

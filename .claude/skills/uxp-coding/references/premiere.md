@@ -24,7 +24,7 @@ getProject(): Project	instance	async
 
 - `jq -r '.apis[] | keys[] | select(. != "hash")' "<app>/Contents/Resources/json/api_config.json"` lists every exposed class
 - `class` rows are static members and constants, typed `number` or `string` with no value, and `async` rows return promises
-- Module JavaScript adds members the manifest lacks (`lockedAccess`, `executeTransaction`, `cast`, `EventManager`, `Constants`), and typings alone declare them
+- Members module JavaScript adds (`lockedAccess`, `executeTransaction`, `cast`, `EventManager`, `Constants`) sit in typings and not the manifest
 - `strings -n 3000 "<app>/Contents/MacOS/<executable>" | rg -F mediaCoreBackend` prints module JavaScript
 
 ## [02]-[READS]
@@ -64,13 +64,7 @@ Edits are actions built and added inside one `lockedAccess` callback, and `addAc
 ```ts
 import type { Project, ProjectItem } from '@adobe/premierepro';
 
-const EditReason = Schema.TaggedUnion({
-    Refused: { undo: Schema.String, names: Schema.NonEmptyArray(Schema.String) },
-    Thrown: { undo: Schema.String, cause: Schema.Defect() },
-});
-class EditError extends Schema.TaggedError<EditError, { readonly brand: unique symbol }>()('EditError', { reason: EditReason }) {}
-
-const renamed = (project: Project, items: readonly ProjectItem[], undo: string, name: (item: ProjectItem) => string) =>
+const renamed = (project: Project, items: readonly ProjectItem[], undo: string, name: (item: ProjectItem) => string): Effect.Effect<number, Cause.UnknownError> =>
     Effect.try({
         try: () => {
             const refused: string[] = [];
@@ -82,18 +76,18 @@ const renamed = (project: Project, items: readonly ProjectItem[], undo: string, 
             });
             return refused;
         },
-        catch: (cause) => EditError.make({ reason: { _tag: 'Thrown', undo, cause } }),
+        catch: (cause) => new Cause.UnknownError(cause, undo),
     }).pipe(
         Effect.flatMap(
             Array.match({
                 onEmpty: () => Effect.succeed(items.length),
-                onNonEmpty: (names) => Effect.fail(EditError.make({ reason: { _tag: 'Refused', undo, names } })),
+                onNonEmpty: (refused) => Effect.fail(new Cause.UnknownError({ refused }, undo)),
             }),
         ),
     );
 ```
 
-`renamed` returns its count over items its caller read before the lock, and `Refused` names each item `addAction` refused beside a transaction that executed every other action. Actions build before the first `addAction`, where a throwing `name` adds none, and `Thrown` from inside the transaction callback follows the actions added before it, which still execute. `refused` leaves through an outer array, since `lockedAccess` returns `true` and drops its callback's value.
+`renamed` returns its count over items its caller read before the lock, or fails with `refused` naming each item `addAction` refused beside a transaction that executed every other action. Actions build before the first `addAction`, where a throwing `name` adds none, and a throw from inside the transaction callback follows the actions added before it, which still execute. `refused` leaves through an outer array, since `lockedAccess` returns `true` and drops its callback's value.
 
 | [INDEX] | [CALL]                                      | [RESULT]                                                    |
 | :-----: | :------------------------------------------ | :---------------------------------------------------------- |

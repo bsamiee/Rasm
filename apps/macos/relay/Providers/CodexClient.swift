@@ -288,18 +288,10 @@ actor CodexClient: ProviderClient {
                     ) = AsyncStream.makeStream()
                 let continuation: AsyncStream<URL>.Continuation = updatesContinuation
                 let task: Task<Void, Never> = Task(name: "codex app-server \(home.lastPathComponent)") {
-                    let outcome: Result<(Void, TerminationStatus), ProcessFailure> = await ProcessRun.stream(
-                        invocation,
-                        deadline: nil,
-                    ) { execution in
-                        .success(
-                            await Self.serve(
-                                CodexConnection(execution: execution),
-                                home: home,
-                                updates: continuation,
-                                ready: ready.continuation,
-                            )
-                        )
+                    let outcome: Result<ExecutionResult<Void, SequenceOutput, DiscardedOutput>, ProcessFailure> = await ProcessRun.run(deadline: nil) {
+                        try await Subprocess.run(invocation, input: .inputWriter, output: .sequence, error: .discarded) { execution in
+                            await Self.serve(CodexConnection(execution: execution), home: home, updates: continuation, ready: ready.continuation)
+                        }
                     }
                     if case .failure(let error) = outcome {
                         let failure: CodexFailure =

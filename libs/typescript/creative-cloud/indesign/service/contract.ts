@@ -1,65 +1,74 @@
-import { Completion, resource, tool } from '@rasm/mcp/link';
-import { Image, Instructions, READING } from '@rasm/mcp/server';
 import { Unmatched } from '@rasm/search';
-import { Schema, Struct } from 'effect';
-import { Tool } from 'effect/ai';
-import { Rpc, RpcGroup, RpcSerialization } from 'effect/rpc';
-import { Render } from '../export.ts';
-import { FontView } from '../fonts.ts';
-import { Inspect } from '../inspection.ts';
-import { Phase } from '../objects/transactions.ts';
-import { Change, Create, Remove } from '../objects/values.ts';
+import { Duration, Effect, type Option, Schedule, Schema, SchemaGetter, Stream } from 'effect';
+import { Rpc, RpcClient, RpcGroup, RpcMiddleware, RpcSerialization } from 'effect/rpc';
+import { FindChange, Queries } from '../find.ts';
+import { Font } from '../fonts.ts';
+import { Inspect, Kind } from '../inspection.ts';
+import { Change, Create, Remove } from '../mutations.ts';
 import { Preflight } from '../preflight.ts';
+import { Render } from '../render.ts';
 import { Script } from '../scripts.ts';
-import { FindChange, Query } from '../search.ts';
-import { Invoke, MenuAction } from '../session.ts';
+import { Invoke, Menu } from '../session.ts';
+import { Phase } from '../transactions.ts';
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const PATH = '/indesign';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const PATH = '/indesign';
-const WIRE = RpcSerialization.layerSchemaBinary({ fingerprintPayloads: true });
-const Peer = Schema.Struct({ application: Schema.URLFromString });
+const Peer = Schema.Struct({
+    application: Schema.URLFromString.pipe(Schema.decodeTo(Schema.URL, { decode: SchemaGetter.transform((url) => (url.pathname.endsWith('/') ? url : new URL(`${url.href}/`))), encode: SchemaGetter.passthrough() })).annotate({
+        description: 'Bundle url of the application the panel serves, in the directory form Launch Services gives a bundle',
+    }),
+    extension: Schema.String.annotate({ description: 'Plugin name its manifest declares' }),
+});
 const Failure = Schema.Union([Unmatched, Schema.ErrorInstance()]);
+
+// --- [SERVICES] ------------------------------------------------------------------------
+
+class Hold extends RpcMiddleware.Service<Hold>()('@rasm/indesign/service/contract/Hold', { error: Schema.ErrorInstance(), requiredForClient: true }) {
+    static readonly client = (report: (phase: Option.Option<typeof Phase.Type>) => Effect.Effect<void>) =>
+        RpcMiddleware.layerClient(
+            Hold,
+            Effect.map(
+                RpcClient.make(RpcGroup.make(Enter), { disableTracing: true, flatten: true }),
+                (enter) =>
+                    ({ next, request }) =>
+                        Effect.tap(next(request), () =>
+                            Stream.fromSchedule(Schedule.min([Schedule.exponential(Duration.millis(2)), Schedule.spaced(Duration.seconds(1))])).pipe(
+                                Stream.mapEffect(() => Effect.timeoutOption(enter('enter', {}), Duration.seconds(2)), { concurrency: 'unbounded', unordered: true }),
+                                Stream.changes,
+                                Stream.runForEach(report),
+                            ),
+                        ),
+            ),
+        );
+}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const Font = Rpc.make('font', {
-    payload: { name: Schema.String.annotate({ description: 'Native font name, PostScript name, full name, or font specifier; a family selects its Regular face' }), text: Schema.String },
-    success: Schema.Struct({
-        ...FontView.fields,
-        installed: Schema.OptionFromOptionalKey(
-            FontView.fields.installed.from.schema.pipe(Schema.fieldsAssign({ source: Schema.Struct({ data: Schema.Uint8Array, subset: Schema.Boolean.annotate({ description: 'The original file was unavailable: bytes are a native subset at the default instance holding the requested characters alone' }) }) })),
-        ),
-    }),
-    error: Failure,
-});
-const Scripted = Rpc.make('execute_script', { payload: Script, success: Script.Result, error: Failure });
-const Invocation = Rpc.make('invoke', { payload: Invoke, success: Invoke.Result, error: Failure });
+const WIRE = RpcSerialization.layerSchemaBinary({ fingerprintPayloads: true });
 const Enter = Rpc.make('enter', { payload: {}, success: Phase });
-const Complete = Rpc.make('complete', { payload: { operation: Schema.String, parameter: Schema.String }, success: Schema.Array(Schema.String), error: Failure });
 const InDesign = RpcGroup.make(
-    Rpc.make('inspect', { payload: Inspect, success: Inspect.Result, error: Failure }).annotateMerge(READING).pipe(tool),
-    Rpc.make('change', { payload: Change, success: Change.Result, error: Failure }).pipe(tool),
-    Rpc.make('create', { payload: Create, success: Create.Result, error: Failure }).pipe(tool),
-    Rpc.make('remove', { payload: Remove, success: Remove.Result, error: Failure }).pipe(tool),
-    Scripted,
-    Rpc.make('find_change', { payload: FindChange, success: FindChange.Result, error: Failure }).annotate(Tool.OpenWorld, false).pipe(tool),
-    Font,
-    Rpc.make('render', { payload: Render, success: Render.Result.mapFields(Struct.assign({ image: Image('image/png') })), error: Failure })
-        .annotateMerge(READING)
-        .pipe(tool),
-    Rpc.make('menu', { payload: { area: Schema.OptionFromOptionalKey(Schema.String) }, success: Schema.Array(MenuAction), error: Failure }).pipe(resource('indesign://menu')),
-    Invocation,
-    Rpc.make('preflight', { payload: { profile: Schema.OptionFromOptionalKey(Schema.String) }, success: Preflight, error: Failure }).pipe(resource('indesign://preflight')),
-    Rpc.make('queries', { payload: { name: Schema.OptionFromOptionalKey(Schema.String) }, success: Schema.Array(Query), error: Failure }).pipe(resource('indesign://queries')),
-    Enter,
-    Complete,
+    Rpc.make('inspect', { payload: Inspect, success: Inspect.Result, error: Failure }),
+    Rpc.make('change', { payload: Change, success: Change.Result, error: Failure }),
+    Rpc.make('create', { payload: Create, success: Create.Result, error: Failure }),
+    Rpc.make('remove', { payload: Remove, success: Remove.Result, error: Failure }),
+    Rpc.make('execute_script', { payload: Script, success: Script.Result, error: Failure }),
+    Rpc.make('find_change', { payload: FindChange, success: FindChange.Result, error: Failure }),
+    Rpc.make('font', { payload: Font, success: Font.Result, error: Failure }),
+    Rpc.make('kinds', { payload: Schema.Struct({}).annotate({ description: 'Every native class and enumeration name in the host dictionary' }), success: Schema.Array(Schema.String), error: Failure }),
+    Rpc.make('kind', { payload: Kind, success: Kind.Result, error: Failure }),
+    Rpc.make('render', { payload: Render, success: Render.Result, error: Failure }),
+    Rpc.make('menu', { payload: Menu, success: Menu.Result, error: Failure }),
+    Rpc.make('invoke', { payload: Invoke, success: Invoke.Result, error: Failure }),
+    Rpc.make('preflight', { payload: Preflight, success: Preflight.Result, error: Failure }),
+    Rpc.make('queries', { payload: Queries, success: Queries.Result, error: Failure }),
 )
-    .annotate(Completion, (rpc, parameter, call) => call(Complete, { operation: rpc._tag, parameter }))
-    .annotate(Instructions, [
-        'InDesign is served through its panel, which links when InDesign starts. Measurements are numbers in points. Every mutation runs as one undo step named by its verb and target, and its result carries the preflight of each document it touched: issue count and the issues it introduced. Resource templates select an application; base resource URIs use the single linked application.',
-    ]);
+    .middleware(Hold)
+    .add(Enter, Rpc.make('changed', { payload: {}, success: Preflight.Summary.value, stream: true }));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Complete, Enter, Font, InDesign, Invocation, PATH, Peer, Scripted, WIRE };
+export { Hold, InDesign, PATH, Peer, WIRE };
