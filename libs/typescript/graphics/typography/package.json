@@ -1,12 +1,13 @@
 {
     "name": "@rasm/typography",
     "private": true,
-    "description": "Foundation for font-aware apps and extensions: opens any font face at a variation instance and point size, reads its design metrics, and shapes text runs",
+    "description": "Foundation for font-aware apps and extensions: opens any face of a font file or collection at a named or coordinate instance and point size, reads its names, coverage, metrics, features, and axes, and shapes text runs with feature settings",
     "type": "module",
     "exports": {
         "./*": "./*.ts"
     },
     "dependencies": {
+        "@rasm/search": "workspace:*",
         "effect": "catalog:",
         "fontkit": "catalog:",
         "harfbuzzjs": "catalog:"

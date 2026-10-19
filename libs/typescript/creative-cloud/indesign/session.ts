@@ -1,9 +1,10 @@
-import indesign, { type Document } from 'adobe:indesign';
+import type { Document } from 'adobe:indesign';
 import { Unmatched } from '@rasm/search';
-import { Array, Effect, Option, Predicate, Schema, Struct } from 'effect';
-import { InDesignError, Reference, Specifier } from './models.ts';
-import { read, reference } from './objects/specifiers.ts';
-import { Description, transacted } from './objects/transactions.ts';
+import { Array, Cause, Effect, Option, Predicate, Schema, Struct } from 'effect';
+import { Host } from './host.ts';
+import { Classes } from './objects/classes.ts';
+import { Reference, read, Specifier } from './objects/specifiers.ts';
+import { Mutation } from './objects/transactions.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -36,6 +37,7 @@ class Session extends Schema.TaggedClass<Session, { readonly brand: unique symbo
     }),
 }) {
     static readonly current = Effect.fn('current')(function* () {
+        const [{ indesign }, { reference }] = yield* Effect.all([Host, Classes]);
         const { app, StyleType } = indesign;
         const modal = app.modalState;
         const documents = modal ? [] : app.documents.everyItem().getElements();
@@ -67,6 +69,7 @@ class Session extends Schema.TaggedClass<Session, { readonly brand: unique symbo
 }
 class MenuAction extends Schema.Class<MenuAction, { readonly brand: unique symbol }>('MenuAction')({ id: Schema.Int, name: Schema.String, area: Schema.String }) {
     static readonly listed = Effect.fn('listed')(function* (area: Option.Option<string>) {
+        const { indesign } = yield* Host;
         const rows = yield* read(Schema.Array(MenuAction), () => {
             const every = indesign.app.menuActions.everyItem();
             return Array.zipWith(Array.zip(every.id, every.name), every.area, ([id, name], within) => ({ id, name, area: within }));
@@ -75,17 +78,19 @@ class MenuAction extends Schema.Class<MenuAction, { readonly brand: unique symbo
         return yield* Option.isSome(area) && Array.isReadonlyArrayEmpty(chosen) ? Effect.fail(Unmatched.make({ subject: 'menu area', query: area.value, candidates: Array.dedupe(Array.map(rows, Struct.get('area'))) })) : Effect.succeed(chosen);
     });
 }
-class Invoke extends Schema.Class<Invoke, { readonly brand: unique symbol }>('Invoke')(
-    { description: Description, action: Schema.Union([Schema.Int, Schema.String]).annotate({ description: 'Menu action id or name from the menu resource' }) },
-    { description: 'Invokes one menu action as the user would, without dialogs, in one undo step named by the description' },
-) {
-    static readonly Result = MenuAction;
+class Invoke extends Mutation.extend<Invoke>('Invoke')({ action: Schema.Union([Schema.Int, Schema.String]).annotate({ description: 'Menu action id or name from the menu resource' }) }, { description: 'Invokes one menu action as the user would, without dialogs, in one undo step' }) {
+    static readonly Result = Mutation.Result(MenuAction.fields);
+
+    override get label(): string {
+        return `Invoke ${this.action}`;
+    }
 
     run() {
         const { action } = this;
-        return transacted(
-            this.description,
+        return this.commit(
+            Invoke.Result,
             Effect.gen(function* () {
+                const { indesign } = yield* Host;
                 const rows = yield* MenuAction.listed(Option.none());
                 const chosen = yield* Array.match(
                     rows.filter((row) => (Predicate.isNumber(action) ? row.id === action : row.name === action)),
@@ -94,7 +99,7 @@ class Invoke extends Schema.Class<Invoke, { readonly brand: unique symbol }>('In
                         onNonEmpty: ([only, ...rest]) => (rest.length === 0 ? Effect.succeed(only) : Effect.fail(Unmatched.make({ subject: 'single menu action', query: String(action), candidates: [only, ...rest].map(({ id, area }) => `${id} (${area})`) }))),
                     },
                 );
-                yield* Effect.try({ try: () => indesign.app.menuActions.itemByID(chosen.id).invoke(), catch: InDesignError.refused(Option.some(chosen.name)) });
+                yield* Effect.try({ try: () => indesign.app.menuActions.itemByID(chosen.id).invoke(), catch: (cause) => new Cause.UnknownError(cause, chosen.name) });
                 return chosen;
             }),
         );

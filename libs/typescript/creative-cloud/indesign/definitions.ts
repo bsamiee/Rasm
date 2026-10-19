@@ -1,9 +1,8 @@
 import type { InDesignDOMObject, Link, ParagraphStyle, Swatch } from 'adobe:indesign';
-import { Array, Cache, Effect, Iterable, Option, Predicate, Record, Result, Schema } from 'effect';
+import { Array, Cache, Cause, Effect, Iterable, Option, Predicate, Record, Result, Schema } from 'effect';
 import { hostOwned } from './documents.ts';
-import { InDesignError, Reference } from './models.ts';
-import { Classes, plural } from './objects/classes.ts';
-import { ancestors, document, encoded, host, named, owning, projected, read, reference } from './objects/specifiers.ts';
+import { Classes } from './objects/classes.ts';
+import { Reference, read } from './objects/specifiers.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -30,13 +29,17 @@ class DefinitionView extends Schema.TaggedClass<DefinitionView, { readonly brand
         }),
     ).annotate({ description: 'Composition rules a paragraph style owns' }),
 }) {
-    static readonly guard = (value: unknown): value is Definition => [owning<Styled>('basedOn'), owning<Swatch>('parentColorGroup'), owning<Link>('linkResourceURI')].some((guard) => guard(value));
+    static readonly guard = ({ owning }: Classes['Service']) => {
+        const guards = [owning<Styled>('basedOn'), owning<Swatch>('parentColorGroup'), owning<Link>('linkResourceURI')];
+        return (value: unknown): value is Definition => guards.some((guard) => guard(value));
+    };
     static readonly of = Effect.fn('of')(function* (found: Definition) {
-        const { fields } = yield* Cache.get(yield* Classes, found.constructorName);
+        const { rows, owning, host, named, document, plural, encoded, projected, reference, ancestors } = yield* Classes;
+        const { fields } = yield* Cache.get(rows, found.constructorName);
         const styled = Option.liftPredicate(found, owning<Styled>('basedOn'));
         const [mine, theirs] = yield* Effect.try({
             try: () => Option.match(styled, { onNone: () => [{}, {}] as const, onSome: (style) => [style.properties, host(style.basedOn) ? style.basedOn.properties : {}] as const }),
-            catch: InDesignError.refused(Option.some(found.toSpecifier())),
+            catch: (cause) => new Cause.UnknownError(cause, found.toSpecifier()),
         });
         const attributes = Record.filter(fields, (row, name) => row.settable && !['basedOn', 'nextStyle', 'name', 'label'].includes(name) && !plural(row));
         const own = Option.isSome(styled)

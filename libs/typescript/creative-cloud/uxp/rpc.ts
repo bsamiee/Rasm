@@ -8,10 +8,6 @@ import { Socket, SocketServer } from 'effect/socket';
 
 type Link = { readonly _tag: 'Linked' } | { readonly _tag: 'Closed' } | { readonly _tag: 'Unreachable'; readonly cause: Socket.SocketError };
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const REDIAL = Duration.seconds(2);
-
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Link = Data.taggedEnum<Link>();
@@ -34,7 +30,7 @@ const serve = <Rpcs extends Rpc.Any>(group: RpcGroup.RpcGroup<Rpcs>, { url, iden
                                 ),
                                 writer,
                             }),
-                        ).pipe(Effect.ignoreCause, Effect.andThen(Effect.sleep(REDIAL)), Effect.forever),
+                        ).pipe(Effect.ignoreCause, Effect.andThen(Effect.sleep(Duration.seconds(2))), Effect.forever),
                 }),
                 Effect.provide(serialization),
                 Scope.provide(linked),

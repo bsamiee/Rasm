@@ -108,6 +108,7 @@ Navigate code through its language's skill and MCP server, else the `use-ast-gre
 - ALWAYS declare a fact the API hides once at its owner, every other use derives it
 - ALWAYS type configuration values with their owner's range
 - ALWAYS reach members through typed handles instead of member-name strings
+- ALWAYS derive a label, undo name, or progress text from the operation and its target, a caller-written description is a defect
 
 [LIBRARIES]: Libraries are foundations for current and future apps of their domain
 - ALWAYS place product code no single product decides in its host or domain library at first use, an app holds its product's decisions alone

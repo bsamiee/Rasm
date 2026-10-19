@@ -1,19 +1,18 @@
 {
     "name": "@rasm/indesign",
     "private": true,
-    "description": "InDesign document, text, rendering, and scripting operations with optional MCP publication",
+    "description": "InDesign's object model as verbs and views: inspect, change, create, remove, script, find and change, render, fonts, preflight, and the service contract a panel and its peer share",
     "type": "module",
     "exports": {
         "./*": "./*.ts"
     },
     "dependencies": {
+        "@rasm/automation": "workspace:*",
         "@rasm/mcp": "workspace:*",
         "@rasm/search": "workspace:*",
         "@rasm/typography": "workspace:*",
-        "@rasm/uxp": "workspace:*",
         "acorn": "catalog:",
         "acorn-walk": "catalog:",
-        "amaro": "catalog:",
         "effect": "catalog:",
         "image-size": "catalog:"
     },

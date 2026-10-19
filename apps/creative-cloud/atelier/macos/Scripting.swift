@@ -37,8 +37,7 @@ enum Reply {
 }
 
 enum Request: Decodable {
-    case applications
-    case application(url: URL)
+    case installations
     case launch(url: URL)
     case status(url: URL)
     case watch(url: URL)
@@ -50,7 +49,7 @@ enum Request: Decodable {
     case screenshot(application: URL, window: CGWindowID?)
     case faces
 
-    private enum Method: String, Decodable { case applications, application, launch, status, watch, press, definition, terms, execute, contentType, screenshot, faces }
+    private enum Method: String, Decodable { case installations, launch, status, watch, press, definition, terms, execute, contentType, screenshot, faces }
     private enum Key: CodingKey { case method, params, application, command, arguments, url, window, selection, kind, element, button }
 
     init(from decoder: any Decoder) throws {
@@ -58,8 +57,7 @@ enum Request: Decodable {
         let params: () throws -> KeyedDecodingContainer<Key> = { try call.nestedContainer(keyedBy: Key.self, forKey: .params) }
         self =
             switch try call.decode(Method.self, forKey: .method) {
-                case .applications: .applications
-                case .application: try .application(url: params().decode(URL.self, forKey: .url))
+                case .installations: .installations
                 case .launch: try .launch(url: params().decode(URL.self, forKey: .url))
                 case .status: try .status(url: params().decode(URL.self, forKey: .url))
                 case .watch: try .watch(url: params().decode(URL.self, forKey: .url))
@@ -82,10 +80,8 @@ enum Request: Decodable {
 
     func perform() async -> Result<Reply, AggregateError<Failure>> {
         switch self {
-            case .applications:
+            case .installations:
                 Application.all().map(Reply.value)
-            case .application(let url):
-                Application.at(url).map(Reply.value)
             case .launch(let url):
                 await Application.at(url).bind { application in await application.launch() }.map(Reply.value)
             case .status(let url):
@@ -149,7 +145,7 @@ struct Answer: Encodable {
     }
 
     private enum Key: String, CodingKey {
-        case jsonrpc, id, result, chunk, error, code, message, reason, failures
+        case jsonrpc, id, result, chunk, error, code, message, data, defect
         case tag = "_tag"
     }
 
@@ -170,20 +166,22 @@ struct Answer: Encodable {
             case .end:
                 break
             case .fault(let fault):
-                var error: KeyedEncodingContainer<Key> = container.nestedContainer(keyedBy: Key.self, forKey: .error)
-                let (code, message, failures): (Int, String, [String]?) =
+                let (code, tag, field, messages): (Int, String, Key, AggregateError<String>) =
                     switch fault {
-                        case .invalid(let cause): (-32_600, String(describing: cause), nil)
-                        case .refused(let failures): (1, "Refused", failures.errors.map(\.localizedDescription))
-                        case .unencodable(let cause): (-32_603, String(describing: cause), nil)
+                        case .invalid(let cause): (-32_600, "Die", .defect, AggregateError(first: String(describing: cause)))
+                        case .refused(let failures): (0, "Fail", .error, failures.map(\.localizedDescription))
+                        case .unencodable(let cause): (-32_603, "Die", .defect, AggregateError(first: String(describing: cause)))
                     }
+                var error: KeyedEncodingContainer<Key> = container.nestedContainer(keyedBy: Key.self, forKey: .error)
+                try error.encode("Cause", forKey: .tag)
                 try error.encode(code, forKey: .code)
-                try error.encode(message, forKey: .message)
-                if let failures {
-                    try error.encode("AutomationError", forKey: .tag)
-                    var reason: KeyedEncodingContainer<Key> = error.nestedContainer(keyedBy: Key.self, forKey: .reason)
-                    try reason.encode("Refused", forKey: .tag)
-                    try reason.encode(failures, forKey: .failures)
+                try error.encode(messages.first, forKey: .message)
+                var reasons: any UnkeyedEncodingContainer = error.nestedUnkeyedContainer(forKey: .data)
+                for message: String in messages.errors {
+                    var reason: KeyedEncodingContainer<Key> = reasons.nestedContainer(keyedBy: Key.self)
+                    try reason.encode(tag, forKey: .tag)
+                    var value: KeyedEncodingContainer<Key> = reason.nestedContainer(keyedBy: Key.self, forKey: field)
+                    try value.encode(message, forKey: .message)
                 }
         }
     }

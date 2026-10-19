@@ -2159,6 +2159,9 @@ importers:
 
   libs/typescript/creative-cloud/indesign:
     dependencies:
+      '@rasm/automation':
+        specifier: workspace:*
+        version: link:../automation
       '@rasm/mcp':
         specifier: workspace:*
         version: link:../../ai/mcp
@@ -2168,18 +2171,12 @@ importers:
       '@rasm/typography':
         specifier: workspace:*
         version: link:../../graphics/typography
-      '@rasm/uxp':
-        specifier: workspace:*
-        version: link:../uxp
       acorn:
         specifier: 'catalog:'
         version: 8.19.0
       acorn-walk:
         specifier: 'catalog:'
         version: 8.3.5
-      amaro:
-        specifier: 'catalog:'
-        version: 1.2.1
       effect:
         specifier: 'catalog:'
         version: 4.0.5
@@ -2267,6 +2264,9 @@ importers:
 
   libs/typescript/graphics/typography:
     dependencies:
+      '@rasm/search':
+        specifier: workspace:*
+        version: link:../../data/search
       effect:
         specifier: 'catalog:'
         version: 4.0.5

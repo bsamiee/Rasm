@@ -1,7 +1,7 @@
 import type { Document, Layer, MasterSpread, Page, Spread } from 'adobe:indesign';
 import { Array, Effect, Option, Predicate, Record, Schema, Struct } from 'effect';
-import { Reference, Specifier } from './models.ts';
-import { host, owning, projected, read, reference } from './objects/specifiers.ts';
+import { Classes } from './objects/classes.ts';
+import { Reference, read, Specifier } from './objects/specifiers.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -31,8 +31,9 @@ class DocumentView extends Schema.TaggedClass<DocumentView, { readonly brand: un
     styles: Schema.Struct(Struct.Record(['paragraph', 'character', 'object', 'table', 'cell'], Schema.Int)).annotate({ description: 'Style counts, grouped styles included' }),
     preflight: Schema.Struct({ profile: Schema.String, enabled: Schema.Boolean }),
 }) {
-    static readonly guard = owning<Document>('createTOC');
+    static readonly guard = ({ document }: Classes['Service']) => document;
     static readonly of = Effect.fn('of')(function* (found: Document) {
+        const { reference } = yield* Classes;
         const path = yield* found.saved ? Effect.asSome(Effect.promise(() => found.fullName)) : Effect.succeedNone;
         const { documentPreferences: preferences, viewPreferences: view, preflightOptions: preflight } = found;
         return yield* read(DocumentView, () => ({
@@ -79,8 +80,12 @@ class LayoutView extends Schema.TaggedClass<LayoutView, { readonly brand: unique
     items: Schema.Struct({ own: Schema.Int, inherited: Schema.OptionFromOptionalKey(Schema.Int) }).annotate({ description: 'Page items held, and parent items shown on a page' }),
     settings: Schema.JsonObject.annotate({ description: 'Native members by kind: page side, bounds, section, and margins; spread parent item display; parent prefix and base name; layer visibility, locking, printing, wrap, and color' }),
 }) {
-    static readonly guard = (value: unknown): value is Layout => [owning<Page>('documentOffset'), owning<Spread>('showMasterItems'), owning<MasterSpread>('namePrefix'), owning<Layer>('layerColor')].some((guard) => guard(value));
+    static readonly guard = ({ owning }: Classes['Service']) => {
+        const guards = [owning<Page>('documentOffset'), owning<Spread>('showMasterItems'), owning<MasterSpread>('namePrefix'), owning<Layer>('layerColor')];
+        return (value: unknown): value is Layout => guards.some((guard) => guard(value));
+    };
     static readonly of = Effect.fn('of')(function* (found: Layout) {
+        const { reference, host, projected } = yield* Classes;
         const settings: Record<Layout['constructorName'], readonly string[]> = {
             Page: ['side', 'bounds', 'appliedSection', 'marginPreferences'],
             Spread: ['showMasterItems', 'allowPageShuffle'],

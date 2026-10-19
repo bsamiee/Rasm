@@ -12,10 +12,6 @@ type Fields = Readonly<Record<string, Schema.Codec<unknown, unknown>>>;
 type Call = <Tag extends string, A, I, B, J, E extends Error, K>(rpc: Rpc.Rpc<Tag, Schema.Codec<A, I>, Schema.Codec<B, J>, Schema.Codec<E, K>>, payload: A) => Effect.Effect<B, E | LinkError>;
 type Publish = <Tag extends string, A, I, B, J, E extends Error, K>(rpc: Rpc.Rpc<Tag, Schema.Codec<A, I> & { readonly fields: Fields }, Schema.Codec<B, J>, Schema.Codec<E, K>>, uri: Option.Option<string>, annotations: Context.Context<never>) => Effect.Effect<void, never, McpServer.McpServer>;
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const REDIAL = Duration.seconds(2);
-
 // --- [ERRORS] --------------------------------------------------------------------------
 
 class LinkError extends Schema.TaggedError<LinkError, { readonly brand: unique symbol }>()('LinkError', { peer: Schema.String, cause: Schema.OptionFromOptionalKey(RpcClientError.RpcClientError) }) {
@@ -110,7 +106,7 @@ const listen = Effect.fn('listen')(function* <Rpcs extends Rpc.Any, Peer, I exte
                           );
                 }),
             ),
-            Stream.timeout(REDIAL),
+            Stream.timeout(Duration.seconds(2)),
             Stream.runHead,
             Effect.flatMap(Effect.fromOption(() => LinkError.make({ peer: name, cause: Option.none() }))),
         );
@@ -204,7 +200,12 @@ const listen = Effect.fn('listen')(function* <Rpcs extends Rpc.Any, Peer, I exte
             },
         });
     };
-    return { peers: Effect.map(SubscriptionRef.get(links), Array.map(Struct.get('peer'))), tool: registerTool, publish: Effect.forEach(group.requests.values(), (rpc) => Context.get(rpc.annotations, Publication)(publish, rpc.annotations), { discard: true }) };
+    return {
+        peers: Effect.map(SubscriptionRef.get(links), Array.map(Struct.get('peer'))),
+        call: (given: Route) => Effect.map(reach(given), call),
+        tool: registerTool,
+        publish: Effect.forEach(group.requests.values(), (rpc) => Context.get(rpc.annotations, Publication)(publish, rpc.annotations), { discard: true }),
+    };
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

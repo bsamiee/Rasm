@@ -1,11 +1,32 @@
-import indesign from 'adobe:indesign';
-import { Array, Context, Deferred, Effect, Layer, Option, Ref, Schema } from 'effect';
-import { InDesignError } from '../models.ts';
+import type { Document } from 'adobe:indesign';
+import { Array, Cause, Context, Deferred, Effect, Layer, Option, Record, Ref, Schema, Struct } from 'effect';
+import { Host } from '../host.ts';
+import { Preflight, Reports } from '../preflight.ts';
+import { read } from './specifiers.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Phase = Schema.Literals(['Idle', 'Held', 'Entered']);
-const Description = Schema.String.annotate({ description: 'Present-progressive sentence shown while the call runs, naming its undo step' });
+class Mutation extends Schema.Class<Mutation, { readonly brand: unique symbol }>('Mutation')({}) {
+    static readonly Result = <Fields extends Schema.Struct.Fields>(fields: Fields) => Schema.Struct({ ...fields, preflight: Preflight.Summary });
+
+    get label(): string {
+        return this.constructor.name;
+    }
+
+    commit<Fields extends Schema.Struct.Fields, E, R>(result: Schema.Struct<Fields & { readonly preflight: typeof Preflight.Summary }>, body: Effect.Effect<unknown, E, R>) {
+        const own = Schema.Struct(Struct.omit(result.fields, ['preflight']));
+        const { label } = this;
+        return Effect.gen(function* () {
+            const { value, touched } = yield* transacted(
+                { label },
+                Effect.flatMap(body, (raw) => read(own, () => raw)),
+            );
+            const { summarized } = yield* Reports;
+            return { ...value, preflight: yield* summarized(touched) };
+        });
+    }
+}
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -29,23 +50,34 @@ class Handoff extends Context.Service<Handoff>()('@rasm/indesign/objects/transac
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const modal = Effect.suspend(() => (indesign.app.modalState ? Effect.fail(InDesignError.make({ reasons: [{ _tag: 'Modal' }] })) : Effect.void));
-const transacted = Effect.fn('transacted')(function* <A, E, R>(name: string, body: Effect.Effect<A, E, R>) {
+const transacted = Effect.fn('transacted')(function* <A, E, R>({ label }: Pick<Mutation, 'label'>, body: Effect.Effect<A, E, R>) {
+    const { indesign } = yield* Host;
     const { app, SaveOptions, ScriptLanguage, UndoModes } = indesign;
-    yield* modal;
+    yield* Effect.filterOrFail(
+        Effect.sync(() => app.modalState),
+        (modal) => !modal,
+        () => new Cause.IllegalArgumentError('A dialog open in InDesign blocks the call: close it, then retry'),
+    );
     const { handed, entered } = yield* Handoff;
-    const [done, run, opened] = [yield* Deferred.make<A, E | InDesignError>(), Effect.runSyncWith(yield* Effect.context<R>()), app.documents.everyItem().id];
+    const steps = () => Record.fromIterableWith(app.documents.everyItem().getElements(), (document) => [String(document.id), document.undoHistory.length]);
+    const [done, run, before] = [yield* Deferred.make<A, E | Cause.UnknownError>(), Effect.runSyncWith(yield* Effect.context<R>()), steps()];
     const recorded = Effect.flatMap(Effect.exit(body), (exit) => Effect.andThen(Deferred.done(done, exit), exit));
     const close = Effect.sync(() => {
-        Array.difference(app.documents.everyItem().id, opened).forEach((id) => {
+        Array.difference(app.documents.everyItem().id, Record.keys(before).map(Number)).forEach((id) => {
             app.documents.itemByID(id).close(SaveOptions.NO);
         });
     });
-    const wait = Effect.try({ try: (): unknown => app.doScript('$.sleep(5)', ScriptLanguage.JAVASCRIPT), catch: InDesignError.refused(Option.some(name)) });
-    const step = Effect.catch(Effect.try({ try: (): unknown => app.doScript(() => run(recorded), ScriptLanguage.UXPSCRIPT, [], UndoModes.ENTIRE_SCRIPT, name), catch: InDesignError.refused(Option.some(name)) }), (refused) => Deferred.fail(done, refused));
-    return yield* handed(wait, Effect.andThen(entered, Effect.andThen(step, Deferred.await(done)))).pipe(Effect.onError(() => close));
+    const refused = (cause: unknown) => new Cause.UnknownError(cause, label);
+    const wait = Effect.try({ try: (): unknown => app.doScript('$.sleep(5)', ScriptLanguage.JAVASCRIPT), catch: refused });
+    const step = Effect.catch(Effect.try({ try: (): unknown => app.doScript(() => run(recorded), ScriptLanguage.UXPSCRIPT, [], UndoModes.ENTIRE_SCRIPT, label), catch: refused }), (error) => Deferred.fail(done, error));
+    const value = yield* handed(wait, Effect.andThen(entered, Effect.andThen(step, Deferred.await(done)))).pipe(Effect.onError(() => close));
+    const touched: readonly Document[] = app.documents
+        .everyItem()
+        .getElements()
+        .filter((document) => !Option.contains(Record.get(before, String(document.id)), document.undoHistory.length));
+    return { value, touched };
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Description, Handoff, Phase, transacted };
+export { Handoff, Mutation, Phase, transacted };

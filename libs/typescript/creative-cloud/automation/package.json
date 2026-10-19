@@ -4,9 +4,7 @@
     "description": "Drives installed Adobe applications from Node through the Atelier helper: discovery, launch, status, dictionaries, Apple Event commands, scripts, screenshots, and installed faces",
     "sideEffects": false,
     "type": "module",
-    "exports": {
-        "./*": "./*.ts"
-    },
+    "exports": "./main.ts",
     "dependencies": {
         "@rasm/search": "workspace:*",
         "amaro": "catalog:",

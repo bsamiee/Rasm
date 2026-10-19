@@ -1,8 +1,8 @@
-import indesign, { type Story, type Text, type TextFrame } from 'adobe:indesign';
-import { Array, Cache, Effect, identity, Match, Option, Record, Schema, Struct } from 'effect';
-import { InDesignError, Reference } from './models.ts';
-import { Classes, plural } from './objects/classes.ts';
-import { encoded, named, owning, read, reference } from './objects/specifiers.ts';
+import type { Story, Text, TextFrame } from 'adobe:indesign';
+import { Array, Cache, Cause, Effect, identity, Match, Option, Record, Schema, Struct } from 'effect';
+import { Host } from './host.ts';
+import { Classes } from './objects/classes.ts';
+import { Reference, read } from './objects/specifiers.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -10,7 +10,6 @@ type Threaded = Story | TextFrame | Text;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const [storied, framed, ranged] = [owning<Story>('textContainers'), owning<TextFrame>('textFrameIndex'), owning<Text>('parentTextFrames')];
 class ThreadView extends Schema.TaggedClass<ThreadView, { readonly brand: unique symbol }>()('Thread', {
     story: Reference,
     length: Schema.Int,
@@ -35,14 +34,18 @@ class ThreadView extends Schema.TaggedClass<ThreadView, { readonly brand: unique
         ),
     ).annotate({ description: 'The text the target names: a range itself, or the text a frame holds; absent for a whole story' }),
 }) {
-    static readonly guard = (value: unknown): value is Threaded => [storied, framed, ranged].some((guard) => guard(value));
+    static readonly guard = ({ owning }: Classes['Service']) => {
+        const guards = [owning<Story>('textContainers'), owning<TextFrame>('textFrameIndex'), owning<Text>('parentTextFrames')];
+        return (value: unknown): value is Threaded => guards.some((guard) => guard(value));
+    };
     static readonly of = Effect.fn('of')(function* (found: Threaded) {
-        const { fields } = yield* Cache.get(yield* Classes, 'TextStyleRange');
+        const [{ indesign }, { rows, owning, named, plural, encoded, reference }] = yield* Effect.all([Host, Classes]);
+        const { fields } = yield* Cache.get(rows, 'TextStyleRange');
         const attributes = Record.keys(Record.filter(fields, (row, name) => row.settable && !['contents', 'appliedParagraphStyle', 'appliedCharacterStyle', 'label', 'name'].includes(name) && !plural(row)));
         const story = 'parentStory' in found ? found.parentStory : found;
         const range = Match.value(found).pipe(
-            Match.when(ranged, identity<Text>),
-            Match.when(framed, (frame) => frame.texts.item(0)),
+            Match.when(owning<Text>('parentTextFrames'), identity<Text>),
+            Match.when(owning<TextFrame>('textFrameIndex'), (frame) => frame.texts.item(0)),
             Match.option,
         );
         const described = (text: Text) =>
@@ -59,7 +62,7 @@ class ThreadView extends Schema.TaggedClass<ThreadView, { readonly brand: unique
                         .getElements()
                         .map((run) => {
                             const [own, paragraph, character] = [run.properties, run.appliedParagraphStyle.properties, run.appliedCharacterStyle.properties];
-                            const set = (record: object, name: string) => encoded(Reflect.get(record, name), false);
+                            const set = (holder: object, name: string) => encoded(Reflect.get(holder, name), false);
                             return {
                                 ...reference(run),
                                 length: run.length,
@@ -72,7 +75,7 @@ class ThreadView extends Schema.TaggedClass<ThreadView, { readonly brand: unique
                             };
                         }),
                 }),
-                catch: InDesignError.refused(Option.some(text.toSpecifier())),
+                catch: (cause) => new Cause.UnknownError(cause, text.toSpecifier()),
             });
         const selected = yield* Effect.transposeOption(Option.map(range, described));
         const containers = story.textContainers;

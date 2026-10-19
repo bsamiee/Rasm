@@ -14,8 +14,8 @@
 - `Atelier.app`, identifier `app.rasm.atelier`, owns Automation, Screen Recording, and Accessibility consent; the Accessibility prompt appears at the first `status`, `watch`, or `press`
 - `mise.toml` `atelier` daemon row `env` `ATELIER_PATH` names the executable inside the installed bundle
 - `@rasm/automation` keeps `ATELIER_PATH` running, one JSON-RPC 2.0 request per stdin line, replies and stream chunks one per stdout line, in the wire form Effect's `RpcSerialization.layerNdJsonRpc` reads
-- `Request` in `Scripting.swift` decodes each method, the `RpcGroup` in `helper.ts` types each call
-- Refusals reply `error: {code: 1, message: "Refused", _tag: "AutomationError", reason: {_tag: "Refused", failures: [...]}}`
+- `Request` in `Scripting.swift` decodes each method, the `Protocol` group in `@rasm/automation` types each call
+- Failures reply the encoded Effect cause: `error: {_tag: "Cause", code, message, data: [...]}`, a refusal one `{_tag: "Fail", error: {message}}` per failure, an unreadable request or unencodable reply one `{_tag: "Die", defect: {message}}`
 - `watch` streams `{chunk: true, id, result: [Status]}` lines on every element or focus change and ends with `{jsonrpc, id}` once the client sends `@effect/rpc/Interrupt` for its id; `@effect/rpc/Ack` lines are read and dropped
 - Native changes reach callers after `nx run Atelier:install` and `pitchfork restart rasm/atelier`
 - Lines run concurrently, a reply carries its request's `id`, a line with no readable `id` gets no reply
@@ -24,7 +24,7 @@
 - Dictionary reads wait for a launching application to finish, and read a stopped application only from a dictionary file its bundle declares
 - `terms` takes a declaration kind and answers each declaration's `name` and `code` as the dictionary states them
 - `contentType` answers a file's media type, `application/octet-stream` for a type with none, and the caller reads the file's bytes
-- `applications` lists each Adobe bundle in the application folders once, every version and channel, with `running` the instance's pid and readiness and `channel` the bundle's `RELEASECHANNEL` or the parenthesized word of its `CFBundleName`
+- `installations` lists each Adobe bundle in the application folders once, every version and channel, with `running` the instance's pid and readiness and `channel` the bundle's `RELEASECHANNEL` or the parenthesized word of its `CFBundleName`; every other method takes one of its urls
 - `status` answers `responding`, `frontWindow`, and the open elements with id, kind, role, title, static text, and button labels; an application answering no Accessibility request within one second reads `responding` false
 - Element ids are CoreGraphics window numbers, the ids `screenshot` takes
 - `press` presses a button by label, `AXCloseButton` for a window's close button, `AXCancel` for a menu, and answers the status after the press

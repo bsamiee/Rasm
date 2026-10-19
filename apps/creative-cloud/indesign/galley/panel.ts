@@ -1,5 +1,5 @@
-import { group, handlers, identity } from '@rasm/indesign/mcp/panel';
-import { PATH, WIRE } from '@rasm/indesign/mcp/protocol';
+import { PATH, WIRE } from '@rasm/indesign/service/contract';
+import { group, handlers, identity } from '@rasm/indesign/service/panel';
 import { linked } from '@rasm/uxp/rpc';
 import { launch } from '@rasm/uxp/runtime';
 import { Layer } from 'effect';

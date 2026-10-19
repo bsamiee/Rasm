@@ -1,5 +1,5 @@
 import { ranked, Unmatched } from '@rasm/search';
-import { Array, Cause, Clock, Context, Data, Deferred, Duration, Effect, Exit, Function, Layer, Metric, Option, Predicate, pipe, Record, Ref, Schema, SchemaGetter, Stream, Struct, SubscriptionRef } from 'effect';
+import { Array, Cause, Context, Deferred, Duration, Effect, Exit, Filter, Formatter, Function, Layer, Metric, Option, Predicate, pipe, Record, Ref, Schema, SchemaGetter, Stream, SubscriptionRef } from 'effect';
 import { McpSchema, McpServer, Tool, Toolkit } from 'effect/ai';
 import { Headers, HttpTraceContext } from 'effect/http';
 
@@ -10,12 +10,10 @@ type Source = Parameters<(typeof McpServer.McpServer.Service)['addTool']>[0];
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const READING = Context.make(Tool.Readonly, true).pipe(Context.add(Tool.Idempotent, true), Context.add(Tool.Destructive, false), Context.add(Tool.OpenWorld, false));
-const DURATION = Metric.timer('mcp.server.operation.duration', { description: 'Duration of MCP server operations' });
 const SUGGESTIONS = 100;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Activity = Schema.Struct({ description: Schema.String.annotate({ description: 'Present-progressive sentence shown while the call runs' }) });
 const Image = (mimeType: string) =>
     Schema.Uint8Array.annotate({
         toCodecJson: () =>
@@ -24,17 +22,14 @@ const Image = (mimeType: string) =>
                 encode: SchemaGetter.transformEffect((data: Uint8Array) => Effect.flatMap(Blocks, (add) => Effect.as(add(McpSchema.ImageContent.make({ data, mimeType })), mimeType))),
             }),
     });
-class Attachment extends Data.Class<{ readonly uri: string; readonly mimeType: string; readonly data: Uint8Array }> {
-    static readonly schema = Schema.instanceOf(Attachment, {
-        toCodecJson: () =>
-            Schema.link<Attachment>()(Schema.String.annotate({ description: 'URI of the file the content block beside the result carries' }), {
-                decode: SchemaGetter.forbidden(() => 'files travel as content blocks'),
-                encode: SchemaGetter.transformEffect(({ uri, mimeType, data }: Attachment) =>
-                    Effect.flatMap(Blocks, (add) => Effect.as(add(mimeType.startsWith('image/') ? McpSchema.ImageContent.make({ data, mimeType }) : McpSchema.EmbeddedResource.make({ resource: McpSchema.BlobResourceContents.make({ uri, blob: data, mimeType }) })), uri)),
-                ),
-            }),
-    });
-}
+const Attachment = Schema.String.annotate({ description: 'URI of the file the content block beside the result carries' }).pipe(
+    Schema.decodeTo(Schema.Struct({ uri: Schema.String, mimeType: Schema.String, data: Schema.Uint8Array }), {
+        decode: SchemaGetter.forbidden(() => 'files travel as content blocks'),
+        encode: SchemaGetter.transformEffect(({ uri, mimeType, data }) =>
+            Effect.flatMap(Blocks, (add) => Effect.as(add(mimeType.startsWith('image/') ? McpSchema.ImageContent.make({ data, mimeType }) : McpSchema.EmbeddedResource.make({ resource: McpSchema.BlobResourceContents.make({ uri, blob: data, mimeType }) })), uri)),
+        ),
+    }),
+);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -47,23 +42,19 @@ const Blocks = Context.Reference<(block: McpSchema.ContentBlock) => Effect.Effec
 const observed =
     (method: string, name: string, attributes: Readonly<Record<string, string>>) =>
     <A, E, R>(self: Effect.Effect<A, E, R>) =>
-        Effect.gen(function* () {
-            const [started, { requestMetadata }] = yield* Effect.all([Clock.currentTimeMillis, McpSchema.McpRequestContext]);
-            return yield* self.pipe(
-                Effect.onExit(
-                    Effect.fnUntraced(function* (exit) {
-                        const recorded = {
-                            'mcp.method.name': method,
-                            ...attributes,
-                            ...Exit.match(exit, { onSuccess: (value) => (Predicate.hasProperty(value, 'isError') && value.isError === true ? { 'error.type': 'tool_error' } : {}), onFailure: (cause) => ({ 'error.type': Cause.hasInterruptsOnly(cause) ? 'cancelled' : 'error' }) }),
-                        };
-                        yield* Effect.annotateCurrentSpan(recorded);
-                        yield* Metric.update(Metric.withAttributes(DURATION, recorded), Duration.millis((yield* Clock.currentTimeMillis) - started));
-                    }),
-                ),
-                Effect.withSpan(`${method} ${name}`, { kind: 'server', attributes: { 'mcp.method.name': method, ...attributes }, parent: pipe(Record.filter({ ...requestMetadata }, Predicate.isString), Headers.fromInput, HttpTraceContext.fromHeaders, Option.getOrUndefined) }),
-            );
-        });
+        Effect.flatMap(McpSchema.McpRequestContext, ({ requestMetadata }) =>
+            Effect.gen(function* () {
+                const [duration, exit] = yield* Effect.timed(Effect.exit(self));
+                const recorded = {
+                    'mcp.method.name': method,
+                    ...attributes,
+                    ...Exit.match(exit, { onSuccess: (value) => (Predicate.hasProperty(value, 'isError') && value.isError === true ? { 'error.type': 'tool_error' } : {}), onFailure: (cause) => ({ 'error.type': Cause.hasInterruptsOnly(cause) ? 'cancelled' : 'error' }) }),
+                };
+                yield* Effect.annotateCurrentSpan(recorded);
+                yield* Metric.update(Metric.withAttributes(Metric.timer('mcp.server.operation.duration', { description: 'Duration of MCP server operations' }), recorded), duration);
+                return yield* exit;
+            }).pipe(Effect.withSpan(`${method} ${name}`, { kind: 'server', attributes: { 'mcp.method.name': method, ...attributes }, parent: pipe(Record.filter({ ...requestMetadata }, Predicate.isString), Headers.fromInput, HttpTraceContext.fromHeaders, Option.getOrUndefined) })),
+        );
 const merged = (sources: Array.NonEmptyReadonlyArray<Source>): Source => {
     const [newest] = sources;
     const union = ([only, ...rest]: Array.NonEmptyReadonlyArray<Schema.JsonObject>, kind: 'input' | 'output'): Schema.JsonObject => (rest.length === 0 ? only : { anyOf: [only, ...rest].map((schema, index) => ({ $id: `urn:mcp:${encodeURIComponent(newest.tool.name)}:${kind}:${index}`, ...schema })) });
@@ -120,7 +111,22 @@ const register = Effect.fnUntraced(function* <P extends Schema.Codec<unknown, un
     handle: (parameters: P['Type']) => Effect.Effect<S['Type'], Error, R>,
 ) {
     const context = yield* Effect.context<R>();
-    const called = (given: P['Type']) => Effect.provide(handle(given), context).pipe(Effect.catchIf(Schema.is(Unmatched), ({ subject, query, candidates }) => Effect.fail(Unmatched.make({ subject, query, candidates: ranked(query, candidates).slice(0, SUGGESTIONS) }))));
+    const called = (given: P['Type']) =>
+        Effect.provide(handle(given), context).pipe(
+            Effect.catchIf(Schema.is(Unmatched), ({ subject, query, candidates }) => Effect.fail(Unmatched.make({ subject, query, candidates: ranked(query, candidates).slice(0, SUGGESTIONS) }))),
+            Effect.catchCauseFilter(
+                Filter.fromPredicate((cause) => !Cause.hasInterruptsOnly(cause)),
+                (cause) =>
+                    Effect.fail(
+                        new Cause.UnknownError(
+                            cause,
+                            Cause.prettyErrors(cause)
+                                .map((error) => Formatter.format(error))
+                                .join('\n'),
+                        ),
+                    ),
+            ),
+        );
     const [parameters, success]: readonly [Schema.Codec<Effect.Effect<unknown, Error>, unknown>, Schema.Codec<unknown, unknown>] = [
         Schema.toCodecJson(tool.parametersSchema).pipe(Schema.decodeTo(Schema.Any, { decode: SchemaGetter.transform(called), encode: SchemaGetter.forbidden(() => 'calls decode only') })),
         Schema.toCodecJson(tool.successSchema),
@@ -161,7 +167,7 @@ const layer = (scheme: string) =>
             const served = ({ tool, handle }: Source, destructive: boolean) =>
                 Effect.fnUntraced(
                     function* (payload: Schema.Json) {
-                        const [blocks, stage, { requestMetadata }] = yield* Effect.all([Ref.make(Array.empty<McpSchema.ContentBlock>()), SubscriptionRef.make(Option.match(Schema.decodeUnknownOption(Activity)(payload), { onNone: () => tool.name, onSome: Struct.get('description') })), McpSchema.McpRequestContext]);
+                        const [blocks, stage, { requestMetadata }] = yield* Effect.all([Ref.make(Array.empty<McpSchema.ContentBlock>()), SubscriptionRef.make(tool.name), McpSchema.McpRequestContext]);
                         yield* Stream.fromIterable(Option.toArray(Schema.decodeUnknownOption(McpSchema.ProgressToken)(requestMetadata?.progressToken))).pipe(
                             Stream.cross(
                                 SubscriptionRef.changes(stage).pipe(
@@ -211,4 +217,4 @@ const layer = (scheme: string) =>
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Activity, Attachment, Blocks, Image, Instructions, layer, Progress, READING, register };
+export { Attachment, Blocks, Image, Instructions, layer, Progress, READING, register };
