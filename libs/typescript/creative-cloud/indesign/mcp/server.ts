@@ -2,9 +2,9 @@ import { listen } from '@rasm/mcp/link';
 import { Progress, READING } from '@rasm/mcp/server';
 import { CHARACTERS, Font as Metrics, Options, read } from '@rasm/typography/font';
 import { transformSync } from 'amaro';
-import { Duration, Effect, FileSystem, Formatter, Option, Path, Record, Schedule, Schema, SchemaIssue, Stream, Struct } from 'effect';
-import { McpSchema, McpServer, Tool } from 'effect/ai';
-import { Specifier, Transpile } from '../models.ts';
+import { Duration, Effect, Formatter, Option, Record, Schedule, Schema, SchemaIssue, Stream, Struct } from 'effect';
+import { type McpSchema, Tool } from 'effect/ai';
+import { Transpile } from '../models.ts';
 import { Enter, Font, InDesign, PATH, Peer } from './protocol.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -52,59 +52,10 @@ const extension = Effect.fn('extension')(function* <Route, Encoded>(
         .annotateMerge(READING)
         .annotateMerge(Font.annotations);
     const [open, close] = ['async function body() {\n', '\n}'];
-    const [files, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const directory = yield* path.fromFileUrl(new URL('./', import.meta.url));
-    const references = yield* Effect.all(
-        Record.map(
-            {
-                scripting: 'Choose and call InDesign tools; discover native members, pass references, interpret results, and preserve undo',
-                grep: 'Write native GREP expressions and replacements with the intended matches, boundaries, and Unicode characters',
-                styles: 'Reusable styles, persistent GREP rules, nested formatting, numbered lists, and generated document text',
-                text: 'Compose and inspect text, paragraph rules, tabs, multilingual typography, variable fonts, notes, and conditions',
-                layout: 'Pages, parents, layers, coordinate spaces, grids, text threads, and native layout automation',
-                graphics: 'Shapes, color, effects, placed graphics, fitting, and text wrap',
-                production: 'Prepare linked assets, merged content, books, preflight, accessible exports, and packages',
-                interactions: 'Button behaviors, form fields, object states, navigation, media, and animation timing',
-            },
-            (description, name) => Effect.map(files.readFileString(path.join(directory, 'guidance', `${name}.md`)), (content) => ({ content, description, uri: `indesign://${name}/reference`, name: `${name}_reference`, mimeType: 'text/markdown' })),
-        ),
-        { concurrency: 'unbounded' },
-    );
-    const workflows = yield* Effect.all(
-        Record.map(
-            {
-                publication: { description: 'Build or refine a document or presentation from its audience, content, design constraints, and delivery requirements', references: [references.layout, references.text] },
-                formatting: { description: 'Build reusable styles and automatic formatting with GREP, lists, tables, and generated document text', references: [references.styles, references.grep] },
-                delivery: { description: 'Prepare composed documents for their intended output, reader, accessibility, and source-file delivery', references: [references.production] },
-            },
-            (workflow, name) => Effect.map(files.readFileString(path.join(directory, 'workflows', `${name}.md`)), (content) => ({ ...workflow, content })),
-        ),
-        { concurrency: 'unbounded' },
-    );
-    const parameters = {
-        task: Schema.String.annotate({ description: 'Requested outcome, source content, audience, design constraints, and intended output or reader' }),
-        scope: Schema.optionalKey(Specifier.annotate({ description: 'Native target specifier for existing work; omit to discover the target or create requested new work' })),
-    };
     return {
         peers: link.peers,
         publish: Effect.andThen(
-            Effect.all([
-                link.publish,
-                ...Object.values(references).map(({ content, ...resource }) => McpServer.registerResource({ ...resource, content: Effect.succeed({ contents: [{ uri: resource.uri, mimeType: resource.mimeType, text: content }] }) })),
-                ...Object.entries(workflows).map(([name, workflow]) =>
-                    McpServer.registerPrompt({
-                        name,
-                        description: workflow.description,
-                        parameters,
-                        content: ({ task, scope }) =>
-                            Effect.succeed([
-                                McpSchema.PromptMessage.make({ role: 'user', content: McpSchema.TextContent.make({ text: `${task}${scope === undefined ? '' : `\nTarget: ${scope}`}` }) }),
-                                McpSchema.PromptMessage.make({ role: 'user', content: McpSchema.TextContent.make({ text: workflow.content }) }),
-                                ...workflow.references.map(({ uri, mimeType, content }) => McpSchema.PromptMessage.make({ role: 'user', content: McpSchema.EmbeddedResource.make({ resource: McpSchema.TextResourceContents.make({ uri, mimeType, text: content }) }) })),
-                            ]),
-                    }),
-                ),
-            ]),
+            link.publish,
             link.tool(
                 face,
                 Effect.fnUntraced(function* ({ name, ...options }, call) {
