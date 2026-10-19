@@ -5,6 +5,7 @@
     "description": "Drives installed Adobe applications through their scripting dictionaries and linked UXP panels",
     "type": "module",
     "dependencies": {
+        "@rasm/automation": "workspace:*",
         "@rasm/indesign": "workspace:*",
         "@rasm/mcp": "workspace:*",
         "@rasm/search": "workspace:*",

@@ -1,7 +1,7 @@
 {
     "name": "@rasm/typography",
     "private": true,
-    "description": "Foundation for font-aware apps and extensions, reading any font face as typed design metrics at a variation instance and point size",
+    "description": "Foundation for font-aware apps and extensions: opens any font face at a variation instance and point size, reads its design metrics, and shapes text runs",
     "type": "module",
     "exports": {
         "./*": "./*.ts"

@@ -20,6 +20,11 @@ struct ScriptingDictionary: Sendable {
         let name: String
     }
 
+    struct Declaration: Encodable, Hashable {
+        let name: String
+        let code: String
+    }
+
     static let held: Mutex<[URL: (process: pid_t, dictionary: ScriptingDictionary)]> = Mutex([:])
 
     let commands: [(name: String, eventClass: AEEventClass, eventID: AEEventID, parameters: [Term])]
@@ -77,7 +82,7 @@ struct ScriptingDictionary: Sendable {
 
     static func definition(of application: Application) async -> Result<XMLDocument, AggregateError<Failure>> {
         let readable: Result<Void, AggregateError<Failure>> =
-            if application.running {
+            if application.running != nil {
                 await application.open().map { _ in }
             } else if Bundle(url: application.url)?.object(forInfoDictionaryKey: "OSAScriptingDefinition") != nil {
                 .success(())
@@ -118,14 +123,17 @@ struct ScriptingDictionary: Sendable {
         return .success(document.xmlString)
     }
 
-    static func terms(_ document: XMLDocument, kind: String?) -> Result<[String], AggregateError<Failure>> {
+    static func terms(_ document: XMLDocument, kind: String) -> Result<[Declaration], AggregateError<Failure>> {
         Result {
-            let declarations: [XMLElement] = try document.nodes(forXPath: "/dictionary/suite | /dictionary/suite/*[@name]").compactMap { node in node as? XMLElement }
+            let declarations: [XMLElement] = try document.nodes(forXPath: "/dictionary/suite/\(kind)[@name]").compactMap { node in node as? XMLElement }
             return Set(
-                declarations.filter { node in kind.map { kind in node.name == kind } ?? true }.compactMap { node in
-                    kind == nil ? node.name : node.attribute(forName: "name")?.stringValue
+                declarations.compactMap { node in
+                    switch (node.attribute(forName: "name")?.stringValue, node.attribute(forName: "code")?.stringValue) {
+                        case (.some(let name), .some(let code)): Declaration(name: name, code: code)
+                        default: nil
+                    }
                 }
-            ).sorted()
+            ).sorted { left, right in left.name < right.name }
         }.mapError { error in AggregateError(first: .unreadable(error)) }
     }
 
@@ -191,6 +199,8 @@ struct ScriptingDictionary: Sendable {
 
 enum Failure: LocalizedError {
     case notApplication(URL)
+    case notRunning(URL)
+    case element(ElementFailure)
     case dictionaryUnavailable
     case unreadable(any Error)
     case undefined(status: OSStatus)
@@ -205,6 +215,8 @@ enum Failure: LocalizedError {
     var errorDescription: String? {
         switch self {
             case .notApplication(let url): "No Adobe application at \(url.absoluteString)"
+            case .notRunning(let url): "No running instance of \(url.absoluteString), launch it first"
+            case .element(let error): error.localizedDescription
             case .dictionaryUnavailable: "The application must be running to read its dynamic scripting dictionary"
             case .unreadable(let error): error.localizedDescription
             case .undefined(let status): "The application gave no scripting dictionary (\(status))"

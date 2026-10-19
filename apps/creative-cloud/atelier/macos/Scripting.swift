@@ -31,29 +31,43 @@ struct Face: Encodable {
     }
 }
 
+enum Reply {
+    case value(any Encodable)
+    case stream(AsyncStream<Status>)
+}
+
 enum Request: Decodable {
-    case applications(running: Bool)
+    case applications
     case application(url: URL)
+    case launch(url: URL)
+    case status(url: URL)
+    case watch(url: URL)
+    case press(url: URL, element: CGWindowID, button: String)
     case definition(application: URL, selection: ScriptingDictionary.Selection?)
-    case terms(application: URL, kind: String?)
+    case terms(application: URL, kind: String)
     case execute(application: URL, command: String, arguments: [String: JSONValue])
     case contentType(url: URL)
     case screenshot(application: URL, window: CGWindowID?)
     case faces
 
-    private enum Method: String, Decodable { case applications, application, definition, terms, execute, contentType, screenshot, faces }
-    private enum Key: CodingKey { case method, params, running, application, command, arguments, url, window, selection, kind }
+    private enum Method: String, Decodable { case applications, application, launch, status, watch, press, definition, terms, execute, contentType, screenshot, faces }
+    private enum Key: CodingKey { case method, params, application, command, arguments, url, window, selection, kind, element, button }
 
     init(from decoder: any Decoder) throws {
         let call: KeyedDecodingContainer<Key> = try decoder.container(keyedBy: Key.self)
         let params: () throws -> KeyedDecodingContainer<Key> = { try call.nestedContainer(keyedBy: Key.self, forKey: .params) }
         self =
             switch try call.decode(Method.self, forKey: .method) {
-                case .applications: try .applications(running: params().decode(Bool.self, forKey: .running))
+                case .applications: .applications
                 case .application: try .application(url: params().decode(URL.self, forKey: .url))
+                case .launch: try .launch(url: params().decode(URL.self, forKey: .url))
+                case .status: try .status(url: params().decode(URL.self, forKey: .url))
+                case .watch: try .watch(url: params().decode(URL.self, forKey: .url))
+                case .press:
+                    try .press(url: params().decode(URL.self, forKey: .url), element: params().decode(CGWindowID.self, forKey: .element), button: params().decode(String.self, forKey: .button))
                 case .definition:
                     try .definition(application: params().decode(URL.self, forKey: .application), selection: params().decodeIfPresent(ScriptingDictionary.Selection.self, forKey: .selection))
-                case .terms: try .terms(application: params().decode(URL.self, forKey: .application), kind: params().decodeIfPresent(String.self, forKey: .kind))
+                case .terms: try .terms(application: params().decode(URL.self, forKey: .application), kind: params().decode(String.self, forKey: .kind))
                 case .execute:
                     try .execute(
                         application: params().decode(URL.self, forKey: .application),
@@ -66,49 +80,57 @@ enum Request: Decodable {
             }
     }
 
-    func perform() async -> Result<any Encodable, AggregateError<Failure>> {
+    func perform() async -> Result<Reply, AggregateError<Failure>> {
         switch self {
-            case .applications(let running):
-                Application.all(running: running).map(\.self)
+            case .applications:
+                Application.all().map(Reply.value)
             case .application(let url):
-                Application.at(url).map(\.self)
+                Application.at(url).map(Reply.value)
+            case .launch(let url):
+                await Application.at(url).bind { application in await application.launch() }.map(Reply.value)
+            case .status(let url):
+                Application.at(url).flatMap { application in application.status() }.map(Reply.value)
+            case .watch(let url):
+                await Application.at(url).bind { application in await application.watch() }.map(Reply.stream)
+            case .press(let url, let element, let button):
+                Application.at(url).flatMap { application in application.press(button, on: element) }.map(Reply.value)
             case .definition(let url, let selection):
-                await Application.at(url).bind(ScriptingDictionary.definition(of:)).flatMap { document in ScriptingDictionary.definition(document, selecting: selection) }.map(\.self)
+                await Application.at(url).bind(ScriptingDictionary.definition(of:)).flatMap { document in ScriptingDictionary.definition(document, selecting: selection) }.map(Reply.value)
             case .terms(let url, let kind):
-                await Application.at(url).bind(ScriptingDictionary.definition(of:)).flatMap { document in ScriptingDictionary.terms(document, kind: kind) }.map(\.self)
+                await Application.at(url).bind(ScriptingDictionary.definition(of:)).flatMap { document in ScriptingDictionary.terms(document, kind: kind) }.map(Reply.value)
             case .execute(let url, let command, let arguments):
-                await Application.at(url).bind { application in await application.execute(command, arguments: arguments) }.map(\.self)
+                await Application.at(url).bind { application in await application.execute(command, arguments: arguments) }.map(Reply.value)
             case .contentType(let url):
                 Result { try url.resourceValues(forKeys: [.contentTypeKey]).contentType?.preferredMIMEType ?? "application/octet-stream" }
                     .mapError { error in AggregateError(first: .unreadable(error)) }
-                    .map(\.self)
+                    .map(Reply.value)
             case .screenshot(let url, let window):
                 await Application.at(url).bind { application in await application.open() }.bind { application in
                     await application.screenshot(windowID: window)
                         .map { result in Screenshot(window: result.window, windows: result.windows, image: result.image) }
                         .mapError { error in AggregateError(first: .unreadable(error)) }
-                }.map(\.self)
+                }.map(Reply.value)
             case .faces:
-                .success(Face.installed())
+                .success(.value(Face.installed()))
         }
     }
 }
 
-struct Call: Decodable {
-    private enum Key: CodingKey { case id }
+enum Message: Decodable {
+    case call(id: Int, request: Result<Request, Answer.Fault>)
+    case interrupt(id: Int)
+    case other
 
-    let id: Int
-    let request: Result<Request, Answer.Fault>
+    private enum Key: CodingKey { case id, method, params, requestId }
 
     init(from decoder: any Decoder) throws {
-        id = try decoder.container(keyedBy: Key.self).decode(Int.self, forKey: .id)
-        request = Result { try Request(from: decoder) }.mapError(Answer.Fault.invalid)
-    }
-
-    func reply() async -> Result<Data, any Error> {
-        let outcome: Result<any Encodable, Answer.Fault> = await request.bind { request in await request.perform().mapError(Answer.Fault.refused) }
-        return Result { try JSONEncoder().encode(Answer(id: id, outcome: outcome)) }
-            .flatMapError { error in Result { try JSONEncoder().encode(Answer(id: id, outcome: .failure(.unencodable(error)))) } }
+        let container: KeyedDecodingContainer<Key> = try decoder.container(keyedBy: Key.self)
+        self =
+            switch (try container.decodeIfPresent(Int.self, forKey: .id), try container.decode(String.self, forKey: .method)) {
+                case (.some(let id), _): .call(id: id, request: Result { try Request(from: decoder) }.mapError(Answer.Fault.invalid))
+                case (.none, "@effect/rpc/Interrupt"): try .interrupt(id: container.nestedContainer(keyedBy: Key.self, forKey: .params).decode(Int.self, forKey: .requestId))
+                case (.none, _): .other
+            }
     }
 }
 
@@ -119,22 +141,35 @@ struct Answer: Encodable {
         case unencodable(any Error)
     }
 
+    enum Outcome {
+        case result(any Encodable)
+        case chunk(any Encodable)
+        case end
+        case fault(Fault)
+    }
+
     private enum Key: String, CodingKey {
-        case jsonrpc, id, result, error, code, message, failures
+        case jsonrpc, id, result, chunk, error, code, message, reason, failures
         case tag = "_tag"
     }
 
     let id: Int
-    let outcome: Result<any Encodable, Fault>
+    let outcome: Outcome
 
     func encode(to encoder: any Encoder) throws {
         var container: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
         try container.encode("2.0", forKey: .jsonrpc)
         try container.encode(id, forKey: .id)
         switch outcome {
-            case .success(let value):
+            case .result(let value):
                 try container.encode(value, forKey: .result)
-            case .failure(let fault):
+            case .chunk(let value):
+                try container.encode(true, forKey: .chunk)
+                var values: any UnkeyedEncodingContainer = container.nestedUnkeyedContainer(forKey: .result)
+                try values.encode(value)
+            case .end:
+                break
+            case .fault(let fault):
                 var error: KeyedEncodingContainer<Key> = container.nestedContainer(keyedBy: Key.self, forKey: .error)
                 let (code, message, failures): (Int, String, [String]?) =
                     switch fault {
@@ -145,10 +180,34 @@ struct Answer: Encodable {
                 try error.encode(code, forKey: .code)
                 try error.encode(message, forKey: .message)
                 if let failures {
-                    try error.encode("ScriptingError", forKey: .tag)
-                    try error.encode(failures, forKey: .failures)
+                    try error.encode("AutomationError", forKey: .tag)
+                    var reason: KeyedEncodingContainer<Key> = error.nestedContainer(keyedBy: Key.self, forKey: .reason)
+                    try reason.encode("Refused", forKey: .tag)
+                    try reason.encode(failures, forKey: .failures)
                 }
         }
+    }
+
+    func line() -> Result<Data, any Error> {
+        Result { try JSONEncoder().encode(self) }
+            .flatMapError { error in Result { try JSONEncoder().encode(Self(id: id, outcome: .fault(.unencodable(error)))) } }
+            .map { data in data + Data("\n".utf8) }
+    }
+}
+
+// --- [SERVICES] ------------------------------------------------------------------------
+
+actor Streams {
+    private var running: [Int: Task<Void, Never>] = [:]
+
+    func start(_ id: Int, _ work: @escaping @Sendable () async -> Void) {
+        running[id] = Task {
+            await work()
+        }
+    }
+
+    func end(_ id: Int) {
+        running.removeValue(forKey: id)?.cancel()
     }
 }
 
@@ -180,18 +239,37 @@ enum Scripting {
     static func main() async {
         let logger: Logger = Logger(subsystem: Bundle.identity, category: "Scripting")
         let (replies, sink): (AsyncStream<Data>, AsyncStream<Data>.Continuation) = AsyncStream.makeStream()
+        let streams: Streams = Streams()
+        let emit: @Sendable (Answer) -> Void = { answer in
+            switch answer.line() {
+                case .success(let data): sink.yield(data)
+                case .failure(let error): logger.debug("Dropped a reply no line can carry: \(String(describing: error), privacy: .public)")
+            }
+        }
         do {
             try takeResponsibility()
             _ = NSApplication.shared
             try await withThrowingDiscardingTaskGroup { group in
                 group.addTask {
-                    for await reply: Data in replies { try FileHandle.standardOutput.write(contentsOf: reply + Data("\n".utf8)) }
+                    for await reply: Data in replies { try FileHandle.standardOutput.write(contentsOf: reply) }
                 }
                 try await withThrowingDiscardingTaskGroup { requests in
                     for try await line: String in FileHandle.standardInput.bytes.lines {
                         requests.addTask(executorPreference: DispatchQueue.global()) {
-                            switch await Result(catching: { try JSONDecoder().decode(Call.self, from: Data(line.utf8)) }).bind({ call in await call.reply() }) {
-                                case .success(let reply): sink.yield(reply)
+                            switch Result(catching: { try JSONDecoder().decode(Message.self, from: Data(line.utf8)) }) {
+                                case .success(.call(let id, let request)):
+                                    switch await request.bind({ request in await request.perform().mapError(Answer.Fault.refused) }) {
+                                        case .success(.value(let value)): emit(Answer(id: id, outcome: .result(value)))
+                                        case .success(.stream(let statuses)):
+                                            await streams.start(id) {
+                                                for await status: Status in statuses { emit(Answer(id: id, outcome: .chunk(status))) }
+                                                emit(Answer(id: id, outcome: .end))
+                                                await streams.end(id)
+                                            }
+                                        case .failure(let fault): emit(Answer(id: id, outcome: .fault(fault)))
+                                    }
+                                case .success(.interrupt(let id)): await streams.end(id)
+                                case .success(.other): break
                                 case .failure(let error): logger.debug("Dropped a line no reply can match: \(String(describing: error), privacy: .public)")
                             }
                         }

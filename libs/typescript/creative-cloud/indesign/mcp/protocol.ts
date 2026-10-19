@@ -3,12 +3,13 @@ import { Image, Instructions, READING } from '@rasm/mcp/server';
 import { Unmatched } from '@rasm/search';
 import { Schema, Struct } from 'effect';
 import { Tool } from 'effect/ai';
-import { Rpc, RpcGroup } from 'effect/rpc';
+import { Rpc, RpcGroup, RpcSerialization } from 'effect/rpc';
 import { InDesignError, Operations, Phase } from '../models.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const PATH = '/indesign';
+const WIRE = RpcSerialization.layerSchemaBinary({ fingerprintPayloads: true });
 const Peer = Schema.Struct({ application: Schema.URLFromString });
 const Failure = Schema.Union([InDesignError, Unmatched]);
 
@@ -41,4 +42,4 @@ const InDesign = RpcGroup.make(
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Complete, Enter, Font, InDesign, PATH, Peer };
+export { Complete, Enter, Font, InDesign, PATH, Peer, WIRE };

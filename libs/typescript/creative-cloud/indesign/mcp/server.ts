@@ -1,11 +1,11 @@
 import { listen } from '@rasm/mcp/link';
 import { Progress, READING } from '@rasm/mcp/server';
-import { CHARACTERS, Font as Metrics, Options, read } from '@rasm/typography/font';
+import { CHARACTERS, Face, Instance, Shaped, Text } from '@rasm/typography/face';
 import { transformSync } from 'amaro';
-import { Duration, Effect, Formatter, Option, Record, Schedule, Schema, SchemaIssue, Stream, Struct } from 'effect';
+import { Duration, Effect, Formatter, Option, type Record, Schedule, Schema, SchemaIssue, Stream, Struct } from 'effect';
 import { type McpSchema, Tool } from 'effect/ai';
 import { Transpile } from '../models.ts';
-import { Enter, Font, InDesign, PATH, Peer } from './protocol.ts';
+import { Enter, Font, InDesign, PATH, Peer, WIRE } from './protocol.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -16,6 +16,7 @@ const extension = Effect.fn('extension')(function* <Route, Encoded>(
         readonly select: (route: Route, peers: readonly (typeof Peer.Type)[]) => Option.Option<(peer: typeof Peer.Type) => boolean>;
         readonly completion: Readonly<Record<string, (peers: readonly (typeof Peer.Type)[], input: string, context: typeof McpSchema.Complete.payloadSchema.Type.context) => readonly string[]>>;
     },
+    trailer: (route: Route, peer: typeof Peer.Type) => Effect.Effect<McpSchema.ContentBlock, Error>,
 ) {
     const peer = `InDesign with the ${product} panel`;
     const quiet = Duration.seconds(2);
@@ -24,7 +25,9 @@ const extension = Effect.fn('extension')(function* <Route, Encoded>(
         origin: 'file://',
         peer,
         identity: Peer,
+        serialization: WIRE,
         route,
+        trailer,
         watch: (sent, call) =>
             Stream.fromSchedule(Schedule.min([Schedule.exponential(Duration.millis(2)), Schedule.spaced(Duration.seconds(1))])).pipe(
                 Stream.mapEffect(() => Effect.timeoutOption(call(Enter, {}), quiet), { concurrency: 'unbounded', unordered: true }),
@@ -46,8 +49,8 @@ const extension = Effect.fn('extension')(function* <Route, Encoded>(
             ),
     });
     const face = Tool.make('font', {
-        parameters: Font.payloadSchema.pipe(Schema.fieldsAssign(Options.fields)),
-        success: Font.successSchema.pipe(Schema.fieldsAssign({ installed: Schema.OptionFromOptionalKey(Font.successSchema.fields.installed.from.schema.mapFields(Struct.omit(['data'])).pipe(Schema.fieldsAssign({ metrics: Metrics }))) })),
+        parameters: Font.payloadSchema.pipe(Schema.fieldsAssign({ ...Instance.fields, text: Text })),
+        success: Font.successSchema.pipe(Schema.fieldsAssign({ installed: Schema.OptionFromOptionalKey(Font.successSchema.fields.installed.from.schema.mapFields(Struct.omit(['data'])).pipe(Schema.fieldsAssign({ face: Face, shaped: Shaped }))) })),
     })
         .annotateMerge(READING)
         .annotateMerge(Font.annotations);
@@ -65,7 +68,8 @@ const extension = Effect.fn('extension')(function* <Route, Encoded>(
                             found.installed,
                             Effect.fnUntraced(function* ({ data, ...font }) {
                                 const coordinates = Option.firstSomeOf([options.coordinates, font.subset ? Option.none() : font.coordinates]);
-                                return { ...font, metrics: yield* read(data, font.postscriptName, { ...options, coordinates }) };
+                                const typeface = yield* Face.open(data, font.postscriptName, { coordinates, size: options.size });
+                                return { ...font, face: typeface, shaped: yield* typeface.shape(options.text) };
                             }),
                         ),
                     );

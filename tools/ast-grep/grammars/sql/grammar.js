@@ -1,9 +1,5 @@
 import sqlite from 'tree-sitter-sqlite3/grammar.js';
 
-// --- [CONSTANTS] -------------------------------------------------------------------------
-
-const nesting = 4;
-
 // --- [OPERATIONS] ------------------------------------------------------------------------
 
 const keyword = (word) => alias(new RegExp([...word].map((c) => `[${c.toUpperCase()}${c.toLowerCase()}]`).join(''), 'u'), word.toUpperCase());
@@ -16,7 +12,10 @@ export default grammar(sqlite, {
     rules: {
         source_file: ($, original) => choice(original, seq('`', choice(original, $._expression, alias(seq($._expression, choice(keyword('asc'), keyword('desc'))), $.order_term), $.upsert_clause), '`')),
         upsert_clause: ($, original) => choice(original, $.template_substitution),
-        template_substitution: () => token(new RegExp(`(?:\\$\\{${balanced(nesting)}*\\})+`, 'u')),
+        template_substitution: () => {
+            const nesting = 4;
+            return token(new RegExp(`(?:\\$\\{${balanced(nesting)}*\\})+`, 'u'));
+        },
         _statement: ($, original) => choice(original, $.template_substitution),
         _expression: ($, original) => choice(original, prec(1, $.template_substitution)),
         _id: ($, original) => choice(original, $.template_substitution),

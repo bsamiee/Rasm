@@ -1,13 +1,12 @@
 {
     "name": "@rasm/uxp",
     "private": true,
-    "description": "Effect runtime and resource lifetime for Adobe UXP hosts, with optional RPC serving and status UI",
+    "description": "Effect runtime and resource lifetime for Adobe UXP hosts, with RPC serving over a dialed socket and link status UI",
     "type": "module",
     "exports": {
         "./*": "./*.ts"
     },
     "dependencies": {
-        "@rasm/mcp": "workspace:*",
         "effect": "catalog:"
     },
     "devDependencies": {

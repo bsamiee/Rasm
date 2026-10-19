@@ -1,22 +1,19 @@
 import { Unmatched } from '@rasm/search';
-import { Array, Context, Data, Deferred, Duration, Effect, Filter, Function, flow, Latch, Option, Queue, Record, Schedule, Schema, SchemaAST, SchemaGetter, SchemaIssue, Scope, Stream, Struct, SubscriptionRef } from 'effect';
+import { Array, Context, Data, Deferred, Duration, Effect, Filter, Function, flow, Latch, type Layer, Option, Record, Schedule, Schema, SchemaAST, SchemaGetter, Stream, Struct, SubscriptionRef } from 'effect';
 import { McpSchema, McpServer, Tool } from 'effect/ai';
 import { HttpRouter, HttpServerRequest, HttpServerResponse, UrlParams } from 'effect/http';
-import { NetAddress } from 'effect/net';
-import { type Rpc, RpcClient, RpcClientError, RpcGroup, RpcSerialization, RpcServer } from 'effect/rpc';
-import { Socket, SocketServer } from 'effect/socket';
-import { Instructions, register } from './server.ts';
+import { type Rpc, RpcClient, RpcClientError, RpcGroup, type RpcSerialization } from 'effect/rpc';
+import { Socket } from 'effect/socket';
+import { Blocks, Instructions, register } from './server.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Link = 'linked' | 'closed' | 'unreachable';
 type Fields = Readonly<Record<string, Schema.Codec<unknown, unknown>>>;
 type Call = <Tag extends string, A, I, B, J, E extends Error, K>(rpc: Rpc.Rpc<Tag, Schema.Codec<A, I>, Schema.Codec<B, J>, Schema.Codec<E, K>>, payload: A) => Effect.Effect<B, E | LinkError>;
 type Publish = <Tag extends string, A, I, B, J, E extends Error, K>(rpc: Rpc.Rpc<Tag, Schema.Codec<A, I> & { readonly fields: Fields }, Schema.Codec<B, J>, Schema.Codec<E, K>>, uri: Option.Option<string>, annotations: Context.Context<never>) => Effect.Effect<void, never, McpServer.McpServer>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const WIRE = RpcSerialization.layerSchemaBinary({ fingerprintPayloads: true });
 const REDIAL = Duration.seconds(2);
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -37,36 +34,20 @@ const Completion = Context.Reference<(rpc: Rpc.Any, parameter: string, call: Cal
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const routed = <P extends Schema.Codec<unknown, unknown> & { readonly fields: Fields }, Route extends Schema.Codec<unknown, unknown> & { readonly fields: Fields }>(parameters: P, route: Route) => {
+    const parts = Schema.Tuple([parameters, route]);
+    return Schema.toEncoded(Schema.Struct({ ...parameters.fields, ...route.fields })).pipe(
+        Schema.decodeTo(Schema.Tuple([Schema.toType(parameters), Schema.toType(route)]), {
+            decode: SchemaGetter.transformEffect((given) => Effect.mapError(Schema.decodeUnknownEffect(Schema.toCodecJson(parts))([given, given], { errors: 'all' }), Struct.get('issue'))),
+            encode: SchemaGetter.forbidden(() => 'arguments decode only'),
+        }),
+    );
+};
 const tool = <Tag extends string, A, I, B, J, E extends Error, K>(rpc: Rpc.Rpc<Tag, Schema.Codec<A, I> & { readonly fields: Fields }, Schema.Codec<B, J>, Schema.Codec<E, K>>) => rpc.annotate(Publication, (publish, annotations) => publish(rpc, Option.none(), annotations));
 const resource =
     (uri: string) =>
     <Tag extends string, A, I, B, J, E extends Error, K>(rpc: Rpc.Rpc<Tag, Schema.Codec<A, I> & { readonly fields: Fields }, Schema.Codec<B, J>, Schema.Codec<E, K>>) =>
         rpc.annotate(Publication, (publish, annotations) => publish(rpc, Option.some(uri), annotations));
-const serve = <Rpcs extends Rpc.Any>(group: RpcGroup.RpcGroup<Rpcs>, { url, identity, concurrency }: { readonly url: string; readonly identity: UrlParams.Input; readonly concurrency: number | 'unbounded' }) =>
-    Stream.unwrap(
-        Effect.gen(function* () {
-            const [{ reader, writer }, states, linked] = yield* Effect.all([Socket.makeWebSocket(`${url}?${UrlParams.toString(UrlParams.fromInput(identity))}`), Queue.unbounded<Link>(), Effect.flatMap(Effect.scope, Scope.fork)]);
-            const protocol = yield* RpcServer.makeProtocolSocketServer.pipe(
-                Effect.provideService(SocketServer.SocketServer, {
-                    address: NetAddress.inetAddressUnsafe(NetAddress.ipv4Unspecified, 0),
-                    run: (handler) =>
-                        handler(
-                            Socket.make({
-                                reader: reader.pipe(
-                                    Effect.tapError(() => Queue.offer(states, 'unreachable')),
-                                    Effect.tap(() => Effect.acquireRelease(Queue.offer(states, 'linked'), () => Queue.offer(states, 'closed'))),
-                                ),
-                                writer,
-                            }),
-                        ).pipe(Effect.ignoreCause, Effect.andThen(Effect.sleep(REDIAL)), Effect.forever),
-                }),
-                Effect.provide(WIRE),
-                Scope.provide(linked),
-            );
-            yield* Effect.forkScoped(RpcServer.make(group, { concurrency, disableTracing: true }).pipe(Effect.provideService(RpcServer.Protocol, protocol)));
-            return Stream.fromQueue(states);
-        }),
-    );
 const listen = Effect.fn('listen')(function* <Rpcs extends Rpc.Any, Peer, I extends Readonly<Record<string, string | undefined>>, Route, Encoded>(
     group: RpcGroup.RpcGroup<Rpcs>,
     {
@@ -74,19 +55,23 @@ const listen = Effect.fn('listen')(function* <Rpcs extends Rpc.Any, Peer, I exte
         origin,
         peer: name,
         identity,
+        serialization,
         route,
         watch,
+        trailer,
     }: {
         readonly path: HttpRouter.PathInput;
         readonly origin: string;
         readonly peer: string;
         readonly identity: Schema.Codec<Peer, I>;
+        readonly serialization: Layer.Layer<RpcSerialization.RpcSerialization>;
         readonly route: {
             readonly schema: Schema.Codec<Route, Encoded> & { readonly fields: Fields };
             readonly select: (route: Route, peers: readonly Peer[]) => Option.Option<(peer: Peer) => boolean>;
             readonly completion: Readonly<Record<string, (peers: readonly Peer[], input: string, context: typeof McpSchema.Complete.payloadSchema.Type.context) => readonly Schema.Json[]>>;
         };
         readonly watch: <A, E>(sent: Effect.Effect<A, E>, call: Call) => Effect.Effect<A, E>;
+        readonly trailer: (route: Route, peer: Peer) => Effect.Effect<McpSchema.ContentBlock, Error>;
     },
 ) {
     class Linked extends Data.Class<{ readonly peer: Peer; readonly protocol: typeof RpcClient.Protocol.Service }> {}
@@ -100,7 +85,7 @@ const listen = Effect.fn('listen')(function* <Rpcs extends Rpc.Any, Peer, I exte
                     onDisconnect: Effect.flatMap(Deferred.await(made), (entry) => SubscriptionRef.update(links, Array.difference([entry]))),
                 }),
                 Effect.provideService(Socket.Socket, socket),
-                Effect.provide(WIRE),
+                Effect.provide(serialization),
             );
             yield* Deferred.succeed(made, new Linked({ peer: found, protocol }));
             return yield* Effect.as(ended.await, HttpServerResponse.empty());
@@ -144,25 +129,25 @@ const listen = Effect.fn('listen')(function* <Rpcs extends Rpc.Any, Peer, I exte
         definition: Tool.Tool<string, { readonly parameters: P; readonly success: S; readonly failure: Schema.Top; readonly failureMode: Tool.FailureMode }>,
         handle: (payload: P['Type'], use: Call) => Effect.Effect<S['Type'], Error, R>,
     ) => {
-        const parts = Schema.Tuple([definition.parametersSchema, route.schema]);
+        const parameters = routed(definition.parametersSchema, route.schema);
         return register(
             definition
                 .setParameters(
-                    Schema.toEncoded(Schema.Struct({ ...definition.parametersSchema.fields, ...route.schema.fields })).pipe(
-                        Schema.decodeTo(Schema.Tuple([Schema.toType(definition.parametersSchema), Schema.toType(route.schema)]), {
-                            decode: SchemaGetter.transformEffect(
-                                Effect.fnUntraced(function* (given) {
-                                    const [payload, chosen] = yield* Effect.mapError(Schema.decodeUnknownEffect(Schema.toCodecJson(parts))([given, given], { errors: 'all' }), Struct.get('issue'));
-                                    yield* Option.isSome(route.select(chosen, (yield* SubscriptionRef.get(links)).map(Struct.get('peer')))) ? Effect.void : Effect.fail(new SchemaIssue.InvalidValue({ message: `No applicable ${name} peer` }, given));
-                                    return [payload, chosen] as const;
-                                }),
-                            ),
-                            encode: SchemaGetter.forbidden(() => 'arguments decode only'),
+                    parameters.pipe(
+                        Schema.decodeTo(Schema.toType(parameters), {
+                            decode: SchemaGetter.checkEffect(([, chosen]) => Effect.map(SubscriptionRef.get(links), (rows) => Option.isSome(route.select(chosen, rows.map(Struct.get('peer')))) || `No applicable ${name} peer`)),
+                            encode: SchemaGetter.passthrough(),
                         }),
                     ),
                 )
                 .annotateMerge(annotated(definition.annotations)),
-            ([payload, chosen]) => Effect.flatMap(reach(chosen), (linked) => handle(payload, call(linked))),
+            Effect.fnUntraced(function* ([payload, chosen]) {
+                const linked = yield* reach(chosen);
+                const value = yield* handle(payload, call(linked));
+                const [block, add] = yield* Effect.all([trailer(chosen, linked.peer), Blocks]);
+                yield* add(block);
+                return value;
+            }),
         );
     };
     const completion = (rpc: Rpc.Any, fields: readonly string[]) => ({
@@ -224,4 +209,4 @@ const listen = Effect.fn('listen')(function* <Rpcs extends Rpc.Any, Peer, I exte
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Completion, type Link, listen, resource, serve, tool };
+export { Completion, listen, resource, routed, tool };

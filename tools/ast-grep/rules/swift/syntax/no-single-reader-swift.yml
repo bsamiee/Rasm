@@ -45,7 +45,7 @@ utils:
         has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}
     pinning-attribute:
         kind: attribute
-        regex: '^@(objc|IBAction|concurrent|MainActor)\b'
+        regex: '^@(objc|IBAction|concurrent|MainActor|_silgen_name)\b'
     pinned:
         any:
             - has: {matches: pinning-attribute}

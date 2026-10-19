@@ -10,11 +10,17 @@ import UniformTypeIdentifiers
 struct Application: Encodable {
     // --- [DISCOVERY]
 
+    struct Instance: Encodable {
+        let pid: pid_t
+        let finishedLaunching: Bool
+    }
+
     let url: URL
     let identifier: String
     let name: String
     let version: String?
-    let running: Bool
+    let channel: String?
+    let running: Instance?
     let scriptable: Bool
 
     init?(url: URL, runningApplications: [NSRunningApplication]) throws {
@@ -23,14 +29,13 @@ struct Application: Encodable {
         self.identifier = identifier
         name = FileManager.default.displayName(atPath: url.path(percentEncoded: false))
         version = bundle.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
-        running = !Self.instances(at: url, among: runningApplications).isEmpty
-        scriptable = try url.resourceValues(forKeys: [.applicationIsScriptableKey]).applicationIsScriptable == true
-    }
-
-    static func instances(at url: URL, among runningApplications: [NSRunningApplication]) -> [NSRunningApplication] {
-        runningApplications.filter { runningApplication in
-            runningApplication.activationPolicy != .prohibited && runningApplication.bundleURL?.resolvingSymlinksInPath().path(percentEncoded: false) == url.path(percentEncoded: false)
+        channel =
+            (bundle.object(forInfoDictionaryKey: "RELEASECHANNEL") as? String)?.lowercased()
+            ?? (bundle.object(forInfoDictionaryKey: "CFBundleName") as? String).flatMap { name in name.wholeMatch(of: /.*\((?<channel>[^)]+)\)/)?.channel.lowercased() }
+        running = NSRunningApplication.instances(at: url, among: runningApplications).first.map { instance in
+            Instance(pid: instance.processIdentifier, finishedLaunching: instance.isFinishedLaunching)
         }
+        scriptable = try url.resourceValues(forKeys: [.applicationIsScriptableKey]).applicationIsScriptable == true
     }
 
     static func at(_ url: URL) -> Result<Self, AggregateError<Failure>> {
@@ -43,26 +48,65 @@ struct Application: Encodable {
         .flatMap { application in application.map(Result.success) ?? .failure(AggregateError(first: .notApplication(url))) }
     }
 
-    static func all(running: Bool) -> Result<[Self], AggregateError<Failure>> {
+    static func all() -> Result<[Self], AggregateError<Failure>> {
         Result {
             let runningApplications: [NSRunningApplication] = NSWorkspace.shared.runningApplications
-            let keys: Set<URLResourceKey> = [.isApplicationKey, .isSymbolicLinkKey]
-            let bundles: [URL] =
-                running
-                ? runningApplications.compactMap(\.bundleURL)
-                : try FileManager.default.urls(for: .applicationDirectory, in: .allDomainsMask).flatMap { directory in
-                    try (FileManager.default.enumerator(at: directory, includingPropertiesForKeys: Array(keys), options: [.skipsPackageDescendants, .skipsHiddenFiles])?.allObjects ?? [])
-                        .compactMap { entry in entry as? URL }
-                        .filter { url in
-                            let values: URLResourceValues = try url.resourceValues(forKeys: keys)
-                            return values.isApplication == true || values.isSymbolicLink == true
-                        }
-                }
-            return try Set(bundles.map { url in url.resolvingSymlinksInPath() })
-                .compactMap { url in try url.resourceValues(forKeys: [.isApplicationKey]).isApplication == true ? Self(url: url, runningApplications: runningApplications) : nil }
-                .sorted { left, right in left.url.absoluteString < right.url.absoluteString }
+            return try NSWorkspace.shared.installedApplications().compactMap { url in try Self(url: url, runningApplications: runningApplications) }
         }
         .mapError { error in AggregateError(first: .unreadable(error)) }
+    }
+
+    // --- [LIFECYCLE]
+
+    func open() async -> Result<NSRunningApplication, AggregateError<Failure>> {
+        await Result { try await NSWorkspace.shared.launchApplication(at: url) }.mapError { error in AggregateError(first: .unreadable(error)) }
+    }
+
+    func launch() async -> Result<Self, AggregateError<Failure>> {
+        await open().flatMap { _ in Self.at(url) }
+    }
+
+    var instance: Result<NSRunningApplication, AggregateError<Failure>> {
+        Accessibility.trusted(prompting: true)
+            ? NSRunningApplication.instances(at: url).first.map(Result.success) ?? .failure(AggregateError(first: .notRunning(url)))
+            : .failure(AggregateError(first: .element(.untrusted)))
+    }
+
+    // --- [STATUS]
+
+    func status() -> Result<Status, AggregateError<Failure>> {
+        instance.flatMap { instance in Status.of(instance) }
+    }
+
+    @MainActor
+    func watch() -> Result<AsyncStream<Status>, AggregateError<Failure>> {
+        instance.flatMap { instance in
+            Status.of(instance).map { first in
+                let names: [String] = [
+                    kAXWindowCreatedNotification, kAXSheetCreatedNotification, kAXMenuOpenedNotification, kAXUIElementDestroyedNotification, kAXMenuClosedNotification,
+                    kAXFocusedWindowChangedNotification,
+                ]
+                return AsyncStream { continuation in
+                    continuation.yield(first)
+                    let task: Task<Void, Never> = Task { @MainActor in
+                        _ = await instance.elementNotifications(names) { notifications in
+                            var last: Status = first
+                            for await _ in notifications {
+                                guard case .success(let next) = Status.of(instance), next != last else { continue }
+                                last = next
+                                continuation.yield(next)
+                            }
+                        }
+                        continuation.finish()
+                    }
+                    continuation.onTermination = { _ in task.cancel() }
+                }
+            }
+        }
+    }
+
+    func press(_ button: String, on element: CGWindowID) -> Result<Status, AggregateError<Failure>> {
+        instance.flatMap { instance in instance.press(button, on: element).mapError { error in AggregateError(first: .element(error)) }.flatMap { _ in Status.of(instance) } }
     }
 
     // --- [EXECUTION]
@@ -86,24 +130,6 @@ struct Application: Encodable {
             }
     }
 
-    func open() async -> Result<NSRunningApplication, AggregateError<Failure>> {
-        await Result {
-            let configuration: NSWorkspace.OpenConfiguration = NSWorkspace.OpenConfiguration()
-            configuration.activates = false
-            configuration.promptsUserIfNeeded = false
-            configuration.allowsRunningApplicationSubstitution = false
-            configuration.appleEvent = NSAppleEventDescriptor(
-                eventClass: AEEventClass(kASAppleScriptSuite),
-                eventID: AEEventID(kASLaunchEvent),
-                targetDescriptor: NSAppleEventDescriptor(applicationURL: url),
-                returnID: AEReturnID(kAutoGenerateReturnID),
-                transactionID: AETransactionID(kAnyTransactionID),
-            )
-            return try await NSWorkspace.shared.openApplication(at: url, configuration: configuration)
-        }
-        .mapError { error in AggregateError(first: .unreadable(error)) }
-    }
-
     func execute(_ command: String, arguments: [String: JSONValue]) async -> Result<AppleEventReply, AggregateError<Failure>> {
         await open()
             .flatMap { runningApplication in
@@ -116,6 +142,20 @@ struct Application: Encodable {
                     previous.flatMap { _ in Self.send(event, decoding: dictionary) }
                 }
             }
+    }
+}
+
+struct Status: Encodable, Equatable {
+    let responding: Bool
+    let frontWindow: CGWindowID?
+    let elements: [Element]
+
+    static func of(_ instance: NSRunningApplication) -> Result<Self, AggregateError<Failure>> {
+        switch instance.elements() {
+            case .success(let elements): .success(Self(responding: true, frontWindow: elements.front, elements: elements.open))
+            case .failure(.unresponsive): .success(Self(responding: false, frontWindow: nil, elements: []))
+            case .failure(let error): .failure(AggregateError(first: .element(error)))
+        }
     }
 }
 

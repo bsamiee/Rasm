@@ -1950,6 +1950,9 @@ importers:
 
   apps/creative-cloud/atelier:
     dependencies:
+      '@rasm/automation':
+        specifier: workspace:*
+        version: link:../../../libs/typescript/creative-cloud/automation
       '@rasm/indesign':
         specifier: workspace:*
         version: link:../../../libs/typescript/creative-cloud/indesign
@@ -2138,6 +2141,22 @@ importers:
         specifier: 'catalog:'
         version: 26.6.5
 
+  libs/typescript/creative-cloud/automation:
+    dependencies:
+      '@rasm/search':
+        specifier: workspace:*
+        version: link:../../data/search
+      amaro:
+        specifier: 'catalog:'
+        version: 1.2.1
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.5
+    devDependencies:
+      '@types/node':
+        specifier: 'catalog:'
+        version: 26.6.5
+
   libs/typescript/creative-cloud/indesign:
     dependencies:
       '@rasm/mcp':
@@ -2180,9 +2199,6 @@ importers:
 
   libs/typescript/creative-cloud/uxp:
     dependencies:
-      '@rasm/mcp':
-        specifier: workspace:*
-        version: link:../../ai/mcp
       effect:
         specifier: 'catalog:'
         version: 4.0.5

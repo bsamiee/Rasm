@@ -1,9 +1,10 @@
+import { Unmatched } from '@rasm/search';
 import { Array, Context, Effect, Formatter, Option, Schema, SchemaGetter, type SchemaIssue, Struct } from 'effect';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Specifier = Schema.String.annotate({ identifier: 'Specifier', description: "InDesign's path to an object, as results return it" });
-const Reference = Schema.Struct({ type: Schema.String, specifier: Specifier, name: Schema.OptionFromOptionalKey(Schema.String) });
+const Reference = Schema.Struct({ type: Schema.String, specifier: Specifier, name: Schema.OptionFromOptionalKey(Schema.String) }).annotate({ identifier: 'Reference' });
 const Field = Schema.Struct({
     name: Schema.String,
     type: Schema.OptionFromOptionalKey(Schema.String),
@@ -180,10 +181,12 @@ class InDesignError extends Schema.TaggedError<InDesignError, { readonly brand: 
     }
 }
 
+const Failure = Schema.Union([InDesignError, Unmatched]);
+
 // --- [SERVICES] ------------------------------------------------------------------------
 
 const Transpile = Context.Reference<(code: string) => Effect.Effect<string, SchemaIssue.Issue>>('@rasm/indesign/models/Transpile', { defaultValue: () => Effect.succeed });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { InDesignError, Operations, Phase, Specifier, Transpile };
+export { Failure, InDesignError, Operations, Phase, Reference, Specifier, Transpile };
