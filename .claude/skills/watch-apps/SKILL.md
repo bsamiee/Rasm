@@ -10,7 +10,7 @@ description: "Use when starting or driving a desktop app, covering the shared wa
 ## [01]-[SEQUENCE]
 
 Start the watcher before an app's first launch or script call, and keep it running until work ends:
-1. Build the watcher with `nx run libs/swift/macos:build`, once per session and after a change to the package
+1. Build the watcher with `nx run RasmMacOS:build`, once per session and after a change to the package
 2. Start a Monitor with the app's bundle id or display name
 3. Read the `watch` line, then one `open` line per element open at start, a `fail` line names a missing grant or an unmatched name
 4. Start the app with `open -b <bundle id>`, `open -n -b <bundle id>` for an instance of its own

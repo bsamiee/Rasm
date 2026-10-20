@@ -95,8 +95,6 @@ final class AccountStore {
 
     var canAddAccount: Bool { storageState == .available && !isStopping && authentication == nil }
 
-    var isSwitching: Bool { accounts.contains { model in model.running?.kind == .selecting } }
-
     private var records: [Account] { accounts.map(\.account) }
 
     private func model(_ id: UUID) -> AccountModel? {
@@ -170,18 +168,17 @@ final class AccountStore {
         }
         func reconcile() async {
             _ = try? await withStores([.live(.claude)]) { live in
-                switch ClaudeSelectionState.read(at: locations.claudeSelectionFile) {
-                    case .success(let state):
-                        if let pending: ClaudePendingSwitch = state.pending {
-                            _ = try? await withStores(
-                                Set([pending.incoming, pending.outgoing].compactMap(\.self).map(CredentialStore.privateAccount)),
-                                owning: live,
-                            ) { _ in
-                                if case .failure(let error) = await claude.completePendingSwitch(pending).mapError(ProviderError.init(failure:)) {
-                                    providerIssues[.claude] = error
-                                }
+                switch ClaudeSelectionState.read(at: locations.claudeSelectionFile).map(\.pending) {
+                    case .success(.some(let pending)):
+                        _ = try? await withStores(
+                            Set([pending.incoming, pending.outgoing].compactMap(\.self).map(CredentialStore.privateAccount)),
+                            owning: live,
+                        ) { _ in
+                            if case .failure(let error) = await claude.completePendingSwitch(pending).mapError(ProviderError.init(failure:)) {
+                                providerIssues[.claude] = error
                             }
                         }
+                    case .success(.none): break
                     case .failure(let error): providerIssues[.claude] = ProviderError(failure: error)
                 }
             }
@@ -195,14 +192,12 @@ final class AccountStore {
                     orphans = []
             }
             await withDiscardingTaskGroup { group in
-                for id: UUID in orphans {
-                    for provider: Provider in Provider.allCases {
-                        group.addTask(name: "\(provider.name) orphan deletion") { [client = client(for: provider), logger] in
-                            if case .failure(let error) = await client.deletePrivateStore(id: id) {
-                                logger?.error(
-                                    "\(provider.name, privacy: .public) orphan \(id.uuidString, privacy: .public) deletion: \(String(describing: error.failure), privacy: .public)"
-                                )
-                            }
+                for (id, provider): (UUID, Provider) in orphans.flatMap({ id in Provider.allCases.map { provider in (id, provider) } }) {
+                    group.addTask(name: "\(provider.name) orphan deletion") { [client = client(for: provider), logger] in
+                        if case .failure(let error) = await client.deletePrivateStore(id: id) {
+                            logger?.error(
+                                "\(provider.name, privacy: .public) orphan \(id.uuidString, privacy: .public) deletion: \(String(describing: error.failure), privacy: .public)"
+                            )
                         }
                     }
                 }

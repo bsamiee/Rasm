@@ -11,6 +11,7 @@ Nx infers projects through plugins, orders targets through `dependsOn`, caches o
 - Cargo `[package.metadata.nx]` merges over a package's inferred targets as a later layer of its project, a target one package owns sits there
 - Task hashing reads files by project directory, a root naming a file owns none and its tasks fail to hash
 - `package.json` `scripts` entries infer as `nx:run-script` targets with no inputs, outputs, or cache, `nx.targets` holds targets with them
+- `analytics: false` stops telemetry `neverConnectToCloud` leaves on, without a boolean Nx prompts and rewrites `nx.json` expanded
 
 ## [02]-[DISCOVERY]
 
@@ -40,6 +41,7 @@ Use JSON discovery from workspace root:
 - `command` on a target runs one command with its `options`, `executor: nx:run-commands` with `commands` and `parallel` exists for a list alone
 - Command lists run in order under `parallel: false`, the `true` default terminates running commands when one fails unless `readyWhen` is set
 - `options.args` and CLI arguments append to a command holding no `{args}` or `{args.<name>}`, `forwardAllArgs: false` stops the append
+- Forwarded flags named as a run-commands option (`--verbose`, `--cwd`, `--env`, `--color`) never reach the command
 - `{projectRoot}` and `{projectName}` interpolate anywhere in an option value, `{workspaceRoot}` at its start alone
 - Commands with `cwd` at their project read the workspace root through `$NX_WORKSPACE_ROOT`
 - Targets with `options` and no `executor`, `command`, or `targetDefaults` executor resolve to `nx:noop` with a `dependsOn` and drop without one

@@ -11,7 +11,10 @@
     ],
   },
   "packages": [
-    { "kind": "local", "path": "../../../../libs/swift/macos" },
+    {
+      "kind": "local",
+      "path": "../../../../libs/swift/macos",
+    },
   ],
   "files": [
     { "path": "<PROJECT>/../../../../Xcode.xcconfig" },
@@ -42,6 +45,7 @@
         },
       ],
       "build-settings": {
+        "AUTOMATION_APPLE_EVENTS": "YES",
         "CURRENT_PROJECT_VERSION": "1",
         "INFOPLIST_KEY_LSApplicationCategoryType": "public.app-category.utilities",
         "INFOPLIST_KEY_LSBackgroundOnly": "YES",

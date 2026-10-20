@@ -5,7 +5,7 @@ mise owns tool binaries, the process environment, and local services.
 ## [01]-[TOOLS]
 
 - Processes inherit mise's activated environment from their launch shell and call tools by name
-- `[tools]` rows name a registry short name or a backend (`github:`, `pypi:`, `npm:`, `cargo:`), `[tool_alias]` maps a short name the registry lacks
+- `[tools]` rows name a registry short name or a backend (`github:`, `pypi:`, `npm:`, `cargo:`), `[tool_alias]` names a backend spec holding a URL
 - `cargo:` rows take a crate the registry lacks, a `cargo-binstall` row fetches its release binary before a source build
 - `http:<tool>` rows install a release source archive for a tool with no registry entry and no release asset
 - `http:` rows reading a releases API set `version_order = "semver"`, mise takes the last entry of a listing ordered newest first
@@ -81,8 +81,7 @@ Run service installs, restarts, upgrades, and cleanup from the persistent checko
 - `scripts/maintain.sh` runs maintenance from that checkout after initial container setup
 - `mise prune --yes` alone retires old mise installations and runs last
 - Orphan removal runs outside Nx, a running Nx process loads modules from the version an upgrade orphans
-- Root `upgrade` runs its prerequisites in parallel, then fails on each package a resolver moved below its `upgrade:baseline` lock copy
-- `upgrade:baseline` copies `Cargo.lock`, `uv.lock`, and `pnpm-lock.yaml` to `.cache/upgrade` before any lock-writing upgrade runs
+- Root `upgrade` runs its prerequisites, then fails on each package a resolver moved below the version Git's index records for its lock
 - `upgrade:docker` runs mise task `docker:update`, its VM restart on macOS starts the upgraded engine past systemd's `docker.service` start limit
 - Failed steps restore no daemon, the sequence resumes at a repaired step, a failed Nx prerequisite through a `rasm:upgrade` rerun
 - Native consumers stay closed and old installations stay until the remaining sequence succeeds

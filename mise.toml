@@ -21,7 +21,6 @@ PYTHONPYCACHEPREFIX                   = "{{config_root}}/.cache/pycache"
 HYPOTHESIS_STORAGE_DIRECTORY          = "{{config_root}}/.cache/hypothesis"
 CARGO_LLVM_COV_DENY_WARNINGS          = "1"
 RUSTUP_TOOLCHAIN                      = false
-INSTA_PENDING_DIR                     = "{{config_root}}/.artifacts/insta"
 TOMBI_CACHE_HOME                      = "{{config_root}}/.cache/tombi"
 NX_WORKSPACE_DATA_DIRECTORY           = "{{config_root}}/.cache/nx/workspace-data"
 NX_DEFAULT_OUTPUT_STYLE               = "static-failures-only"
@@ -46,12 +45,10 @@ GHIDRA_JAVA_OPTIONS                   = "-Dapplication.settingsdir={{config_root
 GHIDRA_HEADLESS_MAXMEM                = "{% if os() == 'macos' %}{{ (exec(command='/usr/sbin/sysctl -n hw.memsize') | int / 4194304) | round(method='floor') | int }}M{% endif %}"
 
 # --- [TOOL_ALIAS] -----------------------------------------------------------------------
-
 [tool_alias]
 blender-mcp = "pypi:git+https://projects.blender.org/lab/blender_mcp.git#subdirectory=mcp"
 
 # --- [TOOLS] ----------------------------------------------------------------------------
-
 [tools]
 python                       = "3.15.0"
 java                         = "latest"
@@ -75,6 +72,7 @@ yamlfmt                      = "latest"
 tombi                        = "latest"
 google-java-format           = "latest"
 swiftlint                    = { version = "latest", os = ["macos"] }
+periphery                    = { version = "latest", os = ["macos"] }
 "github:sbdchd/squawk"       = "latest"
 ripgrep                      = "latest"
 fd                           = "latest"

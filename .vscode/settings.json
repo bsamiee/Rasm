@@ -40,7 +40,7 @@
         ".gitignore": ".gitattributes",
         "pyproject.toml": "uv.lock, pixi.lock",
         "Cargo.toml": "rust-toolchain.toml, rustfmt.toml, clippy.toml, Cargo.lock",
-        "nx.json": ".editorconfig, .swift-format, .swiftlint.yml, .yamlfmt.yaml, .yamllint.yaml, mise.toml, pmd.xml, sgconfig.yml, Xcode.xcconfig",
+        "nx.json": ".editorconfig, .periphery.yml, .swift-format, .swiftlint.yml, .yamlfmt.yaml, .yamllint.yaml, mise.toml, pmd.xml, sgconfig.yml, Xcode.xcconfig",
         "package.json": "biome.json, pnpm-workspace.yaml, pnpm-lock.yaml, tsconfig.base.json, tsconfig.json, vite.config.ts, vitest.config.ts"
     },
 

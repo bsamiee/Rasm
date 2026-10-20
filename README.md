@@ -42,6 +42,7 @@ Rasm/
 ├── Directory.Build.rsp       # MSBuild switches every command-line build under the root reads
 ├── Workspace.slnx            # .NET solution
 ├── NuGet.config              # NuGet source
+├── Workspace.xcworkspace     # Xcode workspace over every app project and their package lock
 ├── Xcode.xcconfig            # Build settings every Xcode project inherits at project level
 ├── tsconfig.base.json        # Compiler options every TypeScript project extends
 ├── tsconfig.json             # Root TypeScript project over files outside every package
@@ -59,6 +60,7 @@ Rasm/
 ├── .gitignore                # Generated, secret, and machine-local paths
 ├── .swift-format             # Swift lint and format rules
 ├── .swiftlint.yml            # Swift lint rules swift-format lacks
+├── .periphery.yml            # Swift unused code scan options
 ├── .yamllint.yaml            # YAML lint rules
 ├── .yamlfmt.yaml             # YAML format rules
 ├── .cargo/                   # Cargo build settings and compiler source link
@@ -152,7 +154,7 @@ Targets run tools with their arguments on the command, a pipeline or command lis
 - Python: Ruff, ty, mypy, refurb, and deptry at zero findings
 - TypeScript: Biome and `tsc` with `@effect/tsgo` at zero findings
 - Rust: Clippy, rustfmt, Dylint, and cargo-modules at zero findings
-- Swift: compiler, swift-format, and SwiftLint at zero findings
+- Swift: compiler, swift-format, SwiftLint, and Periphery at zero findings
 - Java: compiler, google-java-format, and PMD at zero findings
 - TOML: Tombi at zero findings
 - PostgreSQL: Squawk at zero findings

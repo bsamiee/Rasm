@@ -468,10 +468,12 @@ extension AppleEventValue {
                         Self.type(text).descriptor(as: types, in: dictionary)
                     case _ where types.contains(.primitive(.date)):
                         Result { try Date.ISO8601FormatStyle().parse(text) }.map(NSAppleEventDescriptor.init(date:)).aggregated { _ in .date(text) }
-                    case _ where !types.isDisjoint(with: [.primitive(.file), .primitive(.alias), .primitive(.fileSpecification)]):
-                        .success(URL(string: text).flatMap { url in url.isFileURL ? NSAppleEventDescriptor(fileURL: url) : nil } ?? NSAppleEventDescriptor(string: text))
                     default:
-                        .success(NSAppleEventDescriptor(string: text))
+                        switch URL(string: text) {
+                            case .some(let url) where url.isFileURL && !types.isDisjoint(with: [.primitive(.file), .primitive(.alias), .primitive(.fileSpecification)]):
+                                .success(NSAppleEventDescriptor(fileURL: url))
+                            case .some, .none: .success(NSAppleEventDescriptor(string: text))
+                        }
                 }
             case .list(let items):
                 return traverse(items) { item in item.descriptor(as: types, in: dictionary) }.map { descriptors in

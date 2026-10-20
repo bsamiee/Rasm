@@ -28,6 +28,6 @@ public func disclaimResponsibility() throws(Errno) {
 }
 
 @_silgen_name("responsibility_get_responsible_for_pid")
-private func responsibility(_ pid: pid_t, _: UnsafeMutablePointer<pid_t>?, _: UnsafeMutablePointer<UInt64>?, _ length: UnsafeMutablePointer<Int>, _ path: UnsafeMutablePointer<CChar>) -> Int32
+private func responsibility(_: pid_t, _: UnsafeMutablePointer<pid_t>?, _: UnsafeMutablePointer<UInt64>?, _: UnsafeMutablePointer<Int>, _: UnsafeMutablePointer<CChar>) -> Int32
 @_silgen_name("responsibility_spawnattrs_setdisclaim")
-private func disclaim(_ attributes: UnsafeMutablePointer<posix_spawnattr_t?>, _ disclaim: Int32) -> Int32
+private func disclaim(_: UnsafeMutablePointer<posix_spawnattr_t?>, _: Int32) -> Int32

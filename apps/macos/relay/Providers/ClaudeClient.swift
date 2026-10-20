@@ -161,37 +161,36 @@ actor ClaudeClient: ProviderClient {
             .bind { _ in await identity(of: incoming) }
             .bind { _ in
                 await ClaudeLock.withLock(directories: [shared.directory, incoming.directory]) {
-                    let before: Result<(current: ClaudeCredential?, outgoing: (id: UUID, credential: ClaudeCredential)?), ClaudeFailure> =
+                    let before: Result<(selected: ClaudeCredential?, outgoing: (id: UUID, credential: ClaudeCredential)?), ClaudeFailure> =
                         switch (await self.shared.read(), outgoing) {
                             case (.success(.signedOut), .none): .success((nil, nil))
                             case (.success(.credential(let current)), _) where current.identity.isSameAccount(as: account.identity):
                                 .success((current, nil))
                             case (.success(.credential(let current)), .some(let outgoing))
                             where outgoing.identity.isSameAccount(as: current.identity):
-                                .success((current, (outgoing.id, current)))
+                                .success((nil, (outgoing.id, current)))
                             case (.success, _): .failure(.accountChanged)
                             case (.failure(let error), _): .failure(error)
                         }
-                    return await before.bind { current, outgoing in
+                    return await before.bind { selected, outgoing in
                         await ClaudeLock.withLock(
                             directories: [outgoing.map { copy in self.privateStore(copy.id).directory }].compactMap(\.self)
                         ) {
                             await incoming.read().bind { content -> Result<ClaudeCredential, ClaudeFailure> in
-                                if let credential: ClaudeCredential = content.credential, credential.identity.isSameAccount(as: account.identity) {
-                                    if let current, current.identity.isSameAccount(as: account.identity) {
-                                        await incoming.deleteItem().map { _ in current }
-                                    } else {
-                                        await self.writePendingSwitch(ClaudePendingSwitch(incoming: account.id, outgoing: outgoing?.id))
-                                            .bind { _ in
-                                                if let outgoing { await self.write(outgoing.credential, into: self.privateStore(outgoing.id)) } else { .success(()) }
-                                            }
-                                            .bind { _ in await self.write(credential, into: self.shared) }
-                                            .bind { _ in await incoming.deleteItem() }
-                                            .bind { _ in await self.writePendingSwitch(nil) }
-                                            .bind { _ in await .success(self.recordSelection(credential)) }
-                                    }
+                                guard let credential: ClaudeCredential = content.credential, credential.identity.isSameAccount(as: account.identity) else {
+                                    return .failure(.signInRequired)
+                                }
+                                return if let selected {
+                                    await incoming.deleteItem().map { _ in selected }
                                 } else {
-                                    .failure(.signInRequired)
+                                    await self.writePendingSwitch(ClaudePendingSwitch(incoming: account.id, outgoing: outgoing?.id))
+                                        .bind { _ in
+                                            if let outgoing { await self.write(outgoing.credential, into: self.privateStore(outgoing.id)) } else { .success(()) }
+                                        }
+                                        .bind { _ in await self.write(credential, into: self.shared) }
+                                        .bind { _ in await incoming.deleteItem() }
+                                        .bind { _ in await self.writePendingSwitch(nil) }
+                                        .bind { _ in await .success(self.recordSelection(credential)) }
                                 }
                             }
                         }
@@ -416,20 +415,15 @@ actor ClaudeClient: ProviderClient {
         switch exchanged {
             case .success(let response):
                 let now: Date = Date()
-                return await store.readItem().bind { item -> Result<ClaudeCredential, ClaudeFailure> in
-                    await ![nil, "", posted].contains(item?.known.claudeAiOauth?.known.refreshToken)
-                        ? store.read().flatMap { content in Self.matched(content, to: current.identity) }
-                        : response.oauth(replacing: current.token, posted: posted, at: now)
-                            .bind { token in
-                                await store.writeOAuth(token.document, over: item).map { _ in
-                                    ClaudeCredential(token: token, account: current.account, identity: current.identity)
-                                }
-                            }
-                            .flatMap { renewed in response.identity(plan: renewed.token.document.known.subscriptionType).map { identity in (renewed, identity) } }
-                            .map { renewed, identity in
-                                if let identity { verifiedIdentities[renewed.token.fingerprint] = identity }
-                                return renewed
-                            }
+                return await Result { () async throws(ClaudeFailure) in
+                    let item: JSONDocument<ClaudeCredentialItem>? = try await store.readItem().get()
+                    guard [nil, "", posted].contains(item?.known.claudeAiOauth?.known.refreshToken) else {
+                        return try await store.read().flatMap { content in Self.matched(content, to: current.identity) }.get()
+                    }
+                    let token: ClaudeOAuthToken = try response.oauth(replacing: current.token, posted: posted, at: now).get()
+                    try await store.writeOAuth(token.document, over: item).get()
+                    if let identity: AccountIdentity = try response.identity(plan: token.document.known.subscriptionType).get() { verifiedIdentities[token.fingerprint] = identity }
+                    return ClaudeCredential(token: token, account: current.account, identity: current.identity)
                 }
             case .failure(.signInRequired):
                 let signedOut: Result<Void, ClaudeFailure> = await store.readItem().bind {

@@ -20,14 +20,14 @@ let settings: [SwiftSetting] = [
 
 let package: Package = Package(
     name: "RasmMacOS",
-    platforms: [.macOS("27.0")],
+    platforms: [.macOS(.v27)],
     products: [
         .library(name: "RasmMacOS", targets: ["RasmMacOS"]),
         .executable(name: "watch-apps", targets: ["watch-apps"]),
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.8.2"),
-        .package(url: "https://github.com/swiftlang/swift-subprocess", from: "1.0.1"),
+        .package(url: "https://github.com/swiftlang/swift-subprocess", from: "1.0.2"),
     ],
     targets: [
         .target(
@@ -35,13 +35,16 @@ let package: Package = Package(
             dependencies: [.product(name: "Subprocess", package: "swift-subprocess")],
             path: ".",
             exclude: ["Watch"],
-            swiftSettings: settings,
         ),
         .executableTarget(
             name: "watch-apps",
             dependencies: ["RasmMacOS", .product(name: "ArgumentParser", package: "swift-argument-parser")],
             path: "Watch",
-            swiftSettings: settings,
+            linkerSettings: [.unsafeFlags(["-Xlinker", "-fatal_warnings"])],
         ),
     ],
 )
+
+for target: Target in package.targets {
+    target.swiftSettings = settings
+}

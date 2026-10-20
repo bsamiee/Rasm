@@ -16,7 +16,7 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - `skills.dirs: []` turns off agent skill links, pnpm offers no package skill for approval and removes links it created
 - `CI` set makes `pnpm install` frozen, a lock out of step with a `package.json` fails the install in place of a lock rewrite
 - `ncu --target newest` takes the latest publish, prereleases included, `greatest` takes abandoned prerelease lines with a higher number
-- `ncu --reject` rows (`typescript`, a suffixed `github:` tag `ncu` ranks below the plain one) take an `sd` step writing their version
+- `ncu --reject` rows (`typescript`, a suffixed `github:` tag `ncu` ranks below the plain one) take their version from `eng/typescript/upgrade/typescript.ts`
 - `pnpm install` keeps orphaned packages for `modulesCacheMaxAge`, `pnpm prune` removes them, then `playwright install` deletes unused browser builds
 
 ## [02]-[COMPILER]
@@ -43,6 +43,7 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - Node strips types from `.ts` files with no loader (`process.features.typescript` reads `strip`), `erasableSyntaxOnly` keeps every file strippable
 - Targets running a file name `node <file>.ts` with `cwd` at the project
 - Shared Vite and Vitest factories take the project directory through `import.meta.dirname`
+- Root `vitest.config.ts` provides every project the `.artifacts` root as `artifacts`, a suite writing files another target reads joins its path to `inject('artifacts')` under a `ProvidedContext` augmentation
 
 ## [04]-[WEB]
 

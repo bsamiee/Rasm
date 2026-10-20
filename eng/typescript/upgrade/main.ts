@@ -1,58 +1,75 @@
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
 import { compare as comparePep440, valid } from '@renovatebot/pep440';
-import { Array, Cause, Effect, Exit, FileSystem, flow, Order, Path, Record, Schema, Stdio, Tuple } from 'effect';
+import { Array, Cause, Effect, Exit, FileSystem, flow, Option, Order, Path, Record, Schema, String, Tuple } from 'effect';
 import { parse as parseToml } from 'smol-toml';
 import { compare, isValid } from 'verkit';
 import { parse as parseYaml } from 'yaml';
+import { stdout } from '../process.ts';
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+const toml = flow(
+    (text: string) => Effect.try(() => parseToml(text)),
+    Effect.flatMap(Schema.decodeUnknownEffect(Schema.Struct({ package: Schema.Array(Schema.Struct({ name: Schema.String, version: Schema.optionalKey(Schema.String) })) }))),
+    Effect.map(({ package: listed }) => listed.flatMap(({ name, version }) => Option.toArray(Option.fromUndefinedOr(version)).map((found) => [name, found] as const))),
+);
+const semver = { valid: isValid, order: compare };
+const LOCKS = {
+    'Cargo.lock': { rows: toml, ...semver },
+    'uv.lock': { rows: toml, valid: (version: string) => valid(version) !== null, order: (self: string, that: string) => Order.Number(comparePep440(self, that), 0) },
+    'pnpm-lock.yaml': {
+        rows: flow(
+            (text: string) => Effect.try(() => parseYaml(text)),
+            Effect.flatMap(Schema.decodeUnknownEffect(Schema.Struct({ packages: Schema.Record(Schema.String, Schema.Unknown) }))),
+            Effect.map(({ packages }) => Object.keys(packages).map((key) => Tuple.make(key.slice(0, key.lastIndexOf('@')), key.slice(key.lastIndexOf('@') + 1)))),
+        ),
+        ...semver,
+    },
+    'Package.resolved': {
+        rows: flow(
+            Schema.decodeUnknownEffect(Schema.fromJsonString(Schema.Struct({ pins: Schema.Array(Schema.Struct({ identity: Schema.String, state: Schema.Struct({ version: Schema.optionalKey(Schema.String) }) })) }))),
+            Effect.map(({ pins }) => pins.flatMap(({ identity, state }) => Option.toArray(Option.fromUndefinedOr(state.version)).map((found) => [identity, found] as const))),
+        ),
+        ...semver,
+    },
+};
+
+// --- [ERRORS] --------------------------------------------------------------------------
+
+class Downgrade extends Schema.TaggedError<Downgrade, { readonly brand: unique symbol }>()('Downgrade', { file: Schema.String, moves: Schema.NonEmptyArray(Schema.Struct({ name: Schema.String, from: Schema.String, to: Schema.String })) }) {
+    override get message(): string {
+        return this.moves.map(({ name, from, to }) => `${this.file} downgraded ${name} ${from} -> ${to}`).join('\n');
+    }
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const check = Effect.fn('check')(function* (baseline: string, lock: (typeof LOCKS)[number]) {
-    const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
-    const read = (file: string) =>
-        fs.readFileString(file).pipe(
-            Effect.flatMap((text) => lock.rows(text).pipe(Effect.mapError((cause) => new Cause.UnknownError(cause, `${file} did not parse`)))),
+const downgrades = Effect.fn('downgrades')(function* (file: string, lock: (typeof LOCKS)[keyof typeof LOCKS]) {
+    const fs = yield* FileSystem.FileSystem;
+    const versions = (text: string) =>
+        lock.rows(text).pipe(
+            Effect.mapError((cause) => new Cause.UnknownError(cause, `${file} did not parse`)),
             Effect.map(flow(Array.filter(flow(Tuple.get(1), lock.valid)), Array.groupBy(Tuple.get(0)), Record.map(Array.map(Tuple.get(1))))),
         );
-    const [started, current] = yield* Effect.all([read(path.join(baseline, lock.file)), read(lock.file)], { concurrency: 'unbounded' });
-    const top = (versions: readonly string[]) => (Array.isReadonlyArrayNonEmpty(versions) ? [Array.max(versions, lock.order)] : []);
-    const downgraded = Object.entries(started).flatMap(([name, before]) => {
+    const [started, current] = yield* Effect.all([Effect.flatMap(stdout('git', ['show', `:${file}`]), versions), Effect.flatMap(fs.readFileString(file), versions)], { concurrency: 'unbounded' });
+    const top = flow(Option.liftPredicate(Array.isReadonlyArrayNonEmpty<string>), Option.map(Array.max(lock.order)));
+    const moves = Object.entries(started).flatMap(([name, before]) => {
         const after = current[name] ?? before;
-        return Array.cartesian(top(Array.difference(before, after)), top(Array.difference(after, before)))
-            .filter(([from, to]) => Order.isLessThan(lock.order)(to, from))
-            .map(([from, to]) => `${lock.file} downgraded ${name} ${from} -> ${to}`);
+        return Option.toArray(Option.filter(Option.all({ from: top(Array.difference(before, after)), to: top(Array.difference(after, before)) }), ({ from, to }) => Order.isLessThan(lock.order)(to, from))).map((move) => ({ name, ...move }));
     });
-    return yield* downgraded.length === 0 ? Effect.void : Effect.fail(new Cause.UnknownError(undefined, downgraded.join('\n')));
+    return yield* Array.match(moves, { onEmpty: () => Effect.void, onNonEmpty: (found) => Effect.fail(Downgrade.make({ file, moves: found })) });
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const toml = (text: string) =>
-    Effect.try(() => parseToml(text)).pipe(
-        Effect.flatMap(Schema.decodeUnknownEffect(Schema.Struct({ package: Schema.Array(Schema.Struct({ name: Schema.String, version: Schema.optionalKey(Schema.String) })) }))),
-        Effect.map(({ package: listed }) => listed.flatMap(({ name, version }) => (version === undefined ? [] : [[name, version] as const]))),
+Effect.gen(function* () {
+    const path = yield* Path.Path;
+    const tracked = Array.groupBy((yield* stdout('git', ['ls-files', '--cached', '-z', '--', ...Object.keys(LOCKS).map((name) => `:(glob)**/${name}`)])).split('\0').filter(String.isNonEmpty), (file) => path.basename(file));
+    const exits = yield* Effect.forEach(
+        Object.entries(LOCKS).flatMap(([name, lock]) => (tracked[name] ?? []).map((file) => Tuple.make(file, lock))),
+        ([file, lock]) => Effect.exit(downgrades(file, lock)),
+        { concurrency: 'unbounded' },
     );
-const semver = { valid: isValid, order: compare };
-const LOCKS = [
-    { file: 'Cargo.lock', rows: toml, ...semver },
-    { file: 'uv.lock', rows: toml, valid: (version: string) => valid(version) !== null, order: (self: string, that: string) => Order.Number(comparePep440(self, that), 0) },
-    {
-        file: 'pnpm-lock.yaml',
-        rows: (text: string) =>
-            Effect.try(() => parseYaml(text)).pipe(
-                Effect.flatMap(Schema.decodeUnknownEffect(Schema.Struct({ packages: Schema.Record(Schema.String, Schema.Unknown) }))),
-                Effect.map(({ packages }) => Object.keys(packages).map((key) => [key.slice(0, key.lastIndexOf('@')), key.slice(key.lastIndexOf('@') + 1)] as const)),
-            ),
-        ...semver,
-    },
-];
-
-Stdio.Stdio.pipe(
-    Effect.flatMap((stdio) => stdio.args),
-    Effect.flatMap(Schema.decodeUnknownEffect(Schema.Tuple([Schema.String]))),
-    Effect.flatMap(([baseline]) => Effect.forEach(LOCKS, (lock) => Effect.exit(check(baseline, lock)), { concurrency: 'unbounded' })),
-    Effect.flatMap(Exit.asVoidAll),
-    Effect.provide(layer),
-    runMain,
-);
+    return yield* Exit.asVoidAll(exits);
+}).pipe(Effect.provide(layer), runMain);

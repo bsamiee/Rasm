@@ -402,4 +402,4 @@ private let observed: AXObserverCallback = { _, _, _, refcon in
 }
 
 @_silgen_name("_AXUIElementGetWindow")
-private func windowIdentifier(_ element: AXUIElement, _ identifier: UnsafeMutablePointer<CGWindowID>) -> AXError
+private func windowIdentifier(_: AXUIElement, _: UnsafeMutablePointer<CGWindowID>) -> AXError

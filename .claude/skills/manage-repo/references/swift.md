@@ -6,7 +6,8 @@ Xcode projects inherit root `Xcode.xcconfig`, SwiftPM packages build libraries, 
 
 `project.xcproj` uses Xcode's hierarchical JSON format, use Apple's Schema for keys and defaults:
 - Convert existing projects through Xcode's Project Format inspector or `xcodebuild -convert-project 'Xcode Project'`
-- Preserve Xcode's compact printing, array order, and trailing commas
+- `format:xcprojformatter` prints each `project.xcproj` in Apple's canonical form, one project per `xcrun xcprojformatter` run
+- `xcprojformatter` comes from the selected Xcode with no `mise.toml` row, has no check form, and exits 0 after writing a project or stdout
 - Target and product IDs stay stable across edits, schemes and external projects reference them
 - Other relationships use unique names or name paths, IDs resolve ambiguity
 - Project `configurations` define names once, target `specialized-configurations` appear only for configuration files or IDs
@@ -32,6 +33,8 @@ Project and target settings override root `Xcode.xcconfig`:
 - `PRODUCT_NAME = $(TARGET_NAME)` stays, the spec default is empty
 - `ALWAYS_SEARCH_USER_PATHS = NO` stays, the `YES` default prints a header map warning in Swift-only targets
 - Dead code stripping and user script sandboxing stay, Xcode's recommended-settings check proposes both again
+- `COMPILATION_CACHE_ENABLE_CACHING` caches compile jobs under each derived data folder, a build after deleting `Build/` replays them
+- `OTHER_LDFLAGS = -Wl,-fatal_warnings` fails a build on a linker warning, `SWIFT_TREAT_WARNINGS_AS_ERRORS` reaches `swiftc` alone
 - Release builds write a dSYM, crash reports from an installed product hold no symbols otherwise
 - `MACOSX_DEPLOYMENT_TARGET` holds the minimum macOS supported by every product
 - `ARCHS_STANDARD` at the deployment target is arm64 alone, project targets take no `ARCHS` row
@@ -42,7 +45,8 @@ Project and target settings override root `Xcode.xcconfig`:
 - TCC and `tccutil` address a bundle identifier LaunchServices registered, an unbundled executable gets one Automation row per path and no reset
 - Products needing a TCC grant are `application` bundles at default `INSTALL_PATH` (`/Applications`), `LSBackgroundOnly` when they show no interface
 - Interface apps add `MainActor` default isolation, tools `CREATE_INFOPLIST_SECTION_IN_BINARY` for their Info.plist keys
-- Interface apps sending no Apple Events add hardened runtime, Apple Events need an entitlement under it
+- Every product takes hardened runtime from `Xcode.xcconfig`
+- Apple Events senders add `AUTOMATION_APPLE_EVENTS`, Xcode signs the `com.apple.security.automation.apple-events` entitlement from it
 
 ## [03]-[COMPILER]
 
@@ -53,10 +57,10 @@ Toolchain upgrades re-derive compiler policy in root `Xcode.xcconfig` and each l
 - Mode moves delete each feature row the new mode implies
 - `SWIFT_APPROACHABLE_CONCURRENCY` stays out, language mode and individual feature rows cover its features
 - Features without a `SWIFT_UPCOMING_FEATURE_*` setting join `OTHER_SWIFT_FLAGS` as `-enable-upcoming-feature <Name>`
-- `OTHER_SWIFT_FLAGS` takes no `$(inherited)`, root file is the lowest configurable level and the setting has no default
+- `OTHER_SWIFT_FLAGS` and `OTHER_LDFLAGS` take no `$(inherited)`, root file is the lowest configurable level and neither setting has a default
 - Strict memory safety takes an `unsafe` marker on each expression using an API with no safe form
 - Warnings as errors covers every on-by-default diagnostic group, `SWIFT_WARNINGS_AS_ERRORS_GROUPS` adds only off-by-default groups
-- `-warn-soft-deprecated` joins `OTHER_SWIFT_FLAGS` and is each manifest's one `unsafeFlags` entry, warning on members deprecated at version 100000
+- `-warn-soft-deprecated` joins `OTHER_SWIFT_FLAGS` and each manifest's `settings` as `unsafeFlags`, warning on members deprecated at version 100000
 - `StrictLanguageFeatures` is on, the compiler otherwise ignores a misspelled feature name
 - Performance hint groups stay off, `UntypedThrows` fails in `@Observable` expansions, `ExistentialType` on a `Codable` witness's `any Decoder`
 - Enhanced security rows stay out, each is Clang-only or needs a hardened-process entitlement
@@ -67,15 +71,20 @@ Toolchain upgrades re-derive compiler policy in root `Xcode.xcconfig` and each l
 Remote packages join `packages` in each importing project:
 - `kind: "remote"` declares a repository, target `package-product-members` connects imported products to build phases
 - `version.up-to-next-major-version` sets a lower bound, `Package.resolved` owns the exact version
-- Prereleases join through a bound naming one, a new major through a bound edit
-- `-resolvePackageDependencies` honors `Package.resolved` and `SourcePackages/workspace-state.json`, `upgrade` deletes both before resolving
+- `upgrade:swift` moves each `Package.swift` `from:` and `project.xcproj` `up-to-next-major-version` bound to the newest tag, prereleases included
+- Root `Workspace.xcworkspace` lists every `.xcodeproj` and holds the one `Package.resolved` of every app, `Workspace.slnx`'s counterpart
+- Workspace resolution covers every project whatever the scheme, `xcodebuild` requires a `-scheme` beside `-workspace`
+- Every `xcodebuild` and `xcode-build-server config` command passes `-workspace`, Xcode and the Xcode MCP open `Workspace.xcworkspace`
+- Opening or resolving a `.xcodeproj` alone writes an ignored `project.xcworkspace` holding a lock of its own
+- `-resolvePackageDependencies` honors `Package.resolved` and `SourcePackages/workspace-state.json`, root `upgrade:xcode` deletes both
+- `upgrade:xcode` resolves once under the first workspace project's scheme
+- `build` under `-disableAutomaticPackageResolution` checks out the lock's versions over its derived data `workspace-state.json`
 - `-packageCachePath` stays out, `xcodebuild` and `swift` share SwiftPM's per-user repository cache with packages outside the repository
 - Settings every package target needs go on `build` and `install` commands, project build settings reach no package target
 - Remote package warnings never fail a build
 - `LM_SKIP_METADATA_EXTRACTION=YES` skips App Intents extraction in every Swift target, no product declares an intent
 - `install` passes `ARCHS=arm64`, package targets otherwise build at their manifest's lower deployment target and add x86_64 in Release
 - `install` builds in its own derived data folder, `-clonedSourcePackagesDirPath` reads the package checkout under `build` derived data
-- Root `.xcworkspace` stays out, a workspace owns a second `Package.resolved` while Nx builds each project alone
 
 ## [05]-[SWIFT_FORMAT]
 
@@ -97,8 +106,9 @@ swift-format comes from the selected toolchain through `xcrun`, with no `mise.to
 - `only_rules` lists every enabled rule, each row a tightening where `disabled_rules` needs a relaxing row per unwanted rule
 - Rules a SwiftLint release adds stay off until listed, an upgrade judges each new id `swiftlint rules` shows
 - `included` stays unset, when present SwiftLint ignores the paths a command passes
-- Layout rules stay off, swift-format owns layout and writes last
-- Rules the compiler rejects under warnings as errors stay off (`duplicate_enum_cases`, `legacy_hashing`, `empty_parameters`)
+- Layout rules stay off, swift-format owns layout and writes last, after `format:swiftlint` in `package.json` target order
+- Rules the compiler reports first stay off (`duplicate_enum_cases`, `empty_parameters`, `legacy_hashing`, `self_in_property_initialization`)
+- `unhandled_throwing_task` stays off, the on-by-default `NoUseUnstructuredThrowingTask` group fails the build under warnings as errors
 - Size and complexity rules stay off, the repository sets no limit
 - Rules forcing a form the file organization standard rejects stay off (kind order, one declaration per file, sorted enum cases)
 - `explicit_type_interface` stays on and `redundant_type_annotation` off, the Swift form of the C# no-`var` policy
@@ -107,47 +117,66 @@ swift-format comes from the selected toolchain through `xcrun`, with no `mise.to
 - `prefer_key_path` keeps `restrict_to_standard_functions` at its default, its fix on other functions breaks the call
 - `nesting` at `type_level: 3` caps declaration depth, an ast-grep rule caps closure and control depth
 - `custom_rules` stays empty, ast-grep rules under `tools/ast-grep/rules/swift` match structure by syntax where SwiftLint matches text by regex
+- `typesafe_array_init` stays off, `array_init` reports its form in every file the analyzer pass skips too
+- `unused_parameter` stays off, Periphery reports unused parameters with overrides and witnesses resolved
 - `swiftlint analyze` runs no `--fix`, `unused_import`'s fix breaks builds under `MemberImportVisibility`
 - SwiftPM libraries take no analyzer pass, `unused_import` flags the `System` import `FilePath` literals need under `MemberImportVisibility`
 - `deployment_target` holds `MACOSX_DEPLOYMENT_TARGET`, SwiftLint reads no xcconfig
 
-## [07]-[CI]
+## [07]-[PERIPHERY]
+
+Periphery reports unused declarations, parameters, and assign-only properties from each project's index store:
+- `lint:periphery` passes each project's index store as `--index-store-path`, `.periphery.yml` names one constant generic configuration
+- Generic configurations decode only with every key present, `--project` rejects a `project.xcproj` project with no `.pbxproj`
+- Index stores sit at Xcode's `Index.noindex/DataStore` under derived data and SwiftPM's `out` under `SWIFTPM_BUILD_DIR`
+- `--retain-public` on SwiftPM scans keeps library API apps call, app scans keep redundant-public analysis
+- `retain_encodable_properties` keeps fields a synthesized encoder reads
+- Unused import analysis covers scanned modules alone, SwiftPM packages take no other unused-import check and SwiftLint `unused_import` covers Xcode projects
+- Bodyless `@_silgen_name` declarations name parameters `_:`, Periphery reports each named one unused
+
+## [08]-[CI]
 
 Shared CI setup on macOS first selects the runner image's newest installed Xcode, betas included, through `setup-xcode`:
 - CI-only settings join `build` configuration `ci`, workflows select it with `--configuration ci`
 - Settings in `ci` and after `--` reach `build`'s xcodebuild alone
+- Configuration `ci` keeps the index store `lint:periphery` reads
 - `xcbeautify` reads a pipe alone and stays out
-- SwiftPM and derived data caches stay out, a restore keyed on sources misses on each source change
+- Derived data caches stay out, a restore keyed on sources misses on each source change
+- SwiftPM's repository cache `~/Library/Caches/org.swift.swiftpm` restores by a key over every `Package.resolved`
 
-## [08]-[SWIFTPM]
+## [09]-[SWIFTPM]
 
 SwiftPM joins with the first Swift library:
 - Every `swift package` run writes a build directory, `--help` included
 - SwiftPM takes its scratch path from `SWIFTPM_BUILD_DIR`, then `--scratch-path`, then `<package>/.build`, and reads it from no configuration file
 - `SWIFTPM_BUILD_DIR` stays out of `[env]`, one path there serves every package and moves sourcekit-lsp's preparation build off its index workspace
 - Nx inference sets `SWIFTPM_BUILD_DIR` to `.cache/swiftpm/build/<projectRoot>` in each SwiftPM target's `options.env` and `dump-package` run
+- Nx names a package project by its manifest `name` and tags its hosts from its path, Xcode projects tag `host:macos`
 - SwiftPM work runs through the package's Nx targets
 - Xcode builds package targets under `-derivedDataPath` and reads no `SWIFTPM_BUILD_DIR`
 - Apps stay `.xcodeproj`, PackageDescription has no application product, Info.plist, icon, or signing API
 - Library packages take the newest tools version the installed toolchain accepts
 - Tools version 6 implies language mode 6, manifests hold no `swiftLanguageModes`
 - Library targets take `path: "."` in place of SwiftPM's `Sources/` default and exclude each other target's folder, sources overlap otherwise
-- One `let settings: [SwiftSetting]` per manifest applies to every target, no mechanism shares settings across manifests
+- One `let settings: [SwiftSetting]` per manifest reaches every target through a closing `for target: Target in package.targets` loop
 - Settings restate `Xcode.xcconfig` compiler policy in typed forms (`.strictMemorySafety()`, `.enableUpcomingFeature`), SwiftPM reads no xcconfig
+- Executable targets restate `OTHER_LDFLAGS` as `linkerSettings` `unsafeFlags(["-Xlinker", "-fatal_warnings"])`
 - Executables a skill drives are `executableTarget`s in their own folder, run from `build` output's `debug/<executable>`
 - Sibling packages reference each other by `.package(path:)` with no lock entry, each keeps its own settings under a sibling's build
+- Test targets sit inside their package, SwiftPM refuses a test target path outside the package root
+- Test packages outside a library are siblings with a last path component apart from the library's, package identity is that component
 - Apps reference a library as a `packages` row with `kind: "local"` and project-relative `path`, `package-product-members` name it by folder
 - `Package.resolved` appears at the package root with the first remote dependency
 - SwiftLint and swift-format plugins stay out, each adds a remote dependency and a second tool version beside the root one
 
-## [09]-[NEW_PROJECT]
+## [10]-[NEW_PROJECT]
 
-New Swift projects join as `<Name>.xcodeproj`, root files serve every other item of a language join:
+New Swift projects join as `<Name>.xcodeproj` with a `FileRef` row in `Workspace.xcworkspace`, root files serve every other item of a language:
 - `tools/ast-grep/rules/swift` and `tools/ast-grep/outline/swift.yml` cover every Swift file
 - Template Clang and Metal rows and the `DEBUG` condition have no reader in a Swift product
 - README changes with a new owner or project kind alone, `.xcodeproj` is a listed project file
 
-## [10]-[LANGUAGE_SERVER]
+## [11]-[LANGUAGE_SERVER]
 
 sourcekit-lsp from the selected toolchain reads each Xcode project's compiler arguments through xcode-build-server:
 - Folders below the session root holding `buildServer.json`, `Package.swift`, or a compilation database alone open as sourcekit-lsp workspaces
@@ -159,6 +188,7 @@ sourcekit-lsp from the selected toolchain reads each Xcode project's compiler ar
 - `buildServer.json` holds absolute tool and derived data paths and stays ignored
 - Parsed arguments and xcode-build-server's index database sit under `~/Library/Caches/xcode-build-server`, a folder no setting moves
 - Index store and database paths come from xcode-build-server's `build/initialize` reply, sourcekit-lsp's `index` options hold no path
-- `--scratch-path` in the `swift` `.lsp.json` row moves the SwiftPM index build from `<package>/.build/index-build` to `.cache/swiftpm/index`
+- `swift` `.lsp.json` row's `initializationOptions.swiftPM.scratchPath` moves the SwiftPM index build to `.cache/swiftpm/index`
+- `forceResolvedVersions` in the same options makes background indexing read `Package.resolved` as a lock
 - VS Code `swift.buildPath` sets the Swift extension's scratch path apart from the `.lsp.json` row's, SwiftPM locks a scratch path per process
 - `.sourcekit-lsp/` and `.bsp/` stay out, sourcekit-lsp asks to trust a workspace holding either and Claude Code answers no server request

@@ -46,11 +46,9 @@ enum CodexDesktop {
                         (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?
                             .processIdentifier
                     }
-                return switch (instance.terminate(), instance.isTerminated) {
-                    case (false, _): .failure(.desktopQuitRefused)
-                    case (true, true): .success(())
-                    case (true, false): await terminations.contains(pid) ? .success(()) : .failure(.cancelled)
-                }
+                guard instance.terminate() else { return .failure(.desktopQuitRefused) }
+                guard !instance.isTerminated else { return .success(()) }
+                return await terminations.contains(pid) ? .success(()) : .failure(.cancelled)
             }
             if case .failure = quit { instance.forceTerminate() }
             guard !Task.isCancelled else { return .failure(.cancelled) }

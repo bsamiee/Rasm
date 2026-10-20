@@ -34,9 +34,9 @@
     },
     "swift": {
         "command": "sourcekit-lsp",
-        "args": [ "--scratch-path", "${CLAUDE_PROJECT_DIR}/.cache/swiftpm/index" ],
         "extensionToLanguage": { ".swift": "swift" },
-        "diagnostics": false
+        "diagnostics": false,
+        "initializationOptions": { "swiftPM": { "scratchPath": "${CLAUDE_PROJECT_DIR}/.cache/swiftpm/index", "forceResolvedVersions": true } }
     },
     "java": {
         "command": "mise",

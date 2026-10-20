@@ -32,6 +32,11 @@ runs:
           with:
             path: ${{ steps.pnpm.outputs.store }}
             key: pnpm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+        - uses: actions/cache@v6
+          if: runner.os == 'macOS'
+          with:
+            path: ~/Library/Caches/org.swift.swiftpm
+            key: swiftpm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/Package.resolved') }}
         - uses: Swatinem/rust-cache@v2.9.2
           with:
             workspaces: . -> .cache/rust/build

@@ -12,6 +12,8 @@ dist/
 .vs/
 buildServer.json
 *.received.*
+*.pending-snap
+*.snap.new
 
 # --- [HOST_WRITES] ----------------------------------------------------------------------
 
@@ -19,6 +21,7 @@ buildServer.json
 *.3dmbak
 /Grasshopper.*
 xcuserdata/
+project.xcworkspace/
 __pycache__/
 
 # --- [SECRETS] --------------------------------------------------------------------------
