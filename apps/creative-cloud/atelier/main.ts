@@ -9,7 +9,8 @@ import { listen, PublishedResource, PublishedTool, publish } from '@rasm/mcp/lin
 import { main } from '@rasm/mcp/main';
 import { Attachment, Image, Instructions, Progress, READING, targeted } from '@rasm/mcp/server';
 import { Unmatched } from '@rasm/search';
-import { Face, Instance, Run, Shaped } from '@rasm/typography';
+import { Face, Instance, Run, Shaped } from '@rasm/typography/main';
+import type { Source } from '@rasm/typography/source';
 import { ORIGIN } from '@rasm/uxp/runtime';
 import { Array, Config, Context, Effect, flow, Layer, Match, Option, pipe, Schema, SchemaAST, Stream, Struct } from 'effect';
 import { McpSchema, McpServer, Tool } from 'effect/ai';
@@ -131,23 +132,23 @@ main(
             );
             const faces = { uri: 'atelier://faces', name: 'faces', description: 'Installed faces CoreText finds, each with the file holding it', mimeType: 'application/json' };
             yield* McpServer.registerResource({ ...faces, content: Effect.flatMap(InstalledFace.all, json(Schema.Array(InstalledFace))) });
+            const specimen = Schema.Struct({ face: Face, shaped: Shaped });
             yield* register(
                 Tool.make('font', {
-                    description: `Opens a face by name at its named instance, a generated instance PostScript name, or the variation settings, and reads its names, coverage, metrics in em, embedding rights, language systems, features, axes, named instances, and color data, then shapes the text with the feature settings, reporting missing characters; ${faces.uri} lists installed faces. An application's linked extension answers with its view of the named face`,
+                    description: `Opens a face by name at its named instance, a generated instance PostScript name, or the variation settings, and shapes the text in it; ${faces.uri} lists installed faces. An application's linked extension answers with its view of the named face`,
                     parameters: Instance.pipe(Schema.fieldsAssign({ ...Run.fields, name: Schema.String.annotate({ description: 'PostScript name, full name, or family for its default face, in any case, as CoreText matches it; a linked extension takes its native font name or specifier' }) })),
-                    success: Schema.Union([Schema.Struct({ ...InstalledFace.fields, face: Face, shaped: Shaped }), Schema.Struct({ ...FontView.fields, face: Schema.OptionFromOptionalKey(Face), shaped: Schema.OptionFromOptionalKey(Shaped) })]),
+                    success: Schema.Union([Schema.Struct({ ...InstalledFace.fields, specimen }), Schema.Struct({ ...FontView.fields, specimen: Schema.OptionFromOptionalKey(specimen) })]),
                 }).annotateMerge(READING),
-                Effect.fnUntraced(function* ({ name, text, features, variations, size }, chosen) {
-                    const typeset = ({ data, postscriptName }: Effect.Success<ReturnType<InstalledFace['source']>>) => Effect.map(Face.open(data, postscriptName, { variations, size }), (face) => ({ face, shaped: face.shape({ text, features }) }));
+                Effect.fnUntraced(function* ({ name, variations, size, ...run }, chosen) {
+                    const typeset = (source: typeof Source.Type) => Effect.map(Face.open(source, { variations, size }), (face) => ({ face, shaped: face.shape(run) }));
                     return yield* Option.match(yield* Effect.catchNoSuchElement(panel.call(chosen)), {
                         onNone: Effect.fnUntraced(function* () {
                             const found = yield* InstalledFace.named(name);
-                            return { ...found, ...(yield* Effect.flatMap(found.source(), typeset)) };
+                            return { ...found, specimen: yield* Effect.flatMap(found.source(), typeset) };
                         }),
                         onSome: Effect.fnUntraced(function* (use) {
-                            const { view, source } = yield* use('font', { name, text });
-                            const set = yield* Effect.transposeOption(Option.map(source, typeset));
-                            return { ...view, face: Option.map(set, Struct.get('face')), shaped: Option.map(set, Struct.get('shaped')) };
+                            const { view, source } = yield* use('font', { name, text: run.text });
+                            return { ...view, specimen: yield* Effect.transposeOption(Option.map(source, typeset)) };
                         }),
                     });
                 }),

@@ -2171,6 +2171,9 @@ importers:
       '@rasm/search':
         specifier: workspace:*
         version: link:../../data/search
+      '@rasm/typography':
+        specifier: workspace:*
+        version: link:../../graphics/typography
       '@rasm/uxp':
         specifier: workspace:*
         version: link:../uxp

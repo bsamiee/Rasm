@@ -1,4 +1,5 @@
 import type { Font as NativeFont } from 'adobe:indesign';
+import { Source } from '@rasm/typography/source';
 import { Uxp } from '@rasm/uxp/runtime';
 import { Array, Cause, Effect, flow, Option, Predicate, Schema, Struct } from 'effect';
 import { FindChange } from './find.ts';
@@ -101,12 +102,7 @@ class Font extends Schema.Class<Font, { readonly brand: unique symbol }>('Font')
 ) {
     static readonly Result = Schema.Struct({
         view: FontView,
-        source: Schema.OptionFromOptionalKey(
-            Schema.Struct({
-                data: Schema.Uint8Array,
-                postscriptName: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Face, named instance, or generated instance the bytes select; absent when the bytes are a native subset at the default instance holding the requested characters alone' })),
-            }),
-        ).annotate({ description: 'Face bytes of an installed font' }),
+        source: Schema.OptionFromOptionalKey(Source.annotate({ description: 'Face bytes of an installed font' })),
     });
     run() {
         const { name, text } = this;

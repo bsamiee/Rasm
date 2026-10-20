@@ -6,7 +6,7 @@ import { Array, Effect, flow, Option, Predicate, Schema } from 'effect';
 class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique symbol }>()('Unmatched', { subject: Schema.String, query: Schema.OptionFromOptionalKey(Schema.String), candidates: Schema.Array(Schema.String) }) {
     static readonly matching =
         (subject: string, query: Option.Option<string>) =>
-        <A>(candidates: readonly A[], names: (candidate: A) => readonly [label: string, ...aliases: string[]]): Effect.Effect<readonly A[], Unmatched> => {
+        <A>(candidates: readonly A[], names: (candidate: A) => readonly string[]): Effect.Effect<readonly A[], Unmatched> => {
             const equal = new Intl.Collator('en', { usage: 'search', sensitivity: 'accent' }).compare;
             return Option.match(query, {
                 onNone: () => Effect.succeed(candidates),
@@ -16,15 +16,15 @@ class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique s
                             candidates.filter((candidate) => names(candidate).some((name) => equal(name, wanted) === 0)),
                             Array.isReadonlyArrayNonEmpty,
                         ),
-                        () => Unmatched.make({ subject, query, candidates: Array.dedupe(candidates.map(flow(names, Array.headNonEmpty))) }),
+                        () => Unmatched.make({ subject, query, candidates: Array.dedupe(Array.flatMap(candidates, flow(names, Array.take(1)))) }),
                     ),
             });
         };
     static readonly single =
         (subject: string, query: Option.Option<string>) =>
-        <A>(candidates: readonly A[], names: (candidate: A) => readonly [label: string, ...aliases: string[]]): Effect.Effect<A, Unmatched> =>
+        <A>(candidates: readonly A[], names: (candidate: A) => readonly string[]): Effect.Effect<A, Unmatched> =>
             Effect.map(
-                Effect.filterOrFail(Unmatched.matching(subject, query)(candidates, names), Predicate.isTupleOf(1), (matched) => Unmatched.make({ subject: `single ${subject}`, query, candidates: matched.map(flow(names, Array.headNonEmpty)) })),
+                Effect.filterOrFail(Unmatched.matching(subject, query)(candidates, names), Predicate.isTupleOf(1), (matched) => Unmatched.make({ subject: `single ${subject}`, query, candidates: Array.flatMap(matched, flow(names, Array.take(1))) })),
                 ([only]) => only,
             );
 

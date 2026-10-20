@@ -8,6 +8,7 @@
     },
     "dependencies": {
         "@rasm/search": "workspace:*",
+        "@rasm/typography": "workspace:*",
         "@rasm/uxp": "workspace:*",
         "acorn": "catalog:",
         "acorn-walk": "catalog:",
