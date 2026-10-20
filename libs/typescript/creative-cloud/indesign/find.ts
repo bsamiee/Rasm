@@ -2,7 +2,6 @@ import type { Document, InDesignDOMObject, PageItem, Text } from 'adobe:indesign
 import { matching, Unmatched } from '@rasm/search';
 import { Uxp } from '@rasm/uxp/runtime';
 import { Array, Cause, Effect, flow, Number, Option, Predicate, pipe, Record, Schema, String, Struct } from 'effect';
-import { Dom } from './dom.ts';
 import { Model } from './model.ts';
 import { write } from './mutations.ts';
 import { active, owner, read, resolve, Specifier } from './references.ts';
@@ -43,14 +42,13 @@ class FindChange extends Mutation.extend<FindChange>('FindChange')(
     }
 
     run() {
-        return this.commit(FindChange.Own, this.search(), Effect.succeed);
+        return this.commit(FindChange.Own, this.search());
     }
 
     search() {
         const { mode, find: sought, change: replacing, options, scope, query, save } = this;
         return Effect.gen(function* () {
-            const [indesign, { owning, text, item }] = yield* Effect.all([Dom, Model]);
-            const { app, NothingEnum, SearchModes } = indesign;
+            const { app, Enumerator, NothingEnum, SearchModes, owning, text, item } = yield* Model;
             const [find, change] = [`find${mode}`, `change${mode}`] as const;
             const owners = { find: `${find}Preferences`, change: `${change}Preferences`, options: `findChange${mode}Options` } as const;
             const search = SearchModes[`${String.toLowerCase(mode)}search` as const];
@@ -66,7 +64,7 @@ class FindChange extends Mutation.extend<FindChange>('FindChange')(
                     ),
             );
             yield* Effect.try(() => Record.map(owners, (field) => Object.assign(app, { [field]: NothingEnum.NOTHING })));
-            const rendered = (contents: unknown): string => Array.map(Array.ensure(contents), (each) => (each instanceof indesign.Enumerator ? `<${globalThis.String(each)}>` : globalThis.String(each))).join('');
+            const rendered = (contents: unknown): string => Array.map(Array.ensure(contents), (each) => (each instanceof Enumerator ? `<${globalThis.String(each)}>` : globalThis.String(each))).join('');
             const scopes = yield* Effect.forEach(
                 Array.ensure<unknown>(yield* Option.match(scope, { onSome: resolve, onNone: () => active })),
                 flow(
@@ -120,7 +118,7 @@ class Queries extends Schema.Class<Queries, { readonly brand: unique symbol }>('
     run() {
         const { name } = this;
         return Effect.gen(function* () {
-            const [{ app, ScriptLanguage }, { fs }] = yield* Effect.all([Dom, Uxp]);
+            const [{ app, ScriptLanguage }, { fs }] = yield* Effect.all([Model, Uxp]);
             const listing = `(function (factory) {
     var rows = [], modes = Folder(factory ? app.filePath + '/Presets/Find-Change Queries' : app.scriptPreferences.scriptsFolder.parent.parent + '/Find-Change Queries').getFiles() || [];
     for (var at = 0; at < modes.length; at++) {

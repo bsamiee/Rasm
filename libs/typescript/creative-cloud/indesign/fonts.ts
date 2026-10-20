@@ -1,7 +1,6 @@
 import type { Font as NativeFont } from 'adobe:indesign';
 import { Uxp } from '@rasm/uxp/runtime';
 import { Array, Cause, Effect, flow, Option, Predicate, Schema, Struct } from 'effect';
-import { Dom } from './dom.ts';
 import { FindChange } from './find.ts';
 import { Model } from './model.ts';
 import { active, font, Reference, read, Specifier } from './references.ts';
@@ -30,7 +29,7 @@ class FontView extends Schema.TaggedClass<FontView, { readonly brand: unique sym
 }) {
     static readonly viewed = ({ owning }: Model['Service']) => flow(Option.liftPredicate(owning<NativeFont>('postscriptName')), Option.map(FontView.of));
     static readonly of = Effect.fn('of')(function* (face: NativeFont) {
-        const [{ app, FontStatus, OpenTypeFeature }, { members }] = yield* Effect.all([Dom, Model]);
+        const { app, FontStatus, OpenTypeFeature, members } = yield* Model;
         const [family, installed] = [face.fontFamily, face.status.equals(FontStatus.INSTALLED)];
         const style = installed ? Option.some(face.fontStyleName) : Option.none();
         const uses = yield* Option.match(yield* Effect.option(active), {
@@ -112,7 +111,7 @@ class Font extends Schema.Class<Font, { readonly brand: unique symbol }>('Font')
     run() {
         const { name, text } = this;
         return Effect.gen(function* () {
-            const [face, { FontStatus }, { fs, temporary }] = yield* Effect.all([font(name), Dom, Uxp]);
+            const [face, { FontStatus }, { fs, temporary }] = yield* Effect.all([font(name), Model, Uxp]);
             const bytes = (path: string) => Effect.try(() => new Uint8Array(fs.readFileSync(path)));
             const subset = Effect.flatMap(temporary('font.otf'), (entry) =>
                 Effect.andThen(

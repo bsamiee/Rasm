@@ -3,8 +3,8 @@ import { PgliteClient } from '@effect/sql-pglite';
 import { SqliteClient } from '@effect/sql-sqlite-node';
 import { describe, it, layer } from '@effect/vitest';
 import { pg_trgm } from '@electric-sql/pglite/contrib/pg_trgm';
-import type { names } from '@rasm/database/catalog.ts';
 import { parsers } from '@rasm/database/pg.ts';
+import type { names } from '@rasm/database/table.ts';
 import { Effect, FileSystem, Function, Layer, Path } from 'effect';
 import { cases } from './cases.ts';
 

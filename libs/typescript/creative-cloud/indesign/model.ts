@@ -1,7 +1,12 @@
 import type { BaseCollection, Document, Enumeration, Enumerator, InDesignDOMObject, MenuAction, Page, PageItem, ReadonlyNamedDOMObject, Spread, Text, TextFrame } from 'adobe:indesign';
 import { Unmatched } from '@rasm/search';
 import { Array, Cache, type Cause, Context, Effect, flow, Match, Option, Predicate, pipe, Record, Schema, SchemaGetter, Struct } from 'effect';
-import { Dom } from './dom.ts';
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const DECLARED = /Can (?:return|accept): (?<types>.+?)\.(?: \(Optional\))?$/u;
+const ALTERNATIVE = /\. Can also accept: |, | or /u;
+const ENUMERATOR = / enumerator$/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -28,10 +33,11 @@ const Class = Schema.Struct({ parent: Schema.OptionFromOptionalKey(Schema.String
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class Model extends Context.Service<Model>()('@rasm/indesign/model', {
-    make: Effect.gen(function* () {
-        const indesign = yield* Dom;
+    make: Effect.fnUntraced(function* (indesign: typeof import('adobe:indesign')) {
+        const model: typeof indesign = Object.create(indesign);
         const exported = Array.map(Object.getOwnPropertyNames(indesign), (name) => [name, Reflect.get(indesign, name)] as const);
-        const kinds = Array.flatMap(exported, ([name, value]) => (Predicate.isFunction(value) || value instanceof indesign.Enumeration ? [name] : []));
+        const classes = Array.flatMap(exported, ([name, value]) => (Predicate.isFunction(value) ? [name] : []));
+        const enumerations = Array.flatMap(exported, ([name, value]) => (value instanceof indesign.Enumeration ? [name] : []));
         const prototypes = Record.map(
             Array.groupBy(
                 Array.flatMap(exported, ([, type]) => (Predicate.isFunction(type) ? Array.map(Object.getOwnPropertyNames(type.prototype), (member) => [member, type.prototype] as const) : [])),
@@ -62,9 +68,17 @@ class Model extends Context.Service<Model>()('@rasm/indesign/model', {
                 return keyed(member, key) ? [member] : [];
             });
         };
+        const declared = ({ type, description }: Pick<typeof Member.Type, 'type' | 'description'>) =>
+            Option.match(
+                Option.flatMapNullishOr(description, (written) => DECLARED.exec(written)?.groups?.types),
+                {
+                    onNone: () => Option.toArray(type),
+                    onSome: (types) => Array.map(types.split(ALTERNATIVE), (each) => each.replace(ENUMERATOR, '')),
+                },
+            );
         const listing = (kind: string): boolean => {
-            const declared: unknown = Reflect.get(indesign, kind);
-            return Predicate.isFunction(declared) && Object.hasOwn(declared.prototype, 'everyItem');
+            const found: unknown = Reflect.get(indesign, kind);
+            return Predicate.isFunction(found) && Object.hasOwn(found.prototype, 'everyItem');
         };
         const plural = ({ type }: Pick<typeof Member.Type, 'type'>): boolean => Option.exists(type, listing);
         const unavailable = (kind: string, field: string, observed: Option.Option<InDesignDOMObject<unknown>>, writing: boolean): Option.Option<string> => {
@@ -114,7 +128,14 @@ found === null ? null : (function (model) {
                     array,
                     minimum,
                     maximum,
-                    members: Option.flatMap(Option.flatMap(type, enumeration), (found) => Option.liftPredicate(Array.map(members(found), String), Array.isArrayNonEmpty)),
+                    members: pipe(
+                        declared({ type, description }),
+                        Array.map(enumeration),
+                        Array.getSomes,
+                        Array.flatMap((found) => Array.map(members(found), String)),
+                        Array.dedupe,
+                        Option.liftPredicate(Array.isArrayNonEmpty),
+                    ),
                     unavailable: unavailable(kind, name, Option.none(), false),
                 });
                 const parameter = ([optional, ...row]: typeof Flagged.Type) => ({ ...Struct.omit(stated(row), ['unavailable']), optional: optional || Option.exists(row[1], (description) => description.endsWith('(Optional)')) });
@@ -134,7 +155,7 @@ found === null ? null : (function (model) {
                 );
                 return Effect.try(() => indesign.app.doScript(reader, indesign.ScriptLanguage.JAVASCRIPT, [kind])).pipe(
                     Effect.flatMap(flow(Schema.decodeUnknownEffect(Schema.NullOr(Reader)), Effect.orDie)),
-                    Effect.filterOrFail(Predicate.isNotNull, () => Unmatched.make({ subject: 'class', query: kind, candidates: kinds })),
+                    Effect.filterOrFail(Predicate.isNotNull, () => Unmatched.make({ subject: 'class', query: kind, candidates: classes })),
                 );
             },
         });
@@ -157,7 +178,7 @@ found === null ? null : (function (model) {
                 return Option.isSome(listed) ? Option.some(listed.value[0]) : Option.map(yield* held, ([field]) => field);
             }),
         });
-        return { exported, kinds, owning, host, collection, named, document, page, spread, item, text, frame, enumeration, members, plural, unavailable, rows, lineage, catalog };
+        return Object.assign(model, { exported, classes, enumerations, owning, host, collection, named, document, page, spread, item, text, frame, enumeration, members, declared, plural, unavailable, rows, lineage, catalog });
     }),
 }) {}
 

@@ -1,5 +1,5 @@
 import { Array, Cause, Context, Data, Deferred, Effect, PubSub, Record, Ref, Schema, Struct } from 'effect';
-import { Dom } from './dom.ts';
+import { Model } from './model.ts';
 import { Preflight } from './preflight.ts';
 import { read } from './references.ts';
 
@@ -16,7 +16,11 @@ abstract class Mutation extends Schema.Class<Mutation, { readonly brand: unique 
 
     abstract get label(): string;
 
-    commit<F extends Schema.Struct.Fields, A, E, R, E2 = never, R2 = never>(own: Schema.Struct<F>, body: Effect.Effect<A, E, R>, settle: (value: A) => Effect.Effect<unknown, E2, R2>) {
+    commit<F extends Schema.Struct.Fields, A, E, R>(own: Schema.Struct<F>, body: Effect.Effect<A, E, R>) {
+        return this.commitSettling(own, body, Effect.succeed);
+    }
+
+    commitSettling<F extends Schema.Struct.Fields, A, E, R, E2, R2>(own: Schema.Struct<F>, body: Effect.Effect<A, E, R>, settle: (value: A) => Effect.Effect<unknown, E2, R2>) {
         const { label } = this;
         return Effect.gen(function* () {
             const { run, changed } = yield* Transactions;
@@ -34,7 +38,7 @@ abstract class Mutation extends Schema.Class<Mutation, { readonly brand: unique 
 
 class Transactions extends Context.Service<Transactions>()('@rasm/indesign/transactions', {
     make: Effect.gen(function* () {
-        const [{ app, SaveOptions, ScriptLanguage, UndoModes }, state, changed] = yield* Effect.all([Dom, Ref.make<Handoff>(Handoff.Idle()), PubSub.unbounded<typeof Preflight.Summary.value.Type>()]);
+        const [{ app, SaveOptions, ScriptLanguage, UndoModes }, state, changed] = yield* Effect.all([Model, Ref.make<Handoff>(Handoff.Idle()), PubSub.unbounded<typeof Preflight.Summary.value.Type>()]);
         const steps = () => {
             const every = app.documents.everyItem();
             return Array.zipWith(every.id, every.undoHistory, (id, history) => [id, history.length] as const);

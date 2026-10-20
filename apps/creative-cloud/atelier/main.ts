@@ -234,13 +234,13 @@ main(
                             ),
                         },
                     }),
-                    kinds: new PublishedResource({ uri: 'indesign://kinds', complete: {} }),
                     kind: new PublishedResource({
                         uri: 'indesign://kinds',
                         complete: {
                             name: flow(
                                 panel.call,
-                                Effect.flatMap((use) => use('kinds', {})),
+                                Effect.flatMap((use) => use('kind', { name: Option.none() })),
+                                Effect.map(Match.valueTags({ Index: ({ classes, enumerations }) => [...classes, ...enumerations], Class: ({ name }) => [name], Enumeration: ({ name }) => [name] })),
                             ),
                         },
                     }),

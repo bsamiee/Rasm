@@ -1,7 +1,6 @@
 import type { Document, Layer, MasterSpread, Page, PageItem, Spread } from 'adobe:indesign';
 import { Array, Cause, Effect, flow, Number, Option, Predicate, Record, Schema, Struct } from 'effect';
-import { Dom } from './dom.ts';
-import type { Model } from './model.ts';
+import { Model } from './model.ts';
 import { Reference, read, Specifier } from './references.ts';
 import { Composition, composition } from './text.ts';
 
@@ -139,7 +138,7 @@ class LayerView extends Schema.TaggedClass<LayerView, { readonly brand: unique s
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const extent = Effect.fn('extent')(function* (...placed: readonly (Page | PageItem)[]) {
-    const { AnchorPoint, BoundingBoxLimits, CoordinateSpaces } = yield* Dom;
+    const { AnchorPoint, BoundingBoxLimits, CoordinateSpaces } = yield* Model;
     return yield* Effect.try({
         try: () => {
             const corners: ReadonlyArray<readonly [number, number]> = Array.flatMap(Array.cartesian(placed, [AnchorPoint.TOP_LEFT_ANCHOR, AnchorPoint.BOTTOM_RIGHT_ANCHOR]), ([each, anchor]) =>

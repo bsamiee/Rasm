@@ -1,7 +1,7 @@
 import type { Document } from 'adobe:indesign';
 import { single } from '@rasm/search';
 import { Array, Effect, HashMap, Option, Predicate, Schema, Struct } from 'effect';
-import { Dom } from './dom.ts';
+import { Model } from './model.ts';
 import { active, Reference, read } from './references.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -19,7 +19,7 @@ class Preflight extends Schema.Class<Preflight, { readonly brand: unique symbol 
     static readonly Result = Schema.Struct({ document: Reference, profile: Schema.String, profiles: Schema.Array(Schema.String).annotate({ description: 'Preflight profiles the application holds' }), issues: Schema.Array(Issue) });
     static readonly Summary = Schema.Array(Reference.mapFields(Struct.assign({ errors: Schema.Int, issues: Schema.Array(Issue).annotate({ description: 'Issues this mutation introduced' }) }))).annotate({ description: 'Preflight of every document the mutation touched, under its working profile' });
     static readonly of = Effect.fn('of')(function* (document: Document, named: Option.Option<string>) {
-        const { app } = yield* Dom;
+        const { app } = yield* Model;
         const selected = Option.getOrElse(named, () => document.preflightOptions.preflightWorkingProfile);
         const profiles = app.preflightProfiles.everyItem();
         const profile = Predicate.isString(selected) ? (yield* single('preflight profile', selected)(Array.zip(profiles.getElements(), profiles.name), { names: ([, name]) => [name], label: ([, name]) => name }))[0] : selected;
@@ -37,7 +37,7 @@ class Preflight extends Schema.Class<Preflight, { readonly brand: unique symbol 
         return yield* read(Preflight.Result, () => ({ document: Reference.of(document), profile: profileName, profiles: profiles.name, issues }));
     }, Effect.scoped);
     static readonly baseline = Effect.fn('baseline')(function* () {
-        const { app } = yield* Dom;
+        const { app } = yield* Model;
         return HashMap.fromIterable(yield* Effect.forEach(app.documents.everyItem().getElements(), (document) => Effect.map(Preflight.of(document, Option.none()), ({ issues }) => [document.id, issues] as const)));
     });
     static readonly summarized = (baseline: HashMap.HashMap<number, readonly Issue[]>, touched: readonly Document[]) =>

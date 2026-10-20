@@ -58,7 +58,6 @@ const InDesign = RpcGroup.make(
     Rpc.make('execute_script', { payload: Script, success: Script.Result, error: Failure }),
     Rpc.make('find_change', { payload: FindChange, success: FindChange.Result, error: Failure }),
     Rpc.make('font', { payload: Font, success: Font.Result, error: Failure }),
-    Rpc.make('kinds', { payload: Schema.Struct({}).annotate({ description: 'Every native class and enumeration name in the host dictionary' }), success: Schema.Array(Schema.String), error: Failure }),
     Rpc.make('kind', { payload: Kind, success: Kind.Result, error: Failure }),
     Rpc.make('render', { payload: Render, success: Render.Result, error: Failure }),
     Rpc.make('menu', { payload: Menu, success: Menu.Result, error: Failure }),

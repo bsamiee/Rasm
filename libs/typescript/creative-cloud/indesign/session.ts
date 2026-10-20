@@ -1,7 +1,7 @@
 import { matching, single } from '@rasm/search';
 import { Array, Cause, Effect, Option, pipe, Schema, Struct } from 'effect';
 import { DocumentView } from './documents.ts';
-import { Dom } from './dom.ts';
+import { Model } from './model.ts';
 import { active, Reference, read, Specifier } from './references.ts';
 import { Overrides, TextView } from './text.ts';
 import { Mutation } from './transactions.ts';
@@ -29,7 +29,7 @@ class Session extends Schema.TaggedClass<Session, { readonly brand: unique symbo
     }),
 }) {
     static readonly current = Effect.fn('current')(function* () {
-        const { app } = yield* Dom;
+        const { app } = yield* Model;
         const modal = app.modalState;
         const documents = yield* Effect.forEach(modal ? [] : app.documents.everyItem().getElements(), DocumentView.row);
         const opened = Option.filter(yield* Effect.option(active), () => !modal);
@@ -82,7 +82,7 @@ class Menu extends Schema.Class<Menu, { readonly brand: unique symbol }>('Menu')
     run() {
         const { area } = this;
         return Effect.gen(function* () {
-            const { app } = yield* Dom;
+            const { app } = yield* Model;
             const rows = yield* read(Menu.Result, () => {
                 const every = app.menuActions.everyItem();
                 return Array.zipWith(Array.zip(every.id, every.name), every.area, ([id, name], within) => ({ id, name, area: within }));
@@ -103,12 +103,11 @@ class Invoke extends Mutation.extend<Invoke>('Invoke')({ action: Schema.Union([S
         return this.commit(
             Menu.Action,
             Effect.gen(function* () {
-                const { app } = yield* Dom;
+                const { app } = yield* Model;
                 const chosen = yield* single('menu action', String(action))(yield* Menu.make({ area: Option.none() }).run(), { names: ({ id, name }) => [String(id), name], label: ({ id, name, area }) => `${id} ${name} (${area})` });
                 yield* Effect.try({ try: () => app.menuActions.itemByID(chosen.id).invoke(), catch: (cause) => new Cause.UnknownError(cause, chosen.name) });
                 return chosen;
             }),
-            Effect.succeed,
         );
     }
 }

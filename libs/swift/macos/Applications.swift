@@ -59,14 +59,14 @@ public enum InstanceChange: Sendable {
 
 public enum DiscoveryFailure: LocalizedError {
     case query(String)
-    case notApplication(URL)
+    case unindexed(URL)
     case unreadable(URL, any Error)
     case notRunning(URL)
 
     public var errorDescription: String? {
         switch self {
             case .query(let query): "Spotlight could not run the query \(query)"
-            case .notApplication(let url): "Spotlight indexes no application bundle at \(url.path(percentEncoded: false))"
+            case .unindexed(let url): "Spotlight indexes no application bundle at \(url.path(percentEncoded: false))"
             case .unreadable(let url, let error): "Launch Services could not read \(url.path(percentEncoded: false)): \(error.localizedDescription)"
             case .notRunning(let url): "No running instance of \(url.path(percentEncoded: false)), launch it first"
         }
@@ -125,7 +125,7 @@ extension NSWorkspace {
 
     public func installedApplication(at url: URL) -> Result<Installation, DiscoveryFailure> {
         Result { () throws(DiscoveryFailure) in try MDItemCreateWithURL(nil, url as CFURL).flatMap { item throws(DiscoveryFailure) in try Installation(item, among: runningApplications) } }
-            .flatMap { installation in installation.map(Result.success) ?? .failure(.notApplication(url)) }
+            .flatMap { installation in installation.map(Result.success) ?? .failure(.unindexed(url)) }
     }
 
     // --- [LIFECYCLE]

@@ -1,9 +1,8 @@
 import indesign from 'adobe:indesign';
 import { Link, linked } from '@rasm/uxp/link';
 import { Plugin } from '@rasm/uxp/runtime';
-import { Effect, Layer, Option, Schema, Stream, Struct, SubscriptionRef } from 'effect';
+import { Effect, Layer, Option, Schema, Stream, SubscriptionRef } from 'effect';
 import { Rpc } from 'effect/rpc';
-import { Dom } from '../dom.ts';
 import { Model } from '../model.ts';
 import { Mutation, preserve, Transactions } from '../transactions.ts';
 import { Hold, InDesign, PATH, Peer, WIRE } from './contract.ts';
@@ -32,14 +31,13 @@ const handlers = InDesign.toLayer({
     execute_script: (payload) => payload.run(),
     find_change: (payload) => payload.run(),
     font: (payload) => payload.run(),
-    kinds: () => Effect.map(Model, Struct.get('kinds')),
     kind: (payload) => payload.run(),
     render: (payload) => payload.run(),
     menu: (payload) => payload.run(),
     invoke: (payload) => payload.run(),
     preflight: (payload) => payload.run(),
     queries: (payload) => payload.run(),
-}).pipe(Layer.provideMerge(hold), Layer.provide([Layer.effect(Model, Model.make), Layer.effect(Transactions, Transactions.make)]), Layer.provide(Layer.succeed(Dom, indesign)));
+}).pipe(Layer.provideMerge(hold), Layer.provide(Layer.effect(Transactions, Transactions.make)), Layer.provide(Layer.effect(Model, Model.make(indesign))));
 const panel = ({ peer, origin }: { readonly peer: string; readonly origin: string }) =>
     linked(InDesign, handlers, {
         peer,

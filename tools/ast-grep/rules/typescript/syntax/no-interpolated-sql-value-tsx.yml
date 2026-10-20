@@ -24,7 +24,7 @@ utils:
 rule:
     kind: template_string
     all:
-        - has: {kind: string_fragment, regex: '(?im)^\s*(alter|analyze|attach|begin|commit|create|delete|detach|drop|end|explain|insert|pragma|reindex|release|replace|rollback|savepoint|select|update|vacuum|values|with)\b'}
+        - has: {kind: string_fragment, regex: '(?im)^\s*(begin|commit|delete|end|explain|insert|release|replace|rollback|savepoint|select|update|values|with)\b'}
         - not: {inside: {kind: call_expression, field: arguments}}
         - not: {has: {kind: string_fragment, regex: '(?m)^\s*\.param(eter)?\b'}}
         - has:
@@ -38,4 +38,4 @@ rule:
                     - inside: {kind: template_string, regex: '(?i)^`\s*(insert|update|delete|select|with|replace|values)\b'}
                 - has: {stopBy: end, matches: quoting}
 message: '`$VALUE` splices a value into SQL text'
-note: 'Keep the statement constant and bind each value as a parameter through the Effect SQL client tagged template'
+note: 'Keep the statement constant and bind each value as a parameter through the Effect SQL client tagged template, a DDL statement takes no parameter and renders its literals through one escaping function'

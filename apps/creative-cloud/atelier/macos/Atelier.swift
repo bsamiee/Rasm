@@ -17,7 +17,7 @@ struct Release: Encodable {
     static func at(_ url: URL) -> Result<Self, AggregateError<Failure>> {
         NSWorkspace.shared.installedApplication(at: url.resolvingSymlinksInPath())
             .aggregated(Failure.discovery)
-            .flatMap { installation in installation.identifier.hasPrefix(identifierPrefix) ? .success(Self(installation)) : .failure(AggregateError(first: .notApplication(url))) }
+            .flatMap { installation in installation.identifier.hasPrefix(identifierPrefix) ? .success(Self(installation)) : .failure(AggregateError(first: .notAdobe(url))) }
     }
 
     static func all() -> Result<[Self], AggregateError<Failure>> {
@@ -311,7 +311,7 @@ enum Answer: Encodable {
 // --- [ERRORS] --------------------------------------------------------------------------
 
 enum Failure: LocalizedError, Encodable {
-    case notApplication(URL)
+    case notAdobe(URL)
     case discovery(DiscoveryFailure)
     case launch(LaunchFailure)
     case activation(ActivationFailure)
@@ -332,7 +332,7 @@ enum Failure: LocalizedError, Encodable {
 
     var errorDescription: String? {
         switch self {
-            case .notApplication(let url): "\(url.path(percentEncoded: false)) is no application with an identifier starting \(Release.identifierPrefix)"
+            case .notAdobe(let url): "\(url.path(percentEncoded: false)) is no application with an identifier starting \(Release.identifierPrefix)"
             case .discovery(let error as any Error), .launch(let error as any Error), .activation(let error as any Error), .element(let error as any Error), .screenshot(let error as any Error),
                 .definition(let error as any Error), .dictionary(let error as any Error), .event(let error as any Error):
                 error.localizedDescription
@@ -358,7 +358,7 @@ enum Failure: LocalizedError, Encodable {
                 try container.encode("installed face", forKey: .subject)
                 try container.encode(query, forKey: .query)
                 try container.encode(candidates, forKey: .candidates)
-            case .notApplication, .discovery, .launch, .activation, .element, .screenshot, .definition, .dictionary, .event, .unreadable, .malformed, .unencodable:
+            case .notAdobe, .discovery, .launch, .activation, .element, .screenshot, .definition, .dictionary, .event, .unreadable, .malformed, .unencodable:
                 try container.encode(name, forKey: .name)
                 try container.encode(localizedDescription, forKey: .message)
         }

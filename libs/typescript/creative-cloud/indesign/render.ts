@@ -4,7 +4,6 @@ import { Uxp } from '@rasm/uxp/runtime';
 import { Cause, Effect, Match, Schema, Struct } from 'effect';
 import { imageSize } from 'image-size';
 import { extent } from './documents.ts';
-import { Dom } from './dom.ts';
 import { Model } from './model.ts';
 import { resolve, Specifier } from './references.ts';
 import { preserve } from './transactions.ts';
@@ -26,7 +25,7 @@ class Render extends Schema.Class<Render, { readonly brand: unique symbol }>('Re
     run() {
         const { target, pixels } = this;
         return Effect.gen(function* () {
-            const [{ app, ExportFormat, PNGExportRangeEnum, PNGColorSpaceEnum, PNGQualityEnum }, { fs, temporary }, { page, spread, item }] = yield* Effect.all([Dom, Uxp, Model]);
+            const [{ app, ExportFormat, PNGExportRangeEnum, PNGColorSpaceEnum, PNGQualityEnum, page, spread, item }, { fs, temporary }] = yield* Effect.all([Model, Uxp]);
             const found = yield* Effect.filterOrFail(
                 resolve(target),
                 (value): value is Page | Spread | PageItem => (page(value) && spread(value.parent)) || spread(value) || item(value),

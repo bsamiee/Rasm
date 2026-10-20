@@ -1,7 +1,6 @@
 import { parse } from 'acorn';
 import { fullAncestor } from 'acorn-walk';
 import { Array, Cause, Effect, flow, Option, Predicate, Schema } from 'effect';
-import type { Dom } from './dom.ts';
 import { Model } from './model.ts';
 import { resolve } from './references.ts';
 import { Mutation } from './transactions.ts';
@@ -36,7 +35,7 @@ class Script extends Mutation.extend<Script>('Script')(
         const { code } = this;
         const lines = code.split(LINE_BREAK);
         const failed = (position: Option.Option<number>) => (cause: unknown) => new Cause.UnknownError(cause, Option.getOrUndefined(Option.map(position, (at) => [`line ${at}`, ...Option.toArray(Array.get(lines, at - 1))].join(': '))));
-        const commit = this.commit.bind(this);
+        const commit = this.commitSettling.bind(this);
         return Effect.gen(function* () {
             const { exported } = yield* Model;
             const tree = yield* Effect.try({
@@ -51,7 +50,7 @@ class Script extends Mutation.extend<Script>('Script')(
                 }
                 awaiting ||= (node.type === 'AwaitExpression' || (node.type === 'ForOfStatement' && node.await)) && !ancestors.some((above) => above.type === 'FunctionDeclaration' || above.type === 'FunctionExpression' || above.type === 'ArrowFunctionExpression');
             });
-            const given = { ...Object.fromEntries(exported.filter(([name]) => used.has(name) && !(name in globalThis))), resolve: flow(resolve, Effect.runSyncWith(yield* Effect.context<Model | Dom>())) };
+            const given = { ...Object.fromEntries(exported.filter(([name]) => used.has(name) && !(name in globalThis))), resolve: flow(resolve, Effect.runSyncWith(yield* Effect.context<Model>())) };
             const text = `{\n${code}\n}`;
             const header = 3;
             const compiled = yield* Effect.try({

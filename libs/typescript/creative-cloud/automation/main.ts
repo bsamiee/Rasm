@@ -20,11 +20,10 @@ const Status = Schema.Struct({
             text: Schema.Array(Schema.String).annotate({ description: 'Static text the element shows' }),
             controls: Schema.Array(
                 Schema.Union([
-                    Schema.Struct({ field: Schema.Struct({ label: Schema.OptionFromOptionalKey(Schema.String), value: Schema.OptionFromOptionalKey(Schema.String) }) }),
+                    Schema.Struct({ text: Schema.Struct({ kind: Schema.Literals(['field', 'popUp']), label: Schema.OptionFromOptionalKey(Schema.String), value: Schema.OptionFromOptionalKey(Schema.String) }) }),
                     Schema.Struct({ checkBox: Schema.Struct({ label: Schema.OptionFromOptionalKey(Schema.String), on: Schema.Boolean }) }),
-                    Schema.Struct({ popUp: Schema.Struct({ label: Schema.OptionFromOptionalKey(Schema.String), value: Schema.OptionFromOptionalKey(Schema.String) }) }),
                 ]),
-            ).annotate({ description: 'Text fields, check boxes, and pop-up buttons with their values' }),
+            ).annotate({ description: 'Text fields and pop-up buttons with their text, check boxes and radio buttons with their state' }),
             actions: Schema.Array(Schema.String).annotate({ description: 'Actions press accepts: an enabled control label, AXCloseButton for the close button, AXCancel for a menu' }),
         }),
     ),

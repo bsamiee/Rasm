@@ -1,6 +1,5 @@
 import type { ParagraphStyle, Story, Text, TextFrame } from 'adobe:indesign';
 import { Array, Cache, Cause, Effect, flow, Number, Option, Predicate, Record, Schema, Struct } from 'effect';
-import { Dom } from './dom.ts';
 import { Model } from './model.ts';
 import { encoder, Reference, read } from './references.ts';
 
@@ -74,7 +73,7 @@ class TextView extends Schema.TaggedClass<TextView, { readonly brand: unique sym
 }) {
     static readonly viewed = ({ text, frame }: Model['Service']) => flow(Option.liftPredicate(Predicate.or(text, frame)), Option.map(TextView.of));
     static readonly overrides = Effect.fn('overrides')(function* (text: Pick<Text, 'textHasOverrides' | 'toSpecifier'>) {
-        const { StyleType } = yield* Dom;
+        const { StyleType } = yield* Model;
         return yield* Effect.try({ try: () => ({ paragraph: text.textHasOverrides(StyleType.PARAGRAPH_STYLE_TYPE), character: text.textHasOverrides(StyleType.CHARACTER_STYLE_TYPE) }), catch: (cause) => new Cause.UnknownError(cause, `overrides of ${text.toSpecifier()}`) });
     });
     static readonly of = Effect.fn('of')(function* (found: Text | TextFrame) {

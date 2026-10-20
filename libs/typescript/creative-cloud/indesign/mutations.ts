@@ -1,7 +1,6 @@
-import type { Enumerator, InDesignDOMObject } from 'adobe:indesign';
+import type { InDesignDOMObject } from 'adobe:indesign';
 import { single, Unmatched } from '@rasm/search';
 import { Array, Cache, Cause, Effect, flow, Match, Option, Predicate, Record, Schema, Struct } from 'effect';
-import { Dom } from './dom.ts';
 import { type Member, Model } from './model.ts';
 import { active, font, owner, Reference, record, resolve, Specifier } from './references.ts';
 import { Mutation } from './transactions.ts';
@@ -10,20 +9,16 @@ import { Mutation } from './transactions.ts';
 
 // --- [DECODING]
 const member = Effect.fnUntraced(function* (kind: string, name: string) {
-    const [indesign, { enumeration, members, kinds }] = yield* Effect.all([Dom, Model]);
-    const found = yield* Effect.fromOption(enumeration(kind), () => Unmatched.make({ subject: 'enumeration', query: kind, candidates: kinds.filter((each) => Option.isSome(enumeration(each))) }));
-    return yield* Effect.fromOption(
-        Option.liftPredicate(Reflect.get(found, name), (value): value is Enumerator => value instanceof indesign.Enumerator),
-        () => Unmatched.make({ subject: `${kind} member`, query: name, candidates: Array.map(members(found), String) }),
-    );
+    const { Enumerator, enumeration, members, enumerations } = yield* Model;
+    const found = yield* Effect.fromOption(enumeration(kind), () => Unmatched.make({ subject: 'enumeration', query: kind, candidates: enumerations }));
+    return yield* Effect.fromOption(Option.liftPredicate(Reflect.get(found, name), Schema.is(Schema.instanceOf(Enumerator))), () => Unmatched.make({ subject: `${kind} member`, query: name, candidates: Array.map(members(found), String) }));
 });
-const decoded = (target: unknown, declared: Option.Option<Pick<typeof Member.Type, 'type'>>): ((value: unknown) => Effect.Effect<unknown, Cause.UnknownError | Unmatched, Model | Dom>) => {
-    const kind = Option.flatMap(declared, Struct.get('type'));
+const decoded = (target: unknown, row: Option.Option<Pick<typeof Member.Type, 'type' | 'description'>>): ((value: unknown) => Effect.Effect<unknown, Cause.UnknownError | Unmatched, Model>) => {
     const byName = Effect.fnUntraced(function* (type: string, name: string) {
-        const [{ app }, model] = yield* Effect.all([Dom, Model]);
+        const model = yield* Model;
         const [{ fields }, parents] = yield* Effect.all([Cache.get(model.rows, type), model.lineage(type)]);
         const listing = Record.has(fields, 'name') && ![type, ...parents].includes('Swatch') ? yield* Cache.get(model.catalog, type) : Option.none();
-        const scope = Option.orElse(yield* owner(target), () => Option.liftThrowable(() => app.activeDocument)());
+        const scope = Option.orElse(yield* owner(target), () => Option.liftThrowable(() => model.app.activeDocument)());
         return yield* Option.match(Option.all([scope, listing]), {
             onNone: () => Effect.succeed<unknown>(name),
             onSome: ([document, field]) => {
@@ -32,22 +27,27 @@ const decoded = (target: unknown, declared: Option.Option<Pick<typeof Member.Typ
             },
         });
     });
-    const typed = (text: string, type: string) =>
-        Effect.flatMap(Model, ({ enumeration, exported }) =>
-            Match.value(type).pipe(
-                Match.when(flow(enumeration, Option.isSome), (each) => member(each, text)),
-                Match.when('Font', () => font(text)),
-                Match.when(
-                    (each) => exported.some(([name, value]) => name === each && Predicate.isFunction(value)),
-                    (each) => byName(each, text),
+    const typed = (text: string) =>
+        Effect.flatMap(Model, ({ enumeration, classes, declared }) =>
+            Match.value(Option.match(row, { onNone: Array.empty, onSome: declared })).pipe(
+                Match.when(Schema.is(Schema.Tuple([Schema.String])), ([type]) =>
+                    Match.value(type).pipe(
+                        Match.when(flow(enumeration, Option.isSome), (each) => member(each, text)),
+                        Match.when('Font', () => font(text)),
+                        Match.when(
+                            (each) => classes.includes(each),
+                            (each) => byName(each, text),
+                        ),
+                        Match.orElse(() => Effect.succeed<unknown>(text)),
+                    ),
                 ),
-                Match.orElse(() => Effect.succeed<unknown>(text)),
+                Match.orElse((types) => Effect.firstSuccessOf([...types.filter(flow(enumeration, Option.isSome)).map((each) => member(each, text)), Effect.succeed<unknown>(text)])),
             ),
         );
-    const decode: (value: unknown) => Effect.Effect<unknown, Cause.UnknownError | Unmatched, Model | Dom> = Match.type<unknown>().pipe(
+    const decode: (value: unknown) => Effect.Effect<unknown, Cause.UnknownError | Unmatched, Model> = Match.type<unknown>().pipe(
         Match.when(Schema.is(Schema.Struct({ type: Schema.String, specifier: Schema.String })), ({ specifier }) => resolve(specifier)),
         Match.when(Schema.is(Schema.Struct({ type: Schema.String, member: Schema.String })), ({ type, member: name }) => member(type, name)),
-        Match.when(Predicate.isString, (text) => Option.match(kind, { onNone: () => Effect.succeed(text), onSome: (type) => typed(text, type) })),
+        Match.when(Predicate.isString, typed),
         Match.when(Array.isArray, (items) => Effect.forEach(items, decode)),
         Match.when(record, (properties) => Effect.all(Record.map(properties, decoded(target, Option.none())))),
         Match.orElse(Effect.succeed),
@@ -56,7 +56,7 @@ const decoded = (target: unknown, declared: Option.Option<Pick<typeof Member.Typ
 };
 
 // --- [WRITES]
-const write: (target: InDesignDOMObject<unknown>, values: Record.ReadonlyRecord<string, unknown>) => Effect.Effect<readonly string[], Cause.UnknownError | Unmatched, Model | Dom> = Effect.fnUntraced(function* (target, values) {
+const write: (target: InDesignDOMObject<unknown>, values: Record.ReadonlyRecord<string, unknown>) => Effect.Effect<readonly string[], Cause.UnknownError | Unmatched, Model> = Effect.fnUntraced(function* (target, values) {
     const specifier = target.toSpecifier();
     const { rows, unavailable, host } = yield* Model;
     const { fields } = yield* Cache.get(rows, target.constructorName).pipe(Effect.mapError((cause) => new Cause.UnknownError(cause, specifier)));
@@ -104,9 +104,9 @@ class Change extends Mutation.extend<Change>('Change')(
             Change.Own,
             Effect.gen(function* () {
                 const found = yield* within(target);
-                return { ...Reference.of(found), written: yield* write(found, values) };
+                const written = yield* write(found, values);
+                return { ...Reference.of(found), written };
             }),
-            Effect.succeed,
         );
     }
 }
@@ -146,7 +146,6 @@ class Create extends Mutation.extend<Create>('Create')(
                 yield* Effect.forEach(Option.toArray(properties), (supplied) => write(made, supplied), { discard: true });
                 return Reference.of(made);
             }),
-            Effect.succeed,
         );
     }
 }
@@ -173,7 +172,6 @@ class Remove extends Mutation.extend<Remove>('Remove')({ target: Specifier }, { 
                 yield* Effect.try({ try: () => Reflect.apply(remove, found, []), catch: (cause) => new Cause.UnknownError(cause, target) });
                 return removed;
             }),
-            Effect.succeed,
         );
     }
 }

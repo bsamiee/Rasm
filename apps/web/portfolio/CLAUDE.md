@@ -115,7 +115,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 
 [STORAGE]: `worker/database.ts` declares the document, asset, and owner tables as `@rasm/database` tables beside the statements over them
 - `@rasm/database` `store` builds each entry's client with the library's column naming and reconciles the tables once per isolate or process start, adding what they declare and keeping every undeclared column and table
-- Queries reach a multi-word table column through that naming (`sql.insert`, `sql('userId')`, library `select`)
+- Queries reach a multi-word table column through that naming (`sql.insert`, `sql('userId')`, a table's `select`)
 - Columns and tables leave only through a declared `retired` entry, and change type only through a declared `retype` entry
 - Queries name their columns and new required columns carry a default, so an older or newer build keeps reading and writing
 - Effect schemas define JSON content, each document or asset updates in place

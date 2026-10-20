@@ -1,85 +1,79 @@
-import { D1Client } from '@effect/sql-d1';
-import { SqliteClient } from '@effect/sql-sqlite-do';
-import { Array, Effect, Equal, Function, Match, Option, Order, Record, Schema } from 'effect';
-import { SqlClient, SqlSchema } from 'effect/sql';
-import { type Catalog, type Column, dialects, identifier, limits, literal, quote, type Table, table } from './catalog.ts';
+import { Array, Effect, Equal, Function, Match, Option, Order, Record, Schema, Struct } from 'effect';
+import { type SqlClient, SqlSchema } from 'effect/sql';
+import { type Catalog, type Column, dialects, environment, identifier, literal, quote, type Relation, table } from './table.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Dialect = keyof typeof dialects;
 type Entry = typeof Entry.Type;
-type Finding = ReconcileError['findings'][number];
-type OnDelete = Table['table']['references'][number]['onDelete'];
-interface Planned {
-    readonly statements: readonly string[];
-    readonly ledger: Option.Option<{ readonly revision: number; readonly document: typeof Identity.Type }>;
+type Finding = typeof Finding.Type;
+interface Drawing {
+    readonly declared: Relation;
+    readonly rendered: ReturnType<typeof render>;
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Entry = Schema.Struct({ origin: Schema.optionalKey(Schema.String), incarnation: Schema.optionalKey(Schema.Int) });
 const Identity = Schema.Record(Schema.String, Schema.Struct({ ...Entry.fields, columns: Schema.optionalKey(Schema.Record(Schema.String, Entry)) }));
-const ledger = table('reconcile_revision', { revision: Schema.Int, identity: Schema.fromJsonString(Identity) }, { key: ['revision'], defaults: { identity: '{}' } });
-const Stored = Schema.Struct({ revision: Schema.Int, identity: Schema.optionalKey(ledger.fields.identity) });
-const Sqlite = Schema.Tuple([
+const ledger = table('reconcile_revision', { revision: Schema.Int, identity: Schema.fromJsonString(Identity) }, { key: ['revision'] });
+const Finding = Schema.TaggedUnion({ Unsupported: { table: Schema.String, subject: Schema.String }, Required: { table: Schema.String, subject: Schema.String }, RetainedReference: { table: Schema.String, subject: Schema.String } });
+const observation = <S extends Schema.Top>(shape: S) => Schema.Tuple([Schema.Struct({ catalog: Schema.fromJsonString(shape) })]);
+const Sqlite = observation(
     Schema.Struct({
-        catalog: Schema.fromJsonString(
+        tables: Schema.Array(
             Schema.Struct({
-                tables: Schema.Array(
-                    Schema.Struct({
-                        name: Schema.String,
-                        strict: Schema.BooleanFromBit,
-                        withoutRowid: Schema.BooleanFromBit,
-                        sql: Schema.String,
-                        columns: Schema.Array(Schema.Struct({ name: Schema.String, type: Schema.String, required: Schema.BooleanFromBit, fallback: Schema.NullOr(Schema.String), hidden: Schema.Int })),
-                        references: Schema.Array(Schema.Struct({ id: Schema.Int, target: Schema.String, from: Schema.String, to: Schema.NullOr(Schema.String), onDelete: Schema.String })),
-                    }),
-                ),
-                virtual: Schema.Array(Schema.Struct({ name: Schema.String, sql: Schema.String })),
-                indexes: Schema.Array(Schema.Struct({ name: Schema.String, table: Schema.String, sql: Schema.String, keys: Schema.Array(Schema.NullOr(Schema.String)) })),
-                triggers: Schema.Array(Schema.Struct({ name: Schema.String, table: Schema.String, sql: Schema.String })),
+                name: Schema.String,
+                strict: Schema.BooleanFromBit,
+                withoutRowid: Schema.BooleanFromBit,
+                sql: Schema.String,
+                columns: Schema.Array(Schema.Struct({ name: Schema.String, type: Schema.String, required: Schema.BooleanFromBit, fallback: Schema.NullOr(Schema.String), hidden: Schema.Int })),
+                references: Schema.Array(Schema.Struct({ id: Schema.Int, target: Schema.String, from: Schema.String, to: Schema.NullOr(Schema.String), onDelete: Schema.String })),
             }),
         ),
+        virtual: Schema.Array(Schema.Struct({ name: Schema.String, sql: Schema.String })),
+        indexes: Schema.Array(Schema.Struct({ name: Schema.String, table: Schema.String, sql: Schema.String, keys: Schema.Array(Schema.NullOr(Schema.String)) })),
+        triggers: Schema.Array(Schema.Struct({ name: Schema.String, table: Schema.String, sql: Schema.String })),
     }),
-]);
-const Pg = Schema.Tuple([
+);
+const Pg = observation(
     Schema.Struct({
-        catalog: Schema.fromJsonString(
+        tables: Schema.Array(Schema.Struct({ scratch: Schema.Boolean, name: Schema.String, rls: Schema.Boolean, force: Schema.Boolean, grants: Schema.Array(Schema.Tuple([Schema.String, Schema.String])) })),
+        columns: Schema.Array(Schema.Struct({ scratch: Schema.Boolean, table: Schema.String, name: Schema.String, type: Schema.String, expression: Schema.NullOr(Schema.String), generated: Schema.Literals(['', 's', 'v']), required: Schema.Boolean, sources: Schema.Array(Schema.String) })),
+        constraints: Schema.Array(Schema.Struct({ scratch: Schema.Boolean, table: Schema.String, name: Schema.String, kind: Schema.String, definition: Schema.String, valid: Schema.Boolean, columns: Schema.Array(Schema.String), target: Schema.NullOr(Schema.String), onDelete: Schema.String })),
+        indexes: Schema.Array(
             Schema.Struct({
-                tables: Schema.Array(Schema.Struct({ scratch: Schema.Boolean, name: Schema.String, rls: Schema.Boolean, force: Schema.Boolean, grants: Schema.Array(Schema.Tuple([Schema.String, Schema.String])) })),
-                columns: Schema.Array(Schema.Struct({ scratch: Schema.Boolean, table: Schema.String, name: Schema.String, type: Schema.String, expression: Schema.NullOr(Schema.String), generated: Schema.Literals(['', 's', 'v']), required: Schema.Boolean, sources: Schema.Array(Schema.String) })),
-                constraints: Schema.Array(Schema.Struct({ scratch: Schema.Boolean, table: Schema.String, name: Schema.String, kind: Schema.String, definition: Schema.String, valid: Schema.Boolean, columns: Schema.Array(Schema.String), target: Schema.NullOr(Schema.String), onDelete: Schema.String })),
-                indexes: Schema.Array(
-                    Schema.Struct({
-                        scratch: Schema.Boolean,
-                        table: Schema.String,
-                        name: Schema.String,
-                        valid: Schema.Boolean,
-                        unique: Schema.Boolean,
-                        method: Schema.String,
-                        width: Schema.Int,
-                        keys: Schema.Array(Schema.Struct({ column: Schema.Boolean, text: Schema.String })),
-                        classes: Schema.Array(Schema.String),
-                        predicate: Schema.NullOr(Schema.String),
-                        definition: Schema.String,
-                        columns: Schema.Array(Schema.String),
-                    }),
-                ),
-                policies: Schema.Array(Schema.Struct({ scratch: Schema.Boolean, table: Schema.String, name: Schema.String, using: Schema.NullOr(Schema.String), check: Schema.NullOr(Schema.String) })),
+                scratch: Schema.Boolean,
+                table: Schema.String,
+                name: Schema.String,
+                valid: Schema.Boolean,
+                unique: Schema.Boolean,
+                method: Schema.String,
+                width: Schema.Int,
+                keys: Schema.Array(Schema.Struct({ column: Schema.Boolean, text: Schema.String })),
+                classes: Schema.Array(Schema.String),
+                predicate: Schema.NullOr(Schema.String),
+                definition: Schema.String,
+                columns: Schema.Array(Schema.String),
             }),
         ),
+        policies: Schema.Array(Schema.Struct({ scratch: Schema.Boolean, table: Schema.String, name: Schema.String, using: Schema.NullOr(Schema.String), check: Schema.NullOr(Schema.String) })),
     }),
-]);
+);
 const Prelude = Schema.Tuple([Schema.Struct({ owner: Schema.String, extensions: Schema.Array(Schema.String) })]);
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-class ReconcileError extends Schema.TaggedError<ReconcileError, { readonly brand: unique symbol }>()('ReconcileError', {
-    findings: Schema.NonEmptyArray(Schema.Struct({ reason: Schema.Literals(['Unsupported', 'Required', 'RetainedReference']), table: Schema.String, subject: Schema.String })),
-}) {
+class ReconcileError extends Schema.TaggedError<ReconcileError, { readonly brand: unique symbol }>()('ReconcileError', { findings: Schema.NonEmptyArray(Finding) }) {
     override get message(): string {
         return this.findings
-            .map(({ reason, table: owner, subject }) => ({ Unsupported: `${owner} declares ${subject}, which this store cannot hold`, Required: `${owner} adds required ${subject} with no default for its rows`, RetainedReference: `${owner} references ${subject}, which this plan replaces` })[reason])
+            .map((finding) =>
+                Finding.match(finding, {
+                    Unsupported: ({ table: owner, subject }) => `${owner} declares ${subject}, which this store cannot hold`,
+                    Required: ({ table: owner, subject }) => `${owner} adds required ${subject} with no default for its rows`,
+                    RetainedReference: ({ table: owner, subject }) => `${owner} references ${subject}, which this plan replaces`,
+                }),
+            )
             .join('; ');
     }
 }
@@ -87,82 +81,10 @@ class ReconcileError extends Schema.TaggedError<ReconcileError, { readonly brand
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [RENDER]
-const ddl = {
-    sqlite: {
-        constant: ({ kind }: Column, value: string | number) => (['integer', 'int64', 'real', 'number', 'boolean'].includes(kind) ? `${value}` : literal(`${value}`)),
-        length: 'length',
-        domain: ({ name, kind }: Column) =>
-            Match.value(kind).pipe(
-                Match.when('boolean', () => [`${quote(name)} IN (0, 1)`]),
-                Match.when('json', () => [`json_valid(${quote(name)})`]),
-                Match.orElse(() => []),
-            ),
-        projection: ({ kind }: Column, from: string, path: readonly string[]) => `${quote(from)} ${kind === 'json' ? '->' : '->>'} ${literal(`$${path.map((part) => `.${quote(part)}`).join('')}`)}`,
-        generated: (expression: string) => `AS (${expression}) VIRTUAL`,
-        constraint: (_: string, text: string) => text,
-        action: Option.getOrElse((): string => 'NO ACTION'),
-        casefold: (name: string) => `${quote(name)} COLLATE NOCASE`,
-        projected: (_: string, name: string) => quote(name),
-        methods: ['btree'],
-        covering: (unique: boolean, include: readonly string[]) => ({ keys: unique ? [] : include.map(quote), clause: [] }),
-        suffix: (withoutRowid: boolean) => (withoutRowid ? ' STRICT, WITHOUT ROWID' : ' STRICT'),
-        search: (owner: string, names: readonly string[], tokenizer: string) => {
-            const [virtual, values] = [quote(`${owner}_fts`), names.map(quote).join(', ')];
-            const row = (prefix: string) => names.map((name) => `${prefix}.${quote(name)}`).join(', ');
-            const [inserted, deleted] = [`INSERT INTO ${virtual} ("rowid", ${values}) VALUES (NEW."rowid", ${row('NEW')});`, `INSERT INTO ${virtual} (${virtual}, "rowid", ${values}) VALUES ('delete', OLD."rowid", ${row('OLD')});`];
-            const trigger = (event: string, verb: string, body: string) => ({ name: `${owner}_fts_${event}`, sql: `CREATE TRIGGER ${quote(`${owner}_fts_${event}`)} AFTER ${verb} ON ${quote(owner)} BEGIN ${body} END` });
-            return {
-                indexes: [],
-                fts: Option.some({
-                    name: `${owner}_fts`,
-                    sql: `CREATE VIRTUAL TABLE ${virtual} USING fts5 (${values}, content = ${literal(owner)}, content_rowid = 'rowid', tokenize = ${literal(tokenizer === 'trigram' ? 'trigram' : 'unicode61 remove_diacritics 2')})`,
-                    triggers: [trigger('insert', 'INSERT', inserted), trigger('delete', 'DELETE', deleted), trigger('update', 'UPDATE', `${deleted} ${inserted}`)],
-                    rebuild: `INSERT INTO ${virtual} (${virtual}) VALUES ('rebuild')`,
-                }),
-            };
-        },
-        policy: () => Option.none(),
-    },
-    pg: {
-        constant: ({ kind }: Column, value: string | number) =>
-            Match.value(kind).pipe(
-                Match.when('boolean', () => `${value === 1}`),
-                Match.whenOr('integer', 'int64', 'real', 'number', () => `${value}`),
-                Match.orElse(() => literal(`${value}`)),
-            ),
-        length: 'char_length',
-        domain: ({ name, kind }: Column) =>
-            Match.value(kind).pipe(
-                Match.when('real', () => [`${quote(name)} NOT IN ('NaN', 'Infinity', '-Infinity')`]),
-                Match.when('instant', () => [`isfinite(${quote(name)})`]),
-                Match.orElse(() => []),
-            ),
-        projection: ({ kind }: Column, from: string, path: readonly string[]) => `(${quote(from)} ${kind === 'json' ? '#>' : '#>>'} ARRAY[${path.map(literal).join(', ')}])${['json', 'text'].includes(kind) ? '' : `::${dialects.pg.types[kind]}`}`,
-        generated: (expression: string) => `GENERATED ALWAYS AS (${expression}) VIRTUAL`,
-        constraint: (name: string, text: string) => `CONSTRAINT ${quote(name)} ${text}`,
-        action: Option.match({ onNone: () => 'a', onSome: (rule: Option.Option.Value<OnDelete>) => ({ CASCADE: 'c', RESTRICT: 'r', 'SET NULL': 'n', 'SET DEFAULT': 'd' })[rule] }),
-        casefold: (name: string) => `casefold(${quote(name)} COLLATE pg_unicode_fast)`,
-        projected: (expression: string) => `(${expression})`,
-        methods: ['btree', 'gin', 'gist', 'brin'],
-        covering: (_: boolean, include: readonly string[]) => ({ keys: [], clause: Array.isReadonlyArrayNonEmpty(include) ? [`INCLUDE (${include.map(quote).join(', ')})`] : [] }),
-        suffix: (_: boolean) => '',
-        search: (owner: string, names: readonly string[], tokenizer: string) => {
-            const [name, document] = [identifier([owner, 'search']), dialects.pg.document(names)];
-            return {
-                indexes: [{ name, parts: ['search'], trigram: tokenizer === 'trigram', text: (prefix: string, on: string) => `CREATE INDEX ${prefix}${quote(name)} ON ${on} USING gin (${tokenizer === 'trigram' ? `(${document}) gin_trgm_ops` : `to_tsvector('simple', ${document})`})` }],
-                fts: Option.none(),
-            };
-        },
-        policy: (owner: string, name: string, type: string) => {
-            const [policy, rule] = [identifier([owner, 'tenant']), `${quote(name)} = nullif(current_setting('app.tenant', true), '')::${type}`];
-            return Option.some({ name: policy, rule, text: (on: string, role: string) => `CREATE POLICY ${quote(policy)} ON ${on} TO ${role} USING (${rule}) WITH CHECK (${rule})` });
-        },
-    },
-};
-const render = (dialect: Dialect, declared: Table, target: (name: string) => string, retained: readonly string[]) => {
+const final = (declared: Relation) => quote(declared.table.name);
+const render = (dialect: Dialect, declared: Relation, target: (name: string) => string, retained: readonly string[]) => {
     const { name: owner, key, references, search, tenant, withoutRowid, indexes } = declared.table;
-    const style = ddl[dialect];
-    const { types } = dialects[dialect];
+    const style = dialects[dialect];
     const columns = Object.values(declared.table.columns);
     const list = (names: readonly string[]) => names.map(quote).join(', ');
     const named = (name: string) => Option.fromUndefinedOr(columns.find((entry) => entry.name === name));
@@ -190,10 +112,10 @@ const render = (dialect: Dialect, declared: Table, target: (name: string) => str
         const [checked, fallback] = [check(entry), Option.map(entry.fallback, (value) => style.constant(entry, value))];
         return {
             ...entry,
-            type: types[entry.kind],
+            type: style.types[entry.kind],
             check: checked,
             fallback,
-            text: [quote(entry.name), types[entry.kind], ...Option.toArray(projection(entry)).map(style.generated), ...(entry.nullable ? [] : ['NOT NULL']), ...Option.toArray(fallback).map((text) => `DEFAULT ${text}`), ...Option.toArray(checked).map(({ name, text }) => style.constraint(name, text))].join(' '),
+            text: [quote(entry.name), style.types[entry.kind], ...Option.toArray(projection(entry)).map(style.generated), ...(entry.nullable ? [] : ['NOT NULL']), ...Option.toArray(fallback).map((text) => `DEFAULT ${text}`), ...Option.toArray(checked).map(({ name, text }) => style.constraint(name, text))].join(' '),
         };
     };
     const link = (reference: (typeof references)[number]) => ({
@@ -241,14 +163,17 @@ const render = (dialect: Dialect, declared: Table, target: (name: string) => str
         links,
         indexes: [...indexes.filter(({ method }) => style.methods.includes(method)).map(index), ...Option.match(searched, { onNone: () => [], onSome: (found) => found.indexes })],
         fts: Option.flatMap(searched, ({ fts }) => fts),
-        policy: Option.flatMap(Option.flatMap(tenant, named), ({ name, kind }) => style.policy(owner, name, types[kind])),
+        policy: Option.flatMap(Option.flatMap(tenant, named), ({ name, kind }) => style.policy(owner, name, style.types[kind])),
         create: `CREATE TABLE ${target(owner)} (${[...definitions.map(({ text }) => text), ...retained, `PRIMARY KEY (${list(key)})`, ...links.map(({ name, text }) => style.constraint(name, text))].join(', ')})${style.suffix(withoutRowid)}`,
     };
 };
+const draw = (dialect: Dialect, catalog: Catalog): readonly Drawing[] => [ledger, ...catalog.tables].map((declared) => ({ declared, rendered: render(dialect, declared, quote, []) }));
+const required = (drawings: readonly Drawing[]) => (drawings.some(({ rendered }) => rendered.indexes.some(({ trigram }) => trigram)) ? ['pg_trgm'] : []);
 
 // --- [IDENTITY]
-const match = <C extends { readonly name: string }, L extends { readonly name: string }>(catalog: Catalog, stored: Option.Option<typeof Stored.Type>, tables: readonly L[], columns: (live: L) => readonly C[]) => {
-    const identity: typeof Identity.Type = Option.match(stored, { onNone: () => ({}), onSome: (row) => row.identity ?? {} });
+const match = <D extends Drawing, C extends { readonly name: string }, L extends { readonly name: string }>(catalog: Catalog, stored: Option.Option<typeof ledger.Type>, drawings: readonly D[], observed: { readonly tables: readonly L[]; readonly columns: (live: L) => readonly C[] }) => {
+    const { tables, columns } = observed;
+    const { revision, identity } = Option.getOrElse(stored, (): typeof ledger.Type => ({ revision: 0, identity: {} }));
     const { retired } = catalog;
     const count = (names: readonly string[], name: string) => names.filter((entry) => entry === name).length;
     const sparse = (name: string, origin: string, incarnation: number): Option.Option<Entry> => (origin === name && incarnation === 0 ? Option.none() : Option.some({ ...(origin === name ? {} : { origin }), ...(incarnation === 0 ? {} : { incarnation }) }));
@@ -275,76 +200,89 @@ const match = <C extends { readonly name: string }, L extends { readonly name: s
                 ),
         );
     };
-    const located = (declared: Table, { row: live, origin, incarnation, owned }: Option.Option.Value<ReturnType<typeof resolve<L>>>) => {
+    const located = (drawing: D, { row: live, origin, incarnation, owned }: Option.Option.Value<ReturnType<typeof resolve<L>>>) => {
+        const { declared } = drawing;
         const entry = (name: string) => identity[live.name]?.columns?.[name] ?? {};
         const fields = Object.values(declared.table.columns).map((column) => ({ column, found: resolve(columns(live), entry, declared.table.retired.columns, column) }));
         const claimed = fields.flatMap(({ found }) => Option.toArray(found).map(({ row }) => row.name));
         const doomed = columns(live).filter(({ name }) => owned && !claimed.includes(name) && (entry(name).incarnation ?? 0) < count(declared.table.retired.columns, name));
         const retained = columns(live).filter((row) => !(claimed.includes(row.name) || doomed.includes(row)));
         const recorded = (column: Column, found: (typeof fields)[number]['found']) => [column.name, Option.match(found, { onNone: () => declaredIdentity(column.name, column.earlier, column.incarnation), onSome: (row) => sparse(column.name, row.origin, row.incarnation) })] as const;
+        const renames = fields.flatMap(({ column, found }) => Option.toArray(Option.filter(found, ({ row }) => row.name !== column.name)).map(({ row }) => ({ from: row.name, to: column.name })));
         return {
-            declared,
+            ...drawing,
             live,
             owned,
             fields: fields.map(({ column, found }) => ({ column, found: Option.map(found, ({ row }) => row) })),
             doomed,
             retained,
-            renames: fields.flatMap(({ column, found }) => Option.toArray(Option.filter(found, ({ row }) => row.name !== column.name)).map(({ row }) => ({ from: row.name, to: column.name }))),
+            renames,
+            renamed: (name: string) => renames.find(({ from }) => from === name)?.to ?? name,
+            original: (name: string) => renames.find(({ to }) => to === name)?.from ?? name,
+            retiredIndexes: declared.table.retired.indexes.map((parts) => identifier([live.name, ...parts])),
             added: fields.filter(({ found }) => Option.isNone(found)).map(({ column }) => column),
             own: sparse(declared.table.name, origin, incarnation),
             columns: [...fields.map(({ column, found }) => recorded(column, found)), ...retained.map(({ name }) => [name, Option.fromUndefinedOr(identity[live.name]?.columns?.[name])] as const)],
         };
     };
-    const entries = [ledger, ...catalog.tables].map((declared) => {
+    const entries = drawings.map((drawing) => {
+        const { declared } = drawing;
         const incarnation = count(retired, declared.table.name);
         const state = Option.map(
             resolve(tables, (name) => identity[name] ?? {}, retired, { name: declared.table.name, earlier: declared.table.earlier, incarnation }),
-            (found) => located(declared, found),
+            (found) => located(drawing, found),
         );
         const { own, columns: recorded } = Option.getOrElse(state, () => ({
             own: declaredIdentity(declared.table.name, declared.table.earlier, incarnation),
             columns: Object.values(declared.table.columns).map((column) => [column.name, declaredIdentity(column.name, column.earlier, column.incarnation)] as const),
         }));
         const kept = Record.getSomes(Record.fromEntries(recorded));
-        return { declared, state, recorded: [declared.table.name, { ...Option.getOrElse(own, () => ({})), ...(Record.isEmptyRecord(kept) ? {} : { columns: kept }) }] as const };
+        return { drawing, state, recorded: [declared.table.name, { ...Option.getOrElse(own, () => ({})), ...(Record.isEmptyRecord(kept) ? {} : { columns: kept }) }] as const };
     });
     const matched = entries.flatMap(({ state }) => Option.toArray(state));
     const owner = (name: string) => matched.some(({ live }) => live.name === name);
     const removed = tables.filter(({ name }) => !owner(name) && (identity[name]?.incarnation ?? 0) < count(retired, name));
     const kept = tables.filter((row) => !(owner(row.name) || removed.includes(row) || row.name === ledger.table.name));
     const document: typeof Identity.Type = Record.fromEntries([...entries.map(({ recorded }) => recorded), ...kept.map(({ name }) => [name, identity[name] ?? {}] as const)].filter(([, value]) => Object.keys(value).length > 0));
-    const revision = Option.match(stored, { onNone: () => 0, onSome: (row) => row.revision });
-    const required = matched.flatMap(({ declared, added }) => added.filter((column) => !column.nullable && Option.isNone(column.fallback) && Option.isNone(column.projection)).map(({ name }): Finding => ({ reason: 'Required', table: declared.table.name, subject: name })));
     return {
-        created: entries.filter(({ state }) => Option.isNone(state)).map(({ declared }) => declared),
+        created: entries.filter(({ state }) => Option.isNone(state)).map(({ drawing }) => drawing),
         matched,
+        declaredName: (live: string) => matched.find((entry) => entry.live.name === live)?.declared.table.name ?? live,
         removed,
         kept,
-        changed: !Equal.equals(document, identity),
-        ledger: { revision, document },
-        findings: [
-            ...catalog.tables.flatMap(({ table: facts }) =>
-                Object.values(facts.columns)
-                    .filter(({ kind }) => kind === 'number')
-                    .map(({ name }): Finding => ({ reason: 'Unsupported', table: facts.name, subject: name })),
-            ),
-            ...required,
-        ],
+        plan: (parts: { readonly findings: readonly Finding[]; readonly preamble: readonly string[]; readonly opening: readonly string[]; readonly statements: readonly string[]; readonly concurrent: readonly string[]; readonly indexes: readonly string[] }) => {
+            const statements = [
+                ...parts.opening,
+                ...removed.map(({ name }) => `DROP TABLE ${quote(name)}`),
+                ...matched.filter(({ live, declared }) => live.name !== declared.table.name).map(({ live, declared }) => `ALTER TABLE ${quote(live.name)} RENAME TO ${final(declared)}`),
+                ...matched.flatMap(({ declared, renames }) => renames.map(({ from, to }) => `ALTER TABLE ${final(declared)} RENAME COLUMN ${quote(from)} TO ${quote(to)}`)),
+                ...parts.statements,
+            ];
+            const findings = [
+                ...catalog.tables.flatMap(({ table: facts }) =>
+                    Object.values(facts.columns)
+                        .filter(({ kind }) => kind === 'number')
+                        .map(({ name }): Finding => ({ _tag: 'Unsupported', table: facts.name, subject: name })),
+                ),
+                ...matched.flatMap(({ declared, added }) => added.filter((column) => !column.nullable && Option.isNone(column.fallback) && Option.isNone(column.projection)).map(({ name }): Finding => ({ _tag: 'Required', table: declared.table.name, subject: name }))),
+                ...parts.findings,
+            ];
+            const planned = {
+                preamble: parts.preamble,
+                statements,
+                ledger: Option.liftPredicate({ revision, document }, () => Array.isReadonlyArrayNonEmpty(statements) || !Equal.equals(document, identity)),
+                concurrent: parts.concurrent,
+                undeclared: { tables: kept.map(({ name }) => name), columns: matched.flatMap(({ declared, retained }) => retained.map(({ name }) => ({ table: declared.table.name, column: name }))), indexes: parts.indexes },
+            };
+            return Array.isReadonlyArrayNonEmpty(findings) ? Effect.fail(ReconcileError.make({ findings })) : Effect.succeed(planned);
+        },
     };
 };
 
 // --- [PLAN]
-const checked = <A extends { readonly findings: readonly Finding[] }>(planned: A) => (Array.isReadonlyArrayNonEmpty(planned.findings) ? Effect.fail(ReconcileError.make({ findings: planned.findings })) : Effect.succeed(planned));
-const latestRevision = (sql: SqlClient.SqlClient, columns: readonly string[]) =>
-    Array.match(
-        columns.filter((name) => Object.hasOwn(Stored.fields, name)),
-        {
-            onEmpty: () => Effect.succeedNone,
-            onNonEmpty: SqlSchema.findOneOption({ Request: Schema.Array(Schema.String), Result: Stored, execute: (names) => sql`SELECT ${sql.literal(names.map(quote).join(', '))} FROM ${sql(ledger.table.name)} ORDER BY ${sql('revision')} DESC LIMIT 1` }),
-        },
-    );
+const latestRevision = (sql: SqlClient.SqlClient, present: boolean) => (present ? SqlSchema.findOneOption({ Request: Schema.Void, Result: ledger, execute: () => sql`SELECT ${sql.csv(Object.values(ledger.table.columns).map(({ name }) => quote(name)))} FROM ${sql(ledger.table.name)}` })(undefined) : Effect.succeedNone);
 const planSqlite = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, catalog: Catalog, cloudflare: boolean) {
-    const [{ catalog: observed }] = yield* Effect.flatMap(
+    const [{ catalog: live }] = yield* Effect.flatMap(
         sql`SELECT json_object(
             'tables', (SELECT json_group_array(json_object('name', l.name, 'strict', l.strict, 'withoutRowid', l.wr, 'sql', m.sql,
                 'columns', (SELECT json_group_array(json_object('name', x.name, 'type', x.type, 'required', x."notnull", 'fallback', x.dflt_value, 'hidden', x.hidden)) FROM pragma_table_xinfo(l.name) x),
@@ -357,21 +295,19 @@ const planSqlite = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, catalo
         ) AS catalog`,
         Schema.decodeUnknownEffect(Sqlite),
     );
-    const stored = yield* latestRevision(sql, observed.tables.find(({ name }) => name === ledger.table.name)?.columns.map(({ name }) => name) ?? []);
-    const resolved = match(catalog, stored, observed.tables, ({ columns }) => columns);
-    const final = (declared: Table) => quote(declared.table.name);
-    const declaredName = (live: string) => resolved.matched.find((entry) => entry.live.name === live)?.declared.table.name ?? live;
+    const stored = yield* latestRevision(
+        sql,
+        live.tables.some(({ name }) => name === ledger.table.name),
+    );
+    const resolved = match(catalog, stored, draw('sqlite', catalog), { tables: live.tables, columns: ({ columns }) => columns });
     const analyze = (entry: (typeof resolved.matched)[number]) => {
-        const rendered = render('sqlite', entry.declared, quote, []);
-        const renamed = (name: string) => entry.renames.find(({ from }) => from === name)?.to ?? name;
-        const original = (name: string) => entry.renames.find(({ to }) => to === name)?.from ?? name;
         const dropping = entry.doomed.map(({ name }) => name);
         const groups = Object.values(Array.groupBy(entry.live.references, ({ id }) => `${id}`));
-        const linked = groups.map((group) => ({ target: declaredName(group[0].target), columns: group.map(({ from }) => renamed(from)), action: group[0].onDelete }));
-        const live = (name: string) => Option.flatMap(Option.fromUndefinedOr(entry.fields.find(({ column }) => column.name === name)), ({ found }) => found);
-        const drifted = (definition: (typeof rendered.definitions)[number]) =>
+        const linked = groups.map((group) => ({ target: resolved.declaredName(group[0].target), columns: group.map(({ from }) => entry.renamed(from)), action: group[0].onDelete }));
+        const found = (name: string) => Option.flatMap(Option.fromUndefinedOr(entry.fields.find(({ column }) => column.name === name)), (field) => field.found);
+        const drifted = (definition: (typeof entry.rendered.definitions)[number]) =>
             Option.exists(
-                live(definition.name),
+                found(definition.name),
                 (row) =>
                     row.type !== definition.type ||
                     row.required === definition.nullable ||
@@ -379,39 +315,37 @@ const planSqlite = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, catalo
                     (row.hidden === 0) === Option.isSome(definition.projection) ||
                     !Option.match(definition.check, { onNone: () => true, onSome: ({ text }) => entry.live.sql.includes(text) }),
             );
-        const indexes = observed.indexes.filter((row) => row.table === entry.live.name);
-        const wanted = rendered.indexes.map((index) => ({ name: index.name, text: index.text('', final(entry.declared)), prior: identifier([entry.live.name, ...index.parts.map(original)]) }));
-        const retired = entry.declared.table.retired.indexes.map((parts) => identifier([entry.live.name, ...parts]));
+        const indexes = live.indexes.filter((row) => row.table === entry.live.name);
+        const wanted = entry.rendered.indexes.map((index) => ({ name: index.name, text: index.text('', final(entry.declared)), prior: identifier([entry.live.name, ...index.parts.map(entry.original)]) }));
         const stale = (row: (typeof indexes)[number]) => wanted.some((declared) => (declared.name === row.name && declared.text !== row.sql) || (declared.prior === row.name && declared.prior !== declared.name));
-        const dropped = indexes.filter((row) => retired.includes(row.name) || row.keys.some((key) => key !== null && dropping.includes(key)) || stale(row));
-        const unlinked = rendered.links.some((link) => !linked.some(({ target, columns, action }) => target === link.target && action === link.action && Equal.equals(columns, link.columns)));
+        const dropped = indexes.filter((row) => entry.retiredIndexes.includes(row.name) || row.keys.some((key) => key !== null && dropping.includes(key)) || stale(row));
+        const unlinked = entry.rendered.links.some((link) => !linked.some(({ target, columns, action }) => target === link.target && action === link.action && Equal.equals(columns, link.columns)));
         return {
             ...entry,
-            rendered,
             groups,
-            rebuild: entry.owned && (!entry.live.strict || entry.live.withoutRowid !== entry.declared.table.withoutRowid || unlinked || entry.live.references.some(({ from }) => dropping.includes(from)) || rendered.definitions.some((definition) => definition.retype && drifted(definition))),
+            rebuild: entry.owned && (!entry.live.strict || entry.live.withoutRowid !== entry.declared.table.withoutRowid || unlinked || entry.live.references.some(({ from }) => dropping.includes(from)) || entry.rendered.definitions.some((definition) => definition.retype && drifted(definition))),
             dropped,
             indexes: wanted.map(({ text }) => text),
             missing: wanted.filter(({ name }) => !indexes.some((row) => row.name === name && !dropped.includes(row))).map(({ text }) => text),
             undeclared: indexes.filter((row) => !(dropped.includes(row) || wanted.some(({ name }) => name === row.name))),
-            triggers: observed.triggers.filter((row) => row.table === entry.live.name),
+            triggers: live.triggers.filter((row) => row.table === entry.live.name),
         };
     };
     const tables = resolved.matched.map(analyze);
     const closure = (members: readonly (typeof tables)[number][]): readonly (typeof tables)[number][] => {
-        const parent = (entry: (typeof tables)[number]) => entry.declared.table.references.some((reference) => reference.table !== entry.declared && members.some(({ declared }) => declared.table.name === reference.table.table.name));
+        const parent = (entry: (typeof tables)[number]) => entry.declared.table.references.some((reference) => members.some(({ declared }) => declared.table.name === reference.table.table.name));
         const next = tables.filter((entry) => members.includes(entry) || parent(entry));
         return next.length === members.length ? members : closure(next);
     };
     const rebuilds = closure(tables.filter(({ rebuild }) => rebuild));
     const temporary = (name: string) => (rebuilds.some(({ declared }) => declared.table.name === name) ? quote(`${name}__rebuild`) : quote(name));
-    const depth = (declared: Table): number => Math.max(0, ...declared.table.references.filter((reference) => reference.table !== declared).map((reference) => depth(reference.table) + 1));
+    const depth = (declared: Relation): number => Math.max(0, ...declared.table.references.map((reference) => depth(reference.table) + 1));
     const searched = (entry: (typeof tables)[number], recreated: boolean) =>
         Option.match(entry.rendered.fts, {
             onNone: () => [],
             onSome: (fts) => {
-                const fresh = observed.virtual.find(({ name }) => name === fts.name)?.sql !== fts.sql;
-                const stale = observed.virtual.filter(({ name }) => (name === fts.name && fresh) || (name === `${entry.live.name}_fts` && name !== fts.name));
+                const fresh = live.virtual.find(({ name }) => name === fts.name)?.sql !== fts.sql;
+                const stale = live.virtual.filter(({ name }) => (name === fts.name && fresh) || (name === `${entry.live.name}_fts` && name !== fts.name));
                 const triggers = recreated ? [] : entry.triggers.filter(({ name }) => name.startsWith(`${entry.live.name}_fts_`) || name.startsWith(`${fts.name}_`));
                 const current = triggers.filter((row) => fts.triggers.some(({ name, sql: text }) => name === row.name && text === row.sql));
                 return [
@@ -423,7 +357,7 @@ const planSqlite = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, catalo
                 ];
             },
         });
-    const retain = ({ name, type, required, fallback }: (typeof tables)[number]['retained'][number]) => [quote(name), type === '' ? 'ANY' : type, ...(required ? ['NOT NULL'] : []), ...(fallback === null ? [] : [`DEFAULT ${fallback}`])].join(' ');
+    const retain = ({ name, type, required: needed, fallback }: (typeof tables)[number]['retained'][number]) => [quote(name), type === '' ? 'ANY' : type, ...(needed ? ['NOT NULL'] : []), ...(fallback === null ? [] : [`DEFAULT ${fallback}`])].join(' ');
     const relink = (group: (typeof tables)[number]['groups'][number]) => `FOREIGN KEY (${group.map(({ from }) => quote(from)).join(', ')}) REFERENCES ${quote(group[0].target)} (${group.map(({ from, to }) => quote(to ?? from)).join(', ')}) ON DELETE ${group[0].onDelete}`;
     const rebuilt = (entry: (typeof tables)[number]) => {
         const kept = entry.retained.filter(({ hidden }) => hidden === 0).map(({ name }) => name);
@@ -434,7 +368,6 @@ const planSqlite = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, catalo
             restore: [...entry.indexes, ...entry.undeclared.map((index) => index.sql), ...entry.triggers.filter(({ name }) => !(name.startsWith(`${entry.live.name}_fts_`) || name.startsWith(`${entry.declared.table.name}_fts_`))).map((trigger) => trigger.sql), ...searched(entry, true)],
         };
     };
-    const created = resolved.created.map((declared) => ({ declared, ...render('sqlite', declared, quote, []) }));
     const altered = tables.filter((entry) => !rebuilds.includes(entry));
     const altering = (entry: (typeof tables)[number]) => [
         ...entry.dropped.map(({ name }) => `DROP INDEX ${quote(name)}`),
@@ -443,82 +376,72 @@ const planSqlite = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, catalo
         ...entry.missing,
         ...searched(entry, false),
     ];
-    const creating = ({ declared, create, indexes, fts }: (typeof created)[number]) => [create, ...indexes.map(({ text }) => text('', final(declared))), ...Option.match(fts, { onNone: () => [], onSome: (found) => [found.sql, ...found.triggers.map((trigger) => trigger.sql)] })];
+    const creating = ({ declared, rendered }: Drawing) => [rendered.create, ...rendered.indexes.map(({ text }) => text('', final(declared))), ...Option.match(rendered.fts, { onNone: () => [], onSome: (found) => [found.sql, ...found.triggers.map((trigger) => trigger.sql)] })];
     const rebuilding = rebuilds.map(rebuilt);
-    const statements = [
-        ...(Array.isReadonlyArrayNonEmpty(rebuilds) || Array.isReadonlyArrayNonEmpty(resolved.removed) ? ['PRAGMA defer_foreign_keys = on'] : []),
-        ...resolved.removed.map(({ name }) => `DROP TABLE ${quote(name)}`),
-        ...tables.filter(({ live, declared }) => live.name !== declared.table.name).map(({ live, declared }) => `ALTER TABLE ${quote(live.name)} RENAME TO ${final(declared)}`),
-        ...tables.flatMap(({ declared, renames }) => renames.map(({ from, to }) => `ALTER TABLE ${final(declared)} RENAME COLUMN ${quote(from)} TO ${quote(to)}`)),
-        ...created.flatMap(creating),
-        ...altered.flatMap(altering),
-        ...rebuilding.map(({ create }) => create),
-        ...rebuilding.map(({ copy }) => copy),
-        ...Array.sortWith(rebuilds, ({ declared }) => depth(declared), Order.flip(Order.Number)).map(({ declared }) => `DROP TABLE ${final(declared)}`),
-        ...rebuilds.map(({ declared }) => `ALTER TABLE ${temporary(declared.table.name)} RENAME TO ${final(declared)}`),
-        ...rebuilding.flatMap(({ restore }) => restore),
-    ];
-    const indexing = [...created.flatMap(({ indexes, fts }) => [...indexes, ...Option.toArray(fts)]), ...altered.flatMap(({ missing }) => missing), ...rebuilds.flatMap(({ indexes }) => indexes)];
-    const replaced = [...rebuilds.map(({ live }) => live.name), ...resolved.removed.map(({ name }) => name)];
-    const refused = (facts: Table['table']): readonly Finding[] => [
-        ...Option.toArray(facts.tenant).map((subject): Finding => ({ reason: 'Unsupported', table: facts.name, subject })),
-        ...(Option.isSome(facts.search) && (facts.withoutRowid || !Object.values(facts.columns).some(({ name, kind }) => kind === 'integer' && Equal.equals(facts.key, [name]))) ? [{ reason: 'Unsupported' as const, table: facts.name, subject: 'search' }] : []),
+    const indexing = [...resolved.created.flatMap(({ rendered }) => [...rendered.indexes, ...Option.toArray(rendered.fts)]), ...altered.flatMap(({ missing }) => missing), ...rebuilds.flatMap(({ indexes }) => indexes)];
+    const replaced = [...rebuilds.map(({ live: row }) => row.name), ...resolved.removed.map(({ name }) => name)];
+    const capacity = 100;
+    const refused = (facts: Relation['table']): readonly Finding[] => [
+        ...Option.toArray(facts.tenant).map((subject): Finding => ({ _tag: 'Unsupported', table: facts.name, subject })),
+        ...(Option.isSome(facts.search) && (facts.withoutRowid || !Object.values(facts.columns).some(({ name, kind }) => kind === 'integer' && Equal.equals(facts.key, [name]))) ? [{ _tag: 'Unsupported' as const, table: facts.name, subject: 'search' }] : []),
         ...Object.values(facts.columns)
             .filter(({ name }) => ['rowid', 'oid', '_rowid_'].includes(name.toLowerCase()))
-            .map(({ name }): Finding => ({ reason: 'Unsupported', table: facts.name, subject: name })),
-        ...(cloudflare && Record.size(facts.columns) > limits.columns ? [{ reason: 'Unsupported' as const, table: facts.name, subject: 'columns' }] : []),
+            .map(({ name }): Finding => ({ _tag: 'Unsupported', table: facts.name, subject: name })),
+        ...(cloudflare && Record.size(facts.columns) > capacity ? [{ _tag: 'Unsupported' as const, table: facts.name, subject: 'columns' }] : []),
     ];
-    const planned = {
+    return yield* resolved.plan({
         findings: [
-            ...resolved.findings,
             ...catalog.tables.flatMap(({ table: facts }) => refused(facts)),
-            ...rebuilds.flatMap((entry) => entry.retained.filter(({ hidden }) => hidden !== 0).map(({ name }): Finding => ({ reason: 'Unsupported', table: entry.declared.table.name, subject: name }))),
-            ...resolved.kept.flatMap((row) => row.references.filter(({ target }) => replaced.includes(target)).map(({ target }): Finding => ({ reason: 'RetainedReference', table: row.name, subject: target }))),
+            ...rebuilds.flatMap((entry) => entry.retained.filter(({ hidden }) => hidden !== 0).map(({ name }): Finding => ({ _tag: 'Unsupported', table: entry.declared.table.name, subject: name }))),
+            ...resolved.kept.flatMap((row) => row.references.filter(({ target }) => replaced.includes(target)).map(({ target }): Finding => ({ _tag: 'RetainedReference', table: row.name, subject: target }))),
         ],
         preamble: [],
-        statements: [...statements, ...(Array.isReadonlyArrayNonEmpty(indexing) ? ['PRAGMA optimize'] : [])],
-        ledger: Option.liftPredicate(resolved.ledger, () => Array.isReadonlyArrayNonEmpty(statements) || resolved.changed),
+        opening: Array.isReadonlyArrayNonEmpty(rebuilds) || Array.isReadonlyArrayNonEmpty(resolved.removed) ? ['PRAGMA defer_foreign_keys = on'] : [],
+        statements: [
+            ...resolved.created.flatMap(creating),
+            ...altered.flatMap(altering),
+            ...rebuilding.map(({ create }) => create),
+            ...rebuilding.map(({ copy }) => copy),
+            ...Array.sortWith(rebuilds, ({ declared }) => depth(declared), Order.flip(Order.Number)).map(({ declared }) => `DROP TABLE ${final(declared)}`),
+            ...rebuilds.map(({ declared }) => `ALTER TABLE ${temporary(declared.table.name)} RENAME TO ${final(declared)}`),
+            ...rebuilding.flatMap(({ restore }) => restore),
+            ...(Array.isReadonlyArrayNonEmpty(indexing) ? ['PRAGMA optimize'] : []),
+        ],
         concurrent: [],
-        undeclared: {
-            tables: resolved.kept.map(({ name }) => name),
-            columns: tables.flatMap(({ declared, retained }) => retained.map(({ name }) => ({ table: declared.table.name, column: name }))),
-            indexes: tables.flatMap(({ undeclared }) => undeclared.map(({ name }) => name)),
-        },
-    };
-    return yield* checked(planned);
+        indexes: tables.flatMap(({ undeclared }) => undeclared.map(({ name }) => name)),
+    });
 });
-const planPg = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, catalog: Catalog, runtime: Option.Option<string>, apply: boolean) {
+const preludePg = Effect.fnUntraced(function* (sql: SqlClient.SqlClient) {
     const preamble = ["SET LOCAL lock_timeout = '5s'", "SET LOCAL transaction_timeout = '2min'"];
+    yield* Effect.forEach(preamble, (text) => sql.unsafe(text), { discard: true });
+    const [{ owner, extensions }] = yield* Effect.flatMap(
+        sql`SELECT pg_advisory_xact_lock(hashtextextended(current_schema(), 0))::text AS lock, set_config('search_path', quote_ident(current_schema()) || ', pg_temp', true) AS search_path, current_user::text AS owner, array(SELECT extname::text FROM pg_extension) AS extensions`,
+        Schema.decodeUnknownEffect(Prelude),
+    );
+    return { preamble, migrator: owner, installed: extensions };
+});
+const planPg = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, catalog: Catalog, runtime: Option.Option<string>, session: { readonly drawings: readonly Drawing[]; readonly preamble: readonly string[]; readonly migrator: string; readonly available: readonly string[] }) {
     const role = Option.match(runtime, { onNone: () => 'PUBLIC', onSome: quote });
     const block = (body: string) => {
         const tag = `$${'r'.repeat(1 + Math.max(0, ...Array.fromIterable(body.matchAll(/r+/gu)).map(([run]) => run.length)))}$`;
         return `DO ${tag} BEGIN ${body} END ${tag}`;
     };
-    const extensions = catalog.tables.some((declared) => render('pg', declared, quote, []).indexes.some(({ trigram }) => trigram)) ? ['pg_trgm'] : [];
-    yield* Effect.forEach(preamble, (text) => sql.unsafe(text), { discard: true });
-    const [{ owner: migrator, extensions: installed }] = yield* Effect.flatMap(
-        sql`SELECT pg_advisory_xact_lock(hashtextextended(current_schema(), 0))::text AS lock, set_config('search_path', quote_ident(current_schema()) || ', pg_temp', true) AS search_path, current_user::text AS owner, array(SELECT extname::text FROM pg_extension) AS extensions`,
-        Schema.decodeUnknownEffect(Prelude),
-    );
-    const absent = extensions.filter((extension) => !installed.includes(extension));
-    yield* Effect.forEach(apply ? absent : [], (extension) => sql.unsafe(`CREATE EXTENSION IF NOT EXISTS ${quote(extension)}`), { discard: true });
-    const available = apply ? [...installed, ...absent] : installed;
     const scratch = (name: string) => `pg_temp.${quote(name)}`;
-    const temporary = (declared: Table) => {
+    const temporary = (declared: Relation) => {
         const rendered = render('pg', declared, scratch, []);
-        return [`${rendered.create} ON COMMIT DROP`, ...rendered.indexes.filter(({ trigram }) => !trigram || available.includes('pg_trgm')).map(({ text }) => text('', scratch(declared.table.name))), ...Option.toArray(rendered.policy).map(({ text }) => text(scratch(declared.table.name), role))];
+        return [`${rendered.create} ON COMMIT DROP`, ...rendered.indexes.filter(({ trigram }) => !trigram || session.available.includes('pg_trgm')).map(({ text }) => text('', scratch(declared.table.name))), ...Option.toArray(rendered.policy).map(({ text }) => text(scratch(declared.table.name), role))];
     };
     yield* sql.unsafe(
         block(
-            [ledger, ...catalog.tables]
-                .flatMap(temporary)
+            session.drawings
+                .flatMap(({ declared }) => temporary(declared))
                 .map((statement) => `${statement};`)
                 .join(' '),
         ),
     );
     const within = 'c.relnamespace IN (current_schema()::regnamespace, pg_my_temp_schema())';
     const flag = `'scratch', c.relnamespace = pg_my_temp_schema()`;
-    const [{ catalog: observed }] = yield* Effect.flatMap(
+    const [{ catalog: live }] = yield* Effect.flatMap(
         sql.unsafe(`SELECT json_build_object(
             'tables', coalesce((SELECT json_agg(json_build_object(${flag}, 'name', c.relname, 'rls', c.relrowsecurity, 'force', c.relforcerowsecurity,
                 'grants', coalesce((SELECT json_agg(json_build_array(a.grantee::regrole::text, a.privilege_type)) FROM aclexplode(c.relacl) a WHERE a.grantee <> c.relowner), '[]'::json)))
@@ -546,54 +469,41 @@ const planPg = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, catalog: C
     const own = <R extends { readonly scratch: boolean; readonly table: string }>(rows: readonly R[], name: string, scratched: boolean) => rows.filter((row) => row.scratch === scratched && row.table === name);
     const stored = yield* latestRevision(
         sql,
-        own(observed.columns, ledger.table.name, false).map(({ name }) => name),
+        live.tables.some((row) => !row.scratch && row.name === ledger.table.name),
     );
-    const resolved = match(
-        catalog,
-        stored,
-        observed.tables.filter((row) => !row.scratch),
-        ({ name }) => own(observed.columns, name, false),
-    );
-    const final = (declared: Table) => quote(declared.table.name);
-    const privileges = [...Option.toArray(runtime).map((grantee) => ({ grantee, all: ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] })), ...Option.toArray(Option.fromUndefinedOr(catalog.reader)).map((grantee) => ({ grantee, all: ['SELECT'] }))].filter(({ grantee }) => grantee !== migrator);
-    const grants = (declared: Table, held: readonly (readonly [string, string])[]) =>
-        privileges.flatMap(({ grantee, all }) =>
-            Array.match(
-                Array.difference(
-                    all,
-                    held.filter(([holder]) => holder === grantee).map(([, granted]) => granted),
-                ),
-                { onEmpty: () => [], onNonEmpty: (missing) => [`GRANT ${missing.join(', ')} ON ${final(declared)} TO ${quote(grantee)}`] },
-            ),
-        );
-    const declaredName = (live: string) => resolved.matched.find((entry) => entry.live.name === live)?.declared.table.name ?? live;
-    const shape = (row: (typeof observed.indexes)[number], rename: (column: string) => string) => ({ unique: row.unique, method: row.method, width: row.width, classes: row.classes, predicate: row.predicate, keys: row.keys.map(({ column, text }) => (column ? rename(text) : text)) });
+    const resolved = match(catalog, stored, session.drawings, { tables: live.tables.filter((row) => !row.scratch), columns: ({ name }) => own(live.columns, name, false) });
+    const privileges = [...Option.toArray(runtime).map((grantee) => ({ grantee, all: ['SELECT', 'INSERT', 'UPDATE', 'DELETE'] })), ...Option.toArray(Option.fromUndefinedOr(catalog.reader)).map((grantee) => ({ grantee, all: ['SELECT'] }))].filter(({ grantee }) => grantee !== session.migrator);
+    const grants = (declared: Relation, held: readonly (readonly [string, string])[]) =>
+        privileges.flatMap(({ grantee, all }) => {
+            const missing = Array.difference(
+                all,
+                held.filter(([holder]) => holder === grantee).map(([, granted]) => granted),
+            );
+            return Array.isReadonlyArrayNonEmpty(missing) ? [`GRANT ${missing.join(', ')} ON ${final(declared)} TO ${quote(grantee)}`] : [];
+        });
+    const shape = (row: (typeof live.indexes)[number], rename: (column: string) => string) => ({ unique: row.unique, method: row.method, width: row.width, classes: row.classes, predicate: row.predicate, keys: row.keys.map(({ column, text }) => (column ? rename(text) : text)) });
     const analyze = (entry: (typeof resolved.matched)[number]) => {
         const { name } = entry.declared.table;
         const owner = final(entry.declared);
-        const rendered = render('pg', entry.declared, quote, []);
-        const renamed = (column: string) => entry.renames.find(({ from }) => from === column)?.to ?? column;
-        const original = (column: string) => entry.renames.find(({ to }) => to === column)?.from ?? column;
-        const prior = (parts: readonly string[]) => identifier([entry.live.name, ...parts.map(original)]);
-        const desired = { columns: own(observed.columns, name, true), constraints: own(observed.constraints, name, true), indexes: own(observed.indexes, name, true), policies: own(observed.policies, name, true) };
-        const live = { columns: own(observed.columns, entry.live.name, false), constraints: own(observed.constraints, entry.live.name, false), indexes: own(observed.indexes, entry.live.name, false), policies: own(observed.policies, entry.live.name, false) };
-        const relabel = (target: string, parts: readonly string[]) => Option.filter(Option.fromUndefinedOr(live.constraints.find((row) => row.name === prior(parts))), (row) => row.name !== target && !live.constraints.some((other) => other.name === target));
-        const relabels = [...rendered.definitions.flatMap(({ check }) => Option.toArray(check)), ...rendered.links].flatMap(({ name: target, parts }) => Option.toArray(relabel(target, parts)).map((row) => ({ from: row.name, to: target })));
-        const constraints = live.constraints.map((row) => ({ ...row, name: relabels.find(({ from }) => from === row.name)?.to ?? row.name, columns: row.columns.map(renamed), target: Option.map(Option.fromNullOr(row.target), declaredName) }));
-        const stale = rendered.links.filter((link) => !constraints.some((row) => row.kind === 'f' && row.name === link.name && Equal.equals(row.columns, link.columns) && Option.contains(row.target, link.target) && row.onDelete === link.action));
-        const planned = (index: (typeof rendered.indexes)[number]) => {
+        const prior = (parts: readonly string[]) => identifier([entry.live.name, ...parts.map(entry.original)]);
+        const desired = { columns: own(live.columns, name, true), constraints: own(live.constraints, name, true), indexes: own(live.indexes, name, true), policies: own(live.policies, name, true) };
+        const current = { columns: own(live.columns, entry.live.name, false), constraints: own(live.constraints, entry.live.name, false), indexes: own(live.indexes, entry.live.name, false), policies: own(live.policies, entry.live.name, false) };
+        const relabel = (target: string, parts: readonly string[]) => Option.filter(Option.fromUndefinedOr(current.constraints.find((row) => row.name === prior(parts))), (row) => row.name !== target && !current.constraints.some((other) => other.name === target));
+        const relabels = [...entry.rendered.definitions.flatMap(({ check }) => Option.toArray(check)), ...entry.rendered.links].flatMap(({ name: target, parts }) => Option.toArray(relabel(target, parts)).map((row) => ({ from: row.name, to: target })));
+        const constraints = current.constraints.map((row) => ({ ...row, name: relabels.find(({ from }) => from === row.name)?.to ?? row.name, columns: row.columns.map(entry.renamed), target: Option.map(Option.fromNullOr(row.target), resolved.declaredName) }));
+        const stale = entry.rendered.links.filter((link) => !constraints.some((row) => row.kind === 'f' && row.name === link.name && Equal.equals(row.columns, link.columns) && Option.contains(row.target, link.target) && row.onDelete === link.action));
+        const planned = (index: (typeof entry.rendered.indexes)[number]) => {
             const target = Option.fromUndefinedOr(desired.indexes.find((row) => row.name === index.name));
-            const fits = (row: (typeof observed.indexes)[number]) => row.valid && Option.match(target, { onNone: () => true, onSome: (wanted) => Equal.equals(shape(row, renamed), shape(wanted, Function.identity)) });
-            const present = Option.fromUndefinedOr(live.indexes.find((row) => row.name === index.name));
-            const before = Option.filter(Option.fromUndefinedOr(live.indexes.find((row) => row.name === prior(index.parts))), (row) => row.name !== index.name);
+            const fits = (row: (typeof live.indexes)[number]) => row.valid && Option.match(target, { onNone: () => true, onSome: (wanted) => Equal.equals(shape(row, entry.renamed), shape(wanted, Function.identity)) });
+            const present = Option.fromUndefinedOr(current.indexes.find((row) => row.name === index.name));
+            const before = Option.filter(Option.fromUndefinedOr(current.indexes.find((row) => row.name === prior(index.parts))), (row) => row.name !== index.name);
             const [keep, rename] = [Option.exists(present, fits), Option.isNone(present) && Option.exists(before, fits)];
             return { index, keep, rename, dropped: [...Option.toArray(present).filter(() => !keep), ...Option.toArray(before).filter(() => !rename)].map((row) => row.name) };
         };
-        const plans = rendered.indexes.map(planned);
-        const retired = entry.declared.table.retired.indexes.map((parts) => identifier([entry.live.name, ...parts]));
-        const policy = (rule: Option.Option.Value<typeof rendered.policy>) => {
-            const before = Option.filter(Option.fromUndefinedOr(live.policies.find((row) => row.name === prior(['tenant']))), (row) => row.name !== rule.name && !live.policies.some((other) => other.name === rule.name));
-            const present = Option.orElse(Option.fromUndefinedOr(live.policies.find((row) => row.name === rule.name)), () => before);
+        const plans = entry.rendered.indexes.map(planned);
+        const policy = (rule: Option.Option.Value<typeof entry.rendered.policy>) => {
+            const before = Option.filter(Option.fromUndefinedOr(current.policies.find((row) => row.name === prior(['tenant']))), (row) => row.name !== rule.name && !current.policies.some((other) => other.name === rule.name));
+            const present = Option.orElse(Option.fromUndefinedOr(current.policies.find((row) => row.name === rule.name)), () => before);
             const wanted = Option.fromUndefinedOr(desired.policies.find((row) => row.name === rule.name));
             const same = Option.exists(Option.all({ present, wanted }), (pair) => pair.present.using === pair.wanted.using && pair.present.check === pair.wanted.check);
             return [
@@ -602,12 +512,12 @@ const planPg = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, catalog: C
                 ...(Option.isSome(present) && !same ? [`ALTER POLICY ${quote(rule.name)} ON ${owner} TO ${role} USING (${rule.rule}) WITH CHECK (${rule.rule})`] : []),
             ];
         };
-        const pairs = entry.owned ? entry.fields.filter(({ column }) => column.retype).flatMap(({ column, found }) => Option.toArray(Option.all({ wants: Option.fromUndefinedOr(desired.columns.find((row) => row.name === column.name)), now: found })).map((pair) => ({ column, ...pair }))) : [];
+        const pairs = (entry.owned ? entry.fields.filter(({ column }) => column.retype) : []).flatMap(({ column, found }) => Option.toArray(Option.all({ wants: Option.fromUndefinedOr(desired.columns.find((row) => row.name === column.name)), now: found })).map((pair) => ({ column, ...pair })));
         const moved = pairs.filter(({ wants, now }) => now.type !== wants.type);
-        const constrained = <C extends { readonly kind: string; readonly columns: readonly string[] }>(rows: readonly C[]) => rows.filter((row) => row.kind === 'c' && pairs.some(({ column }) => Equal.equals(row.columns, [column.name])));
+        const constrained = <K extends { readonly kind: string; readonly columns: readonly string[] }>(rows: readonly K[]) => rows.filter((row) => row.kind === 'c' && pairs.some(({ column }) => Equal.equals(row.columns, [column.name])));
         const [had, needs] = [constrained(constraints), constrained(desired.constraints)];
         const [obsolete, missing] = [had.filter((row) => !needs.some((other) => other.definition === row.definition)), needs.filter((row) => !had.some((other) => other.definition === row.definition))];
-        const dependents = live.columns.filter((row) => row.generated !== '' && moved.some(({ now }) => row.sources.includes(now.name)));
+        const dependents = current.columns.filter((row) => row.generated !== '' && moved.some(({ now }) => row.sources.includes(now.name)));
         const tightened = pairs.filter(({ wants, now }) => wants.required && !now.required).map(({ column }) => ({ column: quote(column.name), constraint: identifier([name, column.name, 'not', 'null']) }));
         const changes = pairs.flatMap(({ column, wants, now }) => [
             ...(now.type === wants.type ? [] : [`ALTER COLUMN ${quote(column.name)} TYPE ${wants.type} USING ${quote(column.name)}::${wants.type}`]),
@@ -626,9 +536,9 @@ const planPg = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, catalog: C
             ...tightened.map(({ column, constraint }) => `ALTER TABLE ${owner} ADD CONSTRAINT ${quote(constraint)} NOT NULL ${column} NOT VALID`),
             ...missing.map((row) => `ALTER TABLE ${owner} ADD CONSTRAINT ${quote(row.name)} ${row.definition} NOT VALID`),
             ...dependents.map((row) => `ALTER TABLE ${owner} ADD COLUMN ${quote(row.name)} ${row.type} GENERATED ALWAYS AS (${row.expression}) ${row.generated === 's' ? 'STORED' : 'VIRTUAL'}`),
-            ...live.indexes.filter((index) => dependents.some((row) => index.columns.includes(row.name))).map(({ definition }) => definition),
+            ...current.indexes.filter((index) => dependents.some((row) => index.columns.includes(row.name))).map(({ definition }) => definition),
         ];
-        const added = rendered.definitions.flatMap((definition) => (entry.added.some((field) => field.name === definition.name) ? Option.toArray(Option.fromUndefinedOr(desired.columns.find((row) => row.name === definition.name))).map((row) => ({ definition, row })) : []));
+        const added = entry.rendered.definitions.filter((definition) => entry.added.some((field) => field.name === definition.name)).flatMap((definition) => Option.toArray(Option.fromUndefinedOr(desired.columns.find((row) => row.name === definition.name))).map((row) => ({ definition, row })));
         const adding = added.map(({ definition }) => definition.name);
         const additions = desired.constraints.filter((row) => row.kind === 'c' && row.columns.every((part) => adding.includes(part)));
         const tenant = Option.isSome(entry.declared.table.tenant);
@@ -647,95 +557,68 @@ const planPg = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, catalog: C
                 ...grants(entry.declared, entry.live.grants),
                 ...(tenant && !entry.live.rls ? [`ALTER TABLE ${owner} ENABLE ROW LEVEL SECURITY`] : []),
                 ...(tenant && !entry.live.force ? [`ALTER TABLE ${owner} FORCE ROW LEVEL SECURITY`] : []),
-                ...Option.match(rendered.policy, { onNone: () => [], onSome: policy }),
+                ...Option.match(entry.rendered.policy, { onNone: () => [], onSome: policy }),
             ],
-            dropped: [...plans.flatMap(({ dropped }) => dropped), ...live.indexes.filter((row) => retired.includes(row.name)).map((row) => row.name)],
+            dropped: [...plans.flatMap(({ dropped }) => dropped), ...current.indexes.filter((row) => entry.retiredIndexes.includes(row.name)).map((row) => row.name)],
             built: plans.filter(({ keep, rename }) => !(keep || rename)).map(({ index }) => index.text('CONCURRENTLY IF NOT EXISTS ', owner)),
             validated: [...constraints.filter((row) => !row.valid).map((row) => row.name), ...additions.map((row) => row.name), ...tightened.map(({ constraint }) => constraint), ...missing.map((row) => row.name), ...stale.map((link) => link.name)],
-            undeclared: live.indexes.filter((row) => !(retired.includes(row.name) || plans.some(({ index }) => [index.name, prior(index.parts)].includes(row.name)))).map((row) => row.name),
+            undeclared: current.indexes.filter((row) => !(entry.retiredIndexes.includes(row.name) || plans.some(({ index }) => [index.name, prior(index.parts)].includes(row.name)))).map((row) => row.name),
         };
     };
     const tables = resolved.matched.map(analyze);
-    const creating = (declared: Table) => {
-        const rendered = render('pg', declared, quote, []);
-        return [
-            rendered.create,
-            ...rendered.indexes.map(({ text }) => text('', final(declared))),
-            ...grants(declared, []),
-            ...Option.toArray(declared.table.tenant).flatMap(() => [`ALTER TABLE ${final(declared)} ENABLE ROW LEVEL SECURITY`, `ALTER TABLE ${final(declared)} FORCE ROW LEVEL SECURITY`]),
-            ...Option.toArray(rendered.policy).map(({ text }) => text(final(declared), role)),
-        ];
-    };
+    const creating = ({ declared, rendered }: Drawing) => [
+        rendered.create,
+        ...rendered.indexes.map(({ text }) => text('', final(declared))),
+        ...grants(declared, []),
+        ...Option.toArray(declared.table.tenant).flatMap(() => [`ALTER TABLE ${final(declared)} ENABLE ROW LEVEL SECURITY`, `ALTER TABLE ${final(declared)} FORCE ROW LEVEL SECURITY`]),
+        ...Option.toArray(rendered.policy).map(({ text }) => text(final(declared), role)),
+    ];
     const removed = resolved.removed.map(({ name }) => name);
     const kept = resolved.kept.map(({ name }) => name);
-    const statements = [
-        ...extensions.filter((extension) => !available.includes(extension)).map((extension) => `CREATE EXTENSION IF NOT EXISTS ${quote(extension)}`),
-        ...removed.map((name) => `DROP TABLE ${quote(name)}`),
-        ...tables.filter(({ live, declared }) => live.name !== declared.table.name).map(({ live, declared }) => `ALTER TABLE ${quote(live.name)} RENAME TO ${final(declared)}`),
-        ...tables.flatMap(({ declared, renames }) => renames.map(({ from, to }) => `ALTER TABLE ${final(declared)} RENAME COLUMN ${quote(from)} TO ${quote(to)}`)),
-        ...tables.flatMap(({ relabels }) => relabels),
-        ...resolved.created.flatMap(creating),
-        ...tables.flatMap((entry) => entry.statements),
-    ];
-    const planned = {
-        findings: [
-            ...resolved.findings,
-            ...observed.constraints.flatMap((row) => Option.toArray(Option.filter(Option.fromNullOr(row.target), (target) => !row.scratch && row.kind === 'f' && kept.includes(row.table) && removed.includes(target))).map((subject): Finding => ({ reason: 'RetainedReference', table: row.table, subject }))),
-        ],
-        preamble,
-        statements,
-        ledger: Option.liftPredicate(resolved.ledger, () => Array.isReadonlyArrayNonEmpty(statements) || resolved.changed),
+    return yield* resolved.plan({
+        findings: live.constraints.flatMap((row) => Option.toArray(Option.filter(Option.fromNullOr(row.target), (target) => !row.scratch && row.kind === 'f' && kept.includes(row.table) && removed.includes(target))).map((subject): Finding => ({ _tag: 'RetainedReference', table: row.table, subject }))),
+        preamble: session.preamble,
+        opening: required(session.drawings)
+            .filter((extension) => !session.available.includes(extension))
+            .map((extension) => `CREATE EXTENSION IF NOT EXISTS ${quote(extension)}`),
+        statements: [...tables.flatMap(({ relabels }) => relabels), ...resolved.created.flatMap(creating), ...tables.flatMap((entry) => entry.statements)],
         concurrent: [
             ...tables.flatMap(({ dropped }) => dropped.map((index) => `DROP INDEX CONCURRENTLY IF EXISTS ${quote(index)}`)),
             ...tables.flatMap(({ built }) => built),
             ...tables.flatMap(({ declared, validated }) => validated.map((constraint) => `ALTER TABLE ${final(declared)} VALIDATE CONSTRAINT ${quote(constraint)}`)),
         ],
-        undeclared: {
-            tables: kept,
-            columns: tables.flatMap(({ declared, retained }) => retained.map((column) => ({ table: declared.table.name, column: column.name }))),
-            indexes: tables.flatMap(({ undeclared }) => undeclared),
-        },
-    };
-    return yield* checked(planned);
+        indexes: tables.flatMap(({ undeclared }) => undeclared),
+    });
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const environment = Effect.gen(function* () {
-    const d1 = yield* Effect.serviceOption(D1Client.D1Client);
-    return { sql: (yield* SqlClient.SqlClient).withoutTransforms(), d1, cloudflare: Option.isSome(d1) || Option.isSome(yield* Effect.serviceOption(SqliteClient.SqliteClient)) };
-});
 const plan = Effect.fn('plan')(function* (catalog: Catalog, runtime: Option.Option<string>) {
     const { sql, cloudflare } = yield* environment;
-    const { preamble, statements, concurrent, undeclared } = yield* sql.onDialectOrElse({
+    const planned = yield* sql.onDialectOrElse({
         sqlite: () => planSqlite(sql, catalog, cloudflare),
-        pg: () => sql.withTransaction(planPg(sql, catalog, runtime, false)),
+        pg: () => sql.withTransaction(Effect.flatMap(preludePg(sql), ({ preamble, migrator, installed }) => planPg(sql, catalog, runtime, { drawings: draw('pg', catalog), preamble, migrator, available: installed }))),
         orElse: () => Effect.die('plan runs on SQLite and PostgreSQL clients'),
     });
-    return { preamble, statements, concurrent, undeclared };
+    return Struct.pick(planned, ['preamble', 'statements', 'concurrent', 'undeclared']);
 });
 const reconcile = Effect.fn('reconcile')(function* (catalog: Catalog, runtime: Option.Option<string>) {
     const { sql, d1, cloudflare } = yield* environment;
-    const written = ({ statements, ledger: write }: Planned) =>
-        Effect.map(
-            Effect.forEach(Option.toArray(write), ({ revision, document }) =>
-                Effect.map(Schema.encodeEffect(ledger.fields.identity)(document), (identity) => [sql`INSERT INTO ${sql(ledger.table.name)} ${sql.insert({ revision: revision + 1, identity })}`, sql`DELETE FROM ${sql(ledger.table.name)} WHERE ${sql('revision')} <= ${revision}`]),
-            ),
-            (rows) => [...statements.map((text) => sql.unsafe(text)), ...rows.flat()],
+    const apply = ({ statements, ledger: write }: Effect.Success<ReturnType<typeof planSqlite> | ReturnType<typeof planPg>>) =>
+        Effect.flatMap(
+            Effect.forEach(Option.toArray(write), ({ revision, document }) => Effect.all([ledger.insert([{ revision: revision + 1, identity: document }]), ledger.remove('revision', [revision])])),
+            (rows) => {
+                const all = [...statements.map((text) => sql.unsafe(text)), ...rows.flat()];
+                return Option.match(d1, { onSome: (client) => Effect.asVoid(client.batch(all)), onNone: () => Effect.all(all, { discard: true }) });
+            },
         );
-    const run = (planned: Planned) => Effect.flatMap(written(planned), (all) => Effect.all(all, { discard: true }));
-    const batch = Effect.fn('batch')(function* (client: D1Client.D1Client) {
-        const planned = yield* planSqlite(sql, catalog, cloudflare);
-        const all = yield* written(planned);
-        yield* Array.isReadonlyArrayNonEmpty(all) ? client.batch(all) : Effect.void;
-        return planned;
-    });
+    const stepped = Effect.tap(planSqlite(sql, catalog, cloudflare), apply);
     const applied = yield* sql.onDialectOrElse({
         sqlite: () =>
             Option.match(d1, {
-                onNone: () => sql.withTransaction(Effect.tap(planSqlite(sql, catalog, cloudflare), run)),
-                onSome: (client) =>
-                    Effect.catchTag(batch(client), 'SqlError', (error) =>
+                onNone: () => sql.withTransaction(stepped),
+                onSome: () =>
+                    Effect.catchTag(stepped, 'SqlError', (error) =>
                         Effect.filterOrFail(
                             planSqlite(sql, catalog, cloudflare),
                             ({ ledger: write }) => Option.isNone(write),
@@ -743,7 +626,16 @@ const reconcile = Effect.fn('reconcile')(function* (catalog: Catalog, runtime: O
                         ),
                     ),
             }),
-        pg: () => sql.withTransaction(Effect.tap(planPg(sql, catalog, runtime, true), run)),
+        pg: () =>
+            sql.withTransaction(
+                Effect.gen(function* () {
+                    const { preamble, migrator, installed } = yield* preludePg(sql);
+                    const drawings = draw('pg', catalog);
+                    const absent = required(drawings).filter((extension) => !installed.includes(extension));
+                    yield* Effect.forEach(absent, (extension) => sql.unsafe(`CREATE EXTENSION IF NOT EXISTS ${quote(extension)}`), { discard: true });
+                    return yield* Effect.tap(planPg(sql, catalog, runtime, { drawings, preamble, migrator, available: [...installed, ...absent] }), apply);
+                }),
+            ),
         orElse: () => Effect.die('reconcile runs on SQLite and PostgreSQL clients'),
     });
     yield* Effect.forEach(applied.concurrent, (text) => sql.unsafe(text), { discard: true });

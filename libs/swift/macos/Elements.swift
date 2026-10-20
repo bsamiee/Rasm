@@ -13,9 +13,13 @@ public enum ElementKind: String, Codable, Sendable {
 // --- [MODELS] --------------------------------------------------------------------------
 
 public enum Control: Codable, Hashable, Sendable {
-    case field(label: String?, value: String?)
+    public enum Kind: String, Codable, Sendable {
+        case field
+        case popUp
+    }
+
+    case text(kind: Kind, label: String?, value: String?)
     case checkBox(label: String?, on: Bool)
-    case popUp(label: String?, value: String?)
 }
 
 public enum ElementAction: Hashable, Sendable {
@@ -37,6 +41,14 @@ extension ElementAction: Codable {
             }
     }
 
+    public var label: String {
+        switch self {
+            case .press(let label), .set(let label, _): label
+            case .close: kAXCloseButtonAttribute
+            case .cancel: kAXCancelAction
+        }
+    }
+
     public init(from decoder: any Decoder) throws {
         self = try Result { try decoder.singleValueContainer().decode(String.self) }
             .map(Self.init(label:))
@@ -50,11 +62,10 @@ extension ElementAction: Codable {
     }
 
     public func encode(to encoder: any Encoder) throws {
-        var label: any SingleValueEncodingContainer = encoder.singleValueContainer()
         switch self {
-            case .press(let text): try label.encode(text)
-            case .close: try label.encode(kAXCloseButtonAttribute)
-            case .cancel: try label.encode(kAXCancelAction)
+            case .press, .close, .cancel:
+                var single: any SingleValueEncodingContainer = encoder.singleValueContainer()
+                try single.encode(label)
             case .set(let field, let value):
                 var fields: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
                 try fields.encode(field, forKey: .field)
@@ -106,8 +117,8 @@ public enum ElementFailure: LocalizedError {
             case .unobservable(let refusals):
                 "The application refused Accessibility notifications: \(refusals.errors.map { refusal in "\(refusal.notification) (AXError \(refusal.error.rawValue))" }.joined(separator: ", "))"
             case .absent(let id): "No open window, dialog, sheet, or menu with id \(id)"
-            case .unoffered(let action, let actions): "The element offers no \(String(describing: action)), it offers \(actions.map(String.init(describing:)).joined(separator: ", "))"
-            case .refused(let action, let error): "Performing \(String(describing: action)) returned AXError \(error.rawValue)"
+            case .unoffered(let action, let actions): "The element offers no \(action.label), it offers \(actions.map(\.label).joined(separator: ", "))"
+            case .refused(let action, let error): "Performing \(action.label) returned AXError \(error.rawValue)"
             case .unmatched(let text): "The application stopped answering before an element showed \(text)"
         }
     }
@@ -152,6 +163,7 @@ extension AXUIElement {
         var names: CFArray?
         return switch unsafe AXUIElementCopyActionNames(self, &names) {
             case .success: names as? [String] ?? []
+            case .failure: []
             case let error: throw .reading(error)
         }
     }
@@ -212,7 +224,7 @@ private struct Part {
     let press: String?
 
     var field: String? {
-        if case .field(let label, _) = control { label } else { nil }
+        if case .text(.field, let label, _) = control { label } else { nil }
     }
 
     init(_ node: AXUIElement) throws(ElementFailure) {
@@ -223,9 +235,9 @@ private struct Part {
         text = try role == kAXStaticTextRole ? node.value(kAXValueAttribute).flatMap { (line: String) in line.isEmpty ? nil : line } : nil
         control =
             switch role {
-                case .some(kAXTextFieldRole), .some(kAXTextAreaRole), .some(kAXComboBoxRole): .field(label: label, value: try node.value(kAXValueAttribute))
+                case .some(kAXTextFieldRole), .some(kAXTextAreaRole), .some(kAXComboBoxRole): .text(kind: .field, label: label, value: try node.value(kAXValueAttribute))
                 case .some(kAXCheckBoxRole), .some(kAXRadioButtonRole): .checkBox(label: label, on: try node.value(kAXValueAttribute) == 1)
-                case .some(kAXPopUpButtonRole): .popUp(label: label, value: try node.value(kAXValueAttribute))
+                case .some(kAXPopUpButtonRole): .text(kind: .popUp, label: label, value: try node.value(kAXValueAttribute))
                 default: nil
             }
         let actions: [String] = try label == nil || !enabled ? [] : node.actionNames()

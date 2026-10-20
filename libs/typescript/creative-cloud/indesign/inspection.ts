@@ -3,7 +3,6 @@ import { single, Unmatched } from '@rasm/search';
 import type { Uxp } from '@rasm/uxp/runtime';
 import { Array, Cache, Cause, Effect, flow, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
 import { DocumentView, LayerView, PageView, SpreadView } from './documents.ts';
-import { Dom } from './dom.ts';
 import { FontView } from './fonts.ts';
 import { LinkView } from './links.ts';
 import { Field, Member, Method, Model } from './model.ts';
@@ -56,35 +55,47 @@ class Inspect extends Schema.Class<Inspect, { readonly brand: unique symbol }>('
         });
     }
 }
-class Kind extends Schema.Class<Kind, { readonly brand: unique symbol }>('Kind')({ name: Schema.String.annotate({ description: 'Class or enumeration name, in any case' }) }, { description: 'Native class fields and methods, or enumeration members, from the host dictionary; write an enumeration member by name' }) {
+class Kind extends Schema.Class<Kind, { readonly brand: unique symbol }>('Kind')(
+    { name: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Class or enumeration name, in any case; absent lists every name' })) },
+    { description: 'Native declarations of the host dictionary: every class and enumeration name, or one class with its lineage, fields, and methods, or one enumeration with the members change takes by name' },
+) {
     static readonly Result = Schema.TaggedUnion({
-        Class: { name: Schema.String, parents: Schema.Array(Schema.String), fields: Schema.Array(Field), methods: Schema.Array(Method) },
+        Index: { classes: Schema.Array(Schema.String), enumerations: Schema.Array(Schema.String) },
+        Class: { name: Schema.String, parents: Schema.Array(Schema.String).annotate({ description: 'Superclasses, nearest first' }), fields: Schema.Array(Field), methods: Schema.Array(Method) },
         Enumeration: { name: Schema.String, members: Schema.Array(Member.mapFields(Struct.pick(['name', 'description']))) },
     });
 
     run() {
         const { name: given } = this;
         return Effect.gen(function* () {
-            const [indesign, { kinds, rows, lineage, members }] = yield* Effect.all([Dom, Model]);
-            const name = yield* single('class or enumeration', given)(kinds, { names: (kind) => [kind], label: String });
-            const value: unknown = Reflect.get(indesign, name);
-            const row = yield* Effect.catchTag(Effect.asSome(Cache.get(rows, name)), 'Unmatched', () => Effect.succeedNone);
-            const { fields, methods, statics } = Option.getOrElse(row, () => ({ fields: {}, methods: {}, statics: {} }));
-            const live = Predicate.isFunction(value) ? Object.entries(Object.getOwnPropertyDescriptors(value.prototype)) : [];
-            return value instanceof indesign.Enumeration
-                ? Kind.Result.cases.Enumeration.make({ name, members: Array.map(members(value), (each) => ({ name: String(each), description: Record.get(statics, String(each)) })) })
-                : Kind.Result.cases.Class.make({
-                      name,
-                      parents: Option.isSome(row) ? yield* lineage(name) : [],
-                      fields: yield* Effect.forEach(
-                          live.filter(([, { get }]) => get !== undefined),
-                          ([key]) => Option.match(Record.get(fields, key), { onNone: () => bare(key), onSome: Effect.succeed }),
-                      ),
-                      methods: yield* Effect.forEach(
-                          live.filter(([, { value: method }]) => Predicate.isFunction(method) && method !== value),
-                          ([key]) => Option.match(Record.get(methods, key), { onNone: () => Effect.orDie(Schema.decodeEffect(Method)({ name: key, parameters: [] })), onSome: Effect.succeed }),
-                      ),
-                  });
+            const model = yield* Model;
+            const { classes, enumerations, enumeration, rows, lineage, members } = model;
+            const declaration = Effect.fnUntraced(function* (query: string) {
+                const name = yield* single('class or enumeration', query)([...classes, ...enumerations], { names: (kind) => [kind], label: String });
+                const row = yield* Effect.catchTag(Effect.asSome(Cache.get(rows, name)), 'Unmatched', () => Effect.succeedNone);
+                const { fields, methods, statics } = Option.getOrElse(row, () => ({ fields: {}, methods: {}, statics: {} }));
+                const type: unknown = Reflect.get(model, name);
+                const live = Predicate.isFunction(type) ? Object.entries(Object.getOwnPropertyDescriptors(type.prototype)) : [];
+                return yield* Option.match(enumeration(name), {
+                    onSome: (found) => Effect.succeed(Kind.Result.cases.Enumeration.make({ name, members: Array.map(members(found), (each) => ({ name: String(each), description: Record.get(statics, String(each)) })) })),
+                    onNone: () =>
+                        Effect.map(
+                            Effect.all({
+                                parents: Option.isSome(row) ? lineage(name) : Effect.succeed([]),
+                                fields: Effect.forEach(
+                                    live.filter(([, { get }]) => get !== undefined),
+                                    ([key]) => Option.match(Record.get(fields, key), { onNone: () => bare(key), onSome: Effect.succeed }),
+                                ),
+                                methods: Effect.forEach(
+                                    live.filter(([, { value: method }]) => Predicate.isFunction(method) && method !== type),
+                                    ([key]) => Option.match(Record.get(methods, key), { onNone: () => Effect.orDie(Schema.decodeEffect(Method)({ name: key, parameters: [] })), onSome: Effect.succeed }),
+                                ),
+                            }),
+                            (declared) => Kind.Result.cases.Class.make({ name, ...declared }),
+                        ),
+                });
+            });
+            return yield* Option.match(given, { onNone: () => Effect.succeed(Kind.Result.cases.Index.make({ classes, enumerations })), onSome: declaration });
         });
     }
 }
@@ -111,7 +122,7 @@ const described = ({ row, value }: Effect.Success<ReturnType<typeof values>>[num
 const object = Effect.fn('object')(function* (found: InDesignDOMObject<unknown>, fields: Option.Option<readonly string[]>) {
     const model = yield* Model;
     const { fields: own } = yield* Cache.get(model.rows, found.constructorName);
-    const view = yield* Effect.transposeOption(Option.firstSomeOf(Array.map(View.members, (kind): Option.Option<Effect.Effect<typeof View.Type, Cause.UnknownError | Unmatched, Model | Dom | Uxp>> => kind.viewed(model)(found))));
+    const view = yield* Effect.transposeOption(Option.firstSomeOf(Array.map(View.members, (kind): Option.Option<Effect.Effect<typeof View.Type, Cause.UnknownError | Unmatched, Model | Uxp>> => kind.viewed(model)(found))));
     const entries = yield* values(
         found,
         Option.getOrElse(fields, () => (Option.isSome(view) ? Record.keys(Record.filter(own, model.plural)) : getters(found))),

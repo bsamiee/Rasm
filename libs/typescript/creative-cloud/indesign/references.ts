@@ -2,7 +2,6 @@ import type { InDesignDOMObject } from 'adobe:indesign';
 import type { Entry } from 'adobe:uxp';
 import { single, Unmatched } from '@rasm/search';
 import { Array, Cache, Effect, flow, Iterable, identity, Match, Option, Predicate, Record, Schema, Struct } from 'effect';
-import { Dom } from './dom.ts';
 import { Model } from './model.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -32,8 +31,8 @@ class Reference extends Schema.Class<Reference, { readonly brand: unique symbol 
 // --- [CODEC]
 const record = (value: unknown): value is Record.ReadonlyRecord<string, unknown> => Predicate.isObject(value) && Object.getPrototypeOf(value) === Object.prototype;
 const encoder = Effect.map(
-    Effect.all([Dom, Model]),
-    ([{ Enumerator }, { host, collection }]) =>
+    Model,
+    ({ Enumerator, host, collection }) =>
         (value: unknown): string | undefined =>
             JSON.stringify(value, function (this: object, key: string, part: unknown) {
                 const held: unknown = Reflect.get(this, key);
@@ -64,13 +63,13 @@ const read = <S extends Schema.Top>(schema: S, value: () => unknown) =>
 // --- [LOCATIONS]
 const ancestors = (object: unknown) => Effect.map(Model, ({ host }) => Array.fromIterable(Iterable.unfold(object, (above: unknown) => (host(above) && above.constructorName !== 'Application' ? Option.some([above, above.parent] as const) : Option.none()))));
 const owner = (object: unknown) => Effect.flatMap(Model, ({ document }) => Effect.map(ancestors(object), Array.findFirst(document)));
-const active = Effect.flatMap(Dom, ({ app }) => Effect.try({ try: () => app.activeDocument, catch: () => Unmatched.make({ subject: 'active document', query: '', candidates: app.documents.everyItem().name }) }));
+const active = Effect.flatMap(Model, ({ app }) => Effect.try({ try: () => app.activeDocument, catch: () => Unmatched.make({ subject: 'active document', query: '', candidates: app.documents.everyItem().name }) }));
 const resolve = Effect.fn('resolve')(function* (specifier: string) {
-    const [{ app, ScriptLanguage }, model] = yield* Effect.all([Dom, Model]);
+    const model = yield* Model;
     const kind = (path: string): string | undefined => IDENTIFIED.exec(path)?.groups?.kind;
     const located = (path: string): Option.Option<InDesignDOMObject<unknown> | readonly InDesignDOMObject<unknown>[]> => {
         const requested = kind(path);
-        return Option.filter(Option.liftThrowable((): unknown => app.doScript('resolve(arguments[0])', ScriptLanguage.JAVASCRIPT, [path]))(), (found): found is InDesignDOMObject<unknown> | readonly InDesignDOMObject<unknown>[] =>
+        return Option.filter(Option.liftThrowable((): unknown => model.app.doScript('resolve(arguments[0])', model.ScriptLanguage.JAVASCRIPT, [path]))(), (found): found is InDesignDOMObject<unknown> | readonly InDesignDOMObject<unknown>[] =>
             Array.ensure<unknown>(found).every((each) => model.host(each) && (requested === undefined || kind(each.toSpecifier()) === requested)),
         );
     };
@@ -98,7 +97,7 @@ const resolve = Effect.fn('resolve')(function* (specifier: string) {
     );
 });
 const font = Effect.fn('font')(function* (name: string) {
-    const { app, FontStatus } = yield* Dom;
+    const { app, FontStatus } = yield* Model;
     const every = app.fonts.everyItem();
     const installed = Array.map(Array.zip(Array.zip(every.name, every.postscriptName), Array.zip(every.fullName, Array.zip(every.fontFamily, every.fontStyleName))), ([[label, postscript], [full, [family, style]]], index) => ({
         label,

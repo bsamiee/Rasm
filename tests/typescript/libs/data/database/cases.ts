@@ -1,7 +1,7 @@
 import { assert, type Vitest } from '@effect/vitest';
-import { Bytes, type Catalog, names, type Table, table, Uuid } from '@rasm/database/catalog.ts';
 import { plan, reconcile } from '@rasm/database/reconcile.ts';
-import { atomic, insert, latest, remove, search, select, store, tenant, upsert } from '@rasm/database/store.ts';
+import { store, tenant } from '@rasm/database/store.ts';
+import { atomic, Bytes, type Catalog, names, type Relation, table, Uuid } from '@rasm/database/table.ts';
 import { Array, DateTime, Effect, Exit, type Layer, Option, Schema, type Scope } from 'effect';
 import { SqlClient, SqlSchema } from 'effect/sql';
 
@@ -60,7 +60,7 @@ const legacy = table('legacy', { id: Schema.String, count: Schema.Int, body: Sch
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const cases = <R, F, Q>(it: Vitest.MethodsNonLive<R>, client: Client<F, Q>, isolate: <A, E>(effect: Effect.Effect<A, E, Scope.Scope | Q>) => Effect.Effect<A, E, R | Scope.Scope>, record: (title: string, planned: Effect.Success<ReturnType<typeof plan>>) => Effect.Effect<void, never, Q>) => {
-    const declared = (...tables: Array.NonEmptyReadonlyArray<Table>): Catalog => ({ tables, retired: [] });
+    const declared = (...tables: Array.NonEmptyReadonlyArray<Relation>): Catalog => ({ tables, retired: [] });
     const rows = (name: string) => SqlClient.SqlClient.use((sql) => sql`SELECT * FROM ${sql(name)} ORDER BY 1`);
     const shape = SqlClient.SqlClient.use((sql) =>
         sql.onDialectOrElse({
@@ -100,14 +100,14 @@ const cases = <R, F, Q>(it: Vitest.MethodsNonLive<R>, client: Client<F, Q>, isol
             const sql = yield* SqlClient.SqlClient;
             yield* atomic([sql`INSERT INTO parents ${sql.insert({ id: 'p', label: 'Parent', state: 'open' })}`, sql`INSERT INTO children ${sql.insert({ id: 'a', parentId: 'p', rank: 1 })}`]);
             yield* sql`UPDATE children SET ${sql.update({ parentId: 'p', rank: 2 })} WHERE ${sql('parentId')} = ${'p'}`;
-            assert.deepStrictEqual(yield* Effect.flatMap(yield* select(children, 'parentId', ['p']), Schema.decodeUnknownEffect(Schema.Array(children))), [{ id: 'a', parentId: 'p', rank: 2 }]);
+            assert.deepStrictEqual(yield* Effect.flatMap(yield* children.select('parentId', ['p']), Schema.decodeUnknownEffect(Schema.Array(children))), [{ id: 'a', parentId: 'p', rank: 2 }]);
             assert.deepStrictEqual(yield* sql.withoutTransforms()`SELECT parent_id FROM children`, [{ parent_id: 'p' }]);
         }).pipe(Effect.provide(store(declared(parents, children), client)), isolate),
     );
     define('creates declared tables in an empty store, enforces references, and decodes rows', (apply, _, sql) =>
         Effect.gen(function* () {
             yield* seeded(apply);
-            assert.deepStrictEqual(yield* Effect.flatMap(yield* select(children, 'parentId', ['p']), Schema.decodeUnknownEffect(Schema.Array(children))), [
+            assert.deepStrictEqual(yield* Effect.flatMap(yield* children.select('parentId', ['p']), Schema.decodeUnknownEffect(Schema.Array(children))), [
                 { id: 'a', parentId: 'p', rank: 1 },
                 { id: 'b', parentId: 'p', rank: 2 },
             ]);
@@ -217,14 +217,14 @@ const cases = <R, F, Q>(it: Vitest.MethodsNonLive<R>, client: Client<F, Q>, isol
             yield* seeded(apply);
             const refused = (catalog: Catalog) => Effect.map(Effect.flip(reconcile(catalog, Option.none())), (error) => error._tag === 'ReconcileError' && error.findings);
             const unsupported = yield* sql.onDialectOrElse({ pg: () => Effect.succeed([]), orElse: () => refused(declared(ledgers, textNotes)) });
-            assert.deepStrictEqual(yield* refused(declared(required, children)), [{ reason: 'Required', table: 'parents', subject: 'owner' }]);
+            assert.deepStrictEqual(yield* refused(declared(required, children)), [{ _tag: 'Required', table: 'parents', subject: 'owner' }]);
             assert.deepStrictEqual(
                 unsupported,
                 sql.onDialectOrElse({
                     pg: () => [],
                     orElse: () => [
-                        { reason: 'Unsupported', table: 'ledgers', subject: 'tenant' },
-                        { reason: 'Unsupported', table: 'notes', subject: 'search' },
+                        { _tag: 'Unsupported', table: 'ledgers', subject: 'tenant' },
+                        { _tag: 'Unsupported', table: 'notes', subject: 'search' },
                     ],
                 }),
             );
@@ -246,12 +246,12 @@ const cases = <R, F, Q>(it: Vitest.MethodsNonLive<R>, client: Client<F, Q>, isol
             const digests = Array.make({ digest: new TextEncoder().encode('first'), size: 1 }, { digest: new TextEncoder().encode('second'), size: 2 });
             yield* apply(declared(values, blobs));
             const decode = Schema.decodeUnknownEffect(Schema.Array(values));
-            assert.deepStrictEqual(yield* Effect.flatMap(yield* insert(values, written), decode), written);
-            assert.deepStrictEqual(yield* Effect.flatMap(yield* select(values, 'id', [Array.headNonEmpty(written).id]), decode), [Array.headNonEmpty(written)]);
-            assert.deepStrictEqual(yield* Effect.flatMap(yield* select(values, 'count', [Array.lastNonEmpty(written).count]), decode), [Array.lastNonEmpty(written)]);
-            yield* yield* insert(blobs, digests);
-            assert.deepStrictEqual(yield* Effect.flatMap(yield* select(blobs, 'digest', [Array.lastNonEmpty(digests).digest]), Schema.decodeUnknownEffect(Schema.Array(blobs))), [Array.lastNonEmpty(digests)]);
-            assert.deepStrictEqual((yield* yield* remove(blobs, 'digest', [Array.headNonEmpty(digests).digest])).length, 1);
+            assert.deepStrictEqual(yield* Effect.flatMap(yield* values.insert(written), decode), written);
+            assert.deepStrictEqual(yield* Effect.flatMap(yield* values.select('id', [Array.headNonEmpty(written).id]), decode), [Array.headNonEmpty(written)]);
+            assert.deepStrictEqual(yield* Effect.flatMap(yield* values.select('count', [Array.lastNonEmpty(written).count]), decode), [Array.lastNonEmpty(written)]);
+            yield* yield* blobs.insert(digests);
+            assert.deepStrictEqual(yield* Effect.flatMap(yield* blobs.select('digest', [Array.lastNonEmpty(digests).digest]), Schema.decodeUnknownEffect(Schema.Array(blobs))), [Array.lastNonEmpty(digests)]);
+            assert.deepStrictEqual((yield* yield* blobs.remove('digest', [Array.headNonEmpty(digests).digest])).length, 1);
             assert.isTrue((yield* Effect.flip(sql`UPDATE ${sql('values')} SET ratio = 2`))._tag === 'SqlError');
             assert.isTrue((yield* Effect.flip(sql`UPDATE ${sql('values')} SET code = 'abc'`))._tag === 'SqlError');
         }),
@@ -263,31 +263,31 @@ const cases = <R, F, Q>(it: Vitest.MethodsNonLive<R>, client: Client<F, Q>, isol
             yield* apply(declared(events));
             const written = Array.makeBy(volume, (index) => ({ id: `e${index}`, tenant: index % tenants.length, at: DateTime.add(DateTime.makeUnsafe('2026-01-01T00:00:00.000Z'), { seconds: index }), kind: 'view' as const }));
             const decode = Schema.decodeUnknownEffect(Schema.Array(events));
-            assert.deepStrictEqual((yield* yield* insert(events, written)).length, volume);
-            assert.deepStrictEqual(yield* yield* upsert(events, written), []);
+            assert.deepStrictEqual((yield* yield* events.insert(written)).length, volume);
+            assert.deepStrictEqual(yield* yield* events.upsert(written), []);
             assert.deepStrictEqual(
-                (yield* Effect.flatMap(yield* upsert(events, [{ ...written[0], kind: 'buy' }]), decode)).map(({ kind }) => kind),
+                (yield* Effect.flatMap(yield* events.upsert([{ ...written[0], kind: 'buy' }]), decode)).map(({ kind }) => kind),
                 ['buy'],
             );
             assert.deepStrictEqual(
-                (yield* Effect.flatMap(yield* latest(events, 'tenant', 'at', tenants), decode)).map(({ id }) => id).sort(),
+                (yield* Effect.flatMap(yield* events.latest('tenant', 'at', tenants), decode)).map(({ id }) => id).sort(),
                 written
                     .slice(-tenants.length)
                     .map(({ id }) => id)
                     .sort(),
             );
-            assert.deepStrictEqual((yield* yield* remove(events, 'tenant', [0])).length, volume / tenants.length);
-            assert.deepStrictEqual((yield* yield* select(events, 'tenant', tenants)).length, volume - volume / tenants.length);
+            assert.deepStrictEqual((yield* yield* events.remove('tenant', [0])).length, volume / tenants.length);
+            assert.deepStrictEqual((yield* yield* events.select('tenant', tenants)).length, volume - volume / tenants.length);
         }),
     );
     define('enforces partial case-insensitive unique keys and reads JSON projections', (apply) =>
         Effect.gen(function* () {
             yield* apply(declared(accounts));
             const account = (id: string, email: string, deleted: boolean) => ({ id, email, deletedAt: deleted ? DateTime.makeUnsafe('2026-10-17T00:00:00.000Z') : null, profile: { plan: 'pro' } });
-            yield* yield* insert(accounts, [account('019a0000-0000-7000-8000-000000000001', 'A@example.com', true), account('019a0000-0000-7000-8000-000000000002', 'a@example.com', false)]);
-            assert.isTrue((yield* Effect.flip(yield* insert(accounts, [account('019a0000-0000-7000-8000-000000000003', 'A@EXAMPLE.COM', false)])))._tag === 'SqlError');
+            yield* yield* accounts.insert([account('019a0000-0000-7000-8000-000000000001', 'A@example.com', true), account('019a0000-0000-7000-8000-000000000002', 'a@example.com', false)]);
+            assert.isTrue((yield* Effect.flip(yield* accounts.insert([account('019a0000-0000-7000-8000-000000000003', 'A@EXAMPLE.COM', false)])))._tag === 'SqlError');
             assert.deepStrictEqual(
-                (yield* Effect.flatMap(yield* select(accounts, 'email', ['a@example.com']), Schema.decodeUnknownEffect(Schema.Array(accounts)))).map(({ plan: tier }) => tier),
+                (yield* Effect.flatMap(yield* accounts.select('email', ['a@example.com']), Schema.decodeUnknownEffect(Schema.Array(accounts)))).map(({ plan: tier }) => tier),
                 ['pro'],
             );
         }),
@@ -296,18 +296,18 @@ const cases = <R, F, Q>(it: Vitest.MethodsNonLive<R>, client: Client<F, Q>, isol
         Effect.gen(function* () {
             yield* apply(declared(notes, fragments));
             const written = Array.make({ id: 1, title: 'Concrete shell', body: 'Thin vaults' }, { id: 2, title: 'Timber frame', body: 'Glulam beams' });
-            yield* yield* insert(notes, written);
-            yield* yield* insert(fragments, written);
+            yield* yield* notes.insert(written);
+            yield* yield* fragments.insert(written);
             assert.deepStrictEqual(
-                (yield* yield* search(notes, 'vaults')).map(({ title }) => title),
+                (yield* yield* notes.search('vaults')).map(({ title }) => title),
                 ['Concrete shell'],
             );
             assert.deepStrictEqual(
-                (yield* yield* search(fragments, 'lulam')).map(({ title }) => title),
+                (yield* yield* fragments.search('lulam')).map(({ title }) => title),
                 ['Timber frame'],
             );
             yield* sql`UPDATE notes SET body = 'Steel cables' WHERE title = 'Concrete shell'`;
-            assert.deepStrictEqual([(yield* yield* search(notes, 'vaults')).length, (yield* yield* search(notes, 'steel')).length], [0, 1]);
+            assert.deepStrictEqual([(yield* yield* notes.search('vaults')).length, (yield* yield* notes.search('steel')).length], [0, 1]);
         }),
     );
     define('scopes tenant rows through row-level security on PostgreSQL', (_, grant, sql) =>
@@ -318,10 +318,10 @@ const cases = <R, F, Q>(it: Vitest.MethodsNonLive<R>, client: Client<F, Q>, isol
                     const scoped = <A, E>(id: string, effect: Effect.Effect<A, E, SqlClient.SqlClient>) => tenant(id, Effect.andThen(sql`SET LOCAL ROLE rasm_runtime`, effect));
                     yield* sql`DO $$ BEGIN CREATE ROLE rasm_runtime NOLOGIN; EXCEPTION WHEN duplicate_object THEN NULL; END $$`;
                     yield* grant(declared(ledgers), 'rasm_runtime');
-                    yield* scoped(first, Effect.flatten(insert(ledgers, [{ id: '019a0000-0000-7000-8000-000000000001', tenant: first, amount: 1 }])));
-                    yield* scoped(second, Effect.flatten(insert(ledgers, [{ id: '019a0000-0000-7000-8000-000000000002', tenant: second, amount: 2 }])));
+                    yield* scoped(first, Effect.flatten(ledgers.insert([{ id: '019a0000-0000-7000-8000-000000000001', tenant: first, amount: 1 }])));
+                    yield* scoped(second, Effect.flatten(ledgers.insert([{ id: '019a0000-0000-7000-8000-000000000002', tenant: second, amount: 2 }])));
                     assert.deepStrictEqual(yield* scoped(first, sql`SELECT amount FROM ledgers`), [{ amount: 1 }]);
-                    assert.isTrue((yield* Effect.flip(scoped(first, Effect.flatten(insert(ledgers, [{ id: '019a0000-0000-7000-8000-000000000003', tenant: second, amount: 1 }])))))._tag === 'SqlError');
+                    assert.isTrue((yield* Effect.flip(scoped(first, Effect.flatten(ledgers.insert([{ id: '019a0000-0000-7000-8000-000000000003', tenant: second, amount: 1 }])))))._tag === 'SqlError');
                 }),
             orElse: () => Effect.void,
         }),

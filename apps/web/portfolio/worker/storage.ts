@@ -1,4 +1,4 @@
-import { atomic } from '@rasm/database/store.ts';
+import { atomic } from '@rasm/database/table.ts';
 import { unavailable } from '@rasm/hosting/http.ts';
 import { Effect, flow, Schema } from 'effect';
 import { HttpApiError } from 'effect/http-api';

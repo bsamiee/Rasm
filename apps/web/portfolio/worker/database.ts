@@ -1,5 +1,4 @@
-import { table } from '@rasm/database/catalog.ts';
-import { atomic, select } from '@rasm/database/store.ts';
+import { atomic, table } from '@rasm/database/table.ts';
 import { unavailable } from '@rasm/hosting/http.ts';
 import { Array, Effect, flow, Match, Option, Schema, Struct } from 'effect';
 import { HttpApiError } from 'effect/http-api';
@@ -111,13 +110,11 @@ const readAsset = flow(
 );
 
 // --- [OWNER]
-const ownerUserId = flow(SqlSchema.findOneOption({ Request: owner.fields.email, Result: owner, execute: (email) => Effect.flatten(select(owner, 'email', [email])) }), Effect.map(Option.map(({ userId }) => userId)), Effect.catchTag(['SqlError', 'SchemaError'], unavailable));
-const registerOwner = Effect.fn('registerOwner')(
-    function* (row: typeof owner.Type) {
-        const sql = yield* SqlClient.SqlClient;
-        const [, [stored]] = yield* Effect.flatMap(atomic([sql`INSERT INTO owner ${sql.insert(row)} ON CONFLICT (email) DO NOTHING`, yield* select(owner, 'email', [row.email])]), Schema.decodeUnknownEffect(Schema.Tuple([Schema.Tuple([]), Schema.Tuple([owner])])));
-        return stored.userId;
-    },
+const ownerUserId = flow(SqlSchema.findOneOption({ Request: owner.fields.email, Result: owner, execute: (email) => Effect.flatten(owner.select('email', [email])) }), Effect.map(Option.map(({ userId }) => userId)), Effect.catchTag(['SqlError', 'SchemaError'], unavailable));
+const registerOwner = flow(
+    (row: typeof owner.Type) => owner.ensure([row]),
+    Effect.flatMap(Schema.decodeUnknownEffect(Schema.Tuple([owner]))),
+    Effect.map(([stored]) => stored.userId),
     Effect.catchTag(['SqlError', 'SchemaError'], unavailable),
 );
 
