@@ -10,7 +10,6 @@ Nx infers projects through plugins, orders targets through `dependsOn`, caches o
 - Workspace plugin markers match a base name, an extension, or `<directory>/<base>` for a generic name (`.storybook/main.ts`)
 - Cargo `[package.metadata.nx]` merges over a package's inferred targets as a later layer of its project, a target one package owns sits there
 - Task hashing reads files by project directory, a root naming a file owns none and its tasks fail to hash
-- Keep native daemon and graph reuse; maintenance clears workspace data after toolchain changes
 - `package.json` `scripts` entries infer as `nx:run-script` targets with no inputs, outputs, or cache, `nx.targets` holds targets with them
 
 ## [02]-[DISCOVERY]
@@ -25,10 +24,9 @@ Use JSON discovery from workspace root:
 |  [04]   | Hash inputs                   | `nx show target inputs <project>:<target> --json`  |
 |  [05]   | Declared and existing outputs | `nx show target outputs <project>:<target> --json` |
 
-- Select configurations explicitly with `--configuration`; an omitted configuration reports its name without merging its options
-- Target options are a shallow merge, not executor-normalized arguments
-- Output discovery proves neither execution nor artifact freshness; native execution owns validity and exit status
-- `nx run` and `nx run-many` execute selected tasks; the launching process handle identifies each run
+- Discovery merges a configuration's options under `--configuration` alone, without it a target reports the configuration name
+- Target options show a shallow merge before executor normalization
+- Output discovery proves neither execution nor artifact freshness, the tool's own run decides validity and exit status
 - `nx show project` without `--json` opens a browser in a TTY
 
 ## [03]-[TARGETS]
@@ -55,7 +53,7 @@ Use JSON discovery from workspace root:
 - `configurations` holds named option sets merged over `options`, `--configuration <name>` selects one, `defaultConfiguration` the default
 - Configurations differing in arguments alone set `args` over one `command`
 - `cache: true` alone caches a target, `cache: false` overrides a `targetDefaults` entry setting it for the name
-- `test:integration` alone starts containers, its default sets `cache: false` and `parallelism: false`, container and service state are no task input
+- Container targets take `cache: false` and `parallelism: false`, no task input hashes container or service state
 - `parallelism: false` runs a target writing shared files or directories with no other task of its `nx` process
 - `--output-style=static-failures-only` prints failing tasks and a single-project run in full, agent default `summary` names failing task log files
 

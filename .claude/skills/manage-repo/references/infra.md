@@ -6,7 +6,7 @@ Pulumi's Automation API runs the typed inline program of each `infra/<program>.t
 
 - Modules export `stack` (`projectName`, `stackName`) and `program`, or a function returning both from its arguments
 - `main.ts` holds one subcommand per module
-- `selectStack` opens a stack that exists, `createOrSelectStack` a stack named from validated arguments, both with `workDir` `PULUMI_HOME/<projectName>`
+- `selectStack` opens an existing stack, `createOrSelectStack` one named from validated arguments, both with `workDir` `PULUMI_HOME/<projectName>`
 - Hosting stacks are `<worker>.<target>` in project `rasm-hosting`
 - Hosting targets are entries of the `targets` record, each mapping decoded binding types to their resources
 - App bindings, `domains`, and fetch `triggers` come from `worker.config.json` in the app's Cloudflare Build Output, located through `readBuildOutput`
@@ -42,8 +42,7 @@ Pulumi's Automation API runs the typed inline program of each `infra/<program>.t
 |  [07]   | Expressions | `${{ }}` values reach a script through the step `env` map                                                      |
 
 - Caches restore an exact `key` match and save under it when their job succeeds, a key over a file with `latest` rows restores the first save
-- `jdx/mise-action` restores its data directory under a key rotating every 30 days, then `mise install` resolves every `latest` row again, the cache freezes no version
+- `jdx/mise-action` restores its data directory under a key rotating every 30 days, and `mise install` resolves each `latest` row again
 - Composite steps for one ecosystem take `if: runner.os == '<os>'` when one runner alone runs its projects
 - Jobs name `check` and `test:integration` in one `nx affected -t` step on the runner whose engine `rasm:docker` starts
-- Action refs name a tag the action publishes, `actions-up --style preserve` moves each tag at its precision, `pnpm update --include-github-actions` pins commit hashes
-- `rasm:upgrade:actions` alone moves action tags, a Dependabot version update repeats it
+- `rasm:upgrade:actions` alone moves action tags, each at its precision, with no Dependabot update or `pnpm update --include-github-actions` hash pin

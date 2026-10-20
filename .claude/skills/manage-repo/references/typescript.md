@@ -60,6 +60,7 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - `typecheck:tsc` of a project holding `cloudflare.config.ts` depends on `types`, the file is generated and ignored
 - Durable Object classes of a project's own Worker are `exports` entries reached through `cloudflare:workers` `exports`
 - `entrypoint` imports the Worker module `with { type: 'cf-worker' }` where `exports` must type its classes
+- A library's `cloudflare.config.ts` declares its suite's test Worker, `entrypoint` naming the module beside the suite under `tests/`
 
 ## [04]-[WEB]
 

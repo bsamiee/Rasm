@@ -28,10 +28,10 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 - `environments` restricts resolution to disjoint PEP 508 markers
 - `uv.lock` resolves project requirements at root `requires-python` and groups at their own declared floors
 - Native build settings stay at root under their package
-- Pixi locks Python-free native environments from `pyproject.toml`; `pixi run --environment <name>` supplies build variables
+- Pixi environments hold no Python, `pixi run --environment <name>` supplies their build variables
 - Packages building their libraries from their own recipes take the setting that forces it, linking none from the machine
 - Machine libraries stay where no package-scoped variable reaches the build, beside the reason in the package row
-- uv keys source-built wheels by package settings and extra build dependencies/variables; ambient native-library changes do not invalidate them
+- Source-built wheel cache keys hold package settings, extra build dependencies, and build variables, a machine library change reuses the wheel
 - Pixi rows a source build links name a soname series, `pixi update` moves within it and leaves built consumers valid
 - Soname series moves update Pixi constraints and each consuming package's build-variable series together
 - Consumers holding no series variable rebuild through `uv sync --reinstall-package <package>`
@@ -69,7 +69,7 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 - Match arms implement domain cases, checker suggestions supply no missing-case behavior
 - Calls through a union of bound methods with differing signatures fail mypy and ty, each `match` arm calls its own typed method
 - `deptry` reads every dependency group as development, `lint:deptry` scans the host and wheel roots that import `[project] dependencies` alone
-- Imports there fail on a group-only, transitive, or undeclared package, which type checks over a fully synced environment pass
+- Imports there fail on a group-only, transitive, or undeclared package, type checks over a fully synced environment pass them
 - Host-supplied modules take a `per_rule_ignores` `DEP001` row, their typings package names `-stubs` folders deptry maps to no module
 - Requirements no repository file imports (data packages, modules a dependency imports undeclared) take a `per_rule_ignores` `DEP002` row
 
@@ -93,5 +93,4 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 - Retain native runtime types when provider declarations are incomplete
 - Diagnostics a typing provider's wrong or missing declaration causes take a rule-specific ignore per line, or one file-top directive for repeats
 - Root configuration holds no local exceptions
-- Checker policies conflicting with program semantics are corrected at their owner
 - Successful resolution, build, or import changes no dependency's published interpreter support

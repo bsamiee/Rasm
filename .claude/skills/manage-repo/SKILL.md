@@ -5,19 +5,19 @@ description: "Use when changing how the repository is structured, built, or chec
 
 # [MANAGE_REPO]
 
-Entries state rules a maintainer acts on when adding the next project, tool, plugin, or harness row. Current state, features, project names, and code implementation stay in the files that hold them.
+Rules for adding the next project, tool, plugin, or harness row, current state and code stay in the files holding them.
 
 [REFERENCES]:
 - [01]-[NX](references/nx.md): Plugin inference, target defaults, run-commands, dependencies, inputs, affected selection
 - [02]-[TOOLING](references/tooling.md): Tool rows, backends, releases, version files, install paths, environment, daemons, TOML files
-- [03]-[TYPESCRIPT](references/typescript.md): Catalog, overrides, install scripts, compiler projects, execution, Vite, Storybook, Biome rows, type-aware checks
+- [03]-[TYPESCRIPT](references/typescript.md): Catalog, install scripts, compiler projects, execution, Vite, Storybook, Biome, type-aware checks
 - [04]-[PYTHON](references/python.md): Dependency groups, lock, workspace members, interpreter, checkers
 - [05]-[DOTNET](references/dotnet.md): Central row and SDK upgrades, file-based apps, library groups, BuildCheck, Roslyn analyzers
 - [06]-[SWIFT](references/swift.md): Project files, build settings, compiler policy, packages, checkers, CI, SwiftPM, new projects, language server
 - [07]-[JAVA](references/java.md): Formatter form, PMD ruleset and release tags, clone detection, language server
 - [08]-[RUST](references/rust.md): Workspace root, toolchain, catalog, lints, builds, members, checkers, upgrades, lint libraries, modules
 - [09]-[INFRA](references/infra.md): Automation API, resource rows and options, workflow syntax decisions
-- [10]-[PLUGINS](references/plugins.md): Plugin folder layout, Claude Code and Codex parity, MCP server rows, converting components
+- [10]-[PLUGINS](references/plugins.md): Plugin folder layout, Claude Code and Codex loading, MCP server rows, converting components
 
 ## [01]-[PLACEMENT]
 
@@ -59,14 +59,13 @@ Entries state rules a maintainer acts on when adding the next project, tool, plu
 - Writers take no CI format-and-diff step, each writer's check form or a build diagnostic fails on every change it writes
 
 [OWNERS]:
-- Defect forms take the first owner able to report them: checker configuration, then ast-grep, then a `tools/` checker, then no check
-- Checker configuration holds levels, options, thresholds, and bans for rules a checker ships, in the checker's own file or table
+- Defect forms take the first owner able to report them: checker configuration, then ast-grep, then a `tools/` checker
+- Checker configuration holds levels, options, thresholds, and bans for rules a checker includes
 - Forms wrong whatever their types (shape, nesting, banned construct, hand loop) take ast-grep rules, with fixes and reach across languages
 - Compiler extensions hold rules that resolved names, types, expansions, or other files decide
 - `tools/` checker folders take the name of the tool or compiler whose extension point they plug into
 - Forms code cannot write or no checker can see take no check
-- Sites more than one rule or parse reports take one owner, other rules of its checker exclude them through one shared predicate
-- Shared diagnostic sites take one checker by demonstrated correctness and coverage, with exclusions at other owners
+- Sites more than one rule, parse, or checker reports take one owner by proven correctness and coverage, others exclude them by one shared predicate
 - Checker rules contradicting a required form or another checker stay off with their reason
 
 [RULES]:
@@ -79,5 +78,4 @@ Entries state rules a maintainer acts on when adding the next project, tool, plu
 - Languages built into ast-grep take no `sgconfig.yml` row until a newer grammar release parses a form the bundled grammar fails
 - Grammars ast-grep lacks or bundles behind a newer release build from a catalog package through root `grammar` into a `customLanguages` row
 - Host syntax a catalog grammar lacks (`${…}` template substitutions) joins `tools/ast-grep/grammars/<language>/grammar.js` extending that grammar
-- Root `grammar` generates each extending grammar and builds every grammar into `.cache/ast-grep/`
-- Embedded SQL injects into `sql` only where its dialect is SQLite, a template under a `pg` key (`sql.onDialectOrElse({ pg: ... })`) or in a `Pg`-named declaration stays out of the SQLite parse
+- Embedded SQL injects into `sql` only where its dialect is SQLite, templates under a `pg` key or in a `Pg`-named declaration stay out of the parse

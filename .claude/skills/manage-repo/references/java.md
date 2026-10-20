@@ -4,19 +4,17 @@ google-java-format owns formatting, javac owns compile checks, PMD owns lint and
 
 ## [01]-[FORMATTER]
 
-- `google-java-format` takes files and no directory, `--dry-run --set-exit-if-changed` lints and `--replace` writes, `--aosp` sets 4-space indent
+- `google-java-format` takes files and no directory, `--aosp` sets its 4-space indent
 - Formatter has no configuration file and no `.editorconfig` row, the mise row is a native binary that runs without a JDK
 
 ## [02]-[CHECKS]
 
-- `typecheck:javac` compiles every `.java` file at `-Xlint:all -Werror` against the `Ghidra/**/lib/*.jar` set a script loads, the glob PMD and the editor's `java.project.referencedLibraries` read
+- `typecheck:javac`, PMD, and the editor's `java.project.referencedLibraries` read the `Ghidra/**/lib/*.jar` set a script loads
 - `-Xlint:-path` drops warnings for `Class-Path` entries Ghidra's JAR manifests name and its release omits
-- `pmd check` runs on the mise `java` row's JDK
-- PMD's native auxiliary classpath includes the selected JDK and `${GHIDRA_INSTALL_DIR}` SDK JARs
-- `pmd check` takes files or directories, `--rulesets <file>` names the ruleset, `--use-version java-<n>` Java level, `--cache <file>` cache location
+- `pmd check` runs on the mise `java` row's JDK and takes files or directories
 - Ruleset references each category whole and excludes rules by name, a threshold rule keeps its default or goes
 - Host API checks that need resolved types are XPath rules in `pmd.xml` under `[GHIDRA]`, `pmd-java:matchesSig` names the method
-- PMD release tags take a `pmd_releases/` prefix, and a `-SNAPSHOT` tag follows each release
+- PMD tags a `-SNAPSHOT` development build after each release
 
 ## [03]-[CLONES]
 
@@ -32,5 +30,5 @@ jdtls type-checks scripts a tool loads against that tool's jars on each edit:
 - `jdtls` expands `${NAME}` in runtime and library paths from its own process environment, `mise exec` gives the agent server the `mise.toml` values
 - Nix launcher defaults put workspace data under `~/Library/Caches/jdtls` keyed on the folder basename and OSGi configuration under `~/.eclipse`
 - `-data` and `--jvm-arg=-Dosgi.configuration.area=` move both under `.cache/jdtls`, and the tool's jars outside the scripts folder keep resolving
-- VS Code jdtls at the root imports every Eclipse `.project` under it, `java.import.exclusions` holds `**/.cache/**` so it skips the agent server's projects
-- Maven and Gradle importers stay off, the only builds they find are vendored ones such as the `rustls-platform-verifier` pom under `.cargo/rustc-source`
+- VS Code jdtls imports every Eclipse `.project` under the root, `java.import.exclusions` skips the agent server's under `.cache`
+- Maven and Gradle importers stay off, they find vendored builds alone (poms under `.cargo/rustc-source`)

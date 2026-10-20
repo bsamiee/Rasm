@@ -27,8 +27,7 @@ Xcode projects inherit root `Xcode.xcconfig`, SwiftPM packages build libraries, 
 Project and target settings override root `Xcode.xcconfig`:
 - Defaults are the `DefaultValue` rows of the `.xcspec` files under Xcode's `SwiftBuild.framework`
 - `xcodebuild -showBuildSettings -json` resolves effective settings through every inheritance level
-- Each project configuration's `file` names the root configuration's navigator reference
-- Root configuration's file reference uses a `<PROJECT>/`-relative path outside the synchronized source folder
+- Each project configuration's `file` names the root configuration's navigator reference, a `<PROJECT>/` path outside the synchronized source folder
 - `-xcconfig` and `XCODE_XCCONFIG_FILE` stay out, each overrides every level and never reaches the IDE
 - `PRODUCT_NAME = $(TARGET_NAME)` stays, the spec default is empty
 - `ALWAYS_SEARCH_USER_PATHS = NO` stays, the `YES` default prints a header map warning in Swift-only targets
@@ -80,8 +79,7 @@ Remote packages join `packages` in each importing project:
 
 ## [05]-[SWIFT_FORMAT]
 
-swift-format comes from the selected toolchain through `xcrun`:
-- `mise.toml` holds no swift-format row, `xcrun` selects the toolchain formatter
+swift-format comes from the selected toolchain through `xcrun`, with no `mise.toml` row:
 - `--version` prints the toolchain release, the `lint:swift-format` runtime input
 - `.editorconfig` holds no `[*.swift]` section, `.swift-format` owns Swift indentation
 - `rules` lists every enabled rule with default-valued rows from `dump-configuration`, an omitted rule is off
@@ -109,15 +107,14 @@ swift-format comes from the selected toolchain through `xcrun`:
 - `prefer_key_path` keeps `restrict_to_standard_functions` at its default, its fix on other functions breaks the call
 - `nesting` at `type_level: 3` caps declaration depth, an ast-grep rule caps closure and control depth
 - `custom_rules` stays empty, ast-grep rules under `tools/ast-grep/rules/swift` match structure by syntax where SwiftLint matches text by regex
-- `analyzer_rules` run in `lint:swiftlint` over the compilation database `xcodebuild -showBuildSettingsForIndex -json` prints
 - `swiftlint analyze` runs no `--fix`, `unused_import`'s fix breaks builds under `MemberImportVisibility`
 - SwiftPM libraries take no analyzer pass, `unused_import` flags the `System` import `FilePath` literals need under `MemberImportVisibility`
 - `deployment_target` holds `MACOSX_DEPLOYMENT_TARGET`, SwiftLint reads no xcconfig
 
 ## [07]-[CI]
 
-CI's macOS job runs `setup-xcode` first in shared setup, selecting the runner image's newest installed Xcode, betas included:
-- CI-only settings (unsigned build, `COMPILER_INDEX_STORE_ENABLE=NO`) join `build` configuration `ci`, workflows select it with `--configuration ci`
+Shared CI setup on macOS first selects the runner image's newest installed Xcode, betas included, through `setup-xcode`:
+- CI-only settings join `build` configuration `ci`, workflows select it with `--configuration ci`
 - Settings in `ci` and after `--` reach `build`'s xcodebuild alone
 - `xcbeautify` reads a pipe alone and stays out
 - SwiftPM and derived data caches stay out, a restore keyed on sources misses on each source change
@@ -129,20 +126,18 @@ SwiftPM joins with the first Swift library:
 - SwiftPM takes its scratch path from `SWIFTPM_BUILD_DIR`, then `--scratch-path`, then `<package>/.build`, and reads it from no configuration file
 - `SWIFTPM_BUILD_DIR` stays out of `[env]`, one path there serves every package and moves sourcekit-lsp's preparation build off its index workspace
 - Nx inference sets `SWIFTPM_BUILD_DIR` to `.cache/swiftpm/build/<projectRoot>` in each SwiftPM target's `options.env` and `dump-package` run
-- SwiftPM work runs through the package's Nx targets, and commands pass no `--scratch-path`
+- SwiftPM work runs through the package's Nx targets
 - Xcode builds package targets under `-derivedDataPath` and reads no `SWIFTPM_BUILD_DIR`
 - Apps stay `.xcodeproj`, PackageDescription has no application product, Info.plist, icon, or signing API
-- Library packages take the newest tools version the installed toolchain accepts, SwiftPM's package identity is the folder name
+- Library packages take the newest tools version the installed toolchain accepts
 - Tools version 6 implies language mode 6, manifests hold no `swiftLanguageModes`
-- Library targets take `path: "."` in place of SwiftPM's `Sources/` default
-- Library targets exclude their test target folders, sources overlap otherwise
+- Library targets take `path: "."` in place of SwiftPM's `Sources/` default and exclude each other target's folder, sources overlap otherwise
 - One `let settings: [SwiftSetting]` per manifest applies to every target, no mechanism shares settings across manifests
-- Settings state compiler policy in typed forms (`.strictMemorySafety()`, `.enableUpcomingFeature`, `.treatAllWarnings`)
-- Settings rows follow the order of root `Xcode.xcconfig`'s `[SWIFT]` section, SwiftPM reads no xcconfig and a policy change edits both lists
-- Executables a skill drives are `executableTarget`s under a folder the library target excludes, run from `build` output's `debug/<executable>`
+- Settings restate `Xcode.xcconfig` compiler policy in typed forms (`.strictMemorySafety()`, `.enableUpcomingFeature`), SwiftPM reads no xcconfig
+- Executables a skill drives are `executableTarget`s in their own folder, run from `build` output's `debug/<executable>`
 - Sibling packages reference each other by `.package(path:)` with no lock entry, each keeps its own settings under a sibling's build
 - Apps reference a library as a `packages` row with `kind: "local"` and project-relative `path`, `package-product-members` name it by folder
-- `upgrade` runs `swift package update`, `Package.resolved` appears at the package root with the first remote dependency
+- `Package.resolved` appears at the package root with the first remote dependency
 - SwiftLint and swift-format plugins stay out, each adds a remote dependency and a second tool version beside the root one
 
 ## [09]-[NEW_PROJECT]
@@ -151,7 +146,6 @@ New Swift projects join as `<Name>.xcodeproj`, root files serve every other item
 - `tools/ast-grep/rules/swift` and `tools/ast-grep/outline/swift.yml` cover every Swift file
 - Template Clang and Metal rows and the `DEBUG` condition have no reader in a Swift product
 - README changes with a new owner or project kind alone, `.xcodeproj` is a listed project file
-- `nx run rasm:format` formats a new project's files, root writers own Swift formatting
 
 ## [10]-[LANGUAGE_SERVER]
 
@@ -166,6 +160,5 @@ sourcekit-lsp from the selected toolchain reads each Xcode project's compiler ar
 - Parsed arguments and xcode-build-server's index database sit under `~/Library/Caches/xcode-build-server`, a folder no setting moves
 - Index store and database paths come from xcode-build-server's `build/initialize` reply, sourcekit-lsp's `index` options hold no path
 - `--scratch-path` in the `swift` `.lsp.json` row moves the SwiftPM index build from `<package>/.build/index-build` to `.cache/swiftpm/index`
-- VS Code `swift.buildPath` passes `--scratch-path` to the Swift extension's sourcekit-lsp and its `swift package` runs on a focused package
-- `swift.buildPath` names a path apart from the `.lsp.json` row's, SwiftPM locks a scratch path per process
+- VS Code `swift.buildPath` sets the Swift extension's scratch path apart from the `.lsp.json` row's, SwiftPM locks a scratch path per process
 - `.sourcekit-lsp/` and `.bsp/` stay out, sourcekit-lsp asks to trust a workspace holding either and Claude Code answers no server request
