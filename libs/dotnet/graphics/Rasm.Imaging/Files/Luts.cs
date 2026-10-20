@@ -89,11 +89,8 @@ public sealed record LutLook(Option<LutFile> Lut, LutSpace Space)
         state.Lut.Map(file => (new ColorEncoding(context.Working, context.Signal, Nits.ReferenceWhite), state.Space.Bracket) switch {
             var (input, (space, into, back)) when input.Transfer == TransferCurve.Linear && space.Transfer == TransferCurve.Linear =>
                 (PixelPass)new PixelPass.Color(LutTables.Bracketed(input.Gamut, space.Gamut, into, file.Table, back)),
-            var (input, (space, into, back)) => (input.To(space) + Seq(new LutTable.Sequence([.. into, file.Table, .. back]).Apply) + space.To(input)) switch {
-                var steps => new PixelPass.Color(row => {
-                    foreach (Action<Span<Vector4>> step in steps) step(row);
-                }),
-            },
+            var (input, (space, into, back)) =>
+                new PixelPass.Color((Action<Span<Vector4>>)Delegate.Combine([.. input.To(space), new LutTable.Sequence([.. into, file.Table, .. back]).Apply, .. space.To(input)])!),
         });
 }
 

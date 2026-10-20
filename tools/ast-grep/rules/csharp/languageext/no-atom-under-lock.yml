@@ -107,4 +107,4 @@ labels:
     WRITE: {style: primary, message: 'Changes the atomic cell'}
     REGION: {style: secondary, message: 'Runs while the lock is held'}
 message: '`$WRITE` changes an atomic cell under a lock that serializes it a second time'
-note: Use the atomic cell's operations alone or a lock over a plain field, each orders every write
+note: 'Use the atomic cell''s operations alone or a lock over a plain field'

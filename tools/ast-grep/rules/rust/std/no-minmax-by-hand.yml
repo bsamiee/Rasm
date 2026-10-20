@@ -11,4 +11,4 @@ rule:
             - pattern: 'if $A >= $B { ($B, $A) } else { ($A, $B) }'
             - pattern: 'if $A > $B { ($B, $A) } else { ($A, $B) }'
 message: '`if` orders `$A` and `$B` into a pair by hand'
-note: 'Call `cmp::minmax(<a>, <b>)` (`#![feature(cmp_minmax)]`, `T: Ord`) and read the `[min, max]` array at each consumer of the tuple, `minmax_by_key` for a keyed comparison, or `minmax_by(<a>, <b>, f64::total_cmp)` for floats'
+note: 'Call `cmp::minmax(<a>, <b>)` and read the `[min, max]` array, with `minmax_by_key` for a key and `minmax_by` with `f64::total_cmp` for floats'

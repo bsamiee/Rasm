@@ -11,4 +11,4 @@ rule:
         - not: {has: {kind: tuple_type_item, any: [{has: {nthChild: 2}}, {not: {has: {field: name, pattern: $T}}}]}}
         - not: {inside: {kind: function_type, field: params}}
 message: '`$TUPLE` repeats `$T` in every unlabeled element'
-note: 'Store the elements as `[<count> of <element>]`, reading `[0]` for `.0` and subscripts in place of destructuring'
+note: 'Store the elements as `[<count> of <element>]` and read `[<index>]` in place of `.<index>` and destructuring'

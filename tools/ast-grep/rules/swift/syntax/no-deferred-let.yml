@@ -47,4 +47,4 @@ fix:
     template: '$DECLARATION = $EXPRESSION'
     expandEnd: {kind: 'if_statement, switch_statement'}
 message: '`let $NAME` declares no value, and each arm of the next branch assigns it'
-note: 'Bind the branch as an expression, `let <name>: <Type> = switch <subject> { case <pattern>: <value> }` or `= if <condition> { <value> } else { <value> }`, keeping `throw` in an arm that throws'
+note: 'Bind the branch as an expression, `let <name>: <Type> = switch <subject> { }` or `= if <condition> { } else { }`, with `throw` in a throwing arm'

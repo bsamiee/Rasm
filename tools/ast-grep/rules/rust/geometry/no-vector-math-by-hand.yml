@@ -117,4 +117,4 @@ constraints:
     AY: {regex: '(y|1)$'}
     BY: {regex: '(y|1)$'}
 message: '`$SITE` computes vector components by hand'
-note: 'Hold the components in a vector type and call its method: `glam::DVec2`/`DVec3` (`dot`, `perp_dot`, `cross`, `length_squared`, `length`, `distance`), `nalgebra::Vector3<f64>` (`dot`, `cross`, `norm`), or `kurbo::Vec2` (`dot`, `cross`, `hypot`), and `geo::Area::signed_area` for a polygon area summing cross terms'
+note: 'Hold the components in the module''s vector type and call its method, `geo::Area::signed_area` for a polygon area'

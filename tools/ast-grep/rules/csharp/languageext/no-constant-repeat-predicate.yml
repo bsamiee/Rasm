@@ -10,11 +10,8 @@ utils:
             - all:
                 - not: {has: {field: arguments, has: {kind: argument, has: {field: name, regex: '^predicate$'}}}}
                 - has: {field: arguments, has: {kind: argument, nthChild: {position: 1, reverse: true}, not: {has: {field: name, pattern: $_}}, pattern: $PREDICATE}}
-    held:
+    named-or-outer-reading:
         any:
-            - all:
-                - has: {field: function, matches: {csharp-type-name: {name: {regex: '^repeatUntil$'}}}}
-                - not: {has: {field: arguments, has: {kind: argument, nthChild: 3}}}
             - has: {field: arguments, has: {kind: argument, pattern: $PREDICATE, has: {kind: identifier, not: {inside: {kind: argument, field: name}}}}}
             - has: {field: arguments, has: {kind: argument, pattern: $PREDICATE, has: {matches: outer-read}}}
     outer-read:
@@ -44,8 +41,8 @@ rule:
     all:
         - pattern: {context: 'class C { object F() => $CALLEE($$$ARGUMENTS); }', selector: invocation_expression, strictness: cst}
         - any:
-            - has: {field: function, has: {field: name, regex: '^(Repeat|Retry)(While|Until)(IO)?(\s*<.+>)?$'}}
-            - has: {field: function, matches: {csharp-type-name: {name: {regex: '^(repeat|retry)(While|Until)$'}}}}
+            - has: {field: function, has: {field: name, regex: '^(Repeat|Retry)(While|Until)(IO)?(\s*<.+>)?$', pattern: $NAME}}
+            - has: {field: function, pattern: $NAME, matches: {csharp-type-name: {name: {regex: '^(repeat|retry)(While|Until)$'}}}}
         - matches: predicate
         - any:
             - all:
@@ -59,19 +56,14 @@ rule:
                         kind: argument
                         pattern: $PREDICATE
                         matches: {csharp-constant-lambda: {value: {regex: '^(false|default(\s*\(\s*((global::)?System\.)?(bool|Boolean)\s*\))?)$'}}}
-        - any:
-            - all:
-                - matches: held
-                - pattern: $HELD
-            - all:
-                - not: {matches: held}
-                - has: {field: function, pattern: $FIXED}
-                - has: {field: arguments, pattern: $FIXED_ARGUMENTS}
+        - not: {matches: named-or-outer-reading}
+        - has: {field: function, pattern: $FIXED}
+        - has: {field: arguments, pattern: $FIXED_ARGUMENTS}
 transform:
     BASE: {replace: {source: $FIXED, replace: '(?s)(While|Until)((IO)?(\s*<[^()]*>)?)$', by: '${2}'}}
     REST: {rewrite: {source: $FIXED_ARGUMENTS, rewriters: [kept-argument], joinBy: ', '}}
     OPEN: {replace: {source: $FIXED, replace: '(?s)^.+$', by: '('}}
     CLOSE: {replace: {source: $FIXED, replace: '(?s)^.+$', by: ')'}}
-fix: $HELD$BASE$OPEN$REST$CLOSE
-message: '`$CALLEE` takes a predicate that returns a constant'
-note: Use `Repeat` or `Retry` over the same effect and schedule, and `repeat(<effect>.As())` in place of prelude `repeatUntil`, a constant predicate restates those overloads
+fix: $BASE$OPEN$REST$CLOSE
+message: '`$NAME` takes a predicate that returns a constant'
+note: Call `Repeat`, `Retry`, `repeat(<effect>)`, or `retry(<effect>)` over the same effect and schedule, `<effect>.As()` for a `K<IO, A>`

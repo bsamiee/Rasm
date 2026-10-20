@@ -88,4 +88,4 @@ rule:
             - matches: effect
             - inside: {stopBy: end, matches: effect}
 message: "`$CHECK($PATH)` requires a qualified path inside an effect by hand"
-note: Bind `IO.lift(Exchange.QualifiedPath(<path>))` as a step, which fails with `FileRefused` on every path that is not fully qualified, rooted ones included
+note: 'Bind `IO.lift(Exchange.QualifiedPath(<path>))` as a step'

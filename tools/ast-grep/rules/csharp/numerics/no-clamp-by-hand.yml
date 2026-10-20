@@ -76,4 +76,4 @@ transform:
     TERNARY: {replace: {source: $TEST, replace: '(?s)^.+$', by: Math}}
 fix: $CLAMPER$TERNARY.Clamp($X, $LO, $HI)
 message: '`$CLAMP` bounds a value between two constant limits by hand'
-note: 'Call `Clamp(<value>, <min>, <max>)` on `Math` or the numeric type, one call naming both limits'
+note: 'Call `Clamp(<value>, <min>, <max>)` on `Math` or the numeric type'

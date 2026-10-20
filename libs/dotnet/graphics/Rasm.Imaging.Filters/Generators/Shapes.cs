@@ -96,12 +96,14 @@ public sealed partial class ShapeKind : ICaptioned {
         var arm => ((float)shape.Roundness * arm) switch { var radius => (point => EFloat.Min(ShapeFields.Box(point, (half.X, arm), radius, math), ShapeFields.Box(point, (arm, half.Y), radius, math)), 2 * arm) },
     });
     public static readonly ShapeKind Heart = new("heart", "Heart", static (_, half, math) => (Center: (X: (EFloat)0.25d, Y: (EFloat)0.75d), Radius: EFloat.FromInt32(2).Sqrt(math) * 0.25d) switch {
-        var lobe => (half.X.Divide(lobe.Center.X + lobe.Radius, math), (lobe.Center.Y + lobe.Radius) * 0.5d) switch {
-            var (scale, middle) => (point => (X: point.X.Abs().Divide(scale, math), Y: point.Y.Divide(scale, math) + middle) switch {
-                var q when (q.X + q.Y).CompareTo(EFloat.One) > 0 => scale * (ShapeFields.Length((q.X - lobe.Center.X, q.Y - lobe.Center.Y), math) - lobe.Radius),
-                var q => (0.5d * EFloat.Max(q.X + q.Y, 0)) switch { var diagonal => scale * EFloat.Min(ShapeFields.Length((q.X, q.Y - 1), math), ShapeFields.Length((q.X - diagonal, q.Y - diagonal), math)) * (q.X - q.Y).Sign },
-            }, 2 * lobe.Radius * scale),
-        },
+        var lobe => (Lobe: lobe, Scale: half.X.Divide(lobe.Center.X + lobe.Radius, math), Middle: (lobe.Center.Y + lobe.Radius) * 0.5d),
+    } switch {
+        var (lobe, scale, middle) => (point => (X: point.X.Abs().Divide(scale, math), Y: point.Y.Divide(scale, math) + middle) switch {
+            var q => (Q: q, Diagonal: 0.5d * EFloat.Max(q.X + q.Y, 0)),
+        } switch {
+            var (q, _) when (q.X + q.Y).CompareTo(EFloat.One) > 0 => scale * (ShapeFields.Length((q.X - lobe.Center.X, q.Y - lobe.Center.Y), math) - lobe.Radius),
+            var (q, diagonal) => scale * EFloat.Min(ShapeFields.Length((q.X, q.Y - 1), math), ShapeFields.Length((q.X - diagonal, q.Y - diagonal), math)) * (q.X - q.Y).Sign,
+        }, 2 * lobe.Radius * scale),
     });
     public static readonly ShapeKind Triangle = new("triangle", "Triangle", static (shape, half, math) => {
         ((EFloat X, EFloat Y) a, (EFloat X, EFloat Y) b, (EFloat X, EFloat Y) c) = ((-half.X, -half.Y), (half.X, -half.Y), ((float)shape.Apex * half.X, half.Y));
@@ -191,7 +193,7 @@ public sealed record ShapePrimitive(
         (Placement.Frame(extent), Fit.Scale(extent)) switch {
             var (frame, _) when Width == ShortSideLength.Neutral || Height == ShortSideLength.Neutral => (frame, static (_, _) => new(double.PositiveInfinity, 0d)),
             var (frame, scale) => Kind.Field(this, (EFloat.FromSingle(Width) * scale.X, EFloat.FromSingle(Height) * scale.Y), math) switch {
-                var (distance, width) => (frame, (column, line) => frame.Upward(column, line) switch { var (x, y) => new(distance((x, y)), width) }),
+                var (distance, width) => (frame, (column, line) => new(distance(frame.Upward(column, line)), width)),
             },
         };
 }

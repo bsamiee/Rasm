@@ -1,10 +1,38 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: swift-nesting-level
 language: swiftlang
+utils:
+    control:
+        any:
+            - kind: guard_statement, for_statement, while_statement, repeat_while_statement, switch_statement
+            - kind: if_statement
+              not: {inside: {kind: if_statement}}
+            - kind: ternary_expression
+              not: {inside: {kind: ternary_expression, field: if_false, stopBy: {not: {kind: tuple_expression}}}}
+    closure: {kind: 'lambda_literal, function_declaration'}
+    scope: {any: [{matches: control}, {matches: closure}, {matches: swift-declaration-scope}]}
+    conditioned:
+        any:
+            - inside: {kind: 'if_statement, guard_statement, while_statement, repeat_while_statement, ternary_expression', field: condition, stopBy: &scope {matches: scope}}
+            - inside: {kind: switch_statement, field: expr, stopBy: *scope}
+            - inside: {kind: for_statement, field: collection, stopBy: *scope}
+            - inside: {kind: where_clause, stopBy: *scope}
+    nested-statements:
+        kind: statements
+        any:
+            - has: {nthChild: {position: 2, ofRule: {not: {kind: 'comment, multiline_comment'}}}}
+            - has: {matches: control, stopBy: {matches: closure}}
+    nested-body:
+        any:
+            - has: {matches: nested-statements}
+            - has: {kind: function_body, has: {matches: nested-statements}}
 rule:
     any:
-        - kind: guard_statement, for_statement, while_statement, repeat_while_statement, switch_statement
-        - kind: if_statement
-          not: {inside: {kind: if_statement}}
-        - kind: ternary_expression
-          not: {inside: {kind: ternary_expression, field: if_false, stopBy: {not: {kind: tuple_expression}}}}
+        - matches: control
+          not: {matches: conditioned}
+        - matches: closure
+          all:
+            - inside: {matches: control, stopBy: {matches: swift-declaration-scope}}
+            - not: {matches: conditioned}
+            - not: {inside: {matches: swift-view-builder, stopBy: {kind: 'property_declaration, function_declaration'}}}
+            - matches: nested-body

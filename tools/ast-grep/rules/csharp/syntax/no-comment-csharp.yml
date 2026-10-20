@@ -7,6 +7,7 @@ rule:
     pattern: $COMMENT
     not: {regex: '^// --- \[[A-Z][A-Z0-9_]*\]( -+)?\s*$'}
 transform:
-    TEXT: {replace: {source: $COMMENT, replace: '\s+$', by: ''}}
+    FIRST: {replace: {source: $COMMENT, replace: '(?s)^(/\*+)[ \t]*([^\n]*?)\s*\n.*$', by: '$1 $2 */'}}
+    TEXT: {replace: {source: $FIRST, replace: '\s+$', by: ''}}
 message: '`$TEXT` comments code outside a section divider'
-note: 'Delete the comment (XML doc comments, suppression comments, and commented-out code included) and state its fact in a name or a type, `// --- [<SECTION>] ---` and `// --- [<FAMILY>]` dividers stay'
+note: 'Move each comment''s fact into a name or type and delete every comment except `// --- [<SECTION>] ---` and `// --- [<FAMILY>]` dividers'

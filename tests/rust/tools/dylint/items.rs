@@ -133,42 +133,42 @@ fn single_reader(found: &str) {
        = note: `#[warn(single_reader)]` on by default
 
     warning: `passed` has one reader
-      --> tools/dylint/examples/partition_by_result.rs:15:1
+      --> tools/dylint/examples/partition_by_result.rs:20:1
        |
-    15 | const fn passed(result: &Result<u8, ParseIntError>) -> bool { result.is_ok() }
-       | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    20 | const fn passed(result: &Parsed) -> bool { result.is_ok() }
+       | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
     note: read here
-      --> tools/dylint/examples/partition_by_result.rs:19:151
+      --> tools/dylint/examples/partition_by_result.rs:26:94
        |
-    19 | ...<Result<u8, ParseIntError>>) { results.into_iter().partition(passed) }
-       |                                                                 ^^^^^^
-       = help: move `passed` into `split` as a nested item
+    26 | fn named(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(passed) }
+       |                                                                                              ^^^^^^
+       = help: move `passed` into `named` as a nested item
        = note: `#[warn(single_reader)]` on by default
 
     warning: `small` has one reader
-      --> tools/dylint/examples/partition_by_result.rs:21:1
+      --> tools/dylint/examples/partition_by_result.rs:24:1
        |
-    21 | fn small(result: &Result<u8, ParseIntError>) -> bool { result.is_small() }
-       | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    24 | fn small(result: &Parsed) -> bool { result.is_small() }
+       | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
     note: read here
-      --> tools/dylint/examples/partition_by_result.rs:23:152
+      --> tools/dylint/examples/partition_by_result.rs:49:95
        |
-    23 | ...c<Result<u8, ParseIntError>>) { results.into_iter().partition(small) }
-       |                                                                  ^^^^^
+    49 | fn ranked(results: Vec<Parsed>) -> (Vec<Parsed>, Vec<Parsed>) { results.into_iter().partition(small) }
+       |                                                                                               ^^^^^
        = help: move `small` into `ranked` as a nested item
 
     warning: `large` has one reader
-      --> tools/dylint/examples/partition_by_result.rs:17:1
+      --> tools/dylint/examples/partition_by_result.rs:22:1
        |
-    17 | const fn large(value: &u8) -> bool { *value > 9 }
+    22 | const fn large(value: &u8) -> bool { *value > 9 }
        | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
     note: read here
-      --> tools/dylint/examples/partition_by_result.rs:25:80
+      --> tools/dylint/examples/partition_by_result.rs:60:80
        |
-    25 | fn sized(values: Vec<u8>) -> (Vec<u8>, Vec<u8>) { values.into_iter().partition(large) }
+    60 | fn sized(values: Vec<u8>) -> (Vec<u8>, Vec<u8>) { values.into_iter().partition(large) }
        |                                                                                ^^^^^
        = help: move `large` into `sized` as a nested item
 

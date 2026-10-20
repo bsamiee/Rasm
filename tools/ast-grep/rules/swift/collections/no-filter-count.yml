@@ -5,7 +5,6 @@ severity: error
 utils:
     filter-call:
         kind: call_expression
-        pattern: $FILTER
         all:
             - has: {nthChild: 1, kind: navigation_expression, all: [{has: {field: suffix, has: {field: suffix, regex: '^filter$'}}}, {has: {field: target, pattern: $C}}]}
             - has:
@@ -39,5 +38,5 @@ rule:
 transform:
     TRIED: {replace: {source: $TRY, replace: '(?s)^(.+)$', by: '$1 '}}
 fix: '$TRIED$C.count(where: $TEST)'
-message: '`$FILTER` builds a filtered collection to count its elements'
+message: '`filter` over `$C` builds a collection to count its elements'
 note: 'Call `<sequence>.count(where: <test>)`'

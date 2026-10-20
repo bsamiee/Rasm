@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-exec-build
+language: xml
+severity: error
+files: ['**/*.{csproj,props,targets}']
+rule:
+    all:
+        - matches: {msbuild-element: {name: {regex: '^Exec$'}}}
+        - matches:
+            msbuild-metadata:
+                name: {regex: '^Command$'}
+                value:
+                    regex: '(?i)^["'']\s*(?:&quot;)?(?:[^\s"''&]*[\\/])?(?:dotnet(?:\.exe)?(?:&quot;)?\s+(?:build|msbuild|pack|publish|restore|test|run)\b|msbuild(?:\.exe)?(?:&quot;)?(?:\s|["'']$))'
+                    not: {regex: '^["'']\s*(?:dotnet \s*(?:build|msbuild|pack|publish|restore|test|run)|msbuild)'}
+                    pattern: _COMMAND
+transform:
+    COMMAND_TEXT: {replace: {source: $COMMAND, replace: '^["'']|["'']$', by: ''}}
+message: '`Exec` starts a build process `$COMMAND_TEXT` the engine neither schedules nor logs'
+note: 'Use `ProjectReference` with `ReferenceOutputAssembly="false"` or the `MSBuild` task, BC0302 reports the lowercase unqualified spellings'

@@ -6,8 +6,8 @@ utils:
     sorted:
         kind: invocation_expression
         any:
-            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(OrderBy|OrderByDescending|Order|OrderDescending)$'}}
-            - has: {field: function, kind: generic_name, has: {kind: identifier, regex: '^Sort$'}}
+            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(OrderBy|OrderByDescending|Order|OrderDescending)$', pattern: $SORT}}
+            - has: {field: function, kind: generic_name, has: {kind: identifier, regex: '^Sort$', pattern: $SORT}}
     sorted-seq:
         any:
             - matches: sorted
@@ -20,16 +20,15 @@ utils:
                 - has: {field: function, kind: identifier, regex: '^toSeq$'}
                 - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, has: {matches: sorted}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
 rule:
-    pattern: $CALL
     any:
         - kind: invocation_expression
           all:
-            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(First|FirstOrDefault|Last|LastOrDefault)$'}}, {has: {field: expression, matches: sorted-seq}}]}
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(First|FirstOrDefault|Last|LastOrDefault)$', pattern: $END}}, {has: {field: expression, matches: sorted-seq}}]}
             - has: {field: arguments, not: {has: {kind: argument}}}
         - kind: member_access_expression
           all:
-            - has: {field: name, regex: '^(Head|Last)$'}
+            - has: {field: name, regex: '^(Head|Last)$', pattern: $END}
             - has: {field: expression, matches: sorted-seq}
             - not: {inside: {kind: invocation_expression, field: function}}
-message: '`$CALL` sorts the whole sequence to read one end of it'
-note: 'Call `MinBy(<key>)` or `MaxBy(<key>)` in place of a sort by `<key>` read at one end, and `Min()` or `Max()` in place of `Order()` or `OrderDescending()`, comparer arguments kept, in one pass that skips null keys'
+message: '`$SORT` sorts the whole sequence for `$END` to read one end'
+note: 'Call `MinBy(<key>)` or `MaxBy(<key>)` with its comparer in place of a keyed sort, `Min()` or `Max()` in place of `Order()` or `OrderDescending()`'

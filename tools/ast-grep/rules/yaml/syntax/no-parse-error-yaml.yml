@@ -13,5 +13,5 @@ rule:
           has: {stopBy: end, pattern: $$MISSING, regex: '^$', not: {matches: unreported}}
 labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
-message: 'Grammar failed to parse the span'
-note: 'Write a form tree-sitter-yaml parses, every other rule skips constructs inside a parse error'
+message: Grammar failed to parse the span every other rule skips
+note: Write a form the grammar parses

@@ -54,5 +54,7 @@ rule:
                     kind: if_statement
                     not: {nthChild: 1}
                     has: {kind: statements, has: {kind: control_transfer_statement, regex: '^break$'}}
-message: '`$GUARD` reads `$STATE` from the previous iteration and awaits one more `$L` before exiting'
+transform:
+    HEAD: {replace: {source: $GUARD, replace: '(?s)\n.*$', by: ''}}
+message: '`$HEAD` reads `$STATE` from the previous iteration and awaits one more `$L` before exiting'
 note: 'End the loop body with `if <finished> { break }` after setting `<state>`, or finish its input sequence'

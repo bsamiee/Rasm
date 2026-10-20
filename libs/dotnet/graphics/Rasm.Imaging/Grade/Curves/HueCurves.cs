@@ -86,19 +86,19 @@ public sealed record HueCurves(
             : kind.Input.Read(hsy);
 
     public static Option<PixelPass> Pass(HueCurves state, PassContext context) =>
-        state == Default
-            ? None
-            : (state.HueHue.Fit(), state.HueSat.Fit(), state.HueLum.Fit(), state.LumSat.Fit(), state.SatSat.Fit(), state.LumLum.Fit(), state.SatLum.Fit()) switch {
-                var (hueHue, hueSat, hueLum, lumSat, satSat, lumLum, satLum) => Some<PixelPass>(new PixelPass.Color(row => {
-                    foreach (ref Vector4 pixel in row) {
-                        Hsy hsy = Hsy.From(pixel);
-                        (double hue, double luma) = (InputAxis.Hue.Read(hsy), InputAxis.Stops.Read(hsy));
-                        double saturation = Saturation(satSat, hueSat, lumSat, hsy.Saturation, hue, luma);
-                        double gain = (1d - ((1d - Floored(hueLum(hue))) * double.Min(saturation, 1d))) * Floored(satLum(saturation));
-                        pixel = new Hsy(hueHue(hue), saturation, CurveAxis.FromStops(lumLum(luma)) * gain).ToRgb(pixel.W);
-                    }
-                })),
-            };
+        from changed in Some(state)
+        where changed != Default
+        let fits = (HueHue: changed.HueHue.Fit(), HueSat: changed.HueSat.Fit(), HueLum: changed.HueLum.Fit(), LumSat: changed.LumSat.Fit(),
+            SatSat: changed.SatSat.Fit(), LumLum: changed.LumLum.Fit(), SatLum: changed.SatLum.Fit())
+        select (PixelPass)new PixelPass.Color(row => {
+            foreach (ref Vector4 pixel in row) {
+                Hsy hsy = Hsy.From(pixel);
+                (double hue, double luma) = (InputAxis.Hue.Read(hsy), InputAxis.Stops.Read(hsy));
+                double saturation = Saturation(fits.SatSat, fits.HueSat, fits.LumSat, hsy.Saturation, hue, luma);
+                double gain = (1d - ((1d - Floored(fits.HueLum(hue))) * double.Min(saturation, 1d))) * Floored(fits.SatLum(saturation));
+                pixel = new Hsy(fits.HueHue(hue), saturation, CurveAxis.FromStops(fits.LumLum(luma)) * gain).ToRgb(pixel.W);
+            }
+        });
 
     private static double Saturation(Func<double, double> satSat, Func<double, double> hueSat, Func<double, double> lumSat, double saturation, double hue, double luma) =>
         Floored(satSat(saturation)) * Floored(hueSat(hue)) * Floored(lumSat(luma));

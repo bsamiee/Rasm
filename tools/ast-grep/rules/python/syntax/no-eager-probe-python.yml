@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-collected-existence-test
+id: no-eager-probe-python
 language: python
 severity: error
 utils:
@@ -47,4 +47,4 @@ rule:
             - has: {nthChild: 2, matches: materialized}
             - not: {matches: python-invariant-index-test}
 message: '`$TEST` builds every match to learn whether one exists'
-note: 'Use `any(<test> for <item> in <source>)`, or `any(<value> == <needle> for ...)` for membership, to stop at the first match without building a collection'
+note: 'Use `any(<test> for <item> in <source>)`, or `any(<value> == <needle> for ...)` for membership'

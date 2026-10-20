@@ -29,4 +29,4 @@ rule:
                 - all: [{has: {field: left, matches: target-assignment}}, {has: {field: right, pattern: $TARGET}}]
                 - all: [{has: {field: right, matches: target-assignment}}, {has: {field: left, pattern: $TARGET}}]
 message: '`$VALUE` reads the value of an assignment'
-note: 'Write the assignment alone as a statement, its target holds the value for each later read'
+note: 'Write the assignment alone as a statement and read its target afterward'

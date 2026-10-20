@@ -168,4 +168,4 @@ rule:
         - matches: built-cause
           pattern: $TEXT
 message: '`$TEXT` renders a typed failure to text'
-note: 'Keep the failure as the error value to the boundary, `Effect.tryPromise(<thunk>)` holding a rejection in `Cause.UnknownError`, where `<error>.message` fills a protocol error''s `message` field or a `McpSchema.TextContent` `text`, and `Cause.pretty(<cause>)` renders a caught cause with its `[cause]` chain'
+note: 'Keep the error as the failure value up to the boundary, where a protocol field reads `<error>.message` and a cause renders through `Cause.pretty`'

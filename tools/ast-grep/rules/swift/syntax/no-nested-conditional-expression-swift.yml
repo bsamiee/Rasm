@@ -12,8 +12,9 @@ utils:
                 - has: {kind: statements, matches: nested-body}
                 - has: {kind: if_statement, matches: nesting-branch}
             - kind: switch_statement
-              has: {kind: switch_entry, has: {kind: statements, matches: nested-body}}
+              has: {kind: switch_entry, has: {kind: statements, matches: {swift-single-statement: {first: {kind: if_statement}}}}}
 rule:
+    pattern: $VALUE
     any:
         - kind: ternary_expression
           not: {inside: {kind: ternary_expression, stopBy: {not: {kind: 'tuple_expression, prefix_expression'}}}}
@@ -27,5 +28,7 @@ rule:
           any:
             - inside: {kind: property_declaration, field: value}
             - inside: {kind: 'assignment, control_transfer_statement', field: result}
-message: '`if`, `switch`, or ternary value nests another conditional'
-note: 'Select with one `if` expression per test, a `switch` expression over the combined subjects (`switch (<a>, <b>)`), or a `where` clause on the case'
+transform:
+    HEAD: {replace: {source: $VALUE, replace: '(?s)\n.*$', by: ''}}
+message: '`$HEAD` selects a value through a nested conditional'
+note: 'Select with one `if` expression per test, a `switch` over the combined subjects (`switch (<a>, <b>)`), or a `where` clause on the case'

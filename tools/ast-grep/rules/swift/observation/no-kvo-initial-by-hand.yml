@@ -29,4 +29,4 @@ rule:
           has: {field: result, matches: registration}
     precedes: {pattern: $CHECK}
 message: 'Observation handler repeats `$CHECK` after registering in place of asking for the initial value'
-note: 'Add `.initial` to the `options` of `observe(_:options:changeHandler:)` to run the handler once with the current value, and delete the statement after it'
+note: 'Add `.initial` to the `observe(_:options:changeHandler:)` options and delete the repeated statement'

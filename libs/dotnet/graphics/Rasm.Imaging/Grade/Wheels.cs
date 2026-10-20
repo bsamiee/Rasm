@@ -108,22 +108,21 @@ public sealed record WheelsState(
                 var t => t * t * (3d - (2d * t)),
             };
 
-        return toSeq(ToneWheel.Items).ForAll(wheel => wheel.Lens.Get(state) == WheelOffset.Default)
-            ? None
-            : (context.Working.Luminance, state.Global.Multiplier(context.Working), state.Shadows.Multiplier(context.Working), state.Midtones.Multiplier(context.Working),
-               state.Highlights.Multiplier(context.Working), (float)state.ShadowsEnd, (float)state.HighlightsStart, (float)state.HighlightsStart + (float)state.HighlightsWidth) switch {
-                   var (weights, global, shadows, midtones, highlights, shadowsEnd, start, end) => Some<PixelPass>(new PixelPass.Color(row => {
-                       foreach (ref Vector4 pixel in row) {
-                           double luma = LuminanceSamples.Luminance(pixel.X, pixel.Y, pixel.Z, weights);
-                           (double a, double b) = (Smooth(0d, shadowsEnd, luma), Smooth(start, end, luma));
-                           (double low, double middle, double high) = (1d - a, a * (1d - b), a * b);
-                           pixel = new Vector4(
-                               (float)(pixel.X * (double)global.X * ((shadows.X * low) + (midtones.X * middle) + (highlights.X * high))),
-                               (float)(pixel.Y * (double)global.Y * ((shadows.Y * low) + (midtones.Y * middle) + (highlights.Y * high))),
-                               (float)(pixel.Z * (double)global.Z * ((shadows.Z * low) + (midtones.Z * middle) + (highlights.Z * high))), pixel.W);
-                       }
-                   })),
-               };
+        return from changed in Some(state)
+               where toSeq(ToneWheel.Items).Exists(wheel => wheel.Lens.Get(changed) != WheelOffset.Default)
+               let wheels = (Weights: context.Working.Luminance, Global: changed.Global.Multiplier(context.Working), Shadows: changed.Shadows.Multiplier(context.Working),
+                   Midtones: changed.Midtones.Multiplier(context.Working), Highlights: changed.Highlights.Multiplier(context.Working))
+               select (PixelPass)new PixelPass.Color(row => {
+                   foreach (ref Vector4 pixel in row) {
+                       double luma = LuminanceSamples.Luminance(pixel.X, pixel.Y, pixel.Z, wheels.Weights);
+                       (double a, double b) = (Smooth(0d, (float)changed.ShadowsEnd, luma), Smooth((float)changed.HighlightsStart, (float)changed.HighlightsStart + (float)changed.HighlightsWidth, luma));
+                       (double low, double middle, double high) = (1d - a, a * (1d - b), a * b);
+                       pixel = new Vector4(
+                           (float)(pixel.X * (double)wheels.Global.X * ((wheels.Shadows.X * low) + (wheels.Midtones.X * middle) + (wheels.Highlights.X * high))),
+                           (float)(pixel.Y * (double)wheels.Global.Y * ((wheels.Shadows.Y * low) + (wheels.Midtones.Y * middle) + (wheels.Highlights.Y * high))),
+                           (float)(pixel.Z * (double)wheels.Global.Z * ((wheels.Shadows.Z * low) + (wheels.Midtones.Z * middle) + (wheels.Highlights.Z * high))), pixel.W);
+                   }
+               });
     }
 }
 

@@ -88,4 +88,4 @@ rule:
                 - has: {field: left, any: [{matches: flat-mirror}, {matches: joined, has: {field: right, matches: flat-mirror}}]}
         - matches: interval
 message: 'Expression compares extents of boxes `$A` and `$B` by hand to test overlap'
-note: 'Hold the boxes as `parry3d_f64::bounding_volume::Aabb` with `BoundingVolume::intersects`, `rstar::AABB` with `Envelope::intersects`, or `geo::Rect` with `geo::Intersects::intersects`'
+note: 'Hold the boxes as `parry3d_f64` `Aabb`, `rstar::AABB`, or `geo::Rect` and call its `intersects`'

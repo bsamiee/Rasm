@@ -111,4 +111,4 @@ transform:
     CLEARED: {rewrite: {source: $EMPTY, rewriters: [clear]}}
 fix: $DELETED$BATCHED$CLEARED$KEPT
 message: '`$O.remove` removes members of `$O` one at a time, each call searching the collection'
-note: 'Remove them in one bulk operation (`del <element>[:]`, `<collection>[:] = [<kept>]`, `bpy.data.batch_remove`, `clear()`). The fix keeps a filtered selection or a collection of unknown type'
+note: 'Remove members in one bulk operation (`del <element>[:]`, `<collection>[:] = [<kept>]`, `bpy.data.batch_remove`, `clear()`)'

@@ -20,4 +20,4 @@ rule:
 constraints:
     END: {regex: '^(from_socket|to_socket)$'}
 message: '`$LINK.$END == $SOCKET` walks every link of the tree to find the links of one socket'
-note: 'Iterate `<socket>.links`, the links Blender keeps on the socket itself'
+note: 'Iterate `<socket>.links`'

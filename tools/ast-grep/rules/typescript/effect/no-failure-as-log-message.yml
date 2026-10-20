@@ -33,4 +33,4 @@ rule:
             - has: {field: arguments, has: {kind: identifier, pattern: $ERROR}}
             - inside: {matches: failure-callback, stopBy: {matches: typescript-function-boundary}}
 message: '`$LOG` logs the failure as a message value'
-note: 'Call `tapCause(Effect.logError)` of the same module or `Effect.logError(<text>, Cause.fail(<error>))` to pass the failure as a log cause, rendered with its span frame and `[cause]` chain'
+note: 'Pass the failure as a log cause through `tapCause(Effect.logError)` of the same module or `Effect.logError(<text>, Cause.fail(<error>))`'

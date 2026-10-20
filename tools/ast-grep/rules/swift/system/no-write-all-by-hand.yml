@@ -12,5 +12,7 @@ rule:
             all:
                 - has: {stopBy: end, kind: call_expression, has: {nthChild: 1, kind: navigation_expression, regex: '\.write$'}}
                 - has: {stopBy: end, kind: assignment, regex: '\+=', has: {field: target, pattern: $WRITTEN}}
-message: '`$SITE` repeats `write` until every byte of the buffer is written'
-note: 'Call `writeAll(_:)` on the `FileDescriptor` to loop over short writes and retry an interrupted call'
+transform:
+    HEAD: {replace: {source: $SITE, replace: '(?s)\n.*$', by: ''}}
+message: '`$HEAD` repeats `write` until every byte of the buffer is written'
+note: 'Call `writeAll(_:)` on the `FileDescriptor`'

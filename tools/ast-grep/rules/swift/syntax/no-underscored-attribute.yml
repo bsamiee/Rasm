@@ -2,13 +2,43 @@
 id: no-underscored-attribute
 language: swiftlang
 severity: error
+utils:
+    overridable-member:
+        kind: 'function_declaration, init_declaration, property_declaration, subscript_declaration'
+        all:
+            - not: {has: {kind: modifiers, has: {kind: 'inheritance_modifier, property_modifier', regex: '^(final|static)$'}}}
+            - inside:
+                kind: class_body
+                inside:
+                    kind: class_declaration
+                    all:
+                        - has: {field: declaration_kind, regex: '^class$'}
+                        - not: {has: {kind: modifiers, has: {kind: inheritance_modifier, regex: '^final$'}}}
+    self-calling:
+        kind: function_declaration
+        all:
+            - has: {field: name, kind: simple_identifier, pattern: $NAME}
+            - has:
+                field: body
+                has:
+                    stopBy: end
+                    kind: call_expression
+                    has:
+                        nthChild: 1
+                        any:
+                            - {kind: simple_identifier, pattern: $NAME}
+                            - {kind: navigation_expression, all: [{has: {field: target, kind: self_expression}}, {has: {field: suffix, has: {field: suffix, pattern: $NAME}}}]}
 rule:
     kind: attribute
     pattern: $ATTR
     regex: '^@(inline\(\s*__always\s*\)|_alwaysEmitIntoClient)$'
+    any:
+        - regex: '^@inline'
+          inside: {kind: modifiers, inside: {any: [{matches: overridable-member}, {matches: self-calling}]}}
+        - pattern: $KEPT
 transform:
-    INLINE: {replace: {source: $ATTR, replace: '^@inline\(\s*__always\s*\)$', by: '@inline(always)'}}
+    INLINE: {replace: {source: $KEPT, replace: '^@inline\(\s*__always\s*\)$', by: '@inline(always)'}}
     STABLE: {replace: {source: $INLINE, replace: '^@_alwaysEmitIntoClient$', by: '@export(implementation)'}}
 fix: $STABLE
 message: '`$ATTR` spells an attribute through its underscored form'
-note: 'Write `@inline(always)` for `@inline(__always)` and `@export(implementation)` for `@_alwaysEmitIntoClient`. Compiler rejects `@inline(always)` on a non-final class method and on a recursive call, and makes a public `@inline(always)` declaration `@inlinable`'
+note: 'Write `@export(implementation)`, `@inline(always)` (`@inlinable` when `public`), or nothing on a recursive or non-final class member'

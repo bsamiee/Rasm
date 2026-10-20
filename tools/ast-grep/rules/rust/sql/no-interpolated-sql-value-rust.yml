@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-formatted-sql
+id: no-interpolated-sql-value-rust
 language: rust
 severity: error
 utils:
@@ -43,4 +43,4 @@ rule:
             - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^(concat|join)$'}}, {has: {field: value, kind: array_expression, has: {nthChild: 1, matches: sql-text}}}]}
             - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^replacen?$'}}, {has: {field: value, matches: sql-text}}]}
 message: '`$SQL` joins values into SQL text'
-note: 'Bind each value through `sqlx::query!` or `sqlx::query_as!` for a fixed statement, `sea_query::Query` or `sea_query::Table` for a statement of varying shape, and `sqlx::QueryBuilder` for value lists'
+note: 'Bind each value through `sqlx::query!` for a fixed statement, `sea_query` for a varying one, or `sqlx::QueryBuilder` for a value list'

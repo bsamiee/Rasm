@@ -36,22 +36,5 @@ rule:
             any:
                 - has: {field: name, pattern: $NAME}
                 - has: {field: argument, pattern: $NAME}
-transform:
-    WHOLE:
-        replace:
-            source: $ATTRIBUTE
-            replace: '(?s)^#\[\s*(cfg_attr\s*\(.*,\s*)?doc\s*\(\s*hidden\s*\)\s*\)?\s*\]$'
-            by: ''
-    LISTED:
-        replace:
-            source: $WHOLE
-            replace: ',\s*doc\s*\(\s*hidden\s*\)|doc\s*\(\s*hidden\s*\)\s*,\s*'
-            by: ''
-    FIXED:
-        replace:
-            source: $LISTED
-            replace: '\bhidden\s*,\s*|,\s*hidden\b'
-            by: ''
-fix: $FIXED
 message: '`$ATTRIBUTE` hides `$NAME` from the API it belongs to'
 note: 'Narrow the item to `pub(crate)` or `pub(super)` when the crate alone reads it, else keep it in the documented API'

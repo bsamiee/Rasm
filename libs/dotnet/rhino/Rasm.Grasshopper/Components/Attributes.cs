@@ -71,12 +71,14 @@ public sealed class PlotAttributes<TReading> : ComponentAttributes, IResizableAt
             Pivot = RectangleF.Inset(current.Frame.Resized, current.Margins).Center;
         }).Map(Response.Handled)), nameof(Responses.MouseDrag));
         Responder.MouseUpHook += Reply<ResponseMouseArgs>(args => args.Buttons is MouseButtons.Primary ? Finished : IO.pure(Response.Ignored), nameof(Responses.MouseUp));
-        Responder.KeyDownHook += Reply<KeyEventArgs>(args => args.Key is Keys.Escape
-            ? track.ValueIO.Bind(held => held.Match(Some: _ => Released, None: static () => IO.pure(Response.Ignored)))
-            : Sizing(_ => args.Key is Keys.S && args.Modifiers is Keys.None ? IO.lift(() => {
+        Responder.KeyDownHook += Reply<KeyEventArgs>(args => (args.Key, args.Modifiers) switch {
+            (Keys.Escape, _) => track.ValueIO.Bind(held => held.Match(Some: _ => Released, None: static () => IO.pure(Response.Ignored))),
+            (Keys.S, Keys.None) => Sizing(_ => IO.lift(() => {
                 Grasshopper2.Settings.CanvasSnapToObjects.Value = !Grasshopper2.Settings.CanvasSnapToObjects.Value;
                 args.Handled = true;
-            }).Bind(static _ => SnapSession.End(Editor.Instance.Canvas)).Map(Response.Handled) : IO.pure(Response.Ignored)), nameof(Responses.KeyDown));
+            }).Bind(static _ => SnapSession.End(Editor.Instance.Canvas)).Map(Response.Handled)),
+            _ => IO.pure(Response.Ignored),
+        }, nameof(Responses.KeyDown));
         Responder.LostFocus += Callbacks.Handler<EventArgs>(_ => Cancelled, Site(nameof(Responses.LostFocus))).Invoke;
     }
 

@@ -39,4 +39,4 @@ transform:
     SOURCES: {replace: {source: $E, replace: '^[\s\S]+$', by: '.sources()'}}
 fix: $RECEIVER$SOURCES$LOOP
 message: '`$E$CURRENT` walks its error source chain by hand'
-note: 'Iterate `<error>.sources()` (`#![feature(error_iter)]`) in place of the cursor, and render the chain with `Report::new(<error>).pretty(true)` (`#![feature(error_reporter)]`)'
+note: 'Iterate `<error>.sources()` (`error_iter`) and render the chain with `Report::new(<error>).pretty(true)` (`error_reporter`)'

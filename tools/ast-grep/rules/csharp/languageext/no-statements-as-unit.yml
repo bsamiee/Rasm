@@ -64,5 +64,7 @@ rule:
           not: {matches: outer-sum}
         - matches: invoked-action
           not: {inside: {stopBy: end, matches: unit-sequence}}
-message: '`$VALUE` spells statements as a `Unit` value'
-note: Write the effects as statements of a block body, `IO.lift(<action>)` lifts a block to `IO<Unit>` and a statement calls an `Action` directly
+transform:
+    HEAD: {replace: {source: $VALUE, replace: '(?s)^[(\s]*([@\w.]+).*$', by: '$1'}}
+message: '`$HEAD` spells statements as a `Unit` value'
+note: 'Write the effects as statements of a block body, with `IO.lift(<action>)` where an `IO<Unit>` is needed and a direct call for an `Action`'

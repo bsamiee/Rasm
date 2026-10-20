@@ -40,4 +40,4 @@ rule:
             kind: class_declaration
             has: {field: body, has: {matches: stored}}
 message: '`$B` stores a value derived from stored property `$X`'
-note: 'Declare `<property>` as computed over `<source>` and drop its assignment in `init` or a property observer, or read `<source>.<member>` at each reader when the derivation reads one member'
+note: 'Declare `<property>` computed over `<source>` with no assignment, or read `<source>.<member>` at each reader for a one-member derivation'

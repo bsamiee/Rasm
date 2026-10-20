@@ -154,4 +154,4 @@ transform:
     FIELD_OUT: rewrite($FIELDS, rewriters=[ljust-field, rjust-field, dropped-run])
 fix: $LEFT_OUT$RIGHT_OUT$FIELD_OUT$UNFIXED
 message: 'Expression pads `$TEXT` by hand with `$FILL`'
-note: 'Call `<text>.ljust(<width>, <fill>)` or `<text>.rjust(<width>, <fill>)`. The fix skips centered text, compound text, comments, and multiline strings'
+note: 'Call `<text>.ljust(<width>, <fill>)` or `<text>.rjust(<width>, <fill>)`'

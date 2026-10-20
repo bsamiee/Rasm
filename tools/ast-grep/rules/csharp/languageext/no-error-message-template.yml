@@ -28,4 +28,4 @@ rule:
     regex: '\{[A-Za-z_]\w*\}'
     inside: {kind: argument, inside: {matches: message-arguments}}
 message: '`$TEXT` holds a `{Name}` placeholder no code fills, the error prints it verbatim'
-note: Interpolate the message at construction (`$"{Member} refused the call"`), through `string.Create(CultureInfo.InvariantCulture, $"...")` where a number formats
+note: 'Interpolate the message at construction, through `string.Create(CultureInfo.InvariantCulture, $"...")` where a number formats'

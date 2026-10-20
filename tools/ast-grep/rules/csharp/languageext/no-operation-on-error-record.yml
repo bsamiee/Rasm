@@ -133,4 +133,4 @@ rule:
             - not: {any: [{matches: guard-factory}, {matches: inherited}]}
     inside: {stopBy: end, kind: declaration_list, inside: {matches: languageext-error-record}}
 message: '`$MEMBER` declares a limit or an operation on an error record'
-note: Move `$MEMBER` to the operations class that raises the error, an error record holds its fields and the `Unless` factories that construct it
+note: 'Move `<member>` to the operations class that raises the error'

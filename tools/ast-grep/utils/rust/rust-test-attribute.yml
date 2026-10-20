@@ -6,4 +6,4 @@ rule:
     any:
         - regex: '^#\[\s*cfg\s*\(.*\b(test|doctest)\b'
           not: {regex: '^#\[\s*cfg\s*\(\s*not\s*\(\s*test\b'}
-        - regex: '^#\[\s*(\w+::)*\w*(test|bench|quickcheck|proptest)\w*\s*(\(|\]|$)'
+        - regex: '^#\[\s*(::)?(((tokio|sqlx)::)?test|bench|(rstest::)?(rstest|fixture)|(proptest::)?property_test)\s*(\(|\]|$)'

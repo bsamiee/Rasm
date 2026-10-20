@@ -79,4 +79,4 @@ rule:
                         - has: {field: body, has: {matches: char-arm}}
             - has: {field: body, has: {stopBy: {kind: 'closure_expression, function_item'}, matches: index-step}}
 message: 'Loop pulls characters from `$IT$S` and branches on each literal by hand'
-note: 'Write the grammar as `winnow` parsers (`winnow::token::{any, one_of, take_while, take_until}`, `winnow::combinator::{alt, delimited, repeat}`) run through `Parser::parse` over a `&str` stream, or as `chumsky` parsers where errors recover and accumulate'
+note: 'Write the grammar as `winnow` parsers over a `&str` stream, or `chumsky` parsers where errors recover and accumulate'

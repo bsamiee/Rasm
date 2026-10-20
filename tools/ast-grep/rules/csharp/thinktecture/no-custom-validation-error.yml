@@ -10,13 +10,16 @@ utils:
 rule:
     any:
         - kind: generic_name
-          pattern: $FORM
+          pattern: $TEST
           regex: '^IsType\s*<\s*((global::)?Thinktecture\.)?ValidationError\s*>$'
           inside: {kind: member_access_expression, field: name}
         - kind: record_declaration
           all:
-            - has: {field: name, pattern: $FORM}
+            - has: {field: name, pattern: $RECORD}
             - matches: languageext-error-record
             - has: {kind: base_list, has: {stopBy: end, kind: argument, has: {matches: validation-code}}}
-message: '`$FORM` declares or tests a validation error other than Thinktecture''s `ValidationError`'
-note: Assign `new ValidationError("<violated rule>")` or `ValidationResults.OutsideRange(value, MinValue, MaxValue)` in the hook, convert through `<type>.Validated(<raw>)`, and test a failure with `HasCode(ErrorCodes.ValidationFailed)`
+transform:
+    TESTS: {replace: {source: $TEST, replace: '(?s)^(.+)$', by: '`$1` tests `ValidationError` in place of `HasCode`'}}
+    DECLARES: {replace: {source: $RECORD, replace: '(?s)^(.+)$', by: '`$1` declares an error coded `ValidationFailed`'}}
+message: $TESTS$DECLARES
+note: 'Assign `new ValidationError(<rule>)` or `ValidationResults.OutsideRange`, convert via `<type>.Validated`, test `HasCode(ErrorCodes.ValidationFailed)`'

@@ -50,16 +50,16 @@ fn loaded(counter: &AtomicU32) -> bool { max(counter.load(Atomic::Relaxed), 1).c
 
 fn elapsed(start: Option<Clock>, local: &Instant) -> bool { start.is_some_and(|start| start.duration_since(start).is_zero()) && format!("{local:?}").is_empty() }
 
-const fn waited(seconds: u64) -> bool {
+const fn waited() -> bool {
     use core::time::Duration as Span;
-    Span::from_secs(seconds).is_zero()
+    Span::from_secs(1).is_zero()
 }
 
-fn shadowed(seconds: u64) -> bool {
+fn shadowed() -> bool {
     use core::time::Duration as Span;
     #[derive(Debug)]
     struct Duration;
-    Span::from_secs(seconds).is_zero() && format!("{Duration:?}").is_empty()
+    Span::from_secs(1).is_zero() && format!("{Duration:?}").is_empty()
 }
 
 fn dropped() -> bool {
@@ -76,7 +76,7 @@ fn native() -> [usize; 2] { [Native::as_bytes(OsStr::new("x")).len(), ffi::OsStr
 fn main() -> ExitCode {
     let shared = Shared::new(AtomicU32::new(0));
     let rendered = rendered(&Map::new()).map_or(0, |text| text.len());
-    let flags = [loaded(&shared), elapsed(None, &Instant), waited(1), shadowed(0), dropped(), taken(&mut vec![1_u8]).is_empty()];
+    let flags = [loaded(&shared), elapsed(None, &Instant), waited(), shadowed(), dropped(), taken(&mut vec![1_u8]).is_empty()];
     black_box(&(rendered, native(), shown(&fmt()), Cell::new(0_u8).into_inner(), failed(IoError::from(ErrorKind::NotFound)), paired::joined(Error, &IoError::from(ErrorKind::NotFound))));
     ExitCode::from(u8::from(flags.contains(&true) || ranked() || tokio::local()))
 }

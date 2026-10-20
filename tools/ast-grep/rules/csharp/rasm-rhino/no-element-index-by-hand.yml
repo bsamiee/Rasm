@@ -100,4 +100,4 @@ rule:
                     - has: {field: arguments, not: {has: {kind: argument}}}
         - not: {matches: {csharp-owner-body: {type: {regex: '^Callbacks$'}, member: {regex: '^Each$'}}}}
 message: '`$ITEMS` pairs each element with its index for `$RECORD.Unless` by hand'
-note: Use `Callbacks.Each(<items>, <call>, <member>)` for a `bool` host call and `Callbacks.Each(<items>, (<item>, <index>) => <element>)` for a `Fin` one, which name the index of each failed element
+note: 'Use `Callbacks.Each(<items>, <call>, <member>)` for a `bool` host call, `Callbacks.Each(<items>, (<item>, <index>) => <element>)` for a `Fin` one'

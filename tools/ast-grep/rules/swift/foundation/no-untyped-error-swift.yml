@@ -18,5 +18,5 @@ rule:
         - all:
             - has: {nthChild: 1, pattern: $CALLEE, regex: '^(Foundation\.)?((CocoaError|URLError|POSIXError|MachError)(\.init)?|CocoaError\.error)$'}
             - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, all: [{has: {field: name, regex: '^userInfo$'}}, {has: {field: value, matches: text-entry}}]}}}
-message: '`$CALLEE` builds an error from a domain, code, or text no Swift case names and no consumer can match'
-note: 'Construct `CocoaError(.<code>)`, `POSIXError(.<code>)`, `URLError(.<code>)`, or `MachError(.<code>)` for a system domain and otherwise a case of an `enum` conforming to `CustomNSError` for its domain and code or `LocalizedError` for its text'
+message: '`$CALLEE` builds an error from a domain, code, or text no Swift case names'
+note: 'Build a system error by code (`CocoaError(.<code>)`), else a case of an `enum` conforming to `CustomNSError` or `LocalizedError`'

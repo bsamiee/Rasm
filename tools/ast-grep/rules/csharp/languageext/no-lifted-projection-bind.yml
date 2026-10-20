@@ -82,4 +82,4 @@ fix:
     template: select $VALUE
     expandEnd: {kind: select_clause}
 message: Last `from` binds `$RANGE` to `$SOURCE` and selects it unchanged
-note: Use `select <value>` over the preceding steps, a query projection maps the previous step's value with no second lift
+note: 'Use `select <value>` over the preceding steps'

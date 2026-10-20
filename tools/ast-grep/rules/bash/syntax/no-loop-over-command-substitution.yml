@@ -33,4 +33,4 @@ rule:
             - matches: shellcheck-owned
             - inside: {matches: bash-sh-program, stopBy: end}
 message: '`for` word-splits and glob-expands `$SUB` into its items'
-note: 'Read items into an array with `mapfile -t <items> < <(<command>)` and loop over `"${<items>[@]}"`. ShellCheck reports a loop over the sole output of `ls`, `find`, or a pipeline of line tools (SC2013, SC2044, SC2045)'
+note: 'Read items into an array with `mapfile -t <items> < <(<command>)` and loop over `"${<items>[@]}"`'

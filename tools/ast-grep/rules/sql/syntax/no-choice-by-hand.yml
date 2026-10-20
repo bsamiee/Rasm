@@ -123,6 +123,7 @@ rewriters:
       fix: when $ARMCOND then $ARMTHEN$ELSE_ARM
 transform:
     FIXED: {rewrite: {source: $NODE, rewriters: [coalesced, nullified, merged-case, merged-call]}}
+    FORM: {replace: {source: $FIXED, replace: '(?s)^(\w+).*$', by: '$1'}}
 fix: $FIXED
-message: '`$NODE` selects by hand what `$FIXED` states'
-note: 'Use `coalesce(<value>, <default>)` for a null default, `nullif(<value>, <other>)` for a value nulled on a match, and one searched CASE in place of a choice nested in another choice''s else arm'
+message: 'Choice written by hand restates `$FORM`'
+note: 'Write `coalesce(<value>, <default>)` for a null default, `nullif(<value>, <other>)` to null a match, one searched `case` for nested choices'

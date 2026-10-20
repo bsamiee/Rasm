@@ -15,4 +15,4 @@ rule:
         - matches: rust-html-tag-scan
         - matches: any-tag-regex
 message: '`$SCAN` reads HTML by searching tag text'
-note: 'Parse with `scraper::Html::parse_document` and select with `scraper::Selector::parse`, strip markup with `ammonia::Builder::empty().clean(<html>).to_string()`, and convert to Markdown with `htmd::convert`'
+note: 'Select through `scraper::Html` and `Selector`, strip markup through `ammonia::Builder::empty()`, and convert to Markdown through `htmd::convert`'

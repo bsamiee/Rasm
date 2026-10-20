@@ -98,4 +98,4 @@ rule:
                         - has: {field: expression, matches: {csharp-type-name: {name: {regex: '^MemoryMarshal$'}}}}
                         - has: {field: name, regex: '^(Cast|AsRef|Read|TryRead)<'}
 message: '`$CALLEE` bypasses the public constructors and factories of the type it creates'
-note: 'Use a declared factory or public constructor, each runs the checks its type states, an `UnsafeAccessorType` accessor binds a type the compiler cannot see and runs its constructor'
+note: 'Use a declared factory or public constructor, or an `UnsafeAccessorType` accessor for a type the compiler cannot see'

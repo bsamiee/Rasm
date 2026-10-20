@@ -66,7 +66,7 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
         "RASM2103",
         Library,
         "Cast or type test on a GeometryBase duplicate",
-        "Cast or type test narrows `{0}` to `{1}`",
+        "Cast or type test in `{0}` narrows `{1}` to `{2}`",
         "Call `Copies.Duplicate(<source>, <retain>)` or `Copies.DuplicateShallow(<source>, <retain>)`. Both return the static type of `<source>` and pass the copy to `<retain>` for disposal.");
 
     private static readonly ImmutableArray<(string Owner, string Member)> Counted = [
@@ -286,18 +286,42 @@ public sealed class RhinoAnalyzer : RasmAnalyzer {
         if (compilation.GetTypeByMetadataName("Rasm.Rhino.Modeling.Copies") is not { } copies) return;
         ImmutableArray<ISymbol> duplicates = Declared(compilation, "M:Rhino.Geometry.GeometryBase.Duplicate", "M:Rhino.Geometry.GeometryBase.DuplicateShallow");
         bool Copies(IMethodSymbol? method) => method is not null && (duplicates.Any(duplicate => Same(method, duplicate)) || Copies(method.OverriddenMethod));
+        static IEnumerable<ITypeSymbol?> Tested(IOperation operand) =>
+            operand.Parent switch {
+                IConversionOperation { IsImplicit: false } conversion => [conversion.Type],
+                IIsTypeOperation test => [test.TypeOperand],
+                IIsPatternOperation test => [test.Pattern.NarrowedType],
+                ISwitchExpressionOperation dispatch when dispatch.Value == operand => dispatch.Arms.Select(static ITypeSymbol? (arm) => arm.Pattern.NarrowedType),
+                _ => [],
+            };
+        static (SyntaxNode Test, ITypeSymbol Narrowed)? Narrowing(IOperation operand, INamedTypeSymbol copied) =>
+            operand.Parent is { } parent && Tested(operand).FirstOrDefault(type => !Same(type, copied) && Derives(type, copied)) is { } narrowed ? (parent.Syntax, narrowed) : null;
+        static IOperation Root(IOperation operation) => operation.Parent is { } parent ? Root(parent) : operation;
+        static bool Written(IOperation reference) =>
+            reference.Parent switch {
+                IAssignmentOperation assignment => assignment.Target == reference,
+                IArgumentOperation { Parameter.RefKind: RefKind.Out or RefKind.Ref } => true,
+                IIncrementOrDecrementOperation => true,
+                _ => false,
+            };
+        static string Owner(ISymbol member) => ((member as IMethodSymbol)?.AssociatedSymbol ?? member).Name;
         context.RegisterOperationAction(
             analysis => {
                 IInvocationOperation invocation = (IInvocationOperation)analysis.Operation;
-                if (!Copies(invocation.TargetMethod) || Within(analysis.ContainingSymbol, copies) || invocation.Parent is not { } parent) return;
-                if ((parent switch {
-                    IConversionOperation { IsImplicit: false } conversion => conversion.Type,
-                    IIsTypeOperation test => test.TypeOperand,
-                    IIsPatternOperation test => test.Pattern.NarrowedType,
-                    ISwitchExpressionOperation dispatch when dispatch.Value == invocation => dispatch.Arms.Select(static arm => arm.Pattern.NarrowedType).FirstOrDefault(narrowed => !Same(narrowed, invocation.Type)),
-                    _ => null,
-                }) is { } narrowed && !Same(narrowed, invocation.Type))
-                    analysis.ReportDiagnostic(Diagnostic.Create(Narrowed, parent.Syntax.GetLocation(), invocation.Syntax, narrowed.Name));
+                if (!Copies(invocation.TargetMethod) || Within(analysis.ContainingSymbol, copies) || invocation.Type is not INamedTypeSymbol copied) return;
+                (SyntaxNode? site, ISymbol holder, IEnumerable<IOperation> operands) = Consumer(invocation) switch {
+                    IArgumentOperation { Parameter: { } parameter } argument when invocation.SemanticModel is { } model => (argument.Syntax, parameter.ContainingSymbol, parameter.ContainingSymbol.OriginalDefinition.DeclaringSyntaxReferences
+                        .Where(declared => declared.SyntaxTree == model.SyntaxTree)
+                        .SelectMany(declared => model.GetOperation(declared.GetSyntax(analysis.CancellationToken), analysis.CancellationToken)?.Descendants() ?? [])
+                        .Where(reference => reference is IParameterReferenceOperation held && Same(held.Parameter, parameter))),
+                    IVariableInitializerOperation { Parent: IVariableDeclaratorOperation { Symbol: var local } } => (null, analysis.ContainingSymbol, Root(invocation).Descendants()
+                        .Where(reference => reference is ILocalReferenceOperation held && Same(held.Local, local))
+                        .OrderBy(static reference => reference.Syntax.SpanStart)
+                        .TakeWhile(static reference => !Written(reference))),
+                    _ => (null, analysis.ContainingSymbol, [invocation]),
+                };
+                foreach ((SyntaxNode test, ITypeSymbol narrowed) in operands.Select(operand => Narrowing(operand, copied)).OfType<(SyntaxNode Test, ITypeSymbol Narrowed)>())
+                    analysis.ReportDiagnostic(Diagnostic.Create(Narrowed, (site ?? test).GetLocation(), additionalLocations: site is null ? null : [test.GetLocation()], messageArgs: [Owner(holder), invocation.Syntax, narrowed.Name]));
             },
             OperationKind.Invocation);
     }

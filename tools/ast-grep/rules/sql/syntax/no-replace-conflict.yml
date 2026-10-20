@@ -13,5 +13,5 @@ rule:
             - has: {regex: '(?i)^replace$'}
 transform:
     HEAD: {replace: {source: $STATEMENT, replace: '(?is)^(.*?\breplace\b).*$', by: '$1'}}
-message: '`$HEAD` deletes the conflicting row'
-note: 'Write `on conflict (<key>) do update set <column> = excluded.<column> where <table>.<column> is distinct from excluded.<column>`. Replace deletes cascade `on delete` children, fire no delete trigger, and cost D1 a second written row'
+message: '`$HEAD` deletes the conflicting row and its `on delete` children without a delete trigger'
+note: 'Write `on conflict (<key>) do update set <column> = excluded.<column> where <table>.<column> is distinct from excluded.<column>`'

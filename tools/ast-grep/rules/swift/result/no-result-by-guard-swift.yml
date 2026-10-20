@@ -101,24 +101,10 @@ utils:
     failure-return:
         kind: control_transfer_statement
         has: {field: result, matches: swift-failure-call}
-    failure-else:
-        any:
-            - follows: {kind: guard_statement, has: {kind: statements, has: {matches: failure-return}}}
-            - inside:
-                kind: statements
-                inside:
-                    kind: if_statement
-                    any:
-                        - precedes: {matches: failure-return}
-                        - has: {kind: statements, nthChild: {position: 2, ofRule: {kind: statements}}, has: {matches: failure-return}}
     map-parameter:
         any:
             - follows: {kind: guard_statement, has: {field: bound_identifier, pattern: $X}}
             - inside: {kind: statements, inside: {kind: if_statement, has: {field: bound_identifier, pattern: $X}}}
-    bind-parameter:
-        any:
-            - follows: {kind: guard_statement, has: {field: bound_identifier, pattern: $LIFTED}}
-            - inside: {kind: statements, inside: {kind: if_statement, has: {field: bound_identifier, pattern: $LIFTED}}}
     plain-try:
         kind: try_expression
         has: {kind: try_operator, regex: '^try$'}
@@ -127,16 +113,6 @@ utils:
         regex: '^return\b'
         any:
             - has: {field: result, kind: simple_identifier, pattern: $BOUND}
-            - all:
-                - has:
-                    field: result
-                    pattern: $AWAITED
-                    not: {kind: ternary_expression}
-                    any:
-                        - kind: await_expression
-                        - has: {kind: await_expression, stopBy: {kind: lambda_literal}}
-                - matches: failure-else
-                - matches: bind-parameter
             - all:
                 - has:
                     field: result
@@ -223,6 +199,14 @@ rule:
                   regex: '^if\s+case\s+(let\s+)?\.failure\b'
                   has: {kind: statements, nthChild: {position: 1, ofRule: {kind: statements}}, has: {nthChild: 1, matches: failure-return}}
                 - matches: swift-result-bind-switch
+                - kind: guard_statement
+                  all: [{has: {kind: value_binding_pattern}}, {has: {kind: statements, has: {matches: failure-return}}}]
+                - kind: if_statement
+                  all:
+                    - has: {kind: value_binding_pattern}
+                    - any:
+                        - precedes: {matches: failure-return}
+                        - has: {kind: statements, nthChild: {position: 2, ofRule: {kind: statements}}, has: {matches: failure-return}}
     any:
         - matches: bool-guard
         - matches: bool-if
@@ -259,17 +243,12 @@ transform:
     BOOL_THEN: {replace: {source: $BOOL_COND, replace: '(?s)^.*$', by: ' ? '}}
     BOOL_OTHERWISE: {replace: {source: $BOOL_COND, replace: '(?s)^.*$', by: ' : '}}
     TRY: {replace: {source: $THROWING, replace: '(?s)^.*$', by: 'try '}}
-    AWAIT_OPEN: {replace: {source: $AWAITED, replace: '(?s)^.*$', by: 'await ('}}
     OPEN: {replace: {source: $WRAP, replace: '(?s)^.*$', by: '('}}
     CLOSE: {replace: {source: $WRAP, replace: '(?s)^.*$', by: ')'}}
     MAP_OPEN: {replace: {source: $X, replace: '(?s)^.*$', by: '.map { '}}
     MAP_IN: {replace: {source: $X, replace: '(?s)^.*$', by: ' in '}}
     MAP_CLOSE: {replace: {source: $X, replace: '(?s)^.*$', by: ' }'}}
-    SUCCESS: {replace: {source: $AWAITED, replace: '(?s)^.*$', by: '.map(Result.success)'}}
     COALESCE: {replace: {source: $OPT, replace: '(?s)^.*$', by: ' ?? '}}
-    BIND_OPEN: {replace: {source: $AWAITED, replace: '(?s)^.*$', by: ').bind { '}}
-    BIND_IN: {replace: {source: $AWAITED, replace: '(?s)^.*$', by: ' in '}}
-    BIND_CLOSE: {replace: {source: $AWAITED, replace: '(?s)^.*$', by: ' }'}}
     IF_EXPRESSION: {rewrite: {source: $GUARD, rewriters: [guard-to-if]}}
     CHAIN_EXPRESSION: {rewrite: {source: $CHAIN, rewriters: [unreturned]}}
     IF_HEAD_EXPRESSION: {rewrite: {source: $IF_HEAD, rewriters: [if-to-expression]}}
@@ -296,7 +275,7 @@ rewriters:
             $IF_TAIL
         }
 fix:
-    template: '$RETURN$BOOL_PREFIX$BOOL_COND$BOOL_THEN$BOOL_VALUE$BOOL_OTHERWISE$BOOL_ELSE$TRY$AWAIT_OPEN$OPEN$OPT$CLOSE$MAP_OPEN$X$MAP_IN$VALUE$THROWING$MAP_CLOSE$SUCCESS$COALESCE$ELSE$BIND_OPEN$LIFTED$BIND_IN$AWAITED$BIND_CLOSE$IF_EXPRESSION$CHAIN_EXPRESSION$IF_HEAD_EXPRESSION'
+    template: '$RETURN$BOOL_PREFIX$BOOL_COND$BOOL_THEN$BOOL_VALUE$BOOL_OTHERWISE$BOOL_ELSE$TRY$OPEN$OPT$CLOSE$MAP_OPEN$X$MAP_IN$VALUE$THROWING$MAP_CLOSE$COALESCE$ELSE$IF_EXPRESSION$CHAIN_EXPRESSION$IF_HEAD_EXPRESSION'
     expandEnd: {kind: control_transfer_statement}
 message: '`guard`, `if`, or `switch` returns each case by statements where one expression selects the result'
-note: 'Return one expression: `<condition> ? <value> : <else value>` over one plain condition, `<optional>.map { <value> in <expression> } ?? <else value>` over one optional binding, `(<optional>.map(Result.success) ?? .failure(<failure>)).bind { <value> in <awaiting expression> }` where that expression awaits, `if <conditions> { <value> } else { <else value> }` over every other condition list or `else if` chain, and `switch <subject> { case <pattern>: <value> }` where every arm returns or throws'
+note: 'Return `<condition> ? <value> : <else>`, `<optional>.map { <value> in <expression> } ?? <else>`, or an `if` or `switch` expression'

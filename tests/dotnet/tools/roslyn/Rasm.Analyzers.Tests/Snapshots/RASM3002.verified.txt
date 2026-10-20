@@ -1,2 +1,3 @@
 #0 Arms name every `Mode` member, the catch-all arm is unreachable for declared values
 #1 Arms name every `Mode` member, the catch-all arm is unreachable for declared values
+#2 Arms name every `Mode` member, the catch-all arm is unreachable for declared values

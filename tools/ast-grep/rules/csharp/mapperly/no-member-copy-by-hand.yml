@@ -295,4 +295,4 @@ rule:
 constraints:
     SRC: {not: {matches: bound-source}}
 message: '`$TARGET` takes the members of `$SRC` one by one'
-note: Declare a Mapperly mapping, `partial <target> To<target>(<source> source)` for a new value or `partial void Update(<source> source, <target> target)` under `[MapperRequiredMapping(RequiredMappingStrategy.Source)]` for a caller-owned host value, with `[MapProperty]` per renamed member and a `[UserMapping]` per converted member
+note: 'Declare a `partial` Mapperly mapping, under `[MapperRequiredMapping(RequiredMappingStrategy.Source)]` where it updates a caller-owned host value'

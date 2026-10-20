@@ -2,6 +2,7 @@
 id: no-placeholder-no-op-csharp
 language: csharp
 severity: error
+ignores: ['tools/roslyn/**']
 utils:
     empty-block:
         kind: block
@@ -56,4 +57,4 @@ rule:
             - has: {field: name, regex: '^DisposeAsync$', pattern: $PLACEHOLDER}
             - has: {field: body, matches: completed-body}
 message: '`$PLACEHOLDER` stands in for an absent callback or resource'
-note: Hold absence as `Option<Action>` or `Option<IDisposable>` the consumer matches, and acquire a resource in the `use` or `Bracket` scope of the arm that owns it, a `Switch` or `Match` arm and a smart enum item that does nothing for its case stay
+note: 'Hold absence as `Option<Action>` or `Option<IDisposable>` and acquire in `use` or `Bracket`, except in no-op match arms and smart enum items'

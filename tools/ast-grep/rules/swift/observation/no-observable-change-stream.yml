@@ -15,5 +15,7 @@ rule:
         - kind: didset_clause
           has: {kind: statements, has: {stopBy: end, kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^yield$'}}}}
           inside: {kind: willset_didset_block, inside: {kind: property_declaration, inside: {kind: class_body, inside: {matches: observable-class}}}}
-message: '`$SITE` hands changes of an `@Observable` model to waiters through stream continuations the model feeds by hand'
-note: 'Iterate `Observations { <model>.<property> }` at each waiter for every transactional change of the properties the closure reads, and keep the waited state a tracked stored property'
+transform:
+    HEAD: {replace: {source: $SITE, replace: '(?s)\n.*$', by: ''}}
+message: '`$HEAD` feeds waiters of an `@Observable` model through stream continuations by hand'
+note: 'Iterate `Observations { <model>.<property> }` at each waiter for each transactional change, with the waited state a tracked stored property'

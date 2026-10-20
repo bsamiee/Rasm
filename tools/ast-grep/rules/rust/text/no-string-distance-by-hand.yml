@@ -126,4 +126,4 @@ rule:
         - matches: edit-recurrence
         - matches: differing-count
 message: '`$CHAIN` computes a string distance by hand'
-note: 'Call `strsim::levenshtein(<a>, <b>)` or `strsim::generic_levenshtein(&<a>, &<b>)` for edits, `strsim::osa_distance` or `damerau_levenshtein` when a transposition joins the minimum, and `strsim::hamming(<a>, <b>)` for differing positions'
+note: 'Call `strsim::levenshtein` for edits, `osa_distance` or `damerau_levenshtein` with transpositions, and `hamming` for differing positions'

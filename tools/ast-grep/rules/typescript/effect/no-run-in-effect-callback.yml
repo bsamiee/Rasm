@@ -120,8 +120,9 @@ rewriters:
       fix: $M.suspend($BODY)
 transform:
     COMPOSED: rewrite($CALL, rewriters=[map-first, map-last, suspend])
+    RUN_HEAD: {replace: {source: $RUN, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
 fix: $COMPOSED
-message: '`$RUN` starts a separate runtime inside an effect callback'
-note: 'Return the effect from its callback through `flatMap` in place of `map` and `suspend` in place of `sync` or `promise`, the enclosing runtime supplying interruption and context'
+message: '`$RUN_HEAD` starts a separate runtime inside an effect callback'
+note: 'Return the effect from its callback, through `flatMap` in place of `map` and `suspend` in place of `sync` or `promise`'
 labels:
     RUN: {style: primary}

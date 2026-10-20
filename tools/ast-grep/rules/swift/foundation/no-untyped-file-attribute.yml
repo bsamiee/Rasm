@@ -42,5 +42,12 @@ rule:
           all:
             - has: {field: suffix, has: {field: suffix, regex: '^allValues$'}}
             - has: {field: target, matches: resource-values}
-message: '`$SITE` reads or writes a file attribute through an untyped key in place of a typed `URLResourceValues` property'
-note: 'Read `try url.resourceValues(forKeys: [<key>]).<property>` (`isDirectory`, `isApplication`, `contentModificationDate`), and write by setting the property on a `var URLResourceValues` passed to `setResourceValues(_:)` (`contentModificationDate`, `creationDate`, `hasHiddenExtension`, `isUserImmutable`)'
+        - kind: as_expression
+          all:
+            - has: {field: expr, regex: '\[\s*(FileAttributeKey)?\.(type|size|systemFileNumber|systemNumber|modificationDate|creationDate|posixPermissions|referenceCount|ownerAccountID|groupOwnerAccountID|deviceIdentifier|immutable|appendOnly|extensionHidden)\s*\]$'}
+            - inside:
+                stopBy: end
+                any: [{matches: swift-declaration-scope}, {kind: source_file}]
+                has: {stopBy: end, kind: simple_identifier, regex: '^attributesOfItem$'}
+message: '`$SITE` reads or writes a file attribute through an untyped API'
+note: 'Read `url.resourceValues(forKeys:)` properties or `FilePath.stat(followTargetSymlink:)` fields, and write through `setResourceValues(_:)`'

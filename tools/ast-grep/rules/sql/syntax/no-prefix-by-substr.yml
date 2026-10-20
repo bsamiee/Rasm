@@ -67,4 +67,4 @@ transform:
     FIXED: {rewrite: {source: $FIXABLE, rewriters: [position]}}
 fix: $FIXED$KEPT
 message: '`$TEST` tests a prefix through a slice as long as the prefix'
-note: 'Write `instr(<subject>, <prefix>) = 1`, stating the prefix once in a form SQLite, D1, and Durable Objects run'
+note: 'Write `instr(<subject>, <prefix>) = 1`'

@@ -55,5 +55,7 @@ rule:
                                 - has: {kind: call_suffix, has: {kind: lambda_literal, has: {matches: sole, has: {matches: drain}}}}
         - matches: collect
           inside: {matches: run-body, stopBy: end}
-message: '`$SITE` drains or collects output by hand that an output option of the run handles'
-note: 'Pass `output: .discarded` for output no code reads and `.bytes(limit:)`, `.data(limit:)`, or `.string(limit:)` for collected output, and drop the `.sequence` output and the loop'
+transform:
+    HEAD: {replace: {source: $SITE, replace: '(?s)\n.*$', by: ''}}
+message: '`$HEAD` drains or collects output by hand that an output option of the run handles'
+note: 'Pass `output: .discarded` for unread output or `.string(limit:)`, `.data(limit:)`, or `.bytes(limit:)` for collected output, with no loop'

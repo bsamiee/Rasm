@@ -43,11 +43,23 @@ utils:
             - has: {field: body, all: [{has: {kind: match_arm, nthChild: {position: 2, ofRule: {kind: match_arm}}}}, {not: {has: {kind: match_arm, not: {matches: unit-arm}}}}]}
             - inside: {kind: function_item, stopBy: {kind: 'function_item, closure_expression'}, has: {field: name, pattern: $METHOD}, matches: naming-method}
             - inside: {kind: source_file, stopBy: end, all: [{has: {stopBy: end, kind: enum_item, has: {field: name, pattern: $T}}}, {not: {has: {stopBy: end, matches: {rust-error-type: {name: {pattern: $T}}}}}}]}
+    constant-arm:
+        kind: match_arm
+        has: {field: value, kind: 'integer_literal, float_literal, boolean_literal, char_literal, scoped_identifier, call_expression, unary_expression'}
+    self-table:
+        kind: match_expression
+        all:
+            - has: {field: value, regex: '^\*?\s*self$'}
+            - has: {field: body, not: {has: {kind: match_arm, not: {matches: constant-arm}}}}
+    constant-table:
+        kind: function_item
+        has: {field: body, kind: block, has: {any: [{matches: self-table}, {kind: expression_statement, has: {matches: self-table}}]}}
 rule:
     kind: match_expression
     all:
         - inside: {kind: function_item, stopBy: {kind: 'function_item, closure_expression'}, has: {field: name, pattern: $METHOD}}
         - inside: {kind: impl_item, stopBy: end, has: {field: type, pattern: $T}}
         - any: [{matches: rust-variant-name-match}, {matches: name-match}]
+        - not: {inside: {kind: impl_item, stopBy: end, has: {field: body, has: {matches: constant-table}}}}
 message: '`$METHOD` of `$T` spells one string literal per variant'
-note: 'Derive `derive_more::Display` for `fmt` with `#[display("<text>")]` per variant, or `strum::IntoStaticStr` for a `&''static str` method or `strum::AsRefStr` for `as_ref` with `#[strum(serialize = "<text>")]` per variant or one `#[strum(serialize_all = "<case>")]`, and call `<value>.into()` or `<value>.to_string()` in place of the method'
+note: 'Derive `derive_more::Display` with `#[display("<text>")]` or `strum::IntoStaticStr` with `#[strum(serialize = "<text>")]` per variant'

@@ -43,6 +43,10 @@ utils:
         kind: 'property_declaration, parameter'
         regex: '\b(NS(Mutable)?(Attributed)?String|Attributed(String|Substring))\b'
         has: {stopBy: end, kind: simple_identifier, pattern: $R}
+    substring-receiver:
+        any:
+            - inside: {stopBy: end, matches: scope, has: {stopBy: end, kind: 'property_declaration, parameter', regex: '\bSubstring\b', has: {stopBy: end, kind: simple_identifier, pattern: $R}}}
+            - inside: {stopBy: end, matches: string-extension, has: {field: name, regex: 'Substring$'}}
 rule:
     kind: call_expression
     pattern: $SITE
@@ -74,6 +78,7 @@ rewriters:
         all:
             - has: {nthChild: 1, pattern: $F}
             - has: {kind: call_suffix, has: {kind: value_arguments, pattern: $ARGS, has: {matches: literal-needle}}}
+            - not: {matches: substring-receiver}
       transform:
         NAME: {replace: {source: $F, replace: 'replacingOccurrences$', by: replacing}}
         UNLABELED: {replace: {source: $ARGS, replace: '^\(\s*of:\s*', by: '('}}
@@ -82,4 +87,4 @@ transform:
     NATIVE: {rewrite: {source: $SITE, rewriters: [first-range, native-replacing]}}
 fix: $NATIVE
 message: '`$SITE` searches through the bridged `NSString` member in place of the Swift collection algorithm'
-note: 'Call `firstRange(of: <needle>)` for `range(of:)` and `replacing(<needle>, with: <replacement>)` for `replacingOccurrences(of:with:)`, guarding a needle that can be empty (`firstRange(of: "")` returns an empty range and `replacing("", with:)` inserts between characters). Fixes rewrite a non-empty literal needle alone, and `replacing` on a `Substring` yields `Substring`'
+note: 'Guard an empty needle and call `firstRange(of:)` or `replacing(_:with:)`, which returns `Substring` on a `Substring`'

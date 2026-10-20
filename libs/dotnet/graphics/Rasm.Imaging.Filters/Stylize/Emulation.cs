@@ -258,8 +258,10 @@ public sealed record AnalogVideo(
         (PixelExtent extent, Clock now) = (context.Extent, state.Timing.At(context));
         uint field = CoordinateHash.Field(NoiseStream.AnalogVideo, state.Seed, now.Term);
         Fin<Unit> received = state.Moves || state.Filters(extent)
-            ? frame.Filter(header => (state.Moves ? Sync(state, extent, now, field, frame, progress) : unit)
-                .Bind(_ => state.Filters(extent) ? Signal(state, extent, now, field, frame, header, progress) : unit))
+            ? frame.Filter(header =>
+                from synced in state.Moves ? Sync(state, extent, now, field, frame, progress) : unit
+                from signaled in state.Filters(extent) ? Signal(state, extent, now, field, frame, header, progress) : unit
+                select signaled)
             : unit;
         return received.Bind(_ => state.Speckled ? Snowfall(state, extent, now, field, frame, progress) : unit);
     }

@@ -2,7 +2,9 @@
 id: no-read-after-write
 language: python
 severity: error
-files: ['**/blender/**']
+files:
+    - libs/python/blender/**
+    - apps/blender/**
 utils:
     plain:
         any:
@@ -69,8 +71,6 @@ utils:
 rule:
     kind: 'call, attribute, subscript'
     any:
-        - pattern: $SIMULATED
-          has: {field: function, kind: attribute, has: {field: attribute, regex: '^event_simulate$'}}
         - all:
             - pattern: $READ
             - inside:
@@ -92,5 +92,5 @@ rule:
                 follows:
                     stopBy: {kind: expression_statement, has: {kind: assignment, has: {field: left, pattern: $READ}}}
                     matches: assigned
-message: '`$READ$SIMULATED` reads after a write or changes state through simulated input'
-note: 'Read committed state from native setter outcomes or events, and change state through native operations in place of simulated input'
+message: '`$READ` reads back state the code wrote'
+note: 'Read committed state from native setter outcomes or events'

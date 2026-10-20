@@ -121,4 +121,4 @@ rule:
         - matches: published-tuple
           has: {matches: paired-projection}
 message: '`$ROWS` splits into parallel projections, one per argument'
-note: Pass one `Seq` of the rows as the field or result, each consumer reading the member it needs
+note: 'Pass one `Seq` of rows as the field or result and read each member at its consumer'

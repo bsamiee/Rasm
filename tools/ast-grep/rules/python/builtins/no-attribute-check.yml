@@ -122,4 +122,4 @@ rule:
                     - matches: partial-of-boolean
                     - has: {field: arguments, has: {nthChild: 3, matches: attribute-name}}
 message: '`$CHECK` tests an object for an attribute by name'
-note: 'Narrow to the declaring type with `isinstance` or a class pattern before each attribute read, a name test hiding declaring types from type checkers. A `vars` or `__dict__` test answering which namespace declares the member stays'
+note: 'Narrow to the declaring type with `isinstance` or a class pattern before each attribute read'

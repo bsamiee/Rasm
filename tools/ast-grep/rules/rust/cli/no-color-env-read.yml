@@ -11,4 +11,4 @@ rule:
           follows: {regex: '^=$', follows: {regex: '^env$'}}
         - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '^((::)?(std::)?env::)?var(_os)?$'}}}
 message: '`$NAME` reads a color variable `anstream` reads itself'
-note: 'Delete the read, flatten `colorchoice_clap::Color` into the command for an explicit choice and call its `write_global`, and write through `anstream::stdout()` or `stderr()`'
+note: 'Delete the read and write through `anstream`, flattening `colorchoice_clap::Color` into the command with its `write_global` for an explicit choice'

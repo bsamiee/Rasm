@@ -23,13 +23,16 @@ utils:
     exists-check:
         any:
             - matches: existence
+              pattern: $CHECK
               not: {regex: '^!'}
             - kind: equality_expression
+              pattern: $CHECK
               all:
                 - has: {kind: tuple_expression, has: {kind: try_expression, has: {pattern: $SUBJECT.checkResourceIsReachable()}}}
                 - has: {regex: '^true$'}
     absent-check:
         matches: existence
+        pattern: $CHECK
         regex: '^!'
     file-operation:
         kind: call_expression
@@ -71,7 +74,6 @@ utils:
     exit-body:
         matches: {swift-single-statement: {first: {kind: control_transfer_statement}}}
 rule:
-    pattern: $SITE
     any:
         - kind: ternary_expression
           all:
@@ -102,5 +104,5 @@ rule:
           all:
             - has: {kind: where_clause, has: {matches: exists-check}}
             - has: {kind: statements, has: {matches: operation, stopBy: end}}
-message: '`$SITE` tests that `$SUBJECT` exists or is executable before an operation that reports a missing file itself'
-note: 'Run the operation unconditionally inside the function that maps a missing file to `.success(nil)` and every other error to `.failure`, and match `SubprocessError.Code.executableNotFound` for a spawn'
+message: '`$CHECK` tests that a file exists or is executable before an operation that reports a missing file itself'
+note: 'Run the operation unconditionally in the function mapping a missing file to `.success(nil)`, and match `executableNotFound` for a spawn'

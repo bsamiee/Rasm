@@ -24,13 +24,11 @@ public sealed record DefinitionGraph(ArrayBidirectionalGraph<Guid, SEquatableEdg
 
     public Seq<Guid> Removable(LanguageExt.HashSet<Guid> stale) =>
         Nesting.CondensateStronglyConnected<Guid, SEquatableEdge<Guid>, AdjacencyGraph<Guid, SEquatableEdge<Guid>>>() switch {
-            var components => toSeq(components.SourceFirstBidirectionalTopologicalSort(TopologicalSortDirection.Backward)).Strict() switch {
-                var order => order.Filter(order.Fold(LanguageExt.HashSet<AdjacencyGraph<Guid, SEquatableEdge<Guid>>>.Empty, (removable, component) =>
-                    component.Vertices.All(id => stale.Contains(id) && !Placements.ContainsKey(id)) &&
-                    components.OutEdges(component).All(edge => removable.Contains(edge.Target))
-                        ? removable.Add(component)
-                        : removable).Contains).Bind(static component => toSeq(component.Vertices)).Strict(),
-            },
+            var components => toSeq(components.SourceFirstBidirectionalTopologicalSort(TopologicalSortDirection.Backward)).Fold(
+                (Components: LanguageExt.HashSet<AdjacencyGraph<Guid, SEquatableEdge<Guid>>>.Empty, Vertices: Seq<Guid>()), (removable, component) =>
+                    component.Vertices.All(id => stale.Contains(id) && !Placements.ContainsKey(id)) && components.OutEdges(component).All(edge => removable.Components.Contains(edge.Target))
+                        ? (removable.Components.Add(component), [.. removable.Vertices, .. component.Vertices])
+                        : removable).Vertices,
         };
 
     // --- [SOURCES]

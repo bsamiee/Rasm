@@ -30,5 +30,5 @@ rule:
         - inside: {stopBy: end, matches: register}
         - has: {field: arguments, has: {stopBy: end, matches: settle}}
 message: '`$METHOD` settles a promise into `$SINK` by hand'
-note: 'Convert the promise with `Effect.tryPromise(<thunk>)` in place of `Effect.callback`, and compose it with `Queue.offer` or `Queue.into(<queue>)` inside `Stream.callback`, the effect carrying failure and interruption'
+note: 'Call `Effect.tryPromise(<thunk>)` in place of `Effect.callback`, or compose it with `Queue.offer` or `Queue.into(<queue>)` inside `Stream.callback`'
 labels: {SETTLED: {style: primary}}

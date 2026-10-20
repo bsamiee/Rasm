@@ -50,4 +50,4 @@ rule:
                     - has: {field: body, has: {stopBy: end, kind: 'compound_assignment_expr, assignment_expression', has: {field: left, matches: self-field}}}
                     - has: {field: body, has: {stopBy: end, matches: positioned-read}}
 message: '`$NAME` walks `$INPUT` by hand through index `$POS`'
-note: 'Parse through a `winnow` stream its parsers advance (`&str`, `winnow::LocatingSlice` where spans matter, `winnow::Partial` for incremental input), and read binary layouts through `binrw` `#[derive(BinRead)]`'
+note: 'Parse through a `winnow` stream (`&str`, `LocatingSlice` for spans, `Partial` for incremental input), and binary layouts through `binrw`'

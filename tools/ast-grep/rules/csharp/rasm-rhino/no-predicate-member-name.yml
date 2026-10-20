@@ -54,4 +54,4 @@ rule:
                         - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: tested, pattern: $TESTED}, not: {has: {pattern: $NAMED}}}}
 fix: nameof($RECEIVER)
 message: '`nameof($NAMED)` names the predicate `$PROP` that `$TESTED` reads in place of the checked value'
-note: Use `nameof(<receiver>)` of the value the predicate reads, a predicate name every site shares hides which input failed
+note: 'Use `nameof(<receiver>)` of the value the predicate reads'

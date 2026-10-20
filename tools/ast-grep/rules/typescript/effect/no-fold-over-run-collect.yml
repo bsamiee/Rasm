@@ -76,6 +76,10 @@ rule:
             - matches: collect-member
               inside: {kind: arguments}
               precedes: {matches: fold-step, stopBy: {not: {regex: '^,$'}}}
+transform:
+    FIXABLE_SPREAD: {replace: {source: $FIXABLE, replace: '(?s)^\[\s*\.\.\..*$', by: '[...]'}}
+    FIXABLE_HEAD: {replace: {source: $FIXABLE_SPREAD, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
+    KEPT_HEAD: {replace: {source: $KEPT, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
 fix: $COLLECTED$KEPT
-message: '`$FIXABLE$KEPT` recomputes by hand what a `Stream` destructor returns'
-note: 'Read the `Array` `Stream.runCollect` returns, or consume the stream in order through `Stream.mkString`, `runCount`, `runHead`, `runLast`, or `runFold` without holding an array'
+message: '`$FIXABLE_HEAD$KEPT_HEAD` recomputes by hand what a `Stream` destructor returns'
+note: 'Read the `Array` `Stream.runCollect` returns, or fold the stream through `Stream.mkString`, `runCount`, `runHead`, `runLast`, or `runFold`'

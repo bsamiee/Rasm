@@ -49,4 +49,4 @@ transform:
     GROUPED: {replace: {source: $Q, replace: '^([\s\S]+)$', by: 'if !($1) '}}
 fix: $NEGATED$STRIPPED$UNEQUAL_OPEN$EQUAL$UNEQUAL_OPERATOR$OTHER$UNEQUAL_CLOSE$EQUAL_OPEN$UNEQUAL$EQUAL_OPERATOR$SAME$EQUAL_CLOSE$GROUPED$BLOCK$UNFIXED
 message: '`if $COND` holds an empty branch beside its `else`'
-note: 'Write the acting case as the condition (`if !<cond> { <else> }`), with `let <pattern> = <value> else { <else> };` for a `let` condition whose `else` diverges and `!matches!(<value>, <pattern>)` for another `let` condition'
+note: 'Write the acting case as the condition, a diverging `else` as `let <pattern> = <value> else { .. };`, another `let` as `!matches!(..)`'

@@ -104,4 +104,4 @@ rule:
             - has: {field: right, pattern: $D}
             - inside: {stopBy: end, matches: source-typed-parameter}
 message: '`$READ` accepts absence and resolves it to `$D`'
-note: 'Declare the parameter or its field required and pass the value at each call, and decode a key absent at the boundary through `Schema.withDecodingDefaultKey`'
+note: 'Declare the parameter or field required and pass it at each call, or decode a key absent at the boundary through `Schema.withDecodingDefaultKey`'

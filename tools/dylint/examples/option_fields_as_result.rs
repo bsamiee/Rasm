@@ -1,5 +1,8 @@
 use core::{error::Error, hint::black_box, num::ParseIntError};
-use std::io;
+use std::{
+    io,
+    path::{Path, PathBuf},
+};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -47,7 +50,7 @@ struct Closed;
 #[derive(Debug, thiserror::Error)]
 #[error("cannot read {path:?}")]
 struct ReadError {
-    path: Option<String>,
+    path: Option<PathBuf>,
     source: io::Error,
 }
 
@@ -88,7 +91,7 @@ fn exchange(text: &str) -> Exchange {
     }
 }
 
-fn read(path: &str) -> Result<String, ReadError> { fs_err::read_to_string(path).map_err(|source| ReadError { path: Some(path.to_owned()), source }) }
+fn read(path: &Path) -> Result<String, ReadError> { fs_err::read_to_string(path).map_err(|source| ReadError { path: Some(path.to_owned()), source }) }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -98,5 +101,12 @@ fn main() {
     let parsed = parsed("8080");
     let replied = [reply(Ok(8080)), reply(Err(Closed))].map(|reply| reply.value.is_some() && reply.refusal.is_none());
     black_box(&(exchange("1").value, exchange("x").error));
-    black_box(&(ports, fetched(&Fetched { body: None, cause: Box::new(missing()) }) == 0, read("port").map(|text| text.len()).unwrap_or_default(), parsed.port, parsed.failure.is_some(), replied));
+    black_box(&(
+        ports,
+        fetched(&Fetched { body: None, cause: Box::new(missing()) }) == 0,
+        read(Path::new("port")).map(|text| text.len()).unwrap_or_default(),
+        parsed.port,
+        parsed.failure.is_some(),
+        replied,
+    ));
 }

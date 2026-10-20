@@ -5,6 +5,7 @@ severity: error
 utils:
     query:
         kind: call
+        pattern: $SEARCH
         has: {field: function, regex: '(^|\.)(glob|rglob|iglob|iterdir|listdir|scandir)$'}
     searched:
         any:
@@ -25,9 +26,8 @@ utils:
     exit:
         kind: return_statement, break_statement
 rule:
-    pattern: $FIRST
     any:
-        - matches: {python-first-item: {source: {matches: searched}}}
+        - matches: {python-first-item: {source: {matches: searched, any: [{matches: query, pattern: $SEARCH}, {has: {stopBy: end, matches: query, pattern: $SEARCH}}]}}}
         - kind: subscript
           all:
             - has: {field: value, matches: listed}
@@ -45,5 +45,5 @@ rule:
             - has: {field: right, matches: searched}
             - has: {field: body, has: {matches: exit}}
             - not: {has: {field: alternative, kind: else_clause}}
-message: '`$FIRST` takes one path from a directory search in filesystem order'
-note: 'Take the path its owner places, or select the one result with a `match` on `case [<path>]`, an index or `next` raising on an empty search and picking any path from a full one'
+message: 'Code takes one path from `$SEARCH` in filesystem order'
+note: 'Take the path its owner places, or select the one result with a `match` on `case [<path>]`'

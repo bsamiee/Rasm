@@ -15,7 +15,6 @@ utils:
                 - has: {kind: user_type, regex: '^((System|SystemPackage)\.)?FileDescriptor$'}
 rule:
     kind: call_expression
-    pattern: $SITE
     all:
         - has: {nthChild: 1, kind: simple_identifier, regex: '^defer$'}
         - has: {stopBy: end, kind: navigation_expression, regex: '^\w+\.close$', has: {field: target, pattern: $DESCRIPTOR}}
@@ -25,5 +24,5 @@ rule:
             all:
                 - not: {has: {stopBy: {kind: 'function_declaration, lambda_literal'}, kind: await_expression}}
                 - has: {stopBy: end, matches: descriptor-binding}
-message: '`$SITE` closes `$DESCRIPTOR` from a `defer` around a synchronous body'
-note: 'Run the body through `<descriptor>.closeAfter { ... }` to close the descriptor on both paths and throw a close failure `try?` discards'
+message: '`defer` closes `$DESCRIPTOR` around a synchronous body'
+note: 'Run the body through `<descriptor>.closeAfter { }`'

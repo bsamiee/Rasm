@@ -122,4 +122,4 @@ rule:
         - matches: setter-arm
         - inside: {kind: argument, inside: {matches: union-switch}}
 message: '`$ARM` arm only writes host members from its case''s own fields'
-note: Use one case `Set(Action<THost> Write)` with arm `IO.lift(() => set.Write(target))`, each caller writing its setters
+note: 'Use one case `Set(Action<THost> Write)` with arm `IO.lift(() => set.Write(target))` and write each caller''s setters in its `Write`'

@@ -35,5 +35,5 @@ rule:
             - inside: {stopBy: end, kind: 'method_declaration, constructor_declaration, lambda_expression'}
             - not: {inside: {stopBy: end, matches: entry}}
             - not: {inside: {kind: program, stopBy: end, has: {stopBy: end, matches: removal, not: {has: {field: arguments, has: {matches: inline}}}}}}
-message: '`$METHOD` leaves its listener attached'
-note: 'Remove the listener with the instance it was added with when its owner closes. A removal given a new lambda, method reference, or object matches no listener, and a listener a method adds to a static target stays once per call'
+message: '`$METHOD` leaves a listener attached'
+note: 'Remove a listener added to a static target with the added instance when its owner closes, a new lambda, method reference, or object removing none'

@@ -44,9 +44,9 @@ fn rest_pattern_workspace_field(found: &str) {
 fn wildcard_workspace_enum_match_arm(found: &str) {
     insta::assert_snapshot!(found, @"
     warning: `matches!` sends each `RenderError` variant it leaves unnamed to `false`
-       --> tools/dylint/examples/untyped_error.rs:386:34
+       --> tools/dylint/examples/untyped_error.rs:393:34
         |
-    386 | ...r| matches!(error, RenderError::Format(_) | RenderError::Narrow(_) | RenderError::Abandoned(_) | RenderError::Parse(_) | RenderError::Never(_)), |...
+    393 | ...r| matches!(error, RenderError::Format(_) | RenderError::Narrow(_) | RenderError::Abandoned(_) | RenderError::Parse(_) | RenderError::Never(_)), |...
         |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
         = help: name each variant in a `match`, join variants that share a branch with an or-pattern, and keep a binding with `name @ (A | B)`

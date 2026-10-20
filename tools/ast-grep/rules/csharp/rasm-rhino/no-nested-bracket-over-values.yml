@@ -49,5 +49,7 @@ rule:
     matches: value-scope
     has: {field: function, has: {field: expression, pattern: $VALUES}}
     inside: {stopBy: end, matches: scope-body}
-message: '`$VALUES` opens a second scope inside a scope over acquired values'
-note: 'Use `IO.pure<Seq<IDisposable>>([.. <first>, .. <second>]).Bracket(Use: <body>, Fin: DisposalOps.Release)`, or `DisposalOps.Release<IDisposable>([.. <first>, .. <second>])` where no body follows'
+transform:
+    HEAD: {replace: {source: $VALUES, replace: '(?s)^([@\w.]+).*$', by: '$1'}}
+message: '`$HEAD` opens a second scope inside a scope over acquired values'
+note: 'Use `IO.pure<Seq<IDisposable>>([.. <a>, .. <b>]).Bracket(<body>, DisposalOps.Release)`, or `DisposalOps.Release([.. <a>, .. <b>])` with no body'

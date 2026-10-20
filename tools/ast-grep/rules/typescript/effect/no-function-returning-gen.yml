@@ -35,6 +35,7 @@ utils:
         all:
             - not: {has: {regex: '^async$'}}
             - has: {field: body, matches: returned-gen}
+            - any: [{has: {field: parameter, pattern: $_}}, {has: {field: parameters, has: {pattern: $_}}}]
             - any:
                 - inside: {kind: variable_declarator, field: value}
                 - inside: {kind: public_field_definition, field: value}
@@ -74,4 +75,4 @@ transform:
     FIXED: rewrite($FIXABLE, rewriters=[arrow])
 fix: $FIXED$KEPT
 message: 'Function wraps `$M.gen` and rebuilds the effect at each call'
-note: 'Call `Effect.fnUntraced(function* (<parameters>) { ... }, <steps>)` to take the arguments into one generator body with pipe steps as transforms, and `Effect.fn(<name>)` in place of a trailing `Effect.withSpan(<name>)`'
+note: 'Declare `Effect.fnUntraced(function* (<parameters>) { ... }, <steps>)`, or `Effect.fn(<name>)` in place of a trailing `Effect.withSpan(<name>)`'

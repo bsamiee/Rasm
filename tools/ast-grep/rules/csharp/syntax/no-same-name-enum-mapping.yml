@@ -165,5 +165,7 @@ rule:
           all:
             - has: {nthChild: 1, matches: name-value}
             - has: {kind: switch_expression_arm, has: {nthChild: 1, kind: constant_pattern, has: {kind: string_literal}}}
-message: '`$CONVERSION` maps one enum to another by member name'
+transform:
+    HEAD: {replace: {source: $CONVERSION, replace: '(?s)^([@\w.]+).*$', by: '$1'}}
+message: '`$HEAD` converts between enums by member name'
 note: 'Hold one enum and delete its same-named copy, or declare a Mapperly enum mapping where both enums stay'

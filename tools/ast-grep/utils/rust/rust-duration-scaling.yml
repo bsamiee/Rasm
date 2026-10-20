@@ -1,0 +1,118 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-duration-scaling
+language: rust
+arguments: [PATH, SECS, MILLIS, MICROS, NANOS, ARG, D, READ, THOUSAND]
+utils:
+    variable:
+        any:
+            - kind: 'identifier, field_identifier, self'
+            - has: {stopBy: end, kind: 'identifier, field_identifier, self'}
+    operand:
+        all:
+            - not: {kind: 'integer_literal, float_literal'}
+            - matches: variable
+            - any:
+                - kind: parenthesized_expression
+                  has: {nthChild: 1, matches: ARG}
+                - matches: ARG
+                  not: {kind: parenthesized_expression}
+    product:
+        kind: binary_expression
+        has: {field: operator, regex: '^\*$'}
+    mul-call:
+        kind: call_expression
+        has: {field: function, kind: field_expression, has: {field: field, regex: '^(saturating|strict|wrapping|unchecked)_mul$'}}
+    scaled:
+        any: [{matches: product}, {matches: mul-call}]
+    seconds-literal:
+        kind: integer_literal
+        regex: '^(6_*0|3_*6_*0_*0)(_?u64)?$'
+    millis-literal:
+        kind: integer_literal
+        regex: '^(1_*0_*0_*0|6_*0_*0_*0_*0|3_*6_*0_*0_*0_*0_*0)(_?u64)?$'
+    micros-literal:
+        kind: integer_literal
+        regex: '^(1_*0_*0_*0|1_*0_*0_*0_*0_*0_*0|6_*0_*0_*0_*0_*0_*0_*0|3_*6_*0_*0_*0_*0_*0_*0_*0_*0)(_?u64)?$'
+    nanos-literal:
+        kind: integer_literal
+        regex: '^(1_*0_*0_*0|1_*0_*0_*0_*0_*0_*0|1_*0_*0_*0_*0_*0_*0_*0_*0_*0|6_*0_*0_*0_*0_*0_*0_*0_*0_*0_*0_*0|3_*6_*0_*0_*0_*0_*0_*0_*0_*0_*0_*0_*0_*0)(_?u64)?$'
+    thousand-literal:
+        kind: 'integer_literal, float_literal'
+        regex: '^(1_?000(\.0*)?|1(\.0*)?e3)(_?f(32|64))?$'
+    secs-factor:
+        all: [{matches: seconds-literal}, {matches: SECS}]
+    millis-factor:
+        all: [{matches: millis-literal}, {matches: MILLIS}]
+    micros-factor:
+        all: [{matches: micros-literal}, {matches: MICROS}]
+    nanos-factor:
+        all: [{matches: nanos-literal}, {matches: NANOS}]
+    scaled-constructor:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: scoped_identifier, all: [{has: {field: path, regex: '(^|::)Duration$', matches: PATH}}, {has: {field: name, regex: '^from_(secs|millis|micros|nanos)$'}}]}
+            - has: {field: arguments, not: {has: {nthChild: 2}}}
+            - any:
+                - all:
+                    - has: {field: function, has: {field: name, regex: '^from_secs$'}}
+                    - has:
+                        field: arguments
+                        has:
+                            nthChild: 1
+                            matches: scaled
+                            any:
+                                - all: [{has: {field: right, matches: secs-factor}}, {has: {field: left, matches: operand}}]
+                                - all: [{has: {field: left, matches: secs-factor}}, {has: {field: right, matches: operand}}]
+                                - all: [{matches: mul-call}, {has: {field: arguments, has: {nthChild: 1, matches: secs-factor}}}, {has: {field: function, has: {field: value, matches: operand}}}]
+                - all:
+                    - has: {field: function, has: {field: name, regex: '^from_millis$'}}
+                    - has:
+                        field: arguments
+                        has:
+                            nthChild: 1
+                            matches: scaled
+                            any:
+                                - all: [{has: {field: right, matches: millis-factor}}, {has: {field: left, matches: operand}}]
+                                - all: [{has: {field: left, matches: millis-factor}}, {has: {field: right, matches: operand}}]
+                                - all: [{matches: mul-call}, {has: {field: arguments, has: {nthChild: 1, matches: millis-factor}}}, {has: {field: function, has: {field: value, matches: operand}}}]
+                - all:
+                    - has: {field: function, has: {field: name, regex: '^from_micros$'}}
+                    - has:
+                        field: arguments
+                        has:
+                            nthChild: 1
+                            matches: scaled
+                            any:
+                                - all: [{has: {field: right, matches: micros-factor}}, {has: {field: left, matches: operand}}]
+                                - all: [{has: {field: left, matches: micros-factor}}, {has: {field: right, matches: operand}}]
+                                - all: [{matches: mul-call}, {has: {field: arguments, has: {nthChild: 1, matches: micros-factor}}}, {has: {field: function, has: {field: value, matches: operand}}}]
+                - all:
+                    - has: {field: function, has: {field: name, regex: '^from_nanos$'}}
+                    - has:
+                        field: arguments
+                        has:
+                            nthChild: 1
+                            matches: scaled
+                            any:
+                                - all: [{has: {field: right, matches: nanos-factor}}, {has: {field: left, matches: operand}}]
+                                - all: [{has: {field: left, matches: nanos-factor}}, {has: {field: right, matches: operand}}]
+                                - all: [{matches: mul-call}, {has: {field: arguments, has: {nthChild: 1, matches: nanos-factor}}}, {has: {field: function, has: {field: value, matches: operand}}}]
+    seconds-read:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^as_secs_f(32|64)$', matches: READ}}, {has: {field: value, matches: D}}]}
+            - has: {field: arguments, not: {has: {pattern: $_}}}
+    thousand:
+        all: [{matches: thousand-literal}, {matches: THOUSAND}]
+    scaled-seconds:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^\*$'}
+            - any:
+                - all: [{has: {field: left, matches: seconds-read}}, {has: {field: right, matches: thousand}}]
+                - all: [{has: {field: left, matches: thousand}}, {has: {field: right, matches: seconds-read}}]
+rule:
+    kind: 'call_expression, binary_expression'
+    any:
+        - matches: scaled-constructor
+        - matches: scaled-seconds

@@ -78,15 +78,13 @@ public static class StyleTables {
             IO.lift(() => held(row) ? false : Refused.Unless(table.Delete(row), value: true, nameof(RhinoDocCommonTable<>.Delete), row.Index))));
 
     private static IO<LanguageExt.HashSet<ComponentIdentity>> Pruned(ArrayBidirectionalGraph<ComponentIdentity, SEquatableEdge<ComponentIdentity>> graph, Seq<(ComponentIdentity Row, IO<bool> Delete)> candidates) =>
-        toHashMap(candidates.Map(static candidate => (candidate.Row, candidate))) switch {
-            var byRow => toSeq(graph.SourceFirstBidirectionalTopologicalSort(TopologicalSortDirection.Backward))
-                .Choose(byRow.Find)
-                .FoldM(LanguageExt.HashSet<ComponentIdentity>.Empty, (removed, candidate) =>
-                    graph.OutEdges(candidate.Row).All(edge => removed.Contains(edge.Target))
-                        ? candidate.Delete.Map(deleted => deleted ? removed.Add(candidate.Row) : removed)
-                        : IO.pure(removed))
-                .As(),
-        };
+        toSeq(graph.SourceFirstBidirectionalTopologicalSort(TopologicalSortDirection.Backward))
+            .Choose(toHashMap(candidates.Map(static candidate => (candidate.Row, candidate))).Find)
+            .FoldM(LanguageExt.HashSet<ComponentIdentity>.Empty, (removed, candidate) =>
+                graph.OutEdges(candidate.Row).All(edge => removed.Contains(edge.Target))
+                    ? candidate.Delete.Map(deleted => deleted ? removed.Add(candidate.Row) : removed)
+                    : IO.pure(removed))
+            .As();
 
     // --- [PROGRAM]
     public static IO<StylePlan> Plan(RhinoDoc doc, StyleSpec spec) =>

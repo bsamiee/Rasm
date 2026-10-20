@@ -632,9 +632,9 @@ public sealed partial class KuwaharaKind : ICaptioned {
     private static unsafe Fin<Unit> Sectors(Painterly state, PixelExtent extent, PixelFrame frame, IProgress<int> progress) {
         double radius = state.Kind.Radius(state.Size.Pixels(extent));
         double reach = double.Ceiling((1d + state.Eccentricity) * radius) + 1d;
-        return reach > int.MaxValue
-            ? Error.New(string.Create(CultureInfo.InvariantCulture, $"Kuwahara reach {reach} pixels exceeds the pixel index range {int.MaxValue}"))
-            : frame.Filter(source => {
+        return
+            from bounded in guard(reach <= int.MaxValue, Error.New(string.Create(CultureInfo.InvariantCulture, $"Kuwahara reach {reach} pixels exceeds the pixel index range {int.MaxValue}")))
+            from filtered in frame.Filter(source => {
                 const int count = 8;
                 const double corner = 0.182d;
                 (int width, int height, double uniformity) = (frame.Size.Width, frame.Size.Height, state.Uniformity.Pixels(extent));
@@ -715,7 +715,8 @@ public sealed partial class KuwaharaKind : ICaptioned {
                         row[x] = new Vector4((float)mean.GetElement(0), (float)mean.GetElement(1), (float)mean.GetElement(2), row[x].W);
                     }
                 }).Run(frame, progress));
-            });
+            })
+            select filtered;
     }
 
     private static (Vector256<double> Mean, Vector256<double> Spread) Accumulated(Vector256<double> mean, Vector256<double> spread, Vector256<double> sample, double share) =>

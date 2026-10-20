@@ -31,6 +31,7 @@ transform:
     UNEQUAL: {replace: {source: $EQUAL, replace: '(?s)^(.+?)\s*!=\s*((Subprocess\.)?TerminationStatus)?\.exited\(0\)$', by: '!${1}.isSuccess'}}
     EQUAL_LEFT: {replace: {source: $UNEQUAL, replace: '(?s)^((Subprocess\.)?TerminationStatus)?\.exited\(0\)\s*==\s*(.+)$', by: '${3}.isSuccess'}}
     RESULT: {replace: {source: $EQUAL_LEFT, replace: '(?s)^((Subprocess\.)?TerminationStatus)?\.exited\(0\)\s*!=\s*(.+)$', by: '!${3}.isSuccess'}}
+    HEAD: {replace: {source: $SITE, replace: '(?s)\n.*$', by: ''}}
 fix: $RESULT
-message: '`$SITE` tests a `TerminationStatus` for exit code 0 by pattern'
+message: '`$HEAD` tests a `TerminationStatus` for exit code 0 by pattern'
 note: 'Read `isSuccess` (exit code 0, `false` for a signal)'

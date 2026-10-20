@@ -168,4 +168,4 @@ rule:
                 - matches: exception-element
                 - matches: {languageext-error-binding: {name: {pattern: $ERROR}, type: {matches: {csharp-type-name: {name: {regex: '^(Error|\w*Exception)$'}}}}}}
 message: Error or exception `$ERROR` is classified by its message text
-note: Use `HasCode`, `IsType<E>`, `Is`, `HasException<E>`, or an exception type pattern, message text couples the branch to prose
+note: 'Use `HasCode`, `IsType<E>`, `Is`, `HasException<E>`, or an exception type pattern'

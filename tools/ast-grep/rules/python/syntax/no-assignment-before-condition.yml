@@ -131,4 +131,4 @@ fix:
     template: $BIND$INLINE$WRAP$UNFIXED
     expandStart: {matches: binding-statement}
 message: 'Assignment to `$N` precedes its first evaluation in an `if` condition'
-note: 'Move the one-line `<value>` to its first evaluation, as `(<name> := (<value>))` where a later statement, loop pass, or closure reads `<name>` and in parentheses where precedence needs them. The fix skips intervening comments and multiline strings'
+note: 'Move one-line `<value>` into its first evaluation, as `(<name> := (<value>))` where a later statement, loop pass, or closure reads `<name>`'

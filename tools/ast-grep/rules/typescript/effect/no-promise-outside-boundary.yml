@@ -168,7 +168,7 @@ rule:
     all:
         - any:
             - kind: await_expression
-              has: {pattern: $PROMISE}
+              has: {pattern: $AWAITED}
               all:
                 - not:
                     any:
@@ -181,15 +181,30 @@ rule:
             - kind: for_in_statement
               all:
                 - has: {regex: '^await$'}
-                - has: {field: right, pattern: $PROMISE}
+                - has: {field: right, pattern: $ITERABLE}
                 - not: {inside: {matches: typescript-function-boundary, stopBy: end}}
             - kind: call_expression
-              has: {field: function, matches: fetch-callee, pattern: $PROMISE, not: {regex: '^(globalThis\.)?fetch$'}}
+              has: {field: function, matches: fetch-callee, pattern: $CALLEE, not: {regex: '^(globalThis\.)?fetch$'}}
             - kind: call_expression
               has:
                 field: function
-                pattern: $PROMISE
+                pattern: $CALLEE
                 matches: promise-combinator
         - not: {inside: {stopBy: {matches: typescript-function-boundary}, matches: promise-boundary}}
-message: '`$PROMISE` runs as a promise outside a host or promise conversion callback'
-note: 'Convert an awaited promise through `Effect.tryPromise(() => <promise>)`, failing with `Cause.UnknownError` holding the rejection, and replace `Promise.all` with `Effect.all` (`allSettled` with `mode: "result"`), `race` and `any` with `Effect.raceAll` and `Effect.race`, `resolve`, `reject`, `withResolvers`, and `try` with `Effect.succeed`, `Effect.fail`, `Deferred.make`, and `Effect.try`, `fetch` with `HttpClient`, and an async iterable read with `Stream.fromAsyncIterable`, each keeping the failure typed'
+transform:
+    AWAITED_HEAD: {replace: {source: $AWAITED, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
+    ITERABLE_HEAD: {replace: {source: $ITERABLE, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
+    TRY: {replace: {source: $AWAITED, replace: '(?s)^.+$', by: 'Effect.tryPromise(<thunk>)'}}
+    STREAM: {replace: {source: $ITERABLE, replace: '(?s)^.+$', by: 'Stream.fromAsyncIterable'}}
+    MEMBER: {replace: {source: $CALLEE, replace: '(?s)^.*\b(\w+)\W*$', by: '$1'}}
+    FETCH: {replace: {source: $MEMBER, replace: '^fetch$', by: 'HttpClient'}}
+    ALL: {replace: {source: $FETCH, replace: '^all$', by: 'Effect.all'}}
+    ALL_SETTLED: {replace: {source: $ALL, replace: '^allSettled$', by: 'Effect.all(<effects>, { mode: "result" })'}}
+    ANY: {replace: {source: $ALL_SETTLED, replace: '^any$', by: 'Effect.raceAll'}}
+    RACE: {replace: {source: $ANY, replace: '^race$', by: 'Effect.raceAllFirst'}}
+    RESOLVE: {replace: {source: $RACE, replace: '^resolve$', by: 'Effect.succeed'}}
+    REJECT: {replace: {source: $RESOLVE, replace: '^reject$', by: 'Effect.fail'}}
+    RESOLVERS: {replace: {source: $REJECT, replace: '^withResolvers$', by: 'Deferred.make'}}
+    FORM: {replace: {source: $RESOLVERS, replace: '^try$', by: 'Effect.try'}}
+message: '`$AWAITED_HEAD$ITERABLE_HEAD$CALLEE` runs as a promise outside a host or promise conversion callback, where `$TRY$STREAM$FORM` converts it'
+note: 'Convert each promise once through `Effect.tryPromise(<thunk>)` and compose the rest as effects'

@@ -134,6 +134,7 @@ rule:
 transform:
     OPEN: {replace: {source: $CHAINED, replace: '(?s)^.*$', by: '('}}
     CLOSE: {replace: {source: $CHAINED, replace: '(?s)^.*$', by: ')'}}
+    HEAD: {replace: {source: $SOURCE, replace: '(?s)\n.*$', by: ''}}
 fix: $OPEN$SOURCE | @catch($PREDICATE, $HANDLER)$CLOSE
-message: '`Catch` on `$SOURCE`, an `IO` that can fail at construction, runs its handler for every error and ignores its predicate'
-note: Use `<io> | @catch(<predicate>, <handler>)`, parenthesized inside a chain, its operator returns `IO<A>` and the `Fallible` catch behind it tests the predicate on an `IO` that failed at construction
+message: '`Catch` on `$HEAD`, an `IO` that can fail at construction, runs its handler for every error and ignores its predicate'
+note: 'Write `<io> | @catch(<predicate>, <handler>)`, in parentheses inside a chain'

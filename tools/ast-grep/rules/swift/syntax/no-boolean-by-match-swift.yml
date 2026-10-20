@@ -98,10 +98,10 @@ rule:
         - any:
             - kind: if_statement
               pattern: $IF
-              matches: {swift-boolean-match: {matched: {pattern: µIN}, other: {pattern: µOUT}}}
+              matches: {swift-boolean-match: {matched: {pattern: $IN}, other: {pattern: $OUT}}}
             - kind: guard_statement
               pattern: $GUARD
-              matches: {swift-boolean-match: {matched: {pattern: µIN}, other: {pattern: µOUT}}}
+              matches: {swift-boolean-match: {matched: {pattern: $IN}, other: {pattern: $OUT}}}
             - matches: boolean-switch
               all:
                 - has:

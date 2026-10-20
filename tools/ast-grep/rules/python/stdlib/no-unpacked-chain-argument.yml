@@ -2,6 +2,7 @@
 id: no-unpacked-chain-argument
 language: python
 severity: error
+metadata: {python-below: '3.15'}
 utils:
     itertools-chain-callee:
         any:
@@ -39,4 +40,4 @@ transform:
     OUT: rewrite($CALL, rewriters=[sole, flattened])
 fix: $OUT
 message: '`$CALL` unpacks iterables into `itertools.chain` arguments'
-note: 'Call `chain.from_iterable(<iterables>)`, reading the outer iterable lazily with no argument tuple'
+note: 'Call `chain.from_iterable(<iterables>)`'

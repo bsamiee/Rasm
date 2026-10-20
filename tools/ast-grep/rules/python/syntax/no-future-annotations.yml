@@ -2,9 +2,10 @@
 id: no-future-annotations
 language: python
 severity: error
+metadata: {python-from: '3.14'}
 rule:
     kind: future_import_statement
     pattern: $IMPORT
     has: {kind: 'aliased_import, dotted_name', regex: '^annotations\b'}
 message: '`$IMPORT` stores annotations as strings'
-note: 'Delete the import, Python 3.14 defers annotation evaluation by default, and quote each forward reference on an earlier target'
+note: 'Delete the import'

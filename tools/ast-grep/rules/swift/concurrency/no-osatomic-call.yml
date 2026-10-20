@@ -10,4 +10,4 @@ rule:
         regex: '^(OSAtomic(Add|Increment|Decrement|Or|And|Xor|CompareAndSwap|TestAndSet|TestAndClear)\w*|OSMemoryBarrier)$'
         pattern: $CALL
 message: '`$CALL` updates a plain integer through a libkern atomic'
-note: 'Store the value in `Atomic<Value>` from `Synchronization` and call `wrappingAdd`, `wrappingSubtract`, `compareExchange`, `bitwiseOr`, `bitwiseAnd`, or `bitwiseXor` with an explicit ordering, and `atomicMemoryFence(ordering:)` for `OSMemoryBarrier`'
+note: 'Hold the value in `Atomic<Value>` from `Synchronization` and call its operation with an explicit ordering, `atomicMemoryFence(ordering:)` for a fence'

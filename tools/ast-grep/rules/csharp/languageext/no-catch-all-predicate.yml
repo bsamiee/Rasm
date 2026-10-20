@@ -58,4 +58,4 @@ transform:
     CLOSE: {replace: {source: $NARROWED, replace: '(?s)^[^.].*$', by: ''}}
 fix: $RECEIVER_DOT$NAME($HANDLER)$CLOSE
 message: '`$NAME` takes a predicate that accepts every error'
-note: Use `Catch(<handler>).As()`, `CatchIO(<handler>)`, or `@catch(<handler>)`, each catches every error with no predicate
+note: 'Use `Catch(<handler>).As()`, `CatchIO(<handler>)`, or `@catch(<handler>)`'

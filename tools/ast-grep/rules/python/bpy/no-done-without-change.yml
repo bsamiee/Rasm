@@ -369,5 +369,5 @@ rule:
                 inside:
                     matches: ok-done
                     inside: {kind: return_statement, follows: {stopBy: end, kind: for_statement, has: {field: right, matches: empty-set}}}
-message: '`Done` answers `FINISHED` where `$CAUSE` leaves nothing written. `FINISHED` pushes an empty undo step and retargets Adjust Last Operation and Repeat Last from the previous edit'
-note: 'Answer `Unchanged(reason=<reason>)` in place of `Done` when a work set tested before any write is empty or a write answers no change (empty `Applied.written`, `Nothing`). `finished` reports the reason as `INFO` and answers `CANCELLED`'
+message: '`Done` answers `FINISHED` where `$CAUSE` leaves nothing written'
+note: 'Answer `Unchanged(reason=<reason>)` when a work set tested before any write is empty or a write answers `Nothing` or empty `Applied.written`'

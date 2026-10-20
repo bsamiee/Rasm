@@ -46,4 +46,4 @@ rule:
             - has: {field: function, pattern: bpy.msgbus.subscribe_rna}
             - has: {field: arguments, has: {kind: keyword_argument, all: [{has: {field: name, regex: '^owner$'}}, {has: {field: value, not: {kind: 'identifier, attribute, subscript'}}}]}}
 message: '`$CALL` attaches or detaches a handler with no held name pairing it with its release'
-note: 'Bind the callable, draw handle, or msgbus owner to a name and release that same value in the paired scope exit (`remove`, `draw_handler_remove`, `clear_by_owner`). A lambda, `partial`, or call made at the site is a new object no release can name, and a host registry outlives the code that attached to it'
+note: 'Bind the callable, draw handle, or msgbus owner to a name and release that name at scope exit (`remove`, `draw_handler_remove`, `clear_by_owner`)'

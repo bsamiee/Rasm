@@ -2,21 +2,23 @@
 id: no-fourth-nesting-level-swift
 language: swiftlang
 severity: error
+utils:
+    boundary: {any: [{matches: swift-nesting-level}, {matches: swift-declaration-scope}]}
 rule:
     matches: swift-nesting-level
     pattern: $SCOPE
     not: {inside: {kind: ERROR, stopBy: end}}
     inside:
         matches: swift-nesting-level
-        stopBy: {matches: swift-function-scope}
+        stopBy: {matches: boundary}
         inside:
             matches: swift-nesting-level
-            stopBy: {matches: swift-function-scope}
+            stopBy: {matches: boundary}
             inside:
                 matches: swift-nesting-level
-                stopBy: {matches: swift-function-scope}
-                not: {inside: {matches: swift-nesting-level, stopBy: {matches: swift-function-scope}}}
-message: Control flow reaches a fourth nesting level
-note: Rebuild nested decisions or loops with a switch or a collection transform over their inputs
+                stopBy: {matches: boundary}
+                not: {inside: {matches: swift-nesting-level, stopBy: {matches: swift-declaration-scope}}}
+message: Nesting reaches a fourth level
+note: Rebuild nested decisions, loops, or closures with a switch or a collection transform over their inputs
 labels:
-    SCOPE: {style: primary}
+    SCOPE: {style: primary, message: Fourth nesting level}

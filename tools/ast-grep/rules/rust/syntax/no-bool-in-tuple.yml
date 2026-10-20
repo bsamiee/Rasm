@@ -32,4 +32,4 @@ labels:
     NAME: {style: primary, message: 'Declares the tuple'}
     TUPLE: {style: secondary, message: 'Tuple holding the outcome'}
 message: '`$NAME` holds an outcome as an unnamed `bool` or an error option beside a value in `$TUPLE`'
-note: 'Return `Result<<value>, <error>>` for a value option beside an error option, `Result`, `Option`, or an enum with a variant per outcome for a `bool` stating an outcome, and a struct with a named field for a `bool` stating an attribute of the value'
+note: 'Return a `Result`, `Option`, or enum with a variant per outcome, and a struct with a named field for a `bool` describing the value'

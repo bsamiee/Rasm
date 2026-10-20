@@ -12,5 +12,7 @@ rule:
             inside:
                 kind: for_statement
                 has: {field: collection, kind: call_expression, has: {nthChild: 1, regex: '^(Observation\.)?Observations$'}}
-message: '`$SITE` ends iteration of `Observations` on a condition read outside the tracked closure'
-note: 'Build the sequence with `Observations.untilFinished { <model>.done ? .finish : .next(<model>.<property>) }` to read the ending condition under tracking'
+transform:
+    HEAD: {replace: {source: $SITE, replace: '(?s)\n.*$', by: ''}}
+message: '`$HEAD` ends iteration of `Observations` on a condition read outside the tracked closure'
+note: 'Build `Observations.untilFinished { <model>.done ? .finish : .next(<model>.<property>) }`'

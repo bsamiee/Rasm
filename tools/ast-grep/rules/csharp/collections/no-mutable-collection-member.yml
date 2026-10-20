@@ -2,6 +2,7 @@
 id: no-mutable-collection-member
 language: csharp
 severity: error
+ignores: ['tools/roslyn/**']
 utils:
     mutable-collection:
         any:
@@ -125,4 +126,4 @@ rule:
             matches: mutable-within
         - not: {any: [{matches: pinned-array}, {matches: confined-array}, {matches: exposed-array}, {inside: {stopBy: end, matches: csharp-json-serializable-record}}]}
 message: 'Field, property, or primary constructor parameter of type `$TYPE` stores a mutable collection'
-note: Use `Seq<A>`, `Arr<A>`, `Lst<A>`, `Map<K, V>`, `HashMap<K, V>`, `Set<A>`, or `LanguageExt.HashSet<A>`, with input copied through `toSeq` at the boundary
+note: 'Hold `Seq<A>`, `Arr<A>`, `Lst<A>`, `Map<K, V>`, `HashMap<K, V>`, `Set<A>`, or `LanguageExt.HashSet<A>` and copy input through `toSeq` at the boundary'

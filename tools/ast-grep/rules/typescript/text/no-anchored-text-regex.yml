@@ -79,4 +79,4 @@ transform:
     NEGATION: {replace: {source: $NEGATED, replace: '(?s)^(?:[^!].*|!.+)$', by: ''}}
 fix: $NEGATION$RECEIVER$ACCESS$METHOD('$TEXT')
 message: '`$NODE` tests a fixed string at one end of the text through a regular expression'
-note: 'Call `<text>.startsWith(<string>)` or `<text>.endsWith(<string>)` to compare the string with no compiled pattern or escaped metacharacter'
+note: 'Call `<text>.startsWith(<string>)` or `<text>.endsWith(<string>)`'

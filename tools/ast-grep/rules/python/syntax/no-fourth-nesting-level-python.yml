@@ -3,8 +3,7 @@ id: no-fourth-nesting-level-python
 language: python
 severity: error
 utils:
-    function:
-        kind: function_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
+    closure: {kind: 'lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression, function_definition'}
     control:
         any:
             - kind: if_statement, for_statement, while_statement, match_statement
@@ -14,18 +13,44 @@ utils:
                     - nthChild: 3
                       inside: {kind: conditional_expression}
                     - inside: {kind: parenthesized_expression, nthChild: 3, inside: {kind: conditional_expression}}
-    boundary: {any: [{matches: control}, {matches: function}]}
+    scope: {any: [{matches: control}, {matches: closure}]}
+    conditioned:
+        any:
+            - inside: {kind: 'if_statement, elif_clause, while_statement', field: condition, stopBy: &scope {matches: scope}}
+            - inside: {kind: 'for_statement, for_in_clause', field: right, stopBy: *scope}
+            - inside: {kind: match_statement, field: subject, stopBy: *scope}
+            - inside: {kind: if_clause, stopBy: *scope}
+            - nthChild: 2
+              inside: {kind: conditional_expression}
+            - inside: {nthChild: 2, inside: {kind: conditional_expression}, stopBy: *scope}
+    nested-body:
+        any:
+            - has: {kind: block, has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+            - has: {matches: control, stopBy: {matches: closure}}
+    level:
+        any:
+            - matches: control
+              not: {matches: conditioned}
+            - matches: closure
+              all:
+                - inside: {matches: control, stopBy: {kind: function_definition}}
+                - not: {matches: conditioned}
+                - matches: nested-body
+    boundary: {any: [{matches: level}, {kind: function_definition}]}
 rule:
-    matches: control
+    matches: level
+    pattern: $SCOPE
     inside:
-        matches: control
+        matches: level
         stopBy: {matches: boundary}
         inside:
-            matches: control
+            matches: level
             stopBy: {matches: boundary}
             inside:
-                matches: control
+                matches: level
                 stopBy: {matches: boundary}
-                not: {inside: {matches: control, stopBy: {matches: function}}}
-message: Control flow reaches a fourth nesting level
-note: Rebuild nested decisions or loops with a match, comprehension or pipeline over their inputs
+                not: {inside: {matches: level, stopBy: {kind: function_definition}}}
+message: Nesting reaches a fourth level
+note: Rebuild nested decisions, loops, or comprehensions as one match or pipeline over their inputs
+labels:
+    SCOPE: {style: primary, message: Fourth nesting level}

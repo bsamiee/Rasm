@@ -58,4 +58,4 @@ transform:
     FOUND: rewrite($FIRST, rewriters=[find, find-last])
 fix: $FOUND
 message: '`$FILTER` builds every match of the list to take its first or last'
-note: 'Call `Array.findFirst(<list>, <predicate>)` or `Array.findLast` to stop at the first match from either end, passing an `Option` mapper in place of `flatMap` and a `filterMap` filter as `flow(<filter>, Result.getSuccess)`'
+note: 'Call `Array.findFirst(<list>, <f>)` or `Array.findLast`, with `<f>` a predicate, an `Option` mapper, or `flow(<filter>, Result.getSuccess)`'

@@ -11,6 +11,32 @@ internal static class CastDuplicate {
     internal static bool Tested(Curve curve) => {|#1:curve.Duplicate() is Curve|};
 }
 
+internal static class RelayedDuplicate {
+    internal static Curve Copied(Curve curve) => Narrowed({|#2:curve.Duplicate()|});
+    internal static int Dispatched(Curve curve) => Kind({|#3:curve.Duplicate()|});
+    internal static bool Tested(Curve curve) => Typed({|#4:curve.DuplicateShallow()|});
+    internal static Curve Plain(GeometryBase geometry) => Narrowed(geometry);
+    private static Curve Narrowed(GeometryBase copy) => (Curve)copy;
+    private static int Kind(GeometryBase copy) => copy switch { Curve => 1, _ => 0 };
+    private static bool Typed(GeometryBase copy) => copy is Curve;
+}
+
+internal static class HeldDuplicate {
+    internal static Curve Held(Curve curve) {
+        GeometryBase copy = curve.Duplicate();
+        return {|#5:(Curve)copy|};
+    }
+
+    internal static Curve Reassigned(Curve curve, GeometryBase other) {
+        GeometryBase copy = curve.Duplicate();
+        copy = other;
+        return (Curve)copy;
+    }
+}
+
 internal static class UncastDuplicate {
     internal static GeometryBase Kept(Curve curve) => curve.Duplicate();
+    internal static GeometryBase Passed(Curve curve) => Held(curve.Duplicate());
+    internal static Curve Unrelayed(GeometryBase geometry) => (Curve)geometry;
+    private static GeometryBase Held(GeometryBase copy) => copy;
 }

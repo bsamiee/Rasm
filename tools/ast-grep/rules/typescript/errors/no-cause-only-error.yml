@@ -73,5 +73,5 @@ rule:
                         - matches: value-reference
                         - {kind: string_fragment, pattern: $TAG, not: {inside: {kind: class_heritage, stopBy: end}}}
 message: '`$NAME` adds a tag to the `cause` it holds and nothing else'
-note: 'Pass the thunk alone to `Effect.tryPromise` or `Effect.try`, which fail with `Cause.UnknownError` holding the rejection as `cause`, and let a typed failure through unwrapped'
+note: 'Pass the thunk alone to `Effect.tryPromise` or `Effect.try`, and pass a typed failure through unwrapped'
 labels: {NAME: {style: primary}}

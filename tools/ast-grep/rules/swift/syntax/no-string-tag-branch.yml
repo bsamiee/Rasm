@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-string-tag-branch-swift
+id: no-string-tag-branch
 language: swiftlang
 severity: error
 utils:
@@ -34,4 +34,4 @@ rule:
             - has: {matches: tag-test, has: {field: rhs, pattern: $FIRST}}
             - has: {kind: if_statement, has: {matches: tag-test, not: {has: {field: rhs, pattern: $FIRST}}}}
 message: 'Branch over `$SUBJECT` selects its arm by string literal'
-note: 'Declare the tokens as cases of an enum with `String` raw values, convert the text once at the boundary through its `Decodable` conformance or `init(rawValue:)`, and switch over the cases'
+note: 'Declare the tokens as a `String`-backed enum, decode once at the boundary (`init(rawValue:)`, `Decodable`), and switch over its cases'

@@ -56,5 +56,7 @@ rule:
                 - has: {field: trait, regex: '^((::)?(std|core)::)?(cmp::)?Ord$'}
                 - has: {field: type, matches: impl-target}
                 - inside: {kind: source_file, stopBy: end, has: {stopBy: end, matches: float-struct}}
-message: '`$SITE` treats a float as a total order or a hash key by hand'
-note: 'Type the field `ordered_float::OrderedFloat<f64>` (NaN equal to itself and ordered last) or `ordered_float::NotNan<f64>` (NaN rejected at construction) and derive `PartialEq`, `Eq`, `Hash`, and `Ord`'
+transform:
+    HEAD: {replace: {source: $SITE, replace: '(?s)\s*\{?\s*\n.*$', by: ''}}
+message: '`$HEAD` treats a float as a total order or a hash key by hand'
+note: 'Type the field `ordered_float::OrderedFloat<f64>` or `NotNan<f64>` and derive `PartialEq`, `Eq`, `Hash`, and `Ord`'

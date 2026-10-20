@@ -61,4 +61,4 @@ rule:
                 - has: {field: consequence, any: [{has: {stopBy: end, matches: error-write}}, {kind: expression_statement, has: {matches: error-write}}]}
         - inside: {stopBy: end, matches: thinktecture-validation-hook}
 message: '`ValidateFactoryArguments` tests `$KEY` against both bounds by hand'
-note: Assign `validationError = ValidationResults.OutsideRange($KEY, MinValue, MaxValue)` with the bounds as `IMinMaxValue<TSelf>` members, `MinValue._value` and `MaxValue._value` for a class value object, which states the bounds in its message
+note: 'Assign `validationError = ValidationResults.OutsideRange(<key>, MinValue, MaxValue)`, `MinValue._value` and `MaxValue._value` in a class value object'

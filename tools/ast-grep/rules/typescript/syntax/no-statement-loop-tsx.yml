@@ -9,7 +9,9 @@ rule:
           has: {field: operator, regex: '^of$'}
           not: {has: {regex: '^await$'}}
         - kind: for_statement, while_statement, do_statement
-message: Loop iterates by statement
-note: 'Call `<list>.map(<f>)`, `<list>.flatMap(<f>)`, or `<list>.reduce(<f>, <initial>)` for values from elements, the same iterator helpers on `Iterator.from(<iterable>)` for an iterable, `effect` `Array.unfold(<state>, <step>)` for values while a state advances, `Effect.forEach(<list>, <f>)` for an effect per element, `Effect.whileLoop` for an effect per state step, or `<list>.forEach(<f>)` for a host call per element outside the runtime'
+transform:
+    HEAD: {replace: {source: $LOOP, replace: '(?s)\s*\{?\s*\n.*$', by: ''}}
+message: '`$HEAD` iterates by statement'
+note: 'Call an array or iterator helper, `Array.unfold(<state>, <step>)` for an advancing state, `Effect.forEach(<list>, <f>)`, or `Effect.whileLoop`'
 labels:
     LOOP: {style: primary}

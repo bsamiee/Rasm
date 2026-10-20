@@ -236,4 +236,4 @@ fix:
     template: $NEXT$BASE$REBUILT_TYPES$OWNER$REBUILT_ITEMS$EMPTIED
     expandEnd: {pattern: $NEXT}
 message: 'Validator returns its input or delegates it unchanged to the handler'
-note: 'Delete the validator, with `pass` where it is the one statement of its class body, and its `Annotated` metadata item, with the base type alone where no other metadata remains'
+note: 'Delete the validator and its `Annotated` metadata item, leaving `pass` in an emptied class body and the base type where no metadata remains'

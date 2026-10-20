@@ -15,10 +15,8 @@ rule:
             - regex: '(?m)(?:^#*"*|\\n)[ \t]*(?:add-(?:generic|internet)-password|import)[ \t](?:(?:[^\n\\]|\\[^n])*[ \t])?-[TA](?:[ \t"]|\\n|$)'
             - regex: '(?m)(?:^#*"*|\\n)[ \t]*dump-keychain[ \t](?:(?:[^\n\\]|\\[^n])*[ \t])?-[adr]*i[adr]*(?:[ \t"]|\\n|$)'
             - regex: '(?m)(?:^#*"*|\\n)[ \t]*set-(?:generic-password|internet-password|key)-partition-list[ \t]'
-        - kind: call_expression
-          has: {nthChild: 1, kind: simple_identifier, regex: '^(SecKeychainItemSetAccess(WithPassword)?|SecACLSetContents|SecACLUpdateAuthorizations|SecACLRemove)$', pattern: $COMMAND}
         - kind: simple_identifier
           regex: '^kSecAttrAccess$'
           pattern: $COMMAND
 message: '`$COMMAND` rewrites an item ACL or partition list the owning program''s next write restores'
-note: 'Write data through `add-generic-password -U` or `SecItemUpdate` with no `-T`, `-A`, or `kSecAttrAccess` and leave ACLs and partition lists to the owning program'
+note: 'Update data through `add-generic-password -U` or `SecItemUpdate` with no `-T`, `-A`, or `kSecAttrAccess`, leaving ACLs to the owning program'

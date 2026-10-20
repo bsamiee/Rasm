@@ -91,4 +91,4 @@ rule:
                 - has: {field: name, pattern: $BUILT}
                 - has: {matches: host-step}
 message: '`$CHECKED` lifts a `Fin` check apart from the host call `$BUILT` lifts next'
-note: Use one `Copies.Acquire(() => <check>.Map(<checked> => <host call>), <member>, <retain>)`, or `Copies.AcquireNonEmpty` for a host member whose empty answer is its refusal, and the `Fin` thunk overload lifts the check and the host answer in one effect
+note: 'Use one `Copies.Acquire(() => <check>.Map(<checked> => <host call>), <member>, <retain>)`, `Copies.AcquireNonEmpty` where an empty answer refuses'

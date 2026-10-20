@@ -164,6 +164,5 @@ rule:
             - has: {field: name, pattern: $CELL}
             - regex: '^\w+\s*='
             - inside: {kind: variable_declaration, inside: {kind: local_declaration_statement, matches: overwritten}}
-    not: {matches: {csharp-owner-body: {type: {regex: '^Callbacks$'}, member: {regex: '^Captured$'}}}}
 message: '`$CELL` passes a value out of a callback through a write outside its result'
-note: Use the callback's result (a `Fin<R>` or tuple its operation returns), or `Callbacks.Captured` for a host callback returning nothing
+note: 'Return the value from the callback and read it from the `Fin<R>` or tuple the call taking the callback returns'

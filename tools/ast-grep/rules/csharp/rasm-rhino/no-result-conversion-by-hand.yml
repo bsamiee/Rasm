@@ -164,4 +164,4 @@ rule:
         - matches: fin-test
         - matches: effect-answer
 message: '`$SOURCE` converts to a host `Result` by hand'
-note: Use `Callbacks.Answer(Conversions.ToResult(<effect or fin>), static () => Result.Failure, <site>)`, which maps cancellation and host end results to their `Result`
+note: 'Use `Callbacks.Answer(Conversions.ToResult(<effect or fin>), static () => Result.Failure, <site>)`'

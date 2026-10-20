@@ -124,7 +124,7 @@ public sealed partial class MapReading : ICaptioned {
 public sealed partial class RefractionField : ICaptioned {
     public static readonly RefractionField Raindrops = new("raindrops", "Raindrops", static (state, held, field) => {
         (Matrix3x2 fall, Matrix3x2 rise) = (Matrix3x2.CreateRotation(state.Direction + (float.Pi / 2f)), Matrix3x2.CreateRotation(-state.Direction - (float.Pi / 2f)));
-        return state.Density == AxisFraction.MinValue ? None : Some<Func<Vector2, Vector4>>(q => {
+        return Some<Func<Vector2, Vector4>>(q => {
             Vector2 at = (Vector2.Transform(q, fall) - new Vector2(0f, state.Fall * held)) / state.Scale;
             Vector2 cell = Vector2.Round(at, MidpointRounding.ToNegativeInfinity);
             Vector4 draw = NoiseFunctions.White(new Vector4(cell, 0f, 0f), field);
@@ -136,7 +136,7 @@ public sealed partial class RefractionField : ICaptioned {
                 ? new Vector4(drop > 0f ? -(1f + state.Lens) * state.Scale * Vector2.Transform(off, rise) : Vector2.Zero,
                     lag * (1f - drop) * float.Sqrt(float.Max(0f, 1f - float.Pow(off.X / (0.5f * radius), 2f))), float.Max(drop, lag * trail))
                 : Vector4.Zero;
-        });
+        }).Filter(_ => state.Density != AxisFraction.MinValue);
     });
     public static readonly RefractionField Blocks = new("blocks", "Blocks", static (state, _, _) => Glass(state, static cell =>
         Vector2.Abs((2f * Fraction(cell)) - Vector2.One) switch { var edge => (Vector2.One - (edge * edge * edge * edge)) switch { var bevel => bevel.X * bevel.Y } }));
@@ -201,16 +201,14 @@ public sealed record Bulge(SignedFraction Amount, BulgeMode Mode, ShortSideLengt
     public static Bulge Default { get; } = new(SignedFraction.Neutral, BulgeMode.Round, Displacements.Inscribed, FramePosition.Center, Sampling.Linear, WrapMode.Clamp);
 
     public static Option<PixelPass> Pass(Bulge state, PassContext context) =>
-        (state.Radius.Pixels(context.Extent), (float)state.Amount) switch {
-            var (radius, amount) => Displacements.Pass(state.Amount == SignedFraction.Neutral || state.Radius == ShortSideLength.Neutral, state.Sampling, state.Wrap, state.Center.Point(context.Extent), d =>
-                (X: d.X * state.Mode.Axes.X, Y: d.Y * state.Mode.Axes.Y) switch {
-                    var v when double.Hypot(v.X, v.Y) / radius is var u and > 0d and < 1d =>
-                        (((amount >= 0f ? double.Lerp(u, 2d / double.Pi * double.Asin(u), amount) : double.Lerp(u, double.SinPi(u / 2d), -amount)) / u) - 1d) switch {
-                            var scale => (d.X + (scale * v.X), d.Y + (scale * v.Y)),
-                        },
-                    _ => d,
-                }),
-        };
+        Displacements.Pass(state.Amount == SignedFraction.Neutral || state.Radius == ShortSideLength.Neutral, state.Sampling, state.Wrap, state.Center.Point(context.Extent), d =>
+            (X: d.X * state.Mode.Axes.X, Y: d.Y * state.Mode.Axes.Y) switch {
+                var v when double.Hypot(v.X, v.Y) / state.Radius.Pixels(context.Extent) is var u and > 0d and < 1d =>
+                    ((((float)state.Amount >= 0f ? double.Lerp(u, 2d / double.Pi * double.Asin(u), (float)state.Amount) : double.Lerp(u, double.SinPi(u / 2d), -(float)state.Amount)) / u) - 1d) switch {
+                        var scale => (d.X + (scale * v.X), d.Y + (scale * v.Y)),
+                    },
+                _ => d,
+            });
 }
 
 [SmartEnum<string>]

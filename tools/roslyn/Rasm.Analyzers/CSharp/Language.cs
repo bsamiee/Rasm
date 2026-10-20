@@ -47,6 +47,8 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
                 IBinaryPatternOperation { OperatorKind: BinaryOperatorKind.Or } either => Named(either.LeftPattern).Concat(Named(either.RightPattern)),
                 _ => [],
             };
+        static bool CatchesRest((IOperation Arm, IOperation? Test, IOperation? Guard) arm) =>
+            CatchesAll(arm) || (arm is { Guard: null, Test: INegatedPatternOperation { Pattern: var excluded } } && Named(excluded).Any());
         context.RegisterOperationAction(
             analysis => {
                 if (analysis.Operation is not ISwitchExpressionOperation dispatch || Dispatch(dispatch) is not (_, var arms)
@@ -55,7 +57,7 @@ public sealed class LanguageAnalyzer : RasmAnalyzer {
                 ImmutableHashSet<object?> named = [.. arms.Where(static arm => arm.Guard is null).SelectMany(static arm => Named(arm.Test))];
                 if (named.IsEmpty) return;
                 DiagnosticDescriptor rule = subject.GetMembers().OfType<IFieldSymbol>().Where(static member => member.HasConstantValue).All(member => named.Contains(member.ConstantValue)) ? Covered : Fallback;
-                foreach ((IOperation arm, _, _) in arms.Where(CatchesAll))
+                foreach ((IOperation arm, _, _) in arms.Where(CatchesRest))
                     analysis.ReportDiagnostic(Diagnostic.Create(rule, arm.Syntax.GetLocation(), subject.Name));
             },
             OperationKind.SwitchExpression);

@@ -102,7 +102,7 @@ public static class ReferenceCalculations {
             0 => 1.0,
             1 => at(0, 0),
             2 => (at(0, 0) * at(1, 1)) - (at(0, 1) * at(1, 0)),
-            _ => Enumerable.Range(0, n).Sum(col => ((col & 1) is 0 ? 1.0 : -1.0) * at(0, col) * Determinant(n - 1, (row, minorCol) => at(row + 1, minorCol < col ? minorCol : minorCol + 1))),
+            _ => Enumerable.Range(0, n).Sum(col => ((col & 1) is 0 ? 1.0 : -1.0) * at(0, col) * Determinant(n - 1, (row, minorCol) => at(row + 1, Enumerable.Range(0, n).Where(kept => kept != col).ElementAt(minorCol)))),
         };
     public static double EntrywiseResidual(int rows, int cols, Func<int, int, double> expected, Func<int, int, double> actual) =>
         MatrixNorm.MaxAbsoluteEntry.Evaluate(rows, cols, (row, col) => actual(row, col) - expected(row, col));

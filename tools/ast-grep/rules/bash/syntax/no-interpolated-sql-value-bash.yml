@@ -25,4 +25,4 @@ rule:
             - not: {regex: '^\s*(\.param\s|(?i:set\s+variable\s))'}
             - inside: {kind: heredoc_redirect, inside: {kind: redirected_statement, has: {field: body, matches: sql-cli}}}
 message: '`$CLI` receives a shell expansion spliced into a quoted SQL literal'
-note: 'Keep the statement constant and bind each value as a CLI parameter (`.param set`, `SET VARIABLE`, `psql -v`) the database reads typed and unquoted'
+note: 'Keep the statement constant and bind each value as a CLI parameter (`.param set`, `SET VARIABLE`, `psql -v`)'

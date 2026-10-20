@@ -17,15 +17,16 @@ public sealed record Kaleidoscope(MirrorCount Mirrors, SignedAngle Rotation, Fra
     public static Kaleidoscope Default { get; } = new(MirrorCount.Create(3), SignedAngle.Up, FramePosition.Center, TransformScale.Identity, Sampling.Linear, WrapMode.Mirror);
 
     public static Option<PixelPass> Pass(Kaleidoscope state, PassContext context) =>
-        (state.Center.Point(context.Extent), (float)state.Rotation + (double.Pi / state.Mirrors), double.Tau / state.Mirrors, (double)(float)state.Zoom) switch {
-            var (center, axis, period, zoom) => Some<PixelPass>(new PixelPass.Frame(new CoordinateMap.Analytic((points, _, _) => {
-                foreach (ref (double X, double Y) point in points) point = (point.X - center.X, point.Y - center.Y) switch {
-                    var (x, y) => (double.Hypot(x, y) / zoom, double.SinCos(axis - double.Abs(double.Ieee754Remainder(double.Atan2(-y, x) - axis, period)))) switch {
-                        var (radius, (sin, cos)) => (center.X + (radius * cos), center.Y - (radius * sin)),
-                    },
-                };
-            }, state.Sampling, (state.Wrap, state.Wrap)).Apply)),
-        };
+        from center in Some(state.Center.Point(context.Extent))
+        let axis = (float)state.Rotation + (double.Pi / state.Mirrors)
+        let period = double.Tau / state.Mirrors
+        select (PixelPass)new PixelPass.Frame(new CoordinateMap.Analytic((points, _, _) => {
+            foreach (ref (double X, double Y) point in points) point = (point.X - center.X, point.Y - center.Y) switch {
+                var (x, y) => (double.Hypot(x, y) / (float)state.Zoom, double.SinCos(axis - double.Abs(double.Ieee754Remainder(double.Atan2(-y, x) - axis, period)))),
+            } switch {
+                var (radius, (sin, cos)) => (center.X + (radius * cos), center.Y - (radius * sin)),
+            };
+        }, state.Sampling, (state.Wrap, state.Wrap)).Apply);
 }
 
 [SmartEnum<string>]

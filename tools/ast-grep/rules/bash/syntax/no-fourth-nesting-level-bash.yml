@@ -21,4 +21,4 @@ rule:
 transform:
     HEAD: {replace: {source: $CONTROL, replace: '(?s)\n.*$', by: ''}}
 message: '`$HEAD` opens a fourth nesting level'
-note: Rebuild the logic within three levels, an extracted function keeps the fourth level one call away
+note: Rebuild the logic within three levels as a `case`, an `&&` or `||` guard, or a pipeline over its inputs

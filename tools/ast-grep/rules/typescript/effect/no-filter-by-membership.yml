@@ -19,6 +19,12 @@ utils:
         all:
             - has: {field: parameters, has: {kind: required_parameter, nthChild: 1, has: {field: pattern, kind: identifier, pattern: $X}}, not: {has: {nthChild: 2}}}
             - has: {field: body, any: [{matches: membership}, {pattern: '!$INNER', has: {matches: membership}}]}
+    set-test:
+        pattern: $_SET.has($_SEEN, $_ITEM)
+        has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '\bHashSet$'}}}}}
+    set-predicate:
+        kind: arrow_function
+        has: {field: body, any: [{matches: set-test}, {has: {matches: set-test}}]}
 rule:
     kind: call_expression
     all:
@@ -29,11 +35,13 @@ rule:
                 - has: {field: function, has: {field: object, matches: collection, pattern: $MODULE}}
                 - any:
                     - has: {field: function, has: {field: object, matches: {effect-module: {name: {regex: '\bArray$'}}}}}
+                      not: {has: {field: arguments, has: {matches: set-predicate}}}
                     - has: {field: function, has: {field: object, pattern: $OWNER}}
             - all:
                 - pattern: $KEPT
                 - has: {field: function, has: {field: object, not: {matches: collection}}}
                 - has: {field: arguments, has: {matches: predicate, nthChild: 1}, not: {has: {nthChild: 2}}}
+                - not: {has: {field: arguments, has: {matches: set-predicate}}}
 constraints:
     SEEN: {not: {any: [{kind: identifier, pattern: $X}, {has: {stopBy: end, kind: identifier, pattern: $X}}]}}
 rewriters:
@@ -52,4 +60,4 @@ transform:
     OPERANDS: rewrite($ARGS, rewriters=[other])
 fix: $QUALIFIER$OPERATION$OPERANDS$KEPT
 message: '`filter` tests each element for membership in `$SEEN` by hand'
-note: 'Call `difference` of `Array`, `Chunk`, or `HashSet` for the elements absent from `<seen>` and `intersection` for those present, both comparing by `Equal` as `HashSet.has` and `contains` do'
+note: 'Call `difference` of `Array`, `Chunk`, or `HashSet` for the elements absent from `<seen>` and `intersection` for those present'

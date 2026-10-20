@@ -2,6 +2,7 @@
 id: no-lint-declaration-macro
 language: rust
 severity: error
+files: [tools/dylint/**]
 rule:
     kind: macro_invocation
     has:
@@ -9,4 +10,4 @@ rule:
         pattern: $MACRO
         regex: '^(::)?((rustc_lint|rustc_session|rustc_lint_defs|dylint_linting)::)?(declare_lint|declare_tool_lint|declare_lint_pass|impl_lint_pass|declare_late_lint|declare_pre_expansion_lint|impl_late_lint|impl_pre_expansion_lint)$'
 message: '`$MACRO!` declares a lint or its pass beside the `lint!` row that states both'
-note: 'Write `lint!(NAME: "..")` for a unit pass, `lint!(default Pass; ..)` for a `Default` pass, or `lint!(Pass; ..)` beside a hand `Pass::new`, and add the module path to `lints!` in `tools/dylint/lib.rs`'
+note: 'Declare the lint through `lint!` (`NAME: ".."`, `default Pass; ..`, or `Pass; ..`) and add its module path to `lints!`'

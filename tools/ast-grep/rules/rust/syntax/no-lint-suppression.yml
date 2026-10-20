@@ -22,4 +22,4 @@ rule:
           regex: '^\[\s*((allow|expect)\s*\(|automatically_derived\s*\]|cfg_attr\s*\([\s\S]*,\s*(allow|expect|automatically_derived)\b)'
           follows: {regex: '^(#|!)$'}
 message: '`$ATTRIBUTE` silences lints in place of fixing the code they report'
-note: 'Fix the reported code, delete the item a dead-code or unused lint reports, write the impl a derive generates as the derive, and set a level in `[workspace.lints]` only for a finding no code change clears'
+note: 'Fix or delete the reported code, writing a hand impl as its derive, and set a `[workspace.lints]` level only for a finding no code change clears'

@@ -55,5 +55,7 @@ rule:
           all:
             - has: {field: expr, matches: message}
             - has: {kind: switch_entry, has: {kind: switch_pattern, has: {stopBy: end, kind: line_string_literal}}}
-message: '`$MATCH` classifies an error by its message text'
-note: 'Match the error''s case or code as a pattern (`case CocoaError.fileNoSuchFile`, `case URLError.timedOut`, `.noSuchFileOrDirectory as Errno`) or its type through `catch let error as <type>`'
+transform:
+    HEAD: {replace: {source: $MATCH, replace: '(?s)\n.*$', by: ''}}
+message: '`$HEAD` classifies an error by its message text'
+note: 'Match the error code or type as a pattern (`CocoaError.fileNoSuchFile`, `.noSuchFileOrDirectory as Errno`, `catch let error as <type>`)'

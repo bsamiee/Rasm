@@ -38,9 +38,9 @@ rule:
     kind: if_statement
     pattern: $IF
     all:
-        - has: {field: condition, matches: absence-test}
+        - has: {field: condition, pattern: $TEST, matches: absence-test}
         - has: {field: consequence, matches: throwing}
-message: '`throw` stands in for the failure case of an absent value'
-note: 'Return the reason as a value through `Effect.fromOption` or `Effect.fail` with a tagged variant, and state an absence construction rules out as a defect with `Option.getOrThrow`'
+message: '`if $TEST` throws in place of the failure case of an absent value'
+note: 'Fail through `Effect.fromOption` or `Effect.fail` with a tagged variant, or call `Option.getOrThrow` where construction rules out absence'
 labels:
     IF: {style: primary}

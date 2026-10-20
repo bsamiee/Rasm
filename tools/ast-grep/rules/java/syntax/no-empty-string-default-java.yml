@@ -53,4 +53,4 @@ rule:
             stopBy: {kind: 'method_declaration, constructor_declaration, compact_constructor_declaration, lambda_expression, static_initializer, class_body'}
             has: {stopBy: end, matches: tested}
 message: '`$NAME` defaults to an empty string standing for absence'
-note: Declare `Optional<String>` and test its presence, an empty string stays a value
+note: Declare `Optional<String>` and test its presence

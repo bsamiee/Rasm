@@ -146,14 +146,14 @@ transform:
         rewrite:
             source: $TAILED
             rewriters: [open-scope, close-scope]
-    ACQUIRE_TEXT:
+    RESOURCE_TEXT:
         replace:
-            source: $ACQUIRE
+            source: $RESOURCE
             replace: '^$'
             by: ''
-    SACQ_TEXT:
+    SX_TEXT:
         replace:
-            source: $SACQ
+            source: $SX
             replace: '^$'
             by: ''
     USE_CALL:
@@ -167,6 +167,5 @@ transform:
             replace: '(?s)^(.*)$'
             by: '$1).Bracket()'
 fix: $USE_CALL$BRACKET_CALL$SECOND_FIXED$TAIL_FIXED
-message: "`$ACQUIRE_TEXT$SACQ_TEXT` scope closes through `Bracket` by hand"
-note: >-
-    Write `use(<acquire>).Bind(<resource> => <body>).Bracket()` with `Bracket()` at the scope's first `use`, which releases every `use` inside it. A file-based app that references RhinoCommon or Grasshopper keeps `Bracket`: `use` hashes its resource through LanguageExt's type resolver, which loads every assembly the entry assembly references and throws outside Rhino
+message: "Scope over `$RESOURCE_TEXT$SX_TEXT` closes through `Bracket` by hand"
+note: 'Write `use(<acquire>).Bind(<resource> => <body>).Bracket()` with one `Bracket()` at the first `use` for every `use` inside it'

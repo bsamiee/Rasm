@@ -11,7 +11,7 @@ utils:
             - kind: 'prefix_expression, navigation_expression'
               not: {has: {stopBy: end, kind: call_expression}}
             - kind: 'array_literal, dictionary_literal'
-              not: {has: {pattern: µ_, not: {matches: literal}}}
+              not: {has: {pattern: $_, not: {matches: literal}}}
             - kind: call_expression
               all:
                 - has:
@@ -71,29 +71,22 @@ utils:
               any:
                 - has: {kind: statements, has: {nthChild: 2}}
                 - has: {kind: if_statement, matches: statement-branch}
-    level:
-        any:
-            - kind: 'lambda_literal, guard_statement, for_statement, while_statement, repeat_while_statement, do_statement, switch_statement'
-            - kind: if_statement
-              not: {inside: {kind: if_statement}}
-            - kind: function_declaration
-              inside: {kind: statements}
     nested-1:
-        has: {stopBy: end, matches: level}
+        has: {stopBy: {matches: swift-declaration-scope}, matches: swift-nesting-level}
     nested-2:
-        has: {stopBy: end, all: [{matches: level}, {matches: nested-1}]}
+        has: {stopBy: {matches: swift-declaration-scope}, all: [{matches: swift-nesting-level}, {matches: nested-1}]}
     nested-3:
-        has: {stopBy: end, all: [{matches: level}, {matches: nested-2}]}
+        has: {stopBy: {matches: swift-declaration-scope}, all: [{matches: swift-nesting-level}, {matches: nested-2}]}
     nested-4:
-        has: {stopBy: end, all: [{matches: level}, {matches: nested-3}]}
+        has: {stopBy: {matches: swift-declaration-scope}, all: [{matches: swift-nesting-level}, {matches: nested-3}]}
     enclosed-1:
-        inside: {stopBy: {matches: member}, matches: level}
+        inside: {stopBy: {matches: swift-declaration-scope}, matches: swift-nesting-level}
     enclosed-2:
-        inside: {stopBy: {matches: member}, all: [{matches: level}, {matches: enclosed-1}]}
+        inside: {stopBy: {matches: swift-declaration-scope}, all: [{matches: swift-nesting-level}, {matches: enclosed-1}]}
     enclosed-3:
-        inside: {stopBy: {matches: member}, all: [{matches: level}, {matches: enclosed-2}]}
+        inside: {stopBy: {matches: swift-declaration-scope}, all: [{matches: swift-nesting-level}, {matches: enclosed-2}]}
     enclosed-4:
-        inside: {stopBy: {matches: member}, all: [{matches: level}, {matches: enclosed-3}]}
+        inside: {stopBy: {matches: swift-declaration-scope}, all: [{matches: swift-nesting-level}, {matches: enclosed-3}]}
     inlined-past-third-level:
         any:
             - has: {field: body, matches: nested-4}
@@ -164,6 +157,6 @@ rule:
                     - not: {has: {stopBy: end, matches: holds-reference, precedes: {stopBy: end, matches: holds-reference}}}
             - not: {matches: inlined-past-third-level}
 message: '`$NAME` has one reader'
-note: 'Move a constant into its reader as a local `let` and a function as a local `func`, `@Sendable` where a `@Sendable` closure calls it, or inline a declaration with a name that states no fact; a function a `[weak self]` callback calls moves into that callback'
+note: 'Declare `<name>` in its reader as a local `let` or `func` or in the `[weak self]` callback that calls it, or inline a `<name>` that states no fact'
 labels:
     READER: {style: secondary, message: Only reader}

@@ -72,6 +72,19 @@ rule:
                                     has:
                                         stopBy: end
                                         any: [{pattern: '$BUF.append($$$)'}, {pattern: '$BUF += $_'}]
-                                        has: {stopBy: end, pattern: $B}
-message: '`for` over `$BYTES` splits lines by hand, testing each `$B` for a newline'
-note: 'Iterate `lines` of an async byte sequence, `strings()` of swift-subprocess `SubprocessOutputSequence`, or `split(whereSeparator: \.isNewline)` of a string in memory'
+                                        has:
+                                            stopBy: end
+                                            any:
+                                                - pattern: $B
+                                                - kind: simple_identifier
+                                                  pattern: $PIECE
+                                                  inside:
+                                                    kind: statements
+                                                    stopBy: end
+                                                    has:
+                                                        kind: property_declaration
+                                                        all:
+                                                            - has: {field: name, has: {field: bound_identifier, pattern: $PIECE}}
+                                                            - has: {field: value, any: [{pattern: $B}, {has: {stopBy: end, pattern: $B}}]}
+message: '`for` over `$BYTES` splits lines by hand'
+note: 'Iterate `lines` of an async byte sequence, `strings()` of swift-subprocess output, or `split(whereSeparator: \.isNewline)` of text in memory'

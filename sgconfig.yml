@@ -4,7 +4,7 @@ ruleDirs:
 utilDirs:
     - tools/ast-grep/utils
 languageGlobs:
-    tsx: ["*.ts"]
+    tsx: ["*.ts", "*.js", "*.mjs", "*.cjs", "*.jsx"]
     xml: ["NuGet.config"]
 customLanguages:
     xml:
@@ -40,7 +40,7 @@ languageInjections:
             any:
                 - regex: '^#\[\s*cfg\s*\(.*\b(test|doctest)\b'
                   not: {regex: '^#\[\s*cfg\s*\(\s*not\s*\(\s*test\b'}
-                - regex: '^#\[\s*(\w+::)*\w*(test|bench|quickcheck|proptest)\w*\s*(\(|\]|$)'
+                - regex: '^#\[\s*(::)?(((tokio|sqlx)::)?test|bench|(rstest::)?(rstest|fixture)|(proptest::)?property_test)\s*(\(|\]|$)'
         test-scope:
             inside:
                 stopBy: end
@@ -63,7 +63,7 @@ languageInjections:
             inside:
                 stopBy: end
                 any:
-                    - {kind: pair, has: {field: key, regex: '^pg$'}}
+                    - {kind: pair, has: {field: key, regex: '^pg$'}, inside: {kind: object, has: {kind: pair, has: {field: key, regex: '^(sqlite|mysql|mssql|clickhouse|orElse)$'}}}}
                     - {kind: 'variable_declarator, function_declaration, method_definition, class_declaration', has: {field: name, regex: '(?:^|[a-z_])(?:pg|Pg|PG)(?:$|[A-Z_])'}}
       injected: sql
     - hostLanguage: tsx

@@ -1,2 +1,6 @@
-#0 Cast or type test narrows `curve.Duplicate()` to `Curve`
-#1 Cast or type test narrows `curve.Duplicate()` to `Curve`
+#0 Cast or type test in `Copied` narrows `curve.Duplicate()` to `Curve`
+#1 Cast or type test in `Tested` narrows `curve.Duplicate()` to `Curve`
+#2 Cast or type test in `Narrowed` narrows `curve.Duplicate()` to `Curve`
+#3 Cast or type test in `Kind` narrows `curve.Duplicate()` to `Curve`
+#4 Cast or type test in `Typed` narrows `curve.DuplicateShallow()` to `Curve`
+#5 Cast or type test in `Held` narrows `curve.Duplicate()` to `Curve`

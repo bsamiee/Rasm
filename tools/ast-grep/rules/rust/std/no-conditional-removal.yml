@@ -27,4 +27,4 @@ transform:
     END: {replace: {source: $STATEMENT, replace: '^[\s\S]*$', by: ';'}}
 fix: $R.$METHOD($P)$END
 message: '`$R.$TAKE()` runs under a test of the same element through `$PEEK`'
-note: 'Call `<option>.take_if(<predicate>)`, `<vec>.pop_if(<predicate>)`, `<deque>.pop_back_if`, or `pop_front_if`, each passes the element to the predicate as `&mut T`'
+note: 'Call `take_if`, `pop_if`, `pop_back_if`, or `pop_front_if` with the test as the predicate over `&mut T`'

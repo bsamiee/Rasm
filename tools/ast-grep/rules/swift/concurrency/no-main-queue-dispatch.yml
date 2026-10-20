@@ -16,4 +16,4 @@ rule:
                 - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 1, regex: '^CFRunLoopGetMain\(\)$'}}}
             - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 1, has: {field: name, regex: '^onMainThread$'}}}}
 message: '`$DISPATCH` hands work to the main thread outside actor isolation checking'
-note: 'Start main-actor work from synchronous code as `Task { @MainActor in <work> }`, replace a blocking `sync` with `await MainActor.run { <work> }`, or declare the caller or callee `@MainActor`'
+note: 'Declare the caller or callee `@MainActor`, start work from synchronous code as `Task { @MainActor in <work> }`, or await `MainActor.run` for `sync`'

@@ -4,25 +4,25 @@ language: swiftlang
 severity: error
 utils:
     count-difference:
-        has: {kind: call_suffix, has: {stopBy: end, kind: additive_expression, has: {field: lhs, pattern: µR.count}}}
+        has: {kind: call_suffix, has: {stopBy: end, kind: additive_expression, has: {field: lhs, pattern: $R.count}}}
 rule:
     all:
         - pattern: $SLICE
         - any:
             - all:
                 - any:
-                    - pattern: µR.dropFirst(µµµ)
-                    - pattern: µR.removeFirst(µµµ)
-                    - pattern: 'µR[µR.index(µR.startIndex, offsetBy: µµµ)...]'
-                    - {pattern: µR.suffix(µµµ), matches: count-difference}
-                - matches: {swift-guarded-branch: {condition: {any: [{pattern: µR.hasPrefix(µAFFIX)}, {pattern: 'µR.starts(with: µAFFIX)'}]}}}
+                    - pattern: $R.dropFirst($$$)
+                    - pattern: $R.removeFirst($$$)
+                    - pattern: '$R[$R.index($R.startIndex, offsetBy: $$$)...]'
+                    - {pattern: $R.suffix($$$), matches: count-difference}
+                - matches: {swift-guarded-branch: {condition: {any: [{pattern: $R.hasPrefix($AFFIX)}, {pattern: '$R.starts(with: $AFFIX)'}]}}}
             - all:
                 - any:
-                    - pattern: µR.dropLast(µµµ)
-                    - pattern: µR.removeLast(µµµ)
-                    - pattern: 'µR[..<µR.index(µR.endIndex, offsetBy: µµµ)]'
-                    - {pattern: µR.prefix(µµµ), matches: count-difference}
-                - matches: {swift-guarded-branch: {condition: {pattern: µR.hasSuffix(µAFFIX)}}}
+                    - pattern: $R.dropLast($$$)
+                    - pattern: $R.removeLast($$$)
+                    - pattern: '$R[..<$R.index($R.endIndex, offsetBy: $$$)]'
+                    - {pattern: $R.prefix($$$), matches: count-difference}
+                - matches: {swift-guarded-branch: {condition: {pattern: $R.hasSuffix($AFFIX)}}}
 rewriters:
     - id: trimmed-copy
       rule:
@@ -38,4 +38,4 @@ transform:
     TRIMMED: {rewrite: {source: $SLICE, rewriters: [trimmed-copy, trimmed-in-place]}}
 fix: $TRIMMED
 message: '`$SLICE` removes the tested affix `$AFFIX` by a count that restates its length'
-note: 'Drop the affix by one match: `<text>.trimmingPrefix(<affix>)`, `trimPrefix(<affix>)`, or `<text>.replacing(/<affix>\z/, with: "")` to keep text without it unchanged, or `<text>.wholeMatch(of: /<affix>(.*)/)?.1` to yield `nil` for text without it'
+note: 'Call `trimmingPrefix(<affix>)`, `trimPrefix(<affix>)`, `replacing(/<affix>\z/, with: "")`, or `wholeMatch(of: /<affix>(.*)/)?.1` for `nil` without it'

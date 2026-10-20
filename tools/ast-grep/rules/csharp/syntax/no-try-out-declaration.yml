@@ -2,6 +2,7 @@
 id: no-try-out-declaration
 language: csharp
 severity: error
+ignores: ['tools/roslyn/**']
 utils:
     bool-type:
         matches: {csharp-type-name: {name: {regex: '^(bool|Boolean)$'}}}
@@ -52,4 +53,4 @@ rule:
                     - matches: interface-member
                     - all: [{matches: csharp-visible-member}, {not: {matches: try-pattern}}]
 message: '`$NAME` returns presence as a `bool` beside an `out` parameter'
-note: 'Return `Option<T>` or `Fin<T>`, one value holding the result and its presence, an override, `extern` import, or BCL interface member keeps its declared signature'
+note: 'Return `Option<T>` or `Fin<T>` outside overrides, `extern` imports, and BCL interface members'

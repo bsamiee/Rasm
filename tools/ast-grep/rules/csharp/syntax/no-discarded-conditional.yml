@@ -17,18 +17,17 @@ utils:
             - inside: {kind: expression_statement}
             - inside: {kind: lambda_expression, field: body}
 rule:
-    pattern: $VALUE
     any:
         - kind: assignment_expression
           all:
-            - has: {field: left, regex: '^_$'}
+            - has: {field: left, regex: '^_$', pattern: $DISCARD}
             - has: {field: operator, regex: '^=$'}
             - has: {field: right, matches: branching}
             - matches: statement-position
         - kind: invocation_expression
           all:
-            - has: {field: function, matches: {csharp-type-name: {name: {regex: '^ignore$'}}}}
+            - has: {field: function, pattern: $DISCARD, matches: {csharp-type-name: {name: {regex: '^ignore$'}}}}
             - has: {field: arguments, has: {kind: argument, has: {matches: branching}}}
             - matches: statement-position
-message: '`$VALUE` discards the value of a branch chosen for its effect'
-note: 'Write an `if` or `switch` statement whose arms run the effects, a branch producing a value keeps a consumer of that value'
+message: '`$DISCARD` discards the value of a branch chosen for its effect'
+note: 'Write an `if` or `switch` statement whose arms run the effects, or consume the value where a branch produces one'

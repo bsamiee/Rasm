@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-sentinel-object
+id: no-sentinel-placeholder-python
 language: python
 severity: error
 utils:
@@ -68,4 +68,4 @@ rule:
                         - not: {has: {pattern: $_, not: {any: [{matches: enum-member}, {matches: marker-statement}]}}}
                     inside: {kind: class_definition, has: {field: superclasses, has: {matches: enum-base}}}
 message: '`$NAME` is a sentinel standing for absence by identity'
-note: 'Use `Option[<T>]` with `Nothing` for absence, and `<T> | None` with `None` on a field msgspec decodes, msgspec decoding no `expression.Option`'
+note: 'Use `Option[<T>]` with `Nothing` for absence, `<T> | None` with `None` on a field msgspec decodes'

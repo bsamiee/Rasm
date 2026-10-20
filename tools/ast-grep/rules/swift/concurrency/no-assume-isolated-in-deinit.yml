@@ -15,4 +15,4 @@ rule:
                   has: {field: suffix, regex: '^\.assumeIsolated$'}
         - inside: {kind: deinit_declaration, stopBy: {kind: 'deinit_declaration, lambda_literal, function_declaration'}}
 message: '`$HOP` asserts actor isolation inside a nonisolated `deinit`'
-note: 'Declare `isolated deinit` and call isolated members directly, the runtime running the deinitializer on the actor''s executor'
+note: 'Declare `isolated deinit` and call isolated members directly'

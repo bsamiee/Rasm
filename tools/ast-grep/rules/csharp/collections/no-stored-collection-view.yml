@@ -75,4 +75,4 @@ rule:
 labels:
     HELD: {style: secondary, message: 'Collection the type holds'}
 message: '`$NAME` stores a copy or view of `$HELD`, a collection its type holds'
-note: Read the view from the held collection where it is used, one stored collection states the elements once
+note: 'Read the view from the held collection at each use'

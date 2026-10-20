@@ -65,13 +65,13 @@ utils:
         kind: invocation_expression
         any:
             - all:
-                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(First|FirstOrDefault|Single|SingleOrDefault|Last|LastOrDefault|Any|All|Where|Find|FindIndex|FindLast|FindLastIndex|Exists|TrueForAll|Filter|Count|Choose)$'}}, {has: {field: expression, pattern: $SOURCE}}]}
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(First|FirstOrDefault|Single|SingleOrDefault|Last|LastOrDefault|Any|All|Where|Find|FindIndex|FindLast|FindLastIndex|Exists|TrueForAll|Filter|Count|Choose)$', pattern: $METHOD}}, {has: {field: expression, pattern: $SOURCE}}]}
                 - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: probe}}}
             - all:
-                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Exists|Find|FindIndex|FindLast|FindLastIndex|FindAll|TrueForAll)$'}}, {has: {field: expression, regex: '^Array$'}}]}
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Exists|Find|FindIndex|FindLast|FindLastIndex|FindAll|TrueForAll)$', pattern: $METHOD}}, {has: {field: expression, regex: '^Array$'}}]}
                 - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, pattern: $SOURCE}}, {has: {kind: argument, nthChild: 2, has: {matches: probe}}}]}
             - all:
-                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Contains|IndexOf|LastIndexOf)$'}}, {has: {field: expression, pattern: $SOURCE, matches: {csharp-declared-type: {type: {matches: sequence-type}}}}}]}
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Contains|IndexOf|LastIndexOf)$', pattern: $METHOD}}, {has: {field: expression, pattern: $SOURCE, matches: {csharp-declared-type: {type: {matches: sequence-type}}}}}]}
                 - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {any: [{pattern: $ITEM}, {has: {stopBy: end, kind: identifier, pattern: $ITEM}}]}}}
     binds-item:
         any:
@@ -106,5 +106,5 @@ rule:
                 - all:
                     - has: {field: function, kind: member_access_expression, has: {field: expression, regex: '^Array$'}}
                     - has: {field: arguments, has: {kind: argument, nthChild: 1, matches: varies}}
-message: '`$SCAN` scans `$SOURCE` once per `$ITEM`'
-note: 'Build one `ToDictionary`, `ToLookup`, `ToHashSet`, or `toHashMap` index of the scanned sequence before the loop, or pair both sides with `Join` or `GroupJoin`'
+message: '`$METHOD` scans `$SOURCE` once per `$ITEM`'
+note: 'Index scanned sequence once before loop (`ToDictionary`, `ToLookup`, `ToHashSet`, `toHashMap`), or pair both sides through `Join` or `GroupJoin`'

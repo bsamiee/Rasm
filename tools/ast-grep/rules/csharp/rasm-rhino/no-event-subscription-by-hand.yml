@@ -61,4 +61,4 @@ rule:
                         - has: {field: left, matches: event}
                         - not: {matches: action}
 message: '`+=` attaches a handler to `$EVENT` and a separate `-=` detaches it by hand'
-note: 'Use `Subscriptions.Attach(h => <source>.<event> += h, h => <source>.<event> -= h, <handler>, <retain>)` with the handler `Callbacks.Handler` builds, and `<retain>` receives the lease that detaches it'
+note: 'Use `Subscriptions.Attach(h => <source>.<event> += h, h => <source>.<event> -= h, <handler>, <retain>)` over a `Callbacks.Handler` handler'

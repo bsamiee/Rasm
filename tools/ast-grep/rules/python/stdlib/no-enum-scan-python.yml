@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-enum-scan-lookup
+id: no-enum-scan-python
 language: python
 severity: error
 utils:
@@ -151,4 +151,4 @@ transform:
     FIXED: {rewrite: {source: $FIXABLE, rewriters: [lookup, test, keyed]}}
 fix: $FIXED$KEPT
 message: '`$SCAN` scans enum members for one member, value, or name'
-note: 'Look up `<enum>(<value>)`, `<enum>[<name>]`, or `<value> in <enum>`. The fix keeps a loop or a default that falls through where the lookup raises'
+note: 'Look up `<enum>(<value>)`, `<enum>[<name>]`, or `<value> in <enum>`'

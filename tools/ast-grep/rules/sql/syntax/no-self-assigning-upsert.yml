@@ -19,5 +19,7 @@ rule:
                             all:
                                 - has: {field: name, pattern: _COLUMN}
                                 - any: [{not: {has: {field: table, regex: '.'}}}, {has: {field: table, pattern: _TABLE}}]
-message: '`$UPSERT` rewrites each conflicting row with the values it already holds'
-note: 'Write `on conflict (<key>) do nothing returning <columns>` and read the key in the same unit (a `union all` select on PostgreSQL, a second statement of the batch on SQLite), so an existing row costs D1 no written row and PostgreSQL no row version or WAL'
+transform:
+    HEAD: {replace: {source: $UPSERT, replace: '(?is)^(.*?\bupdate\b).*$', by: '$1'}}
+message: '`$HEAD` rewrites each conflicting row with its own values'
+note: 'Write `on conflict (<key>) do nothing returning <columns>` and read existing keys in one unit (PostgreSQL `union all` select, SQLite batch statement)'

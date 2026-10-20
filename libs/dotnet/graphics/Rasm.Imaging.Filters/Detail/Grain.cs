@@ -1,6 +1,5 @@
 using System.Globalization;
 using System.Numerics;
-using System.Runtime.Intrinsics;
 using CommunityToolkit.HighPerformance;
 using Emgu.CV;
 using Emgu.CV.CvEnum;
@@ -38,7 +37,7 @@ public sealed record FilmGrain(
             ? None
             : Some<PixelPass>(new PixelPass.Frame((frame, progress) => Kernel(state, context, frame, progress)));
 
-    private static unsafe Fin<Unit> Kernel(FilmGrain state, PassContext context, PixelFrame frame, IProgress<int> progress) {
+    private static Fin<Unit> Kernel(FilmGrain state, PassContext context, PixelFrame frame, IProgress<int> progress) {
         uint field = CoordinateHash.Field(NoiseStream.FilmGrain, state.Seed, state.Hold.Period(state.Timing.At(context)));
         (double sigma, float bias, Vector4 mix) = (state.Size.Pixels(context.Extent), state.Intensity * state.Intensity / 2f, state.Intensity * Draws.Mix(state.Chroma));
         (double start, double span, double width) = (state.ShadowEdge, state.MidtoneSpan, state.HighlightSpan);
@@ -102,7 +101,6 @@ public sealed record FilmGrain(
                 : Try.lift(() => {
                     System.Drawing.Size dimensions = new((int)width, (int)height);
                     int pixels = dimensions.Width * dimensions.Height;
-                    Vector4[] scores = new Vector4[pixels];
                     using Mat header = key.Scan.Frame.Header();
                     using Mat source = new();
                     using Mat resized = new();
@@ -114,14 +112,14 @@ public sealed record FilmGrain(
                     const double third = 1d / 3d;
                     mean.SetTo([1d, 0d, 0d, 0d, 0d, 1d, 0d, 0d, 0d, 0d, 1d, 0d, third, third, third, 0d]);
                     CvInvoke.Transform(resized, mixed, mean);
-                    ReadOnlySpan<Vector256<double>> texels = new(mixed.DataPointer.ToPointer(), pixels);
-                    for (int lane = 0; lane < 4; lane++) {
+                    float[][] lanes = [.. Enumerable.Range(0, 4).Select(lane => {
+                        using Mat channel = new();
+                        CvInvoke.ExtractChannel(mixed, channel, lane);
                         double[] values = new double[pixels];
-                        for (int texel = 0; texel < pixels; texel++) values[texel] = texels[texel][lane];
-                        double[] lower = values.Ranks(RankDefinition.Min);
-                        double[] upper = ArrayStatistics.RanksInplace(values, RankDefinition.Max);
-                        for (int texel = 0; texel < pixels; texel++) scores[texel][lane] = (float)Normal.InvCDF(0d, 1d, (lower[texel] + upper[texel] - 1d) / (2d * pixels));
-                    }
+                        channel.CopyTo(values);
+                        return values.Ranks(RankDefinition.Min).Zip(ArrayStatistics.RanksInplace(values, RankDefinition.Max), (lower, upper) => (float)Normal.InvCDF(0d, 1d, (lower + upper - 1d) / (2d * pixels))).ToArray();
+                    })];
+                    Vector4[] scores = [.. Enumerable.Range(0, pixels).Select(texel => new Vector4(lanes[0][texel], lanes[1][texel], lanes[2][texel], lanes[3][texel]))];
                     return scores.AsMemory().AsMemory2D(dimensions.Height, dimensions.Width);
                 }).Run();
         }
@@ -177,18 +175,16 @@ public sealed record SensorNoise(NoiseDeviation Shot, NoiseDeviation Read, AxisF
         double read = double.Log2(state.Read) - context.Exposure;
         Vector4 mix = Draws.Mix(state.Chroma);
         (double X, double Y, double Z) luminance = context.Working.Luminance;
-        int luminanceLane = Vector256<double>.Count - 1;
+        double Deviation(double signal, double draw) =>
+            double.Log2(double.Abs(draw)) switch {
+                var amplitude => double.CopySign(double.Hypot(double.Exp2(amplitude + shot + (0.5d * double.Log2(double.Max(signal, 0d)))), double.Exp2(amplitude + read)), draw),
+            };
         return state.Shot == NoiseDeviation.Off && state.Read == NoiseDeviation.Off ? None : Some<PixelPass>(new PixelPass.Pointwise((row, column, line) => {
             for (int x = 0; x < row.Length; x++) {
-                double luma = LuminanceSamples.Luminance(row[x].X, row[x].Y, row[x].Z, luminance);
                 Vector4 draws = mix * CoordinateHash.Normals(column + x, line, field);
-                Vector256<double> deviations = Vector256<double>.Zero;
-                for (int lane = 0; lane < Vector256<double>.Count; lane++) {
-                    double signal = lane == luminanceLane ? luma : row[x][lane];
-                    double amplitude = double.Log2(double.Abs(draws[lane]));
-                    deviations = deviations.WithElement(lane, double.CopySign(double.Hypot(double.Exp2(amplitude + shot + (0.5d * double.Log2(double.Max(signal, 0d)))), double.Exp2(amplitude + read)), draws[lane]));
-                }
-                for (int lane = 0; lane < luminanceLane; lane++) row[x][lane] = (float)(row[x][lane] + deviations[lane] + deviations[luminanceLane]);
+                double shared = Deviation(LuminanceSamples.Luminance(row[x].X, row[x].Y, row[x].Z, luminance), draws.W);
+                row[x] = new Vector4(
+                    (float)(row[x].X + Deviation(row[x].X, draws.X) + shared), (float)(row[x].Y + Deviation(row[x].Y, draws.Y) + shared), (float)(row[x].Z + Deviation(row[x].Z, draws.Z) + shared), row[x].W);
             }
         }));
     }

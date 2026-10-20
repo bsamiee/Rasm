@@ -693,9 +693,8 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
             (true, true, var fine) =>
                 (Math.SinCos((e.Location.X - previous.X) * at.Scale * Turn * fine), corner.Handle.Point.Get(corner.Raw)) switch {
                     var ((sin, cos), pivot) => Bent(state, corner,
-                        point => (point.X - pivot.X, point.Y - pivot.Y) switch {
-                            var (x, y) => (pivot.X + (x * cos) - (y * sin), pivot.Y + (x * sin) + (y * cos)),
-                        }, other => other != corner.Handle),
+                        point => (pivot.X + ((point.X - pivot.X) * cos) - ((point.Y - pivot.Y) * sin), pivot.Y + ((point.X - pivot.X) * sin) + ((point.Y - pivot.Y) * cos)),
+                        other => other != corner.Handle),
                 },
             (var every, _, var fine) => ((at.Point(e.Location) - at.Point(previous)) * fine) switch {
                 var moved => Bent(state, corner, point => (point.X + moved.X, point.Y + moved.Y), other => every || other == corner.Handle),

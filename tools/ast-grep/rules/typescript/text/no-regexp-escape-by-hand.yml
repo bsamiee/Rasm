@@ -87,6 +87,7 @@ rule:
             - has: {field: function, not: {has: {kind: optional_chain}}, has: {field: object, pattern: $TEXT}}
 transform:
     ARGUMENT: {replace: {source: $TEXT, replace: '(?s)^(.+)$', by: '($1)'}}
+    HEAD: {replace: {source: $CALL, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
 fix: RegExp.escape$ARGUMENT
-message: '`$CALL` escapes regular expression syntax characters by hand'
-note: 'Call `RegExp.escape(<text>)` to escape every syntax character, with a leading alphanumeric, other punctuators, and whitespace written as hex escapes valid under `u` and `v`'
+message: '`$HEAD` escapes regular expression syntax characters by hand'
+note: 'Call `RegExp.escape(<text>)`'

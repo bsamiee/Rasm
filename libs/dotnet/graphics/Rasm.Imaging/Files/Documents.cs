@@ -109,14 +109,12 @@ public sealed record LayeredDocument {
         select canvas;
 
     private PixelFrame Isolated(Seq<DocumentLayer> layers) =>
-        Flatten(layers, new PixelFrame(Canvas.Origin, Canvas.Size, Canvas.Extent, static block => block.AsSpan().Clear())) switch {
-            var flat => new PixelFrame(flat.Origin, flat.Size, flat.Extent, block => {
-                ReadOnlySpan<Vector4> associated = MemoryMarshal.Cast<float, Vector4>(flat.Block);
-                Span<Vector4> straight = MemoryMarshal.Cast<float, Vector4>(block.AsSpan());
-                for (int i = 0; i < straight.Length; i++)
-                    straight[i] = associated[i].W is 0f or 1f ? associated[i] : new Vector4(associated[i].AsVector3() / associated[i].W, associated[i].W);
-            }),
-        };
+        new(Canvas.Origin, Canvas.Size, Canvas.Extent, block => {
+            ReadOnlySpan<Vector4> associated = MemoryMarshal.Cast<float, Vector4>(Flatten(layers, new PixelFrame(Canvas.Origin, Canvas.Size, Canvas.Extent, static cleared => cleared.AsSpan().Clear())).Block);
+            Span<Vector4> straight = MemoryMarshal.Cast<float, Vector4>(block.AsSpan());
+            for (int i = 0; i < straight.Length; i++)
+                straight[i] = associated[i].W is 0f or 1f ? associated[i] : new Vector4(associated[i].AsVector3() / associated[i].W, associated[i].W);
+        });
 
     private PixelFrame Flatten(Seq<DocumentLayer> layers, PixelFrame backdrop) =>
         layers.Filter(static layer => layer.Visible && layer.Opacity != AxisFraction.MinValue).Fold(backdrop, Over);

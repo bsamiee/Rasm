@@ -28,4 +28,4 @@ rule:
             - has: {stopBy: *member, matches: primitive, regex: '^boolean$'}
             - has: {stopBy: *member, matches: literal, has: {kind: 'true, false'}}
 message: '`$UNION` holds a constituent redundant beside `$WIDE`'
-note: 'Drop the constituent the wider one includes (`unknown` and `any` absorb every member, `never` adds none), and write `string & {}` in place of `string` to keep a literal for editor completion'
+note: 'Drop the constituent the wider one includes, or write `string & {}` in place of `string` to keep a literal for editor completion'

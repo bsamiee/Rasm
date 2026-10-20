@@ -62,4 +62,4 @@ rule:
             - has: {field: name, pattern: $CODE}
             - inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, matches: code-cast}}
 message: '`$CODE` sets a nonzero error code'
-note: Pass code `0` to `Expected` and branch on the record type, call `Error.New(<message>)` for a failure no consumer branches on, and keep `ErrorCodes` members for LanguageExt's failures, `Is`, `Catch`, and `HasCode` match every error sharing a nonzero code across packages
+note: 'Pass code `0` to `Expected` and branch on record type, `Error.New(<message>)` where no consumer branches, `ErrorCodes` for LanguageExt failures'

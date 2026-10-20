@@ -75,4 +75,4 @@ rule:
         - matches: record-write
         - matches: record-join
 message: '`$SITE` reads or writes delimited records by hand'
-note: 'Decode rows with `csv::ReaderBuilder::new().delimiter(<byte>).has_headers(<bool>).from_reader(<reader>).deserialize::<<Row>>()` and write them with `csv::Writer::serialize`'
+note: 'Decode rows through `csv::ReaderBuilder` and `deserialize::<<Row>>()`, and write them through `csv::Writer::serialize`'

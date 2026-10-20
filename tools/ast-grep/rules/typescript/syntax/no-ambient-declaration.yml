@@ -37,5 +37,7 @@ rule:
           all:
             - has: {kind: variable_declarator, not: {has: {field: value, pattern: $_}}}
             - not: {inside: {kind: ambient_declaration, stopBy: end}}
-message: '`$DECLARATION` declares ambient types or values the compiler takes on trust'
-note: 'Take a dependency''s types from its package or a `paths` row to a declaration file it holds, extend an interface the package declares for consumers by merging `interface <Name> { … }` into it, and decode a build, host, or dependency value with `Schema` where it is read (`import.meta.env` under the bundler''s types for a build value)'
+transform:
+    HEAD: {replace: {source: $DECLARATION, replace: '(?s)\s*\{?\s*\n.*$', by: ''}}
+message: '`$HEAD` declares ambient types or values the compiler takes on trust'
+note: 'Take each type from its owner (package or `paths` types, merged `interface <Name> { … }`, bundler `import.meta.env` types) or decode with `Schema`'

@@ -2,6 +2,7 @@
 id: no-diag-item-set-by-hand
 language: rust
 severity: error
+files: [tools/dylint/**]
 rule:
     all:
         - any:
@@ -21,4 +22,4 @@ rule:
                 - pattern: $CX.is_lang_item($X, $A) || $CX.is_lang_item($X, $B)
         - not: {inside: {stopBy: end, matches: rust-trait-of-assoc-test}}
 message: '`$X` repeats one item lookup per name of a set'
-note: 'Match one lookup against the set: `matches!(<value>.opt_diag_name(cx), Some(sym::A | sym::B))` or `matches!(tcx.get_diagnostic_name(<def_id>), Some(sym::A | sym::B))` for diagnostic items, `matches!(tcx.as_lang_item(<def_id>), Some(LangItem::A | LangItem::B))` for lang items'
+note: 'Match one lookup against the set, `matches!(<value>.opt_diag_name(cx), Some(sym::A | sym::B))` or `tcx.as_lang_item` for lang items'

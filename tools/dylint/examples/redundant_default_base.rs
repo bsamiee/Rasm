@@ -1,13 +1,13 @@
 #![feature(default_field_values)]
 
-use core::hint::black_box;
+use core::{hint::black_box, time::Duration};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Debug, Default)]
 struct Limits {
     retries: u8 = 3,
-    timeout: u16 = 30,
+    timeout: Duration = Duration::from_secs(30),
     name: String,
 }
 
@@ -39,7 +39,7 @@ fn retry() -> Retry { Retry { attempts: 4, ..Default::default() } }
 
 fn main() {
     let (limits, window, retry) = (limits(String::new()), window(), retry());
-    black_box(&([limits.timeout, window.width, window.height, retry.backoff], limits.retries, limits.name, retry.attempts, named(String::new()).retries));
+    black_box(&([window.width, window.height, retry.backoff], limits.timeout, limits.retries, limits.name, retry.attempts, named(String::new()).retries));
 }
 
 fn named(name: String) -> Limits { Limits { name, ..Limits::default() } }

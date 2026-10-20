@@ -21,4 +21,4 @@ rule:
             - has: {field: name, pattern: $NAME}
             - has: {kind: accessor_list, has: {kind: accessor_declaration, has: {field: name, regex: '^set$'}}}
 message: '`$NAME` is static state every caller in the process shares and reassigns'
-note: Declare a `static readonly` field of an immutable value, pass the state to each operation and return the next one, or hold state shared across calls in an `Atom` its owner creates once
+note: 'Declare a `static readonly` immutable value, return next state from each operation, or hold shared state in an `Atom` its owner creates once'

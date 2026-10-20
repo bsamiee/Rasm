@@ -38,4 +38,4 @@ rule:
                     - inside: {kind: template_string, regex: '(?i)^`\s*(insert|update|delete|select|with|replace|values)\b'}
                 - has: {stopBy: end, matches: quoting}
 message: '`$VALUE` splices a value into SQL text'
-note: 'Keep the statement constant and bind each value as a parameter through the Effect SQL client tagged template, a DDL statement takes no parameter and renders its literals through one escaping function'
+note: 'Pass each value as a parameter of the Effect SQL client tagged template, or a parameterless DDL literal through one escaping function'

@@ -61,4 +61,4 @@ rule:
         - matches: reached
         - matches: indexed
 message: '`$ACCESS` reaches a member by a name string'
-note: 'Read the member on its owner, a lambda for a deferred read or call, or a nested `def` for a deferred assignment, type checkers reading a member reached by name as `Any`. A `vars` or `__dict__` read of one namespace''s stored descriptor stays, and ruff `banned-api` reports `operator.attrgetter` and `operator.methodcaller`'
+note: 'Read the member on its owner, a lambda for a deferred read or call, or a nested `def` for a deferred assignment'

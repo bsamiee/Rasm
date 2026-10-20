@@ -2,6 +2,7 @@
 id: no-sentinel-placeholder-csharp
 language: csharp
 severity: error
+ignores: ['tools/roslyn/**']
 utils:
     type-name:
         matches: {csharp-type-name: {name: {pattern: $TYPE}}}

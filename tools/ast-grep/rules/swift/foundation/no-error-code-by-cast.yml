@@ -64,5 +64,7 @@ rule:
         - matches: code-read
           inside: {kind: 'if_statement, guard_statement, while_statement'}
           follows: {regex: '^=$'}
-message: '`$MATCH` classifies an error by comparing its code after a cast or through its raw value'
-note: 'Match each code as a pattern on the error (`case CocoaError.fileNoSuchFile` in a `switch` or `catch`, `if case URLError.timedOut = error`), one `switch` covers codes of different error types (`case .noSuchFileOrDirectory as Errno`), and an `Errno` compares by case (`error.underlyingError == .permissionDenied`)'
+transform:
+    HEAD: {replace: {source: $MATCH, replace: '(?s)\n.*$', by: ''}}
+message: '`$HEAD` classifies an error by comparing its code after a cast or through its raw value'
+note: 'Match codes as `switch`, `catch`, or `if case` patterns (`.noSuchFileOrDirectory as Errno`), and compare an `Errno` by case (`== .permissionDenied`)'

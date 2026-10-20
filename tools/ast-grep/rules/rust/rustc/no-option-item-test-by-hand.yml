@@ -2,6 +2,7 @@
 id: no-option-item-test-by-hand
 language: rust
 severity: error
+files: [tools/dylint/**]
 rule:
     kind: call_expression
     all:
@@ -17,4 +18,4 @@ transform:
     COPIED: {replace: {source: $REFERENCE, replace: '^&.*$', by: '.copied()'}}
 fix: $X$COPIED.$TEST($CX, $NAME)
 message: '`$X.is_some_and(..)` opens the `Option` only to call `$TEST` on its value'
-note: 'Call the test on the `Option` itself (`use clippy_utils::res::MaybeDef as _;`), `MaybeDef` for `Option<T>` answers `false` for `None` and takes `copied()` over an `Option<&T>`'
+note: 'Call the test on the `Option` through `MaybeDef` (`use clippy_utils::res::MaybeDef as _;`), after `copied()` for an `Option<&T>`'

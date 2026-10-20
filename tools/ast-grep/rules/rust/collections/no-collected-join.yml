@@ -37,4 +37,4 @@ transform:
     FCLOSE: {replace: {source: $J, replace: '^[\s\S]+$', by: '))).to_string()'}}
 fix: '$I$OPEN$S$CLOSE$J$FOPEN$T$FPARAM$P$FBODY$$$A$FCLOSE'
 message: '`$I$J` joins items through `intersperse` or an intermediate `Vec`'
-note: 'Call `Itertools::join(<iterator>, <separator>)` (`use itertools::Itertools as _;`), or `<iterator>.format_with(<separator>, |<item>, sink| sink(&format_args!(..))).to_string()` for a `format!` map'
+note: 'Call `Itertools::join(<iterator>, <separator>)`, or `format_with(<separator>, |<item>, sink| ..)` for a `format!` map'

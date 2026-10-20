@@ -90,4 +90,4 @@ fix:
             - any: [{matches: leaving-match}, {matches: type-guard}]
               precedes: {matches: unhandled, stopBy: {not: {kind: comment}}}
 message: 'Catch-all branch raises for a type no earlier branch handles, the last handled case closes the dispatch'
-note: 'Use a `match` with no catch-all case or an `if` chain whose last handled branch is its `else` or its closing statement, mypy `exhaustive-match` and ty `redundant-condition-strict` check that declared inputs reach no other type. A `match` whose one case is the catch-all takes a manual rewrite'
+note: 'Use a `match` with no catch-all case, or an `if` chain with the last handled branch as its `else` or closing statement'

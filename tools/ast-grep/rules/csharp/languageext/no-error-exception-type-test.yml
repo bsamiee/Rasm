@@ -96,4 +96,4 @@ rule:
             - matches: {csharp-type-test: {subject: {matches: thrown}, type: {pattern: $TYPE}}}
             - matches: type-only
 message: Exception inside `$ERROR` is tested against `$TYPE` by hand
-note: Call `HasException<$TYPE>()` on `$ERROR`, which tests the type, its subtypes, and every `ManyErrors` leaf
+note: 'Call `HasException<<type>>()` on `<error>`'

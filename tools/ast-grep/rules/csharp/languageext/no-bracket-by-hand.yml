@@ -57,5 +57,9 @@ rule:
             - has: {kind: select_clause, nthChild: 3, has: {pattern: $VALUE}}
             - not: {has: {nthChild: 4}}
             - not: {has: {kind: from_clause, nthChild: 2, has: {stopBy: end, kind: identifier, pattern: $USED}}}
-message: '`$BEGIN` and `$END` bracket `$BODY` by hand'
-note: 'Write `<acquire>.Bracket(Use: <body>, Fin: <release>)`, which runs the release after the body on both paths'
+transform:
+    BEGIN_HEAD: {replace: {source: $BEGIN, replace: '(?s)^(?:\(\)\s*=>\s*)?\{?\s*([@\w.]+).*$', by: '$1'}}
+    END_HEAD: {replace: {source: $END, replace: '(?s)^(?:\(\)\s*=>\s*)?\{?\s*([@\w.]+).*$', by: '$1'}}
+    BODY_HEAD: {replace: {source: $BODY, replace: '(?s)^([@\w.]+).*$', by: '$1'}}
+message: '`$BEGIN_HEAD` and `$END_HEAD` bracket `$BODY_HEAD` by hand'
+note: 'Write `<acquire>.Bracket(Use: <body>, Fin: <release>)`'

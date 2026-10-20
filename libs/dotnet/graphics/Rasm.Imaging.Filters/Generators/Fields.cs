@@ -167,11 +167,11 @@ public sealed record VortexField(VortexArms Arms, SignedAngle Twist, ShortSideEx
     internal Func<(double X, double Y), LatticePoint> Shape(float time) =>
         (ERational.FromSingle(Radius), ERational.FromDouble(double.Tau), ERational.FromSingle(Spin).Multiply(ERational.FromSingle(time))) switch {
             var (size, period, clock) => point => (double.Hypot(point.X, point.Y), double.Atan2(point.Y, point.X)) switch {
-                var (radius, angle) => (ERational.FromDouble(angle).Multiply((int)Arms).Add(ERational.FromSingle(Twist).Multiply(ERational.One.Subtract(ERational.FromDouble(radius).Divide(size)))).Divide(period).Add(clock), ERational.Min(ERational.FromDouble(radius), size)) switch {
-                    var (phase, reach) => double.SinCos(NoiseFunctions.Split(phase).Local.Multiply(period).ToDouble()) switch {
-                        var (sin, cos) => new LatticePoint(reach.Multiply(ERational.FromDouble(cos)), reach.Multiply(ERational.FromDouble(sin)), reach.Multiply(ERational.FromSingle(Tunnel)), ERational.Zero),
-                    },
-                },
+                var (radius, angle) => (
+                    double.SinCos(NoiseFunctions.Split(ERational.FromDouble(angle).Multiply((int)Arms).Add(ERational.FromSingle(Twist).Multiply(ERational.One.Subtract(ERational.FromDouble(radius).Divide(size)))).Divide(period).Add(clock)).Local.Multiply(period).ToDouble()),
+                    ERational.Min(ERational.FromDouble(radius), size)),
+            } switch {
+                var ((sin, cos), reach) => new LatticePoint(reach.Multiply(ERational.FromDouble(cos)), reach.Multiply(ERational.FromDouble(sin)), reach.Multiply(ERational.FromSingle(Tunnel)), ERational.Zero),
             },
         };
 }
@@ -508,12 +508,15 @@ public sealed record Starfield(
             : ((NoiseBasis.Plain with { Dimensions = NoiseDimensions.Four }).Sampler, ERational.FromSingle(state.TwinkleRate).Multiply(ERational.FromSingle(time)), (float)state.Twinkle) switch {
                 var (plain, phase, depth) => site => 1f - (depth * plain(site with { W = site.W.Add(phase) }, glint).Value),
             };
-        Func<(double X, double Y), Vector3> nebula = state.NebulaDensity == AxisFraction.MinValue ? static _ => Vector3.Zero
-            : (state.Nebula.Sampler(time, clouds), state.NebulaColors.Tabulate(context.Working), state.NebulaExposure.Scale, (float)state.NebulaDensity) switch {
-                var (sample, table, light, density) => point => sample(new LatticePoint(ERational.FromDouble(point.X), ERational.FromDouble(point.Y), ERational.Zero, ERational.Zero)) switch {
-                    var n => table.Sample(n) switch { var cloud => (float)RampInterpolation.SmootherRgb.Weight(Looks.Map(n, (1f - density, 1f))) * cloud.W * light * cloud.AsVector3() },
-                },
-            };
+        Func<(double X, double Y), Vector3> nebula =
+            state.NebulaDensity != AxisFraction.MinValue
+            && (state.Nebula.Sampler(time, clouds), state.NebulaColors.Tabulate(context.Working), state.NebulaExposure.Scale, (float)state.NebulaDensity) is var (sample, table, light, density)
+                ? point => sample(new LatticePoint(ERational.FromDouble(point.X), ERational.FromDouble(point.Y), ERational.Zero, ERational.Zero)) switch {
+                    var n => (Weight: (float)RampInterpolation.SmootherRgb.Weight(Looks.Map(n, (1f - density, 1f))), Cloud: table.Sample(n)),
+                } switch {
+                    var (weight, cloud) => weight * cloud.W * light * cloud.AsVector3(),
+                }
+                : static _ => Vector3.Zero;
         return state.Layer.Pass(state.Placement.Frame(context.Extent).Fill(point => {
             NoiseSample<LatticePoint> cell = stars(new(ERational.FromDouble(point.X).Divide(scale), ERational.FromDouble(point.Y).Divide(scale), ERational.Zero, ERational.Zero), sites);
             Vector4 draw = NoiseFunctions.White(cell.Site, draws);

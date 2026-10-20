@@ -11,4 +11,4 @@ rule:
 transform:
     HEAD: {replace: {source: $EXPRESSION, replace: '(?is)^(.*?\bin)\b.*$', by: '$1 (...)'}}
 message: '`$HEAD` selects no row once the subquery yields NULL'
-note: 'Write `not exists (select 1 from <table> where <column> = <operand>)` with `<column>` indexed, SQLite runs the unindexed form once per outer row'
+note: 'Write `not exists (select 1 from <table> where <column> = <operand>)` with `<column>` indexed'

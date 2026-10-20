@@ -34,8 +34,10 @@ utils:
 rule:
     any:
         - kind: function_signature
+          pattern: $SIGNATURE
           not: {inside: {kind: ambient_declaration, stopBy: end}}
         - kind: method_signature
+          pattern: $SIGNATURE
           inside: {kind: class_body}
         - matches: shape-test
           inside:
@@ -50,5 +52,7 @@ rule:
                             - has: {field: pattern, pattern: $PARAMETER}
                             - has: {field: type, has: {matches: declared-union}}
                 - not: {has: {field: return_type, kind: 'type_predicate_annotation, asserts_annotation'}}
-message: 'Argument shape selects the behavior at runtime through an overload, a `typeof` test, or an `Array.isArray` test'
-note: 'Declare one function per argument shape, each caller holds one shape and calls its function'
+transform:
+    OVERLOAD: {replace: {source: $SIGNATURE, replace: '(?s)^(?:function\s+)?([^(<]+).*$', by: '$1'}}
+message: '`$PARAMETER$OVERLOAD` selects the behavior by argument shape at runtime'
+note: 'Decode the argument to one shape (`Schema.ArrayEnsure`), or declare one function per shape'

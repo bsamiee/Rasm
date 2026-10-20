@@ -10,5 +10,5 @@ rule:
           has: {stopBy: end, pattern: __MISSING, regex: '^$', not: {inside: {kind: ERROR, stopBy: end}}}
 labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
-message: Grammar failed to parse the span
-note: 'Write a form the grammar parses, every other rule skips constructs inside a parse error'
+message: Grammar failed to parse the span every other rule skips
+note: Write a form the grammar parses

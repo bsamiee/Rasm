@@ -142,4 +142,4 @@ rule:
         - has: {stopBy: end, matches: lift-thunk, has: {field: function, pattern: $CALL}}
         - not: {matches: arm-body}
 message: 'Each branch arm lifts its own effect around `$CALL`'
-note: Use one `IO.lift` or `IO.liftAsync` over the branching expression with arms returning a `Fin` or value, and one lift over `Switch`'s `Action` overload where every arm is a statement
+note: 'Lift the whole branch once (`IO.lift`, `IO.liftAsync`) over arms that return `Fin` or a value, or `Switch`''s `Action` overload for statement arms'

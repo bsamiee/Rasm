@@ -408,42 +408,42 @@ fn needless_struct(found: &str) {
 fn option_fields_as_result(found: &str) {
     insta::assert_snapshot!(found, @"
     warning: every construction of `Parsed` sets exactly one of success `port` and failure `failure`
-      --> tools/dylint/examples/option_fields_as_result.rs:32:5
+      --> tools/dylint/examples/option_fields_as_result.rs:35:5
        |
-    32 |     failure: Option<ParseIntError>,
+    35 |     failure: Option<ParseIntError>,
        |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
     note: `port` declared here
-      --> tools/dylint/examples/option_fields_as_result.rs:31:5
+      --> tools/dylint/examples/option_fields_as_result.rs:34:5
        |
-    31 |     port: Option<u16>,
+    34 |     port: Option<u16>,
        |     ^^^^^^^^^^^^^^^^^
        = help: replace `port` and `failure` with one `Result`
        = note: `#[warn(option_fields_as_result)]` on by default
 
     warning: every construction of `Reply` sets exactly one of success `value` and failure `refusal`
-      --> tools/dylint/examples/option_fields_as_result.rs:38:5
+      --> tools/dylint/examples/option_fields_as_result.rs:41:5
        |
-    38 |     refusal: Option<Closed>,
+    41 |     refusal: Option<Closed>,
        |     ^^^^^^^^^^^^^^^^^^^^^^^
        |
     note: `value` declared here
-      --> tools/dylint/examples/option_fields_as_result.rs:37:5
+      --> tools/dylint/examples/option_fields_as_result.rs:40:5
        |
-    37 |     value: Option<u16>,
+    40 |     value: Option<u16>,
        |     ^^^^^^^^^^^^^^^^^^
        = help: replace `value` and `refusal` with one `Result`
 
     warning: every construction of `Exchange` sets exactly one of success `value` and failure `error`
-      --> tools/dylint/examples/option_fields_as_result.rs:81:5
+      --> tools/dylint/examples/option_fields_as_result.rs:84:5
        |
-    81 |     pub error: Option<String>,
+    84 |     pub error: Option<String>,
        |     ^^^^^^^^^^^^^^^^^^^^^^^^^
        |
     note: `value` declared here
-      --> tools/dylint/examples/option_fields_as_result.rs:80:5
+      --> tools/dylint/examples/option_fields_as_result.rs:83:5
        |
-    80 |     pub value: Option<u32>,
+    83 |     pub value: Option<u32>,
        |     ^^^^^^^^^^^^^^^^^^^^^^
        = help: replace `value` and `error` with one `Result`
     ");
@@ -452,133 +452,262 @@ fn option_fields_as_result(found: &str) {
 fn primitive_domain_binding(found: &str) {
     insta::assert_snapshot!(found, @r#"
     warning: `wait_millis` holds a duration as `u64`
-     --> tools/dylint/examples/primitive_domain_binding.rs:7:9
-      |
-    7 |     let wait_millis = base.saturating_mul(2);
-      |         ^^^^^^^^^^^
-      |
-      = help: bind a `core::time::Duration` and convert where a protocol or API takes the number
-      = note: `#[warn(primitive_domain_binding)]` on by default
+      --> tools/dylint/examples/primitive_domain_binding.rs:54:9
+       |
+    54 |     let wait_millis = base.saturating_mul(2);
+       |         ^^^^^^^^^^^
+       |
+       = help: declare a `core::time::Duration` and convert where a protocol or API takes the number
+       = note: `#[warn(primitive_domain_binding)]` on by default
 
     warning: `retry_delay` holds a duration as `u64`
-     --> tools/dylint/examples/primitive_domain_binding.rs:8:9
-      |
-    8 |     let retry_delay = 500_u64;
-      |         ^^^^^^^^^^^
-      |
-      = help: bind a `core::time::Duration` and convert where a protocol or API takes the number
+      --> tools/dylint/examples/primitive_domain_binding.rs:55:9
+       |
+    55 |     let retry_delay = 500_u64;
+       |         ^^^^^^^^^^^
+       |
+       = help: declare a `core::time::Duration` and convert where a protocol or API takes the number
 
     warning: `cache_dir` holds a path as `std::string::String`
-      --> tools/dylint/examples/primitive_domain_binding.rs:13:9
-       |
-    13 |     let cache_dir = format!("{root}/cache");
-       |         ^^^^^^^^^
-       |
-       = help: bind a `PathBuf` or `&Path`
-
-    warning: `data_file` holds a path as `std::string::String`
-      --> tools/dylint/examples/primitive_domain_binding.rs:14:9
-       |
-    14 |     let data_file = format!("{root}/data.json");
-       |         ^^^^^^^^^
-       |
-       = help: bind a `PathBuf` or `&Path`
-
-    warning: `log_file` holds a path as `std::string::String`
-      --> tools/dylint/examples/primitive_domain_binding.rs:15:9
-       |
-    15 |     let log_file = format!("{root}/run.log");
-       |         ^^^^^^^^
-       |
-       = help: bind a `PathBuf` or `&Path`
-
-    warning: `created_at` holds an instant as `i64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:25:9
-       |
-    25 |     let created_at = base.saturating_add(1);
-       |         ^^^^^^^^^^
-       |
-       = help: bind a `jiff::Timestamp`
-
-    warning: `since_epoch` holds an instant as `i64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:26:9
-       |
-    26 |     let since_epoch = base.saturating_add(2);
-       |         ^^^^^^^^^^^
-       |
-       = help: bind a `jiff::Timestamp`
-
-    warning: `epoch_ms` holds an instant as `i64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:27:9
-       |
-    27 |     let epoch_ms = base.saturating_add(3);
-       |         ^^^^^^^^
-       |
-       = help: bind a `jiff::Timestamp`
-
-    warning: `timestamp` holds an instant as `i64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:28:9
-       |
-    28 |     let timestamp = base.saturating_add(4);
-       |         ^^^^^^^^^
-       |
-       = help: bind a `jiff::Timestamp`
-
-    warning: `start_date` holds a calendar value as `std::string::String`
-      --> tools/dylint/examples/primitive_domain_binding.rs:33:9
-       |
-    33 |     let start_date = format!("2026-10-{day:02}");
-       |         ^^^^^^^^^^
-       |
-       = help: bind a `jiff::civil::Date`, `Time`, or `DateTime`
-
-    warning: `length_mm` holds a physical quantity as `f64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:38:9
-       |
-    38 |     let length_mm = base * 2.0;
-       |         ^^^^^^^^^
-       |
-       = help: bind a `uom::si::f64` quantity (`Length`, `Mass`, `Angle`, `Pressure`, `Power`, `Energy`, `ThermodynamicTemperature`, `Frequency`, `Ratio`)
-
-    warning: `angle_degrees` holds a physical quantity as `f64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:39:9
-       |
-    39 |     let angle_degrees = length_mm / 3.0;
-       |         ^^^^^^^^^^^^^
-       |
-       = help: bind a `uom::si::f64` quantity (`Length`, `Mass`, `Angle`, `Pressure`, `Power`, `Energy`, `ThermodynamicTemperature`, `Frequency`, `Ratio`)
-
-    warning: `declared_ms` holds a duration as `u64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:45:9
-       |
-    45 |     let declared_ms: u64 = base;
-       |         ^^^^^^^^^^^
-       |
-       = help: bind a `core::time::Duration` and convert where a protocol or API takes the number
-
-    warning: `total_bytes` holds a byte size as `u64`
       --> tools/dylint/examples/primitive_domain_binding.rs:60:9
        |
-    60 |     let total_bytes = base.saturating_mul(2);
+    60 |     let cache_dir = format!("{root}/cache");
+       |         ^^^^^^^^^
+       |
+       = help: declare a `PathBuf` or `&Path`
+
+    warning: `data_file` holds a path as `std::string::String`
+      --> tools/dylint/examples/primitive_domain_binding.rs:61:9
+       |
+    61 |     let data_file = format!("{root}/data.json");
+       |         ^^^^^^^^^
+       |
+       = help: declare a `PathBuf` or `&Path`
+
+    warning: `log_file` holds a path as `std::string::String`
+      --> tools/dylint/examples/primitive_domain_binding.rs:62:9
+       |
+    62 |     let log_file = format!("{root}/run.log");
+       |         ^^^^^^^^
+       |
+       = help: declare a `PathBuf` or `&Path`
+
+    warning: `created_at` holds an instant as `i64`
+      --> tools/dylint/examples/primitive_domain_binding.rs:72:9
+       |
+    72 |     let created_at = base.saturating_add(1);
+       |         ^^^^^^^^^^
+       |
+       = help: declare a `jiff::Timestamp`
+
+    warning: `since_epoch` holds an instant as `i64`
+      --> tools/dylint/examples/primitive_domain_binding.rs:73:9
+       |
+    73 |     let since_epoch = base.saturating_add(2);
        |         ^^^^^^^^^^^
        |
-       = help: bind a `bytesize::ByteSize`
+       = help: declare a `jiff::Timestamp`
+
+    warning: `epoch_ms` holds an instant as `i64`
+      --> tools/dylint/examples/primitive_domain_binding.rs:74:9
+       |
+    74 |     let epoch_ms = base.saturating_add(3);
+       |         ^^^^^^^^
+       |
+       = help: declare a `jiff::Timestamp`
+
+    warning: `timestamp` holds an instant as `i64`
+      --> tools/dylint/examples/primitive_domain_binding.rs:75:9
+       |
+    75 |     let timestamp = base.saturating_add(4);
+       |         ^^^^^^^^^
+       |
+       = help: declare a `jiff::Timestamp`
+
+    warning: `start_date` holds a calendar value as `std::string::String`
+      --> tools/dylint/examples/primitive_domain_binding.rs:80:9
+       |
+    80 |     let start_date = format!("2026-10-{day:02}");
+       |         ^^^^^^^^^^
+       |
+       = help: declare a `jiff::civil::Date`, `Time`, or `DateTime`
+
+    warning: `length_mm` holds a physical quantity as `f64`
+      --> tools/dylint/examples/primitive_domain_binding.rs:85:9
+       |
+    85 |     let length_mm = base * 2.0;
+       |         ^^^^^^^^^
+       |
+       = help: declare a `uom::si::f64` quantity (`Length`, `Mass`, `Angle`, `Pressure`, `Power`, `Energy`, `ThermodynamicTemperature`, `Frequency`, `Ratio`)
+
+    warning: `angle_degrees` holds a physical quantity as `f64`
+      --> tools/dylint/examples/primitive_domain_binding.rs:86:9
+       |
+    86 |     let angle_degrees = length_mm / 3.0;
+       |         ^^^^^^^^^^^^^
+       |
+       = help: declare a `uom::si::f64` quantity (`Length`, `Mass`, `Angle`, `Pressure`, `Power`, `Energy`, `ThermodynamicTemperature`, `Frequency`, `Ratio`)
+
+    warning: `declared_ms` holds a duration as `u64`
+      --> tools/dylint/examples/primitive_domain_binding.rs:92:9
+       |
+    92 |     let declared_ms: u64 = base;
+       |         ^^^^^^^^^^^
+       |
+       = help: declare a `core::time::Duration` and convert where a protocol or API takes the number
+
+    warning: `total_bytes` holds a byte size as `u64`
+       --> tools/dylint/examples/primitive_domain_binding.rs:103:9
+        |
+    103 |     let total_bytes = base.saturating_mul(2);
+        |         ^^^^^^^^^^^
+        |
+        = help: declare a `bytesize::ByteSize`
 
     warning: `load_percent` holds a physical quantity as `f64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:66:9
-       |
-    66 |     let load_percent = base / 2.0;
-       |         ^^^^^^^^^^^^
-       |
-       = help: bind a `uom::si::f64` quantity (`Length`, `Mass`, `Angle`, `Pressure`, `Power`, `Energy`, `ThermodynamicTemperature`, `Frequency`, `Ratio`)
+       --> tools/dylint/examples/primitive_domain_binding.rs:109:9
+        |
+    109 |     let load_percent = base / 2.0;
+        |         ^^^^^^^^^^^^
+        |
+        = help: declare a `uom::si::f64` quantity (`Length`, `Mass`, `Angle`, `Pressure`, `Power`, `Energy`, `ThermodynamicTemperature`, `Frequency`, `Ratio`)
 
     warning: `retry_delay` holds a duration as `u64`
-      --> tools/dylint/examples/primitive_domain_binding.rs:71:9
+       --> tools/dylint/examples/primitive_domain_binding.rs:114:9
+        |
+    114 |     let retry_delay: u64 = 500;
+        |         ^^^^^^^^^^^
+        |
+        = help: declare a `core::time::Duration` and convert where a protocol or API takes the number
+
+    warning: `timeout_ms` holds a duration as `u64`
+       --> tools/dylint/examples/primitive_domain_binding.rs:133:23
+        |
+    133 |     let waited_for = |timeout_ms: u64| timeout_ms.saturating_add(1);
+        |                       ^^^^^^^^^^
+        |
+        = help: declare a `core::time::Duration` and convert where a protocol or API takes the number
+
+    warning: `POLL_INTERVAL` holds a duration as `u64`
+      --> tools/dylint/examples/primitive_domain_binding.rs:12:7
        |
-    71 |     let retry_delay: u64 = 500;
-       |         ^^^^^^^^^^^
+    12 | const POLL_INTERVAL: u64 = 250;
+       |       ^^^^^^^^^^^^^
        |
-       = help: bind a `core::time::Duration` and convert where a protocol or API takes the number
+       = help: declare a `core::time::Duration` and convert where a protocol or API takes the number
+
+    warning: `CONFIG_PATH` holds a path as `&'static str`
+      --> tools/dylint/examples/primitive_domain_binding.rs:13:8
+       |
+    13 | static CONFIG_PATH: &str = "config.toml";
+       |        ^^^^^^^^^^^
+       |
+       = help: declare a `&Path` through `Path::new` under `#![feature(const_convert)]`
+
+    warning: `timeout_ms` holds a duration as `u64`
+      --> tools/dylint/examples/primitive_domain_binding.rs:19:5
+       |
+    19 |     timeout_ms: u64,
+       |     ^^^^^^^^^^
+       |
+       = help: declare a `core::time::Duration` and convert where a protocol or API takes the number
+
+    warning: `output_dir` holds a path as `std::string::String`
+      --> tools/dylint/examples/primitive_domain_binding.rs:20:5
+       |
+    20 |     output_dir: String,
+       |     ^^^^^^^^^^
+       |
+       = help: declare a `PathBuf` or `&Path`
+
+    warning: `started_at` holds an instant as `i64`
+      --> tools/dylint/examples/primitive_domain_binding.rs:22:5
+       |
+    22 |     started_at: i64,
+       |     ^^^^^^^^^^
+       |
+       = help: declare a `jiff::Timestamp`
+
+    warning: `width_mm` holds a physical quantity as `f64`
+      --> tools/dylint/examples/primitive_domain_binding.rs:23:5
+       |
+    23 |     width_mm: f64,
+       |     ^^^^^^^^
+       |
+       = help: declare a `uom::si::f64` quantity (`Length`, `Mass`, `Angle`, `Pressure`, `Power`, `Energy`, `ThermodynamicTemperature`, `Frequency`, `Ratio`)
+
+    warning: `sample_bytes` holds a byte size as `u64`
+      --> tools/dylint/examples/primitive_domain_binding.rs:33:5
+       |
+    33 |     sample_bytes: u64,
+       |     ^^^^^^^^^^^^
+       |
+       = help: declare a `bytesize::ByteSize`
+
+    warning: `created_at` holds an instant as `i64`
+      --> tools/dylint/examples/primitive_domain_binding.rs:34:5
+       |
+    34 |     created_at: i64,
+       |     ^^^^^^^^^^
+       |
+       = help: declare a `jiff::Timestamp` with `#[serde_as(as = "TimestampSeconds<i64>")]`
+
+    warning: `window_secs` holds a duration as `u64`
+      --> tools/dylint/examples/primitive_domain_binding.rs:35:5
+       |
+    35 |     window_secs: u64,
+       |     ^^^^^^^^^^^
+       |
+       = help: declare a `core::time::Duration` with `#[serde_as(as = "DurationSeconds<u64>")]`
+
+    warning: `payload_bytes` holds a byte size as `usize`
+      --> tools/dylint/examples/primitive_domain_binding.rs:48:13
+       |
+    48 |     Sized { payload_bytes: usize },
+       |             ^^^^^^^^^^^^^
+       |
+       = help: declare a `bytesize::ByteSize`
+
+    warning: `retry_secs` holds a duration as `u64`
+       --> tools/dylint/examples/primitive_domain_binding.rs:118:25
+        |
+    118 | fn scheduled(job: &Job, retry_secs: u64, cache_file: &str, note_file: &str) -> io::Result<String> {
+        |                         ^^^^^^^^^^
+        |
+        = help: declare a `core::time::Duration` and convert where a protocol or API takes the number
+
+    warning: `cache_file` holds a path as `&str`
+       --> tools/dylint/examples/primitive_domain_binding.rs:118:42
+        |
+    118 | fn scheduled(job: &Job, retry_secs: u64, cache_file: &str, note_file: &str) -> io::Result<String> {
+        |                                          ^^^^^^^^^^
+        |
+        = help: declare a `PathBuf` or `&Path`
+
+    warning: `delay_ms` holds a duration as `u64`
+     --> tools/dylint/examples/primitive_domain_binding.rs:7:20
+      |
+    7 |     fn wait(&self, delay_ms: u64);
+      |                    ^^^^^^^^
+      |
+      = help: declare a `core::time::Duration` and convert where a protocol or API takes the number
+
+    warning: `cache_dir` holds a path as `std::string::String`
+     --> tools/dylint/examples/primitive_domain_binding_exported.rs:5:9
+      |
+    5 |     pub cache_dir: String,
+      |         ^^^^^^^^^
+      |
+      = help: declare a `PathBuf` or `&Path`
+      = note: `#[warn(primitive_domain_binding)]` on by default
+
+    warning: `log_file` holds a path as `&str`
+      --> tools/dylint/examples/primitive_domain_binding_exported.rs:11:15
+       |
+    11 | pub fn opened(log_file: &str, settings: &Settings) -> usize { log_file.len().saturating_add(settings.label_path.len()) }
+       |               ^^^^^^^^
+       |
+       = help: declare a `PathBuf` or `&Path`
     "#);
 }
 
@@ -715,13 +844,13 @@ fn sentinel_default(found: &str) {
 fn single_impl_trait(found: &str) {
     insta::assert_snapshot!(found, @"
     warning: trait `Small` is implemented only for `Result<u8, ParseIntError>`
-     --> tools/dylint/examples/partition_by_result.rs:5:1
-      |
-    5 | trait Small {
-      | ^^^^^^^^^^^
-      |
-      = help: delete the trait and declare each method as a function taking the `Result<u8, ParseIntError>`
-      = note: `#[warn(single_impl_trait)]` on by default
+      --> tools/dylint/examples/partition_by_result.rs:10:1
+       |
+    10 | trait Small {
+       | ^^^^^^^^^^^
+       |
+       = help: delete the trait and declare each method as a function taking the `Result<u8, ParseIntError>`
+       = note: `#[warn(single_impl_trait)]` on by default
 
     warning: trait `Store` is implemented only for `Memory`
        --> tools/dylint/examples/single_impl_trait.rs:6:1
@@ -775,15 +904,15 @@ fn single_impl_trait(found: &str) {
         = help: replace `Handler` with the bound on `F`, named as `trait Handler = <bound>;` under `#![feature(trait_alias)]`
 
     warning: trait `Source` is implemented only for `Port`
-       --> tools/dylint/examples/untyped_error.rs:21:1
+       --> tools/dylint/examples/untyped_error.rs:28:1
         |
-     21 | pub trait Source {
+     28 | pub trait Source {
         | ^^^^^^^^^^^^^^^^
         |
     note: `dyn Source` always holds `Port`
-       --> tools/dylint/examples/untyped_error.rs:336:18
+       --> tools/dylint/examples/untyped_error.rs:343:18
         |
-    336 |     let source: &dyn Source = &Port;
+    343 |     let source: &dyn Source = &Port;
         |                  ^^^^^^^^^^
         = help: replace the trait with an inherent `impl Port` block
         = note: `#[warn(single_impl_trait)]` on by default

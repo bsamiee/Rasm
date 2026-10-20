@@ -21,4 +21,4 @@ constraints:
     OBJECT: {regex: '^((globalThis|window|self)\.)?Object$', matches: typescript-global-reference}
 fix: $ERROR.isError($VALUE)
 message: 'Error test on `$VALUE` walks the `$ERROR.prototype` chain of the running realm alone'
-note: 'Call `Error.isError(<value>)`, which reads the internal error slot: true for an error from another realm, false for an object inheriting `Error.prototype` without one'
+note: 'Call `Error.isError(<value>)`, which tests the internal error slot in every realm and rejects an object inheriting `Error.prototype` without the slot'

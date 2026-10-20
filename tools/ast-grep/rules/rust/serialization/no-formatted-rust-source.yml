@@ -53,4 +53,4 @@ rule:
             - all:
                 - has: {field: function, kind: field_expression, all: [{has: {field: field, regex: '^replacen?$'}}, {has: {field: value, matches: item-text}}]}
 message: '`$SOURCE` writes Rust source as text'
-note: 'Build the item as tokens with `quote::quote!` and `quote::format_ident!`, parse them through `syn::parse2::<syn::File>(<tokens>)?`, and print with `prettyplease::unparse(&<file>)`'
+note: 'Build the item as `quote!` tokens, parse them with `syn::parse2::<syn::File>`, and print with `prettyplease::unparse`'

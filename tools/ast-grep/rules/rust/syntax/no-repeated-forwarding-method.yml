@@ -85,4 +85,4 @@ rule:
                 - matches: plain-trio
         - not: {inside: {kind: declaration_list, inside: {kind: impl_item, matches: rust-forwarding-newtype-impl}}}
 message: '`$NAME` forwards to `self.$FIELD` in the shape of two earlier methods'
-note: 'Expose the field to callers and delete the forwarding methods, or hold the step every method repeats (`map_err`, a free function) in one method taking the call as `impl FnOnce(&<field type>) -> <result>`'
+note: 'Expose the field in place of the methods, or hold their repeated step in one method taking the call as `impl FnOnce(&<field type>) -> <result>`'

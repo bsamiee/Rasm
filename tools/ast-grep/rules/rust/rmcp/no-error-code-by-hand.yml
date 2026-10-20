@@ -118,6 +118,7 @@ rewriters:
       fix: $TYPE::$MAPPED
 transform:
     FIXED: rewrite($SITE, rewriters=[call-form, struct-form, literal-form])
+    HEAD: {replace: {source: $SITE, replace: '(?s)\s*\{?\s*\n.*$', by: ''}}
 fix: $FIXED
-message: '`$SITE` restates an error code rmcp names'
-note: 'Call the named constructor (`ErrorData::invalid_params(<message>, <data>)`, `internal_error`, `invalid_request`, `parse_error`, `resource_not_found`, `header_mismatch`) or name the `ErrorCode` constant, the fix skips a code bound through `let` or `const`'
+message: '`$HEAD` restates an error code rmcp names'
+note: 'Call the `ErrorData` constructor named for the code (`invalid_params`) or name the `ErrorCode` constant'

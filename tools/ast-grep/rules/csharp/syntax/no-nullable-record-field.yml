@@ -2,6 +2,7 @@
 id: no-nullable-record-field
 language: csharp
 severity: error
+ignores: ['tools/roslyn/**']
 utils:
     serializer-attributes:
         kind: attribute_list

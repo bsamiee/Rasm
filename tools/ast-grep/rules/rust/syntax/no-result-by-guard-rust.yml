@@ -175,6 +175,9 @@ rule:
                         - has: {matches: value-early}
                         - precedes: {matches: tail, pattern: $LAST, not: {regex: '\n'}}
                         - has: {kind: if_expression, has: {field: condition, not: {regex: '\n'}, pattern: $COND}}
+        - any:
+            - has: {field: value, pattern: $SUBJECT}
+            - has: {kind: if_expression, has: {field: condition, any: [{kind: let_condition, has: {field: value, pattern: $SUBJECT}}, {pattern: $SUBJECT}]}}
 transform:
     THEN_COMPOUND_WRAPPED: {replace: {source: $THEN_COMPOUND, replace: '^([\s\S]+)$', by: '($1)'}}
     UNLESS_PRIMARY_WRAPPED: {replace: {source: $UNLESS_PRIMARY, replace: '^([\s\S]+)$', by: '(!$1)'}}
@@ -200,5 +203,5 @@ transform:
 fix:
     template: '$THEN_PRIMARY$THEN_COMPOUND_WRAPPED$UNLESS_PRIMARY_WRAPPED$UNLESS_COMPOUND_WRAPPED$THEN_OPEN$X$THEN_CLOSE$IF_OPEN$COND$IF_THEN$VALUE$IF_ELSE$LAST$IF_CLOSE$R$MAP_OPEN$OKV$MAP_MID$A$MAP_CLOSE$MAP_ERR_OPEN$RET_OPEN$ERRV$MAP_ERR_MID$RET_MID$B$RET$MAP_ERR_CLOSE$RET_CLOSE$STATEMENT_END$TAIL_BREAK$GUARD_TAIL'
     expandEnd: {matches: tail}
-message: '`if` or `match` selects a result through an early `return` or by restating each case'
-note: 'Write `<condition>.then(|| <value>)` for arms `Some(<value>)` and `None`, `(!<condition>).then(|| <value>)` for `None` and `Some(<value>)`, `then_some` in place of `then` for a place or literal value, `if <condition> { <value> } else { <tail> }` as the tail otherwise, `<result>.map_err(|<error>| <mapped>)?` for an arm returning a mapped `Err`, and `<result>.map(..).map_err(..)` for arms rewrapping `Ok` and `Err`'
+message: '`if` or `match` over `$SUBJECT` selects a result through an early `return` or a restated case'
+note: 'Select the result through one combinator or `if` expression over the condition or `Result`'

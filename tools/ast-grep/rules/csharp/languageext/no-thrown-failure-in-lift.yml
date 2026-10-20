@@ -21,4 +21,4 @@ rule:
         - inside: {kind: return_statement, inside: {kind: block, inside: {matches: thunk}}}
 fix: $VALUE
 message: '`$VALUE.ThrowIfFail()` throws the failure `IO.lift` carries from a returned `Fin`'
-note: Return the `Fin`, `IO.lift(Func<Fin<A>>)` puts its failure on the effect channel with its type kept
+note: 'Return the `Fin` from the `IO.lift(Func<Fin<A>>)` thunk'

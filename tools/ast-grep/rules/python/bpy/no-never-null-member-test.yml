@@ -108,4 +108,4 @@ rule:
             - matches: tested
             - pattern: $TESTED
 message: 'Absence test reads `$TESTED`, a pointer Blender never leaves empty'
-note: 'Read the member as present, with the `union-attr` stub-defect ignore `blender-coding` references/typing.md [02] names where the stub types it optional'
+note: 'Read the member as present, with a `union-attr` ignore where the stub types it optional'

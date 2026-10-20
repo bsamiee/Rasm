@@ -107,4 +107,4 @@ rule:
             - matches: own-minimum
         - matches: literal-range
 message: '`$CLAMP` saturates a value into the range of `$TYPE` by hand'
-note: 'Convert with `$TYPE.CreateSaturating(<value>)`, one call that maps an out-of-range value to the nearest `$TYPE` limit'
+note: 'Convert with `<type>.CreateSaturating(<value>)`'

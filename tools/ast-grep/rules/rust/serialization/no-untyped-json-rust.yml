@@ -66,5 +66,7 @@ rule:
             - matches: json-text
               not: {matches: rust-geometry-format-text}
         - not: {matches: rust-test-scope}
-message: '`$DOCUMENT` builds a document as untyped text or an untyped value keyed by string'
-note: 'Declare a `#[derive(Deserialize, Serialize, JsonSchema)]` type per document, write it through `serde_json::to_value` or `serde_json::to_string`, and derive its schema with `schemars::schema_for!`'
+transform:
+    HEAD: {replace: {source: $DOCUMENT, replace: '(?s)\n.*$', by: ''}}
+message: '`$HEAD` builds a document as untyped text or an untyped value keyed by string'
+note: 'Declare a `#[derive(Deserialize, Serialize, JsonSchema)]` type per document, write it with `serde_json`, and derive its schema with `schema_for!`'

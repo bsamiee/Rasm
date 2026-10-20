@@ -2,4 +2,6 @@
 id: java-function-boundary
 language: java
 rule:
-    kind: method_declaration, constructor_declaration, compact_constructor_declaration, static_initializer, lambda_expression
+    any:
+        - matches: java-declaration-scope
+        - kind: lambda_expression

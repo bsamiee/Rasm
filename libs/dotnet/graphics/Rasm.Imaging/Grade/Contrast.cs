@@ -28,21 +28,21 @@ public sealed record ContrastGrade(Contrast Contrast, ContrastPivot Pivot, Signe
     public static ContrastGrade Default { get; } = new(Contrast.Neutral, ContrastPivot.MiddleGray, SignedFraction.Neutral, Magnitude.Unit);
 
     public static Option<PixelPass> Pass(ContrastGrade state, PassContext context) =>
-        state with { Pivot = Default.Pivot } == Default
-            ? None
-            : ((float)state.Contrast, (float)state.Vibrance, (float)state.Saturation, Exposure.MiddleGray * double.Exp2(state.Pivot), context.Working.Luminance) switch {
-                var (contrast, vibrance, saturation, pivot, luma) => Some<PixelPass>(new PixelPass.Color(row => {
-                    double Curve(float value) => double.CopySign(pivot * double.Pow(double.Abs(value) / pivot, contrast), value);
-                    foreach (ref Vector4 pixel in row) {
-                        (double red, double green, double blue) = (Curve(pixel.X), Curve(pixel.Y), Curve(pixel.Z));
-                        double high = double.Max(red, double.Max(green, blue));
-                        double s = high > 0d ? 1d - (double.Max(double.Min(red, double.Min(green, blue)), 0d) / high) : 1d;
-                        double gain = saturation * (1d + (vibrance * (vibrance > 0d ? (1d - s) * (1d - s) : s * s / 2d)));
-                        double gray = LuminanceSamples.Luminance(red, green, blue, luma);
-                        pixel = new Vector4((float)double.Lerp(gray, red, gain), (float)double.Lerp(gray, green, gain), (float)double.Lerp(gray, blue, gain), pixel.W);
-                    }
-                })),
-            };
+        from changed in Some(state)
+        where changed with { Pivot = Default.Pivot } != Default
+        let grade = (Contrast: (float)changed.Contrast, Vibrance: (float)changed.Vibrance, Saturation: (float)changed.Saturation,
+            Pivot: Exposure.MiddleGray * double.Exp2(changed.Pivot), Luma: context.Working.Luminance)
+        select (PixelPass)new PixelPass.Color(row => {
+            double Curve(float value) => double.CopySign(grade.Pivot * double.Pow(double.Abs(value) / grade.Pivot, grade.Contrast), value);
+            foreach (ref Vector4 pixel in row) {
+                (double red, double green, double blue) = (Curve(pixel.X), Curve(pixel.Y), Curve(pixel.Z));
+                double high = double.Max(red, double.Max(green, blue));
+                double s = high > 0d ? 1d - (double.Max(double.Min(red, double.Min(green, blue)), 0d) / high) : 1d;
+                double gain = grade.Saturation * (1d + (grade.Vibrance * (grade.Vibrance > 0d ? (1d - s) * (1d - s) : s * s / 2d)));
+                double gray = LuminanceSamples.Luminance(red, green, blue, grade.Luma);
+                pixel = new Vector4((float)double.Lerp(gray, red, gain), (float)double.Lerp(gray, green, gain), (float)double.Lerp(gray, blue, gain), pixel.W);
+            }
+        });
 }
 
 [SmartEnum<string>]

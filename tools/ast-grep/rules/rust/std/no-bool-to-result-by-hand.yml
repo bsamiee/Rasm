@@ -69,4 +69,4 @@ transform:
     CALLED_RESULT: {replace: {source: $CALL, replace: '^([\s\S]+)$', by: '.and_then(|()| $1())'}}
 fix: '$P$QW$NPW$NQW$BRANCH_TAIL$B$UNIT_TAIL$UNIT_ARGUMENT$C$FLAT_TAIL$FLAT_ARGUMENT$LAZY_RESULT$EAGER_RESULT$CALLED_RESULT'
 message: '`$P$Q$NP$NQ$B$C` converts a `bool` into a `Result` by hand'
-note: 'Write `<condition>.ok_or(<error>)` or `.ok_or_else(<closure>)`, with `.and(<result>)` or `.and_then(|()| <result>)` after it when the condition selects a result'
+note: 'Write `<condition>.ok_or(<error>)` or `ok_or_else(<closure>)`, chaining `and` or `and_then` when the condition selects a result'

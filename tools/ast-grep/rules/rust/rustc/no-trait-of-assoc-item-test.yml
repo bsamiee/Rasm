@@ -2,8 +2,10 @@
 id: no-trait-of-assoc-item-test
 language: rust
 severity: error
+files: [tools/dylint/**]
 rule:
     kind: call_expression
+    pattern: $CALL
     matches: rust-trait-of-assoc-test
-message: '`trait_of_assoc` reads the declaring trait of a method only to test it as a diagnostic or lang item'
-note: 'Call `MaybeDef::opt_parent(cx)` on the method or its `Option<DefId>` and test the result with `is_diag_item`, `is_lang_item`, or `opt_diag_name` (`use clippy_utils::res::MaybeDef as _;`), each answering `false` or `None` for an absent item'
+message: '`$CALL` reads the trait declaring a method only to test it as a diagnostic or lang item'
+note: 'Call `MaybeDef::opt_parent(cx)` on the method and test the result with `is_diag_item`, `is_lang_item`, or `opt_diag_name`'

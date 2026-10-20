@@ -75,4 +75,4 @@ labels:
     READ: {style: primary, message: 'Reads the answer'}
     PROMPT: {style: secondary, message: 'Prints the prompt'}
 message: '`$READ` reads an answer from stdin after a printed prompt'
-note: 'Ask through `inquire::Text::new(<prompt>).prompt()`, `inquire::Confirm::new(<prompt>).prompt()`, or `inquire::Select::new(<prompt>, <options>).prompt()`'
+note: 'Ask through `inquire::Text`, `Confirm`, or `Select` and its `prompt()`'

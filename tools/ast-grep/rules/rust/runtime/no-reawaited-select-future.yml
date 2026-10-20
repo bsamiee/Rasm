@@ -43,4 +43,4 @@ rule:
                     - has: {field: macro, regex: '^(::)?(tokio::|futures::)?select(_biased)?$'}
                     - has: {kind: token_tree, has: {matches: polled}}
 message: '`$FUTURE` reaches a second `await` in the `None` case of an `Option` recording whether a `select!` finished it'
-note: 'Pin `futures::future::maybe_done(<future>)`, poll it through `&mut` in every `select!` and join, and read its output once through `as_mut().take_output()`'
+note: 'Pin `futures::future::maybe_done(<future>)`, poll it through `&mut` in each `select!`, and read its output once through `take_output()`'

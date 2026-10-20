@@ -46,4 +46,4 @@ rule:
                     - has: {field: arguments, has: {nthChild: 2, matches: rendered, pattern: $KEY}}
                     - not: {all: [{has: {field: function, has: {field: property, regex: '^(set|modify|modifyAt)$'}}}, {not: {has: {field: arguments, has: {nthChild: 3}}}}]}
 message: '`$KEY` renders a composite key of `$COLLECTION` to text'
-note: 'Key the collection by its components through a `HashMap` or `HashSet` over `Data.tuple(<a>, <b>)` or `Data.struct({ ... })`, or one nested `Map` per component, joined text colliding on a component that holds the separator and dropping component types'
+note: 'Key a `HashMap` or `HashSet` by `[<a>, <b>]` or `{ ... }`, or nest one `Map` per component'

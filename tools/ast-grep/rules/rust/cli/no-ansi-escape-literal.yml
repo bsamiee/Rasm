@@ -25,4 +25,4 @@ rule:
             - has: {field: function, regex: '^((::)?(std|core)::)?(char::)?(char::)?(from_u32|from_u32_unchecked)$|^((::)?(std|core)::(primitive::)?)?char::from$'}
             - has: {field: arguments, has: {nthChild: 1, matches: escape-code}}
 message: '`$ESCAPE` spells an ANSI escape character by hand'
-note: 'Style text through `anstyle::Style` written as `{style}<text>{style:#}` to `anstream::stdout()` or `stderr()`, move the cursor and erase through `crossterm::cursor` and `crossterm::terminal::Clear`, and strip escapes through `anstream::adapter::strip_str`'
+note: 'Write styles via `anstyle::Style` as `{style}<text>{style:#}` to `anstream`, move and erase via `crossterm`, strip via `anstream::adapter::strip_str`'

@@ -179,5 +179,7 @@ rule:
           all:
             - has: {field: function, kind: field_expression, has: {field: field, regex: '^fold$'}}
             - has: {field: arguments, all: [{has: {nthChild: 1, matches: bound}}, {has: {nthChild: 2, matches: extreme-step}}, {not: {has: {nthChild: 3}}}]}
-message: '`$SITE` collapses absence or failure into a sentinel value'
-note: 'Keep the `Option` or `Result` and match it where a consumer acts on absence, and select an extreme with `.reduce(f64::max)` or `Iterator::max` and `min` in place of a `fold` seeded with a bound'
+transform:
+    HEAD: {replace: {source: $SITE, replace: '(?s)\s*\{?\s*\n.*$', by: ''}}
+message: '`$HEAD` collapses absence or failure into a sentinel value'
+note: 'Keep the `Option` or `Result` where a consumer acts on absence, and select an extreme with `reduce` or `max` in place of a seeded `fold`'

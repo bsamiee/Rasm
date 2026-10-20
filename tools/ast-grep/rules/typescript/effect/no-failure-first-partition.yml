@@ -75,4 +75,4 @@ constraints:
     SECOND: {kind: identifier, not: {regex: '^(fail|error|err|reject|invalid|problem|defect|missing|unreadable|conflict|exclu|refus)|[a-z0-9](Fail|Error|Err|Reject|Invalid|Problem|Defect|Missing|Unreadable|Conflict|Exclu|Refus)'}}
 fix: '[$SECOND, $FIRST]'
 message: '`$FIRST` names failures and binds `passes`, the first tuple element'
-note: 'Bind a failure name to the second element, `partition`, `partitionEffect`, `partitionMap`, `partitionQueue`, and `separate` of `effect` returning `[passes, fails]`'
+note: 'Bind a failure name to the second element of the `[passes, fails]` tuple that each `effect` `partition*` and `separate` return'

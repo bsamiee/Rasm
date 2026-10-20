@@ -49,8 +49,9 @@ rewriters:
       fix: '$M.$F({ uninterruptible: true })'
 transform:
     OPTIONED: rewrite($FORK, rewriters=[empty, scoped, unscoped])
+    KEPT_HEAD: {replace: {source: $KEPT, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
 fix:
     template: $OPTIONED$KEPT
     expandEnd: {matches: fork-step, stopBy: end}
-message: '`$FORK$KEPT` starts its fiber interruptible until its `Effect.uninterruptible` step runs'
-note: 'Pass `{ uninterruptible: true }` to `Effect.forkIn(<scope>, <options>)`, `forkChild`, `forkScoped`, `forkDetach`, or `runFork` to start the fiber uninterruptible'
+message: '`$FORK$KEPT_HEAD` starts its fiber interruptible until its `Effect.uninterruptible` step runs'
+note: 'Pass `{ uninterruptible: true }` as the options of the `Effect.fork*` or `Effect.runFork` call'

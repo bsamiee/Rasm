@@ -6,6 +6,7 @@ utils:
     failure-return:
         matches: {swift-single-statement: {first: {matches: swift-failure-value}}}
 rule:
+    pattern: $SITE
     any:
         - matches: swift-result-bind-switch
         - kind: if_statement
@@ -25,5 +26,7 @@ rule:
           regex: '^guard\s+case\s+(let\s+)?\.success\b'
           not: {regex: '(?s)^guard\s+case\s+(let\s+)?\.success\b[^,]*,.*\b(case|let|var)\b'}
           has: {matches: failure-return}
-message: 'Statement unpacks a Result to return its failure and bind its value in place of one `flatMap`'
-note: 'Call `<result>.flatMap { value in <continuation> }`, `.bind` where the continuation awaits, with `mapError` first where the failure arm replaces the error'
+transform:
+    HEAD: {replace: {source: $SITE, replace: '(?s)\n.*$', by: ''}}
+message: '`$HEAD` returns a `Result` failure by hand to bind its value'
+note: 'Bind with `try <result>.get()` in one `Result { () throws(E) in }` body, after `mapError` where the failure arm replaces the error'

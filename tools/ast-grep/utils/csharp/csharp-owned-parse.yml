@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-owned-parse
+language: csharp
+arguments: [owner, argument]
+utils:
+    first-parameter:
+        has: {field: parameters, has: {kind: parameter, nthChild: 1, has: {field: name, pattern: $PARAMETER}}}
+    owner-method:
+        kind: method_declaration
+        all:
+            - has: {kind: modifier, regex: '^static$'}
+            - has: {field: name, matches: owner}
+            - matches: first-parameter
+            - has:
+                field: body
+                kind: arrow_expression_clause
+                all:
+                    - has: {pattern: '$RECEIVER.$METHOD($PARAMETER, $$$)', matches: csharp-unary-arrow-body}
+                    - has: {pattern: '$_RECEIVER.$_METHOD($PARAMETER, $$$REST)'}
+    plain-owner-method:
+        kind: method_declaration
+        all:
+            - has: {kind: modifier, regex: '^static$'}
+            - has: {field: name, matches: owner}
+            - matches: first-parameter
+            - has: {field: body, kind: arrow_expression_clause, has: {pattern: '$RECEIVER.$METHOD($PARAMETER)', matches: csharp-unary-arrow-body}}
+    type-body:
+        kind: declaration_list
+        inside: {kind: 'class_declaration, struct_declaration, record_declaration, interface_declaration'}
+rule:
+    kind: invocation_expression
+    all:
+        - not: {has: {field: arguments, any: [{has: {kind: argument, has: {regex: '^(out|ref)$'}}}, {has: {kind: argument, nthChild: 1, has: {field: name, pattern: $_}}}]}}
+        - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: argument}}}
+        - any:
+            - all:
+                - pattern: $RECEIVER.$METHOD($_ARGUMENT, $$$REST)
+                - not: {matches: csharp-unary-arrow-body}
+                - inside: {stopBy: end, matches: type-body, has: {matches: owner-method}}
+            - all:
+                - pattern: $RECEIVER.$METHOD($_ARGUMENT)
+                - not: {matches: csharp-unary-arrow-body}
+                - inside: {stopBy: end, matches: type-body, has: {matches: plain-owner-method}}
+            - all:
+                - pattern: $RECEIVER.$METHOD($_ARGUMENT, $$$REST)
+                - matches: csharp-unary-arrow-body
+                - inside: {kind: arrow_expression_clause, inside: {matches: first-parameter, follows: {stopBy: end, matches: owner-method}}}
+            - all:
+                - pattern: $RECEIVER.$METHOD($_ARGUMENT)
+                - matches: csharp-unary-arrow-body
+                - inside: {kind: arrow_expression_clause, inside: {matches: first-parameter, follows: {stopBy: end, matches: plain-owner-method}}}

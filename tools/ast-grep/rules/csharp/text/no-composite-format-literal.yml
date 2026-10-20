@@ -27,6 +27,7 @@ utils:
     format-call:
         has:
             field: function
+            pattern: $CALLEE
             any:
                 - kind: member_access_expression
                   all: [{has: {field: expression, regex: '^((global::)?System\.)?([sS]tring)$'}}, {has: {field: name, regex: '^Format$'}}]
@@ -34,11 +35,10 @@ utils:
                   has: {field: name, regex: '^AppendFormat$'}
     writer-call:
         all:
-            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Write|WriteLine|Print|TraceInformation|TraceWarning|TraceError)$'}}
+            - has: {field: function, kind: member_access_expression, pattern: $CALLEE, has: {field: name, regex: '^(Write|WriteLine|Print|TraceInformation|TraceWarning|TraceError)$'}}
             - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, matches: format-argument}}, {has: {kind: argument, nthChild: 2}}]}
 rule:
     kind: invocation_expression
-    pattern: $CALL
     any:
         - all:
             - matches: format-call
@@ -48,8 +48,8 @@ rule:
                     - has: {kind: argument, nthChild: 1, matches: format-argument}
                     - has: {kind: argument, nthChild: 2, matches: format-argument}
         - matches: writer-call
-message: '`$CALL` fills the constant composite format `$FORMAT` by position'
-note: 'Interpolate the arguments into the literal (`$"..."`, `Append($"...")`, `WriteLine($"...")`), through `string.Create(<provider>, $"...")` or `Append(<provider>, $"...")` when a format provider applies'
+message: '`$CALLEE` fills the constant composite format `$FORMAT` by position'
+note: 'Interpolate into the literal (`$"..."`), through `string.Create(<provider>, $"...")` or `Append(<provider>, $"...")` when a format provider applies'
 labels:
     FORMAT:
         style: secondary

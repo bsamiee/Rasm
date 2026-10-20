@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-listed-enum-members-tsx
+id: no-listed-enum-members
 language: tsx
 severity: error
 ignores: ['**/*.spec.ts']
@@ -48,4 +48,4 @@ rule:
                                     - has: {field: name, pattern: $NAME}
                                     - has: {field: value, has: {stopBy: end, kind: literal_type, has: {kind: string, pattern: $ITEM}}}
 message: '`$LIST` lists every member of `$NAME` again'
-note: 'Declare the members once as `const <list> = [...] as const` or `Schema.Literals([...])` and derive the union type as `(typeof <list>)[number]` or `typeof <schema>.Type`'
+note: 'Declare members once in `Schema.Literals([...])` or `<list> = [...] as const`, and derive `typeof <schema>.Type` or `(typeof <list>)[number]`'

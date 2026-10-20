@@ -12,4 +12,4 @@ labels:
     NAME: {style: primary, message: 'Record built through generated setters'}
     DERIVE: {style: secondary, message: 'Generates a builder'}
 message: '`$NAME` derives a builder for a record a struct literal builds'
-note: 'Give optional fields defaults (`port: u16 = 8080`, `#![feature(default_field_values)]`), build the record as a struct literal (`Config { host, .. }`), and delete the derive'
+note: 'Replace the derive with field defaults (`#![feature(default_field_values)]`) and a struct literal `<Record> { <field>, .. }`'

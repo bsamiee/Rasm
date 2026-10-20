@@ -35,4 +35,4 @@ rule:
                 stopBy: end
                 has: {kind: import_declaration, has: {kind: identifier, has: {kind: simple_identifier, nthChild: 1, pattern: $PROTOCOL_MODULE}}}
 message: '`$TYPE: $PROTOCOL` conforms a type of an imported module to a protocol of an imported module'
-note: 'Wrap the imported value in a type this module owns and conform the wrapper, since module-qualified names only silence the retroactive conformance warning and swift-format `AvoidRetroactiveConformances` rejects `@retroactive`'
+note: 'Wrap the imported value in a type this module owns and conform the wrapper'

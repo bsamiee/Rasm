@@ -62,4 +62,4 @@ labels:
     NAME: {style: primary, message: 'Declared under one `cfg`'}
     AGAIN: {style: secondary, message: 'Same declaration under another `cfg`'}
 message: '`$NAME` is declared under `$CFG` and again under another `cfg`'
-note: 'Declare the item once and select the differing part with `cfg_select!`: `let <name> = cfg_select! { <predicate> => <value>, _ => <value> };` for a value, one `cfg_select!` over the differing statements of a body, and one `impl` holding gated members'
+note: 'Declare the item once and select the differing value, statements, or members with `cfg_select!`'

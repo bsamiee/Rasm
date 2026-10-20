@@ -40,24 +40,6 @@ utils:
               has: {matches: member-access}
             - kind: 'or_pattern, parenthesized_pattern, negated_pattern'
               has: {matches: member-pattern}
-    catch-all-pattern:
-        any:
-            - kind: discard
-            - kind: declaration_pattern
-              has: {field: type, kind: implicit_type}
-            - kind: negated_pattern
-              matches: member-pattern
-            - kind: declaration_pattern
-              has: {field: type, pattern: $ENUM}
-            - kind: constant_pattern
-              has: {kind: identifier, pattern: $ENUM}
-            - kind: recursive_pattern
-              not: {has: {kind: 'property_pattern_clause, positional_pattern_clause', has: {kind: subpattern}}}
-    fallback-arm:
-        kind: switch_expression_arm
-        all:
-            - has: {nthChild: 1, matches: catch-all-pattern}
-            - not: {has: {kind: when_clause}}
     member-test:
         any:
             - kind: binary_expression
@@ -91,12 +73,6 @@ utils:
               has: {kind: return_statement}
 rule:
     any:
-        - matches: fallback-arm
-          inside:
-            kind: switch_expression
-            all:
-                - has: {kind: switch_expression_arm, has: {nthChild: 1, matches: member-pattern}}
-                - matches: file-enum
         - kind: conditional_expression
           all:
             - has: {field: condition, matches: member-test}

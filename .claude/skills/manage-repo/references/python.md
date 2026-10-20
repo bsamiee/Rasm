@@ -34,6 +34,7 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 - Source-built wheel cache keys hold package settings, extra build dependencies, and build variables, a machine library change reuses the wheel
 - Pixi rows a source build links name a soname series, `pixi update` moves within it and leaves built consumers valid
 - Soname series moves update Pixi constraints and each consuming package's build-variable series together
+- `pixi.lock` takes no downgrade check without a catalog package ordering conda versions, `pixi update --json` lists each move's `before` and `after`
 - Consumers holding no series variable rebuild through `uv sync --reinstall-package <package>`
 - Packages sharing one installed path use root `[tool.uv] exclude-dependencies` to retain one provider throughout resolution
 - `uv run` installs a PEP 723 script's inline dependencies into an ephemeral environment `uv.lock` does not pin
@@ -52,7 +53,7 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 - Ruff prefers a nested `requires-python` over an extended `target-version` and runs once, ty and mypy take one version per run
 - Workspace inference runs ty, mypy, and refurb over root code at the configured version and once per nested `requires-python` over its folders
 - Editors and bare ty and mypy runs check host folders at the root version
-- Each ast-grep rule reporting a form below one Python release carries `metadata: {python-below: '<major>.<minor>'}`
+- ast-grep rules for a form below or from one Python release carry `metadata: {python-below: '<major>.<minor>'}` or `{python-from: '<major>.<minor>'}`
 - Root scans select version rules from resolved mise metadata and each host's `requires-python`
 - Host-supplied modules with no typings package type as Any through ty `replace-imports-with-any` `<root>.**` rows and mypy `ignore_missing_imports`
 - PEP 723 scripts read ty settings from their block alone, a block's `[tool.ty.rules]` opens with root `[tool.ty] rules` entries

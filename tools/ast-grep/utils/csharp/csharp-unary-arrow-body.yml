@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-unary-arrow-body
+language: csharp
+rule:
+    inside:
+        kind: arrow_expression_clause
+        inside:
+            kind: method_declaration, local_function_statement
+            has: {field: parameters, all: [{has: {kind: parameter, nthChild: 1}}, {not: {has: {kind: parameter, nthChild: 2}}}]}

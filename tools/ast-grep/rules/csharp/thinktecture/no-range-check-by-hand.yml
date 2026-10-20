@@ -289,4 +289,4 @@ rule:
                 inside: {kind: declaration_list, inside: {matches: languageext-error-record}}
             - inside: {stopBy: end, matches: thinktecture-validation-hook}
 message: '`$CHECK` checks a numeric range by hand'
-note: 'Validate through a value type implementing `IMinMaxValue<TSelf>` whose hook assigns `ValidationResults.OutsideRange(value, MinValue, MaxValue)`, and saturate a relative change into the type''s bounds before `<type>.Validated`'
+note: 'Validate through an `IMinMaxValue<TSelf>` type whose hook assigns `ValidationResults.OutsideRange`, and saturate relative changes before `Validated`'

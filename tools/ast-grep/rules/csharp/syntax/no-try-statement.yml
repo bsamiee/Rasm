@@ -2,6 +2,7 @@
 id: no-try-statement
 language: csharp
 severity: error
+ignores: ['tools/roslyn/**']
 utils:
     release-boundary:
         kind: method_declaration
@@ -21,4 +22,4 @@ rule:
 transform:
     LEAD: {replace: {source: $FIRST, replace: '(?s)\s*\n.*$', by: ''}}
 message: '`try` around `$LEAD` handles exceptions inline'
-note: 'Capture the throwing call with `Try.lift` or `IO.lift` at its boundary and release through `use` or `Bracket`, a `Dispose` or `DisposeAsync` body releasing owned fields and its base keeps a catch-free `try`/`finally`'
+note: 'Capture throws with `Try.lift` or `IO.lift` and release through `use` or `Bracket`, except a catch-free `finally` in `Dispose` or `DisposeAsync`'

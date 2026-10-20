@@ -17,4 +17,4 @@ rule:
             - inside: {kind: enum_entry}
             - inside: {stopBy: end, matches: read-if-present}
 message: '`$SITE` classifies a missing file outside the read-if-present function'
-note: 'Route every read through one function that takes the throwing operation and returns `Result<Value?, any Error>`, `.success(nil)` for a missing file and `.failure` for every other error'
+note: 'Read through one function that runs the throwing operation and returns `Result<Value?, any Error>`, `.success(nil)` for a missing file'

@@ -332,11 +332,11 @@ public sealed class CurveEditor : ComponentControl<CurveEditorState, CurvePart, 
             moving.Map(index => Room(moving, index)).Fold(
                     (Left: double.NegativeInfinity, Right: double.PositiveInfinity, Low: double.NegativeInfinity, High: double.PositiveInfinity),
                     static (held, room) => (double.Max(held.Left, room.Left), double.Min(held.Right, room.Right), double.Max(held.Low, room.Low), double.Min(held.High, room.High))) switch {
-                        var room => (X: double.Max(room.Left, double.Min(room.Right, dx)), Y: double.Max(room.Low, double.Min(room.High, dy))) switch {
-                            var travel => Rewritten(
-                                Curve.Points.Map((point, index) => moving.Exists(held => held == index) ? new CurvePoint(point.X + travel.X, point.Y + travel.Y) : point),
-                                State.Selected),
-                        },
+                        var room => Rewritten(
+                            Curve.Points.Map((point, index) => moving.Exists(held => held == index)
+                                ? new CurvePoint(point.X + double.Max(room.Left, double.Min(room.Right, dx)), point.Y + double.Max(room.Low, double.Min(room.High, dy)))
+                                : point),
+                            State.Selected),
                     };
 
         public (double X, double Y) Snapped((float First, float Second) at) =>

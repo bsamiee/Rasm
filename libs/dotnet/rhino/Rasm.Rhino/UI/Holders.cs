@@ -185,47 +185,33 @@ internal sealed class HeaderButtons(Seq<HeaderButton> buttons, IPlugInSink sink,
                     new CallbackSite(sink, owner, nameof(Drawable.Paint))), retain)
             select drawable).TraverseM(static drawable => drawable).As();
 
-    internal static IO<Seq<ButtonDrawable>> Realize(IHeaderButtonHandler header, CallbackSite site, Action<IDisposable> retain) =>
-        header is HeaderButtons authored ? authored.Realize(retain) : IO.lift(environment => {
-            List<ButtonDrawable> controls = [];
-            int index = 0;
-            while (true) {
-                Retained<IDisposable> images = new(DisposalOps.Release);
-                IO<Option<(Eto.Drawing.Bitmap Image, string ToolTip)>> read(int buttonIndex, Size pixels, Action<IDisposable> owned) =>
-                    DisposalOps.Within(() => new Bitmap(pixels.Width, pixels.Height), seed =>
-                        IO.lift(() => {
-                            Bitmap bitmap = seed;
-                            string toolTip = "";
-                            return header.ButtonDetails(buttonIndex, ref bitmap, ref toolTip) ? Some((Bitmap: bitmap, ToolTip: toolTip)) : None;
-                        }).Bind(found => found.Traverse(value => DisposalOps.Acquire(IO.lift(value.Bitmap.ToEto), owned)
-                            .Map(bitmap => (Image: bitmap, value.ToolTip))).As()));
-                Option<(Eto.Drawing.Bitmap Image, string ToolTip)> initial = DisposalOps.Acquire(owned =>
-                    IconSlot.SectionHeader.Size().Bind(size => read(index, new(size, size), owned)),
-                    (found, release) => {
-                        if (found.IsSome)
-                            images.Retain(release);
-                        else
-                            release.Dispose();
-                    }).Run(environment);
-                if (initial.Case is not ValueTuple<Eto.Drawing.Bitmap, string> value)
-                    break;
-                ButtonDrawable drawable = Create(header, index, value.Item1, value.Item2, images, retain).Run(environment);
-                int buttonIndex = index;
-                _ = Subscriptions.Attach(handler => drawable.Paint += handler, handler => drawable.Paint -= handler,
-                    Callbacks.Handler<PaintEventArgs>(_ => DisposalOps.Replace(owned => {
-                        Eto.Drawing.Size pixels = Eto.Drawing.Size.Ceiling((Eto.Drawing.SizeF)drawable.Size * drawable.ParentWindow.LogicalPixelSize);
-                        return read(buttonIndex, new(pixels.Width, pixels.Height), owned);
-                    }, (found, release) => found.Match(
-                        Some: value => DisposalOps.Published(images, value, release, () => (Image: Image(drawable), drawable.ToolTip), shown => {
-                            Image(drawable) = shown.Image;
-                            drawable.ToolTip = shown.ToolTip;
-                        }),
-                        None: () => DisposalOps.Release(release))).Map(unit), site), retain).Run(environment);
-                controls.Add(drawable);
-                index++;
-            }
-            return toSeq(controls);
-        });
+    internal static IO<Seq<ButtonDrawable>> Realize(IHeaderButtonHandler header, CallbackSite site, Action<IDisposable> retain) {
+        IO<Option<(Eto.Drawing.Bitmap Image, string ToolTip)>> read(int index, Eto.Drawing.Size pixels, Action<IDisposable> owned) =>
+            DisposalOps.Within(() => new Bitmap(pixels.Width, pixels.Height), seed =>
+                IO.lift(() => {
+                    Bitmap bitmap = seed;
+                    string toolTip = "";
+                    return header.ButtonDetails(index, ref bitmap, ref toolTip) ? Some((Bitmap: bitmap, ToolTip: toolTip)) : None;
+                }).Bind(found => found.Traverse(value => DisposalOps.Acquire(IO.lift(value.Bitmap.ToEto), owned)
+                    .Map(bitmap => (Image: bitmap, value.ToolTip))).As()));
+        return header is HeaderButtons authored ? authored.Realize(retain) : Monad.recur<IO, Seq<ButtonDrawable>, Seq<ButtonDrawable>>(Seq<ButtonDrawable>(), controls =>
+            from images in IO.lift(static () => new Retained<IDisposable>(DisposalOps.Release))
+            from initial in DisposalOps.Acquire(
+                owned => IconSlot.SectionHeader.Size().Bind(size => read(controls.Count, new(size, size), owned)),
+                (found, release) => found.Match(Some: _ => images.Retain(release), None: release.Dispose))
+            from next in initial.Match(
+                Some: value =>
+                    from drawable in Create(header, controls.Count, value.Image, value.ToolTip, images, retain)
+                    from painted in Subscriptions.Attach(handler => drawable.Paint += handler, handler => drawable.Paint -= handler,
+                        Callbacks.Handler<PaintEventArgs>(_ => DisposalOps.Replace(
+                            owned => read(controls.Count, Eto.Drawing.Size.Ceiling((Eto.Drawing.SizeF)drawable.Size * drawable.ParentWindow.LogicalPixelSize), owned),
+                            (found, release) => found.Match(
+                                Some: shown => DisposalOps.Published(images, shown, release, () => (Image: Image(drawable), drawable.ToolTip), current => (Image(drawable), drawable.ToolTip) = current),
+                                None: () => DisposalOps.Release(release))).Map(unit), site), retain)
+                    select Next.Loop<Seq<ButtonDrawable>, Seq<ButtonDrawable>>(controls.Add(drawable)),
+                None: () => IO.pure(Next.Done<Seq<ButtonDrawable>, Seq<ButtonDrawable>>(controls)))
+            select next).As();
+    }
 
     private static IO<ButtonDrawable> Create(IHeaderButtonHandler header, int index, Eto.Drawing.Bitmap image, string toolTip, Retained<IDisposable> images, Action<IDisposable> retain) =>
         DisposalOps.Within<IDisposable, ButtonDrawable>(owned => {

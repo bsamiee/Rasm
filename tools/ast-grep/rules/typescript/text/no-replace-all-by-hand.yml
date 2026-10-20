@@ -113,6 +113,9 @@ transform:
     PIPED_HEAD: {replace: {source: $PIPED, replace: '^((?s:.*?))\bsplit\(((?s:.*))\)$', by: '${1}replaceAll(${2}, '}}
     PIPED_TEXT: {replace: {source: $PT, replace: '\$', by: '$$$$'}}
     PIPED_CLOSE: {replace: {source: $PIPED, replace: '^(?s:.+)$', by: ')'}}
+    FIXABLE_CALLEE: {replace: {source: $FIXABLE, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
+    KEPT_CALLEE: {replace: {source: $KEPT, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
+    PIPED_CALLEE: {replace: {source: $PIPED, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
 fix:
     template: $FIXED$KEPT$PIPED_HEAD$PIPED_TEXT$PIPED_CLOSE
     expandEnd:
@@ -120,5 +123,5 @@ fix:
         matches: piped-join
         follows: {stopBy: {not: {regex: '^,$'}}, matches: piped-split}
         has: {field: arguments, has: {nthChild: 1, matches: plain-text}}
-message: '`$FIXABLE$KEPT$PIPED` replaces one fixed string through a fixed-string regex or `split` and `join`'
-note: 'Call `<text>.replaceAll(<search>, <replacement>)`, the fix keeping the `$` patterns a fixed-string `g` regex reads, doubling each `$` of a literal `join` text, and leaving a computed `join` text unfixed since `replaceAll` reads its `$` patterns'
+message: '`$FIXABLE_CALLEE$KEPT_CALLEE$PIPED_CALLEE` replaces one fixed string through a fixed-string regex or `split` and `join`'
+note: 'Call `<text>.replaceAll(<search>, <replacement>)`'

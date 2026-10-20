@@ -262,8 +262,8 @@ fn duplicate_type(found: &str) {
     note: converted from `Address` member by member here
        --> tools/dylint/examples/duplicate_type.rs:493:15
         |
-    493 |     let dto = AddressDto { port: u16::from(address.port), timeout: u32::from(address.timeout) };
-        |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    493 |     let dto = AddressDto { port: u16::from(address.port), limit: u32::from(address.limit) };
+        |               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         = help: make `Address` generic over the member types that differ and use it in place of `AddressDto`
 
     warning: `AccountRow` repeats `Account` member by member
@@ -534,13 +534,13 @@ fn parameterizable_body(found: &str) {
     warning: `retry_writes` repeats the body of `retry_reads` with other values
        --> tools/dylint/examples/parameterizable_body.rs:119:1
         |
-    119 | const fn retry_reads(client: &Client) -> Policy { Policy::new(client, 3, TIMEOUT.strict_mul(2)) }
+    119 | const fn retry_reads(client: &Client) -> Policy { Policy::new(client, 3, TIMEOUT.saturating_mul(2)) }
         | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
     note: repeated here
        --> tools/dylint/examples/parameterizable_body.rs:121:1
         |
-    121 | const fn retry_writes(client: &Client) -> Policy { Policy::new(client, 5, TIMEOUT.strict_mul(2)) }
+    121 | const fn retry_writes(client: &Client) -> Policy { Policy::new(client, 5, TIMEOUT.saturating_mul(2)) }
         | ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
         = help: call `Policy::new` with the differing value at each call site of `retry_reads` and `retry_writes`
 

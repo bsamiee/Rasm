@@ -57,4 +57,4 @@ rule:
                 - all: [{kind: assignment_expression}, {has: {field: left, kind: identifier, pattern: $STATE}}, {has: {field: right, matches: wrap}}]
             - inside: {stopBy: {matches: function}, matches: loop, has: {stopBy: end, matches: settled}}
 message: '`$STATE` wraps its previous value each pass, the fixpoint test never sees it settle'
-note: 'Join into a flat value of bounded height, a union, a maximum, or a canonical representative, so a pass over equal inputs returns an equal state'
+note: 'Join into a flat value of bounded height, a union, a maximum, or a canonical representative'

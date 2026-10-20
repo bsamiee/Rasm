@@ -202,5 +202,5 @@ transform:
     MAPPED: rewrite($CALL, rewriters=[recover, as-first, as-last, identity-first, identity-last, void-first, void-last, map-first, map-last])
 fix: $MAPPED
 message: '`$M.$F` callback lifts its result back into `$M`'
-note: 'Call `<module>.map` to transform the value, `<module>.as` to set a constant, `<module>.asVoid` to drop it, and `<module>.orElseSucceed` or `<module>.mapError` in place of a `catch` handler'
+note: 'Call `<module>.map`, `<module>.as` for a constant, or `<module>.asVoid`, and `<module>.orElseSucceed` or `<module>.mapError` in place of `catch`'
 labels: {CALL: {style: primary}}

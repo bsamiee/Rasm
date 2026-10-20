@@ -130,4 +130,4 @@ rule:
                     - not: {has: {kind: argument, nthChild: 3}}
             - matches: vector-write
 message: '`$SOURCE` is copied to or from `Vector$WIDTH` values one `$WIDTH`-wide slice at a time'
-note: 'View the buffer as vectors with `MemoryMarshal.Cast<float, <vector>>(<buffer>)`, one span that reads and writes it in place'
+note: 'View the buffer in place as vectors through `MemoryMarshal.Cast<float, <vector>>(<buffer>)`'

@@ -27,4 +27,4 @@ rule:
                         matches: typescript-function-boundary
                         has: {stopBy: end, matches: option-render, has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $NAME}}}
 message: '`$ERROR` reads the failure of `$RESULT` into an `Option` to render it'
-note: 'Render the failure through `AsyncResult.builder(<result>).onError((error) => <element>).orNull()`, with `onWaiting`, `onSuccess`, and `onDefect` for the other states the view renders'
+note: 'Render through `AsyncResult.builder(<result>).onError((error) => <element>).orNull()`, adding `onWaiting`, `onSuccess`, or `onDefect` per state'

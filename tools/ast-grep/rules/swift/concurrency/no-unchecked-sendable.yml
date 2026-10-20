@@ -8,4 +8,4 @@ rule:
     precedes: {kind: inheritance_specifier, regex: '^(Swift\.)?Sendable$'}
     inside: {kind: class_declaration, has: {field: name, pattern: $TYPE}}
 message: '`@unchecked Sendable` exempts `$TYPE` from the compiler''s Sendable checking'
-note: 'Declare `Sendable` and let the compiler check it: hold mutable or non-Sendable state in a `Mutex` or `Atomic` from `Synchronization` inside a `final class` or `~Copyable` struct, give state one serial executor owns to an actor, and conform generic storage through `extension <Type>: Sendable where <Value>: Sendable`'
+note: 'Conform to `Sendable` with shared state in an actor, synchronous state in `Mutex` or `Atomic`, and generic storage conditional on `<Value>: Sendable`'

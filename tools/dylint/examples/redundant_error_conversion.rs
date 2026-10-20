@@ -6,7 +6,7 @@ use core::{
     num::{ParseFloatError, ParseIntError},
     str::{self, Utf8Error},
 };
-use std::io;
+use std::{io, path::Path};
 
 use thiserror::Error;
 
@@ -174,7 +174,7 @@ fn blocked(text: &str) -> Result<u16, PortError> { try { text.trim().parse::<u16
 
 fn bikeshed(text: &str) -> Result<u16, PortError> { try bikeshed Result<u16, PortError> { text.trim().parse::<u16>().map_err(PortError::from)? } }
 
-fn read(path: &str) -> Result<String, ReadError> { Ok(fs_err::read_to_string(path)?) }
+fn read(path: &Path) -> Result<String, ReadError> { Ok(fs_err::read_to_string(path)?) }
 
 fn closured(text: &str) -> Result<u16, PortError> {
     let port = text.trim().parse().map_err(|error| PortError::from(error))?;
@@ -222,5 +222,5 @@ fn main() {
         attributed(b"8093").map_or(Ok(0), parse)?;
         Ok(())
     };
-    black_box((run(), read("port").map(|text| text.len()))).0.unwrap_or_default();
+    black_box((run(), read(Path::new("port")).map(|text| text.len()))).0.unwrap_or_default();
 }

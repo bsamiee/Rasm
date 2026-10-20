@@ -32,4 +32,4 @@ rule:
             - has: {matches: key, follows: {stopBy: end, matches: key}}
             - not: {has: {matches: key, not: {matches: own-name-key}}}
 message: 'Switch or table maps each enum case to its own name spelled as a string literal'
-note: 'Give the enum a `String` raw type and read `<value>.rawValue` or call `<Enum>(rawValue: <text>)`, keeping the mapping for an enum with raw values other than its case names'
+note: 'Give the enum a `String` raw type and read `<value>.rawValue` or `<Enum>(rawValue: <text>)` where its raw values are its case names'

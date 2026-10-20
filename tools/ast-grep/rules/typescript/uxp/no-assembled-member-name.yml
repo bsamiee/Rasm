@@ -48,4 +48,4 @@ rule:
                         - inside: {kind: variable_declarator, field: value, matches: record-declaration}
                         - inside: {matches: typescript-expression-wrapper, inside: {kind: variable_declarator, field: value, matches: record-declaration}}
 message: '`$NAME` assembles a member name from text'
-note: 'Select the member per case of the tagged value, `Match.value(<value>).pipe(Match.when(<case>, () => <owner>.<member>), Match.exhaustive)`, where the compiler checks each member read or assignment'
+note: 'Read the member name from `$.dictionary.getClass(<class>)` rows, or select it with `Match.valueTags` where a tagged value decides it'

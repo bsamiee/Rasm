@@ -441,23 +441,20 @@ public sealed class RowGrid : Drawable {
                     line.Trailing ? Reset.IfNone(0f) : 0f))));
 
         public DrawnLine Drawn(RowPlace place, GridLine line, bool beside) =>
-            (Bounds: (RectangleF)line.Host.Bounds, line.Host.Padding) switch {
-                var (bounds, padding) => new RectangleF(bounds.X + padding.Left, bounds.Y + padding.Top, bounds.Width - padding.Horizontal, bounds.Height - padding.Vertical) switch {
-                    var content => new DrawnLine(
-                        place,
-                        line.Spec.Caption.Map(caption => (caption, caption.Cell switch {
-                            CaptionCell.Column when beside => new RectangleF(bounds.X, content.Y, Labels, content.Height),
-                            CaptionCell.Column => new RectangleF(bounds.X, bounds.Y, bounds.Width, CaptionHeight),
-                            CaptionCell.Span or CaptionCell.Rule => (Gated(line.Spec) && line.Spec.Gate.IsSome ? Gate.IfNone(0f) + Spacing.Width : 0f) switch {
-                                var lead => new RectangleF(content.X + lead, content.Y,
-                                    content.Width - lead - (line.Spec.Pick.IsSome ? Pick.IfNone(0f) + Spacing.Width : 0f), content.Height),
-                            },
-                        })),
-                        Reset.Filter(_ => line.Spec.Trailing && line.Spec.Trail.IsSome)
-                            .Map(width => new RectangleF(bounds.Right - Lock.Map(held => held + Spacing.Width).IfNone(0f) - width, content.Y + ((content.Height - width) / 2f), width, width)),
-                        Lock.Filter(_ => line.Spec.Trailing && line.Spec.Trail.Exists(static trail => trail.Lock.IsSome))
-                            .Map(width => new RectangleF(bounds.Right - width, content.Y + ((content.Height - width) / 2f), width, width))),
-                },
+            ((RectangleF)line.Host.Bounds, RectangleF.Inset(line.Host.Bounds, line.Host.Padding)) switch {
+                var (bounds, content) => new DrawnLine(
+                    place,
+                    line.Spec.Caption.Map(caption => (caption, caption.Cell switch {
+                        CaptionCell.Column when beside => new RectangleF(bounds.X, content.Y, Labels, content.Height),
+                        CaptionCell.Column => new RectangleF(bounds.X, bounds.Y, bounds.Width, CaptionHeight),
+                        CaptionCell.Span or CaptionCell.Rule => RectangleF.Inset(content, new PaddingF(
+                            left: Gate.Filter(_ => line.Spec.Gate.IsSome).Map(width => width + Spacing.Width).IfNone(0f), top: 0f,
+                            right: line.Spec.Pick.Map(_ => Pick.IfNone(0f) + Spacing.Width).IfNone(0f), bottom: 0f)),
+                    })),
+                    Reset.Filter(_ => line.Spec.Trailing && line.Spec.Trail.IsSome)
+                        .Map(width => new RectangleF(bounds.Right - Lock.Map(held => held + Spacing.Width).IfNone(0f) - width, content.Y + ((content.Height - width) / 2f), width, width)),
+                    Lock.Filter(_ => line.Spec.Trailing && line.Spec.Trail.Exists(static trail => trail.Lock.IsSome))
+                        .Map(width => new RectangleF(bounds.Right - width, content.Y + ((content.Height - width) / 2f), width, width))),
             };
     }
 }

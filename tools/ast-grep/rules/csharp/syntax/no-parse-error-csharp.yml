@@ -31,19 +31,36 @@ utils:
         any:
             - matches: typed-slice-error
             - {regex: '^$', inside: {kind: list_pattern, has: {matches: typed-slice-error}}}
-    extension-block:
-        kind: constructor_declaration
-        has: {field: name, regex: '^extension$'}
-    generic-extension-header:
+    extension-head:
+        kind: identifier
+        regex: '^extension$'
+        inside: {regex: '^extension\s*[<(]'}
+    type-level:
         any:
-            - {kind: ERROR, regex: '^extension\s*<[^>]+>\s*\([^\n]+\)[^\n{]*\{'}
-            - {kind: method_declaration, has: {field: returns, kind: generic_name, regex: '^extension\s*<'}}
+            - kind: &types 'declaration_list, compilation_unit, class_declaration, struct_declaration, record_declaration'
+            - {kind: ERROR, inside: {kind: *types}}
+    extension-header:
+        kind: 'constructor_declaration, method_declaration, property_declaration, field_declaration, global_statement, ERROR'
+        all:
+            - inside: {matches: type-level}
+            - has: {stopBy: {kind: &bodies 'block, arrow_expression_clause'}, matches: extension-head}
+    extension-body:
+        follows: {matches: extension-header, not: {regex: '\}$'}}
+    extension-region:
+        any: [{matches: extension-header}, {matches: extension-body}]
+    member-body:
+        kind: *bodies
+        inside:
+            kind: 'method_declaration, local_function_statement, property_declaration, accessor_declaration, constructor_declaration, operator_declaration, indexer_declaration'
+            not: {matches: extension-header}
+            inside: {stopBy: end, matches: extension-region}
     extension-member:
         any:
-            - inside: {matches: extension-block, stopBy: end}
-            - {kind: ERROR, regex: '^\}$', inside: {kind: compilation_unit}, follows: {stopBy: end, has: {stopBy: end, any: [{matches: extension-block}, {matches: generic-extension-header}]}}}
-            - matches: generic-extension-header
-            - {kind: ERROR, inside: {matches: generic-extension-header}}
+            - matches: extension-region
+            - all:
+                - inside: {stopBy: end, matches: extension-region}
+                - not: {inside: {stopBy: end, matches: member-body}}
+            - {kind: ERROR, regex: '^\}$', inside: {kind: compilation_unit}, follows: {stopBy: end, has: {stopBy: end, matches: extension-head}}}
     ref-compound-assignment:
         kind: ERROR
         regex: '^=$'
@@ -97,5 +114,4 @@ rule:
 labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
 message: Grammar failed to parse the span
-note: >-
-    Use a form the grammar parses, every other rule skips constructs inside a parse error. Grammar gaps left unreported are modifiers on implicitly typed lambda parameters (`(a, out b) =>`), a declaration pattern in a slice pattern (`[.. T[] rest]`), assignments to ref-returning calls (`Field(owner) = value`, `Field(owner) += handler`), a collection expression whose first element is a local spelled like an attribute target (`[method, .. rest]`), `extension(<receiver>)` blocks and their members, and file-based app directives (`#:package <id>`). Extension arms retire once a tree-sitter-c-sharp release parses `extension_declaration` and its grammar joins `sgconfig.yml` as a `customLanguages` row
+note: 'Write a form tree-sitter-c-sharp parses'

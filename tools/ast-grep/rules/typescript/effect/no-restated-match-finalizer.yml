@@ -41,7 +41,7 @@ utils:
 rule:
     kind: call_expression
     all:
-        - has: {field: function, matches: {effect-module-member: {module: {regex: '\bMatch$'}, member: {regex: '^orElse$'}}}}
+        - has: {field: function, pattern: $OR_ELSE, matches: {effect-module-member: {module: {regex: '\bMatch$'}, member: {regex: '^orElse$'}}}}
         - has:
             field: arguments
             all:
@@ -60,5 +60,5 @@ rule:
                         - matches: option-none
                         - matches: unmatched-failure
                         - matches: {effect-module-member: {module: {regex: '\bResult$'}, member: {regex: '^fail$'}}}
-message: '`Match.orElse($D)` restates a matcher finalizer'
-note: 'Finish the matcher with `Match.option` for `Option.none()` on unmatched input or `Match.result` for the unmatched input as a `Result` failure, the arms returning plain values'
+message: '`$OR_ELSE` restates `Match.option` or `Match.result` with an absent or failing default'
+note: 'Return plain values from the arms and finish with `Match.option` for `Option.none()` or `Match.result` for a `Result` failure on unmatched input'

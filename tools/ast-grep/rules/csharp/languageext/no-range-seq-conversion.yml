@@ -31,5 +31,5 @@ rule:
             - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^ToSeq$'}}, {has: {field: expression, matches: range, pattern: $RANGE}}]}
             - not: {has: {field: arguments, has: {kind: argument}}}
 message: '`$RANGE` converts to a `Seq` before a `Foldable` member the range answers itself'
-note: Call the member on `$RANGE`, `Range<A>` implements `Foldable<Range>` and every fold, search, count, and aggregate reads it directly
+note: 'Call the fold, search, count, or aggregate member on `<range>` directly'
 fix: $RANGE

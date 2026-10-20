@@ -162,7 +162,8 @@ MCP uses plain `ast-grep` after `ast-grep --custom-languages trust --version` ru
 Tree-sitter recovers with `ERROR` or zero-width `MISSING` nodes, and its precedence can differ from the language parser's:
 - `ERROR` constructs are unenforceable, the enclosing statement pattern matches them
 - `kind: ERROR` and `ast-grep run --custom-languages allow -k ERROR -l <lang>` find the recovered form
-- `no-parse-error-<language>` reports each outermost `ERROR` and a file's first `MISSING` token, a grammar gap tracked code needs takes an `unreported` arm and a clause in the rule's `note`
+- `no-parse-error-<language>` reports each outermost `ERROR` and a file's first `MISSING` token
+- Grammar gaps tracked code needs take an `unreported` arm named for the gap, and the note names no gap
 
 | [INDEX] | [PYTHON]                         | [SHAPE]                                                                                           |
 | :-----: | :------------------------------- | :------------------------------------------------------------------------------------------------ |

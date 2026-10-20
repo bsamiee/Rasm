@@ -551,14 +551,15 @@ pydoclint                 = { ignore-one-line-docstrings = true }
 pylint                    = { allow-magic-value-types = ["str", "bytes", "int"], allow-dunder-method-names = ["__array__"], max-args = 8 }
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**"                                      = ["assert"]
-"{libs/python/blender,apps/blender}/**"         = [
-    "boolean-positional-value-in-call",                                                     # bpy, gpu, and RNA writes take booleans as values (`path_resolve(path, False)`, `gpu.state.scissor_test_set(True)`, `written(owner, "value", True)`), as do `Ok(True)` and `default_value(False)`
-    "import-private-name",                                                                  # Blender supplies `_bpy_internal` and `_blendfile_header`, and Windows `_winapi`, with no public module
-    "no-self-use",                                                                          # Structural `Row`, `Part`, and `Effect` protocol methods read no `self`, and `@override` rejects a method with no base class
+"tests/**"                                                = ["assert"]
+"{libs/python/blender,apps/blender}/**"                   = [
+    "boolean-positional-value-in-call",                                                               # bpy, gpu, and RNA writes take booleans as values (`path_resolve(path, False)`, `gpu.state.scissor_test_set(True)`, `written(owner, "value", True)`), as do `Ok(True)` and `default_value(False)`
+    "import-private-name",                                                                            # Blender supplies `_bpy_internal` and `_blendfile_header`, and Windows `_winapi`, with no public module
+    "no-self-use",                                                                                    # Structural `Row`, `Part`, and `Effect` protocol methods read no `self`, and `@override` rejects a method with no base class
 ]
-"apps/blender/**"                               = ["non-empty-init-module"]                 # Extension `__init__.py` composes the `register` and `unregister` entry points Blender imports
-"libs/python/blender/bpy/ui/layout/sections.py" = ["boolean-type-hint-positional-argument"] # `Enum` unpacks each `Verb` member tuple into `__init__` positionally
+"apps/blender/**"                                         = ["non-empty-init-module"]                 # Extension `__init__.py` composes the `register` and `unregister` entry points Blender imports
+"libs/python/blender/bpy/extension/{identity,reports}.py" = ["banned-api"]                            # Extensions bundle `[project]` dependencies alone, with no structlog, `Reports` writes to the extension package's `logging` logger
+"libs/python/blender/bpy/ui/layout/sections.py"           = ["boolean-type-hint-positional-argument"] # `Enum` unpacks each `Verb` member tuple into `__init__` positionally
 
 [tool.ruff.lint.flake8-tidy-imports]
 require-lazy = [
@@ -602,6 +603,21 @@ require-lazy = [
 "json.encoder.JSONEncoder".msg     = "Use msgspec.json.encode"
 "json.load".msg                    = "Use msgspec.json.decode with type="
 "json.loads".msg                   = "Use msgspec.json.decode with type="
+"logging.Logger".msg               = "Type the logger as Reports in Blender code, structlog.typing.FilteringBoundLogger elsewhere"
+"logging.LoggerAdapter".msg        = "Log through Reports in Blender code, structlog.get_logger(__name__).bind elsewhere"
+"logging.RootLogger".msg           = "Type the logger as Reports in Blender code, structlog.typing.FilteringBoundLogger elsewhere"
+"logging.critical".msg             = "Log through Reports in Blender code, structlog.get_logger(__name__) elsewhere"
+"logging.debug".msg                = "Log through Reports in Blender code, structlog.get_logger(__name__) elsewhere"
+"logging.error".msg                = "Log through Reports in Blender code, structlog.get_logger(__name__) elsewhere"
+"logging.exception".msg            = "Log through Reports in Blender code, structlog.get_logger(__name__) elsewhere"
+"logging.fatal".msg                = "Log through Reports in Blender code, structlog.get_logger(__name__) elsewhere"
+"logging.getLogger".msg            = "Log through Reports in Blender code, structlog.get_logger(__name__) elsewhere"
+"logging.getLoggerClass".msg       = "Type the logger as Reports in Blender code, structlog.typing.FilteringBoundLogger elsewhere"
+"logging.info".msg                 = "Log through Reports in Blender code, structlog.get_logger(__name__) elsewhere"
+"logging.log".msg                  = "Log through Reports in Blender code, structlog.get_logger(__name__) elsewhere"
+"logging.root".msg                 = "Log through Reports in Blender code, structlog.get_logger(__name__) elsewhere"
+"logging.warn".msg                 = "Log through Reports in Blender code, structlog.get_logger(__name__) elsewhere"
+"logging.warning".msg              = "Log through Reports in Blender code, structlog.get_logger(__name__) elsewhere"
 "nt.environ".msg                   = "Validate os.environ once at the boundary with a frozen settings model"
 "ntpath.expandvars".msg            = "Read a typed settings field validated once from the mapping the boundary passes"
 "operator.attrgetter".msg          = "Use a lambda, typeshed types the getter's result as Any"
@@ -729,7 +745,7 @@ disable    = [
     "FURB173",                # Merged literal `{...} | d` infers its own value type, failing the target parameter's type under mypy
     "FURB176",                # Ruff DTZ003 and DTZ004 report the form
     "FURB177",                # Ruff runs FURB177
-    "FURB179",                # Rewrites to `chain.from_iterable`, joining heterogeneous tuple elements to `object`, ast-grep `no-unpacked-chain-argument` reports `chain(*x)`
+    "FURB179",                # Rewrites to `chain.from_iterable`, joining heterogeneous tuple elements to `object`, ast-grep `no-unpacked-chain-argument` and `no-chain-flattening` report hand flattening
     "FURB180",                # Ruff runs FURB180
     "FURB184",                # Matches names with no type or binding check, chaining drops annotations and reused bindings
     "FURB188",                # Ruff runs FURB188

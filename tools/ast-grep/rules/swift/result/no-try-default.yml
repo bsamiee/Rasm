@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-try-default-swift
+id: no-try-default
 language: swiftlang
 severity: error
 utils:
@@ -58,7 +58,6 @@ utils:
                 - has: {kind: switch_pattern, regex: '^\.failure(\(_\))?$'}
                 - has: {kind: default_keyword}
             - not: {has: {kind: switch_pattern, nthChild: {position: 2, ofRule: {kind: switch_pattern}}}}
-            - has: {kind: statements, pattern: $TRY}
     default-value:
         any:
             - kind: 'boolean_literal, integer_literal, real_literal, line_string_literal, array_literal, dictionary_literal'
@@ -68,7 +67,6 @@ utils:
             - {kind: prefix_expression, regex: '^-\s*[0-9]'}
     swallowing-catch:
         kind: catch_block
-        pattern: $TRY
         all:
             - not: {has: {kind: 'pattern, where_clause'}}
             - not: {has: {stopBy: end, kind: simple_identifier, regex: '^error$'}}
@@ -80,26 +78,23 @@ utils:
                             kind: 'control_transfer_statement, assignment'
                             has: {field: result, matches: default-value}
 rule:
+    pattern: $SITE
     any:
         - kind: do_statement
           has: {matches: swallowing-catch}
         - kind: nil_coalescing_expression
-          pattern: $TRY
           has: {field: value, matches: tried-chain}
           not: {has: {field: if_nil, regex: '^nil$'}}
         - matches: optional-try
-          pattern: $TRY
           has: {field: expr, any: [{matches: get-call}, {kind: await_expression, has: {field: expr, matches: get-call}}]}
           not: {any: [{matches: consumed}, {matches: partition}]}
         - matches: get-call
-          pattern: $TRY
           has: {kind: navigation_expression, has: {field: target, matches: tried-chain}}
           not: {any: [{matches: consumed}, {matches: partition}]}
         - kind: 'guard_statement, if_statement, while_statement'
-          has: {matches: tried-chain, pattern: $TRY, follows: {regex: '^=$'}}
+          has: {matches: tried-chain, follows: {regex: '^=$'}}
           not: {has: {kind: wildcard_pattern}}
         - kind: 'equality_expression, infix_expression'
-          pattern: $TRY
           all:
             - has: {matches: tried-chain}
             - has: {field: op, regex: '^[!=]=$'}
@@ -119,26 +114,27 @@ rule:
                 - all:
                     - has: {kind: pattern, has: {kind: simple_identifier, pattern: $VALUE}}
                     - has: {nthChild: {position: 1, ofRule: {kind: statements}}, matches: projected-body}
-                    - has: {kind: statements, nthChild: {position: 2, ofRule: {kind: statements}}, pattern: $TRY}
+                    - has: {kind: statements, nthChild: {position: 2, ofRule: {kind: statements}}}
                 - all:
                     - has: {kind: statements, nthChild: {position: 1, ofRule: {kind: statements}}, matches: {swift-single-statement: {first: {matches: value-return}}}}
                     - any:
-                        - has: {kind: statements, nthChild: {position: 2, ofRule: {kind: statements}}, pattern: $TRY, matches: {swift-single-statement: {first: {matches: value-return}}}}
+                        - has: {kind: statements, nthChild: {position: 2, ofRule: {kind: statements}}, matches: {swift-single-statement: {first: {matches: value-return}}}}
                         - all:
                             - not: {has: {regex: '^else$'}}
-                            - precedes: {matches: value-return, pattern: $TRY}
+                            - precedes: {matches: value-return}
         - kind: guard_statement
           regex: '^guard\s+case\s+(\.success\(let\s+\w+\)|let\s+\.success\(\w+\))\s*='
           all:
             - not: {has: {regex: '^,$'}}
             - has:
                 kind: statements
-                pattern: $TRY
                 matches:
                     swift-single-statement:
                         first:
                             kind: control_transfer_statement
                             has: {field: result, not: {matches: swift-failure-call}}
             - not: {matches: partition}
-message: '`$TRY` discards the error and hands consumers nil or a default in place of the failure a `Result` keeps'
-note: 'Recover through `Result { try <call> }.flatMapError { error in <recovered case> }` in place of `(try? <call>) ?? <default>`, a `catch` returning or assigning a default, or a `switch`, `if case`, or `guard case` projecting `.success`, transform the result through `.map` or `.mapError` in place of `try? <result>.get()`, keep `Result { try <call> }` with a typed failure case in place of the `guard let` form, and match the failure case in place of comparing `try? <call>` with `nil` or a boolean'
+transform:
+    HEAD: {replace: {source: $SITE, replace: '(?s)\n.*$', by: ''}}
+message: '`$HEAD` discards the error for `nil` or a default'
+note: 'Hold the call in `Result { try <call> }` and recover with `flatMapError`, transform with `map` or `mapError`, or match its `.failure` case'

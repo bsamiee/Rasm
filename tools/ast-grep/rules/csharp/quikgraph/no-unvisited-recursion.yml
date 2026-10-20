@@ -2,6 +2,7 @@
 id: no-unvisited-recursion
 language: csharp
 severity: error
+files: ['libs/dotnet/rhino/Rasm.Rhino/**', 'libs/dotnet/rhino/Rasm.Grasshopper/**']
 utils:
     function:
         kind: 'method_declaration, local_function_statement'
@@ -106,4 +107,4 @@ rule:
                         - has: {stopBy: end, matches: recursion}
         - not: {has: {field: body, has: {stopBy: {matches: function}, matches: membership-test}}}
 message: '`$NAME` recurses into every successor of `$NODE` with no visited test'
-note: 'Hold the graph in a QuikGraph `AdjacencyGraph` and walk it with `DepthFirstSearchAlgorithm` or `BreadthFirstSearchAlgorithm`, each vertex visited once across shared parents and cycles'
+note: 'Walk a QuikGraph `AdjacencyGraph` with `DepthFirstSearchAlgorithm` or `BreadthFirstSearchAlgorithm`'

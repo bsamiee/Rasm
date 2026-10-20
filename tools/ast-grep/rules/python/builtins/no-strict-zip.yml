@@ -18,4 +18,4 @@ rule:
                         - matches: {python-builtin-name: {name: {regex: '^(zip|map)$'}}}
                         - matches: {python-member-use: {module: {regex: '^itertools$'}, name: {regex: '^batched$'}}}
 message: '`$CALLEE` takes `strict=$VALUE`'
-note: 'Delete `strict=False`, the default, and `strict=True` where construction fixes the lengths, validating input lengths at the boundary into a type that holds them'
+note: 'Delete `strict=False` and `strict=True`, validating input lengths at the boundary into a type that fixes them'

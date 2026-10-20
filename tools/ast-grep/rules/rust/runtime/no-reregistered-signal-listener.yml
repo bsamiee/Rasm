@@ -40,4 +40,4 @@ rule:
                 - kind: closure_expression
                   inside: {kind: arguments, inside: {matches: repeating-call}}
 message: '`$SITE` registers a new signal listener on each repetition'
-note: 'Register the listener once ahead of the repetition: a `tokio::signal::unix::signal(<kind>)` or `tokio::signal::windows::ctrl_c()` listener read through `recv`, a `tokio_stream::wrappers::SignalStream` or `CtrlCStream`, or one `ctrl_c()` future pinned before the loop when the first signal ends it'
+note: 'Register the listener before the loop and read `recv` or a `tokio_stream` wrapper, or pin one `ctrl_c()` future there when the first signal ends it'

@@ -220,4 +220,4 @@ transform:
     FIXED: {rewrite: {source: $NODE, rewriters: [grouped, json-operator, operator, included, limited, joined, committed, selected, temp, star, starred, renamed, separated, compared, null-identity, is-null, is-not-null]}}
 fix: $FIXED
 message: '`$NODE` is a second spelling of `$FIXED`'
-note: 'Write the fix spelling. The D1 and Durable Objects authorizer rejects `if`, `power`, and `ceiling`, and PostgreSQL shares `string_agg`'
+note: 'Write the fix spelling'

@@ -73,4 +73,4 @@ rule:
                 - has: {kind: call_expression, regex: '^Some\(', has: {field: arguments, has: {nthChild: 1, matches: keyword}}}
             - has: {matches: first-word}
 message: '`$SNIFF` classifies SQL text by its leading keyword'
-note: 'Parse the text once with `sqlparser::parser::Parser::parse_sql(&<dialect>, <text>)` and match the `sqlparser::ast::Statement` variants (`Query`, `Insert`, `Update`, `Delete`, `CreateTable`)'
+note: 'Parse the text with `sqlparser::parser::Parser::parse_sql` and match the `sqlparser::ast::Statement` variant'

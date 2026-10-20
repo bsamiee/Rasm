@@ -28,4 +28,4 @@ rule:
     pattern: $SCAN
     matches: fence-scan
 message: '`$SCAN` finds Markdown code fences by line text'
-note: 'Parse with `comrak::parse_document(&comrak::Arena::new(), <text>, &comrak::Options::default())` and read `info` and `literal` of each `comrak::nodes::NodeValue::CodeBlock` node'
+note: 'Parse with `comrak::parse_document` and read `info` and `literal` of each `comrak::nodes::NodeValue::CodeBlock`'

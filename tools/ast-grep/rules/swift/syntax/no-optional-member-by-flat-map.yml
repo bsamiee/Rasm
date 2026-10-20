@@ -30,7 +30,6 @@ utils:
             - inside: {kind: 'if_statement, guard_statement', has: {kind: value_binding_pattern}}
 rule:
     kind: call_expression
-    pattern: $SITE
     all:
         - has: {nthChild: 1, kind: navigation_expression, all: [{has: {field: target, pattern: $X}}, {has: {field: suffix, has: {field: suffix, regex: '^flatMap$'}}}]}
         - has: {kind: call_suffix, has: {matches: reader}}
@@ -38,5 +37,5 @@ rule:
 transform:
     REST: {replace: {source: $READ, replace: '^(\$0|\\)', by: ''}}
 fix: $X?$REST
-message: '`$SITE` reads one member of an optional through `flatMap`'
-note: 'Read `<optional>?.<member>`, yielding `nil` for a `nil` optional or member as `flatMap` does'
+message: '`$X.flatMap` reads one member of an optional'
+note: 'Read `<optional>?.<member>`'

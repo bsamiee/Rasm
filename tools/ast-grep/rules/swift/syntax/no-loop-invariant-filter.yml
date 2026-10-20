@@ -29,7 +29,7 @@ utils:
                             any:
                                 - {kind: assignment, has: {field: target, has: {stopBy: end, kind: simple_identifier, pattern: $READ}}}
                                 - {kind: call_expression, has: {nthChild: 1, kind: navigation_expression, has: {field: target, pattern: $READ}}}
-                                - {kind: prefix_expression, all: [{has: {field: operation, pattern: µµ_OPERATOR, regex: '^&$'}}, {has: {field: target, pattern: $READ}}]}
+                                - {kind: prefix_expression, all: [{has: {field: operation, pattern: $$_OPERATOR, regex: '^&$'}}, {has: {field: target, pattern: $READ}}]}
             - kind: simple_identifier
               pattern: $STATE
               all:

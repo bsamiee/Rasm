@@ -37,6 +37,7 @@ utils:
         kind: call_expression
         has: {field: function, kind: field_expression, all: [{has: {field: value, kind: identifier, pattern: $STATE}}, {has: {field: field, regex: '^(push|push_back|push_front|insert)$'}}]}
 rule:
+    pattern: $LOOP
     any:
         - matches: rust-statement-loop
           any:
@@ -52,8 +53,10 @@ rule:
                     - matches: valued-return
                     - matches: valued-break
         - matches: pushing-fold
+transform:
+    HEAD: {replace: {source: $LOOP, replace: '(?s)\s*\{?\s*\n.*$', by: ''}}
 labels:
     STATE: {style: secondary, message: 'Written each pass'}
     FOUND: {style: secondary, message: 'Returned from inside the loop'}
-message: 'Loop or `fold` computes its result statement by statement'
-note: 'Build the value with one adapter chain: `.map(<f>).collect()` builds, `.filter(<test>)` keeps, `.sum()` or `.fold(<initial>, <f>)` accumulates, `.max()`, `.min()`, or `.reduce(<f>)` selects an extreme, `.any`, `.all`, `.find`, `.position`, or `.find_map` stops at the first match, and a fallible traversal over independent elements collects into `validated::Validated`'
+message: '`$HEAD` computes its result statement by statement'
+note: 'Build the value through one iterator adapter chain, collecting a fallible traversal over independent elements into `validated::Validated`'

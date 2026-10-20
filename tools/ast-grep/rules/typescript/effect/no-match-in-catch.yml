@@ -10,7 +10,7 @@ utils:
             kind: member_expression
             pattern: $HANDLER
             all:
-                - has: {field: property, regex: '^(catch|catchEager|catchCause|catchIf|catchFilter|tapError|tapCause|mapError|mapErrorEager)$'}
+                - has: {field: property, regex: '^(catch|catchEager|catchCause|catchIf|catchFilter|tapError|tapCause)$'}
                 - has: {field: object, matches: {effect-module: {name: {regex: '\b(Effect|Stream|Channel|Layer)$'}}}}
     callback-parameter:
         kind: arrow_function, function_expression
@@ -47,4 +47,4 @@ rule:
             nthChild: {position: 1, reverse: true}
             has: {stopBy: {matches: typescript-function-boundary}, matches: selection}
 message: '`$HANDLER` selects the failure by hand inside its callback'
-note: 'Call `catchTag`, `catchTags`, `tapErrorTag`, or `catchIf` of the same module to select the failure by `_tag` or predicate before its callback runs'
+note: 'Call `catchTag`, `catchTags`, `tapErrorTag`, or `catchIf` of the same module to select the failure by `_tag` or predicate'

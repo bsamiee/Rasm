@@ -323,19 +323,9 @@ public static class Blend {
                     : new PixelPass.Pointwise((row, column, line) => blending.Graded(row, color.Row, (input, weights) => blending.Weigh(input, column, line, weights))),
                 pointwise: static (blending, pointwise) => new PixelPass.Pointwise((row, column, line) =>
                     blending.Graded(row, graded => pointwise.Row(graded, column, line), (input, weights) => blending.Weigh(input, column, line, weights))),
-                frame: static (blending, frame) => new PixelPass.Frame((target, progress) => {
-                    using MemoryOwner<Vector4> input = MemoryOwner<Vector4>.Allocate(target.Size.Width * target.Size.Height);
-                    target.View.Span.CopyTo(input.Span.AsSpan2D(target.Size.Height, target.Size.Width));
-                    return frame.Kernel(target, progress).Map(_ => {
-                        Span2D<Vector4> rows = target.View.Span;
-                        Span2D<Vector4> copy = input.Span.AsSpan2D(target.Size.Height, target.Size.Width);
-                        using SpanOwner<float> weights = SpanOwner<float>.Allocate(target.Size.Width);
-                        for (int i = 0; i < target.Size.Height; i++) {
-                            blending.Weigh(copy.GetRowSpan(i), target.Origin.X, target.Line(i), weights.Span);
-                            blending.Mode.Mixed(copy.GetRowSpan(i), rows.GetRowSpan(i), weights.Span);
-                        }
-                        return unit;
-                    });
+                frame: static (blending, frame) => new PixelPass.Frame((target, progress) => target.Copy() switch {
+                    var staged => frame.Kernel(staged, progress).Bind(_ => new PixelPass.Pointwise((row, column, line) =>
+                        blending.Graded(row, graded => staged.Row(line).CopyTo(graded), (input, weights) => blending.Weigh(input, column, line, weights))).Run(target, new Progress<int>())),
                 }));
 
     public static PixelFrame Composite(PixelFrame @base, PixelFrame layer, BlendingMode mode, AxisFraction opacity, Seq<Mask> masks, PixelAlphaRepresentation representation) =>

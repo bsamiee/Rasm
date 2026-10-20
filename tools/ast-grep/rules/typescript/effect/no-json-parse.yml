@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-json-parse-tsx
+id: no-json-parse
 language: tsx
 severity: error
 ignores: ['plugins/function-hooks/**']
@@ -31,4 +31,4 @@ rule:
             - has: {field: function, pattern: $PARSE, kind: member_expression, has: {field: property, regex: '^json$'}}
             - not: {has: {field: arguments, has: {pattern: $_, not: {kind: comment}}}}
 message: '`$PARSE` parses JSON into an unvalidated `any`'
-note: 'Call `Schema.decodeUnknownEffect(Schema.fromJsonString(<schema>))` over the body text to parse and validate in one step into the typed value or a `SchemaError`'
+note: 'Call `Schema.decodeUnknownEffect(Schema.fromJsonString(<schema>))(<text>)`'

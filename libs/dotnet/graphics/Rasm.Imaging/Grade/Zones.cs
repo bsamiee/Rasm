@@ -73,20 +73,16 @@ internal sealed record GradingTone(ZoneSpan Blacks, ZoneSpan Shadows, ZoneSpan M
         };
 
     private static Func<float, float> White(float x0, float x1, float value) =>
-        value switch {
-            1f => Identity,
-            < 1f => Spline.Of(new(x0, x0, 1f), [(x1, value)]).Forward,
-            _ => (2f - value, (3f - value) * 0.5f) switch {
-                var (slope, gain) => (Spline.Of(new(x0, x0, 1f), [(x1, slope)]), Tail(x0, x1, slope, gain)) switch {
-                    var (spline, (a, b, c)) => t => t >= x1 ? (((a * t) + b) * t) + c : spline.Gained(t, x0, gain),
-                },
-            },
+        (Spline.Of(new(x0, x0, 1f), [(x1, float.Min(value, 2f - value))]), Tail(x0, x1, 2f - value)) switch {
+            _ when value is 1f => Identity,
+            var (spline, _) when value < 1f => spline.Forward,
+            var (spline, (a, b, c, gain)) => t => t >= x1 ? (((a * t) + b) * t) + c : spline.Gained(t, x0, gain),
         };
 
-    private static (float A, float B, float C) Tail(float x0, float x1, float slope, float gain) =>
-        (x0 + ((x1 - x0) * 0.99f)) switch {
-            var xd => (0.5f * ((1f / slope) - (1f / (1f + ((xd - x0) * (slope - 1f) / (x1 - x0))))) / (x1 - xd)) switch {
-                var a => ((1f / slope) - (2f * a * x1)) switch { var b => (a, b, ((x1 - x0) / gain) + x0 - (b * x1) - (a * x1 * x1)) },
+    private static (float A, float B, float C, float Gain) Tail(float x0, float x1, float slope) =>
+        (x0 + ((x1 - x0) * 0.99f), (1f + slope) * 0.5f) switch {
+            var (xd, gain) => (0.5f * ((1f / slope) - (1f / (1f + ((xd - x0) * (slope - 1f) / (x1 - x0))))) / (x1 - xd)) switch {
+                var a => ((1f / slope) - (2f * a * x1)) switch { var b => (a, b, ((x1 - x0) / gain) + x0 - (b * x1) - (a * x1 * x1), gain) },
             },
         };
 

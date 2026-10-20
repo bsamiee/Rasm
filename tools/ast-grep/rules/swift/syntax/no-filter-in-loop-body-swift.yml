@@ -189,4 +189,4 @@ fix: |-
         $STATEMENTS$REST
     }
 message: '`for` selects elements by a test at the top of its body'
-note: 'Write `for case <pattern> in <sequence>` for matching elements, `for <value> in <sequence>.compactMap({ <element> in <optional> })` for present values, `for <element> in <sequence> where <test> && <test>` for a `guard` condition list, and `where !(<test>)` for a leading `if <test> { continue }`'
+note: 'Select in the `for` header by `case <pattern>`, `.compactMap { }`, `where <a> && <b>` for a `guard`, or `where !(<test>)` for a leading `continue`'

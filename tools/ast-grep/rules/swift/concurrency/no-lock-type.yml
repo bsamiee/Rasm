@@ -6,5 +6,15 @@ rule:
     kind: 'type_identifier, simple_identifier'
     regex: '^(NSLock|NSRecursiveLock|OSAllocatedUnfairLock|os_unfair_lock(_s|_t)?|pthread_mutex_t|OS_SPINLOCK_INIT)$'
     pattern: $LOCK
-message: '`$LOCK` guards state through a lock type that `Mutex` replaces'
-note: 'Store the guarded state in `Mutex<State>` from `Synchronization` and read or write it inside `withLock`, one `withLock` scope covering an operation that acquired a recursive lock twice'
+    not:
+        kind: simple_identifier
+        any:
+            - inside:
+                kind: property_declaration
+                stopBy: end
+                has: {kind: type_annotation, has: {stopBy: end, kind: type_identifier, pattern: $LOCK}}
+            - inside:
+                kind: call_expression
+                follows: {stopBy: {kind: parameter}, kind: parameter, has: {stopBy: end, kind: type_identifier, pattern: $LOCK}}
+message: '`$LOCK` guards state through a lock type'
+note: 'Hold state that tasks share in an actor its readers receive, and a synchronous holder''s state in `Mutex<State>` with each access in one `withLock`'

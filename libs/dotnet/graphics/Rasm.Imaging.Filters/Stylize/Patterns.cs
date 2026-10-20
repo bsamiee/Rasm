@@ -489,10 +489,13 @@ internal static class CellGrid {
         foreach (ref Vector4 pixel in new Span<Vector4>(plane.DataPointer.ToPointer(), plane.Rows * plane.Cols))
             pixel = new Vector4(pixel.AsVector3() * pixel.W, pixel.W);
         bool native = frame.Whole && grid.Columns.Multiply(grid.Rows).CompareTo(int.MaxValue) <= 0 && grid.Columns.Multiply(plane.NumberOfChannels).Add(grid.Rows).CompareTo(int.MaxValue) <= 0;
-        if (native)
+        if (native) {
             CvInvoke.Resize(plane, plane, new Size(grid.Columns.ToInt32Checked(), grid.Rows.ToInt32Checked()), 0d, 0d, Inter.Area);
+            foreach (ref Vector4 pixel in new Span<Vector4>(plane.DataPointer.ToPointer(), plane.Rows * plane.Cols))
+                pixel = pixel.W > 0f ? new Vector4(pixel.AsVector3() / pixel.W, pixel.W) : Vector4.Zero;
+        }
         return native
-            ? cell => new Span<Vector4>(plane.DataPointer.ToPointer(), plane.Rows * plane.Cols)[(cell.Row.ToInt32Checked() * grid.Columns.ToInt32Checked()) + cell.Column.ToInt32Checked()] switch { var pixel => pixel.W > 0f ? pixel.AsVector3() / pixel.W : Vector3.Zero }
+            ? cell => new Span<Vector4>(plane.DataPointer.ToPointer(), plane.Rows * plane.Cols)[(cell.Row.ToInt32Checked() * grid.Columns.ToInt32Checked()) + cell.Column.ToInt32Checked()].AsVector3()
             : cell => Mean(plane, frame, grid, cell);
     }
 

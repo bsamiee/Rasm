@@ -58,4 +58,4 @@ rule:
                 - has: {matches: empty-set}
                 - not: {has: {stopBy: end, kind: identifier, pattern: $SET, not: {matches: own-read}}}
 message: '`$SITE` keeps first occurrences through inserts into local set `$SET`'
-note: 'Call `Itertools::unique()` for whole items or `Itertools::unique_by(<key>)` for a key (`use itertools::Itertools as _;`), and rewrite a `retain` as `<vec>.into_iter().unique().collect()`'
+note: 'Call `Itertools::unique()` or `unique_by(<key>)`, with `<vec>.into_iter().unique().collect()` for a `retain`'

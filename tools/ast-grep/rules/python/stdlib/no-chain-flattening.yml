@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-chain-flattening
+language: python
+severity: error
+metadata: {python-from: '3.15'}
+utils:
+    chain-callee:
+        any:
+            - matches: {python-member-use: {module: {regex: '^itertools$'}, name: {regex: '^chain$'}}}
+            - kind: parenthesized_expression
+              has: {matches: chain-callee}
+    plain-arguments:
+        kind: argument_list
+        not: {has: {kind: 'dictionary_splat, keyword_argument'}}
+    chain-call:
+        kind: call
+        any:
+            - all:
+                - has: {field: function, matches: chain-callee}
+                - has: {field: arguments, matches: plain-arguments, has: {kind: list_splat, nthChild: 1, has: {pattern: $ITERABLES}}, not: {has: {nthChild: 2}}}
+            - all:
+                - has: {field: function, kind: attribute, all: [{has: {field: object, matches: chain-callee}}, {has: {field: attribute, regex: '^from_iterable$'}}]}
+                - has: {field: arguments, matches: plain-arguments, has: {nthChild: 1, pattern: $ITERABLES, not: {kind: list_splat}}, not: {has: {nthChild: 2}}}
+            - all:
+                - has: {field: function, matches: chain-callee}
+                - has: {field: arguments, matches: plain-arguments, pattern: $ARGUMENTS, all: [{has: {kind: list_splat}}, {has: {nthChild: 2}}]}
+    wrapper:
+        kind: call
+        all:
+            - has: {field: function, matches: {python-builtin-name: {name: {regex: '^(list|set)$'}}}, pattern: $WRAPPER}
+            - has: {field: arguments, has: {nthChild: 1, matches: chain-call}, not: {has: {nthChild: 2}}}
+    sole-argument:
+        inside: {kind: argument_list, not: {has: {nthChild: 2}}}
+    nested-loop:
+        kind: list_comprehension, set_comprehension, generator_expression
+        all:
+            - has: {field: body, kind: identifier, pattern: $INNER}
+            - has: {kind: for_in_clause, nthChild: 2, all: [{has: {field: left, kind: identifier, pattern: $OUTER}}, {has: {field: right, pattern: $ROWS}}]}
+            - has: {kind: for_in_clause, nthChild: 3, all: [{has: {field: left, kind: identifier, pattern: $INNER}}, {has: {field: right, kind: identifier, pattern: $OUTER}}]}
+            - not: {has: {nthChild: 4}}
+rule:
+    pattern: $SITE
+    any:
+        - matches: wrapper
+        - matches: chain-call
+          all:
+            - not: {inside: {kind: argument_list, inside: {matches: wrapper}}}
+            - any:
+                - matches: sole-argument
+                  pattern: $BARE
+                - not: {matches: sole-argument}
+                  pattern: $PARENTHESIZED
+        - matches: nested-loop
+          pattern: $LOOP
+transform:
+    OPEN_LIST: {replace: {source: $WRAPPER, replace: '^list$', by: '['}}
+    OPEN: {replace: {source: $OPEN_LIST, replace: '^set$', by: '{'}}
+    CLOSE_LIST: {replace: {source: $WRAPPER, replace: '^list$', by: ']'}}
+    CLOSE: {replace: {source: $CLOSE_LIST, replace: '^set$', by: '}'}}
+    LEFT: {replace: {source: $PARENTHESIZED, replace: '(?s)^.*$', by: '('}}
+    RIGHT: {replace: {source: $PARENTHESIZED, replace: '(?s)^.*$', by: ')'}}
+    ITEM_OVER_ITERABLES: {replace: {source: $ITERABLES, replace: '(?s)^.*$', by: '*item for item in '}}
+    ITEM_OVER_ARGUMENTS: {replace: {source: $ARGUMENTS, replace: '(?s)^.*$', by: '*item for item in '}}
+    FLATTENED_LOOP: {replace: {source: $LOOP, replace: '(?s)^(.)\s*\w+\s+for\s+(\w+)\s+in\s+(.+?)\s+for\s+\w+\s+in\s+\w+\s*(.)$', by: '$1*$2 for $2 in $3$4'}}
+fix: $OPEN$LEFT$ITEM_OVER_ITERABLES$ITEM_OVER_ARGUMENTS$ITERABLES$ARGUMENTS$CLOSE$RIGHT$FLATTENED_LOOP
+message: '`$SITE` flattens iterables by hand'
+note: 'Write `(*<item> for <item> in <iterables>)`'

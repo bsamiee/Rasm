@@ -46,4 +46,4 @@ rule:
                 stopBy: {kind: function_item}
                 inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, kind: field_expression, has: {field: value, matches: set-iteration}}}}
 message: '`$SCAN` scans point set `$PTS` once per point of the same set'
-note: 'Build `kiddo::ImmutableKdTree::new_from_slice(<points>)` once and query every point through `.query_batch(<points>).nearest_n::<kiddo::dist::SquaredEuclidean<f64>>(<2>).execute()`, the second result of each skipping the point itself, or `rstar::RTree::bulk_load` for boxes'
+note: 'Query one `kiddo::ImmutableKdTree` over the points through `nearest_n` of 2, the second result skipping the point, or `rstar::RTree` for boxes'

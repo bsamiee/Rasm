@@ -11,4 +11,4 @@ rule:
     regex: '^blender(\.|$)'
     not: {inside: {kind: import_from_statement, field: module_name}}
 message: '`$MODULE` imports a first-party root in a form the extension pack leaves absolute, resolving to nothing inside an installed extension'
-note: 'Write `from <import root>.<module> import <member>`, the one form the pack rewrites to a relative import'
+note: 'Write `from <import root>.<module> import <member>`'

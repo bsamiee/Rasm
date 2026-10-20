@@ -2,6 +2,7 @@
 id: no-symbol-set-contains
 language: rust
 severity: error
+files: [tools/dylint/**]
 rule:
     kind: call_expression
     pattern: $SET.contains(&$N)

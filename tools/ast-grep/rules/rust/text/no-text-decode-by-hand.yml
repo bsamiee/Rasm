@@ -81,4 +81,4 @@ rule:
                     - has: {field: pattern, any: [{pattern: $BYTE}, {has: {stopBy: end, kind: identifier, pattern: $BYTE}}]}
                     - has: {field: value, any: [{matches: byte-source}, {kind: 'identifier, field_expression, reference_expression'}]}
 message: '`$DECODE` decodes bytes into chars by hand'
-note: 'Call `encoding_rs::mem::decode_latin1(<bytes>)` for one char per byte, and `String::from_utf16le(<bytes>)` for UTF-16 code units (`from_utf16be` for big-endian, `from_utf16le_lossy` and `from_utf16be_lossy` for the lossy form)'
+note: 'Call `encoding_rs::mem::decode_latin1` for one char per byte and `String::from_utf16le` or `from_utf16be` for UTF-16 code units'

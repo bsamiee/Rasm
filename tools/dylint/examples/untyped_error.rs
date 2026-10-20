@@ -7,7 +7,14 @@ use core::{
     hint::black_box,
     num::{ParseIntError, TryFromIntError},
 };
-use std::{borrow::Cow, error::Report, io, rc::Rc, sync::Arc};
+use std::{
+    borrow::Cow,
+    error::Report,
+    io,
+    path::{Path, PathBuf},
+    rc::Rc,
+    sync::Arc,
+};
 
 use anyhow::Context as _;
 use rmcp::{ErrorData, model::ErrorCode};
@@ -140,9 +147,9 @@ enum SyncError {
 
 #[derive(Debug, thiserror::Error)]
 enum LoadError {
-    #[error("cannot read {path}")]
+    #[error("cannot read {}", path.display())]
     Read {
-        path: String,
+        path: PathBuf,
         #[source]
         source: io::Error,
     },
@@ -269,9 +276,9 @@ fn configured(text: &str) -> Result<u16, ConfigError> {
 
 fn refused() -> Result<u16, Refusal> { Err(Refusal(Arc::from("port refused"))) }
 
-fn loaded(path: &str) -> Result<String, LoadError> { fs_err::read_to_string(path).map_err(|source| LoadError::Read { path: path.to_owned(), source }) }
+fn loaded(path: &Path) -> Result<String, LoadError> { fs_err::read_to_string(path).map_err(|source| LoadError::Read { path: path.to_owned(), source }) }
 
-fn reported(path: &str) -> anyhow::Result<String> { Ok(fs_err::read_to_string(path)?) }
+fn reported(path: &Path) -> anyhow::Result<String> { Ok(fs_err::read_to_string(path)?) }
 
 fn relayed(outcome: &anyhow::Result<String>) -> bool { outcome.is_ok() }
 
@@ -374,9 +381,9 @@ async fn main() -> Result<(), Box<dyn Error + Send + Sync>> {
         rejected(&[text])?,
     ));
     let files = [
-        loaded("port")?,
-        reported("port").map_err(projected)?,
-        relayed(&reported("port")).to_string(),
+        loaded(Path::new("port"))?,
+        reported(Path::new("port")).map_err(projected)?,
+        relayed(&reported(Path::new("port"))).to_string(),
         contexted(text)?.to_string(),
         text.parse::<u16>().err().map(rendered).unwrap_or_default(),
         text.parse::<u16>().err().map(explained).unwrap_or_default(),

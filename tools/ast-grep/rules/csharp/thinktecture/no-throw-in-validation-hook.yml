@@ -92,4 +92,4 @@ rule:
                 kind: invocation_expression
                 has: {field: function, regex: '(^|\.)From(<.+>)?$'}
 message: "`$THROW` throws inside `ValidateFactoryArguments`"
-note: Assign `validationError` and return, which `TryCreate`, `Validate`, and the framework converters read, and validate a nested value through its non-throwing `Validate`
+note: 'Validate nested values through their non-throwing `Validate`, then assign `validationError` and return'

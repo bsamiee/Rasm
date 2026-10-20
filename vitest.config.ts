@@ -15,11 +15,12 @@ const _ROOT = import.meta.dirname;
 const _project = Effect.fnUntraced(function* (directory: string) {
     const [fs, path, ci] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Config.withDefault(Config.Boolean('CI'), false)]);
     const { name, devDependencies } = yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Struct({ name: Schema.String, devDependencies: Schema.Record(Schema.String, Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))) })))(yield* fs.readFileString(path.join(directory, 'package.json')));
-    const artifacts = path.join(_ROOT, '.artifacts', 'typescript', 'vitest', name);
+    const artifacts = path.join(_ROOT, '.artifacts');
+    const results = path.join(artifacts, 'typescript', 'vitest', name);
     const segments = path.relative(_ROOT, directory).split(path.sep);
     return {
         test: {
-            attachmentsDir: path.join(artifacts, 'attachments'),
+            attachmentsDir: path.join(results, 'attachments'),
             ...(Record.has(devDependencies, '@vitest/browser-playwright')
                 ? {
                       browser: {
@@ -27,7 +28,7 @@ const _project = Effect.fnUntraced(function* (directory: string) {
                           headless: true,
                           instances: [{ browser: 'chromium' }],
                           locators: { errorFormat: 'aria' },
-                          trace: { mode: 'retain-on-failure', tracesDir: path.join(artifacts, 'traces') },
+                          trace: { mode: 'retain-on-failure', tracesDir: path.join(results, 'traces') },
                       },
                   }
                 : {}),
@@ -39,13 +40,14 @@ const _project = Effect.fnUntraced(function* (directory: string) {
                 include: ['**/*.{ts,tsx,mts,cts}'],
                 reporter: ['text', 'html'],
                 reportOnFailure: true,
-                reportsDirectory: path.join(_ROOT, '.artifacts', 'typescript', 'coverage', name),
+                reportsDirectory: path.join(artifacts, 'typescript', 'coverage', name),
                 skipFull: true,
             },
             fsModuleCachePath: path.join(_ROOT, '.cache', 'vitest', name, 'modules'),
             hideSkippedTests: ci,
             maxWorkers: '50%',
             pool: 'threads',
+            provide: { artifacts },
             reporters: ci ? ['dot', 'github-actions'] : ['tree'],
             sequence: { shuffle: ci },
             silent: 'passed-only',

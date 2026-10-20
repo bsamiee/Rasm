@@ -102,4 +102,4 @@ rule:
                 - all: [{has: {field: left, matches: floored-magnitude}}, {has: {field: right, matches: sign}}]
 fix: $MATH.trunc($N)
 message: '`ceil` and `floor` truncate `$N` by its sign'
-note: 'Call `Math.trunc(<n>)` to drop the fraction toward zero in one call, with the same result for every number (`-0`, `NaN`, and infinities included) and one evaluation of `<n>`'
+note: 'Call `Math.trunc(<n>)`'

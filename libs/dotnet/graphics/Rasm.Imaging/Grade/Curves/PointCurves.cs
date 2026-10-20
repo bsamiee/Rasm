@@ -87,14 +87,12 @@ internal sealed partial class SplineShape {
     public static readonly SplineShape Diagonal = new(static domain => Hue(domain, wraps: false, monotone: true, harmonic: false));
 
     public Func<double, double> Fit(Seq<CurvePoint> points, double input, double output) =>
-        (Prepare(points.Map(point => new CurvePoint(point.X / input, point.Y / output)).Strict()).Spline(), this == HueHue || this == Periodic, this == HueHue) switch {
-            var (spline, periodic, lifted) => coordinate => ((periodic ? coordinate % input : coordinate) / input) switch {
-                var normalized => (periodic ? normalized - double.Floor(normalized) : normalized) switch {
-                    var phase => lifted
-                        ? (coordinate * (output / input)) + (output * (spline.Interpolate(phase) - phase))
-                        : output * spline.Interpolate(phase),
-                },
+        (Prepare(points.Map(point => new CurvePoint(point.X / input, point.Y / output)).Strict()).Spline(), this == HueHue, this == Periodic) switch {
+            (var spline, true, _) => coordinate => (coordinate % input / input) switch { var wrapped => wrapped - double.Floor(wrapped) } switch {
+                var phase => (coordinate * (output / input)) + (output * (spline.Interpolate(phase) - phase)),
             },
+            (var spline, _, true) => coordinate => (coordinate % input / input) switch { var wrapped => output * spline.Interpolate(wrapped - double.Floor(wrapped)) },
+            var (spline, _, _) => coordinate => output * spline.Interpolate(coordinate / input),
         };
 
     [UseDelegateFromConstructor]
@@ -313,19 +311,18 @@ public sealed record PointCurves(PointCurve Red, PointCurve Green, PointCurve Bl
                 state.Gamut.Luminance)));
 
     public static Option<PixelPass> Pass(PointCurves state, PassContext context) =>
-        state with { PreserveHue = Default.PreserveHue } == Default
-            ? None
-            : (state.Red.Fit(), state.Green.Fit(), state.Blue.Fit(), state.Master.Fit(), state.PreserveHue) switch {
-                var (red, green, blue, master, preserve) => Some<PixelPass>(new PixelPass.Color(row => {
-                    foreach (ref Vector4 pixel in row) {
-                        (double r, double g, double b) = (Mapped(red, pixel.X), Mapped(green, pixel.Y), Mapped(blue, pixel.Z));
-                        pixel = new Vector4(ToneCurves.PreserveHue(
-                            new Vector3((float)CurveAxis.FromStops(r), (float)CurveAxis.FromStops(g), (float)CurveAxis.FromStops(b)),
-                            new Vector3((float)CurveAxis.FromStops(master(r)), (float)CurveAxis.FromStops(master(g)), (float)CurveAxis.FromStops(master(b))),
-                            preserve), pixel.W);
-                    }
-                })),
-            };
+        from changed in Some(state)
+        where changed with { PreserveHue = Default.PreserveHue } != Default
+        let fits = (Red: changed.Red.Fit(), Green: changed.Green.Fit(), Blue: changed.Blue.Fit(), Master: changed.Master.Fit())
+        select (PixelPass)new PixelPass.Color(row => {
+            foreach (ref Vector4 pixel in row) {
+                (double r, double g, double b) = (Mapped(fits.Red, pixel.X), Mapped(fits.Green, pixel.Y), Mapped(fits.Blue, pixel.Z));
+                pixel = new Vector4(ToneCurves.PreserveHue(
+                    new Vector3((float)CurveAxis.FromStops(r), (float)CurveAxis.FromStops(g), (float)CurveAxis.FromStops(b)),
+                    new Vector3((float)CurveAxis.FromStops(fits.Master(r)), (float)CurveAxis.FromStops(fits.Master(g)), (float)CurveAxis.FromStops(fits.Master(b))),
+                    changed.PreserveHue), pixel.W);
+            }
+        });
 
     private static double Mapped(Func<double, double> channel, float value) => channel(CurveAxis.ToStops(value));
 }

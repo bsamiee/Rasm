@@ -3,21 +3,43 @@ id: no-fourth-nesting-level-tsx
 language: tsx
 severity: error
 utils:
-    boundary: {any: [{matches: typescript-control-flow}, {matches: typescript-function-boundary}]}
+    closure: {kind: 'arrow_function, function_expression, generator_function, function_declaration, generator_function_declaration'}
+    scope: {any: [{matches: typescript-control-flow}, {matches: closure}, {matches: typescript-declaration-scope}]}
+    conditioned:
+        any:
+            - inside: {kind: 'if_statement, while_statement, do_statement, for_statement, ternary_expression', field: condition, stopBy: &scope {matches: scope}}
+            - inside: {kind: for_statement, field: initializer, stopBy: *scope}
+            - inside: {kind: for_statement, field: increment, stopBy: *scope}
+            - inside: {kind: for_in_statement, field: right, stopBy: *scope}
+            - inside: {kind: switch_statement, field: value, stopBy: *scope}
+    nested-body:
+        any:
+            - has: {field: body, kind: statement_block, has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+            - has: {field: body, any: [{matches: typescript-control-flow}, {has: {matches: typescript-control-flow, stopBy: {matches: closure}}}]}
+    level:
+        any:
+            - matches: typescript-control-flow
+              not: {matches: conditioned}
+            - matches: closure
+              all:
+                - inside: {matches: typescript-control-flow, stopBy: {matches: typescript-declaration-scope}}
+                - not: {matches: conditioned}
+                - matches: nested-body
+    boundary: {any: [{matches: level}, {matches: typescript-declaration-scope}]}
 rule:
-    matches: typescript-control-flow
+    matches: level
     pattern: $SCOPE
     inside:
-        matches: typescript-control-flow
+        matches: level
         stopBy: {matches: boundary}
         inside:
-            matches: typescript-control-flow
+            matches: level
             stopBy: {matches: boundary}
             inside:
-                matches: typescript-control-flow
+                matches: level
                 stopBy: {matches: boundary}
-                not: {inside: {matches: typescript-control-flow, stopBy: {matches: typescript-function-boundary}}}
-message: Control flow reaches a fourth nesting level
-note: 'Rebuild the nested decisions or loops as one match, lookup, or pipeline over their inputs, with no extracted helper'
+                not: {inside: {matches: level, stopBy: {matches: typescript-declaration-scope}}}
+message: Nesting reaches a fourth level
+note: 'Rebuild the nested decisions, loops, or callbacks as one match, lookup, or pipeline over their inputs, with no extracted helper'
 labels:
-    SCOPE: {style: primary}
+    SCOPE: {style: primary, message: Fourth nesting level}

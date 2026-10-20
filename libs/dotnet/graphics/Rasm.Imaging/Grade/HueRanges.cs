@@ -186,25 +186,22 @@ public sealed record SelectiveColor(HueRange Range, SignedAngle Shift, Magnitude
 
     public Func<Vector4, Vector4> Graded() =>
         (Range, (float)Shift, (float)Saturation, Exposure.Scale, Shift == SignedAngle.Neutral && Saturation == Magnitude.Unit) switch {
-            var (range, shift, saturation, gain, kept) => color => Hsy.From(color) switch {
+            (var range, _, _, var gain, true) => color => new(Vector3.Lerp(color.AsVector3(), color.AsVector3() * gain, range.Membership(Hsy.From(color))), color.W),
+            var (range, shift, saturation, gain, _) => color => Hsy.From(color) switch {
                 var hsy => new(
-                    Vector3.Lerp(
-                        color.AsVector3(),
-                        (kept ? color : (hsy with { Hue = hsy.Hue + shift, Saturation = hsy.Saturation * saturation }).ToRgb(color.W)).AsVector3() * gain,
-                        range.Membership(hsy)),
+                    Vector3.Lerp(color.AsVector3(), (hsy with { Hue = hsy.Hue + shift, Saturation = hsy.Saturation * saturation }).ToRgb(color.W).AsVector3() * gain, range.Membership(hsy)),
                     color.W),
             },
         };
 
     public static Option<PixelPass> Pass(SelectiveColor state, PassContext context) =>
-        state.Shift == SignedAngle.Neutral && state.Saturation == Magnitude.Unit && state.Exposure == Exposure.Neutral
-            ? None
-            : state.Graded() switch {
-                var graded => Some<PixelPass>(new PixelPass.Color(row => {
-                    foreach (ref Vector4 pixel in row)
-                        pixel = graded(pixel);
-                })),
-            };
+        from changed in Some(state)
+        where changed.Shift != SignedAngle.Neutral || changed.Saturation != Magnitude.Unit || changed.Exposure != Exposure.Neutral
+        let graded = changed.Graded()
+        select (PixelPass)new PixelPass.Color(row => {
+            foreach (ref Vector4 pixel in row)
+                pixel = graded(pixel);
+        });
 }
 
 [SmartEnum<string>]
@@ -245,14 +242,13 @@ public sealed record HueIsolation(HueRange Range) : IStateRecord<HueIsolation, H
         };
 
     public static Option<PixelPass> Pass(HueIsolation state, PassContext context) =>
-        state.Range == HueRange.Default
-            ? None
-            : state.Graded(context.Working.Luminance) switch {
-                var graded => Some<PixelPass>(new PixelPass.Color(row => {
-                    foreach (ref Vector4 pixel in row)
-                        pixel = graded(pixel);
-                })),
-            };
+        from changed in Some(state)
+        where changed.Range != HueRange.Default
+        let graded = changed.Graded(context.Working.Luminance)
+        select (PixelPass)new PixelPass.Color(row => {
+            foreach (ref Vector4 pixel in row)
+                pixel = graded(pixel);
+        });
 }
 
 [SmartEnum<string>]

@@ -24,4 +24,4 @@ rule:
             - has: {nthChild: 1, regex: '^posix_spawn_file_actions_addchdir(_np)?$'}
         - inside: {stopBy: end, matches: configurator}
 message: '`$SITE` restates a swift-subprocess platform option inside `preSpawnProcessConfigurator`'
-note: 'Set the field Subprocess applies itself: `processGroupID` for a process group, `createSession` for a session, `qualityOfService` for `.utility` or `.background`, `workingDirectory:` on the run, and `output: .fileDescriptor(_:closeAfterSpawningProcess:)` or `input:` for a standard stream'
+note: 'Set `processGroupID`, `createSession`, `qualityOfService`, `workingDirectory:`, or a stream''s `.fileDescriptor(_:closeAfterSpawningProcess:)`'

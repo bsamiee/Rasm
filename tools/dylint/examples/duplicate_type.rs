@@ -99,13 +99,13 @@ struct Interval {
 #[derive(Debug)]
 struct Address {
     port: NonZero<u16>,
-    timeout: NonZero<u32>,
+    limit: NonZero<u32>,
 }
 
 #[derive(Debug)]
 struct AddressDto {
     port: u16,
-    timeout: u32,
+    limit: u32,
 }
 
 #[derive(Debug)]
@@ -402,10 +402,10 @@ fn decoded(dto: &AddressDto) -> u16 {
     #[derive(Debug)]
     struct Shim {
         port: u16,
-        timeout: u32,
+        limit: u32,
     }
-    let shim = Shim { port: dto.port, timeout: dto.timeout };
-    shim.port.strict_add(u16::try_from(shim.timeout).unwrap_or_default())
+    let shim = Shim { port: dto.port, limit: dto.limit };
+    shim.port.strict_add(u16::try_from(shim.limit).unwrap_or_default())
 }
 
 fn located(link: &Link) -> Location { Location { host: link.host.clone(), path: link.path.clone() } }
@@ -489,8 +489,8 @@ fn main() {
         .collect::<Vec<_>>();
     let location = located(&Link { host: String::from("example.com"), path: String::from("/"), scheme: String::from("https") });
     let link = Link { host: location.host, path: location.path, scheme: String::from("http") };
-    let address = Address { port: NonZero::<u16>::MIN, timeout: NonZero::<u32>::MIN };
-    let dto = AddressDto { port: u16::from(address.port), timeout: u32::from(address.timeout) };
+    let address = Address { port: NonZero::<u16>::MIN, limit: NonZero::<u32>::MIN };
+    let dto = AddressDto { port: u16::from(address.port), limit: u32::from(address.limit) };
     let contact = Contact { given: String::from("ada"), family: String::from("lovelace") };
     let card = Card { given: String::from("grace"), family: String::from("hopper") };
     let area = [Figure::Circle { radius: 1.0_f64 }, Figure::Rectangle { width: 1.0_f64, height: 2.0_f64 }]
@@ -538,7 +538,7 @@ fn main() {
         [moved, area, meters.0, seconds.0, sides],
         (people, users.cursor, teams, groups.cursor, fetched, paged.entries, paged.next, members.entries, members.next),
         [contact.given, contact.family, card.given, card.family, link.host, link.path, link.scheme],
-        [interval.from, interval.to, u32::from(dto.port), dto.timeout, ranges.0.end, ranges.1.start, ranges.1.end],
+        [interval.from, interval.to, u32::from(dto.port), dto.limit, ranges.0.end, ranges.1.start, ranges.1.end],
         (pixel.to_string(), Pixel { column: 5, row: 6 }.to_string(), decoded(&dto), cell.column, cell.row, kinds, tokens, ordered, lengths),
         (levels, extremes, ranges.2.start, ranges.2.end, ranges.3.width(), rejected(&sender)),
         (logged.status, logged.stdout, logged.stderr, output.status, output.stdout, output.stderr),

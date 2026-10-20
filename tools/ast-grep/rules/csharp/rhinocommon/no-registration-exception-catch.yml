@@ -55,4 +55,4 @@ rule:
             - has: {field: left, matches: registering}
             - has: {field: right, kind: invocation_expression, all: [{has: {field: function, matches: {csharp-type-name: {name: {regex: '^@catch$'}}}}}, {has: {field: arguments, matches: missing-id}}]}
 message: '`$REGISTER` catches the `InvalidDataException` a class without its own `GuidAttribute` raises'
-note: "Leave content classes to Rhino, whose `PlugIn.InternalOnLoad` calls `RenderContent.RegisterContent(plugIn)` after `OnLoad`, and guard every other registration that reads the class's `GuidAttribute` with `Attribute.IsDefined(<type>, typeof(GuidAttribute), inherit: false)`"
+note: 'Leave content classes to Rhino''s `RegisterContent` and guard the rest with `Attribute.IsDefined(<type>, typeof(GuidAttribute), inherit: false)`'

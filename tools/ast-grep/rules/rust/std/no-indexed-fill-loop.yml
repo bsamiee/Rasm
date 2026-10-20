@@ -17,4 +17,4 @@ constraints:
             - not: {has: {stopBy: end, kind: identifier, pattern: $A}}
             - any: [{pattern: $I}, {has: {stopBy: end, kind: identifier, pattern: $I}}]
 message: '`$A` starts as `$FILLED` and a loop then writes each slot from its index'
-note: 'Bind `let <array> = array::from_fn(|<index>| <value>);` with `use core::array;`, or `let <vec> = Vec::from_fn(<length>, |<index>| <value>);` for a `vec!`'
+note: 'Bind `array::from_fn(|<index>| <value>)`, or `Vec::from_fn(<length>, |<index>| <value>)` for a `vec!`'

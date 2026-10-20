@@ -69,4 +69,4 @@ rule:
                             - has: {field: body, matches: bound-check}
     not: {inside: {stopBy: end, matches: thinktecture-validation-hook}}
 message: '`$VALUE` parses from text and checks its bounds by hand'
-note: Parse through the `[ValueObject<T>]` stating the bounds in `ValidateFactoryArguments`, whose generated `TryParse` and `Validate` run the hook
+note: 'Parse through the generated `TryParse` or `Validate` of a `[ValueObject<T>]` whose `ValidateFactoryArguments` states the bounds'

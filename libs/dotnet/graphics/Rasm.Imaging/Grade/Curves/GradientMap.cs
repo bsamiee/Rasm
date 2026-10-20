@@ -9,17 +9,17 @@ public sealed record GradientMap(Ramp Ramp) : IStateRecord<GradientMap, Gradient
     public static GradientMap Default { get; } = new(Ramp.Grayscale);
 
     public static Option<PixelPass> Pass(GradientMap state, PassContext context) =>
-        (state.Ramp.Tabulate(context.Working), context.Working.Luminance) switch {
-            var (table, weights) => Some<PixelPass>(new PixelPass.Color(row => {
-                foreach (ref Vector4 pixel in row)
-                    pixel = table.Sample((float)double.Cbrt(LuminanceSamples.Luminance(pixel.X, pixel.Y, pixel.Z, weights))) switch {
-                        var mapped => new Vector4(
-                            (float)double.Lerp(pixel.X, mapped.X, mapped.W),
-                            (float)double.Lerp(pixel.Y, mapped.Y, mapped.W),
-                            (float)double.Lerp(pixel.Z, mapped.Z, mapped.W), pixel.W),
-                    };
-            })),
-        };
+        from table in Some(state.Ramp.Tabulate(context.Working))
+        let weights = context.Working.Luminance
+        select (PixelPass)new PixelPass.Color(row => {
+            foreach (ref Vector4 pixel in row)
+                pixel = table.Sample((float)double.Cbrt(LuminanceSamples.Luminance(pixel.X, pixel.Y, pixel.Z, weights))) switch {
+                    var mapped => new Vector4(
+                        (float)double.Lerp(pixel.X, mapped.X, mapped.W),
+                        (float)double.Lerp(pixel.Y, mapped.Y, mapped.W),
+                        (float)double.Lerp(pixel.Z, mapped.Z, mapped.W), pixel.W),
+                };
+        });
 }
 
 [SmartEnum<string>]

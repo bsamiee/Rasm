@@ -49,4 +49,4 @@ rule:
                 - has: {field: function, has: {field: property, regex: '^(filter|forEach|join|reduce|reduceRight)$'}}
                 - has: {field: arguments, has: {nthChild: 1, matches: iterable-receiver}}
 message: '`$M.$F` restates a native array or object form'
-note: 'Call the native form on the array (`.filter(p)`, `.every(p)`, `.forEach(f)`, `.join(s)`, `.reduce(f, b)`, `.reduceRight(f, b)`, `.length`), and `Object.values(<record>)` for `Record.values`'
+note: 'Call the native array member of the same name on `<list>`, or `Object.values(<record>)` for `Record.values`'

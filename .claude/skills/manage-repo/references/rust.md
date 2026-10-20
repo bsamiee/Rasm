@@ -64,6 +64,7 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - Members add `build.rs` for work no manifest key or crate does, a build script compiles and runs before its crate on every cold build
 - Cargo targets that compile pass `--locked`, a stale `Cargo.lock` fails the run in place of a rewrite
 - Cargo targets that compile take `parallelism: false`, each cargo run spreads its units across every core through its own jobserver
+- Insta pending snapshots stay beside their test file, `INSTA_PENDING_DIR` panics on a test path holding `..` (`[[test]] path`)
 
 ## [06]-[MEMBERS]
 

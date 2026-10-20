@@ -5,7 +5,7 @@ severity: error
 rule:
     kind: call_expression
     all:
-        - has: {field: function, kind: member_expression, has: {field: property, regex: '^doScript$'}}
+        - has: {field: function, kind: member_expression, pattern: $CALLEE, has: {field: property, regex: '^doScript$'}}
         - has:
             field: arguments
             has:
@@ -25,5 +25,5 @@ rule:
                                     - has: {field: name, pattern: $SOURCE}
                                     - has: {field: value, matches: typescript-built-text}
         - inside: {kind: program, stopBy: end, matches: {uxp-host-file: {module: {regex: '^(adobe:)?indesign$'}}}}
-message: '`$SOURCE` builds the script source of `doScript` from values'
-note: 'Keep the source text constant and pass each value through the `withArguments` array for the script to read as `arguments` (`arguments[0]` in JavaScript, `item 1 of arguments` in AppleScript)'
+message: '`$CALLEE` runs a script source built from values'
+note: 'Keep the source constant and pass each value in `withArguments`, read as `arguments[0]` in JavaScript or `item 1 of arguments` in AppleScript'

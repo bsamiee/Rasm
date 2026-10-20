@@ -56,4 +56,4 @@ rule:
             - has: {field: function, kind: field_expression, has: {field: field, regex: '^(join|push)$'}}
             - has: {field: arguments, has: {nthChild: 1, matches: home-layout-segment}, not: {has: {nthChild: 2}}}
 message: '`$PATH` names a path from one machine, home layout, or build checkout'
-note: 'Take the location as a `clap` argument the boundary resolves at run time and append segments with `Path::join`, or embed checkout content at build time with `include_str!`'
+note: 'Take the location as a `clap` argument and join segments with `Path::join`, or embed checkout content with `include_str!`'

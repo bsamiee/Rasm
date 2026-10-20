@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-exists-before-read
+id: no-exists-check-before-file-operation-python
 language: python
 severity: error
 utils:

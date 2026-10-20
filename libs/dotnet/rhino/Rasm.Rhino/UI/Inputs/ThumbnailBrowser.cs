@@ -405,21 +405,19 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
 
     protected override Option<Transition<BrowserState<TItem, TKey>, BrowserEdit<TItem, TKey>>> KeyPressed(
         BrowserState<TItem, TKey> state, SizeF size, float scale, Option<BrowserPart<TKey>> part, KeyEventArgs e) =>
-        Order(state) switch {
-            var keys => e.Key switch {
-                Keys.Left or Keys.Right or Keys.Up or Keys.Down or Keys.Home or Keys.End =>
-                    keys.At(Target(keys, state.Lead, e.Key, Geometry(state, size.Width).Flow.Columns)).Map(key => e.Modifiers.HasFlag(Keys.Shift)
-                        ? new Transition<BrowserState<TItem, TKey>, BrowserEdit<TItem, TKey>>(
-                            state with { Selected = Spanned(keys, state.Anchor | state.Lead, key), Anchor = state.Anchor | state.Lead | Some(key), Lead = Some(key) }, None)
-                        : Chosen(state, key, Step)),
-                Keys.Enter => state.Lead.Map(lead => Chosen(state, lead, Commit)),
-                Keys.F2 when source.Renames => state.Lead.Map(lead => new Transition<BrowserState<TItem, TKey>, BrowserEdit<TItem, TKey>>(state with { Renaming = Some(lead) }, None)),
-                >= Keys.D1 and <= Keys.D9 when source.Numbered && e.Modifiers is Keys.None =>
-                    state.Items.At(e.Key - Keys.D1).Filter(state.Filter).Map(item => Chosen(state, source.Key(item), Commit)),
-                Keys.A when (e.Modifiers & Application.Instance.CommonModifier) is not Keys.None =>
-                    Some(new Transition<BrowserState<TItem, TKey>, BrowserEdit<TItem, TKey>>(state with { Selected = toHashSet(keys) }, None)),
-                _ => None,
-            },
+        (Order(state), e.Key) switch {
+            (var keys, Keys.Left or Keys.Right or Keys.Up or Keys.Down or Keys.Home or Keys.End) =>
+                keys.At(Target(keys, state.Lead, e.Key, Geometry(state, size.Width).Flow.Columns)).Map(key => e.Modifiers.HasFlag(Keys.Shift)
+                    ? new Transition<BrowserState<TItem, TKey>, BrowserEdit<TItem, TKey>>(
+                        state with { Selected = Spanned(keys, state.Anchor | state.Lead, key), Anchor = state.Anchor | state.Lead | Some(key), Lead = Some(key) }, None)
+                    : Chosen(state, key, Step)),
+            (_, Keys.Enter) => state.Lead.Map(lead => Chosen(state, lead, Commit)),
+            (_, Keys.F2) when source.Renames => state.Lead.Map(lead => new Transition<BrowserState<TItem, TKey>, BrowserEdit<TItem, TKey>>(state with { Renaming = Some(lead) }, None)),
+            (_, >= Keys.D1 and <= Keys.D9) when source.Numbered && e.Modifiers is Keys.None =>
+                state.Items.At(e.Key - Keys.D1).Filter(state.Filter).Map(item => Chosen(state, source.Key(item), Commit)),
+            (var keys, Keys.A) when (e.Modifiers & Application.Instance.CommonModifier) is not Keys.None =>
+                Some(new Transition<BrowserState<TItem, TKey>, BrowserEdit<TItem, TKey>>(state with { Selected = toHashSet(keys) }, None)),
+            _ => None,
         };
 
     protected override Option<Transition<BrowserState<TItem, TKey>, BrowserEdit<TItem, TKey>>> Activated(

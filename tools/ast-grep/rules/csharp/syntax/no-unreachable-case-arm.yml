@@ -46,4 +46,4 @@ rule:
                 kind: invocation_expression
                 has: {field: function, pattern: $CALL, matches: arm-call}
 message: 'Arm of `$CALL` throws `UnreachableException` for a case its value admits'
-note: 'Narrow the value to a union or request type holding the cases the call handles, every arm then returns a value'
+note: 'Narrow the value to a union or request type holding the cases the call handles'

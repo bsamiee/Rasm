@@ -52,4 +52,4 @@ fix:
     template: $REWRITTEN
     expandStart: {matches: pushed}
 message: '`$V.$PUSH` adds an element the next statement borrows back through a second lookup'
-note: 'Call `push_mut(<value>)`, `insert_mut(<index>, <value>)`, `push_back_mut`, or `push_front_mut` and read the returned `&mut T`, wrapped in `Some` where the consumer keeps an `Option`'
+note: 'Read the `&mut T` that `push_mut`, `insert_mut`, `push_back_mut`, or `push_front_mut` returns, in `Some` for an `Option` consumer'

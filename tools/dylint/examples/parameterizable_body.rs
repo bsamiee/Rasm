@@ -1,4 +1,4 @@
-use core::{f64::consts::PI, fmt, hint::black_box};
+use core::{f64::consts::PI, fmt, hint::black_box, time::Duration};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -12,7 +12,7 @@ trait Render {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const TIMEOUT: u64 = 30;
+const TIMEOUT: Duration = Duration::from_secs(30);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -25,7 +25,7 @@ struct Client {
 struct Policy {
     endpoint: u16,
     attempts: u8,
-    timeout: u64,
+    timeout: Duration,
 }
 
 #[derive(Debug)]
@@ -39,7 +39,7 @@ struct Footer;
 
 #[derive(Debug, Default)]
 struct Uptime {
-    seconds: u64,
+    seconds: Duration,
 }
 
 #[derive(Debug, Default)]
@@ -69,7 +69,7 @@ struct Rgb(u8, u8, u8);
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 impl Policy {
-    const fn new(client: &Client, attempts: u8, timeout: u64) -> Self { Self { endpoint: client.endpoint, attempts, timeout } }
+    const fn new(client: &Client, attempts: u8, timeout: Duration) -> Self { Self { endpoint: client.endpoint, attempts, timeout } }
 }
 
 impl Render for Page {
@@ -101,7 +101,7 @@ impl Shape for Circle {
 }
 
 impl From<u64> for Uptime {
-    fn from(seconds: u64) -> Self { Self { seconds } }
+    fn from(seconds: u64) -> Self { Self { seconds: Duration::from_secs(seconds) } }
 }
 
 impl From<u64> for Clock {
@@ -116,9 +116,9 @@ impl Circle {
     fn perimeter(&self) -> f64 { PI * self.radius * 2.0 }
 }
 
-const fn retry_reads(client: &Client) -> Policy { Policy::new(client, 3, TIMEOUT.strict_mul(2)) }
+const fn retry_reads(client: &Client) -> Policy { Policy::new(client, 3, TIMEOUT.saturating_mul(2)) }
 
-const fn retry_writes(client: &Client) -> Policy { Policy::new(client, 5, TIMEOUT.strict_mul(2)) }
+const fn retry_writes(client: &Client) -> Policy { Policy::new(client, 5, TIMEOUT.saturating_mul(2)) }
 
 fn total_squares(shapes: &[Square]) -> f64 { shapes.iter().map(Shape::area).sum() }
 

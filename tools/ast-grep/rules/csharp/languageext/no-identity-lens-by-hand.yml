@@ -91,5 +91,5 @@ rule:
                         - all: [{nthChild: 2}, {not: {matches: named}}]
                     has: {nthChild: {position: 1, reverse: true}, matches: replacing-setter}
 message: '`Lens<$TYPE, $TYPE>.New` builds the identity lens by hand'
-note: Call `Lens.identity<$TYPE>()`, which reads the whole value and replaces it whole
+note: 'Call `Lens.identity<<type>>()`'
 fix: Lens.identity<$TYPE>()

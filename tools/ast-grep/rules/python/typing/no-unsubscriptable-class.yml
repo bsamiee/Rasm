@@ -70,4 +70,4 @@ rule:
                             module: {regex: '^xml(\..+)?$'}
                             name: {regex: '^(AttributesImpl|Element|ElementTree|ReadOnlySequentialNamedNodeMap|XMLParser|XMLPullParser)$'}
 message: '`$G` defines no `__class_getitem__`, evaluated subscripts raise `TypeError`'
-note: 'Use the class unsubscripted where type parameters have defaults, the value''s `collections.abc` protocol (`Iterator`, `Callable`), or a quoted annotation'
+note: 'Use the class unsubscripted where type parameters have defaults, its `collections.abc` protocol (`Iterator`, `Callable`), or a quoted annotation'

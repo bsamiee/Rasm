@@ -48,5 +48,7 @@ rule:
           all:
             - has: {field: expr, matches: status-value}
             - has: {kind: switch_entry, has: {kind: switch_pattern, has: {kind: pattern, has: {matches: status-literal}}}}
-message: '`$SITE` restates an SDK status code as a literal'
+transform:
+    HEAD: {replace: {source: $SITE, replace: '(?s)\n.*$', by: ''}}
+message: '`$HEAD` restates an SDK status code as a literal'
 note: 'Name the SDK constant (`errSecItemNotFound`, `noErr`), importing `Security` for the `errSec` codes'

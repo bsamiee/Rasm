@@ -153,4 +153,4 @@ constraints:
         has: {matches: fail-arm}
         not: {has: {stopBy: end, matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^fail$'}}}}}
 message: '`$VALUE` is matched to rebuild the `None`, `Left`, or failure case it holds'
-note: Use `Bind(<continuation>)`, `Map` for a continuation returning a plain value, and `IO.lift(<fin>).Bind(<continuation>)` for one returning an effect, each passes the failure through unchanged
+note: 'Use `Bind(<continuation>)`, `Map` for a plain-value continuation, or `IO.lift(<fin>).Bind(<continuation>)` for an effect continuation'

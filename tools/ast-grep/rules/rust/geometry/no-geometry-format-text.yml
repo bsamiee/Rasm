@@ -9,4 +9,4 @@ rule:
         - matches: rust-geometry-format-text
         - not: {inside: {kind: source_file, stopBy: end, regex: '^[(\[]'}}
 message: '`$TEXT` spells geometry interchange text by hand'
-note: 'Read and write the shape through its format crate: `geojson` types or `geozero::ToJson` for GeoJSON, `geozero::ToWkt` for WKT, `kurbo::BezPath::to_svg` for SVG path data, `stl_io` for STL, `tobj` for OBJ, and `ply_rs_bw` for PLY'
+note: 'Read and write the shape through its format crate (`geojson`, `geozero` for WKT, `kurbo::BezPath::to_svg`, `stl_io`, `tobj`, `ply_rs_bw`)'

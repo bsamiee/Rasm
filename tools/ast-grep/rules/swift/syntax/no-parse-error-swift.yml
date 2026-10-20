@@ -54,5 +54,4 @@ rule:
 labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
 message: Grammar failed to parse the span
-note: >-
-    Use a form the grammar parses, every other rule skips constructs inside a parse error. Regex literals opening `/^` or holding `\/` take the extended delimiter `#/<pattern>/#`, which the grammar parses in every position. Negated awaited conditions take `!(await <expression>)` in place of `await !<expression>`. Unreported tree-sitter-swift grammar gaps are an `if` condition `await <expression> {` read as a trailing closure, the empty tuple `()` as a value, and bodiless `@_silgen_name` function declarations with header tokens of the declaration after them, so those declarations close their file and the error region holds no other declaration
+note: 'Write a form tree-sitter-swift parses'

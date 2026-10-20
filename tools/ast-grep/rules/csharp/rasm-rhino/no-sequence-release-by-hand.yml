@@ -195,4 +195,4 @@ rule:
                     - has: {kind: argument, nthChild: 2, matches: release-callback}
                     - not: {has: {kind: argument, nthChild: 3}}
 message: '`$SEQ` releases each element by hand'
-note: 'Use `DisposalOps.Release(<seq>)` over the disposables, or `DisposalOps.Within(<retain> => <body>, DisposalOps.Release)` where a scope acquires them, which disposes in reverse order and keeps every failure'
+note: 'Call `DisposalOps.Release(<seq>)`, or `DisposalOps.Within(<retain> => <body>, DisposalOps.Release)` where a scope acquires the disposables'

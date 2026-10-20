@@ -14,13 +14,15 @@ rule:
     has:
         field: arguments
         has:
-            any:
-                - matches: continuation
-                  pattern: $INNER
-                - kind: arrow_function
-                  has: {field: body, stopBy: {kind: arrow_function}, matches: continuation, pattern: $INNER}
-message: 'A continuation callback starts another continuation at `$INNER`'
-note: 'Write the steps as one `Effect.fn(<name>)(function* ...)` or `Effect.gen` body that yields each result in order'
+            kind: arrow_function
+            has:
+                field: body
+                any:
+                    - {matches: continuation, pattern: $INNER}
+                    - not: {matches: typescript-function-boundary}
+                      has: {stopBy: {matches: typescript-function-boundary}, matches: continuation, pattern: $INNER}
+message: 'Continuation callback starts another continuation at `$INNER`'
+note: 'Yield dependent steps in one `Effect.gen` or `Effect.fn` body, and chain recovery nested in a recovery callback as one flat pipe'
 labels:
     CALL: {style: primary}
     INNER: {style: secondary}

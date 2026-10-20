@@ -33,7 +33,6 @@ utils:
         has: {kind: statements, matches: element-test}
 rule:
     kind: call_expression
-    pattern: $FILTER
     all:
         - has:
             nthChild: 1
@@ -46,5 +45,5 @@ rule:
             any:
                 - has: {kind: lambda_literal, matches: test-closure}
                 - has: {kind: value_arguments, has: {kind: value_argument, not: {has: {kind: value_argument_label}}, has: {field: value, matches: test-closure}}}
-message: '`$FILTER` walks indices to test the element at each one'
-note: 'Call `<collection>.indices(where: <element test>)` for a `RangeSet` of passing indices, read their elements through `<collection>[<range set>]`, pass it whole to `removeSubranges` and `moveSubranges`, and move consumers of the index array to the `RangeSet` or its `ranges`'
+message: '`$C.indices.filter` walks indices to test the element at each one'
+note: 'Call `<collection>.indices(where: <test>)` and pass the `RangeSet` to its consumers'

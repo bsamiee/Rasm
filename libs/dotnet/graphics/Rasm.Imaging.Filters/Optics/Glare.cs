@@ -268,12 +268,14 @@ public sealed unsafe record Bloom(AxisFraction Size, AxisFraction Strength, Opti
     public static Bloom Default { get; } = new(AxisFraction.Half, AxisFraction.Create(0.7f * float.Pow(0.15f, 1.5f)), None, new(Enabled: false, DirtSpecks.Default), DirtGain.Unity);
 
     public static Option<PixelPass> Pass(Bloom state, PassContext context) =>
-        state.Strength == AxisFraction.MinValue ? None : Some<PixelPass>(new PixelPass.Frame((frame, progress) => frame.Spread(Planes.Light, light => {
+        from changed in Some(state)
+        where changed.Strength != AxisFraction.MinValue
+        select (PixelPass)new PixelPass.Frame((frame, progress) => frame.Spread(Planes.Light, light => {
             using Mat tent = new(1, 3, DepthType.Cv32F, 1);
             tent.SetTo([0.25f, 0.5f, 0.25f]);
-            int chain = (int)float.Log2(float.Max(1f, frame.Size.ShortSide * state.Size));
+            int chain = (int)float.Log2(float.Max(1f, frame.Size.ShortSide * changed.Size));
             Chained(light, chain - 1, static tap => 1d / (1d + double.Max(0d, double.Max(tap.X, double.Max(tap.Y, tap.Z)))), tent);
-            _ = (state.Specks.Active.Map(specks => context.Derivations.Derived((specks, context.Extent), DirtSpecks.Field)) | state.Dirt.Map(static file => file.Frame)).Iter(dirt => {
+            _ = (changed.Specks.Active.Map(specks => context.Derivations.Derived((specks, context.Extent), DirtSpecks.Field)) | changed.Dirt.Map(static file => file.Frame)).Iter(dirt => {
                 using Mat lens = dirt.Header();
                 double cover = double.Max((double)frame.Extent.Width / lens.Cols, (double)frame.Extent.Height / lens.Rows);
                 using Mat fitted = new();
@@ -282,13 +284,13 @@ public sealed unsafe record Bloom(AxisFraction Size, AxisFraction Strength, Opti
                 Span<Vector4> cells = new((void*)light.DataPointer, frame.Block.Length / 4);
                 for (int i = 0; i < cells.Length; i++) {
                     (int y, int x) = int.DivRem(i, light.Cols);
-                    cells[i] *= Vector4.One + (state.DirtGain * soil.Sample(
+                    cells[i] *= Vector4.One + (changed.DirtGain * soil.Sample(
                         (((fitted.Cols - (double)frame.Extent.Width) / 2d) + frame.Origin.X + x + 0.5d, ((fitted.Rows - (double)frame.Extent.Height) / 2d) + frame.Origin.Y + y + 0.5d),
                         (WrapMode.Black, WrapMode.Black), Vector4.Zero, static (sum, pixel, weight) => sum + ((float)weight * pixel)));
                 }
             });
             return unit;
-        }, BlendingMode.Mix, state.Strength, progress)));
+        }, BlendingMode.Mix, changed.Strength, progress));
 
     private static void Chained(Mat level, int halvings, Func<Vector4, double> weight, Mat tent) {
         if (halvings <= 0)

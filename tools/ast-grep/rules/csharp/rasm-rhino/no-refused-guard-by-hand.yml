@@ -170,4 +170,4 @@ labels:
     CHECKED: {style: primary, message: 'Condition the guard takes'}
     REFUSAL: {style: secondary, message: 'Refusal the guard builds'}
 message: '`$CHECKED` chooses between a value and `Refused` by hand'
-note: 'Use the `Refused` guard of the reason, `Unless(<check>, <value>, <member>)` with its index overload for `Declined`, `UnlessFound(<nullable value>, <member>)` or `UnlessFound(<found>, <member>)` with a `unit` value for `Absent`, and `UnlessValid(<check>, <value>, <member>)` for `Invalid`'
+note: 'Call the reason''s `Refused` guard, `Unless` or its index overload for `Declined`, `UnlessFound` for `Absent`, `UnlessValid` for `Invalid`'

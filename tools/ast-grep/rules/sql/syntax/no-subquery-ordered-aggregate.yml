@@ -80,5 +80,5 @@ rewriters:
 transform:
     FIXED: {rewrite: {source: $FIXABLE, rewriters: [ordered, unwrapped]}}
 fix: $FIXED$KEPT
-message: '`$AGGREGATE` relies on a row order `$SUBQUERY` sets and the aggregate ignores'
-note: 'Move `order by` from the subquery or common table expression into the aggregate call as `<aggregate>(<arguments> order by <key>)`, SQLite and PostgreSQL order aggregate input by an in-call `order by` alone'
+message: '`$AGGREGATE` ignores the input order `$ORDER` sets'
+note: 'Move `order by <key>` from the subquery or common table expression into the call as `<aggregate>(<arguments> order by <key>)`'

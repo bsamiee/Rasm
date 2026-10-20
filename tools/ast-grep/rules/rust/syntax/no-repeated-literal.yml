@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-repeated-literal-rust
+id: no-repeated-literal
 language: rust
 severity: error
 utils:
@@ -17,8 +17,15 @@ utils:
               all:
                 - regex: '^r#*"(?s:.{2,})"#*$'
                 - regex: '\w'
+    unit-site:
+        any:
+            - matches: rust-calendar-site
+            - matches: {rust-angle-conversion: {X: &any {pattern: $_}, NUM: *any, DEN: *any, DEGREES: *any, RADIANS: *any, OFFSET: *any}}
+            - matches: {rust-duration-scaling: {PATH: *any, SECS: *any, MILLIS: *any, MICROS: *any, NANOS: *any, ARG: *any, D: *any, READ: *any, THOUSAND: *any}}
+    unit-factor:
+        inside: {stopBy: end, matches: unit-site}
     site:
-        any: [{matches: number}, {matches: text}]
+        any: [{matches: number, not: {matches: unit-factor}}, {matches: text}]
         not: {inside: {stopBy: end, kind: 'const_item, static_item, attribute_item, inner_attribute_item, token_tree, enum_variant'}}
     negated:
         inside: {kind: unary_expression, regex: '^-'}
@@ -28,29 +35,45 @@ utils:
     negated-site:
         all: [{matches: site}, {matches: negated}]
     earlier-plain:
-        follows: {stopBy: end, any: [{pattern: $LITERAL, matches: plain-site}, {has: {stopBy: end, pattern: $LITERAL, matches: plain-site}}]}
+        follows:
+            stopBy: end
+            not: {kind: function_item, inside: {kind: block}}
+            any: [{pattern: $LITERAL, matches: plain-site}, {has: {stopBy: {kind: function_item}, pattern: $LITERAL, matches: plain-site}}]
     earlier-negated:
-        follows: {stopBy: end, any: [{pattern: $LITERAL, matches: negated-site}, {has: {stopBy: end, pattern: $LITERAL, matches: negated-site}}]}
+        follows:
+            stopBy: end
+            not: {kind: function_item, inside: {kind: block}}
+            any: [{pattern: $LITERAL, matches: negated-site}, {has: {stopBy: {kind: function_item}, pattern: $LITERAL, matches: negated-site}}]
+    method:
+        kind: function_item
+        inside: {kind: declaration_list, inside: {kind: 'impl_item, trait_item'}}
     owner-value:
         kind: 'const_item, static_item'
         has: {field: value, any: [{pattern: $LITERAL}, {has: {stopBy: end, pattern: $LITERAL}}]}
     owned:
-        inside:
-            kind: source_file
-            stopBy: end
-            has:
-                any:
-                    - matches: owner-value
-                    - kind: impl_item
-                      has: {field: body, has: {matches: owner-value}}
+        any:
+            - inside: {stopBy: end, kind: 'source_file, declaration_list', has: {kind: 'const_item, static_item', matches: owner-value}}
+            - inside: {stopBy: end, kind: 'function_item, impl_item, trait_item', has: {stopBy: end, kind: 'const_item, static_item', matches: owner-value}}
 rule:
     kind: 'integer_literal, float_literal, string_literal, raw_string_literal'
     pattern: $LITERAL
     all:
         - matches: site
+        - inside: {stopBy: end, kind: 'function_item, impl_item, trait_item'}
         - not: {matches: rust-test-scope}
         - any:
-            - all: [{matches: plain-site}, {any: [{matches: earlier-plain}, {inside: {stopBy: end, matches: earlier-plain}}, {matches: owned}]}]
-            - all: [{matches: negated-site}, {any: [{matches: earlier-negated}, {inside: {stopBy: end, matches: earlier-negated}}]}]
-message: '`$LITERAL` repeats a literal an earlier expression, `const`, or `static` of the file holds'
-note: 'Declare the value once at its owner and read it at every use: a `let` in the one function that repeats it, a module `const`, an associated `const` of the type it measures, or a library constant (`u16::MAX`)'
+            - all:
+                - matches: plain-site
+                - any:
+                    - matches: earlier-plain
+                    - inside: {stopBy: {kind: 'function_item, impl_item, trait_item'}, not: {kind: 'function_item, impl_item, trait_item'}, matches: earlier-plain}
+                    - inside: {stopBy: {kind: function_item}, kind: function_item, matches: method, all: [{matches: earlier-plain}]}
+                    - matches: owned
+            - all:
+                - matches: negated-site
+                - any:
+                    - matches: earlier-negated
+                    - inside: {stopBy: {kind: 'function_item, impl_item, trait_item'}, not: {kind: 'function_item, impl_item, trait_item'}, matches: earlier-negated}
+                    - inside: {stopBy: {kind: function_item}, kind: function_item, matches: method, all: [{matches: earlier-negated}]}
+message: '`$LITERAL` repeats a literal its function, impl, or trait holds earlier, or a `const` or `static` holds'
+note: 'Bind the value once in a `let` or a `const` and read it at each use, or read the library constant (`u16::MAX`)'

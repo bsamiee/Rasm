@@ -95,4 +95,4 @@ rule:
             - matches: environment-file
             - has: {nthChild: 2, matches: relayed}
 message: '`$READ` reads an environment variable in place of a typed settings field passed from the boundary'
-note: 'Validate the passed mapping once with a frozen settings model, `msgspec.convert` in library and extension modules and pydantic `model_validate` or `BaseSettings` elsewhere'
+note: 'Validate passed settings once into a frozen model, `msgspec.convert` in libraries and extensions, else pydantic `model_validate` or `BaseSettings`'

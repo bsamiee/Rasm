@@ -9,5 +9,7 @@ rule:
         - has: {field: function, kind: member_expression, has: {field: property, regex: '^add$'}, not: {has: {field: object, regex: '(^|\.)documents$'}}}
         - has: {field: arguments, has: {kind: object, has: {kind: pair}}}
     inside: {kind: program, stopBy: end, matches: {uxp-host-file: {module: {regex: '^(adobe:)?indesign$'}}}}
-message: '`$CALL` passes a record to `add`, where InDesign drops each refused nested value and refuses a top-level one as "Invalid parameter." or "Data is out of range." naming no field'
-note: 'Call `add` with its required arguments alone, then write each field as its own `Object.assign(<member>, { [<key>]: <value> })` under `Effect.validate`, where a refused field throws with its expected type and range; `documents.add` keeps its `documentPreferences` record, the one form that sets a page under 73 pt'
+transform:
+    HEAD: {replace: {source: $CALL, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
+message: '`$HEAD` takes a record, where InDesign drops a refused field or refuses the record naming no field'
+note: 'Call `add` with its required arguments alone, then write each field as `Object.assign(<member>, { [<key>]: <value> })` under `Effect.validate`'

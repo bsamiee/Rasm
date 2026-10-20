@@ -43,4 +43,4 @@ rule:
                 - has: {field: body, matches: positional-fields}
         - not: {matches: rust-serde-record}
 message: '`$NAME` declares a vector type by hand'
-note: 'Use the vector type of the crate the module uses: `glam` `Vec2`/`Vec3`/`DVec3` in graphics code, `nalgebra` `Vector3<f64>`/`Point3<f64>` in geometry, `geo-types` `Coord`/`Point` in geospatial code, or `kurbo` `Point`/`Vec2` for 2D curves'
+note: 'Use the vector type of the module''s crate: `glam` in graphics, `nalgebra` in geometry, `geo-types` in geospatial code, `kurbo` for 2D curves'

@@ -47,5 +47,5 @@ rule:
           has: {stopBy: end, pattern: $$MISSING, regex: '^$', not: {matches: unreported}}
 labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
-message: 'Grammar failed to parse the span'
-note: 'Write a form tree-sitter-python parses, every other rule skips constructs inside a parse error. Unreported tree-sitter-python grammar gaps are type parameter defaults (`class Box[T = int]`) and PEP 798 unpacked comprehension bodies, `**` in a dict comprehension and `*` before an operand other than a name (`{**group for ...}`, `[*(a, b) for ...]`)'
+message: Grammar failed to parse the span every other rule skips
+note: Write a form the grammar parses

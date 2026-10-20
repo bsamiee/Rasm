@@ -25,5 +25,7 @@ rule:
         - not: {has: {pattern: $_, not: {matches: named-pair}}}
         - not: {has: {kind: tuple_expression, has: {kind: scoped_identifier, pattern: $V}, precedes: {stopBy: end, kind: tuple_expression, has: {kind: scoped_identifier, pattern: $V}}}}
         - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: enum_item, has: {field: name, pattern: $E}}}
-message: '`$TABLE` pairs each variant of `$E` with its name by hand'
-note: 'Derive `strum::EnumString` for name to variant and `strum::IntoStaticStr` for variant to name with `#[strum(serialize = "<name>")]` per variant, iterate `<enum>::iter()` through `strum::IntoEnumIterator` for every variant, and delete the table'
+transform:
+    HEAD: {replace: {source: $TABLE, replace: '(?s)^\[\s*([^\n]*?)\s*\n.*$', by: '[$1 ..]'}}
+message: '`$HEAD` pairs each variant of `$E` with its name by hand'
+note: 'Derive `strum::EnumString` and `IntoStaticStr` with `#[strum(serialize = "<name>")]` per variant, and `EnumIter` for every variant'

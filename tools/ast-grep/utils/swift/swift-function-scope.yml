@@ -2,4 +2,6 @@
 id: swift-function-scope
 language: swiftlang
 rule:
-    kind: function_declaration, lambda_literal, init_declaration, deinit_declaration, subscript_declaration, computed_property, computed_getter, computed_setter, computed_modify, willset_clause, didset_clause
+    any:
+        - matches: swift-declaration-scope
+        - kind: lambda_literal

@@ -175,7 +175,7 @@ public sealed record SunSite(GeoCoordinate Place, NorthAngle North, StandardOffs
         select new SunPaths(
             toMap(hours.Map((hour, column) => (hour, Arcs(toSeq(Range(0, days.Count)).Map(row => sky[(row * hours.Count) + column]))
                 .Map(arc => arc.Map(point => Projected(placed, point)))))),
-            Meshed(sky, Band(sky, hours.Count, solstices.MaxBy(static day => day.Declination).Row, solstices.MinBy(static day => day.Declination).Row), placed));
+            Meshed(Band(sky, hours.Count, solstices.MaxBy(static day => day.Declination).Row, solstices.MinBy(static day => day.Declination).Row), placed));
 
     private static IO<TResult> Observed<TResult>(TimeProvider clock, Func<Sun, DateTimeZone, Fin<TResult>> read) =>
         DisposalOps.Within(static () => new Sun { Accuracy = Sun.Accuracies.Maximum }, sun => IO.lift(() => read(sun, BclDateTimeZone.FromTimeZoneInfo(clock.LocalTimeZone))));
@@ -223,7 +223,7 @@ public sealed record SunSite(GeoCoordinate Place, NorthAngle North, StandardOffs
 
     private static Vector3d Crossing(Vector3d from, Vector3d to) => from + ((to - from) * (from.Z / (from.Z - to.Z)));
 
-    private static Seq<Seq<(int A, int B)>> Band(Arr<Vector3d> sky, int columns, int june, int december) =>
+    private static Seq<Seq<Vector3d>> Band(Arr<Vector3d> sky, int columns, int june, int december) =>
         (from row in toSeq(Range(june, december - june))
          from column in toSeq(Range(0, columns))
          select Seq(
@@ -232,25 +232,25 @@ public sealed record SunSite(GeoCoordinate Place, NorthAngle North, StandardOffs
                 ((row + 1) * columns) + ((column + 1) % columns),
                 ((row + 1) * columns) + column))
             .Bind(quad => quad.ForAll(slot => sky[slot].Z > 0d)
-                ? Seq(quad.Map(static slot => (slot, slot)))
+                ? Seq(quad.Map(slot => sky[slot]))
                 : Seq(Seq(quad[0], quad[1], quad[2]), Seq(quad[0], quad[2], quad[3]))
                     .Map(triangle => Clipped(sky, triangle)).Filter(static polygon => !polygon.IsEmpty));
 
-    private static Seq<(int A, int B)> Clipped(Arr<Vector3d> sky, Seq<int> corners) =>
+    private static Seq<Vector3d> Clipped(Arr<Vector3d> sky, Seq<int> corners) =>
         corners.Exists(slot => sky[slot].Z > 0d)
             ? corners.Zip(corners.Tail.Add(corners[0])).Bind(edge => Seq(
-                Some((edge.First, edge.First)).Filter(_ => sky[edge.First].Z >= 0d),
-                Some((Math.Min(edge.First, edge.Second), Math.Max(edge.First, edge.Second)))
-                    .Filter(_ => (sky[edge.First].Z < 0d && sky[edge.Second].Z > 0d)
-                        || (sky[edge.First].Z > 0d && sky[edge.Second].Z < 0d))).Somes())
-            : Seq<(int A, int B)>();
+                Some(sky[edge.First]).Filter(static point => point.Z >= 0d),
+                Some((Low: Math.Min(edge.First, edge.Second), High: Math.Max(edge.First, edge.Second)))
+                    .Filter(_ => (sky[edge.First].Z < 0d && sky[edge.Second].Z > 0d) || (sky[edge.First].Z > 0d && sky[edge.Second].Z < 0d))
+                    .Map(span => Crossing(sky[span.Low], sky[span.High]))).Somes())
+            : Seq<Vector3d>();
 
-    private static SunCoverage Meshed(Arr<Vector3d> sky, Seq<Seq<(int A, int B)>> polygons, Sphere dome) =>
+    private static SunCoverage Meshed(Seq<Seq<Vector3d>> polygons, Sphere dome) =>
         polygons.Bind(static polygon => polygon).Distinct() switch {
-            var keys => toHashMap(keys.Map(static (key, index) => (key, index))) switch {
+            var points => toHashMap(points.Map(static (point, index) => (point, index))) switch {
                 var indices => new SunCoverage(
-                    keys.Map(key => Projected(dome, key.A == key.B ? sky[key.A] : Crossing(sky[key.A], sky[key.B]))),
-                    polygons.Map(polygon => polygon.Map(key => indices[key])).Map(static at => new MeshFace(at[0], at[1], at[2], at[^1]))),
+                    points.Map(point => Projected(dome, point)),
+                    polygons.Map(polygon => polygon.Map(point => indices[point])).Map(static at => new MeshFace(at[0], at[1], at[2], at[^1]))),
             },
         };
 

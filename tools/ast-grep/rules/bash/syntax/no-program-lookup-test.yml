@@ -52,4 +52,4 @@ rule:
         - {matches: emptiness-test}
         - {matches: path-test}
 message: 'Script looks up `$PROGRAM` to decide whether to run it'
-note: Call `<program>` by name in place of the lookup and its fallback, skip, or exit branch, `mise.toml` puts each tool on `PATH` and a missing program fails its call with exit status 127
+note: Call `<program>` by name in place of the lookup and its branch

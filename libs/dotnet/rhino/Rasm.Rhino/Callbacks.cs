@@ -43,6 +43,9 @@ public static class Callbacks {
     public static bool Succeeded<T>(IO<T> effect, CallbackSite site) =>
         Answer(effect.Map(value: true), static () => false, site);
 
+    public static bool Succeeded<T>(Fin<T> answer, CallbackSite site) =>
+        Answer(answer.Map(static _ => true), static () => false, site);
+
     public static bool Succeeded<T>(Option<IO<T>> effect, Func<bool> absent, CallbackSite site) =>
         effect.Match(Some: run => Succeeded(run, site), None: absent);
 

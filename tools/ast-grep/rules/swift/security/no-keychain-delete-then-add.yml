@@ -9,7 +9,7 @@ utils:
             - kind: line_string_literal, multi_line_string_literal, raw_string_literal
               regex: '(?m)(?:^#*"*|\\n)[ \t]*delete-(?:generic|internet)-password[ \t]'
             - kind: call_expression
-              has: {nthChild: 1, kind: simple_identifier, regex: '^(SecItemDelete|SecKeychainItemDelete)$'}
+              has: {nthChild: 1, kind: simple_identifier, regex: '^SecItemDelete$'}
     after-delete:
         inside: {kind: statements}
         follows: {stopBy: end, any: [{matches: delete-command}, {has: {stopBy: end, matches: delete-command}}]}
@@ -24,7 +24,7 @@ rule:
                 - kind: line_string_literal, multi_line_string_literal, raw_string_literal
                   regex: '(?m)(?:^#*"*|\\n)[ \t]*add-(?:generic|internet)-password[ \t]'
                 - kind: call_expression
-                  has: {nthChild: 1, kind: simple_identifier, regex: '^(SecItemAdd|SecKeychainAdd(Generic|Internet)Password)$'}
+                  has: {nthChild: 1, kind: simple_identifier, regex: '^SecItemAdd$'}
             - any:
                 - matches: after-delete
                 - inside: {stopBy: end, matches: after-delete}
@@ -32,5 +32,5 @@ rule:
                     stopBy: end
                     kind: call_suffix
                     inside: {kind: call_expression, has: {kind: navigation_expression, has: {stopBy: end, matches: delete-command}}}
-message: '`$ADD` recreates a deleted keychain item and replaces its ACL and partition list with ones naming the writer alone'
+message: '`$ADD` recreates a deleted keychain item without the attributes it omits, and a file keychain item with the writer''s access and partition list'
 note: 'Drop the delete and update data in place through `add-generic-password -U` or `SecItemUpdate`'

@@ -109,5 +109,7 @@ rule:
             - all:
                 - pattern: .init()
                 - inside: {kind: property_declaration, field: value, has: {kind: type_annotation, has: {kind: user_type, regex: '^(Foundation\.)?Process$'}}}
-message: '`$SITE` starts a child in the parent session with no teardown sequence'
-note: 'Run the child through `Subprocess.run` with platform options that set `createSession = true` or `processGroupID` and a non-empty `teardownSequence` (`[.gracefulShutDown(toProcessGroup: true, allowedDurationToNextStep: <duration>)]`)'
+transform:
+    HEAD: {replace: {source: $SITE, replace: '(?s)\n.*$', by: ''}}
+message: '`$HEAD` starts a child in the parent session with no teardown sequence'
+note: 'Run the child through `Subprocess.run` with `createSession` or `processGroupID` and a `teardownSequence` of process-group `.gracefulShutDown` steps'

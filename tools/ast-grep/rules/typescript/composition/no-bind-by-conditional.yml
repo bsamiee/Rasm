@@ -39,6 +39,29 @@ utils:
             - not: {any: [{matches: combinator}, {has: {stopBy: end, matches: combinator}}, {matches: foreign-use}, {has: {stopBy: end, matches: foreign-use}}]}
             - any: [{all: [{pattern: $R.value}, {pattern: $USE}]}, {has: {stopBy: end, all: [{pattern: $R.value}, {pattern: $USE}]}}, {not: {has: {stopBy: end, pattern: $R.value}}}]
             - any: [{kind: await_expression, pattern: $AWAITED}, {has: {stopBy: {matches: typescript-function-boundary}, kind: await_expression, pattern: $AWAITED}}, {not: {has: {stopBy: {matches: typescript-function-boundary}, kind: await_expression}}}]
+    single-return:
+        kind: return_statement
+        not: {precedes: {pattern: $_}}
+        has: {nthChild: 1, matches: ternary-continuation}
+    last-statement:
+        pattern: $_
+        not: {precedes: {pattern: $_}}
+    ok-tail:
+        kind: return_statement
+        all:
+            - pattern: return ok($OK);
+            - not: {precedes: {pattern: $_}}
+            - not: {has: {stopBy: {matches: typescript-function-boundary}, kind: await_expression}}
+    map-tail:
+        all:
+            - any:
+                - has: {matches: ok-tail, pattern: $MAPS}
+                - has: {kind: statement_block, has: {matches: ok-tail, pattern: $MAPS}}
+            - not: {has: {stopBy: {matches: typescript-function-boundary}, kind: await_expression}}
+    bind-tail:
+        any:
+            - has: {matches: last-statement, not: {kind: statement_block}, pattern: $BINDS}
+            - has: {kind: statement_block, has: {matches: last-statement, pattern: $BINDS}}
     statement-continuation:
         all:
             - not: {has: {stopBy: end, matches: foreign-use}}
@@ -50,20 +73,25 @@ rewriters:
       transform:
         NAME: {replace: {source: $R, replace: '^(?:[\s\S]*\.)?(\w+)$', by: '${1}Value'}}
       fix: $NAME
+    - id: ok-return
+      rule: {matches: ok-tail}
+      transform:
+        UNWRAPPED_OK: {rewrite: {source: $OK, rewriters: [unwrapped]}}
+      fix: return $UNWRAPPED_OK;
     - id: rest
       rule: {pattern: $S, follows: {stopBy: end, pattern: $STATEMENT}}
       transform:
         REWRITTEN: {rewrite: {source: $S, rewriters: [unwrapped]}}
       fix: $REWRITTEN
-    - id: case-block
-      rule: {kind: statement_block, pattern: '{ $$$INNER }', inside: {field: body, pattern: $CASE}}
-      transform:
-        REWRITTEN: {rewrite: {source: $$$INNER, rewriters: [unwrapped]}}
-      fix: $REWRITTEN
-    - id: case-statement
-      rule: {pattern: $S, inside: {field: body, pattern: $CASE}}
+    - id: statement
+      rule: {pattern: $S}
       transform:
         REWRITTEN: {rewrite: {source: $S, rewriters: [unwrapped]}}
+      fix: $REWRITTEN
+    - id: case-block
+      rule: {kind: statement_block, pattern: '{ $$$INNER }'}
+      transform:
+        REWRITTEN: {rewrite: {source: $$$INNER, rewriters: [ok-return, statement], joinBy: "\n"}}
       fix: $REWRITTEN
 rule:
     any:
@@ -83,19 +111,34 @@ rule:
             - has: {field: condition, has: {matches: fault-test}}
             - has: {field: consequence, matches: propagating-block}
             - not: {has: {field: alternative, kind: else_clause}}
-            - inside: {kind: statement_block, pattern: $BLOCK}
-            - precedes: {pattern: $_}
-            - not: {precedes: {stopBy: end, has: {stopBy: end, matches: foreign-use}}}
-            - any: [{precedes: {stopBy: end, has: {stopBy: end, all: [{pattern: $R.value}, {pattern: $USE}]}}}, {not: {precedes: {stopBy: end, has: {stopBy: end, pattern: $R.value}}}}]
-            - any: [{precedes: {stopBy: end, has: {stopBy: {matches: typescript-function-boundary}, kind: await_expression, pattern: $AWAITS}}}, {not: {precedes: {stopBy: end, has: {stopBy: {matches: typescript-function-boundary}, kind: await_expression}}}}]
+            - any:
+                - precedes: {matches: single-return}
+                - all:
+                    - inside: {kind: statement_block, pattern: $BLOCK}
+                    - any:
+                        - all:
+                            - precedes: {stopBy: end, matches: ok-tail, pattern: $MAPS}
+                            - not: {precedes: {stopBy: end, has: {stopBy: {matches: typescript-function-boundary}, kind: await_expression}}}
+                        - precedes: {stopBy: end, matches: last-statement, pattern: $BINDS}
+                    - not: {precedes: {stopBy: end, has: {stopBy: end, matches: foreign-use}}}
+                    - any: [{precedes: {stopBy: end, has: {stopBy: end, all: [{pattern: $R.value}, {pattern: $USE}]}}}, {not: {precedes: {stopBy: end, has: {stopBy: end, pattern: $R.value}}}}]
+                    - any: [{precedes: {stopBy: end, has: {stopBy: {matches: typescript-function-boundary}, kind: await_expression, pattern: $AWAITS}}}, {not: {precedes: {stopBy: end, has: {stopBy: {matches: typescript-function-boundary}, kind: await_expression}}}}]
         - kind: if_statement
           all:
             - matches: tail-statement
             - has: {field: condition, has: {matches: ok-test}}
-            - has: {field: consequence, kind: statement_block, pattern: $CONSEQUENCE, has: {kind: return_statement, nthChild: {position: 1, reverse: true}}}
             - not: {has: {field: alternative, kind: else_clause}}
             - precedes: {matches: propagating-return, not: {precedes: {pattern: $_}}}
-            - has: {field: consequence, matches: statement-continuation}
+            - has:
+                field: consequence
+                kind: statement_block
+                any:
+                    - has: {nthChild: 1, matches: single-return}
+                    - all:
+                        - pattern: $CONSEQUENCE
+                        - has: {kind: return_statement, nthChild: {position: 1, reverse: true}}
+                        - matches: statement-continuation
+                        - any: [{matches: map-tail}, {matches: bind-tail}]
         - kind: switch_statement
           all:
             - matches: tail-statement
@@ -105,7 +148,18 @@ rule:
                 field: body
                 all:
                     - has: {kind: switch_case, all: [{has: {field: value, regex: "^'fault'$"}}, {has: {field: body, matches: propagating-return}}, {not: {has: {nthChild: 3}}}]}
-                    - has: {any: [{kind: switch_case, has: {field: value, regex: "^'ok'$"}}, {kind: switch_default}], pattern: $CASE, matches: statement-continuation}
+                    - has:
+                        any: [{kind: switch_case, has: {field: value, regex: "^'ok'$"}}, {kind: switch_default}]
+                        all:
+                            - any:
+                                - all: [{has: {field: body, matches: single-return}}, {not: {has: {field: body, not: {kind: return_statement}}}}]
+                                - has: {field: body, kind: statement_block, has: {nthChild: 1, matches: single-return}, not: {has: {nthChild: 2}}}
+                                - all:
+                                    - any:
+                                        - pattern: {context: "switch (x) { case 'ok': $$$CASE_STATEMENTS }", selector: switch_case}
+                                        - pattern: {context: 'switch (x) { default: $$$CASE_STATEMENTS }', selector: switch_default}
+                                    - matches: statement-continuation
+                                    - any: [{matches: map-tail}, {matches: bind-tail}]
                     - not: {has: {nthChild: 3}}
 constraints:
     R: {any: [{kind: identifier}, {kind: member_expression, not: {has: {stopBy: end, kind: call_expression}}}]}
@@ -117,17 +171,18 @@ transform:
     ASYNC_STATEMENT: {replace: {source: $AWAITS, replace: '(?s).+', by: 'async '}}
     MAP: {replace: {source: $X, replace: '(?s).+', by: map}}
     BIND_EXPRESSION: {replace: {source: $Y, replace: '(?s).+', by: bind}}
-    BIND_STATEMENT: {replace: {source: $STATEMENT, replace: '(?s).+', by: bind}}
+    MAP_TAIL: {replace: {source: $MAPS, replace: '(?s).+', by: map}}
+    BIND_TAIL: {replace: {source: $BINDS, replace: '(?s).+', by: bind}}
     PARAMETER: {replace: {source: $USE, replace: '^(?:[\s\S]*\.)?(\w+)\.value$', by: '${1}Value'}}
     MAPPED: {rewrite: {source: $X, rewriters: [unwrapped]}}
     BOUND: {rewrite: {source: $Y, rewriters: [unwrapped]}}
-    BODY: {rewrite: {source: $CONSEQUENCE, rewriters: [unwrapped]}}
-    REST: {rewrite: {source: $BLOCK, rewriters: [rest], joinBy: "\n"}}
-    CASE_BODY: {rewrite: {source: $CASE, rewriters: [case-block, case-statement], joinBy: "\n"}}
+    BODY: {rewrite: {source: $CONSEQUENCE, rewriters: [ok-return, unwrapped]}}
+    REST: {rewrite: {source: $BLOCK, rewriters: [ok-return, rest], joinBy: "\n"}}
+    CASE_BODY: {rewrite: {source: $$$CASE_STATEMENTS, rewriters: [case-block, ok-return, statement], joinBy: "\n"}}
     TAIL: {replace: {source: $REST, replace: '(?s)^(.+)$', by: "{\n$1\n}"}}
     CASE_TAIL: {replace: {source: $CASE_BODY, replace: '(?s)^(.+)$', by: "{\n$1\n}"}}
 fix:
-    template: '$RETURN$AWAIT$MAP$BIND_EXPRESSION$BIND_STATEMENT($R, $ASYNC_EXPRESSION$ASYNC_STATEMENT($PARAMETER) => $MAPPED$BOUND$BODY$TAIL$CASE_TAIL)$END'
+    template: '$RETURN$AWAIT$MAP$BIND_EXPRESSION$MAP_TAIL$BIND_TAIL($R, $ASYNC_EXPRESSION$ASYNC_STATEMENT($PARAMETER) => $MAPPED$BOUND$BODY$TAIL$CASE_TAIL)$END'
     expandEnd: {stopBy: end, pattern: $_LAST, inside: {kind: statement_block}, nthChild: {position: 1, reverse: true}}
 message: '`$R` returns its fault and continues with its value through a `kind` test written by hand'
-note: 'Call `bind(<result>, (<value>) => <continuation>)` to skip the continuation on a fault, or `map(<result>, (<value>) => <ok value>)` for a continuation returning `ok(<ok value>)`'
+note: 'Call `bind(<result>, (<value>) => <continuation>)`, or `map(<result>, (<value>) => <ok value>)` when the continuation returns `ok(<ok value>)`'

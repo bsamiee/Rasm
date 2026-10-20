@@ -42,6 +42,10 @@ name       = "optional_channel_sender_exported"
 crate-type = ["lib"]
 
 [[example]]
+name       = "primitive_domain_binding_exported"
+crate-type = ["lib"]
+
+[[example]]
 name       = "single_reader_exported"
 crate-type = ["lib"]
 

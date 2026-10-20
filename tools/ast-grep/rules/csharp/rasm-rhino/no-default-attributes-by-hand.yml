@@ -15,4 +15,4 @@ rule:
             - has: {kind: member_binding_expression, has: {field: name, regex: '^CreateDefaultAttributes$'}}
     inside: {kind: invocation_expression, field: function}
 message: '`$DOC.CreateDefaultAttributes` builds default object attributes by hand'
-note: Pass the method group `<doc>.CreateDefaultAttributes` as the defaults of `TableOps.WithAttributes(<defaults>, <attributes>, <body>)` with `None` for each defaulted object, and `WithAttributes` disposes each attributes object it creates after `<body>`
+note: 'Pass `<doc>.CreateDefaultAttributes` to `TableOps.WithAttributes(<defaults>, <attributes>, <body>)` with `None` per defaulted object'

@@ -57,4 +57,4 @@ rule:
     pattern: $SITE
     matches: header-read
 message: '`$SITE` tests a magic number beside endian field reads to decode a binary header by hand'
-note: 'Declare the header as a record deriving `binrw::BinRead` with `#[br(little, magic = <bytes>)]` or `#[br(big, magic = <bytes>)]` and read it through `BinReaderExt::read_le` or `read_be`'
+note: 'Declare the header as a record deriving `binrw::BinRead` with `#[br(<endian>, magic = <bytes>)]` and read it through `BinReaderExt`'

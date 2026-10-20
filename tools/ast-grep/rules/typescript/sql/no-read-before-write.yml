@@ -42,4 +42,4 @@ rule:
 labels:
     WRITE: {style: secondary, message: Write that depends on the read}
 message: '`$READ` holds a read that a later write takes a value from'
-note: 'Compute the written value in the write, `update ... set <column> = <column> + 1 where <key> = ... returning ...` or `insert ... on conflict (<key>) do update ... returning ...`, or guard it with `where revision = <expected>`. A value computed from a separate read loses concurrent updates'
+note: 'Compute the value in the write (`set <column> = <column> + 1`, `on conflict (<key>) do update`), or guard it with `where revision = <expected>`'

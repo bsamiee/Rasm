@@ -3,21 +3,41 @@ id: no-fourth-nesting-level-java
 language: java
 severity: error
 utils:
-    boundary: {any: [{matches: java-control-flow}, {matches: java-function-boundary}]}
+    scope: {any: [{matches: java-control-flow}, {kind: lambda_expression}, {matches: java-declaration-scope}]}
+    conditioned:
+        any:
+            - inside: {kind: 'if_statement, while_statement, do_statement, for_statement, switch_expression, ternary_expression', field: condition, stopBy: &scope {matches: scope}}
+            - inside: {kind: for_statement, field: init, stopBy: *scope}
+            - inside: {kind: for_statement, field: update, stopBy: *scope}
+            - inside: {kind: enhanced_for_statement, field: value, stopBy: *scope}
+    nested-body:
+        any:
+            - has: {field: body, kind: block, has: {nthChild: {position: 2, ofRule: {not: {kind: 'line_comment, block_comment'}}}}}
+            - has: {field: body, any: [{matches: java-control-flow}, {has: {matches: java-control-flow, stopBy: {kind: lambda_expression}}}]}
+    level:
+        any:
+            - matches: java-control-flow
+              not: {matches: conditioned}
+            - kind: lambda_expression
+              all:
+                - inside: {matches: java-control-flow, stopBy: {matches: java-declaration-scope}}
+                - not: {matches: conditioned}
+                - matches: nested-body
+    boundary: {any: [{matches: level}, {matches: java-declaration-scope}]}
 rule:
-    matches: java-control-flow
+    matches: level
     pattern: $SCOPE
     inside:
-        matches: java-control-flow
+        matches: level
         stopBy: {matches: boundary}
         inside:
-            matches: java-control-flow
+            matches: level
             stopBy: {matches: boundary}
             inside:
-                matches: java-control-flow
+                matches: level
                 stopBy: {matches: boundary}
-                not: {inside: {matches: java-control-flow, stopBy: {matches: java-function-boundary}}}
-message: Control flow reaches a fourth nesting level
-note: 'Rebuild nested decisions or loops as a `switch` or a stream pipeline over their inputs'
+                not: {inside: {matches: level, stopBy: {matches: java-declaration-scope}}}
+message: Nesting reaches a fourth level
+note: 'Rebuild nested decisions, loops, or lambdas as a `switch` or a stream pipeline over their inputs'
 labels:
-    SCOPE: {style: primary}
+    SCOPE: {style: primary, message: Fourth nesting level}

@@ -4,11 +4,10 @@ language: swiftlang
 severity: error
 rule:
     kind: call_expression
-    pattern: $CALL
     has:
         nthChild: 1
         any:
             - {kind: simple_identifier, regex: '^withUnsafeTemporaryAllocation$'}
             - {kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^withUnsafeTemporaryAllocation$'}}}
-message: '`$CALL` hands its closure an unsafe pointer to the temporary buffer'
-note: 'Call `withTemporaryAllocation(of:capacity:)` for an `inout OutputSpan<T>` or `withTemporaryAllocation(byteCount:alignment:)` for an `inout OutputRawSpan`, bounds-checked and initialized by `append`, and move the closure body from pointer writes to span appends'
+message: '`withUnsafeTemporaryAllocation` hands its closure an unsafe pointer to the temporary buffer'
+note: 'Call `withTemporaryAllocation(of:capacity:)` for an `OutputSpan<T>` or `withTemporaryAllocation(byteCount:alignment:)` for an `OutputRawSpan`'

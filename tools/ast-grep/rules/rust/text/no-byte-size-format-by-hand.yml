@@ -39,4 +39,4 @@ rule:
             - matches: scaled-division
             - not: {inside: {matches: scaled-division}}
 message: '`$FORMAT` formats a byte count with a unit picked by hand'
-note: 'Format `bytesize::ByteSize::b(<bytes>)` for IEC units and `.display().si()` for decimal units, and read a scaled count through `as_kib`, `as_mib`, `as_gib`'
+note: 'Format `bytesize::ByteSize::b(<bytes>)`, with `.display().si()` for decimal units and `as_kib`, `as_mib`, or `as_gib` for a scaled count'

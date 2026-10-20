@@ -205,11 +205,8 @@ public sealed class ShownSubscription(Func<Action<IDisposable>, IO<Unit>> listen
             Option<Tuple<IDisposable>> accepted = None;
             return DisposalOps.OnFailure(
                 DisposalOps.Acquire(retain => accepted.Match(Some: _ => listen(retain), None: static () => IO.pure(unit)), release => {
-                    Tuple<IDisposable> owner = Tuple.Create(release);
-                    if (Interlocked.CompareExchange(ref held, owner, comparand: null) is null)
-                        accepted = Some(owner);
-                    else
-                        release.Dispose();
+                    accepted = Some(Tuple.Create(release)).Filter(owner => Interlocked.CompareExchange(ref held, owner, comparand: null) is null);
+                    _ = accepted.IfNone(release.Dispose);
                 }),
                 IO.lift(() => accepted.Iter(owner => Interlocked.CompareExchange(ref held, value: null, owner))));
         }).Flatten()

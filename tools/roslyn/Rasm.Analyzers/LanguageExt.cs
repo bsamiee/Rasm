@@ -233,15 +233,15 @@ public sealed class LanguageExtAnalyzer : RasmAnalyzer {
     private static void RoundTrips(CompilationStartAnalysisContext context, INamedTypeSymbol fin, INamedTypeSymbol validation, INamedTypeSymbol kind) {
         static IOperation? Source(IOperation operation, INamedTypeSymbol from, INamedTypeSymbol to) =>
             operation is IInvocationOperation call && Parameterless(call) && Receiver(call) is { } held && Same(held.Type, from) && Same(call.Type, to) ? Stripped(held) : null;
-        ImmutableArray<IOperation>? Hops(IOperation operand) =>
+        ImmutableArray<IOperation> Hops(IOperation operand) =>
             Stripped(operand) is var held && Source(held, fin, validation) is not null
                 ? [held]
                 : Source(held, kind, validation) switch {
-                    IInvocationOperation apply when Receiver(apply) is { } tupled && Stripped(tupled) is ITupleOperation tuple =>
-                        tuple.Elements.Select(Hops).Aggregate((ImmutableArray<IOperation>?)[], static (all, next) => all is { } some && next is { } more ? some.AddRange(more) : null),
+                    IInvocationOperation apply when Receiver(apply) is { } tupled && Stripped(tupled) is ITupleOperation tuple
+                        && tuple.Elements.Select(Hops).ToImmutableArray() is var parts && parts.All(static part => !part.IsEmpty) => [.. parts.SelectMany(static part => part)],
                     IInvocationOperation traverse when traverse.Arguments.LastOrDefault()?.Value is IDelegateCreationOperation { Target: IAnonymousFunctionOperation { Body.Operations: { Length: 1 } body } } && body[0] is IReturnOperation { ReturnedValue: { } returned } =>
                         Hops(returned),
-                    _ => null,
+                    _ => [],
                 };
         context.RegisterOperationAction(
             analysis => {

@@ -10,4 +10,4 @@ rule:
         - kind: attribute
           regex: '^@(Combine\.)?Published$'
 message: '`$SITE` publishes model changes through Combine `ObservableObject` in place of Observation'
-note: 'Declare the model `@Observable final class <Model>` with plain stored properties, `@ObservationIgnored` on state no view reads, and read `$<property>` publishers through `Observations { <model>.<property> }`'
+note: 'Declare `@Observable final class <Model>`, `@ObservationIgnored` on state no view reads, and read `$<value>` as `Observations { <model>.<value> }`'

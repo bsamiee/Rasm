@@ -5,7 +5,7 @@ symbolType: function
 utils:
     listed: {inside: {kind: program, has: {kind: export_statement, has: {stopBy: end, kind: export_specifier, has: {field: name, pattern: $NAME}}}}}
 rule:
-    kind: lexical_declaration
+    kind: lexical_declaration, variable_declaration
     pattern: $DECLARATION
     inside: {kind: program}
     has:
@@ -83,9 +83,9 @@ symbolType: variable
 utils:
     listed: {inside: {kind: program, has: {kind: export_statement, has: {stopBy: end, kind: export_specifier, has: {field: name, pattern: $NAME}}}}}
 rule:
-    kind: lexical_declaration
+    kind: lexical_declaration, variable_declaration
     pattern: $DECLARATION
-    regex: '^let\b'
+    regex: '^(let|var)\b'
     inside: {kind: program}
     has: {kind: variable_declarator, has: {field: name, pattern: $NAME}}
 transform:
@@ -259,16 +259,23 @@ isPublic: {inside: {kind: export_statement}}
 id: typescript-object-member
 language: tsx
 role: member
-parentRuleIds: [typescript-constant, typescript-variable]
+parentRuleIds: [typescript-constant, typescript-variable, typescript-property-assignment]
 symbolType: property
 utils:
     declared-value:
-        inside:
-            kind: variable_declarator
-            field: value
-            inside: {kind: lexical_declaration, inside: {kind: program}}
-            stopBy:
-                not: {kind: 'as_expression, satisfies_expression, parenthesized_expression'}
+        any:
+            - inside:
+                kind: variable_declarator
+                field: value
+                inside: {kind: 'lexical_declaration, variable_declaration', inside: {kind: program}}
+                stopBy:
+                    not: {kind: 'as_expression, satisfies_expression, parenthesized_expression'}
+            - inside:
+                kind: assignment_expression
+                field: right
+                inside: {kind: expression_statement, inside: {kind: program}}
+                stopBy:
+                    not: {kind: 'as_expression, satisfies_expression, parenthesized_expression'}
     schema-module:
         kind: identifier
         pattern: $MODULE
@@ -414,3 +421,31 @@ transform:
     NAME: {replace: {source: $TITLE, replace: '^[''"`]([\s\S]*)[''"`]$', by: '$1'}}
 name: $NAME
 signature: $CALLEE($TITLE)
+
+---
+id: typescript-property-assignment
+language: tsx
+role: item
+symbolType: property
+rule:
+    kind: assignment_expression
+    pattern: $DECLARATION
+    inside: {kind: expression_statement, inside: {kind: program}}
+    has: {field: left, kind: member_expression, pattern: $NAME}
+rewriters:
+    - id: block
+      rule: {kind: statement_block, has: {pattern: $_}}
+      fix: '{…}'
+    - id: object
+      rule: {kind: object, has: {pattern: $_}}
+      fix: '{…}'
+    - id: array
+      rule: {kind: array, has: {pattern: $_}}
+      fix: '[…]'
+transform:
+    SHAPED: {rewrite: {source: $DECLARATION, rewriters: [block, object, array]}}
+    FLAT: {replace: {source: $SHAPED, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $FLAT, replace: ';?$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isExported: false

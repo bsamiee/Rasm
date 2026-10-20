@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-eager-stream-probe
+id: no-eager-probe-java
 language: java
 severity: error
 utils:
@@ -53,4 +53,4 @@ rule:
                 - all: [{has: {field: name, regex: '^(findFirst|findAny)$'}}, {has: {field: object, matches: sorted, pattern: $TERM}}]
                 - all: [{has: {field: name, regex: '^limit$'}}, {has: {field: arguments, has: {matches: one}}}, {has: {field: object, matches: sorted, pattern: $TERM}}]
 message: '`$TERM` evaluates the whole stream where a short-circuiting operation reads one element'
-note: 'Short-circuit the stream: `anyMatch` or `noneMatch` for a count or emptiness test, `anyMatch(value::equals)` for `contains`, `findFirst` for the first element, `min` or `max` for the first of a sort'
+note: 'Use `anyMatch` or `noneMatch` for counts and emptiness, `anyMatch(<value>::equals)` for `contains`, `findFirst`, and `min` or `max` over a sort'

@@ -334,4 +334,4 @@ fix:
     template: $OPEN$PRESENT$CLOSE
     expandStart: {kind: local_declaration_statement}
 message: 'Sentinel or `Has` test on `$X` rebuilds `Conversions.Present` by hand'
-note: 'Use `Conversions.Present(<value>)`, its overload for the host type filtering the value the host returns for absence'
+note: 'Use the `Conversions.Present(<value>)` overload for the host type'

@@ -116,4 +116,4 @@ labels:
     TRAIT: {style: primary, message: 'Implemented by hand'}
     BODY: {style: secondary, message: 'Converts the argument unchanged'}
 message: '`From<$A>` for `$B` restates a conversion a derive generates'
-note: 'Derive `derive_more::From` on the target type (`#[from]` on the variant of an enum) or `derive_more::Into` on the newtype `.0` reads, and delete the impl'
+note: 'Replace the impl with `derive_more::From` on the target (`#[from]` on an enum variant) or `derive_more::Into` on the newtype'

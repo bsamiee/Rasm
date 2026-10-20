@@ -122,4 +122,4 @@ rule:
                     - has: {matches: bool-arm, nthChild: 2, has: {nthChild: 2, matches: other-effect}}
                     - has: {matches: bool-arm, nthChild: 3, has: {nthChild: 2, matches: unit-effect}}
 message: Branch on `$CONDITION` pairs a unit effect with another effect
-note: Write `when(<condition>, <effect>).As()` or `unless(<condition>, <effect>).As()`, each runs the effect under the condition and returns the unit effect otherwise
+note: 'Write `when(<condition>, <effect>).As()` or `unless(<condition>, <effect>).As()`'

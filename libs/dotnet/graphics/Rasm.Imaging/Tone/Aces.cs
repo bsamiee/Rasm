@@ -8,7 +8,7 @@ using Wacton.Unicolour;
 namespace Rasm.Imaging.Tone;
 
 // --- [MODELS] --------------------------------------------------------------------------
-internal sealed record JmhSpace(Matrix<double> ToCone, Matrix<double> FromCone);
+internal sealed record JmhSpace(Gamut Gamut, Matrix<double> ToCone, Matrix<double> FromCone);
 
 internal sealed record AcesPeak(
     float Ceiling, float ForwardLimit, float S2, float M2, float LimitJ, float MidJ,
@@ -46,18 +46,16 @@ internal static class AcesTransform {
     private static readonly Func<(Gamut Limit, Nits Peak), AcesGamut> Gamuts = memoUnsafe<(Gamut Limit, Nits Peak), AcesGamut>(Limited);
 
     internal static PixelPass Formed(ToneMapping _, PassContext context) =>
-        context.Display.Map(
+        Gamuts((context.Display.Map(
             srgb: Gamut.StandardRgb, displayP3: Gamut.DisplayP3, rec1886: Gamut.StandardRgb, rec2020: Gamut.DisplayP3,
-            rec2100PqHdr: Gamut.Rec2020, rec2100PqSdr: Gamut.StandardRgb, rec2100HlgHdr: Gamut.Rec2020, rec2100HlgSdr: Gamut.StandardRgb) switch {
-                var limit => Gamuts((limit, context.Display.Peak)) switch {
-                    var gamut => Formation.Formed(
-                        context, Gamut.Acescg,
-                        Seq<Action<Span<Vector4>>>(row => {
-                            foreach (ref Vector4 pixel in row)
-                                pixel = new Vector4(Rendered(pixel.AsVector3(), gamut), pixel.W);
-                        }),
-                        new ColorEncoding(limit, TransferCurve.Linear, Nits.ReferenceWhite)),
-                },
+            rec2100PqHdr: Gamut.Rec2020, rec2100PqSdr: Gamut.StandardRgb, rec2100HlgHdr: Gamut.Rec2020, rec2100HlgSdr: Gamut.StandardRgb), context.Display.Peak)) switch {
+                var gamut => Formation.Formed(
+                    context, Gamut.Acescg,
+                    Seq<Action<Span<Vector4>>>(row => {
+                        foreach (ref Vector4 pixel in row)
+                            pixel = new Vector4(Rendered(pixel.AsVector3(), gamut), pixel.W);
+                    }),
+                    new ColorEncoding(gamut.Limit.Gamut, TransferCurve.Linear, Nits.ReferenceWhite)),
             };
 
     private static Vector3 Rendered(Vector3 scene, AcesGamut gamut) {
@@ -197,7 +195,7 @@ internal static class AcesTransform {
         Matrix<double> toCone = Gamut.Columns(basis => Cone(basis) switch {
             var (r, g, b) => (Adaptation * r / red, Adaptation * g / green, Adaptation * b / blue),
         });
-        return new(toCone, toCone.Inverse());
+        return new(gamut, toCone, toCone.Inverse());
     }
 
     private static AcesPeak Peaked(Nits nits) {

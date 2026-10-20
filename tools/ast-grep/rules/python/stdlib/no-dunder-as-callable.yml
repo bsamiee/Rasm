@@ -45,4 +45,4 @@ transform:
     FUNCTION: {replace: {source: $BUILTIN, replace: '^__(\w+)__$', by: '$1'}}
 fix: $FUNCTION$QUALIFIED$OPERATOR$UNBOUND
 message: '`$DUNDER` reads a dunder method as a callable, skipping the reflected operand and the builtin dispatch'
-note: 'Call the protocol builtin (`len`, `bool`, `iter`), `math.<name>`, `operator.<name>` where typeshed types its result (`index`, `neg`, `getitem`, `contains`), or a lambda applying the operator where typeshed returns `Any` (comparisons, binary and in-place arithmetic)'
+note: 'Call a protocol builtin (`len`, `iter`), `math.<name>`, `operator.<name>` with a typed result (`index`, `getitem`), else an operator lambda'

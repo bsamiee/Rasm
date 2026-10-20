@@ -2,12 +2,38 @@
 id: no-alias-declaration-rust
 language: rust
 severity: error
+utils:
+    named-target:
+        any:
+            - kind: 'type_identifier, scoped_type_identifier, primitive_type, unit_type'
+            - kind: dynamic_type
+              has: {field: trait, kind: 'type_identifier, scoped_type_identifier'}
+        not: {has: {stopBy: end, kind: 'type_arguments, bracketed_type'}}
+    public:
+        has: {kind: visibility_modifier, regex: '^pub$'}
 rule:
     kind: type_item
     all:
-        - has: {field: name, pattern: $ALIAS}
-        - has: {field: type, pattern: $TARGET, not: {kind: abstract_type}}
+        - not: {has: {field: type_parameters, kind: type_parameters}}
+        - has: {field: type, matches: named-target}
         - not: {inside: {kind: declaration_list, inside: {kind: 'trait_item, impl_item'}}}
         - not: {matches: {rust-attributed: {attribute: {matches: rust-cfg-attribute}}}}
-message: '`$ALIAS` is another name for `$TARGET`'
-note: 'Spell the aliased type at each use and delete the alias'
+        - any:
+            - pattern: $RENAMED
+              not: {matches: public}
+            - pattern: $SAME
+              matches: public
+              all: [{has: {field: name, pattern: $NAME}}, {has: {field: type, any: [{kind: type_identifier, pattern: $NAME}, {kind: scoped_type_identifier, has: {field: name, pattern: $NAME}}]}}]
+            - pattern: $OTHER
+              matches: public
+              has: {field: type, kind: 'type_identifier, scoped_type_identifier'}
+            - pattern: $PRIMITIVE
+              matches: public
+              has: {field: type, kind: primitive_type}
+transform:
+    RENAMED_TEXT: {replace: {source: $RENAMED, replace: '(?s)^.*?\btype\s+(\w+)\s*=\s*(.+?)\s*;$', by: '`$1` renames `$2`'}}
+    SAME_TEXT: {replace: {source: $SAME, replace: '(?s)^.*?\btype\s+(\w+)\s*=\s*(.+?)\s*;$', by: '`$1` re-exports `$2` as a type, write `pub use $2;`'}}
+    OTHER_TEXT: {replace: {source: $OTHER, replace: '(?s)^.*?\btype\s+(\w+)\s*=\s*(.+?)\s*;$', by: '`$1` re-exports `$2` as a type, write `pub use $2 as $1;`'}}
+    PRIMITIVE_TEXT: {replace: {source: $PRIMITIVE, replace: '(?s)^.*?\btype\s+(\w+)\s*=\s*(\w+)\s*;$', by: '`$1` re-exports `$2` as a type, write `pub use core::primitive::$2 as $1;`'}}
+message: '$RENAMED_TEXT$SAME_TEXT$OTHER_TEXT$PRIMITIVE_TEXT'
+note: 'Write a private alias''s target at each use, re-export a public alias''s target through `pub use`'

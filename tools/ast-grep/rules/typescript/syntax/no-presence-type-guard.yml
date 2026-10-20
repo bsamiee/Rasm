@@ -84,4 +84,4 @@ rule:
                             - has: {field: type_arguments, has: {nthChild: 2, pattern: $TYPE, not: {kind: object_type}}}
         - matches: tested-body
 message: 'Type guard asserts `$TYPE` from the presence or type of a member'
-note: 'Decode the members the code reads with a `Schema` where the value enters, or narrow a typed union on its literal discriminant (`constructorName` for InDesign objects), a member''s presence or type proving no class'
+note: 'Decode the members read with a `Schema` at entry, or narrow a typed union on its literal discriminant (`constructorName` for InDesign objects)'

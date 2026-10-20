@@ -39,4 +39,4 @@ rule:
                         - has: {field: value, any: [{matches: url-path}, {matches: joined-path}]}
                         - inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, regex: '\bcontentsOfDirectory$'}}}}
 message: '`$SITE` builds a file location from path text in place of the URL members that join components'
-note: 'Call `<directory>.appending(path: <name>)`, `appendingPathExtension(<extension>)`, or `deletingLastPathComponent().appending(path: <name> + <suffix>)` on the URL, `URL(filePath:)` for a path string, and `contentsOfDirectory(at:includingPropertiesForKeys:)` for a listing'
+note: 'Build `URL(filePath:)`, join by `appending(path:)` or `appendingPathExtension(_:)`, take a parent by `deletingLastPathComponent()`, and list by URL'

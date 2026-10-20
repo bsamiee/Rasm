@@ -71,5 +71,7 @@ rule:
                 - matches: serde-method
                 - has: {field: body, has: {stopBy: end, matches: text-parse}}
         - matches: parsing-visitor
-message: '`$SITE` serializes or deserializes a value through `Display` or `FromStr` text by hand'
-note: 'Derive `serde_with::SerializeDisplay` and `serde_with::DeserializeFromStr` on the type, or mark a field `#[serde_as(as = "serde_with::DisplayFromStr")]`, and delete the impl'
+transform:
+    HEAD: {replace: {source: $SITE, replace: '(?s)\s*\{?\s*\n.*$', by: ''}}
+message: '`$HEAD` serializes or deserializes a value through `Display` or `FromStr` text by hand'
+note: 'Replace the impl with `serde_with::SerializeDisplay` and `DeserializeFromStr`, or a field marked `#[serde_as(as = "DisplayFromStr")]`'

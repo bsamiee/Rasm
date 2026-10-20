@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-simulated-event
+language: python
+severity: error
+files:
+    - libs/python/blender/**
+    - apps/blender/**
+rule:
+    kind: call
+    pattern: $SIMULATED
+    has: {field: function, kind: attribute, has: {field: attribute, regex: '^event_simulate$'}}
+message: '`$SIMULATED` changes state through simulated input'
+note: 'Call the native operation the simulated event invokes'

@@ -118,4 +118,4 @@ transform:
     NOT: {replace: {source: $ABSENT, replace: '(?s).+', by: '!'}}
 fix: $NOT$PRESENT
 message: '`$SEARCH` compares an index against the not-found sentinel to test presence'
-note: Call `Contains`, `ContainsAny`, or `Exists`, which return the presence as a `bool` with no index to compare
+note: 'Call `Contains`, `ContainsAny`, or `Exists` in place of the index comparison'

@@ -66,4 +66,4 @@ transform:
     FIXED: rewrite($FIXABLE, rewriters=[traverse, traverse-plain])
 fix: $FIXED$KEPT
 message: '`$ALL` runs a list built by mapping each element to an effect'
-note: 'Call `Effect.forEach(<list>, <function>, <options>)` to map and run the elements in one traversal keeping order, `concurrency`, and `discard`, and `Effect.partition` or `Effect.validate` in place of `mode: "result"`'
+note: 'Call `Effect.forEach(<list>, <f>, <options>)`, or `Effect.partition` or `Effect.validate` in place of `mode: "result"`'

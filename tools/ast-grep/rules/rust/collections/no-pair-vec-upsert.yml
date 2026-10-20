@@ -63,4 +63,4 @@ rule:
             - has: {field: value, matches: sorted-lookup}
             - has: {field: body, has: {kind: match_arm, all: [{has: {field: pattern, regex: '^Err\('}}, {has: {field: value, any: [{matches: sorted-insert}, {has: {stopBy: end, matches: sorted-insert}}]}}]}}
 message: '`$V` finds a pair by key and inserts a new pair when absent'
-note: 'Hold `indexmap::IndexMap<K, V>` and call `insert(<key>, <value>)` or `entry(<key>)` to update a present value, or hold `std::collections::BTreeMap<K, V>` for pairs sorted by key'
+note: 'Hold an `indexmap::IndexMap<K, V>` updated through `insert` or `entry`, or a `BTreeMap<K, V>` for pairs sorted by key'

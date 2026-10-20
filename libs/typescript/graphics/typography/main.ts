@@ -132,7 +132,7 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
     },
     { description: 'One face at one instance; postscriptName, fullName, and style name the default or named instance at its coordinates, else postscriptName is the Adobe Technical Note 5902 name of the axis values and the other two are absent' },
 ) {
-    static readonly open = Effect.fn('open')(function* ({ data, postscriptName: selection }: typeof Source.Type, { variations, size }: typeof Instance.Type) {
+    static readonly open = Effect.fn('Face.open')(function* ({ data, postscriptName: selection }: typeof Source.Type, { variations, size }: typeof Instance.Type) {
         const container = yield* Effect.try(() => create(Buffer.from(data.buffer, data.byteOffset, data.byteLength))).pipe(
             Effect.filterOrFail(
                 ({ type }) => type !== 'WOFF' && type !== 'WOFF2',

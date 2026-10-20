@@ -61,4 +61,4 @@ transform:
     FIXED: rewrite($SITE, rewriters=[binding-form, field-form])
 fix: $FIXED
 message: '`$MODULE::channel` builds a receiver that no code reads'
-note: 'Construct the sender alone with `<module>::Sender::new` and take receivers from `Sender::subscribe` where a consumer exists, and call `send_replace` in place of a `send` the held receiver kept succeeding'
+note: 'Build the sender alone with `<module>::Sender::new`, `subscribe` per consumer, and `send_replace` for a `send` the held receiver kept succeeding'

@@ -39,4 +39,4 @@ rule:
 labels:
     MISSING: {style: primary, message: Token the grammar inserted to recover}
 message: Grammar failed to parse the span
-note: 'Write a form the grammar parses, every other rule skips constructs inside a parse error. Unreported tree-sitter-typescript grammar gaps are `global { ... }` augmentations inside a `declare module` body and generic tagged templates'
+note: Write a form tree-sitter-typescript parses

@@ -40,9 +40,11 @@ rule:
         - kind: switch_case
           has: {field: value, matches: enumerator, pattern: $COMPARISON}
         - kind: call_expression
-          pattern: $COMPARISON
+          pattern: $CALL
           all:
             - has: {field: function, regex: '(^(Array\.contains|Object\.is|Equal\.equals|Match\.(when|not|is))|\.(includes|indexOf|lastIndexOf|has))$'}
             - has: {field: arguments, has: {matches: enumerator}}
-message: '`$COMPARISON` compares InDesign objects by identity or by rendered text'
-note: 'Compare through `<enumerator>.equals(<value>)` and search or dedupe a list through `equals`, each read returning a new object and enumerators of different enumerations sharing names'
+transform:
+    CALL_HEAD: {replace: {source: $CALL, replace: '(?s)^([^(]+)\(.*$', by: '$1'}}
+message: '`$COMPARISON$CALL_HEAD` compares InDesign objects by identity or by rendered text'
+note: 'Compare with `<enum>.equals(<v>)`, test membership with `<items>.some((x) => x.equals(<enum>))`, and read or dedupe by `everyItem().id` or `.name`'

@@ -9,4 +9,4 @@ rule:
         - not: {has: {field: columns, kind: column_name_list}}
         - has: {field: target, pattern: _TABLE}
 message: 'Insert into `$TABLE` assigns values by column position'
-note: 'Name the columns in `insert into <table> (<column>, ...)`, and values bind by name through added and reordered columns'
+note: 'Name the columns in `insert into <table> (<column>, ...)`'

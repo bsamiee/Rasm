@@ -9,4 +9,4 @@ rule:
 transform:
     TEXT: {replace: {source: $COMMENT, replace: '\s+$', by: ''}}
 message: '`$TEXT` comments code outside a section divider'
-note: 'Delete the comment, doc and suppression comments and commented-out code included, and state its fact in a name or type, keeping `// --- [<SECTION>] ---` and `// --- [<FAMILY>]` dividers'
+note: 'Move the comment''s fact into a name or type and delete the comment, keeping `// --- [<SECTION>]` and `// --- [<FAMILY>]` dividers'

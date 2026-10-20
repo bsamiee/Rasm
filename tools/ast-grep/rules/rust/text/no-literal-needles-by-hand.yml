@@ -117,4 +117,4 @@ constraints:
     B: {kind: string_literal}
     C: {kind: string_literal}
 message: '`$SCAN` passes over the text once per literal needle'
-note: 'Build `aho_corasick::AhoCorasick::new([<needles>])?` once and call `is_match(<text>)` or `find(<text>)` in place of three or more literal scans, or `replace_all(<text>, &[<replacements>])` in place of two or more literal replaces where no replacement holds a later needle'
+note: 'Build one `aho_corasick::AhoCorasick` for 3 or more literal scans or 2 or more replaces, with no replacement holding a later needle'
