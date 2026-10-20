@@ -15,15 +15,11 @@ Swift handoff: `docs/research/repository-platform/handoff/swift-track-handoff.md
 
 ## [01]-[STATE]
 
-- `libs/swift/macos` holds installed applications, launch, activation, element status and actions, capture, faces, Apple Events, and sdef dictionaries
 - Status streams and the file watch yield typed results; waits on host state observe change events under a caller deadline
-- `apps/creative-cloud/atelier/macos` is the Adobe helper: release detection and Effect RPC over stdio, errors named by case with a cause chain
 - `@rasm/automation` is one module: `Installation`, `InstalledFace`, the `Requests` RPC group, and the `Automation` client layer
 - `@rasm/uxp` holds plug-in runtime (`plugin`, `script`, `Uxp`, `Plugin`, `Manifest`) and the dialed RPC link, which dials the manifest's network domain under its `Peer` identity
 - `@rasm/mcp` holds the loopback MCP server, `targeted` routes with a status trailer on every result but a pure interrupt, `listen` and `publish`, and the `channel` endpoint
 - `@rasm/search` is `Unmatched`, owning `matching` and `single` with collator equality, ranking and a remainder count in its message
-- `@rasm/typography` is `Face` with instance identity from the matched row, one `Source` model, and runs taking language, script, and direction
-- `@rasm/indesign` is a flat core (`model`, `references`, `transactions`, `mutations`) beside views by host kind and `service/{contract,panel}.ts`
 - Verb classes: `Inspect`, `Kind`, `Change`, `Create`, `Remove`, `Invoke`, `Script`, `FindChange`, `Render`, `Font`, `Menu`, `Preflight`, `Queries`
 - A mutation locates its target once; the baseline covers every document the located elements belong to; a find without a change is a read
 - `Kind` answers the index of classes and enumerations or one declaration, published at `indesign://kinds` with name completion
@@ -36,9 +32,6 @@ Swift handoff: `docs/research/repository-platform/handoff/swift-track-handoff.md
 - The daemon's `/channel` endpoint (`atelier-channel` in `.mcp.json` and `.codex/config.toml`, protocol 2025-11-25 alone) pushes `notifications/claude/channel` events: the latest status of each application launched through `launch`, and the new preflight issues of each document from every mutation result
 - A Claude Code session opts in with `--dangerously-load-development-channels server:atelier-channel` and receives each event as a `<channel>` turn; headless sessions and Codex receive none, and nothing else over HTTP reaches a model between calls
 - Effect's own resource path renders the first error message alone and turns an interrupt into an error; tools render the full cause
-- The dictionary template completions still go through that host path, since the typed completion form fails to compile
-- Restart the daemon with `mise daemons restart atelier`, the helper with `nx run Atelier:install`
-- Install the panel with `nx run @rasm/galley:install`, then quit and relaunch InDesign through `command` and `launch`
 
 ## [02]-[OPEN]
 
@@ -47,9 +40,6 @@ Swift handoff: `docs/research/repository-platform/handoff/swift-track-handoff.md
 - `Scripting.swift` rebuilt in focused passes, then the broader `libs/swift/macos`
 - `@rasm/automation` reduced from Swift through the library to the app: `script` as one `flatMap`, exports cut to the schemas the app's tools spell, constants, wrappers, and restated types removed where a derivation or package form exists
 - The status push watches each application a tool resolves, keyed by bundle and instance pids, one watch per process
-- The helper's JSON-RPC stdio server moves to a Swift Effect RPC library beside `RasmMacOS`
-- New ast-grep rules from `docs/research/repository-platform/handoff/patterns.md` (101 sketches with matches and exclusions)
-- Memory lines that became checks leave the language floors once those rules land
 - Accent folding on PostgreSQL search: reconcile observes, creates, and gates `unaccent` with a text search configuration the query names
 - Table members return decoded rows, so consumers stop decoding through the table's own struct and flattening each result
 
@@ -119,8 +109,5 @@ Each category states what its verbs and views cover and what stays shallow, then
 ## [04]-[METHOD]
 
 - Rebuilds change source and consumers in one chain to less code, surface, fields, and parameters, never a shuffle into new types
-- Options flow through schemas end to end, labels derive from operation and target, and no call takes a written description
-- Nesting yields to better upstream logic, with no extracted helper, wrapper, forward, alias, exported constant, or deferred note
-- A derivation over Model facts lives on the Model, never as an export between view modules
 - Domain libraries serve future extensions unrelated to MCP, and no domain module reads a tool schema or imports its consumer
 - Effect 4 and installed packages (MCP, typesetting, Adobe types) are used in full, and a missing package joins at its newest release

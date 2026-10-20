@@ -2,26 +2,16 @@
 
 @README.md
 
-- Work runs to completion, removing or replacing tools and code in place of hedging or deferring
+- Audits, security scans, supply-chain pins, approval gates, tests, commits, and pushes happen on user request alone
 - Every language uses functional programming: domain logic stays pure and expression-oriented, imperative code stays at system boundaries
 - Data dependency decides composition: dependent operations bind and short-circuit, independent operations combine and accumulate every error
 - Language idioms differ but composition rules do not, when a language lacks a result type, adopt a dependency's, else define one
 - Fix defects at root cause, a wrapper, fallback, guard, or retry that hides the cause is a defect
 - Code smells are fixed as found, existing code has no authority, a pattern that bends new code or a refactor out of shape is rebuilt from its root
 - Removals delete every mention and adjust each consumer to the absence, nothing stands in for removed content
-- Languages join in one change with toolchain, tag, targets and inputs, checker, writer, parser, rules, outline, CI runner, and README sections
-- Audits, security scans, supply-chain pins, approval gates, tests, commits, and pushes happen on user request alone
-
-- Non-trivial work keeps one task file under tmp outside the project, holding open tasks and found facts alone
-- Each result updates the task file as it arrives: its task deleted, tasks it changes rewritten, facts it found added
-- Run applications and hosts live as work needs them, a step that can end the session logs its intent to disk before and its result after
-- Close untitled, unsaved documents without saving when work needs their application, when they hold no work to keep
-- Start work and briefs from facts the task file and `docs/research` record, a fact stands until compiler or running code contradicts it
-- Reviews are adversarial, reviewers assume code, approach, and structure are wrong
+- Run applications and hosts live as work needs them
 
 ## [01]-[LANGUAGE_STANDARDS]
-
-Navigate code through its language's skill and MCP server, else the `use-ast-grep` skill and `ast-grep` MCP, then project CLI tooling
 
 [TOOL_ROUTING]:
 - ALWAYS use `watch-apps` skill before launching or scripting a desktop app
@@ -31,7 +21,7 @@ Navigate code through its language's skill and MCP server, else the `use-ast-gre
 - ALWAYS use `search-web` skill for a question the open web answers
 - ALWAYS use `search-code` skill for any fact about a dependency
 - ALWAYS use `secrets` skill for a command or build that reads a secret
-- ALWAYS use `github` MCP for a known repository's issues, pull requests, and runs
+- ALWAYS use `github` MCP for exploration, research, and interaction for Github
 - ALWAYS use `blender-coding` skill for Python that runs inside Blender
 - ALWAYS use `uxp-coding` skill for code that runs in an Adobe UXP host
 - ALWAYS use `dotnet-roslyn-codelens` skill for any file in a .NET solution
@@ -43,8 +33,8 @@ Navigate code through its language's skill and MCP server, else the `use-ast-gre
 - ALWAYS use `dotnet-msbuild-packaging` skill for NuGet and .slnx
 - ALWAYS use `xcode` MCP for Apple documentation and Xcode, `lldb` MCP for a debug session `xcode` MCP did not start
 - ALWAYS use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for a question about Claude Code or Codex
-- ALWAYS use `use-rhino` skill for Rhino and Grasshopper
-- ALWAYS use `use-blender` skill for Blender
+- ALWAYS use `use-rhino` skill for running Rhino and Grasshopper application
+- ALWAYS use `use-blender` skill for running Blender application
 
 [CLI_TOOLING]:
 
@@ -63,36 +53,18 @@ Navigate code through its language's skill and MCP server, else the `use-ast-gre
 
 ## [02]-[IMPLEMENTATION_STANDARDS]
 
-[TOTALITY]: Types state every outcome a function returns and exclude every input it rejects
+[TOTALITY]:
 - ALWAYS define error types in the package that raises them, errors differing only in source, field, or message become one error carrying those as data
-- ALWAYS map every input to a value in the return type, a function that cannot produce a value returns the reason it cannot
-- ALWAYS represent absence a consumer branches on with an option type, a host null, sentinel, or magic default becomes one at the boundary
 - ALWAYS make invalid states unrepresentable at construction, every consumer receives a validated value without re-validating it
 - ALWAYS reserve exceptions for defects, expected failures use the result type, a catch covers one throwing call and keeps the caught error as cause
 
-[FLOW]: Dependent operations use one result type that short-circuits on the first error
-- ALWAYS bind an operation that consumes the previous operation's value, the error case skips the remaining operations
-- ALWAYS recover through a function from an error to the same result type, raising packages classify, consumers holding an alternative recover
-- ALWAYS choose the result type at the input boundary and preserve it through domain logic
-- ALWAYS select control flow by pattern matching result and error cases, no flag, out parameter, nullable field, or message text selects the path
-- ALWAYS use one result type per expression, a conversion every caller of a function writes moves into that function's return type
-- ALWAYS compose asynchrony with the result type, asynchronous and synchronous operations chain through one result type
-
-[INDEPENDENCE]: Results that do not consume each other combine in one step that collects every error
-- ALWAYS accumulate independent errors in a non-empty error type with associative combination, accumulation order stays deterministic
-- ALWAYS combine independent results applicatively, the result holds every error instead of only the first one encountered
-- ALWAYS traverse a collection with one result-returning function and accumulate errors when the elements are independent
-- ALWAYS derive concurrency from independence, operands that do not consume each other can evaluate concurrently, result order stays deterministic
-
 [PURITY]: Domain functions read only their arguments and write only their return value
-- ALWAYS pass the clock, randomness, environment, and configuration as arguments, domain code reads no ambient source
 - ALWAYS pair acquisition and release in one resource scope, release runs on the error path
 - ALWAYS pass changing context to the next domain operation as a returned value, shared mutable state does not coordinate domain operations
 - ALWAYS confine mutation to a scope that owns it and publishes an immutable value, a buffer that never escapes stays pure
 - ALWAYS describe a target's desired state as data and reconcile it against the live or stored target
 
 [BOUNDARY]: Boundaries own every conversion between external values and domain values
-- ALWAYS emit logs, traces, and metrics from boundary and service code, domain expressions stay pure and emit none
 - ALWAYS return the language's result type from every fallible package and project API, consumers compose without unwrapping
 - ALWAYS validate host, protocol, and file input once at the boundary into domain values, domain logic receives no raw input
 - ALWAYS keep a host or protocol name for the concept it names, a domain name that differs maps both ways at the validating boundary in one module
@@ -101,12 +73,10 @@ Navigate code through its language's skill and MCP server, else the `use-ast-gre
 [DIRECTNESS]: Code calls the owning API in the direct form, and every layer between a caller and that API adds a fact the API lacks
 - ALWAYS call the owning type or package directly, a function between them stands only for a boundary conversion or steps every caller repeats
 - ALWAYS name the real type, an alias renaming a declared type exists only to resolve a name collision between referenced namespaces
-- ALWAYS define a custom operator, implicit conversion, or extension method only for a domain meaning or a composition the language lacks
 - ALWAYS reach a dependency through the function or runtime that supplies it, a service locator or a layer forwarding a call unchanged is a defect
 
-[DERIVATION]: Values derive from the declaration or host API that states them, a literal or table holds a fact neither states
+[DERIVATION]: Values derive from the declaration or host API that states them
 - ALWAYS declare a fact the API hides once at its owner, every other use derives it
-- ALWAYS type configuration values with their owner's range
 - ALWAYS reach members through typed handles instead of member-name strings
 - ALWAYS derive a label, undo name, or progress text from the operation and its target, a caller-written description is a defect
 
@@ -128,8 +98,8 @@ Navigate code through its language's skill and MCP server, else the `use-ast-gre
 - ALWAYS fill a dependency gap by package, configuration, newer release, or boundary decode, restating its types, behavior, or entry is a defect
 - ALWAYS use the newest release, prereleases included
 - ALWAYS pin versions in lock files and version catalogs alone
-- Packages, workflows, tooling, and scripts hold no fallback, guard, retry, or cooldown
 - ALWAYS reference a package directly in every project that names its types, a transitive reference supplies no global using, alias, or analyzer
+- Packages, workflows, tooling, and scripts hold no fallback, guard, retry, or cooldown
 
 ## [04]-[FILE_ORGANIZATION]
 

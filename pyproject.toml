@@ -96,7 +96,7 @@ workspace = [
     "asyncssh",                                                                   # SSH and SFTP client for remote workers
     "brotli",                                                                     # Brotli compression
     "cloudevents",                                                                # CloudEvents attribute validation and protocol bindings
-    "confluent-kafka[avro,json,protobuf,schemaregistry]",                         # Kafka client over librdkafka with Schema Registry serdes, built from sdist against machine librdkafka with no cp315 wheel
+    "confluent-kafka[avro,json,protobuf,schemaregistry]",                         # Kafka client over librdkafka with Schema Registry serdes, built from sdist against Pixi's librdkafka with no cp315 wheel
     "connectrpc",                                                                 # Connect, gRPC, and gRPC-Web ASGI services and typed clients
     "detools",                                                                    # Binary-delta engine
     "fastavro",                                                                   # Avro codec and .avsc validation
@@ -417,6 +417,8 @@ dev       = [
 
 [tool.uv]
 default-groups           = "all"
+python-preference        = "only-system"
+python-downloads         = "never"
 environments             = [
     "sys_platform == 'darwin' and platform_machine == 'arm64'",
     "sys_platform == 'linux' and platform_machine == 'x86_64'",
@@ -434,10 +436,9 @@ dev       = { requires-python = ">=3.15" }
 workspace = { requires-python = ">=3.15" }
 
 [tool.uv.extra-build-variables]
-confluent-kafka = { LIBRDKAFKA_VERSION = "2.16.0-RC4" }
-opencolorio     = { CMAKE_ARGS = "-DOCIO_BUILD_APPS=OFF" }
-pyarrow         = { PYARROW_WITH_GANDIVA = "0" }
-pyicu           = { ICU_VERSION = "78", PYICU_LIBRARIES = "icui18n:icuuc:icudata" }
+opencolorio = { CMAKE_ARGS = "-DOCIO_BUILD_APPS=OFF" }
+pyarrow     = { PYARROW_WITH_GANDIVA = "0" }
+pyicu       = { ICU_VERSION = "78", PYICU_LIBRARIES = "icui18n:icuuc:icudata" }
 
 [tool.uv.config-settings-package.manifold3d]
 "cmake.define.MANIFOLD_USE_BUILTIN_TBB" = "ON"
@@ -463,13 +464,23 @@ libarrow-all = "25.*"
 icu          = "78.*"
 libpdal-core = "2.10.*"
 llvm-openmp  = "*"
+librdkafka   = "2.16.*"
+libvips      = "*"
+libmagic     = "*"
+libpango     = "*"
+libharfbuzz  = "*"
+fontconfig   = "*"
+libglib      = "*"
 
 [tool.pixi.environments.default.target.unix.activation.env]
 SKBUILD_CMAKE_DEFINE = "PYARROW_CPP_HOME=$CONDA_PREFIX"
 PYICU_INCLUDES       = "$CONDA_PREFIX/include"
-PYICU_LFLAGS         = "-L$CONDA_PREFIX/lib:-Wl,-rpath,$CONDA_PREFIX/lib"
+PYICU_LFLAGS         = "-L$CONDA_PREFIX/lib"
 OpenMP_ROOT          = "$CONDA_PREFIX"
 PDAL_ROOT            = "$CONDA_PREFIX"
+CPATH                = "$CONDA_PREFIX/include"
+LIBRARY_PATH         = "$CONDA_PREFIX/lib"
+LDFLAGS              = "-Wl,-rpath,$CONDA_PREFIX/lib"
 
 [tool.pixi.environments.hdf5]
 no-default-feature = true

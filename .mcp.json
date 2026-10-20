@@ -27,8 +27,8 @@
         "github": {
             "type": "http",
             "url": "https://api.githubcopilot.com/mcp/",
+            "headersHelper": "doppler secrets get GH_PROJECTS_TOKEN --plain --project agent-runtime --config dev | jq -R '{Authorization: \"Bearer \\(.)\"}'",
             "headers": {
-                "Authorization": "Bearer ${GH_PROJECTS_TOKEN}",
                 "X-MCP-Toolsets": "context,repos,issues,pull_requests,actions,git,dependabot,github_support_docs_search",
                 "X-MCP-Exclude-Tools": "delete_repository,delete_file,create_repository,fork_repository,push_files,create_or_update_file",
                 "X-MCP-Features": "file_blame,issue_dependencies"
@@ -37,16 +37,12 @@
         "exa": {
             "type": "http",
             "url": "https://mcp.exa.ai/mcp?tools=web_fetch_exa,web_search_advanced_exa,agent_run",
-            "headers": {
-                "x-api-key": "${EXA_API_KEY}"
-            }
+            "headersHelper": "doppler secrets get EXA_API_KEY --plain --project agent-runtime --config dev | jq -R '{\"x-api-key\": .}'"
         },
         "context7": {
             "type": "http",
             "url": "https://mcp.context7.com/mcp",
-            "headers": {
-                "Authorization": "Bearer ${CONTEXT7_API_KEY}"
-            }
+            "headersHelper": "doppler secrets get CONTEXT7_API_KEY --plain --project agent-runtime --config dev | jq -R '{Authorization: \"Bearer \\(.)\"}'"
         },
         "deepwiki": {
             "type": "http",
@@ -55,9 +51,7 @@
         "greptile": {
             "type": "http",
             "url": "https://api.greptile.com/mcp",
-            "headers": {
-                "Authorization": "Bearer ${GREPTILE_API_KEY}"
-            }
+            "headersHelper": "doppler secrets get GREPTILE_API_KEY --plain --project agent-runtime --config dev | jq -R '{Authorization: \"Bearer \\(.)\"}'"
         },
         "openaiDeveloperDocs": {
             "type": "http",
@@ -70,9 +64,7 @@
         "illustrator": {
             "type": "http",
             "url": "http://localhost:18412/v1/mcp",
-            "headers": {
-                "Authorization": "Bearer ${ILLUSTRATOR_MCP_TOKEN}"
-            }
+            "headersHelper": "eng/scripts/illustrator-token.sh"
         },
         "arena": {
             "type": "http",

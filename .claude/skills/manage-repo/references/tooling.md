@@ -4,6 +4,8 @@ mise owns tool binaries, the process environment, and local services.
 
 ## [01]-[TOOLS]
 
+`git-lfs` is a tool row and no machine filter, a fresh clone runs `mise install`, `git lfs install --local`, then `git lfs pull` before its first build
+
 - Processes inherit mise's activated environment from their launch shell and call tools by name
 - `[tools]` rows name a registry short name or a backend (`github:`, `pypi:`, `npm:`, `cargo:`), `[tool_alias]` names a backend spec holding a URL
 - `cargo:` rows take a crate the registry lacks, a `cargo-binstall` row fetches its release binary before a source build
@@ -16,13 +18,12 @@ mise owns tool binaries, the process environment, and local services.
 - .NET SDKs install into one root Parametric Forge names, a running process's `DOTNET_ROOT` reaches each SDK a later `global.json` names
 - Shared root holds runtimes of installed SDKs alone, `DOTNET_ROLL_FORWARD = "Major"` runs an older-major tool on it
 - `MSBuildLocator` skips an SDK newer than its host runtime, a tool loading MSBuild rolls forward to the SDK's runtime
-- Restores share NuGet's default `~/.nuget/packages`, the folder Parametric Forge's `NUGET_PACKAGES` names
+- Restores share NuGet's default `~/.nuget/packages`
 - `mise upgrade` installs missing tools and resolves within each request's range, `--bump` crosses it and rewrites it at the original precision
 - `pypi:git+` rows off GitHub name a tag prefix, at `latest` mise runs `git ls-remote` per `mise exec`, reads missing in shells, and fails offline
 - Install side effects sit in their tool row's `postinstall`, a failing command fails the install
 - Row `postinstall` reads `[env]` without `tools = true` rows, `[hooks] postinstall` renders `[env]` from the tools one install names
 - `[hooks] postinstall` skips with a warning when a `tools = true` row names a tool outside the install
-- `postinstall = { run, when = "always" }` reruns on every `mise install`, a link into the checkout (`.cargo/rustc-source`) takes it
 - Tools a target calls keep their row where Parametric Forge installs the same tool machine-wide, CI runners and other hosts hold no Forge
 - Registry rows resolving to `conda:` (`imagemagick`) install a closure in their own `@rpath` prefix, linking no Homebrew, Nix, or Pixi library
 - `mise install` keeps a `conda:` closure while its package version holds, `mise install --force <tool>` takes a conda-forge dependency rebuild
@@ -60,7 +61,7 @@ One pitchfork supervisor runs `[daemons]` rows, each local MCP server once as a 
 - `mise exec` prefers cached resolution and can fetch a missing answer
 
 Pitchfork has no login start, one `[bootstrap.macos.launchd.agents]` row runs its supervisor at login:
-- `launchd` creates the `stdout_path` and `stderr_path` directory and discards output a row leaves unnamed
+- Supervisor rows names no `stdout_path` or `stderr_path`, pitchfork writes its own file log and keeps output in its log store
 - `PITCHFORK_SUPERVISOR_AUTO_START` is false on macOS, a client waits for the launchd supervisor and fails without one
 - `mise bootstrap macos launchd-agents apply` writes and loads `~/Library/LaunchAgents/dev.mise.pitchfork.plist`, an unchanged plist keeps its process
 - `launchctl kickstart -k gui/$UID/dev.mise.pitchfork` sends SIGTERM, the supervisor stops its daemons and launchd starts it with its boot daemons

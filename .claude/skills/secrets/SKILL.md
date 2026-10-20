@@ -9,7 +9,7 @@ description: "Use when a command or build reads a secret or an agent needs a cre
 
 ## [01]-[DOPPLER_SCOPES]
 
-Doppler reads each option from a flag, then a `DOPPLER_*` environment variable, then the directory scope in `~/.doppler/.doppler.yaml`:
+Doppler reads each option from a flag, then a `DOPPLER_*` environment variable:
 - Repository directory scope holds a CLI token alone, every command names `--project` and `--config`
 - Nx targets running a secret-reading tool hold its `doppler run` prefix, a call of that tool outside every target takes the same prefix
 - Builds read a secret when package build targets of a compiled project read one, MSBuild reads each injected variable as a property

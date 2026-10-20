@@ -8,16 +8,13 @@ dotnet.cli_telemetry_optout         = true
 python.uv_venv_auto                 = "create|source"
 experimental                        = true
 
-# --- [VARS] -----------------------------------------------------------------------------
-[vars]
-log_dir = "{{config_root}}/.artifacts/logs"
-
 # --- [ENV] ------------------------------------------------------------------------------
 [env]
 _.path                                = "./node_modules/.bin"
 DOTNET_NOLOGO                         = "1"
 DOTNET_ROLL_FORWARD                   = "Major"
 PYTHONPYCACHEPREFIX                   = "{{config_root}}/.cache/pycache"
+DYLD_FALLBACK_LIBRARY_PATH            = "{{config_root}}/.pixi/envs/default/lib:{{ env.HOME }}/lib:/usr/local/lib:/usr/lib"
 HYPOTHESIS_STORAGE_DIRECTORY          = "{{config_root}}/.cache/hypothesis"
 CARGO_LLVM_COV_DENY_WARNINGS          = "1"
 RUSTUP_TOOLCHAIN                      = false
@@ -35,6 +32,7 @@ BLENDER_MCP_URL                       = "http://127.0.0.1:{{ env.BLENDER_LAB_POR
 ATELIER_URL                           = "http://127.0.0.1:{{ env.ATELIER_PORT }}/"
 PULUMI_HOME                           = "{{config_root}}/.cache/pulumi"
 PITCHFORK_SUPERVISOR_AUTO_START       = "{% if os() == 'macos' %}false{% else %}true{% endif %}"
+PITCHFORK_LOG_TIME_RETENTION          = "7d"
 COLIMA_HOME                           = "{{ xdg_data_home }}/rasm/colima"
 DOCKER_CONFIG                         = "{{ xdg_data_home }}/rasm/docker"
 DOCKER_HOST                           = "{% if os() == 'macos' %}unix://{{ env.COLIMA_HOME }}/default/docker.sock{% else %}unix:///var/run/docker.sock{% endif %}"
@@ -127,7 +125,7 @@ fi
 
 # --- [BOOTSTRAP] ------------------------------------------------------------------------
 [bootstrap.macos.launchd.agents]
-pitchfork = { program = "{{ mise_bin }}", args = ["exec", "--", "pitchfork", "supervisor", "run", "--boot"], working_directory = "{{config_root}}", keep_alive = true, stdout_path = "{{ vars.log_dir }}/dev.mise.pitchfork.log", stderr_path = "{{ vars.log_dir }}/dev.mise.pitchfork.log" }
+pitchfork = { program = "{{ mise_bin }}", args = ["exec", "--", "pitchfork", "supervisor", "run", "--boot"], working_directory = "{{config_root}}", keep_alive = true }
 
 # --- [DAEMONS] --------------------------------------------------------------------------
 [daemons_settings]
@@ -140,7 +138,7 @@ binlog             = { run = "exec rasm-mcp-bridge --listen 127.0.0.1:$PORT -- d
 ast-grep           = { run = "exec rasm-mcp-bridge --listen 127.0.0.1:$PORT -- ast-grep-server --config sgconfig.yml", port = 7404, ready_port = 7404, proxy = false, retry = true, boot_start = true }
 rhino-mcp-platform = { run = 'exec rasm-mcp-bridge --listen 127.0.0.1:$PORT -- "$HOME/Library/Application Support/McNeel/Rhinoceros/ai/bin/rhino-mcp-router"', env = { RHINO_MCP_DEFAULT_VERSION = "9" }, port = 7406, ready_port = 7406, proxy = false, retry = true, boot_start = true }
 blender-lab        = { run = "exec rasm-mcp-bridge --listen 127.0.0.1:$PORT -- blender-mcp", env = { BLENDER_MCP_PORT = "9877" }, port = 7407, ready_port = 7407, proxy = false, retry = true, boot_start = true }
-mcp-for-blender    = { run = "exec rasm-mcp-bridge --listen 127.0.0.1:$PORT -- mcp-for-blender", env = { BLENDER_MCP_DISABLE_TELEMETRY = "true" }, port = 7408, ready_port = 7408, proxy = false, retry = true, boot_start = true }
+mcp-for-blender    = { run = "exec doppler run --project agent-runtime --config dev --only-secrets BLENDERMCP_SKETCHFAB_API_KEY,BLENDERMCP_POLYPIZZA_API_KEY --no-fallback --attempts 1 -- rasm-mcp-bridge --listen 127.0.0.1:$PORT -- mcp-for-blender", env = { BLENDER_MCP_DISABLE_TELEMETRY = "true" }, port = 7408, ready_port = 7408, proxy = false, retry = true, boot_start = true }
 atelier            = { run = "exec node apps/creative-cloud/atelier/main.ts --listen 127.0.0.1:$PORT", env = { ATELIER_PATH = "/Applications/Atelier.app/Contents/MacOS/Atelier" }, port = 7409, ready_port = 7409, proxy = false, retry = true, boot_start = true }
 argus              = { run = "exec node plugins/argus/main.ts --listen 127.0.0.1:$PORT", port = 7410, ready_port = 7410, proxy = false, retry = true, boot_start = true }
 playwright-test    = { run = "exec playwright run-test-mcp-server --headless -c tests/typescript/playwright.config.ts --host 127.0.0.1 --port $PORT", port = 7412, ready_port = 7412, proxy = false, retry = true, boot_start = true }

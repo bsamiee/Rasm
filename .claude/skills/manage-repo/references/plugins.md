@@ -5,8 +5,9 @@ Each `plugins/<name>` directory is one plugin with a row in `plugins/.claude-plu
 ## [01]-[LAYOUT]
 
 Plugin folders hold the manifest, components at the root, and the code those components run:
-- `.claude-plugin/plugin.json` holds `name`, `version` `1.0.0`, `description`, and `author`
-- Claude Code loads local marketplace plugins in place, Codex sessions the copy `codex plugin add` installs, neither pins a version
+- Claude Code loads local marketplace plugins in place
+- Codex copies a local plugin into its cache only when the manifest `version` changes
+- Every plugin change bumps the `version` of each manifest in its folder
 - Components sit at plugin root: `skills/<skill>/SKILL.md`, `agents/<agent>.md`, `commands/<command>.md`, `hooks/hooks.json`, `.mcp.json`, `.lsp.json`
 - One invalid `.lsp.json` row skips every server of its file at load, `claude plugin validate` reads no `.lsp.json`
 - `.lsp.json` rows relocate each server's cache through `args` or `settings`, `${CLAUDE_PROJECT_DIR}` expands in `args`

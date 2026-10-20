@@ -107,7 +107,7 @@ const SCAN = [
 
 const parse = async (system: System, command: string): Promise<Result<Script>> => {
     const exited = (argv: Invocation, stdin: string): Promise<Result<string>> =>
-        system.run(argv, { cwd: system.root.kind === 'some' ? system.root.value : system.cwd, stdin }).then(
+        system.run(argv, { cwd: system.plugin, stdin }).then(
             ({ exitCode, stdout, stderr }) => (exitCode === 0 ? ok(stdout) : fault({ kind: 'exited', program: argv[0], code: exitCode, output: stderr.trim() })),
             (cause: unknown) => fault({ kind: 'thrown', program: argv[0], cause }),
         );

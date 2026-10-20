@@ -42,7 +42,7 @@ url                         = "http://127.0.0.1:7404/"
 [mcp_servers.github]
 default_tools_approval_mode = "approve"
 url                         = "https://api.githubcopilot.com/mcp/"
-bearer_token_env_var        = "GH_PROJECTS_TOKEN"
+http_headers_helper         = "doppler secrets get GH_PROJECTS_TOKEN --plain --project agent-runtime --config dev | jq -R '{Authorization: \"Bearer \\(.)\"}'"
 
 [mcp_servers.github.http_headers]
 X-MCP-Toolsets      = "context,repos,issues,pull_requests,actions,git,dependabot,github_support_docs_search"
@@ -52,12 +52,12 @@ X-MCP-Features      = "file_blame,issue_dependencies"
 [mcp_servers.exa]
 default_tools_approval_mode = "approve"
 url                         = "https://mcp.exa.ai/mcp?tools=web_fetch_exa,web_search_advanced_exa,agent_run"
-env_http_headers.x-api-key  = "EXA_API_KEY"
+http_headers_helper         = "doppler secrets get EXA_API_KEY --plain --project agent-runtime --config dev | jq -R '{\"x-api-key\": .}'"
 
 [mcp_servers.context7]
 default_tools_approval_mode = "approve"
 url                         = "https://mcp.context7.com/mcp"
-bearer_token_env_var        = "CONTEXT7_API_KEY"
+http_headers_helper         = "doppler secrets get CONTEXT7_API_KEY --plain --project agent-runtime --config dev | jq -R '{Authorization: \"Bearer \\(.)\"}'"
 
 [mcp_servers.deepwiki]
 default_tools_approval_mode = "approve"
@@ -65,7 +65,7 @@ url                         = "https://mcp.deepwiki.com/mcp"
 
 [mcp_servers.greptile]
 url                  = "https://api.greptile.com/mcp"
-bearer_token_env_var = "GREPTILE_API_KEY"
+http_headers_helper  = "doppler secrets get GREPTILE_API_KEY --plain --project agent-runtime --config dev | jq -R '{Authorization: \"Bearer \\(.)\"}'"
 enabled              = false
 
 [mcp_servers.openaiDeveloperDocs]
@@ -78,7 +78,7 @@ url                         = "https://code.claude.com/docs/mcp"
 
 [mcp_servers.illustrator]
 url                  = "http://localhost:18412/v1/mcp"
-bearer_token_env_var = "ILLUSTRATOR_MCP_TOKEN"
+http_headers_helper  = "eng/scripts/illustrator-token.sh"
 
 [mcp_servers.arena]
 url     = "https://mcp.are.na/mcp"
@@ -152,18 +152,6 @@ enabled                                                 = true
 mcp_servers.playwright-test.default_tools_approval_mode = "approve"
 
 # --- [HOOKS] ----------------------------------------------------------------------------
-
-[[hooks.SessionStart]]
-matcher = "startup|clear|compact"
-
-[[hooks.SessionStart.hooks]]
-type    = "command"
-command = '"$(git rev-parse --show-toplevel)/.claude/hooks/root-cause.sh"'
-
-[[hooks.SubagentStart]]
-[[hooks.SubagentStart.hooks]]
-type    = "command"
-command = '"$(git rev-parse --show-toplevel)/.claude/hooks/root-cause.sh"'
 
 [[hooks.PreToolUse]]
 matcher = "^Bash$"

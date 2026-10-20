@@ -13,7 +13,7 @@ const register: Register = (on, options) => {
             return next(e);
         }
         const [repo, cwd, home] = await Promise.all([$.session.repo(), $.session.cwd(), $.env.get('HOME')]);
-        const decision = await commandDecision({ run: (argv, init) => $.process.run(argv, init), exists: (path) => $.fs.exists(path), root: repo === null ? none : some(repo.root), cwd, home: home === undefined ? none : some(home) }, e.command, project);
+        const decision = await commandDecision({ run: (argv, init) => $.process.run(argv, init), exists: (path) => $.fs.exists(path), plugin: $.plugin.root, root: repo === null ? none : some(repo.root), cwd, home: home === undefined ? none : some(home) }, e.command, project);
         switch (decision.kind) {
             case 'deny':
                 return { deny: decision.reason };

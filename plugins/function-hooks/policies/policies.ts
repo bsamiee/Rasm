@@ -9,6 +9,7 @@ type Decision = { readonly kind: 'deny'; readonly reason: string } | { readonly 
 interface System {
     readonly run: (argv: Invocation, init: { readonly cwd: string; readonly stdin: string }) => Promise<{ readonly exitCode: number; readonly stdout: string; readonly stderr: string }>;
     readonly exists: (path: string) => Promise<boolean>;
+    readonly plugin: string;
     readonly root: Option<string>;
     readonly cwd: string;
     readonly home: Option<string>;
@@ -26,12 +27,17 @@ const UNPLACED = 'runs after a directory change the hook cannot resolve. Run cd 
 const ALIAS = 'defines an alias that can hide a refused subcommand';
 const OVERWRITES = 'overwrites working-tree files. Edit the files';
 const BREAK = /(?<!\\)(?:\\\\)*\\n/u;
+const EXPANDS = /[$`]/u;
+const GLOB = /[*?[{]/u;
+const EXPRESSION = /^[-(!]/u;
+const NAMED = /[\p{L}\p{N}]/u;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 // --- [DELETE]
 
 const deletes = ({ system: { root, home }, script: { commands }, project }: Call): readonly string[] => {
+    const finder = 'Run the finder with -exec or -X';
     const removing = (invocation: Invocation): readonly Invocation[] => {
         if (invocation[0] !== 'git') {
             return ['rm', 'rimraf', 'trash', 'unlink', 'shred'].includes(invocation[0]) ? [invocation] : [];
@@ -39,43 +45,60 @@ const deletes = ({ system: { root, home }, script: { commands }, project }: Call
         const [key, ...args] = invocation.slice(firstOperand(invocation, 1));
         return key === 'rm' && !args.includes('--cached') ? [['rm', ...args]] : [];
     };
-    const runtime = commands.flatMap(({ words, invocations: chain }) =>
-        chain.flatMap((invocation, at) => {
-            const [program] = invocation;
-            const { options, inner } = operands(invocation);
-            const [loose] = at === chain.length - 1 ? words.slice(words.length - invocation.length + 1).filter(({ unbounded }) => unbounded) : [];
-            const sources = [
-                ...invocations(inner)
-                    .flatMap(removing)
-                    .map(([name]) => [name, program] as const),
-                ...(options.includes('-delete') ? [[program, '-delete'] as const] : []),
-                ...(declared(program).stdin === 'always' ? chain.slice(at + 1).flatMap(removing) : []).map(([name]) => [name, program] as const),
-                ...(loose === undefined ? [] : removing(invocation).map(([name]) => [name, loose.text] as const)),
-            ];
-            return sources.map(([name, source]) => `${name} deletes paths known at run time (${source})`);
-        }),
-    );
-    const rooted =
-        root.kind === 'none'
-            ? []
-            : commands.flatMap(({ invocations: chain, cwd }) =>
-                  chain
-                      .slice(-1)
-                      .flatMap(removing)
-                      .flatMap((target) =>
-                          operands(target).inputs.flatMap((path) => {
-                              const place = placed(path, cwd, home);
-                              if (place.kind === 'none') {
-                                  return [`${target[0]} ${UNPLACED}`];
-                              }
-                              return within(root.value, place.value) ? [`${target[0]} deletes ${path}, at or above repository root`] : [];
-                          }),
-                      ),
-              );
-    if (runtime.length > 0) {
-        return [...runtime, `Name each path literally, or run nx run ${project}:clean`];
-    }
-    return rooted.length > 0 ? [...rooted, `Name paths beneath repository root, or run nx run ${project}:clean`] : [];
+    const searched = (invocation: Invocation, cwd: Option<string>): { readonly roots: readonly string[]; readonly folder: Option<string>; readonly named: boolean } => {
+        const [program, ...args] = invocation;
+        if (program === 'find' || program === 'gfind') {
+            const tests = ['-name', '-iname', '-path', '-ipath', '-wholename', '-iwholename', '-regex', '-iregex'];
+            const end = args.findIndex((word) => EXPRESSION.test(word));
+            const roots = args.slice(0, end < 0 ? args.length : end);
+            return { roots: roots.length === 0 ? ['.'] : roots, folder: cwd, named: args.flatMap((word, at) => (tests.includes(word) ? args.slice(at + 1, at + 2) : [])).some((pattern) => NAMED.test(pattern)) };
+        }
+        const { leading, inputs, values } = operands(invocation);
+        const base = values.findLast(([name]) => name === '-C' || name === '--base-directory');
+        const given = values.flatMap(([name, value]) => (name === '--search-path' ? [value] : []));
+        return {
+            roots: [given, inputs].find((paths) => paths.length > 0) ?? ['.'],
+            folder: base === undefined ? cwd : placed(base[1], cwd, home),
+            named: [...leading, ...values.flatMap(([name, value]) => (name === '-e' || name === '--extension' ? [value] : []))].some((pattern) => NAMED.test(pattern)),
+        };
+    };
+    const anchored = (word: string, unbounded: boolean, cwd: Option<string>): Option<string> => {
+        const cut = unbounded ? word.search(GLOB) : -1;
+        const literal = cut < 0 ? word : word.slice(0, cut);
+        return placed(cut < 0 ? literal : literal.slice(0, literal.lastIndexOf('/') + 1) || '.', cwd, home);
+    };
+    return commands.flatMap(({ words, invocations: chain, cwd }) => {
+        const last = chain.at(-1);
+        if (last === undefined) {
+            return [];
+        }
+        const [program] = last;
+        const loose = new Set(words.slice(words.length - last.length).flatMap(({ text, unbounded }) => (unbounded ? [text] : [])));
+        const judge =
+            (name: string, scope: (word: string) => string, start: Option<string>, selective: boolean) =>
+            (word: string): readonly string[] => {
+                if (loose.has(word) && EXPANDS.test(word)) {
+                    return [`${name} deletes ${word}, which the shell expands at run time. ${finder}, or name the path`];
+                }
+                const place = anchored(word, loose.has(word), start);
+                if (place.kind === 'none') {
+                    return [`${name} ${UNPLACED}`];
+                }
+                return root.kind === 'some' && !selective && within(root.value, place.value) ? [`${name} deletes ${scope(word)}, at or above repository root. Name a directory beneath it, or run nx run ${project}:clean`] : [];
+            };
+        const { options, inner } = operands(last);
+        const [remover] = removing(last);
+        const [feeder] = chain.slice(0, -1).filter(([name]) => declared(name).stdin === 'always');
+        if (remover !== undefined) {
+            const name = program === 'git' ? 'git rm' : program;
+            return feeder === undefined ? operands(remover).inputs.flatMap(judge(name, String, cwd, false)) : [`${name} deletes paths ${feeder[0]} reads from standard input. ${finder}`];
+        }
+        if (!(options.includes('-delete') || invocations(inner).some((launched) => removing(launched).length > 0))) {
+            return [];
+        }
+        const { roots, folder, named } = searched(last, cwd);
+        return roots.flatMap(judge(program, (word) => `under ${word} with no name pattern`, folder, named));
+    });
 };
 
 // --- [GIT]
@@ -212,6 +235,8 @@ const commandDecision = async (system: System, command: string, project: string)
             switch (program) {
                 case 'fd':
                     return given(['-H', '--hidden', '--no-hidden', '-u', '--unrestricted']) ? [] : [{ start: end, end, text: ' --hidden', notice: none }];
+                case 'rg':
+                    return given(['-.', '--hidden', '--no-hidden', '-u', '--unrestricted', '--no-config']) ? [] : [{ start: end, end, text: ' --hidden', notice: none }];
                 case 'sd': {
                     const [find] = leading;
                     const breaks = find !== undefined && (find.includes('\n') || (!given(['-F', '--fixed-strings']) && BREAK.test(find)));

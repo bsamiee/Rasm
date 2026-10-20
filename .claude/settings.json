@@ -17,16 +17,6 @@
     "hooks": {
         "SessionStart": [
             {
-                "matcher": "startup|clear|compact",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/root-cause.sh",
-                        "args": []
-                    }
-                ]
-            },
-            {
                 "hooks": [
                     {
                         "type": "command",
@@ -45,18 +35,6 @@
                         "command": "uv",
                         "args": [ "run", "--no-sync", "${CLAUDE_PROJECT_DIR}/.claude/skills/use-ghidra/scripts/bridges.py" ],
                         "timeout": 10
-                    }
-                ]
-            }
-        ],
-        "SubagentStart": [
-            {
-                "matcher": "^(?!fork$)",
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "${CLAUDE_PROJECT_DIR}/.claude/hooks/root-cause.sh",
-                        "args": []
                     }
                 ]
             }

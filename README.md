@@ -111,7 +111,7 @@ Targets run tools with their arguments on the command, a pipeline or command lis
 - `nx run <project>:e2e` runs a Playwright suite uncached, each worker serving its own app instance with empty stores
 - Project `uxp.config.ts` infers UXP `build` and `install` into manifest hosts, `cloudflare.config.ts` adds `.cloudflare/output` to `build` outputs
 - Caches and outputs sit under root `.cache/` and `.artifacts/`, each tool moved by one setting every run reads, or its guidance file states why not
-- Logs except daemon output sit flat in `.artifacts/logs/` as one `<producer>.log` per launchd label or tool
+- Tool logs sit flat in `.artifacts/logs/` as one `<producer>.log`, daemon and supervisor output sit in pitchfork's log store
 
 ## [04]-[OWNERS]
 
