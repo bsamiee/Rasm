@@ -118,15 +118,9 @@ Each category states what its verbs and views cover and what stays shallow, then
 
 ## [04]-[METHOD]
 
-- A move is not a rebuild: moved lines are rebuilt to the floor in the same landing, and a per-tool step never duplicates the composition point
-- A derivation over Model facts lives on the Model, never as an export between view modules
-- Domain libraries serve future extensions unrelated to MCP, and no domain module reads a tool schema or imports its consumer
 - Rebuilds change source and consumers in one chain to less code, surface, fields, and parameters, never a shuffle into new types
-- One declaration per concept (a `Schema.Class` owning schema, reader, operations), algebra before classes, tagged state over strings
 - Options flow through schemas end to end, labels derive from operation and target, and no call takes a written description
 - Nesting yields to better upstream logic, with no extracted helper, wrapper, forward, alias, exported constant, or deferred note
-- Declarations earn their place by a fact no other states; an operation whose answer another contains goes, its callers rebuilt
+- A derivation over Model facts lives on the Model, never as an export between view modules
+- Domain libraries serve future extensions unrelated to MCP, and no domain module reads a tool schema or imports its consumer
 - Effect 4 and installed packages (MCP, typesetting, Adobe types) are used in full, and a missing package joins at its newest release
-- Compiler-forced forms stand with their code cited; `Schema.decodeSync` and `Effect.gen({ self })` fail the check
-- Tools are verbs over a category; a tool with no value goes, and its value joins a remaining verb
-- Facts every result needs (status, preflight) arrive at one composition point, on failed results too, never through agent polling
