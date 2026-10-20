@@ -571,18 +571,23 @@ class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
             case (Browsed() as state, Spot() as spot):
                 with spot.view.override:
                     return (
-                        self.browser
-                        .observation(self.identity, bpy.context)
-                        .bind(
-                            lambda seen: (
-                                self.rehovered(spot)
-                                if seen[0] == state.catalog.revision
-                                else self.browser.catalogued(self.identity, seen).bind(lambda catalog: self.reloaded(spot, catalog, shifted=state.hover[1]))
+                        Some(bpy.context)
+                        .filter(lambda held: holds(self.browser.requirement, held))
+                        .map(
+                            lambda held: (
+                                self.browser
+                                .observation(self.identity, held)
+                                .bind(
+                                    lambda seen: (
+                                        self.rehovered(spot)
+                                        if seen[0] == state.catalog.revision
+                                        else self.browser.catalogued(self.identity, seen).bind(lambda catalog: self.reloaded(spot, catalog, shifted=state.hover[1]))
+                                    )
+                                )
+                                .map(lambda _: self.requests(spot))
                             )
                         )
-                        .map(lambda _: self.requests(spot))
-                        if holds(self.browser.requirement, bpy.context)
-                        else self.released().map(lambda _: ())
+                        .default_with(lambda: self.released().map(lambda _: ()))
                     )
 
     def reloaded(self, spot: Spot, catalog: Catalog[T], *, shifted: bool) -> BlenderResult[None]:
@@ -711,12 +716,13 @@ class Session[T: msgspec.Struct](msgspec.Struct, kw_only=True, eq=False):
                     case "CANCELLED":
                         return hovered.map(lambda _: "CANCELLED")
                     case "RUNNING_MODAL":
-                        return (
-                            hovered
-                            .bind(lambda _: self.attached.write(spot.view.located.window.screen, following.layout).bind(lambda _: self.hovered(Nothing, shifted=event.shift)) if relaid else Ok(None))
-                            .bind(lambda _: self.rehovered(spot).bind(lambda _: self.signal.fired()) if relaid or event.value == "PRESS" else Ok(None))
-                            .map(lambda _: "RUNNING_MODAL")
+                        relayed = (
+                            hovered.bind(lambda _: self.attached.write(spot.view.located.window.screen, following.layout)).bind(lambda _: self.hovered(Nothing, shifted=event.shift))
+                            if relaid
+                            else hovered
                         )
+                        refreshed = relayed.bind(lambda _: self.rehovered(spot)).bind(lambda _: self.signal.fired()) if relaid or event.value == "PRESS" else relayed
+                        return refreshed.map(lambda _: "RUNNING_MODAL")
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

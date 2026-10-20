@@ -117,9 +117,8 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
                 .bind(lambda scene: Option.of_optional(depsgraph.view_layer).map(lambda layer: Shot(engine=engine, depsgraph=depsgraph, scene=scene, layer=layer)))
                 .to_result_with(lambda: (BlenderAbsentFault(owner=repr(depsgraph), key="view_layer"),))
             )
-            for faults in Result[Shot, BlenderFaults].bind(shot, lambda held: written(held, self.render(held))).swap().to_option().to_list():
-                for _, text in rendered(faults):
-                    engine.report({"ERROR"}, text)
+            for _, text in Result[Shot, BlenderFaults].bind(shot, lambda held: written(held, self.render(held))).swap().map(rendered).default_value(()):
+                engine.report({"ERROR"}, text)
 
         namespace: dict[str, object] = {
             "__module__": identity.package,
@@ -152,13 +151,11 @@ class Engine(msgspec.Struct, frozen=True, kw_only=True):
                 if (result := engine.begin_result(0, 0, width, height)) is None:
                     return
                 try:
-                    passes = result.layers[0].passes
-                    match body(Baking(engine=engine, depsgraph=depsgraph, target=target, kind=pass_type, filter=pass_filter, result=result)):
-                        case Result(tag="error", error=faults):
-                            for _, text in rendered(faults):
-                                engine.report({"ERROR"}, text)
-                        case Result(ok=plane):
-                            passes[self.combined.name].rect.foreach_set(plane[::-1].ravel())  # type: ignore[arg-type]
+                    baked = body(Baking(engine=engine, depsgraph=depsgraph, target=target, kind=pass_type, filter=pass_filter, result=result)).map(
+                        lambda plane: result.layers[0].passes[self.combined.name].rect.foreach_set(plane[::-1].ravel())  # type: ignore[arg-type]
+                    )
+                    for _, text in baked.swap().map(rendered).default_value(()):
+                        engine.report({"ERROR"}, text)
                 finally:
                     engine.end_result(result, cancel=engine.test_break())
 

@@ -1262,15 +1262,16 @@ class StageThumbnail(Line, frozen=True, kw_only=True):
 
         def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
             if isinstance(holder, bpy.types.SceneCompositorEffect) and isinstance(holder.id_data, bpy.types.Scene) and isinstance(holder.node_group, bpy.types.NodeTree):
-                scene = holder.id_data
+                source = CompositorSource(scene=Handle.of(holder.id_data), entry=holder.name)
 
                 def requested(node: bpy.types.Node) -> None:
-                    for socket, region in itertools.product(tuple(node.inputs)[:1], Option.of_optional(context.region).to_list()):
-                        target = Target(source=CompositorSource(scene=Handle.of(scene), entry=holder.name), groups=(), node=node.name, socket=socket.identifier)
-                        scale = region.width / Metrics.read().unit
-                        NodePreview.state[identity.package].stages[target] = scale
-                        for icon in Previews(identity=identity).icon_id(repr(target)).to_list():
-                            layout.template_icon(icon_value=icon, scale=scale)
+                    stages = {
+                        Target(source=source, groups=(), node=node.name, socket=socket.identifier): region.width / Metrics.read().unit
+                        for socket, region in itertools.product(tuple(node.inputs)[:1], Option.of_optional(context.region).to_list())
+                    }
+                    NodePreview.state[identity.package].stages.update(stages)
+                    for icon, scale in ((icon, scale) for target, scale in stages.items() for icon in Previews(identity=identity).icon_id(repr(target)).to_list()):
+                        layout.template_icon(icon_value=icon, scale=scale)
 
                 alerted(layout, active_output(holder.node_group).map(requested))
 

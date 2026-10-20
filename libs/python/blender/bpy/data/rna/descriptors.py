@@ -244,14 +244,15 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
                     coordinates = np.unravel_index(index, self.shape(owner))
                     return assigned(lambda: setitem(reduce(getitem, coordinates[:-1], owner.path_resolve(name, False)), coordinates[-1], stored))  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
                 case bpy.types.EnumProperty() as prop, tuple() | str() as chosen, _:
+                    identifiers, native = (chosen, set(chosen)) if isinstance(chosen, tuple) else ((chosen,), chosen)
                     refusals = tuple(
                         BlenderChoiceFault(
                             path=request, identifier=identifier, accepted=tuple(item.identifier for item in prop.enum_items if bpy.types.UILayout.enum_item_name(owner, name, item.identifier))
                         )
-                        for identifier in (chosen if isinstance(chosen, tuple) else (chosen,))
+                        for identifier in identifiers
                         if not bpy.types.UILayout.enum_item_name(owner, name, identifier)
                     )
-                    return Error((refusals[0], *refusals[1:])) if refusals else assigned(lambda: setattr(owner, name, set(chosen) if isinstance(chosen, tuple) else chosen))
+                    return Error((refusals[0], *refusals[1:])) if refusals else assigned(lambda: setattr(owner, name, native))
                 case bpy.types.PointerProperty(fixed_type=bpy.types.ID() as pointed), IdName() as identity, _:
                     return (  # type: ignore[unreachable]
                         Option

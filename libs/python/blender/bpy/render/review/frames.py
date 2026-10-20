@@ -552,7 +552,9 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
                             diagonal = pixels[index] - pixels[opposite]
                             requested = float(np.linalg.lstsq(diagonal[:, None], selected - pixels[opposite], rcond=None)[0][0])
                             maximum = bounds.map(
-                                lambda limits: min(((limits[1 if value > 0 else 0, axis] - pixels[opposite, axis]) / value for axis, value in enumerate(diagonal) if value != 0), default=math.inf)
+                                lambda limits: float(
+                                    np.divide(np.where(diagonal > 0, limits[1], limits[0]) - pixels[opposite], diagonal, out=np.full_like(diagonal, math.inf), where=diagonal != 0).min()
+                                )
                             ).default_value(math.inf)
                             changed = (pixels - pixels[opposite]) * min(max(requested, 0.0), maximum) + pixels[opposite]
                         else:

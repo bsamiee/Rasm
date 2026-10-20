@@ -868,9 +868,9 @@ def fields[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]"](
                     lambda child: (
                         Ok(Property(target=row))
                         if isinstance(child, Property) and not isinstance(inner.shape, Gate)
-                        else (realized(child, identity).map(lambda draw: lambda layout, holder, context, _prefix: draw(layout, holder, context)) if isinstance(child, Property) else Ok(child)).map(
-                            lambda nest: paneled(nest, gated=True)
-                        )
+                        else realized(child, identity).map(lambda draw: paneled(lambda layout, holder, context, _prefix: draw(layout, holder, context), gated=True))
+                        if isinstance(child, Property)
+                        else Ok(paneled(child, gated=True))
                     )
                 )
             case Gate():

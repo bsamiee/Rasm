@@ -46,7 +46,7 @@ from blender.bpy.settings.shapes import (
     Text,
     Vector,
 )
-from blender.imaging.faults import accumulated
+from blender.imaging.faults import accumulated, paired
 from blender.imaging.parameters import Case, Choice, Gated, heading, markers, Presentation, Quantity, Rgb
 
 if TYPE_CHECKING:
@@ -428,22 +428,19 @@ class RecordGroup[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]" = bpy.typ
                         def ranged(bounds: tuple[float, float], stored: Option[float | tuple[float, ...]]) -> bpy.props._PropertyDeferred:
                             low, high = bounds
                             soft_low, soft_high, spanned = unit.spanned(presentation, bounds)
-                            prop = (
-                                bpy.props.FloatProperty()
-                                if isinstance(kind, native.FloatType)
-                                else bpy.props.FloatVectorProperty(size=len(kind.item_types) if isinstance(kind, native.TupleType) else len(kind.fields))
-                            )
-                            prop.keywords.update(min=low, max=high, soft_min=soft_low, soft_max=soft_high)
+                            match kind:
+                                case native.TupleType(item_types=members) | native.StructType(fields=members):
+                                    prop = bpy.props.FloatVectorProperty(size=len(members), subtype=spanned.vector)
+                                case native.FloatType():
+                                    prop = bpy.props.FloatProperty(subtype=spanned.number)
+                            prop.keywords.update(min=low, max=high, soft_min=soft_low, soft_max=soft_high, unit=unit.unit)
                             prop.keywords.update(unit.drawn(presentation, (soft_low, soft_high), stored))
-                            prop.keywords.update(subtype=spanned.number if isinstance(kind, native.FloatType) else spanned.vector, unit=unit.unit)
                             prop.keywords.update(stored.map(lambda value: {"default": value}).default_value({}))
                             return prop
 
-                        return unit.bounds(kind).bind(
-                            lambda bounds: (
-                                unit.stored(msgspec.to_builtins(default) if isinstance(shape, Color) else default, kind).map(Some) if default is not msgspec.NODEFAULT else Ok(Nothing)
-                            ).map(lambda stored: ranged(bounds, stored))
-                        )
+                        return paired(
+                            unit.bounds(kind), unit.stored(msgspec.to_builtins(default) if isinstance(shape, Color) else default, kind).map(Some) if default is not msgspec.NODEFAULT else Ok(Nothing)
+                        ).map(lambda pair: ranged(*pair))
                     case Nested(record=record):
                         return pointer(recorded(path, record, default))
                     case Gate(value=Option(tag="none")) if default is msgspec.NODEFAULT:

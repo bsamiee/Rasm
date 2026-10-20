@@ -339,7 +339,8 @@ class Execution:
             )
             return space, (viewer, *shown)[-1]
 
-        initial: tuple[BlenderResult[Option[str]], BlenderResult[Option[str]]] = (Ok(Some(self.config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName())), Ok(Nothing))
+        linear = self.config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName()
+        initial: tuple[BlenderResult[Option[str]], BlenderResult[Option[str]]] = (Ok(Some(linear)), Ok(Nothing))
         space, viewer = reduce(stepped, enabled, initial)
         layer = (
             "Composite.Combined"
@@ -353,23 +354,18 @@ class Execution:
         )
 
         def rendered(origins: tuple[Option[str], Option[str]]) -> BlenderResult[frozenset["rna_enums.OperatorReturnItems"]]:
+            productions = {
+                "RENDER_RESULT": origins[0].map(lambda encoding: Production(scene=Handle.of(self.scene), space=encoding, layer=Some(layer), view=view)),
+                "COMPOSITING": origins[1].map(lambda encoding: Production(scene=Handle.of(self.scene), space=encoding, view=view if encoding == linear else Nothing)),
+            }
             for image in bpy.data.images:
-                if image.type in {"RENDER_RESULT", "COMPOSITING"}:
+                if image.type in productions:
                     produced(image, Nothing)
 
             def published(status: frozenset["rna_enums.OperatorReturnItems"]) -> frozenset["rna_enums.OperatorReturnItems"]:
                 for image in bpy.data.images:
-                    if image.type == "RENDER_RESULT":
-                        produced(image, origins[0].map(lambda encoding: Production(scene=Handle.of(self.scene), space=encoding, layer=Some(layer), view=view)))
-                    elif image.type == "COMPOSITING":
-                        produced(
-                            image,
-                            origins[1].map(
-                                lambda encoding: Production(
-                                    scene=Handle.of(self.scene), space=encoding, view=view if encoding == self.config.getColorSpace(PyOpenColorIO.ROLE_SCENE_LINEAR).getName() else Nothing
-                                )
-                            ),
-                        )
+                    if image.type in productions:
+                        produced(image, productions[image.type])
                 return status
 
             return called(bpy.ops.render.render, dict(properties) | {"scene": self.scene.name}).map(published)

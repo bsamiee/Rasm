@@ -1,3 +1,4 @@
+import { Array } from 'effect';
 import type { ReactNode, Ref } from 'react';
 import { entryTitle, numeral } from '../media/display.ts';
 import type { Portfolio } from '../model/document.ts';
@@ -11,30 +12,32 @@ const ProjectIndex = ({ portfolio, navigation }: { portfolio: typeof Portfolio.T
             Index
         </a>
         <div className="index-list">
-            {portfolio.entries.length > 0 ? (
-                portfolio.entries.map((entry, index) => (
-                    <a
-                        aria-current={navigation.active === entry.id ? 'location' : undefined}
-                        className="group index-link"
-                        href={fragment(entry.id)}
-                        key={entry.id}
-                        onClick={(event) => {
-                            if (!(event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) && event.button === 0) {
-                                event.preventDefault();
-                                navigation.jump(entry);
-                            }
-                        }}
-                        ref={navigation.active === entry.id ? (node: HTMLAnchorElement | null) => node?.scrollIntoView({ block: 'nearest', behavior: 'instant' }) : undefined}
-                    >
-                        <span className="font-mono text-accent-text tabular-nums">[{numeral(index + 1)}]</span>
-                        <span className="wrap-anywhere underline-offset-4 group-hover:underline group-aria-current:underline">{entryTitle(entry)}</span>
+            {Array.match(portfolio.entries, {
+                onEmpty: () => (
+                    <a className="group index-link" href="#work">
+                        <span className="col-span-full">Selected work</span>
                     </a>
-                ))
-            ) : (
-                <a className="group index-link" href="#work">
-                    <span className="col-span-full">Selected work</span>
-                </a>
-            )}
+                ),
+                onNonEmpty: (entries) =>
+                    entries.map((entry, index) => (
+                        <a
+                            aria-current={navigation.active === entry.id ? 'location' : undefined}
+                            className="group index-link"
+                            href={fragment(entry.id)}
+                            key={entry.id}
+                            onClick={(event) => {
+                                if (!(event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) && event.button === 0) {
+                                    event.preventDefault();
+                                    navigation.jump(entry);
+                                }
+                            }}
+                            ref={navigation.active === entry.id ? (node: HTMLAnchorElement | null) => node?.scrollIntoView({ block: 'nearest', behavior: 'instant' }) : undefined}
+                        >
+                            <span className="font-mono text-accent-text tabular-nums">[{numeral(index + 1)}]</span>
+                            <span className="wrap-anywhere underline-offset-4 group-hover:underline group-aria-current:underline">{entryTitle(entry)}</span>
+                        </a>
+                    )),
+            })}
         </div>
     </nav>
 );

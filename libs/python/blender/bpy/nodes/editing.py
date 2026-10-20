@@ -87,9 +87,10 @@ class _Edit(msgspec.Struct, frozen=True, kw_only=True):
             def restored() -> None:
                 for removed in tuple(target.links):  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
                     self.tree.links.remove(removed)
-                for source, valid, muted in reversed(original):
-                    for link in Option.of_optional(self.tree.links.new(source, target, verify_limits=False)).to_list():
-                        link.is_valid, link.is_muted = valid, muted
+                for link, valid, muted in (
+                    (link, valid, muted) for source, valid, muted in reversed(original) for link in Option.of_optional(self.tree.links.new(source, target, verify_limits=False)).to_list()
+                ):
+                    link.is_valid, link.is_muted = valid, muted
 
             self.resources.callback(restored)
         retained = {each for each in incoming if isinstance(each, bpy.types.NodeLink)}
