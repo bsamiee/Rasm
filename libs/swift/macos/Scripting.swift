@@ -605,7 +605,7 @@ public actor ScriptingDefinitions {
     public init() {}
 
     public func dictionary(of installation: Installation, within deadline: Duration) async -> Result<ScriptingDictionary, DefinitionFailure> {
-        let processes: Set<pid_t> = Set(installation.instances.map(\.pid))
+        let processes: Set<pid_t> = Set(installation.instances)
         let reading: Task<Result<ScriptingDictionary, DefinitionFailure>, Never> =
             switch held[installation.url] {
                 case .some(let hit) where hit.processes == processes: hit.reading
@@ -625,7 +625,7 @@ extension Installation {
     public func scriptingDefinition(within deadline: Duration) async -> Result<XMLDocument, DefinitionFailure> {
         await Result { () async throws(DefinitionFailure) in
             guard !instances.isEmpty || Bundle(url: url)?.object(forInfoDictionaryKey: "OSAScriptingDefinition") != nil else { throw .requiresRunning(url) }
-            for instance: NSRunningApplication in instances.compactMap({ instance in NSRunningApplication(processIdentifier: instance.pid) }) {
+            for instance: NSRunningApplication in instances.compactMap(NSRunningApplication.init(processIdentifier:)) {
                 try await instance.reaching(\.isFinishedLaunching, within: deadline).mapError(DefinitionFailure.launch).get()
             }
             var definition: Unmanaged<CFData>?

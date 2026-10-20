@@ -207,6 +207,7 @@ const PROGRAMS: ReadonlyMap<string, Program> = new Map(
         fdfind: FD,
         find: FIND,
         gfind: FIND,
+        tree: { valued: ['-L', '--level', '-I', '--ignore-glob', '-s', '--sort', '-t', '--time', '-w', '--width'] },
         git: { valued: ['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--config-env', '--exec-path'] },
         grep: {
             valued: [
@@ -481,4 +482,4 @@ const invocations = ([head, ...rest]: readonly string[]): readonly Invocation[] 
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { declared, firstOperand, type Invocation, informational, invocations, operands, placed, unquoted, waits, within };
+export { declared, firstOperand, type Invocation, informational, invocations, operands, option, placed, unquoted, waits, within };

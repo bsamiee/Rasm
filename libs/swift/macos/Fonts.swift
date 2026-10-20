@@ -15,9 +15,10 @@ public struct InstalledFace: Codable, Hashable, Sendable {
         return (CTFontCollectionCreateMatchingFontDescriptors(collection) as? [CTFontDescriptor] ?? []).compactMap(Self.init)
     }
 
-    public static func named(_ name: String) -> Self? {
+    public static func named(_ name: String) -> Result<Self, Unmatched> {
         let query: CTFontDescriptor = CTFontDescriptorCreateWithAttributes([kCTFontNameAttribute: name] as CFDictionary)
-        return CTFontDescriptorCreateMatchingFontDescriptor(query, Set([kCTFontNameAttribute as String]) as CFSet).flatMap(Self.init)
+        return CTFontDescriptorCreateMatchingFontDescriptor(query, Set([kCTFontNameAttribute as String]) as CFSet).flatMap(Self.init).map(Result.success)
+            ?? .failure(Unmatched(subject: "installed face", query: name, candidates: installed().map(\.postscriptName)))
     }
 }
 

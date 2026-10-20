@@ -22,7 +22,6 @@ const listen = Effect.fn('listen')(function* <Rpcs extends Rpc.Any, Peer, I exte
     {
         path,
         origin,
-        peer: name,
         identity,
         serialization,
         middleware,
@@ -30,7 +29,6 @@ const listen = Effect.fn('listen')(function* <Rpcs extends Rpc.Any, Peer, I exte
     }: {
         readonly path: HttpRouter.PathInput;
         readonly origin: string;
-        readonly peer: string;
         readonly identity: Schema.Codec<Peer, I>;
         readonly serialization: Layer.Layer<RpcSerialization.RpcSerialization>;
         readonly middleware: Layer.Layer<Rpc.MiddlewareClient<Rpcs>, never, RpcClient.Protocol>;
@@ -66,8 +64,8 @@ const listen = Effect.fn('listen')(function* <Rpcs extends Rpc.Any, Peer, I exte
         call: (chosen: Chosen) =>
             SubscriptionRef.get(links).pipe(
                 Effect.map(Array.filter(({ peer }) => serves(chosen)(peer))),
-                Effect.filterOrFail(Array.isReadonlyArrayNonEmpty, () => new Cause.NoSuchElementError(`${name} is not linked`)),
-                Effect.flatMap((serving) => Unmatched.single(name, Option.none())(serving, ({ query }) => [query])),
+                Effect.filterOrFail(Array.isReadonlyArrayNonEmpty, () => new Cause.NoSuchElementError('No linked extension serves the application')),
+                Effect.flatMap((serving) => Unmatched.single('linked extension serving the application', Option.none())(serving, ({ query }) => [query])),
                 Effect.map(Struct.get('client')),
             ),
     };
@@ -118,22 +116,25 @@ const publish = Effect.fnUntraced(function* <Rpcs extends Rpc.Any & { readonly p
                     template: McpSchema.ResourceTemplate.make({ ...defined(rpc), uriTemplate: `${uri}/${params.map((key) => `{${key}}`).join('/')}` }),
                     routerPath: `${uri.replace(':', '::')}/${params.map((_, index) => `:${index}`).join('/')}`,
                     annotations,
-                    completions: {
-                        ...Record.getSomes(Record.map(route.completion, flow(Option.fromUndefinedOr, Option.map(answered)))),
-                        ...Record.getSomes(
-                            Record.map(
-                                Record.filter(complete, (_, key) => params.includes(key)),
-                                flow(
-                                    Option.fromUndefinedOr,
-                                    Option.map((select) => answered((_, context) => decoded(rpc)({ route: context?.arguments ?? {}, payload: {} }).pipe(Effect.flatMap(called(rpc)), Effect.map(select)))),
+                    completions: Record.filter(
+                        {
+                            ...Record.getSomes(Record.map(route.completion, flow(Option.fromUndefinedOr, Option.map(answered)))),
+                            ...Record.getSomes(
+                                Record.map(
+                                    complete,
+                                    flow(
+                                        Option.fromUndefinedOr,
+                                        Option.map((select) => answered((_, context) => decoded(rpc)({ route: context?.arguments ?? {}, payload: {} }).pipe(Effect.flatMap(called(rpc)), Effect.map(select)))),
+                                    ),
                                 ),
                             ),
-                        ),
-                    },
+                        },
+                        (_, key) => params.includes(key),
+                    ),
                     handle: read(rpc, params),
                 }),
         });
-    const forms = (rpc: Rpcs) => Array.dedupe([[], routed, [...routed, ...Record.keys(rpc.payloadSchema.fields)]]).filter((form) => Schema.is(Schema.toEncoded(Schema.Struct(Struct.omit({ ...route.fields, ...rpc.payloadSchema.fields }, form))))({}));
+    const forms = (rpc: Rpcs) => Array.dedupe(Array.flatMap([[], Record.keys(rpc.payloadSchema.fields)], (own) => [own, [...routed, ...own]])).filter((form) => Schema.is(Schema.toEncoded(Schema.Struct(Struct.omit({ ...route.fields, ...rpc.payloadSchema.fields }, form))))({}));
     return yield* Effect.forEach(
         group.requests.values(),
         (rpc: Rpcs) =>

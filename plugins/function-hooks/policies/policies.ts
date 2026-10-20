@@ -1,6 +1,6 @@
 import { none, type Option, some } from '../composition.ts';
 import { parse, type Script } from './command.ts';
-import { declared, firstOperand, type Invocation, informational, invocations, operands, placed, waits, within } from './invocation.ts';
+import { declared, firstOperand, type Invocation, informational, invocations, operands, option, placed, waits, within } from './invocation.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -64,8 +64,7 @@ const deletes = ({ system: { root, home }, script: { commands }, project }: Call
     };
     const anchored = (word: string, unbounded: boolean, cwd: Option<string>): Option<string> => {
         const cut = unbounded ? word.search(GLOB) : -1;
-        const literal = cut < 0 ? word : word.slice(0, cut);
-        return placed(cut < 0 ? literal : literal.slice(0, literal.lastIndexOf('/') + 1) || '.', cwd, home);
+        return placed(cut < 0 ? word : word.slice(0, word.lastIndexOf('/', cut) + 1), cwd, home);
     };
     return commands.flatMap(({ words, invocations: chain, cwd }) => {
         const last = chain.at(-1);
@@ -197,23 +196,21 @@ const inline = ({ script: { commands } }: Call): readonly string[] =>
         }),
     );
 
-// --- [SEQUENCE]
-
-const sequence = ({ script: { sequences } }: Call): readonly string[] =>
-    sequences.flatMap((steps) => {
-        const loose = steps.filter(
-            ({ writes }, at) =>
-                !steps
-                    .slice(at + 1)
-                    .flatMap(({ reads }) => reads)
-                    .some((name) => writes.includes(name)),
-        );
-        return loose.length > 1 ? [`${loose.map(({ programs }) => programs.join(' | ')).join(', ')} pass no shell data between them. Send each as its own Bash call, batched when independent`] : [];
-    });
-
 // --- [DECISION]
 
 const unrun = (detail: string): string => `function-hooks policy did not run. ${detail}`;
+
+const without = (program: string, words: Script['commands'][number]['words'], dropped: readonly string[]) => {
+    const stop = words.findIndex(({ text }) => text === '--');
+    return words.slice(0, stop < 0 ? words.length : stop).flatMap(({ text, span }) => {
+        const { names, joined } = text.startsWith('-') ? option(declared(program), text) : { names: [], joined: [] };
+        const kept = names.filter((name) => !dropped.includes(name));
+        if (kept.length === names.length) {
+            return [];
+        }
+        return kept.length === 0 ? [{ start: span.start - 1, end: span.end, text: '', notice: none }] : [{ start: span.start, end: span.end, text: `-${kept.map((name) => name.slice(1)).join('')}${joined.join('')}`, notice: none }];
+    });
+};
 
 const commandDecision = async (system: System, command: string, project: string): Promise<Decision> => {
     const parsed = await parse(system, command);
@@ -221,14 +218,14 @@ const commandDecision = async (system: System, command: string, project: string)
         return { kind: 'deny', reason: `Command not parsed. ${parsed.faults.map((value) => (value.kind === 'exited' ? [`${value.program} exited ${value.code}`, value.output].filter((part) => part !== '').join(', ') : `${value.program} failed, ${String(value.cause)}`)).join('. ')}` };
     }
     const call = { system, script: parsed.value, project };
-    const reasons = new Set((await Promise.all([deletes, git, stdin, inline, sequence].map((policy) => policy(call)))).flat());
+    const reasons = new Set((await Promise.all([deletes, git, stdin, inline].map((policy) => policy(call)))).flat());
     if (reasons.size > 0) {
         return { kind: 'deny', reason: [...reasons].join('. ') };
     }
     const changes = parsed.value.commands
         .filter(({ nested }) => !nested)
-        .flatMap(({ words, invocations: chain }) => chain.slice(-1).flatMap((last) => words.slice(words.length - last.length, words.length - last.length + 1).map(({ span }) => ({ last, span }))))
-        .flatMap(({ last, span: { start, end } }) => {
+        .flatMap(({ words, invocations: chain }) => chain.slice(-1).flatMap((last) => words.slice(words.length - last.length, words.length - last.length + 1).map(({ span }) => ({ last, span, rest: words.slice(words.length - last.length + 1) }))))
+        .flatMap(({ last, span: { start, end }, rest }) => {
             const [program] = last;
             const { options, leading } = operands(last);
             const given = (names: readonly string[]): boolean => informational(program, options) || names.some((name) => options.includes(name));
@@ -242,6 +239,8 @@ const commandDecision = async (system: System, command: string, project: string)
                     const breaks = find !== undefined && (find.includes('\n') || (!given(['-F', '--fixed-strings']) && BREAK.test(find)));
                     return breaks && !given(['-A', '--across']) ? [{ start: end, end, text: ' -A', notice: none }] : [];
                 }
+                case 'tree':
+                    return without(program, rest, ['-a', '--all']);
                 case 'refurb': {
                     const text = 'python -m tools.refurb';
                     return [{ start, end, text, notice: some(`refurb ran as ${text} over the mypy cache`) }];

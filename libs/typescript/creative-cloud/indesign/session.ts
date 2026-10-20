@@ -89,7 +89,7 @@ class Menu extends Schema.Class<Menu, { readonly brand: unique symbol }>('Menu')
         ).pipe(Effect.flatMap((rows) => Unmatched.matching('menu area', area)(rows, (row) => [row.area])));
     }
 }
-class Invoke extends Mutation.extend<Invoke>('Invoke')({ action: Schema.Union([Schema.Int, Schema.String]).annotate({ description: 'Menu action id or name from the menu resource' }) }, { description: 'Invokes one menu action as the user would, without dialogs, in one undo step' }) {
+class Invoke extends Mutation.extend<Invoke>('Invoke')({ action: Schema.Union([Schema.Int, Schema.String]).annotate({ description: 'Menu action id or name from the menu resource' }) }, { description: 'Invokes one menu action as the user would, in one undo step' }) {
     static readonly Result = Mutation.summarized(Menu.Action);
 
     override get label(): string {

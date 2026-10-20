@@ -17,7 +17,6 @@ interface Command {
 }
 interface Script {
     readonly commands: readonly Command[];
-    readonly sequences: readonly (readonly { readonly programs: readonly string[]; readonly writes: readonly string[]; readonly reads: readonly string[] }[])[];
 }
 interface Capture {
     readonly text: string;
@@ -28,9 +27,7 @@ type Hit = Capture &
     (
         | { readonly ruleId: 'command'; readonly metaVariables: { readonly single: { readonly CMD: Capture; readonly SCOPE?: Capture }; readonly multi: { readonly ARGS?: readonly Capture[] } } }
         | { readonly ruleId: 'operand' | 'heredoc' | 'herestring'; readonly metaVariables: { readonly single: { readonly BODY: Capture } } }
-        | { readonly ruleId: 'step'; readonly metaVariables: { readonly single: { readonly SEQ?: Capture; readonly SCOPE?: Capture } } }
-        | { readonly ruleId: 'write'; readonly metaVariables: { readonly single: { readonly NAME: Capture; readonly SCOPE?: Capture } } }
-        | { readonly ruleId: 'fed' | 'read' | 'unbounded' }
+        | { readonly ruleId: 'fed' | 'unbounded' }
     );
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -74,18 +71,6 @@ const SCAN = [
             rule: { kind: 'command', any: [{ has: { matches: 'input' } }, { matches: 'stage' }, { inside: { stopBy: 'end', not: { kind: 'list, pipeline, negated_command' }, matches: 'stage' } }] },
         },
         {
-            id: 'step',
-            utils: { ...SCOPE, chained: { any: [{ kind: 'list' }, { kind: 'redirected_statement', has: { field: 'body', kind: 'list' } }] }, tested: { inside: { kind: 'if_statement, elif_clause', field: 'condition' } } },
-            rule: {
-                kind: 'redirected_statement, variable_assignment, variable_assignments, command, declaration_command, unset_command, test_command, negated_command, for_statement, c_style_for_statement, while_statement, if_statement, case_statement, pipeline, subshell, compound_statement, function_definition',
-                matches: 'scoped',
-                not: { any: [{ matches: 'chained' }, { matches: 'tested' }, { inside: { stopBy: { not: { matches: 'chained' } }, matches: 'chained', all: [{ matches: 'tested' }] } }] },
-                any: [{ inside: { stopBy: { not: { matches: 'chained' } }, kind: 'program' } }, { inside: { stopBy: { not: { matches: 'chained' } }, kind: 'compound_statement, do_group, subshell, if_statement, elif_clause, else_clause, case_item, command_substitution, process_substitution', pattern: '$SEQ' } }],
-            },
-        },
-        { id: 'write', utils: SCOPE, rule: { kind: 'variable_assignment', has: { field: 'name', pattern: '$NAME' }, not: { inside: { kind: 'command' } }, matches: 'scoped' } },
-        { id: 'read', rule: { kind: 'variable_name', any: [{ inside: { kind: 'simple_expansion, expansion' } }, { inside: { stopBy: 'end', kind: 'arithmetic_expansion' } }] } },
-        {
             id: 'unbounded',
             rule: {
                 inside: { kind: 'command' },
@@ -122,7 +107,6 @@ const parse = async (system: System, command: string): Promise<Result<Script>> =
             }),
             async (hits) => {
                 const sorted = hits.toSorted((left, right) => left.range.byteOffset.start - right.range.byteOffset.start);
-                const key = (capture: Capture | undefined): string => (capture === undefined ? '' : `${capture.range.byteOffset.start}:${capture.range.byteOffset.end}`);
                 const inside = (outer: Capture | undefined, { range: { byteOffset } }: Capture): boolean => outer === undefined || (byteOffset.start >= outer.range.byteOffset.start && byteOffset.end <= outer.range.byteOffset.end);
                 const unbounded = new Set(sorted.flatMap((hit) => (hit.ruleId === 'unbounded' ? [hit.range.byteOffset.start] : [])));
                 const owned = Map.groupBy(sorted, (hit) => (hit.ruleId === 'operand' || hit.ruleId === 'heredoc' || hit.ruleId === 'herestring' ? hit.metaVariables.single.BODY : hit).range.byteOffset.start)
@@ -162,27 +146,6 @@ const parse = async (system: System, command: string): Promise<Result<Script>> =
                         .flatMap(({ targets }) => targets)
                         .reduce((folder, target) => (target === undefined || STACK.test(target) ? none : placed(target, folder, system.home)), context.cwd),
                 }));
-                const sequences = Map.groupBy(
-                    sorted
-                        .filter((hit) => hit.ruleId === 'step')
-                        .map((step) => {
-                            const scope = key(step.metaVariables.single.SCOPE);
-                            const contained = located.filter(({ hit }) => inside(step, hit));
-                            return {
-                                sequence: key(step.metaVariables.single.SEQ),
-                                programs: contained.flatMap(({ invocations: chain }) => chain.slice(-1)).map(([program]) => program),
-                                writes: [
-                                    ...sorted.flatMap((hit) => (hit.ruleId === 'write' && inside(step, hit) && key(hit.metaVariables.single.SCOPE) === scope ? [hit.metaVariables.single.NAME.text] : [])),
-                                    ...contained
-                                        .filter(({ hit }) => key(hit.metaVariables.single.SCOPE) === scope)
-                                        .flatMap(({ targets }) => targets)
-                                        .map(() => 'PWD'),
-                                ],
-                                reads: ['PWD', ...sorted.flatMap((hit) => (hit.ruleId === 'read' && inside(step, hit) ? [hit.text] : []))],
-                            };
-                        }),
-                    ({ sequence }) => sequence,
-                ).values();
                 const inner = all(
                     await Promise.all(
                         located.flatMap(({ invocations: chain, stdin, cwd, fed }) => {
@@ -195,7 +158,6 @@ const parse = async (system: System, command: string): Promise<Result<Script>> =
                 );
                 return map(inner, (scripts) => ({
                     commands: [...located.map(({ hit, stdin, targets, ...parsed }) => parsed), ...scripts.flatMap(({ commands }) => commands)],
-                    sequences: [...sequences, ...scripts.flatMap((script) => script.sequences)],
                 }));
             },
         );

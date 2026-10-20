@@ -116,7 +116,6 @@ final class Watch {
     let app: String
     let log: FileHandle
     var visible: Set<Shown> = []
-    var attached: [pid_t: Task<Void, Never>] = [:]
 
     init(app: String) throws {
         self.app = app
@@ -188,36 +187,24 @@ final class Watch {
 
     // --- [HOLD]
     func hold() async {
-        let running: [NSRunningApplication] = NSRunningApplication.runningApplications(withBundleIdentifier: app)
-        let pids: Set<pid_t> = Set(running.map(\.processIdentifier))
+        let pids: Set<pid_t> = Set(NSRunningApplication.runningApplications(withBundleIdentifier: app).map(\.processIdentifier))
         for shown: Shown in visible.filter({ shown in !pids.contains(shown.pid) }).sorted() { write(Event(app: app, event: .closed, pid: shown.pid, element: shown.element)) }
-        for instance: NSRunningApplication in running { attach(instance, known: visible.filter { shown in shown.pid == instance.processIdentifier }) }
-        for await change: InstanceChange in NSWorkspace.shared.instanceChanges(of: { [app] instance in instance.bundleIdentifier == app }) {
-            switch change {
-                case .launched(let instance):
-                    write(Event(app: app, event: .launch, pid: instance.processIdentifier))
-                    attach(instance, known: [])
-                case .terminated(let instance, let status):
-                    attached.removeValue(forKey: instance.processIdentifier)?.cancel()
+        var previous: [pid_t: Set<Shown>] = Dictionary(grouping: visible.filter { shown in pids.contains(shown.pid) }, by: \.pid).mapValues(Set.init)
+        for await event: InstanceEvent in NSWorkspace.shared.instanceEvents(of: { [app] instance in instance.bundleIdentifier == app }) {
+            switch event {
+                case .instance(.launched(let instance)): write(Event(app: app, event: .launch, pid: instance.processIdentifier))
+                case .instance(.terminated(let instance, let status)):
+                    previous[instance.processIdentifier] = nil
                     write(Event(app: app, event: .exit, pid: instance.processIdentifier, status: status))
-            }
-        }
-    }
-
-    func attach(_ instance: NSRunningApplication, known: Set<Shown>) {
-        let pid: pid_t = instance.processIdentifier
-        attached[pid] = Task { @concurrent in
-            var previous: Set<Shown> = known
-            for await next: Result<ApplicationStatus, ElementFailure> in StatusChanges(instance) {
-                switch next {
-                    case .success(.responding(_, let elements)):
-                        let current: Set<Shown> = Set(elements.map { element in Shown(pid: pid, element: element) })
-                        for shown: Shown in previous.subtracting(current).sorted() { write(Event(app: app, event: .closed, pid: pid, element: shown.element)) }
-                        for shown: Shown in current.subtracting(previous).sorted() { write(Event(app: app, event: .open, pid: pid, element: shown.element)) }
-                        previous = current
-                    case .success(.unresponsive): continue
-                    case .failure(let error): write(Event(app: app, event: .fail, pid: pid, reason: .element(error)))
-                }
+                case .status(let instance, .success(.responding(_, let elements))):
+                    let pid: pid_t = instance.processIdentifier
+                    let known: Set<Shown> = previous[pid] ?? []
+                    let current: Set<Shown> = Set(elements.map { element in Shown(pid: pid, element: element) })
+                    for shown: Shown in known.subtracting(current).sorted() { write(Event(app: app, event: .closed, pid: pid, element: shown.element)) }
+                    for shown: Shown in current.subtracting(known).sorted() { write(Event(app: app, event: .open, pid: pid, element: shown.element)) }
+                    previous[pid] = current
+                case .status(_, .success(.unresponsive)): continue
+                case .status(let instance, .failure(let error)): write(Event(app: app, event: .fail, pid: instance.processIdentifier, reason: .element(error)))
             }
         }
     }
@@ -249,28 +236,25 @@ func locked(_ log: FileHandle) async -> Errno? {
 
 @MainActor
 func answered(_ ids: [String], _ text: String, _ action: ElementAction) async -> Event {
-    let (outcomes, finish): (AsyncStream<Event>, AsyncStream<Event>.Continuation) = AsyncStream.makeStream()
-    let launched: AsyncStream<InstanceChange> = NSWorkspace.shared.instanceChanges { instance in instance.bundleIdentifier.map(ids.contains) == true }
-    let racing: Task<Void, Never> = Task { @MainActor in
-        await withDiscardingTaskGroup { group in
-            func race(_ instance: NSRunningApplication) {
-                group.addTask {
-                    let app: String? = instance.bundleIdentifier
-                    let outcome: Event =
-                        switch await instance.answer(text, with: action) {
-                            case .success: Event(app: app, event: .answered, pid: instance.processIdentifier, action: action)
-                            case .failure(let error): Event(app: app, event: .fail, pid: instance.processIdentifier, action: action, reason: .element(error))
-                        }
-                    finish.yield(outcome)
-                }
+    let shows: (Element) -> Bool = { element in ([element.title].compactMap(\.self) + element.text).contains { line in line.contains(text) } }
+    for await case .status(let instance, let read) in NSWorkspace.shared.instanceEvents(of: { instance in instance.bundleIdentifier.map(ids.contains) == true }) {
+        let outcome: Result<Void, ElementFailure>? =
+            switch read {
+                case .success(.responding(_, let elements)): elements.first(where: shows).map { element in instance.perform(action, on: element.id) }
+                case .success(.unresponsive): nil
+                case .failure(let error): .failure(error)
             }
-            for instance: NSRunningApplication in ids.flatMap(NSRunningApplication.runningApplications(withBundleIdentifier:)) { race(instance) }
-            for await case .launched(let instance) in launched { race(instance) }
+        if let outcome {
+            return Event(
+                app: instance.bundleIdentifier,
+                event: outcome.failure == nil ? .answered : .fail,
+                pid: instance.processIdentifier,
+                action: action,
+                reason: outcome.failure.map(Failure.element),
+            )
         }
     }
-    let outcome: Event = await outcomes.first { @Sendable _ in true } ?? Event(event: .fail, action: action, reason: .unanswered)
-    racing.cancel()
-    return outcome
+    return Event(event: .fail, action: action, reason: .unanswered)
 }
 
 @MainActor func watched(_ ids: [String]) async {
@@ -293,12 +277,16 @@ switch Result(catching: { try WatchApps.parse() }) {
         try FileHandle.standardOutput.write(contentsOf: encoded(Event(event: .fail, reason: .arguments(error))))
         exit(EXIT_FAILURE)
 }
-let apps: [(name: String, ids: Result<[String], DiscoveryFailure>)] = command.apps.map { name in
-    (name, NSWorkspace.shared.installedApplications(matching: .identifier(name), .name(name), in: nil).map { found in found.map(\.identifier) })
+let (names, naming): (AsyncStream<String>, AsyncStream<String>.Continuation) = AsyncStream.makeStream()
+for name: String in command.apps { naming.yield(name) }
+naming.finish()
+let apps: [(name: String, ids: Result<[String], DiscoveryFailure>?)] = await names.map { name in
+    (name, await NSWorkspace.shared.applications(matching: .identifier(name), .name(name)).first { _ in true }?.map { found in found.map(\.identifier) })
 }
+.reduce(into: []) { apps, app in apps.append(app) }
 let failures: [Event] = apps.compactMap { app in
     switch app.ids {
-        case .success(let ids) where ids.isEmpty: Event(app: app.name, event: .fail, reason: .notInstalled)
+        case .success([]), .none: Event(app: app.name, event: .fail, reason: .notInstalled)
         case .success: nil
         case .failure(let error): Event(app: app.name, event: .fail, reason: .discovery(error))
     }

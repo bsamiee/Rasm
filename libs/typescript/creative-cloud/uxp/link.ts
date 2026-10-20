@@ -5,6 +5,10 @@ import { type Rpc, type RpcGroup, type RpcSerialization, RpcServer } from 'effec
 import { Socket, SocketServer } from 'effect/socket';
 import { Plugin } from './runtime.ts';
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const ORIGIN = 'file://';
+
 // --- [MODELS] --------------------------------------------------------------------------
 
 const Peer = Schema.Struct({
@@ -50,4 +54,4 @@ const linked = <Rpcs extends Rpc.Any, H, EH, RH, E, R>(group: RpcGroup.RpcGroup<
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { linked, Peer };
+export { linked, ORIGIN, Peer };

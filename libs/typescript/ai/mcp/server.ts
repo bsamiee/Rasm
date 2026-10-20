@@ -95,7 +95,7 @@ const targeted =
     ) => {
         const parts = Schema.toCodecJson(Schema.Tuple([tool.parametersSchema, Schema.Struct(route.fields)]));
         return register(
-            tool.setParameters(Schema.toEncoded(Schema.Struct({ ...tool.parametersSchema.fields, ...route.fields }))).annotateMerge(route.annotations),
+            tool.setParameters(Schema.toEncoded(Schema.Struct({ ...tool.parametersSchema.fields, ...route.fields }))).annotateMerge(Context.merge(route.annotations, tool.annotations)),
             Effect.fnUntraced(function* (given) {
                 const [parameters, routed] = yield* Schema.decodeEffect(parts)([given, given], { errors: 'all' });
                 const chosen = yield* route.resolve(routed);

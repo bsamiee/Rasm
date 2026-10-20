@@ -23,13 +23,13 @@ Swift handoff: `docs/research/repository-platform/handoff/swift-track-handoff.md
 - Verb classes: `Inspect`, `Kind`, `Change`, `Create`, `Remove`, `Invoke`, `Script`, `FindChange`, `Render`, `Font`, `Menu`, `Preflight`, `Queries`
 - A mutation locates its target once; the baseline covers every document the located elements belong to; a find without a change is a read
 - `Kind` answers the index of classes and enumerations or one declaration, published at `indesign://kinds` with name completion
-- Atelier tools: `launch`, `screenshot`, `font`, `execute_script`, `command` (dictionary command, dialog action, menu action)
+- Atelier tools: `launch`, `screenshot`, `font`, `execute_script`, `command` (dictionary command, dialog actions, menu action), registered again whenever the installed application names change, which tools offer as choices
 - Atelier publishes InDesign `inspect`, `change`, `create`, `remove`, `find_change`, and `render` as tools
 - Atelier publishes InDesign `menu`, `preflight`, `queries`, and `kinds` as resources
 - Every tool result ends with the application's status; `Unmatched` candidates render ranked and capped with the count of the rest
 - Each application has one script path from its runtime row: a dictionary command, or UXP through its linked panel with TypeScript stripped
 - Mutation results hold preflight of each touched document: issue count and issues introduced against the per-mutation baseline
-- The daemon's `/channel` endpoint (`atelier-channel` in `.mcp.json` and `.codex/config.toml`, protocol 2025-11-25 alone) pushes `notifications/claude/channel` events: the latest status of each application launched through `launch`, and the new preflight issues of each document from every mutation result
+- The daemon's `/channel` endpoint (`atelier-channel` in `.mcp.json` and `.codex/config.toml`, protocol 2025-11-25 alone) pushes `notifications/claude/channel` status events following every running Adobe application the server serves, when observation starts and after each change, and no preflight events
 - A Claude Code session opts in with `--dangerously-load-development-channels server:atelier-channel` and receives each event as a `<channel>` turn; headless sessions and Codex receive none, and nothing else over HTTP reaches a model between calls
 - Effect's own resource path renders the first error message alone and turns an interrupt into an error; tools render the full cause
 
@@ -38,8 +38,6 @@ Swift handoff: `docs/research/repository-platform/handoff/swift-track-handoff.md
 - Swift library and helper reduced at the root: MetaCodable replaces the `Request` decoder and memberwise initializers, one-field wrappers, restated host enums, and bool-plus-optional structs go, logic rebuilt as typed-throws bodies
 - Packages adjudicated in `docs/research/repository-platform/handoff/swift-track-handoff.md` land at newest versions, hand-rolled code removed in the same change
 - `Scripting.swift` rebuilt in focused passes, then the broader `libs/swift/macos`
-- `@rasm/automation` reduced from Swift through the library to the app: `script` as one `flatMap`, exports cut to the schemas the app's tools spell, constants, wrappers, and restated types removed where a derivation or package form exists
-- The status push watches each application a tool resolves, keyed by bundle and instance pids, one watch per process
 - Accent folding on PostgreSQL search: reconcile observes, creates, and gates `unaccent` with a text search configuration the query names
 - Table members return decoded rows, so consumers stop decoding through the table's own struct and flattening each result
 
@@ -99,6 +97,8 @@ Each category states what its verbs and views cover and what stays shallow, then
 - Build conditions, notes, footnotes, tables, and cells
 - Build one method-call verb over metadata rows for operations `change`, `create`, and `remove` cannot express
 - Method calls decode arguments by parameter type, one verb in place of a tool per method
+- Fields typed as a class or text (`appliedFont` as Font or String) resolve the name through the class before taking the text, as fields typed by one class do
+- `create` passes `properties` as `add`'s `withProperties` where the method declares it, and the `owner` description names `/` as the application
 
 ### [09]-[OTHER_APPLICATIONS]
 

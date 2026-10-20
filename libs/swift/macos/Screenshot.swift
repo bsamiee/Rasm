@@ -67,7 +67,7 @@ public struct ScreenshotOptions: Sendable {
 }
 
 extension ScreenshotOptions: Decodable {
-    private enum Key: CodingKey { case target, sourceRect, destinationRect, dynamicRange, contentType }
+    private enum Key: CodingKey { case target, sourceRect, destinationRect, maxDimension, dynamicRange, contentType }
     private enum Range: String, Decodable { case sdr, hdr, bothSDRAndHDR }
 
     public init(from decoder: any Decoder) throws {
@@ -84,6 +84,7 @@ extension ScreenshotOptions: Decodable {
             target: fields.decodeIfPresent(Target.self, forKey: .target) ?? .window(nil),
             sourceRect: fields.decodeIfPresent(CGRect.self, forKey: .sourceRect),
             destinationRect: fields.decodeIfPresent(CGRect.self, forKey: .destinationRect),
+            maxDimension: fields.decodeIfPresent(Int.self, forKey: .maxDimension),
             dynamicRange: dynamicRange,
             contentType: contentType,
         )

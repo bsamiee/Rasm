@@ -2,10 +2,6 @@ import type { File } from 'adobe:uxp';
 import { type Cause, Context, type Effect, type Scope } from 'effect';
 import type { Manifest } from './manifest.ts';
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const ORIGIN = 'file://';
-
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class Uxp extends Context.Service<
@@ -20,4 +16,4 @@ class Plugin extends Context.Service<Plugin, Manifest>()('@rasm/uxp/runtime/Plug
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { ORIGIN, Plugin, Uxp };
+export { Plugin, Uxp };

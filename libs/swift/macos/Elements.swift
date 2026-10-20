@@ -138,8 +138,8 @@ extension ApplicationStatus: Encodable {
 
 struct Described {
     let element: Element
-    let targets: [ElementAction: AXUIElement]
-    let fields: [String: AXUIElement]
+    let targets: [(ElementAction, AXUIElement)]
+    let fields: [(String, AXUIElement)]
 }
 
 private struct Part {
@@ -177,7 +177,6 @@ public enum ElementFailure: LocalizedError {
     case state(Int)
     case unmatched(Unmatched)
     case refused(ElementAction, AXError)
-    case cancelled
 
     static func reading(_ error: AXError) -> Self {
         error == .apiDisabled ? .untrusted : .unreadable(error)
@@ -193,7 +192,6 @@ public enum ElementFailure: LocalizedError {
             case .state(let raw): "Accessibility reported check state \(raw), outside 0 off, 1 on, and 2 mixed"
             case .unmatched(let miss): miss.errorDescription
             case .refused(let action, let error): "Performing \(action.label) returned AXError \(error.rawValue)"
-            case .cancelled: "Canceled"
         }
     }
 }
@@ -218,10 +216,10 @@ public struct StatusChanges: AsyncSequence {
 
         public mutating func next() async -> Result<ApplicationStatus, ElementFailure>? {
             let read: Result<(Observation, ApplicationStatus), ElementFailure>? =
-                switch phase {
-                    case .opening(let observing): observing.flatMap { observation in application.status().map { status in (observation, status) } }
-                    case .reading(let observation, let last): await observation.change(from: last, of: application).map { read in read.map { status in (observation, status) } }
-                    case .finished: nil
+                switch (phase, application.isTerminated) {
+                    case (.finished, _), (_, true): nil
+                    case (.opening(let observing), false): observing.flatMap { observation in application.status().map { status in (observation, status) } }
+                    case (.reading(let observation, let last), false): await observation.change(from: last, of: application).map { read in read.map { status in (observation, status) } }
                 }
             phase =
                 switch read {
@@ -254,13 +252,14 @@ private final class Ticks: Sendable {
 private final class Observation {
     let observer: AXObserver
     let ticks: Ticks
+    let lifetime: NSKeyValueObservation
     var pending: AsyncStream<Void>.Iterator
 
     init(_ application: NSRunningApplication) throws(ElementFailure) {
         let names: [String] = [
             kAXWindowCreatedNotification, kAXSheetCreatedNotification, kAXMenuOpenedNotification, kAXMenuClosedNotification, kAXUIElementDestroyedNotification,
             kAXFocusedWindowChangedNotification, kAXMainWindowChangedNotification, kAXTitleChangedNotification, kAXWindowMiniaturizedNotification,
-            kAXWindowDeminiaturizedNotification, kAXApplicationHiddenNotification, kAXApplicationShownNotification,
+            kAXWindowDeminiaturizedNotification, kAXApplicationHiddenNotification, kAXApplicationShownNotification, kAXValueChangedNotification,
         ]
         let element: AXUIElement = AXUIElementCreateApplication(application.processIdentifier)
         let (stream, tick): (AsyncStream<Void>, AsyncStream<Void>.Continuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
@@ -269,22 +268,26 @@ private final class Observation {
         guard let observer: AXObserver = created else { throw .reading(creation) }
         self.observer = observer
         ticks = Ticks(continuation: tick)
+        lifetime = application.observe(\.isTerminated, options: [.initial, .new]) { instance, _ in
+            if instance.isTerminated { tick.finish() }
+        }
         pending = stream.makeAsyncIterator()
         _ = try traverse(names) { name in
             let added: AXError = unsafe AXObserverAddNotification(observer, element, name as CFString, Unmanaged.passUnretained(ticks).toOpaque())
             return added == .success ? .success(()) : .failure(AggregateError(first: (notification: name, error: added)))
         }
-        .mapError(ElementFailure.unobservable).get()
+        .mapError { refusals -> ElementFailure in if case .untrusted = ElementFailure.reading(refusals.first.error) { .untrusted } else { .unobservable(refusals) } }.get()
         CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
     }
 
     deinit {
         CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
+        lifetime.invalidate()
         ticks.continuation.finish()
     }
 
     func change(from last: ApplicationStatus, of application: NSRunningApplication) async -> Result<ApplicationStatus, ElementFailure>? {
-        while await pending.next(isolation: #isolation) != nil {
+        while await pending.next(isolation: #isolation) != nil, !application.isTerminated {
             switch application.status() {
                 case .success(last): continue
                 case let read: return read
@@ -345,7 +348,10 @@ extension AXUIElement {
 
     func label() throws(ElementFailure) -> String? {
         let labels: [String?] = try [kAXTitleAttribute, kAXDescriptionAttribute].map { attribute throws(ElementFailure) in try value(attribute) }
-        return labels.lazy.compactMap(\.self).first { label in !label.isEmpty }
+        return switch labels.lazy.compactMap(\.self).first(where: { label in !label.isEmpty }) {
+            case .some(let label): label
+            case .none: try (value(kAXTitleUIElementAttribute) as AXUIElement?)?.value(kAXValueAttribute)
+        }
     }
 
     // --- [WALK]
@@ -386,8 +392,8 @@ extension AXUIElement {
         let title: String? = try kind == .menu ? (value(kAXParentAttribute) as AXUIElement?)?.label() : label()
         return Described(
             element: Element(id: window, kind: kind, role: role, subrole: subrole, title: title, text: parts.compactMap(\.text), controls: parts.compactMap(\.control), actions: targets.map(\.0)),
-            targets: Dictionary(targets) { first, _ in first },
-            fields: Dictionary(parts.compactMap { part in part.control?.label.map { label in (label, part.node) } }) { first, _ in first },
+            targets: targets,
+            fields: parts.compactMap { part in part.control?.label.map { label in (label, part.node) } },
         )
     }
 }
@@ -414,35 +420,28 @@ extension NSRunningApplication {
         return Result { () throws(ElementFailure) in
             let found: AXUIElement? = try application.candidates().map { candidate throws(ElementFailure) in try candidate.window() == id ? candidate : nil }.compactMap(\.self).first
             guard let target: Described = try found?.described() else { throw .absent(id) }
-            let performed: AXError? =
+            let (kind, offered, nodes): (String, [String], [AXUIElement]) =
                 switch action {
-                    case .set(let field, let value): target.fields[field].map { node in AXUIElementSetAttributeValue(node, kAXValueAttribute as CFString, value as CFString) }
-                    case .cancel: target.targets[action].map { node in AXUIElementPerformAction(node, kAXCancelAction as CFString) }
-                    case .press, .close: target.targets[action].map { node in AXUIElementPerformAction(node, kAXPressAction as CFString) }
+                    case .set(let field, _): ("control", target.element.controls.compactMap(\.label), target.fields.filter { entry in entry.0 == field }.map(\.1))
+                    case .press, .close, .cancel: ("action", target.element.actions.map(\.label), target.targets.filter { entry in entry.0 == action }.map(\.1))
                 }
-            let offered: Unmatched =
+            let node: AXUIElement =
+                switch (nodes.first, nodes.count) {
+                    case (.some(let node), 1): node
+                    case (.none, _): throw .unmatched(Unmatched(subject: "\(kind) of element \(id)", query: action.label, candidates: offered))
+                    case (.some, _): throw .unmatched(Unmatched(subject: "single \(kind) of element \(id)", query: action.label, candidates: offered))
+                }
+            let performed: AXError =
                 switch action {
-                    case .set: Unmatched(subject: "control of element \(id)", query: action.label, candidates: target.element.controls.compactMap(\.label))
-                    case .press, .close, .cancel: Unmatched(subject: "action of element \(id)", query: action.label, candidates: target.element.actions.map(\.label))
+                    case .set(_, let value): AXUIElementSetAttributeValue(node, kAXValueAttribute as CFString, value as CFString)
+                    case .cancel: AXUIElementPerformAction(node, kAXCancelAction as CFString)
+                    case .press, .close: AXUIElementPerformAction(node, kAXPressAction as CFString)
                 }
             switch performed {
-                case .none: throw .unmatched(offered)
-                case .some(.success), .some(.cannotComplete): break
-                case .some(let error): throw .refused(action, error)
+                case .success, .cannotComplete: break
+                case let error: throw .refused(action, error)
             }
         }
-    }
-
-    public func answer(_ text: String, with action: ElementAction) async -> Result<Void, ElementFailure> {
-        let shows: (Element) -> Bool = { element in ([element.title].compactMap(\.self) + element.text).contains { line in line.contains(text) } }
-        for await next: Result<ApplicationStatus, ElementFailure> in StatusChanges(self) {
-            switch next {
-                case .success(.responding(_, let elements)): if let element: Element = elements.first(where: shows) { return perform(action, on: element.id) }
-                case .success(.unresponsive): continue
-                case .failure(let error): return .failure(error)
-            }
-        }
-        return .failure(.cancelled)
     }
 }
 

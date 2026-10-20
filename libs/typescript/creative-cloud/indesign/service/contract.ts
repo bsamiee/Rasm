@@ -1,6 +1,4 @@
 import { Unmatched } from '@rasm/search';
-import { Peer } from '@rasm/uxp/link';
-import { ORIGIN } from '@rasm/uxp/runtime';
 import { Duration, Effect, Option, Schedule, Schema, Stream } from 'effect';
 import { Rpc, RpcClient, RpcGroup, RpcMiddleware, RpcSerialization } from 'effect/rpc';
 import { FindChange, Queries } from '../find.ts';
@@ -12,6 +10,11 @@ import { Render } from '../render.ts';
 import { Script } from '../scripts.ts';
 import { Invoke, Menu } from '../session.ts';
 import { Phase } from '../transactions.ts';
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const PATH = '/indesign';
+const WIRE = RpcSerialization.layerSchemaBinary({ fingerprintPayloads: true });
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -45,8 +48,6 @@ class Hold extends RpcMiddleware.Service<Hold>()('@rasm/indesign/service/contrac
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const WIRE = RpcSerialization.layerSchemaBinary({ fingerprintPayloads: true });
-const LINK = { path: '/indesign', origin: ORIGIN, peer: 'InDesign panel', identity: Peer, serialization: WIRE } as const;
 const Enter = Rpc.make('enter', { payload: {}, success: Phase });
 const InDesign = RpcGroup.make(
     Rpc.make('inspect', { payload: Inspect, success: Inspect.Result, error: Failure }),
@@ -68,4 +69,4 @@ const InDesign = RpcGroup.make(
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Hold, InDesign, LINK };
+export { Hold, InDesign, PATH, WIRE };

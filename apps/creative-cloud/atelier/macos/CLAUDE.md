@@ -13,14 +13,21 @@
 Stdin and stdout carry one JSON-RPC 2.0 message per line in the form Effect's `RpcSerialization.layerNdJsonRpc` reads:
 - `Request` and the `Requests` group in `@rasm/automation` declare each method, a change edits both
 - Calls run concurrently and replies carry their call's `id`
-- Each `@effect/rpc/Ping` gets `@effect/rpc/Pong`, and `@effect/rpc/Interrupt` cancels the call its `requestId` names
-- Lines other than a ping or a call with a readable `id` get no reply
-- Closing stdin cancels every call, and the process exits once every reply is written
-- Failures reply an encoded Effect `Cause`, one `Fail` per refusal, a `Die` for an unreadable request or unencodable reply
+- `@effect/rpc/Interrupt` cancels the call its `requestId` names, an interrupted launch stops waiting
+- `@effect/rpc/Ack` is read and ignored, the client sends no ping and gets no pong
+- Lines other than an interrupt or a call with a readable `id` get no reply
+- Closing stdin ends the process and every call with it
+- Failures reply an encoded Effect `Cause` in `error.data`, one `Fail` per refusal, a `Die` for an unreadable request or unencodable reply
 - Refusals an `Rpc` error union declares encode that schema's fields (`Unmatched`)
-- Applications are addressed by bundle URL as `installations` lists them, each version and channel apart
-- `status`, `watch`, `press`, `execute`, and `screenshot` address a running instance by an optional `pid`, and refuse a bundle running several instances without one as `Unmatched` listing the pids
-- `execute` and `screenshot` launch a bundle with no running instance when no `pid` is given
+- `installations` streams the full row list once Spotlight finishes gathering, then again after each Spotlight update or running-application change that alters a row
+- `installations` lists what Spotlight indexes in the application folders, a bundle outside its index is absent
+- `statuses` streams `{pid, status}` for every Adobe instance that creates windows: its status when observation starts and after each change of its windows, dialogs, sheets, or menus, with an instance's refusal riding inside its status event as a `Failure` result
+- Neither stream fails on one instance, a listing failure ends `installations` with its `Cause`
+- Applications are addressed by `url` as `installations` lists them, each version and channel apart, and a call resolves its `url` from the bundle and running processes with no Spotlight query
+- `activate`, `status`, `press`, `execute`, and `screenshot` address a running instance by an optional `pid`, and refuse a bundle running several instances without one as `Unmatched` listing the pids
+- `activate`, `execute`, and `screenshot` launch a bundle with no running instance when no `pid` is given
+- `launch` replies the `pid` of the instance once it finished launching
+- `press` performs its actions in order and stops at the first refusal
 - Element ids are CoreGraphics window numbers, the ids `press` and `screenshot` take
 
 ## [03]-[VALUES]
@@ -35,8 +42,7 @@ Stdin and stdout carry one JSON-RPC 2.0 message per line in the form Effect's `R
 ## [04]-[HOST]
 
 - `Atelier.app` holds Automation, Screen Recording, and Accessibility grants once start disclaims responsibility from its spawning process
-- Element reads that find the process untrusted open the Accessibility prompt
-- Start sets a one-second Accessibility messaging timeout, an application silent past it reads `unresponsive`
-- `screenshot` activates the application before capture and fails when macOS keeps another application in front
+- Start opens the Accessibility prompt when the process is untrusted and sets a one-second Accessibility messaging timeout, an application silent past it reads `unresponsive`
+- `activate` and `screenshot` bring the application forward through a Launch Services open request, which macOS honors from a background process where an activation request is declined, and wait until it is active
 - ScreenCaptureKit returns a window or `application` capture as one `sdrImage` for every range, and fills `hdrImage` for a whole-display capture alone, which no target takes
 - `hdr` images hold 16-bit extended sRGB values above 1.0, which `public.tiff` keeps and `public.png`, `public.heic`, and `public.jpeg` clip
