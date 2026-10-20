@@ -32,6 +32,8 @@ Remaining work on Creative Cloud libraries and products, for a fresh session.
 - Each application has one script path: UXP through its panel with TypeScript stripped, else its dictionary script command
 - Mutation results hold preflight of each touched document: issue count and issues introduced against the per-mutation baseline
 - Effect's MCP server over HTTP delivers no notification between calls; only Claude Code channel events reach a model, Codex surfaces no push
+- Effect's own resource path renders the first error message alone and turns an interrupt into an error; tools render the full cause
+- The dictionary template completions still go through that host path, since the typed completion form fails to compile
 - Restart the daemon with `mise daemons restart atelier`, the helper with `nx run Atelier:install`
 - Install the panel with `nx run @rasm/galley:install`, then quit and relaunch InDesign through `command` and `launch`
 
@@ -47,6 +49,7 @@ Remaining work on Creative Cloud libraries and products, for a fresh session.
 - `font` with no application answers from CoreText; a named application answers through its linked panel
 - Resource completions select from each resource's own answer through `PublishedResource.complete(success)`; the Galley entry is one `Plugin.use`
 - The Galley panel shows no text; startup failures go to the UXP console; the link state is read through `adobe://applications`
+- `execute_script` answers one result shape naming the runtime on both paths; the panel redials after a defect on its socket
 - Swift projects rebuilt for monorepo integration and modern settings, packages adjudicated and landed, `Scripting.swift` rebuilt in passes
 - ast-grep rules cleaned (wrong fixes, nesting through closures, duplicates, notes under 150 columns), then new rules from the pattern file
 - Database depth pass over the existing concerns with its tests, then the portfolio guidance checked against it
