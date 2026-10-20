@@ -26,20 +26,7 @@ const draft = { name: 'Studio', introduction: '', email: '', entries: [] };
 const json = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 const client = Effect.gen(function* () {
     const { handler } = yield* Effect.acquireRelease(
-        Effect.sync(() =>
-            HttpRouter.toWebHandler(
-                app(owner[contract.headers.email]).pipe(
-                    Layer.provideMerge(
-                        Layer.mergeAll(
-                            store(catalog, (options) => D1Client.layer({ db: env.DB, ...options })),
-                            r2(env.BUCKET),
-                            BrowserCrypto.layer,
-                            Layer.succeed(Assets, { fetch: globalThis.fetch }),
-                        ),
-                    ),
-                ),
-            ),
-        ),
+        Effect.sync(() => HttpRouter.toWebHandler(app(owner[contract.headers.email]).pipe(Layer.provideMerge([store(catalog, (options) => D1Client.layer({ db: env.DB, ...options })), r2(env.BUCKET), BrowserCrypto.layer, Layer.succeed(Assets, { fetch: globalThis.fetch })])))),
         ({ dispose }) => Effect.promise(dispose),
     );
     const send = Effect.fn('send')(function* (path: string, init: RequestInit) {

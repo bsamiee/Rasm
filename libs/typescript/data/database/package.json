@@ -9,7 +9,6 @@
     "dependencies": {
         "@effect/sql-d1": "catalog:",
         "@effect/sql-pg": "catalog:",
-        "@effect/sql-sqlite-do": "catalog:",
         "effect": "catalog:"
     },
     "devDependencies": {
@@ -22,7 +21,8 @@
         "@testcontainers/postgresql": "catalog:",
         "@types/node": "catalog:",
         "cf": "catalog:",
-        "testcontainers": "catalog:"
+        "testcontainers": "catalog:",
+        "vitest": "catalog:"
     },
     "nx": {
         "targets": {

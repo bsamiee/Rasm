@@ -1,15 +1,5 @@
-import { bindings, defineConfig, defineWorker, exports } from 'cf/config';
-import * as entrypoint from '../../../../tests/typescript/libs/data/database/worker.ts' with { type: 'cf-worker' };
+import { bindings, defineConfig, defineWorker } from 'cf/config';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default defineConfig({
-    worker: defineWorker({
-        name: 'database',
-        compatibilityDate: '2026-10-01',
-        compatibilityFlags: ['nodejs_compat'],
-        entrypoint,
-        exports: { Store: exports.durableObject({ storage: 'sqlite' }) },
-        env: { DB: bindings.d1() },
-    }),
-});
+export default defineConfig({ worker: defineWorker({ name: 'database', compatibilityDate: '2026-10-01', env: { DB: bindings.d1() } }) });

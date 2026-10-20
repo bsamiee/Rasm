@@ -13,7 +13,7 @@ const session = Effect.fn('session')(function* (email: string) {
     return yield* Option.match(user(yield* HttpServerRequest.HttpServerRequest), {
         onNone: () => Effect.succeed<typeof Session.Type>({ kind: 'visitor', signedIn: false }),
         onSome: ({ id, email: address }) =>
-            (Option.exists(address, (value) => value.toLowerCase() === email) ? registerOwner({ email, userId: id }) : Effect.map(ownerUserId(email), Option.getOrUndefined)).pipe(Effect.map((ownerId): typeof Session.Type => (ownerId === id ? { kind: 'owner' } : { kind: 'visitor', signedIn: true }))),
+            (Option.exists(address, (value) => value.toLowerCase() === email) ? Effect.asSome(registerOwner({ email, userId: id })) : ownerUserId(email)).pipe(Effect.map((ownerId): typeof Session.Type => (Option.contains(ownerId, id) ? { kind: 'owner' } : { kind: 'visitor', signedIn: true }))),
     });
 });
 const authorize = (email: string) =>

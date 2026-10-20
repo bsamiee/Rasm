@@ -17,8 +17,8 @@ Remaining work on Creative Cloud libraries and products, for a fresh session.
 - Status streams and the file watch yield typed results; waits on host state observe change events under a caller deadline
 - `apps/creative-cloud/atelier/macos` is the Adobe helper: release detection and Effect RPC over stdio, errors named by case with a cause chain
 - `@rasm/automation` is one module: `Installation`, `InstalledFace`, the `Requests` RPC group, and the `Automation` client layer
-- `@rasm/uxp` holds plug-in runtime (`plugin`, `script`, `Uxp`, `Plugin`, `Manifest`) and the dialed RPC link
-- `@rasm/mcp` holds the loopback MCP server, `targeted` routes with a status trailer on every result but a pure interrupt, and `listen` and `publish`
+- `@rasm/uxp` holds plug-in runtime (`plugin`, `script`, `Uxp`, `Plugin`, `Manifest`) and the dialed RPC link, which dials the manifest's network domain under its `Peer` identity
+- `@rasm/mcp` holds the loopback MCP server, `targeted` routes with a status trailer on every result but a pure interrupt, `listen` and `publish`, and the `channel` endpoint
 - `@rasm/search` is `Unmatched`, owning `matching` and `single` with collator equality, ranking and a remainder count in its message
 - `@rasm/typography` is `Face` with instance identity from the matched row, one `Source` model, and runs taking language, script, and direction
 - `@rasm/indesign` is a flat core (`model`, `references`, `transactions`, `mutations`) beside views by host kind and `service/{contract,panel}.ts`
@@ -31,7 +31,8 @@ Remaining work on Creative Cloud libraries and products, for a fresh session.
 - Every tool result ends with the application's status; `Unmatched` candidates render ranked and capped with the count of the rest
 - Each application has one script path from its runtime row: a dictionary command, or UXP through its linked panel with TypeScript stripped
 - Mutation results hold preflight of each touched document: issue count and issues introduced against the per-mutation baseline
-- Effect's MCP server over HTTP delivers no notification between calls; only Claude Code channel events reach a model, Codex surfaces no push
+- The daemon's `/channel` endpoint (`atelier-channel` in `.mcp.json` and `.codex/config.toml`, protocol 2025-11-25 alone) pushes `notifications/claude/channel` events: the latest status of each application launched through `launch`, and the new preflight issues of each document from every mutation result
+- A Claude Code session opts in with `--dangerously-load-development-channels server:atelier-channel` and receives each event as a `<channel>` turn; headless sessions and Codex receive none, and nothing else over HTTP reaches a model between calls
 - Effect's own resource path renders the first error message alone and turns an interrupt into an error; tools render the full cause
 - The dictionary template completions still go through that host path, since the typed completion form fails to compile
 - Restart the daemon with `mise daemons restart atelier`, the helper with `nx run Atelier:install`
@@ -42,20 +43,14 @@ Remaining work on Creative Cloud libraries and products, for a fresh session.
 - Combined wire landing on both sides: `press` returns nothing and `Status` leaves the `command` union; `press` takes a label or `{field, value}`
 - Same landing: element `role` and `subrole` split with `Control` by AX role; `Status` as an enum with not-running as a case; both-range screenshots
 - Same landing: dictionary misses fail `Unmatched`, record descriptors keep a record form, TypeScript `Native` takes the Swift name
-- Status push: a channel endpoint in the daemon served by `@rasm/mcp` declaring `claude/channel`, a per-session event stream, no tools
-- The app follows `Installation.watch()` per application from `launch`, pushes the latest status per application and each new preflight issue
-- A `plugins/` row names the server as a Claude Code channel; sessions opt in with `--channels` under the managed channel settings
-- The resource-updated chain (`follow`, the `changed` stream, the preflight publish, the executions push) goes with that landing
-- `font` with no application answers from CoreText; a named application answers through its linked panel
-- Resource completions select from each resource's own answer through `PublishedResource.complete(success)`; the Galley entry is one `Plugin.use`
 - The Galley panel shows no text; startup failures go to the UXP console; the link state is read through `adobe://applications`
-- `execute_script` answers one result shape naming the runtime on both paths; the panel redials after a defect on its socket
 - Swift packages adjudicated in `docs/research/repository-platform/handoff/swift-track-handoff.md` landed at newest versions, hand-rolled code removed
 - `Scripting.swift` rebuilt in focused passes, then the broader `libs/swift/macos`, with a reviewer per pass
 - The helper's JSON-RPC stdio server moves to a Swift Effect RPC library beside `RasmMacOS`
 - New ast-grep rules from `docs/research/repository-platform/handoff/patterns.md` (101 sketches with matches and exclusions), one reviewer per unit
 - Memory lines that became checks leave the language floors once those rules land
-- Database depth pass over the existing concerns with its tests, then the portfolio guidance checked against it
+- Accent folding on PostgreSQL search: reconcile observes, creates, and gates `unaccent` with a text search configuration the query names
+- Table members return decoded rows, so consumers stop decoding through the table's own struct and flattening each result
 
 ## [03]-[DEPTH]
 

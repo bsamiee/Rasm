@@ -7,7 +7,7 @@ import { Api } from '../model/api.ts';
 import { Asset, Id } from '../model/asset.ts';
 import { readAsset } from './database.ts';
 import { authorize } from './session.ts';
-import { attachUpload, beginUpload, completeUpload, finishRelease, readPendingUploads, releaseUploads } from './storage.ts';
+import { attachUpload, beginUpload, completeUpload, finishRelease, Release, readPendingUploads, releaseUploads } from './storage.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -22,9 +22,10 @@ type Upload =
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const releaseObjects = Effect.fnUntraced(function* (target: Parameters<typeof releaseUploads>[0]) {
-    const objects = yield* releaseUploads(target);
-    const [, failures] = yield* Effect.partition(objects, ({ key, uploadId }) => Effect.andThen(releaseObject(key, uploadId), finishRelease(key)), { concurrency: 'unbounded' });
+const releaseObjects = Effect.fnUntraced(function* (release: Release) {
+    const objects = yield* releaseUploads(release);
+    const [released, failures] = yield* Effect.partition(objects, ({ key, uploadId }) => Effect.as(releaseObject(key, uploadId), key), { concurrency: 'unbounded' });
+    yield* Array.match(released, { onEmpty: () => Effect.void, onNonEmpty: (keys) => finishRelease(release.assetId, keys) });
     if (Array.isReadonlyArrayNonEmpty(failures)) {
         yield* Effect.logError(...failures);
         return yield* HttpApiError.ServiceUnavailable.make();
@@ -42,7 +43,7 @@ const advance = Match.type<{ readonly current: Upload; readonly part: Multipart.
                     attemptId,
                     files.map(({ key }) => key),
                 ),
-                () => releaseObjects({ attemptId }).pipe(Effect.catchTag(['ServiceUnavailable', 'Conflict'], Effect.logError)),
+                () => releaseObjects(Release.Abandon({ assetId: asset.id, attemptId })).pipe(Effect.catchTag(['ServiceUnavailable', 'Conflict'], Effect.logError)),
             );
             return { stage: Option.isSome(existing) ? 'stored' : 'files', asset, attemptId, files } satisfies Upload;
         }),
@@ -53,7 +54,7 @@ const advance = Match.type<{ readonly current: Upload; readonly part: Multipart.
             if (file.key !== object.field || (object.name !== undefined && file.name !== object.name)) {
                 return yield* HttpApiError.BadRequest.make();
             }
-            yield* state.stage === 'stored' ? Stream.runDrain(file.content) : Effect.flatMap(createUpload(object), ({ uploadToken, write }) => Effect.andThen(attachUpload(object.key, uploadToken), write(file.content)));
+            yield* state.stage === 'stored' ? Stream.runDrain(file.content) : Effect.flatMap(createUpload(object), ({ uploadToken, write }) => Effect.andThen(attachUpload(state.asset.id, object.key, uploadToken), write(file.content)));
             return { ...state, files: state.files.slice(1) } satisfies Upload;
         }),
     ),
@@ -85,7 +86,7 @@ const media = HttpApiBuilder.group(Api, 'media', (handlers) =>
                     return yield* HttpApiError.BadRequest.make();
                 }
                 if (uploaded.stage === 'files') {
-                    yield* completeUpload(uploaded.attemptId);
+                    yield* completeUpload(uploaded.asset.id, uploaded.attemptId);
                 }
                 return { id: uploaded.asset.id };
             },
@@ -94,8 +95,8 @@ const media = HttpApiBuilder.group(Api, 'media', (handlers) =>
             Effect.catchTag(['UnknownError', 'PlatformError'], unavailable),
         ),
         pending: () => readPendingUploads,
-        discard: ({ params }) => releaseObjects({ assetId: params.id, remove: false }),
-        delete: ({ params }) => releaseObjects({ assetId: params.id, remove: true }),
+        discard: ({ params }) => releaseObjects(Release.Discard({ assetId: params.id })),
+        delete: ({ params }) => releaseObjects(Release.Delete({ assetId: params.id })),
     }),
 );
 const download = (email: string) => HttpRouter.add('GET', '/api/media/:id/:width?', readMedia(email));

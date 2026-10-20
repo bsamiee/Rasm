@@ -1,8 +1,7 @@
-import { PgClient } from '@effect/sql-pg';
 import { layer } from '@effect/vitest';
-import { types } from '@rasm/database/pg.ts';
+import { direct } from '@rasm/database/pg.ts';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
-import { type Cause, Context, Effect, Function, Layer, Redacted } from 'effect';
+import { type Cause, Context, Effect, Layer, Redacted } from 'effect';
 import { PullPolicy } from 'testcontainers';
 import { cases } from './cases.ts';
 
@@ -32,14 +31,7 @@ layer(
 )('container', (methods) =>
     cases(
         methods,
-        (options) =>
-            Layer.unwrap(
-                Effect.map(
-                    Postgres.use(({ restored }) => restored),
-                    (url) => PgClient.layer({ url, ...options, types }),
-                ),
-            ),
-        Function.identity,
+        () => Layer.unwrap(Postgres.use(({ restored }) => Effect.map(restored, direct))),
         () => Effect.void,
     ),
 );

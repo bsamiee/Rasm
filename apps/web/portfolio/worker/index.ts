@@ -9,9 +9,6 @@ import { HttpRouter } from 'effect/http';
 import { app } from './app.ts';
 import { catalog } from './database.ts';
 
-// --- [EXPORTS] -------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
-export default worker(
-    (bindings: Env) =>
-        HttpRouter.toWebHandler(app(bindings.OWNER_EMAIL).pipe(Layer.provideMerge(store(catalog, (options) => D1Client.layer({ db: bindings.DB, ...options }))), Layer.provideMerge(r2(bindings.BUCKET)), Layer.provideMerge(BrowserCrypto.layer), Layer.provideMerge(Layer.succeed(Assets, bindings.ASSETS)))).handler,
-);
+export default worker((bindings: Env) => HttpRouter.toWebHandler(app(bindings.OWNER_EMAIL).pipe(Layer.provideMerge([store(catalog, (options) => D1Client.layer({ db: bindings.DB, ...options })), r2(bindings.BUCKET), BrowserCrypto.layer, Layer.succeed(Assets, bindings.ASSETS)]))).handler);

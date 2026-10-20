@@ -1,4 +1,4 @@
-import { Array, Function, Hash, Match, Option } from 'effect';
+import { Array, Function, Hash, Match, Option, Struct } from 'effect';
 import { actions, type Column, document, literal, names, quote, type Relation, types } from './table.ts';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -21,7 +21,6 @@ const identifier = (parts: readonly string[]) => {
 // --- [DIALECTS]
 const dialects = {
     sqlite: {
-        types: types.sqlite,
         constant,
         length: 'length',
         domain: ({ name, kind }: Column) =>
@@ -57,12 +56,11 @@ const dialects = {
         policy: () => Option.none(),
     },
     pg: {
-        types: types.pg,
         constant: (entry: Column, value: string | number) => (entry.kind === 'boolean' ? `${value === 1}` : constant(entry, value)),
         length: 'char_length',
         domain: ({ name, kind }: Column) =>
             Match.value(kind).pipe(
-                Match.when('real', () => [`${quote(name)} NOT IN ('NaN', 'Infinity', '-Infinity')`]),
+                Match.whenOr('real', 'decimal', () => [`${quote(name)} NOT IN ('NaN', 'Infinity', '-Infinity')`]),
                 Match.when('instant', () => [`isfinite(${quote(name)})`]),
                 Match.orElse(() => []),
             ),
@@ -90,13 +88,24 @@ const dialects = {
 };
 
 // --- [RENDER]
-const render = (dialect: keyof typeof dialects, declared: Relation, target: (name: string) => string, retained: readonly string[]) => {
+const render = (dialect: keyof typeof dialects, declared: Relation, target: (name: string) => string, retained: { readonly elements: readonly string[]; readonly autoincrement: boolean }) => {
     const { name: owner, key, references, search, tenant, withoutRowid, indexes } = declared.table;
     const [style, entries, relation] = [dialects[dialect], Object.values(declared.table.columns), target(owner)];
     const list = (columns: readonly string[]) => columns.map(quote).join(', ');
     const label = (parts: readonly string[]) => ({ name: identifier([owner, ...parts]), parts });
     const named = (name: string) => Array.findFirst(entries, (entry) => entry.name === name);
-    const projection = (entry: Column) => Option.map(entry.projection, ({ from, path }) => style.projection(entry, from, path));
+    const path = (entry: Column) => Option.flatMap(entry.projection, (projected) => (projected._tag === 'Path' ? Option.some(style.projection(entry, projected.from, projected.path)) : Option.none()));
+    const operand = (name: string) => Option.match(Option.flatMap(named(name), path), { onNone: () => quote(name), onSome: (expression) => style.projected(expression, name) });
+    const predicate = ({ column: name, predicate: rule }: (typeof indexes)[number]['where'][number]) => {
+        const members = (values: readonly (string | number)[]) => `${operand(name)} IN (${values.flatMap((member) => Option.toArray(Option.map(named(name), (entry) => style.constant(entry, member)))).join(', ')})`;
+        return Match.value(rule).pipe(
+            Match.when(null, () => `${operand(name)} IS NULL`),
+            Match.when({ not: null }, () => `${operand(name)} IS NOT NULL`),
+            Match.when({ not: Match.defined }, ({ not }) => `(${members(not)}) IS NOT TRUE`),
+            Match.orElse(members),
+        );
+    };
+    const projection = (entry: Column) => Option.map(entry.projection, (projected) => (projected._tag === 'Path' ? style.projection(entry, projected.from, projected.path) : projected.where.map(predicate).join(' AND ')));
     const keyed = ({ column: name, casefold }: (typeof indexes)[number]['keys'][number], method: string) => {
         const found = named(name);
         const opclass = Match.value({ method, json: Option.exists(found, ({ kind }) => kind === 'json') }).pipe(
@@ -107,14 +116,8 @@ const render = (dialect: keyof typeof dialects, declared: Relation, target: (nam
         );
         return [casefold ? style.casefold(name) : Option.match(Option.flatMap(found, projection), { onNone: () => quote(name), onSome: (expression) => style.projected(expression, name) }), ...Option.toArray(opclass)].join(' ');
     };
-    const predicate = ({ column: name, predicate: rule }: (typeof indexes)[number]['where'][number]) =>
-        Match.value(rule).pipe(
-            Match.when(null, () => `${quote(name)} IS NULL`),
-            Match.when({ not: null }, () => `${quote(name)} IS NOT NULL`),
-            Match.orElse((members) => `${quote(name)} IN (${members.flatMap((member) => Option.toArray(Option.map(named(name), (entry) => style.constant(entry, member)))).join(', ')})`),
-        );
     const definitions = entries.map((entry) => {
-        const [subject, type, fallback] = [quote(entry.name), style.types[entry.kind], Option.map(entry.fallback, (value) => style.constant(entry, value))];
+        const [subject, type, fallback] = [quote(entry.name), types[dialect][entry.kind], Option.map(entry.fallback, (value) => style.constant(entry, value))];
         const conditions = [
             ...(Array.isReadonlyArrayNonEmpty(entry.literals) ? [`${subject} IN (${entry.literals.map((value) => style.constant(entry, typeof value === 'number' ? value : `${value}`)).join(', ')})`] : []),
             ...(entry.kind === 'integer' ? [`${subject} BETWEEN ${-Number.MAX_SAFE_INTEGER} AND ${Number.MAX_SAFE_INTEGER}`] : []),
@@ -138,15 +141,15 @@ const render = (dialect: keyof typeof dialects, declared: Relation, target: (nam
                 ].join(' ');
             return { name, parts, trigram: ['gin', 'gist'].includes(method) && keys.some(({ column: part }) => !Option.exists(named(part), ({ kind }) => kind === 'json')), text };
         });
-    const searched = Option.map(search, ({ columns, trigram }) => style.search(owner, columns, trigram));
+    const searched = Option.map(search, ({ columns, trigram }) => style.search(owner, Array.map(columns, Struct.get('name')), trigram));
     return {
         relation,
         definitions,
         links,
         indexes: [...built, ...Option.toArray(searched).flatMap(({ indexes: found }) => found.map((index) => ({ ...index, text: (prefix: string) => index.text(prefix, relation) })))],
         fts: Option.flatMap(searched, ({ fts }) => fts),
-        policy: Option.flatMap(Option.flatMap(tenant, named), ({ name, kind }) => Option.map(style.policy(owner, name, style.types[kind]), (rule) => ({ ...rule, text: (role: string) => rule.text(relation, role) }))),
-        create: `CREATE TABLE ${relation} (${[...definitions.map(({ text }) => text), ...retained, `PRIMARY KEY (${list(key)})`, ...links.map(({ name, text }) => style.constraint(name, text))].join(', ')})${style.suffix(withoutRowid)}`,
+        policy: Option.flatMap(Option.flatMap(tenant, named), ({ name, kind }) => Option.map(style.policy(owner, name, types[dialect][kind]), (rule) => ({ ...rule, text: (role: string) => rule.text(relation, role) }))),
+        create: `CREATE TABLE ${relation} (${[...definitions.map(({ text }) => text), ...retained.elements, `PRIMARY KEY (${list(key)}${retained.autoincrement ? ' AUTOINCREMENT' : ''})`, ...links.map(({ name, text }) => style.constraint(name, text))].join(', ')})${style.suffix(withoutRowid)}`,
     };
 };
 
