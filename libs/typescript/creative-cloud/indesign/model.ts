@@ -1,6 +1,6 @@
 import type { BaseCollection, Document, Enumeration, Enumerator, InDesignDOMObject, MenuAction, Page, PageItem, ReadonlyNamedDOMObject, Spread, Text, TextFrame } from 'adobe:indesign';
 import { Unmatched } from '@rasm/search';
-import { Array, Cache, type Cause, Context, Effect, flow, Match, Option, Predicate, pipe, Record, Schema, SchemaGetter, Struct } from 'effect';
+import { Array, Cache, Cause, Context, Effect, flow, Match, Number, Option, Predicate, pipe, Record, Schema, SchemaGetter, Struct } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -55,7 +55,7 @@ class Model extends Context.Service<Model>()('@rasm/indesign/model', {
             owning<ReadonlyNamedDOMObject<unknown>>('name'),
             owning<Document>('createTOC'),
             owning<Page>('documentOffset'),
-            owning<Spread>('allowPageShuffle'),
+            owning<Spread>('spreadHidden'),
             owning<PageItem>('itemLayer'),
             owning<Text>('parentTextFrames'),
             owning<TextFrame>('textFrameIndex'),
@@ -88,13 +88,10 @@ class Model extends Context.Service<Model>()('@rasm/indesign/model', {
                 Option.filter(observed, (each): each is MenuAction => each.constructorName === 'MenuAction'),
                 Struct.get('id'),
             );
-            return Match.value({ kind, field, writing, stylistic: Option.isNone(id) || (id.value >= first && id.value <= last) }).pipe(
-                Match.when(
-                    { kind: (each: string) => ['FindChangeDropShadowSetting', 'FindChangeInnerShadowSetting'].includes(each), field: (each: string) => ['angle', 'distance', 'xOffset', 'yOffset', 'properties'].includes(each) },
-                    () => 'The native Transparency provider crashes for this Find/Change shadow accessor',
-                ),
-                Match.when({ kind: 'EventListener', field: (each: string) => ['handler', 'properties'].includes(each), writing: false }, () => 'Reading an event handler whose UXP context has ended crashes InDesign; the DOM exposes no context lifetime'),
-                Match.when({ kind: 'MenuAction', field: (each: string) => ['enabled', 'checked', 'properties'].includes(each), writing: false, stylistic: true }, () => 'The native CharacterPanel provider crashes when reading Stylistic Set action state'),
+            return Match.value({ kind, field, writing, stylistic: !Option.exists(id, Predicate.not(Number.between({ minimum: first, maximum: last }))) }).pipe(
+                Match.when({ kind: Match.is('FindChangeDropShadowSetting', 'FindChangeInnerShadowSetting'), field: Match.is('angle', 'distance', 'xOffset', 'yOffset', 'properties') }, () => 'The native Transparency provider crashes for this Find/Change shadow accessor'),
+                Match.when({ kind: 'EventListener', field: Match.is('handler', 'properties'), writing: false }, () => 'Reading an event handler whose UXP context has ended crashes InDesign; the DOM exposes no context lifetime'),
+                Match.when({ kind: 'MenuAction', field: Match.is('enabled', 'checked', 'properties'), writing: false, stylistic: true }, () => 'The native CharacterPanel provider crashes when reading Stylistic Set action state'),
                 Match.option,
             );
         };
@@ -153,16 +150,13 @@ found === null ? null : (function (model) {
                         encode: SchemaGetter.forbiddenEncoding,
                     }),
                 );
-                return Effect.try(() => indesign.app.doScript(reader, indesign.ScriptLanguage.JAVASCRIPT, [kind])).pipe(
+                return Effect.try({ try: () => indesign.app.doScript(reader, indesign.ScriptLanguage.JAVASCRIPT, [kind]), catch: (cause) => new Cause.UnknownError(cause, `dictionary class ${kind}`) }).pipe(
                     Effect.flatMap(flow(Schema.decodeUnknownEffect(Schema.NullOr(Reader)), Effect.orDie)),
                     Effect.filterOrFail(Predicate.isNotNull, () => Unmatched.make({ subject: 'class', query: Option.some(kind), candidates: classes })),
                 );
             },
         });
-        const lineage: (name: string) => Effect.Effect<readonly string[], Unmatched | Cause.UnknownError> = Effect.fnUntraced(function* (name: string) {
-            const { parent } = yield* Cache.get(rows, name);
-            return Option.isSome(parent) ? [parent.value, ...(yield* lineage(parent.value))] : [];
-        });
+        const lineage = (name: string): Effect.Effect<readonly string[], Unmatched | Cause.UnknownError> => Effect.flatMap(Cache.get(rows, name), ({ parent }) => Option.match(parent, { onNone: () => Effect.succeed([]), onSome: (above) => Effect.map(lineage(above), (rest) => [above, ...rest]) }));
         const element = (kind: string) => Effect.map(Cache.get(rows, kind), ({ methods }) => Option.flatMap(Record.get(methods, 'item'), ({ returns }) => Option.flatMap(returns, Struct.get('type'))));
         const catalog = yield* Cache.make({
             capacity: exported.length,
@@ -174,8 +168,9 @@ found === null ? null : (function (model) {
                     Record.getSomes,
                     Record.toEntries,
                     Effect.findFirst(([, each]) => Effect.map(element(each), Option.contains(kind))),
+                    Effect.map(Option.map(([field]) => field)),
                 );
-                return Option.isSome(listed) ? Option.some(listed.value[0]) : Option.map(yield* held, ([field]) => field);
+                return yield* Option.match(listed, { onSome: ([field]) => Effect.succeedSome(field), onNone: () => held });
             }),
         });
         return Object.assign(model, { exported, classes, enumerations, owning, host, collection, named, document, page, spread, item, text, frame, enumeration, members, declared, plural, unavailable, rows, lineage, catalog });

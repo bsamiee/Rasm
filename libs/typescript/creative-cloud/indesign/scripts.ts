@@ -2,7 +2,7 @@ import { parse } from 'acorn';
 import { fullAncestor } from 'acorn-walk';
 import { Array, Cause, Effect, flow, Option, Predicate, Schema } from 'effect';
 import { Model } from './model.ts';
-import { resolve } from './references.ts';
+import { documents, resolve } from './references.ts';
 import { Mutation } from './transactions.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -21,8 +21,7 @@ class Script extends Mutation.extend<Script>('Script')(
         ].join('\n'),
     },
 ) {
-    static readonly Own = Schema.Struct({ result: Schema.OptionFromOptionalKey(Schema.Json) });
-    static readonly Result = Mutation.summarized(Script.Own);
+    static readonly Result = Mutation.summarized(Schema.Struct({ result: Schema.OptionFromOptionalKey(Schema.Json) }));
 
     override get label(): string {
         return `Run script: ${Option.getOrElse(
@@ -50,7 +49,7 @@ class Script extends Mutation.extend<Script>('Script')(
                 }
                 awaiting ||= (node.type === 'AwaitExpression' || (node.type === 'ForOfStatement' && node.await)) && !ancestors.some((above) => above.type === 'FunctionDeclaration' || above.type === 'FunctionExpression' || above.type === 'ArrowFunctionExpression');
             });
-            const given = { ...Object.fromEntries(exported.filter(([name]) => used.has(name) && !(name in globalThis))), resolve: flow(resolve, Effect.runSyncWith(yield* Effect.context<Model>())) };
+            const given = { ...Object.fromEntries(exported.filter(([name]) => used.has(name))), resolve: flow(resolve, Effect.runSyncWith(yield* Effect.context<Model>())) };
             const text = `{\n${code}\n}`;
             const header = 3;
             const compiled = yield* Effect.try({
@@ -67,8 +66,11 @@ class Script extends Mutation.extend<Script>('Script')(
                     Error.prepareStackTrace = prepare;
                 }
             };
-            return yield* commit(Script.Own, Effect.try({ try: (): unknown => Reflect.apply(compiled, undefined, Object.values(given)), catch: thrown }), (value) =>
-                Effect.map(Predicate.isPromiseLike(value) ? Effect.tryPromise({ try: () => Promise.resolve(value), catch: thrown }) : Effect.succeed(value), (result) => ({ result })),
+            return yield* commit(
+                Script.Result,
+                documents,
+                () => Effect.try({ try: (): unknown => Reflect.apply(compiled, undefined, Object.values(given)), catch: thrown }),
+                (value) => Effect.map(Effect.tryPromise({ try: () => Promise.resolve(value), catch: thrown }), (result) => ({ result })),
             );
         });
     }

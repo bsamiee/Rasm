@@ -17,7 +17,7 @@ class SwatchView extends Schema.TaggedClass<SwatchView, { readonly brand: unique
     }).annotate({ description: 'What the swatch holds by kind; None and mixed ink groups hold no value' }),
 }) {
     static readonly viewed = ({ owning }: Model['Service']) => flow(Option.liftPredicate(owning<PlainSwatch | PlainColor | Tint | Gradient | MixedInk | MixedInkGroup>('parentColorGroup')), Option.map(SwatchView.of));
-    static readonly of = Effect.fn('of')(function* (swatch: PlainSwatch | PlainColor | Tint | Gradient | MixedInk | MixedInkGroup) {
+    static readonly of = Effect.fn('SwatchView.of')(function* (swatch: PlainSwatch | PlainColor | Tint | Gradient | MixedInk | MixedInkGroup) {
         const value = Match.value(swatch).pipe(
             Match.when({ constructorName: 'Color' }, ({ model, space, colorValue }) => ({ _tag: 'Color', model, space, colorValue })),
             Match.when({ constructorName: 'Tint' }, ({ baseColor, tintValue }) => ({ _tag: 'Tint', baseColor, tintValue })),
@@ -25,7 +25,7 @@ class SwatchView extends Schema.TaggedClass<SwatchView, { readonly brand: unique
             Match.when({ constructorName: 'MixedInk' }, ({ baseColor, inkPercentages }) => ({ _tag: 'MixedInk', baseColor, inkPercentages })),
             Match.orElse(() => ({ _tag: 'Swatch' })),
         );
-        return yield* read(SwatchView, () => ({ _tag: 'Swatch', ...Reference.of(swatch), group: Option.map(Option.fromNullOr(swatch.parentColorGroup), Struct.get('name')), value }));
+        return yield* read(SwatchView, swatch.toSpecifier(), () => ({ _tag: 'Swatch', ...Reference.of(swatch), group: Option.map(Option.fromNullOr(swatch.parentColorGroup), Struct.get('name')), value }));
     });
 }
 

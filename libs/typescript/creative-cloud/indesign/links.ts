@@ -1,5 +1,5 @@
 import type { Link } from 'adobe:indesign';
-import { Effect, flow, Option, Schema } from 'effect';
+import { flow, Option, Schema } from 'effect';
 import type { Model } from './model.ts';
 import { Reference, read } from './references.ts';
 
@@ -18,9 +18,8 @@ class LinkView extends Schema.TaggedClass<LinkView, { readonly brand: unique sym
     parent: Reference.annotate({ description: 'Graphic or story the link places' }),
 }) {
     static readonly viewed = ({ owning }: Model['Service']) => flow(Option.liftPredicate(owning<Link>('linkResourceURI')), Option.map(LinkView.of));
-    static readonly of = Effect.fn('of')(function* (link: Link) {
-        return yield* read(LinkView, () => ({ _tag: 'Link', ...Reference.of(link), status: link.status, filePath: link.filePath, linkResourceURI: link.linkResourceURI, linkType: link.linkType, needed: link.needed, edited: link.edited, size: link.size, date: link.date, parent: link.parent }));
-    });
+    static readonly of = (link: Link) =>
+        read(LinkView, link.toSpecifier(), () => ({ _tag: 'Link', ...Reference.of(link), status: link.status, filePath: link.filePath, linkResourceURI: link.linkResourceURI, linkType: link.linkType, needed: link.needed, edited: link.edited, size: link.size, date: link.date, parent: link.parent }));
 }
 
 // --- [EXPORTS] -------------------------------------------------------------------------

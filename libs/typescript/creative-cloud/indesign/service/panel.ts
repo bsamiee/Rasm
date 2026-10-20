@@ -22,8 +22,8 @@ const hold = Layer.effect(Hold)(
     }),
 );
 const handlers = InDesign.toLayer({
-    enter: () => Rpc.fork(Effect.flatMap(Transactions, ({ enter }) => enter)),
-    changed: () => Rpc.fork(Stream.unwrap(Effect.map(Transactions, ({ changed }) => Stream.fromPubSub(changed)))),
+    enter: () => Rpc.fork(Transactions.use(({ enter }) => enter)),
+    changed: () => Rpc.fork(Stream.unwrap(Transactions.useSync(({ changed }) => Stream.fromPubSub(changed)))),
     inspect: (payload) => payload.run(),
     change: (payload) => payload.run(),
     create: (payload) => payload.run(),

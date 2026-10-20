@@ -1,7 +1,7 @@
 import { Array, Cause, Context, Data, Deferred, Effect, Match, PubSub, Record, Ref, Schema, Struct } from 'effect';
 import { Model } from './model.ts';
 import { Preflight } from './preflight.ts';
-import { read } from './references.ts';
+import { owner, read } from './references.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -12,20 +12,21 @@ abstract class Mutation extends Schema.Class<Mutation, { readonly brand: unique 
 
     abstract get label(): string;
 
-    commit<F extends Schema.Struct.Fields, A, E, R>(own: Schema.Struct<F>, body: Effect.Effect<A, E, R>) {
-        return this.commitSettling(own, body, Effect.succeed);
+    commit<S extends Schema.Top, T, E1, R1, A extends object, E, R>(result: S, locate: Effect.Effect<T, E1, R1>, body: (found: T) => Effect.Effect<A, E, R>) {
+        return this.commitSettling(result, locate, body, Effect.succeed);
     }
 
-    commitSettling<F extends Schema.Struct.Fields, A, E, R, E2, R2>(own: Schema.Struct<F>, body: Effect.Effect<A, E, R>, settle: (value: A) => Effect.Effect<unknown, E2, R2>) {
+    commitSettling<S extends Schema.Top, T, E1, R1, A, E, R, E2, R2>(result: S, locate: Effect.Effect<T, E1, R1>, body: (found: T) => Effect.Effect<A, E, R>, settle: (value: A) => Effect.Effect<object, E2, R2>) {
         const { label } = this;
         return Effect.gen(function* () {
             const { run, changed } = yield* Transactions;
-            const baseline = yield* Preflight.baseline();
-            const { value, touched } = yield* run(label, body);
+            const found = yield* locate;
+            const baseline = yield* Preflight.baseline(Array.getSomes(yield* Effect.forEach(Array.ensure<unknown>(found), owner)));
+            const { value, touched } = yield* run(label, body(found));
             const settled = yield* settle(value);
-            const preflight = yield* Preflight.summarized(baseline, touched);
-            yield* PubSub.publishAll(changed, preflight);
-            return { ...(yield* read(own, () => settled)), preflight };
+            const { preflight, altered } = yield* Preflight.summarized(baseline, touched);
+            yield* PubSub.publishAll(changed, altered);
+            return yield* read(result, label, () => ({ ...settled, preflight }));
         });
     }
 }
@@ -83,11 +84,10 @@ class Transactions extends Context.Service<Transactions>()('@rasm/indesign/trans
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const preserve = <T extends object>(target: T, replacements: Partial<T>) =>
-    Effect.acquireRelease(
-        Effect.try(() => Record.fromIterableWith(Struct.keys(replacements), (key) => [key, target[key]])),
-        (saved) => Effect.orDie(Effect.try(() => Object.assign(target, saved))),
-    ).pipe(Effect.tap(() => Effect.try(() => Object.assign(target, replacements))));
+const preserve = <T extends object>(target: T, replacements: Partial<T>) => {
+    const refused = (cause: unknown) => new Cause.UnknownError(cause, `preferences ${Struct.keys(replacements).join(', ')}`);
+    return Effect.acquireRelease(Effect.try({ try: () => Record.fromIterableWith(Struct.keys(replacements), (key) => [key, target[key]]), catch: refused }), (saved) => Effect.sync(() => Object.assign(target, saved))).pipe(Effect.tap(() => Effect.try({ try: () => Object.assign(target, replacements), catch: refused })));
+};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

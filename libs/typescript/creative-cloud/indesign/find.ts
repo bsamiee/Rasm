@@ -4,6 +4,7 @@ import { Uxp } from '@rasm/uxp/runtime';
 import { Array, Cause, Effect, flow, Number, Option, Predicate, pipe, Record, Schema, String, Struct } from 'effect';
 import { Model } from './model.ts';
 import { write } from './mutations.ts';
+import { Preflight } from './preflight.ts';
 import { active, owner, read, resolve, Specifier } from './references.ts';
 import { Mutation, preserve } from './transactions.ts';
 
@@ -29,23 +30,31 @@ class FindChange extends Mutation.extend<FindChange>('FindChange')(
             "Finds or changes native text, GREP, glyph, object, or color matches in one undo step. Search preferences restore after each call. Values decode as change decodes them: enumeration members and named objects by name, {type, specifier} for native objects. Inspect the mode's preference class for its fields",
     },
 ) {
-    static readonly Own = Schema.Struct({
+    static readonly Result = Schema.Struct({
         count: Schema.Struct({ matches: Schema.Int, changes: Schema.OptionFromOptionalKey(Schema.Int.annotate({ description: 'Native numeric change result, returned by Color operations. Absent for array returns and search-only calls; array length does not count edits' })) }),
         matches: Schema.Array(Schema.Struct({ specifier: Specifier, text: Schema.OptionFromOptionalKey(Schema.String), page: Schema.OptionFromOptionalKey(Schema.String) })).annotate({
             description: 'Native matches with their text before changes; inspect their specifiers for surrounding content. Color returns counts alone',
         }),
+        preflight: Schema.OptionFromOptionalKey(Preflight.Summary.annotate({ description: 'Absent for a find' })),
     });
-    static readonly Result = Mutation.summarized(FindChange.Own);
 
     override get label(): string {
         return `${Option.isSome(this.change) ? 'Change' : 'Find'} ${this.mode}${Option.match(this.query, { onNone: () => '', onSome: (name) => ` query ${name}` })}`;
     }
 
     run() {
-        return this.commit(FindChange.Own, this.search());
+        const located = Option.match(this.scope, { onSome: resolve, onNone: () => active });
+        return Option.match(this.change, {
+            onNone: () =>
+                located.pipe(
+                    Effect.flatMap((found: unknown) => this.search(found)),
+                    Effect.flatMap((found) => read(FindChange.Result, this.label, () => found)),
+                ),
+            onSome: () => this.commit(FindChange.Result, located, (found) => this.search(found)),
+        });
     }
 
-    search() {
+    search(located: unknown) {
         const { mode, find: sought, change: replacing, options, scope, query, save } = this;
         return Effect.gen(function* () {
             const { app, Enumerator, NothingEnum, SearchModes, owning, text, item } = yield* Model;
@@ -53,26 +62,22 @@ class FindChange extends Mutation.extend<FindChange>('FindChange')(
             const owners = { find: `${find}Preferences`, change: `${change}Preferences`, options: `findChange${mode}Options` } as const;
             const search = SearchModes[`${String.toLowerCase(mode)}search` as const];
             const held = `find-change-${yield* Effect.fiberId}`;
-            yield* Effect.acquireRelease(
-                Effect.try(() => app.saveFindChangeQuery(held, search)),
-                () =>
-                    Effect.orDie(
-                        Effect.try(() => {
-                            app.loadFindChangeQuery(held, search);
-                            app.deleteFindChangeQuery(held, search);
-                        }),
-                    ),
+            const refused = (name: string) => (cause: unknown) => new Cause.UnknownError(cause, `query ${name}`);
+            yield* Effect.acquireRelease(Effect.try({ try: () => app.saveFindChangeQuery(held, search), catch: refused(held) }), () =>
+                Effect.sync(() => {
+                    app.loadFindChangeQuery(held, search);
+                    app.deleteFindChangeQuery(held, search);
+                }),
             );
-            yield* Effect.try(() => Record.map(owners, (field) => Object.assign(app, { [field]: NothingEnum.NOTHING })));
+            yield* Effect.try({ try: () => Record.map(owners, (field) => Object.assign(app, { [field]: NothingEnum.NOTHING })), catch: (cause) => new Cause.UnknownError(cause, `${mode} preference reset`) });
             const rendered = (contents: unknown): string => Array.map(Array.ensure(contents), (each) => (each instanceof Enumerator ? `<${globalThis.String(each)}>` : globalThis.String(each))).join('');
             const scopes = yield* Effect.forEach(
-                Array.ensure<unknown>(yield* Option.match(scope, { onSome: resolve, onNone: () => active })),
+                Array.ensure(located),
                 flow(
                     Option.liftPredicate(owning<InDesignDOMObject<unknown> & Pick<Document, typeof find | typeof change>>(change)),
                     Effect.fromOption(() => Unmatched.make({ subject: `${mode} search target`, query: scope, candidates: [] })),
                 ),
             );
-            const refused = (name: string) => (cause: unknown) => new Cause.UnknownError(cause, `query ${name}`);
             yield* Effect.transposeOption(Option.map(query, (name) => Effect.try({ try: () => app.loadFindChangeQuery(name, search), catch: refused(name) })));
             yield* Effect.forEach(
                 [
@@ -95,8 +100,7 @@ class FindChange extends Mutation.extend<FindChange>('FindChange')(
                         try: () => {
                             const hits = each[find]();
                             const matches = Predicate.isNumber(hits) ? [] : hits.map(describe);
-                            const changes = Option.isSome(replacing) ? each[change]() : undefined;
-                            return { count: { matches: Predicate.isNumber(hits) ? hits : hits.length, changes: Option.liftPredicate(changes, Predicate.isNumber) }, matches };
+                            return { count: { matches: Predicate.isNumber(hits) ? hits : hits.length, changes: Option.flatMap(replacing, () => Option.liftPredicate(each[change](), Predicate.isNumber)) }, matches };
                         },
                         catch: (cause) => new Cause.UnknownError(cause, `${mode} search of ${each.toSpecifier()}`),
                     });
@@ -130,7 +134,7 @@ class Queries extends Schema.Class<Queries, { readonly brand: unique symbol }>('
 })(arguments[0])`;
             const found = yield* Effect.forEach(Queries.Query.fields.origin.literals, (origin) =>
                 Effect.map(
-                    read(Schema.Array(Schema.Tuple([Schema.String, Schema.String, Schema.String])), () => app.doScript(listing, ScriptLanguage.JAVASCRIPT, [origin === 'factory'])),
+                    read(Schema.Array(Schema.Tuple([Schema.String, Schema.String, Schema.String])), `${origin} queries`, () => app.doScript(listing, ScriptLanguage.JAVASCRIPT, [origin === 'factory'])),
                     Array.map(([folder, query, path]) => ({ folder, name: query, origin, path })),
                 ),
             );
@@ -146,7 +150,7 @@ class Queries extends Schema.Class<Queries, { readonly brand: unique symbol }>('
             return yield* Effect.forEach(chosen, ({ path, ...row }) =>
                 pipe(
                     name,
-                    Option.as(Effect.try(() => fs.readFileSync(`file:${path}`, { encoding: 'utf-8' }))),
+                    Option.as(Effect.try({ try: () => fs.readFileSync(`file:${path}`, { encoding: 'utf-8' }), catch: (cause) => new Cause.UnknownError(cause, path) })),
                     Effect.transposeOption,
                     Effect.map((content) => ({ ...row, content })),
                 ),

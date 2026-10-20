@@ -51,7 +51,7 @@ class Render extends Schema.Class<Render, { readonly brand: unique symbol }>('Re
                 exportingHiddenSpread: true,
                 exportResolution: (pixels * pointsPerInch) / Math.max(right - left, bottom - top),
                 ...options,
-            }).pipe(Effect.mapError(refused));
+            });
             yield* Effect.try({ try: () => source.exportFile(ExportFormat.PNG_FORMAT, file.nativePath), catch: refused });
             const image = yield* Effect.filterOrFail(
                 Effect.try({ try: () => new Uint8Array(fs.readFileSync(file.url)), catch: refused }),

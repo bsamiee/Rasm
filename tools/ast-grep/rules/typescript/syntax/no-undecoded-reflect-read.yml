@@ -30,9 +30,19 @@ utils:
                 all:
                     - has: {field: function, regex: '^(Function\.)?pipe$'}
                     - has: {field: arguments, has: {stopBy: end, matches: decoder}}
+    refinement:
+        matches: {effect-module-member: {module: {regex: '^Predicate$'}, member: {regex: '^is[A-Z]\w*$', not: {regex: '^(isTruthy|isUnknown|isNot\w+)$'}}}}
     decoded:
         any:
-            - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, any: [{matches: decoder}, {matches: entry}]}}}
+            - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, any: [{matches: decoder}, {matches: entry}, {matches: refinement}]}}}
+            - nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+              inside:
+                kind: arguments
+                inside:
+                    kind: call_expression
+                    all:
+                        - has: {field: function, matches: {effect-module-member: {module: {regex: '^Option$'}, member: {regex: '^liftPredicate$'}}}}
+                        - has: {field: arguments, has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, matches: refinement}}
             - matches: piped
             - inside: {stopBy: end, matches: piped}
             - inside:
@@ -76,4 +86,4 @@ rule:
                         - has: {field: name, kind: identifier, pattern: $VALUE}
                         - inside: {kind: program, stopBy: end, has: {stopBy: end, kind: identifier, pattern: $VALUE, matches: decoded}}
 message: '`$READ` reads `$KEY` as `any` with no decode'
-note: 'Read a member the typings declare as `<owner>.<member>`, after a `constructorName` match narrows a subclass, and decode a member they omit where it is read, `Schema.decodeUnknownOption(<schema>)(Reflect.get(<owner>, <name>))`'
+note: 'Read a member the typings declare as `<owner>.<member>`, after a `constructorName` match narrows a subclass, and decode or refine a member they omit where it is read, `Schema.decodeUnknownOption(<schema>)(Reflect.get(<owner>, <name>))` or `Option.liftPredicate(Reflect.get(<owner>, <name>), Predicate.is<Type>)`'

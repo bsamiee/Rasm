@@ -29,7 +29,7 @@ class FontView extends Schema.TaggedClass<FontView, { readonly brand: unique sym
     ),
 }) {
     static readonly viewed = ({ owning }: Model['Service']) => flow(Option.liftPredicate(owning<NativeFont>('postscriptName')), Option.map(FontView.of));
-    static readonly of = Effect.fn('of')(function* (face: NativeFont) {
+    static readonly of = Effect.fn('FontView.of')(function* (face: NativeFont) {
         const { app, FontStatus, OpenTypeFeature, members } = yield* Model;
         const [family, installed] = [face.fontFamily, face.status.equals(FontStatus.INSTALLED)];
         const style = installed ? Option.some(face.fontStyleName) : Option.none();
@@ -45,7 +45,7 @@ class FontView extends Schema.TaggedClass<FontView, { readonly brand: unique sym
                         scope: Option.none(),
                         query: Option.none(),
                         save: Option.none(),
-                    }).search(),
+                    }).search(open),
                     ({ matches }) => [
                         ...Array.map(matches, Struct.get('specifier')),
                         ...Array.map(
@@ -70,7 +70,7 @@ class FontView extends Schema.TaggedClass<FontView, { readonly brand: unique sym
             catch: (cause) => new Cause.UnknownError(cause, `faces of ${face.name}`),
         });
         const axes = Option.liftThrowable(() => Array.zipWith(face.designAxesName, face.designAxesValues, (name, value) => ({ name, value })))();
-        return yield* read(FontView, () => ({
+        return yield* read(FontView, face.toSpecifier(), () => ({
             _tag: 'Font',
             ...Reference.of(face),
             family,
@@ -108,12 +108,11 @@ class Font extends Schema.Class<Font, { readonly brand: unique symbol }>('Font')
         const { name, text } = this;
         return Effect.gen(function* () {
             const [face, { FontStatus }, { fs, temporary }] = yield* Effect.all([font(name), Model, Uxp]);
-            const bytes = (path: string) => Effect.try(() => new Uint8Array(fs.readFileSync(path)));
-            const subset = Effect.flatMap(temporary('font.otf'), (entry) =>
-                Effect.andThen(
-                    Effect.try(() => face.createSubsetFont(text, entry.nativePath)),
-                    Effect.map(bytes(entry.url), (data) => Option.some({ data, postscriptName: Option.none<string>() })),
-                ),
+            const bytes = (path: string) => Effect.try({ try: () => new Uint8Array(fs.readFileSync(path)), catch: (cause) => new Cause.UnknownError(cause, path) });
+            const subset = temporary('font.otf').pipe(
+                Effect.tap((entry) => Effect.try({ try: () => face.createSubsetFont(text, entry.nativePath), catch: (cause) => new Cause.UnknownError(cause, `subset of ${face.name}`) })),
+                Effect.flatMap((entry) => bytes(entry.url)),
+                Effect.map((data) => Option.some({ data, postscriptName: Option.none<string>() })),
             );
             const source = face.status.equals(FontStatus.INSTALLED)
                 ? yield* bytes(`file:${face.location}`).pipe(

@@ -2,7 +2,7 @@ import { Unmatched } from '@rasm/search';
 import { Array, Cause, Effect, Option, pipe, Schema, Struct } from 'effect';
 import { DocumentView } from './documents.ts';
 import { Model } from './model.ts';
-import { active, Reference, read, Specifier } from './references.ts';
+import { active, documents, Reference, read, Specifier } from './references.ts';
 import { Overrides, TextView } from './text.ts';
 import { Mutation } from './transactions.ts';
 
@@ -28,12 +28,12 @@ class Session extends Schema.TaggedClass<Session, { readonly brand: unique symbo
         },
     }),
 }) {
-    static readonly current = Effect.fn('current')(function* () {
+    static readonly current = Effect.gen(function* () {
         const { app } = yield* Model;
         const modal = app.modalState;
-        const documents = yield* Effect.forEach(modal ? [] : app.documents.everyItem().getElements(), DocumentView.row);
+        const rows = yield* Effect.forEach(modal ? [] : app.documents.everyItem().getElements(), DocumentView.row);
         const opened = Option.filter(yield* Effect.option(active), () => !modal);
-        const selection = yield* Effect.forEach(Option.isSome(opened) ? app.selection : [], (item) =>
+        const selection = yield* Effect.forEach(Option.match(opened, { onNone: Array.empty, onSome: () => app.selection }), (item) =>
             pipe(
                 Option.liftPredicate(item, (each) => 'textHasOverrides' in each),
                 Option.map(TextView.overrides),
@@ -54,7 +54,7 @@ class Session extends Schema.TaggedClass<Session, { readonly brand: unique symbo
                 ),
             ),
         );
-        return yield* read(Session, () => ({
+        return yield* read(Session, 'session', () => ({
             _tag: 'Session',
             version: app.version,
             status: modal
@@ -63,7 +63,7 @@ class Session extends Schema.TaggedClass<Session, { readonly brand: unique symbo
                       _tag: 'Ready',
                       tool: app.toolBoxTools.currentTool,
                       panels,
-                      documents,
+                      documents: rows,
                       active: Option.map(opened, (document) => ({
                           document: document.toSpecifier(),
                           window: app.activeWindow.toSpecifier(),
@@ -81,14 +81,12 @@ class Menu extends Schema.Class<Menu, { readonly brand: unique symbol }>('Menu')
 
     run() {
         const { area } = this;
-        return Effect.gen(function* () {
-            const { app } = yield* Model;
-            const rows = yield* read(Menu.Result, () => {
+        return Model.use(({ app }) =>
+            read(Menu.Result, 'menu actions', () => {
                 const every = app.menuActions.everyItem();
                 return Array.zipWith(Array.zip(every.id, every.name), every.area, ([id, name], within) => ({ id, name, area: within }));
-            });
-            return yield* Unmatched.matching('menu area', area)(rows, (row) => [row.area]);
-        });
+            }),
+        ).pipe(Effect.flatMap((rows) => Unmatched.matching('menu area', area)(rows, (row) => [row.area])));
     }
 }
 class Invoke extends Mutation.extend<Invoke>('Invoke')({ action: Schema.Union([Schema.Int, Schema.String]).annotate({ description: 'Menu action id or name from the menu resource' }) }, { description: 'Invokes one menu action as the user would, without dialogs, in one undo step' }) {
@@ -101,8 +99,9 @@ class Invoke extends Mutation.extend<Invoke>('Invoke')({ action: Schema.Union([S
     run() {
         const { action } = this;
         return this.commit(
-            Menu.Action,
-            Effect.gen(function* () {
+            Invoke.Result,
+            documents,
+            Effect.fnUntraced(function* () {
                 const { app } = yield* Model;
                 const chosen = yield* Unmatched.single('menu action', Option.some(String(action)))(yield* Menu.make({ area: Option.none() }).run(), ({ id, name, area }) => [`${id} ${name} (${area})`, String(id), name]);
                 yield* Effect.try({ try: () => app.menuActions.itemByID(chosen.id).invoke(), catch: (cause) => new Cause.UnknownError(cause, chosen.name) });
