@@ -1,6 +1,6 @@
 import type { Document } from 'adobe:indesign';
 import { Unmatched } from '@rasm/search';
-import { Array, Cause, Effect, HashMap, Option, Predicate, Schema, Struct } from 'effect';
+import { Array, Cause, Effect, HashMap, Match, Option, Predicate, Schema, Struct } from 'effect';
 import { Model } from './model.ts';
 import { active, Reference, read } from './references.ts';
 
@@ -18,6 +18,11 @@ class Preflight extends Schema.Class<Preflight, { readonly brand: unique symbol 
 ) {
     static readonly Result = Schema.Struct({ document: Reference, profile: Schema.String, profiles: Schema.Array(Schema.String).annotate({ description: 'Preflight profiles the application holds' }), issues: Schema.Array(Issue) });
     static readonly Summary = Schema.Array(Reference.mapFields(Struct.assign({ errors: Schema.Int, issues: Schema.Array(Issue).annotate({ description: 'Issues this mutation introduced' }) }))).annotate({ description: 'Preflight of every document the mutation touched, under its working profile' });
+    static readonly introduced = Match.type<unknown>().pipe(
+        Match.when(Schema.is(Schema.Struct({ preflight: Preflight.Summary })), ({ preflight }) => preflight),
+        Match.when(Schema.is(Schema.Struct({ preflight: Schema.Option(Preflight.Summary) })), ({ preflight }) => Option.getOrElse(preflight, Array.empty)),
+        Match.orElse(() => []),
+    );
     static readonly of = Effect.fn('Preflight.of')(function* (document: Document, named: Option.Option<string>) {
         const { app } = yield* Model;
         const selected = Option.getOrElse(named, () => document.preflightOptions.preflightWorkingProfile);
@@ -43,19 +48,15 @@ class Preflight extends Schema.Class<Preflight, { readonly brand: unique symbol 
             HashMap.fromIterable,
         );
     static readonly summarized = (baseline: HashMap.HashMap<string, readonly Issue[]>, touched: readonly Document[]) =>
-        Effect.map(
-            Effect.forEach(
-                touched,
-                Effect.fnUntraced(function* (document) {
-                    const { issues } = yield* Preflight.of(document, Option.none());
-                    const counted = (counts: HashMap.HashMap<Omit<Issue, 'rule'>, number>, issue: Issue, step: number) => HashMap.modifyAt(counts, Struct.omit(issue, ['rule']), (count) => Option.some(Option.getOrElse(count, () => 0) + step));
-                    const held = Option.getOrElse(HashMap.get(baseline, document.toSpecifier()), Array.empty).reduce((counts, issue) => counted(counts, issue, 1), HashMap.empty<Omit<Issue, 'rule'>, number>());
-                    const [left, introduced] = Array.mapAccum(issues, held, (counts, issue) => (Option.exists(HashMap.get(counts, Struct.omit(issue, ['rule'])), (count) => count > 0) ? [counted(counts, issue, -1), Option.none()] : [counts, Option.some(issue)]));
-                    const row = { ...Reference.of(document), errors: issues.length, issues: Array.getSomes(introduced) };
-                    return { row, altered: Array.isReadonlyArrayNonEmpty(row.issues) || HashMap.some(left, (count) => count > 0) };
-                }),
-            ),
-            (rows) => ({ preflight: Array.map(rows, Struct.get('row')), altered: Array.flatMap(rows, ({ row, altered }) => (altered ? [row] : [])) }),
+        Effect.forEach(
+            touched,
+            Effect.fnUntraced(function* (document) {
+                const { issues } = yield* Preflight.of(document, Option.none());
+                const counted = (counts: HashMap.HashMap<Omit<Issue, 'rule'>, number>, issue: Issue, step: number) => HashMap.modifyAt(counts, Struct.omit(issue, ['rule']), (count) => Option.some(Option.getOrElse(count, () => 0) + step));
+                const held = Option.getOrElse(HashMap.get(baseline, document.toSpecifier()), Array.empty).reduce((counts, issue) => counted(counts, issue, 1), HashMap.empty<Omit<Issue, 'rule'>, number>());
+                const [, introduced] = Array.mapAccum(issues, held, (counts, issue) => (Option.exists(HashMap.get(counts, Struct.omit(issue, ['rule'])), (count) => count > 0) ? [counted(counts, issue, -1), Option.none()] : [counts, Option.some(issue)]));
+                return { ...Reference.of(document), errors: issues.length, issues: Array.getSomes(introduced) };
+            }),
         );
 
     run() {

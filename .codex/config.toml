@@ -20,6 +20,9 @@ max_concurrent_threads_per_session = 80
 default_tools_approval_mode = "approve"
 url                         = "http://127.0.0.1:7409/"
 
+[mcp_servers.atelier-channel]
+url = "http://127.0.0.1:7409/channel"
+
 [mcp_servers.roslyn-codelens]
 default_tools_approval_mode = "approve"
 url                         = "http://127.0.0.1:7401/"

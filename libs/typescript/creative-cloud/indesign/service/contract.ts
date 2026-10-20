@@ -1,5 +1,7 @@
 import { Unmatched } from '@rasm/search';
-import { Duration, Effect, type Option, Schedule, Schema, SchemaGetter, Stream } from 'effect';
+import { Peer } from '@rasm/uxp/link';
+import { ORIGIN } from '@rasm/uxp/runtime';
+import { Duration, Effect, Option, Schedule, Schema, Stream } from 'effect';
 import { Rpc, RpcClient, RpcGroup, RpcMiddleware, RpcSerialization } from 'effect/rpc';
 import { FindChange, Queries } from '../find.ts';
 import { Font } from '../fonts.ts';
@@ -11,24 +13,14 @@ import { Script } from '../scripts.ts';
 import { Invoke, Menu } from '../session.ts';
 import { Phase } from '../transactions.ts';
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const PATH = '/indesign';
-
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Peer = Schema.Struct({
-    application: Schema.URLFromString.pipe(Schema.decodeTo(Schema.URL, { decode: SchemaGetter.transform((url) => (url.pathname.endsWith('/') ? url : new URL(`${url.href}/`))), encode: SchemaGetter.passthrough() })).annotate({
-        description: 'Bundle url of the application the panel serves, in the directory form Launch Services gives a bundle',
-    }),
-    extension: Schema.String.annotate({ description: 'Plugin name its manifest declares' }),
-});
 const Failure = Schema.Union([Unmatched, Schema.ErrorInstance()]);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class Hold extends RpcMiddleware.Service<Hold>()('@rasm/indesign/service/contract/Hold', { error: Schema.ErrorInstance(), requiredForClient: true }) {
-    static readonly client = (report: (phase: Option.Option<typeof Phase.Type>) => Effect.Effect<void>) =>
+    static readonly client = (report: (message: string) => Effect.Effect<void>) =>
         RpcMiddleware.layerClient(
             Hold,
             Effect.map(
@@ -39,7 +31,12 @@ class Hold extends RpcMiddleware.Service<Hold>()('@rasm/indesign/service/contrac
                             Stream.fromSchedule(Schedule.min([Schedule.exponential(Duration.millis(2)), Schedule.spaced(Duration.seconds(1))])).pipe(
                                 Stream.mapEffect(() => Effect.timeoutOption(enter('enter', {}), Duration.seconds(2)), { concurrency: 'unbounded', unordered: true }),
                                 Stream.changes,
-                                Stream.runForEach(report),
+                                Stream.runForEach(
+                                    Option.match({
+                                        onNone: () => report(`${request.tag} is waiting for InDesign; an open menu, dialog, or drag holds it`),
+                                        onSome: Phase.match({ Idle: () => Effect.void, Entered: ({ label }) => report(label) }),
+                                    }),
+                                ),
                             ),
                         ),
             ),
@@ -49,6 +46,7 @@ class Hold extends RpcMiddleware.Service<Hold>()('@rasm/indesign/service/contrac
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const WIRE = RpcSerialization.layerSchemaBinary({ fingerprintPayloads: true });
+const LINK = { path: '/indesign', origin: ORIGIN, peer: 'InDesign panel', identity: Peer, serialization: WIRE } as const;
 const Enter = Rpc.make('enter', { payload: {}, success: Phase });
 const InDesign = RpcGroup.make(
     Rpc.make('inspect', { payload: Inspect, success: Inspect.Result, error: Failure }),
@@ -66,8 +64,8 @@ const InDesign = RpcGroup.make(
     Rpc.make('queries', { payload: Queries, success: Queries.Result, error: Failure }),
 )
     .middleware(Hold)
-    .add(Enter, Rpc.make('changed', { payload: {}, success: Preflight.Summary.value, stream: true }));
+    .add(Enter);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Hold, InDesign, PATH, Peer, WIRE };
+export { Hold, InDesign, LINK };

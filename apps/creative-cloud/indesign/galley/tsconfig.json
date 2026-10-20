@@ -1,6 +1,3 @@
 {
-    "extends": "../../../../libs/typescript/creative-cloud/uxp/tsconfig.json",
-    "compilerOptions": {
-        "paths": { "adobe:indesign": [ "./node_modules/indesign-uxp-types/flat/module.d.ts" ] }
-    }
+    "extends": "../../../../libs/typescript/creative-cloud/indesign/tsconfig.json"
 }

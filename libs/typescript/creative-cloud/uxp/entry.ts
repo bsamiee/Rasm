@@ -32,11 +32,11 @@ const hosted = Layer.merge(
             ),
     }),
 );
-const plugin = <R, E, F, C extends string, P extends string>(
+const plugin = <R, E, F>(
     layer: Layer.Layer<R, E, Uxp | Plugin>,
     entries: {
-        readonly commands: Record.ReadonlyRecord<C, Effect.Effect<void, F, R | Uxp | Plugin>>;
-        readonly panels: Record.ReadonlyRecord<P, Record.ReadonlyRecord<'show' | 'hide', Effect.Effect<void, F, R | Uxp | Plugin>>>;
+        readonly commands: Record.ReadonlyRecord<string, Effect.Effect<void, F, R | Uxp | Plugin>>;
+        readonly panels: Record.ReadonlyRecord<string, Record.ReadonlyRecord<'show' | 'hide', Effect.Effect<void, F, R | Uxp | Plugin>>>;
     },
 ): void => {
     const logged = flow(Cause.pretty, Console.error);

@@ -8,7 +8,7 @@ import { Headers, HttpTraceContext } from 'effect/http';
 interface Route<Chosen, Fields extends Schema.Struct.Fields, R> {
     readonly fields: Fields;
     readonly resolve: (given: Schema.Struct.Type<Fields>) => Effect.Effect<Chosen, Error, R>;
-    readonly trailer: (chosen: Chosen) => Effect.Effect<McpSchema.ContentBlock, Error, R>;
+    readonly trailer: (chosen: Chosen, exit: Exit.Exit<unknown, Error>) => Effect.Effect<Option.Option<McpSchema.ContentBlock>, Error, R>;
     readonly annotations: Context.Context<never>;
     readonly completion: { readonly [Key in keyof Fields]?: (input: string, context: typeof McpSchema.Complete.payloadSchema.Type.context) => Effect.Effect<readonly string[], Error, R> };
 }
@@ -102,16 +102,16 @@ const targeted =
                 return yield* Effect.onExitIf(
                     handle(parameters, chosen),
                     (exit) => !(Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause)),
-                    () =>
+                    (exit) =>
                         Effect.flatMap(
                             Effect.all([
-                                route.trailer(chosen).pipe(
+                                route.trailer(chosen, exit).pipe(
                                     rendered,
-                                    Effect.catch(({ message }) => Effect.succeed(McpSchema.TextContent.make({ text: message }))),
+                                    Effect.catch(({ message }) => Effect.succeedSome(McpSchema.TextContent.make({ text: message }))),
                                 ),
                                 Blocks,
                             ]),
-                            ([block, add]) => add(block),
+                            ([block, add]) => Option.match(block, { onNone: () => Effect.void, onSome: add }),
                         ),
                 );
             }),
@@ -154,7 +154,7 @@ const layer = (scheme: string) =>
                     Effect.map((result) => ({ tool, arguments: given, result })),
                 );
                 yield* Effect.forkIn(Deferred.complete(done, answer), scope, { uninterruptible: true });
-                return yield* Effect.interruptible(Deferred.await(done)).pipe(Effect.onInterrupt(() => Effect.andThen(Ref.update(held, Array.append(row)), Effect.forkIn(Effect.andThen(Effect.exit(Deferred.await(done)), server.notifications['notifications/resources/updated']({ uri })), scope))));
+                return yield* Effect.interruptible(Deferred.await(done)).pipe(Effect.onInterrupt(() => Ref.update(held, Array.append(row))));
             }, Effect.uninterruptible);
             const ranking =
                 <C, R>(complete: (input: string, context: C) => Effect.Effect<McpSchema.CompleteResult, McpSchema.InternalError, R>) =>

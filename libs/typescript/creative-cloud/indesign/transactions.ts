@@ -1,4 +1,4 @@
-import { Array, Cause, Context, Data, Deferred, Effect, Match, PubSub, Record, Ref, Schema, Struct } from 'effect';
+import { Array, Cause, Context, Data, Deferred, Effect, Match, Record, Ref, Schema, Struct } from 'effect';
 import { Model } from './model.ts';
 import { Preflight } from './preflight.ts';
 import { owner, read } from './references.ts';
@@ -19,13 +19,12 @@ abstract class Mutation extends Schema.Class<Mutation, { readonly brand: unique 
     commitSettling<S extends Schema.Top, T, E1, R1, A, E, R, E2, R2>(result: S, locate: Effect.Effect<T, E1, R1>, body: (found: T) => Effect.Effect<A, E, R>, settle: (value: A) => Effect.Effect<object, E2, R2>) {
         const { label } = this;
         return Effect.gen(function* () {
-            const { run, changed } = yield* Transactions;
+            const { run } = yield* Transactions;
             const found = yield* locate;
             const baseline = yield* Preflight.baseline(Array.getSomes(yield* Effect.forEach(Array.ensure<unknown>(found), owner)));
             const { value, touched } = yield* run(label, body(found));
             const settled = yield* settle(value);
-            const { preflight, altered } = yield* Preflight.summarized(baseline, touched);
-            yield* PubSub.publishAll(changed, altered);
+            const preflight = yield* Preflight.summarized(baseline, touched);
             return yield* read(result, label, () => ({ ...settled, preflight }));
         });
     }
@@ -35,7 +34,7 @@ abstract class Mutation extends Schema.Class<Mutation, { readonly brand: unique 
 
 class Transactions extends Context.Service<Transactions>()('@rasm/indesign/transactions', {
     make: Effect.gen(function* () {
-        const [{ app, SaveOptions, ScriptLanguage, UndoModes }, state, changed] = yield* Effect.all([Model, Ref.make<typeof Phase.Type | Held>(Phase.cases.Idle.make({})), PubSub.unbounded<typeof Preflight.Summary.value.Type>()]);
+        const [{ app, SaveOptions, ScriptLanguage, UndoModes }, state] = yield* Effect.all([Model, Ref.make<typeof Phase.Type | Held>(Phase.cases.Idle.make({}))]);
         const steps = () => {
             const every = app.documents.everyItem();
             return Array.zipWith(every.id, every.undoHistory, (id, history) => [id, history.length] as const);
@@ -47,7 +46,6 @@ class Transactions extends Context.Service<Transactions>()('@rasm/indesign/trans
                 }),
             );
         return {
-            changed,
             enter: Effect.uninterruptible(
                 Effect.flatten(
                     Ref.modify(state, (current) =>
@@ -62,7 +60,7 @@ class Transactions extends Context.Service<Transactions>()('@rasm/indesign/trans
                 yield* Effect.filterOrFail(
                     Effect.sync(() => app.modalState),
                     (modalState) => !modalState,
-                    (modalState) => new Cause.UnknownError({ modalState }, label),
+                    (modalState) => new Cause.UnknownError({ modalState }, `${label} refused while a modal dialog or alert is open`),
                 );
                 const [before, done, sync] = [new Map(steps()), yield* Deferred.make<A, E | Cause.UnknownError>(), Effect.runSyncWith(yield* Effect.context<R>())];
                 const refused = (cause: unknown) => new Cause.UnknownError(cause, label);

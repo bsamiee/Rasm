@@ -27,7 +27,6 @@ const listen = Effect.fn('listen')(function* <Rpcs extends Rpc.Any, Peer, I exte
         serialization,
         middleware,
         serves,
-        follow,
     }: {
         readonly path: HttpRouter.PathInput;
         readonly origin: string;
@@ -36,7 +35,6 @@ const listen = Effect.fn('listen')(function* <Rpcs extends Rpc.Any, Peer, I exte
         readonly serialization: Layer.Layer<RpcSerialization.RpcSerialization>;
         readonly middleware: Layer.Layer<Rpc.MiddlewareClient<Rpcs>, never, RpcClient.Protocol>;
         readonly serves: (chosen: Chosen) => (peer: Peer) => boolean;
-        readonly follow: (client: RpcClient.RpcClient.Flat<Rpcs, RpcClientError.RpcClientError>) => Effect.Effect<void, RpcClientError.RpcClientError>;
     },
 ) {
     class Linked extends Data.Class<{ readonly peer: Peer; readonly query: string; readonly client: RpcClient.RpcClient.Flat<Rpcs, RpcClientError.RpcClientError> }> {}
@@ -58,7 +56,6 @@ const listen = Effect.fn('listen')(function* <Rpcs extends Rpc.Any, Peer, I exte
             const clients = yield* Layer.build(Layer.provideMerge(middleware, Layer.succeed(RpcClient.Protocol, protocol)));
             const client = yield* RpcClient.make(group, { flatten: true }).pipe(Effect.provideContext(clients));
             yield* Deferred.succeed(made, new Linked({ peer: found, query, client }));
-            yield* Effect.forkScoped(follow(client));
             return yield* Effect.as(ended.await, HttpServerResponse.empty());
         },
         Effect.orElseSucceed(() => HttpServerResponse.empty({ status: 400 })),

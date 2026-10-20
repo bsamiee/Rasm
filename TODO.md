@@ -11,6 +11,8 @@ Remaining work on Creative Cloud libraries and products, for a fresh session.
 - Installed `indesign-uxp-types` declarations, and InDesign's own `$.dictionary` read through `Model` in `model.ts`
 - Facts come from these sources, dependency sources, and Ghidra; `.archive/` folders are no source for briefs or code
 
+Swift handoff: /private/tmp/claude-501/-Users-bardiasamiee-Developer-Rasm/d76ad2f1-1d66-4d0d-86e1-b92a484eae16/scratchpad/swift-track-handoff.md
+
 ## [01]-[STATE]
 
 - `libs/swift/macos` holds installed applications, launch, activation, element status and actions, capture, faces, Apple Events, and sdef dictionaries
