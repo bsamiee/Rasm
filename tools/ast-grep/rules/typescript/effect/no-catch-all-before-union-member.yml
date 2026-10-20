@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-catch-all-before-union-member
+language: tsx
+severity: error
+utils:
+    union:
+        kind: call_expression
+        has: {field: function, matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^Union$'}}}}
+rule:
+    pattern: $MEMBER
+    matches: {effect-module-member: {module: {regex: '\bSchema$'}, member: {regex: '^(Any|Unknown|Void)$'}}}
+    not: {nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}}
+    inside: {kind: array, inside: {kind: arguments, inside: {matches: union}}}
+message: '`$MEMBER` accepts every value, members after it never match'
+note: 'Place the catch-all member last, a union takes the first member in order that accepts the value, and `Schema.Void` accepts every present value'

@@ -1,4 +1,4 @@
-import { Automation, Installation, InstalledFace, Kind, Native, Screenshot, Status, WindowID } from '@rasm/automation';
+import { AppleEventValue, Automation, ElementAction, Installation, InstalledFace, Kind, Screenshot, ScreenshotImage, ScreenshotOptions, Status, WindowID } from '@rasm/automation';
 import { FontView } from '@rasm/indesign/fonts';
 import { Preflight } from '@rasm/indesign/preflight';
 import { Render } from '@rasm/indesign/render';
@@ -8,7 +8,7 @@ import { Invoke } from '@rasm/indesign/session';
 import { channel, type Message } from '@rasm/mcp/channel';
 import { listen, PublishedResource, PublishedTool, publish } from '@rasm/mcp/link';
 import { main } from '@rasm/mcp/main';
-import { Attachment, Image, Instructions, Progress, READING, resource, resourceTemplate, targeted } from '@rasm/mcp/server';
+import { Attachment, Content, Image, Instructions, Progress, READING, resource, resourceTemplate, targeted } from '@rasm/mcp/server';
 import { Unmatched } from '@rasm/search';
 import { Face, Instance, Run, Shaped } from '@rasm/typography/main';
 import type { Source } from '@rasm/typography/source';
@@ -49,16 +49,19 @@ main(
                 );
             const application = Schema.String.annotate({ description: 'Bundle identifier, name, or url of an installed Adobe application' });
             const route = {
-                fields: { application: Schema.OptionFromOptionalKey(application) },
-                resolve: ({ application: given }: { readonly application: Option.Option<string> }) =>
-                    Option.match(given, {
-                        onSome: Installation.located,
-                        onNone: () =>
-                            panel.peers.pipe(
-                                Effect.flatMap((peers) => Unmatched.single('application with a linked extension', Option.none())(peers, ({ application: linked }) => [linked.href])),
-                                Effect.flatMap(({ application: linked }) => Installation.located(linked.href)),
-                            ),
-                    }),
+                fields: { application: Schema.OptionFromOptionalKey(application), pid: Installation.fields.pid },
+                resolve: ({ application: given, pid }: { readonly application: Option.Option<string>; readonly pid: Option.Option<number> }) =>
+                    Effect.map(
+                        Option.match(given, {
+                            onSome: Installation.located,
+                            onNone: () =>
+                                panel.peers.pipe(
+                                    Effect.flatMap((peers) => Unmatched.single('application with a linked extension', Option.none())(peers, ({ application: linked }) => [linked.href])),
+                                    Effect.flatMap(({ application: linked }) => Installation.located(linked.href)),
+                                ),
+                        }),
+                        (found) => Installation.make({ ...found, pid }),
+                    ),
                 trailer: (found: Installation, exit: Exit.Exit<unknown, Error>) =>
                     Effect.andThen(
                         Effect.forEach(
@@ -125,13 +128,14 @@ main(
                 }),
                 (_, chosen) => Effect.tap(chosen.launch(), (found) => Queue.offer(launched, found)),
             );
+            const shown = Schema.OptionFromOptionalKey(Content(ScreenshotImage, 'Media type and pixel size of the image content block beside the result', ({ data, mimeType, width, height }) => [McpSchema.ImageContent.make({ data, mimeType }), `${mimeType} ${width}x${height}`]));
             yield* register(
                 Tool.make('screenshot', {
-                    description: 'Brings the application forward and captures its frontmost window or a given window at native pixel size',
-                    parameters: Schema.Struct({ window: Schema.OptionFromOptionalKey(WindowID.annotate({ description: 'Window id from a previous screenshot result or status' })) }),
-                    success: Screenshot.pipe(Schema.fieldsAssign({ image: Image('image/png') })),
+                    description: 'Brings the application forward and captures its frontmost window, a given window, or every window of the application at native pixel size',
+                    parameters: ScreenshotOptions,
+                    success: Screenshot.pipe(Schema.fieldsAssign({ sdrImage: shown, hdrImage: shown })),
                 }).annotateMerge(READING),
-                ({ window: id }, chosen) => chosen.screenshot(id),
+                (options, chosen) => chosen.screenshot(options),
             );
             const faces = { uri: 'atelier://faces', name: 'faces', description: 'Installed faces CoreText finds, each with the file holding it', mimeType: 'application/json' };
             yield* resource({ ...faces, content: Effect.flatMap(InstalledFace.installed, json(Schema.Array(InstalledFace))) });
@@ -180,18 +184,18 @@ main(
                         run: Schema.TaggedUnion({
                             Command: {
                                 command: Schema.String.annotate({ description: 'Command name from the application dictionary' }),
-                                arguments: Schema.Record(Schema.String, Native)
+                                arguments: Schema.Record(Schema.String, AppleEventValue)
                                     .annotate({ description: 'Dictionary parameters by name; direct supplies the direct parameter. Reuse native reply values unchanged' })
                                     .pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
                                 artifacts: Schema.Array(Schema.URLFromString)
                                     .annotate({ description: 'File URLs the command writes, returned with the reply' })
                                     .pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
                             },
-                            Dialog: { element: WindowID.annotate({ description: 'Element id from a status' }), action: Schema.String.annotate({ description: 'Action the element lists' }) },
+                            Dialog: { element: WindowID.annotate({ description: 'Element id from a status' }), action: ElementAction },
                             Menu: { action: Invoke.fields.action },
                         }),
                     }),
-                    success: Schema.Union([Installation.Command.pipe(Schema.fieldsAssign({ artifacts: Schema.Array(Schema.Result(Attachment, Schema.ErrorInstance())) })), Status, Invoke.Result]),
+                    success: Schema.Union([Installation.Command.pipe(Schema.fieldsAssign({ artifacts: Schema.Array(Schema.Result(Attachment, Schema.ErrorInstance())) })), Invoke.Result, Schema.Void]),
                 }),
                 ({ run }, found) =>
                     Match.valueTags(run, {

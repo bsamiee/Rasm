@@ -1,6 +1,6 @@
 public import AppKit
 import ImageIO
-import ScreenCaptureKit
+public import ScreenCaptureKit
 public import UniformTypeIdentifiers
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -28,41 +28,89 @@ public struct ScreenshotOptions: Sendable {
     }
 
     public let target: Target
-    public let region: CGRect?
+    public let sourceRect: CGRect?
+    public let destinationRect: CGRect?
     public let maxDimension: Int?
     public let showsCursor: Bool
-    public let ignoresShadows: Bool
-    public let includesChildWindows: Bool
-    public let hdr: Bool
-    public let format: UTType
+    public let ignoreShadows: Bool
+    public let ignoreClipping: Bool
+    public let includeChildWindows: Bool
+    public let displayIntent: SCScreenshotConfiguration.DisplayIntent
+    public let dynamicRange: SCScreenshotConfiguration.DynamicRange
+    public let contentType: UTType
 
     public init(
         target: Target = .window(nil),
-        region: CGRect? = nil,
+        sourceRect: CGRect? = nil,
+        destinationRect: CGRect? = nil,
         maxDimension: Int? = nil,
         showsCursor: Bool = false,
-        ignoresShadows: Bool = true,
-        includesChildWindows: Bool = true,
-        hdr: Bool = false,
-        format: UTType = .png,
+        ignoreShadows: Bool = true,
+        ignoreClipping: Bool = false,
+        includeChildWindows: Bool = true,
+        displayIntent: SCScreenshotConfiguration.DisplayIntent = .canonical,
+        dynamicRange: SCScreenshotConfiguration.DynamicRange = .sdr,
+        contentType: UTType = .png,
     ) {
         self.target = target
-        self.region = region
+        self.sourceRect = sourceRect
+        self.destinationRect = destinationRect
         self.maxDimension = maxDimension
         self.showsCursor = showsCursor
-        self.ignoresShadows = ignoresShadows
-        self.includesChildWindows = includesChildWindows
-        self.hdr = hdr
-        self.format = format
+        self.ignoreShadows = ignoreShadows
+        self.ignoreClipping = ignoreClipping
+        self.includeChildWindows = includeChildWindows
+        self.displayIntent = displayIntent
+        self.dynamicRange = dynamicRange
+        self.contentType = contentType
+    }
+}
+
+extension ScreenshotOptions: Decodable {
+    private enum Key: CodingKey { case target, sourceRect, destinationRect, dynamicRange, contentType }
+    private enum Range: String, Decodable { case sdr, hdr, bothSDRAndHDR }
+
+    public init(from decoder: any Decoder) throws {
+        let fields: KeyedDecodingContainer<Key> = try decoder.container(keyedBy: Key.self)
+        let (range, type): (Range, String) = try (fields.decode(Range.self, forKey: .dynamicRange), fields.decode(String.self, forKey: .contentType))
+        let dynamicRange: SCScreenshotConfiguration.DynamicRange =
+            switch range {
+                case .sdr: .sdr
+                case .hdr: .hdr
+                case .bothSDRAndHDR: .bothSDRAndHDR
+            }
+        guard let contentType: UTType = UTType(type) else { throw DecodingError.dataCorruptedError(forKey: .contentType, in: fields, debugDescription: "\(type) names no uniform type") }
+        try self.init(
+            target: fields.decodeIfPresent(Target.self, forKey: .target) ?? .window(nil),
+            sourceRect: fields.decodeIfPresent(CGRect.self, forKey: .sourceRect),
+            destinationRect: fields.decodeIfPresent(CGRect.self, forKey: .destinationRect),
+            dynamicRange: dynamicRange,
+            contentType: contentType,
+        )
+    }
+}
+
+extension ScreenshotOptions.Target: Decodable {
+    private enum Scope: String, Decodable { case application }
+
+    public init(from decoder: any Decoder) throws {
+        let value: any SingleValueDecodingContainer = try decoder.singleValueContainer()
+        self = try Result { try .window(value.decode(CGWindowID.self)) }.flatMapError { _ in Result { try value.decode(Scope.self) }.map { _ in .application } }.get()
     }
 }
 
 public struct Screenshot: Encodable, Sendable {
+    public struct Image: Encodable, Sendable {
+        public let data: Data
+        public let mimeType: String
+        public let width: Int
+        public let height: Int
+    }
+
     public let window: ShareableWindow
     public let windows: [ShareableWindow]
-    public let image: Data
-    public let width: Int
-    public let height: Int
+    public let sdrImage: Image?
+    public let hdrImage: Image?
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -74,6 +122,7 @@ public enum ScreenshotFailure: CustomNSError, LocalizedError {
     case absent(CGWindowID)
     case noDisplay
     case capture(any Error)
+    case unlabeled(UTType)
     case encode(UTType)
 
     public var errorDescription: String? {
@@ -84,6 +133,7 @@ public enum ScreenshotFailure: CustomNSError, LocalizedError {
             case .absent(let id): "Window \(id) is not an on-screen window of the application"
             case .noDisplay: "No display holds the application's front window"
             case .capture(let error): "ScreenCaptureKit could not capture: \(error.localizedDescription)"
+            case .unlabeled(let type): "\(type.identifier) declares no MIME type to label the image"
             case .encode(let type): "ImageIO could not encode the capture as \(type.identifier)"
         }
     }
@@ -91,7 +141,7 @@ public enum ScreenshotFailure: CustomNSError, LocalizedError {
     public var errorUserInfo: [String: Any] {
         switch self {
             case .content(let error), .capture(let error): [NSUnderlyingErrorKey: error]
-            case .windowList, .noWindow, .absent, .noDisplay, .encode: [:]
+            case .windowList, .noWindow, .absent, .noDisplay, .unlabeled, .encode: [:]
         }
     }
 }
@@ -101,6 +151,7 @@ public enum ScreenshotFailure: CustomNSError, LocalizedError {
 extension NSRunningApplication {
     public func screenshot(_ options: ScreenshotOptions = ScreenshotOptions()) async -> Result<Screenshot, ScreenshotFailure> {
         await Result { () async throws(ScreenshotFailure) in
+            guard let mimeType: String = options.contentType.preferredMIMEType else { throw .unlabeled(options.contentType) }
             let content: SCShareableContent = try await Result { try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true) }.mapError(ScreenshotFailure.content).get()
             let owned: [SCWindow] = content.windows.filter { window in window.owningApplication?.processID == processIdentifier }
             guard let listed: [[String: Any]] = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else { throw .windowList }
@@ -109,6 +160,13 @@ extension NSRunningApplication {
             func shown(_ id: CGWindowID) throws(ScreenshotFailure) -> SCWindow {
                 guard let window: SCWindow = windows.first(where: { window in window.windowID == id }) else { throw .absent(id) }
                 return window
+            }
+            func encoded(_ image: CGImage) throws(ScreenshotFailure) -> Screenshot.Image {
+                let data: CFMutableData = CFDataCreateMutable(nil, 0)
+                guard let destination: CGImageDestination = CGImageDestinationCreateWithData(data, options.contentType.identifier as CFString, 1, nil) else { throw .encode(options.contentType) }
+                CGImageDestinationAddImage(destination, image, nil)
+                guard CGImageDestinationFinalize(destination) else { throw .encode(options.contentType) }
+                return Screenshot.Image(data: data as Data, mimeType: mimeType, width: image.width, height: image.height)
             }
             let window: SCWindow
             let filter: SCContentFilter
@@ -124,25 +182,22 @@ extension NSRunningApplication {
                     filter = SCContentFilter(display: display, including: windows)
             }
             let configuration: SCScreenshotConfiguration = SCScreenshotConfiguration()
-            let native: CGSize = options.region?.size ?? filter.contentRect.size
+            let native: CGSize = options.sourceRect?.size ?? filter.contentRect.size
             let scale: CGFloat =
                 CGFloat(filter.pointPixelScale) * (options.maxDimension.map { limit in min(1, CGFloat(limit) / (max(native.width, native.height) * CGFloat(filter.pointPixelScale))) } ?? 1)
             configuration.width = Int((native.width * scale).rounded())
             configuration.height = Int((native.height * scale).rounded())
-            if let region: CGRect = options.region { configuration.sourceRect = region }
+            if let sourceRect: CGRect = options.sourceRect { configuration.sourceRect = sourceRect }
+            if let destinationRect: CGRect = options.destinationRect { configuration.destinationRect = destinationRect }
             configuration.showsCursor = options.showsCursor
-            configuration.ignoreShadows = options.ignoresShadows
-            configuration.includeChildWindows = options.includesChildWindows
-            configuration.dynamicRange = options.hdr ? .hdr : .sdr
+            configuration.ignoreShadows = options.ignoreShadows
+            configuration.ignoreClipping = options.ignoreClipping
+            configuration.includeChildWindows = options.includeChildWindows
+            configuration.displayIntent = options.displayIntent
+            configuration.dynamicRange = options.dynamicRange
             let output: SCScreenshotOutput = try await Result { try await SCScreenshotManager.captureScreenshot(contentFilter: filter, configuration: configuration) }
                 .mapError(ScreenshotFailure.capture).get()
-            let data: CFMutableData = CFDataCreateMutable(nil, 0)
-            guard let image: CGImage = options.hdr ? output.hdrImage : output.sdrImage,
-                let destination: CGImageDestination = CGImageDestinationCreateWithData(data, options.format.identifier as CFString, 1, nil)
-            else { throw .encode(options.format) }
-            CGImageDestinationAddImage(destination, image, nil)
-            guard CGImageDestinationFinalize(destination) else { throw .encode(options.format) }
-            return Screenshot(window: ShareableWindow(window), windows: windows.map(ShareableWindow.init), image: data as Data, width: image.width, height: image.height)
+            return try Screenshot(window: ShareableWindow(window), windows: windows.map(ShareableWindow.init), sdrImage: output.sdrImage.map(encoded), hdrImage: output.hdrImage.map(encoded))
         }
     }
 }

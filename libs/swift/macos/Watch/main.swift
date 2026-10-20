@@ -18,12 +18,24 @@ struct WatchApps: ParsableCommand {
     @Option(help: "Action to perform on the element --answer names")
     var action: String?
 
+    @Option(help: "Control label on the element --answer names to receive --value")
+    var field: String?
+
+    @Option(help: "Text the --field control receives")
+    var value: String?
+
     var answering: (text: String, action: ElementAction)? {
-        answer.flatMap { text in action.map { action in (text, ElementAction(label: action)) } }
+        let chosen: ElementAction? =
+            switch (action, field, value) {
+                case (.some(let label), .none, .none): ElementAction(label: label)
+                case (.none, .some(let field), .some(let value)): .set(field: field, value: value)
+                default: nil
+            }
+        return answer.flatMap { text in chosen.map { action in (text, action) } }
     }
 
     func validate() throws(ValidationError) {
-        guard (answer == nil) == (action == nil) else { throw ValidationError("--answer and --action go together") }
+        guard [answer, action, field, value].allSatisfy({ option in option == nil }) || answering != nil else { throw ValidationError("--answer takes --action, or --field with --value") }
     }
 }
 
@@ -118,7 +130,8 @@ final class Watch {
             let pid: pid_t = instance.processIdentifier
             let opened: [Event] =
                 switch instance.status() {
-                    case .success(let status): status.elements.map { element in Event(app: app, event: .open, pid: pid, element: element) }
+                    case .success(.responding(_, let elements)): elements.map { element in Event(app: app, event: .open, pid: pid, element: element) }
+                    case .success(.unresponsive): []
                     case .failure(let error): [Event(app: app, event: .fail, pid: pid, reason: .element(error))]
                 }
             for event: Event in opened { show(event) }
@@ -197,11 +210,12 @@ final class Watch {
             var previous: Set<Shown> = known
             for await next: Result<ApplicationStatus, ElementFailure> in StatusChanges(instance) {
                 switch next {
-                    case .success(let status):
-                        let current: Set<Shown> = Set(status.elements.map { element in Shown(pid: pid, element: element) })
+                    case .success(.responding(_, let elements)):
+                        let current: Set<Shown> = Set(elements.map { element in Shown(pid: pid, element: element) })
                         for shown: Shown in previous.subtracting(current).sorted() { write(Event(app: app, event: .closed, pid: pid, element: shown.element)) }
                         for shown: Shown in current.subtracting(previous).sorted() { write(Event(app: app, event: .open, pid: pid, element: shown.element)) }
                         previous = current
+                    case .success(.unresponsive): continue
                     case .failure(let error): write(Event(app: app, event: .fail, pid: pid, reason: .element(error)))
                 }
             }

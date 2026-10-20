@@ -8,36 +8,62 @@ import { Socket } from 'effect/socket';
 // --- [MODELS] --------------------------------------------------------------------------
 
 const WindowID = Schema.Finite.check(Schema.isUint32()).annotate({ description: 'CoreGraphics window number of a window, dialog, sheet, or menu; status, press, and screenshot share it' });
-const Status = Schema.Struct({
-    responding: Schema.Boolean.annotate({ description: 'False when the application answered no accessibility request within the messaging timeout' }),
-    frontWindow: Schema.OptionFromOptionalKey(WindowID),
-    elements: Schema.Array(
-        Schema.Struct({
-            id: WindowID,
-            kind: Schema.Literals(['window', 'dialog', 'sheet', 'menu']),
-            role: Schema.String,
-            title: Schema.OptionFromOptionalKey(Schema.String),
-            text: Schema.Array(Schema.String).annotate({ description: 'Static text the element shows' }),
-            controls: Schema.Array(
-                Schema.Union([
-                    Schema.Struct({ text: Schema.Struct({ kind: Schema.Literals(['field', 'popUp']), label: Schema.OptionFromOptionalKey(Schema.String), value: Schema.OptionFromOptionalKey(Schema.String) }) }),
-                    Schema.Struct({ checkBox: Schema.Struct({ label: Schema.OptionFromOptionalKey(Schema.String), on: Schema.Boolean }) }),
-                ]),
-            ).annotate({ description: 'Text fields and pop-up buttons with their text, check boxes and radio buttons with their state' }),
-            actions: Schema.Array(Schema.String).annotate({ description: 'Actions press accepts: an enabled control label, AXCloseButton for the close button, AXCancel for a menu' }),
-        }),
-    ),
+const ElementAction = Schema.Union([
+    Schema.String.annotate({ description: 'Action the element lists: an enabled control label, AXCloseButton for the close button, AXCancel for a menu' }),
+    Schema.Struct({ field: Schema.String.annotate({ description: 'Label of a control the element lists' }), value: Schema.String.annotate({ description: 'Text the control receives' }) }),
+]);
+const Status = Schema.TaggedUnion({
+    responding: {
+        frontWindow: Schema.OptionFromOptionalKey(WindowID),
+        elements: Schema.Array(
+            Schema.Struct({
+                id: WindowID,
+                kind: Schema.Literals(['window', 'dialog', 'sheet', 'menu']),
+                role: Schema.String.annotate({ description: 'Accessibility role' }),
+                subrole: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Accessibility subrole' })),
+                title: Schema.OptionFromOptionalKey(Schema.String),
+                text: Schema.Array(Schema.String).annotate({ description: 'Static text the element shows' }),
+                controls: Schema.Array(
+                    Schema.Struct({
+                        role: Schema.String.annotate({ description: 'Accessibility role of a text field, text area, combo box, pop-up button, check box, or radio button' }),
+                        label: Schema.OptionFromOptionalKey(Schema.String),
+                        value: Schema.OptionFromOptionalKey(Schema.Union([Schema.String, Schema.Literals([0, 1, 2])]).annotate({ description: 'Text of a field or pop-up button, or check box and radio button state: 0 off, 1 on, 2 mixed' })),
+                    }),
+                ),
+                actions: Schema.Array(Schema.String).annotate({ description: 'Actions press accepts: an enabled control label, AXCloseButton for the close button, AXCancel for a menu' }),
+            }),
+        ),
+    },
+    unresponsive: {},
+}).annotate({ description: 'Front window and open elements of a responding application, or unresponsive when it answered no accessibility request within the messaging timeout' });
+const Rect = Schema.Tuple([Schema.Tuple([Schema.Finite, Schema.Finite]), Schema.Tuple([Schema.Finite, Schema.Finite])]).annotate({ description: 'Origin and size in points as [[x, y], [width, height]]' });
+const Window = Schema.Struct({ id: WindowID, title: Schema.OptionFromOptionalKey(Schema.String), layer: Schema.Int, frame: Rect, onScreen: Schema.Boolean });
+const ScreenshotImage = Schema.Struct({ data: Schema.Uint8ArrayFromBase64, mimeType: Schema.String, width: Schema.Int.annotate({ description: 'Image width in pixels' }), height: Schema.Int.annotate({ description: 'Image height in pixels' }) });
+const Screenshot = Schema.Struct({ window: Window, windows: Schema.Array(Window), sdrImage: Schema.OptionFromOptionalKey(ScreenshotImage), hdrImage: Schema.OptionFromOptionalKey(ScreenshotImage) });
+const ScreenshotOptions = Schema.Struct({
+    target: Schema.OptionFromOptionalKey(Schema.Union([WindowID, Schema.Literal('application')]).annotate({ description: 'Window id, or application for every window of the application on the display holding its front window; absent for the front window' })),
+    sourceRect: Schema.OptionFromOptionalKey(Rect.annotate({ description: 'Captured part of the content in points' })),
+    destinationRect: Schema.OptionFromOptionalKey(Rect.annotate({ description: 'Part of the output image the capture fills, in pixels' })),
+    dynamicRange: Schema.Literals(['sdr', 'hdr', 'bothSDRAndHDR'])
+        .annotate({ description: 'Images ScreenCaptureKit returns: hdr and bothSDRAndHDR return one sdrImage holding 16-bit extended sRGB values above 1.0, and hdrImage stays absent for window and application captures' })
+        .pipe(Schema.withDecodingDefaultKey(Effect.succeed('sdr' as const))),
+    contentType: Schema.String.annotate({ description: 'Uniform type identifier ImageIO writes: public.tiff keeps extended range, public.png, public.heic, and public.jpeg clip values above 1.0' }).pipe(Schema.withDecodingDefaultKey(Effect.succeed('public.png'))),
 });
-const Window = Schema.Struct({ id: WindowID, title: Schema.OptionFromOptionalKey(Schema.String) });
-const Screenshot = Schema.Struct({ window: Window, windows: Schema.Array(Window), image: Schema.Uint8ArrayFromBase64, width: Schema.Int.annotate({ description: 'Image width in pixels' }), height: Schema.Int.annotate({ description: 'Image height in pixels' }) });
 const Kind = Schema.Literals(['suite', 'command', 'class', 'record-type', 'value-type', 'enumeration']).annotate({ description: 'Scripting definition element kind' });
-type Native = null | boolean | number | string | readonly Native[] | { readonly [term: string]: Native };
-const Native: Schema.Codec<Native> = Schema.Union([
+type AppleEventValue = null | boolean | number | string | readonly AppleEventValue[] | { readonly [term: string]: AppleEventValue };
+const AppleEventValue: Schema.Codec<AppleEventValue> = Schema.Union([
     Schema.Null,
     Schema.Boolean,
     Schema.Finite,
     Schema.String.annotate({ description: 'Text, or an enumerator, class, date, or file URL where the parameter type takes one' }),
-    Schema.Array(Schema.suspend(() => Native)),
+    Schema.Array(Schema.suspend(() => AppleEventValue)),
+    Schema.TaggedStruct('record', {
+        type: Schema.String.annotate({ description: 'Four-character descriptor type' }),
+        fields: Schema.Record(
+            Schema.String,
+            Schema.suspend(() => AppleEventValue),
+        ).annotate({ description: 'Fields by property name or four-character keyword' }),
+    }).annotate({ description: 'Record of a descriptor type other than a plain record: a range, comparison, logical, or application record type' }),
     Schema.TaggedStruct('type', { name: Schema.String }).annotate({ description: 'Class or property type by name or four-character code' }),
     Schema.TaggedStruct('enumerator', { name: Schema.String }).annotate({ description: 'Enumerator by name or four-character code' }),
     Schema.TaggedStruct('date', { date: Schema.String.annotate({ description: 'ISO 8601 date' }) }),
@@ -45,16 +71,16 @@ const Native: Schema.Codec<Native> = Schema.Union([
     Schema.TaggedStruct('specifier', {
         want: Schema.String.annotate({ description: 'Class of the objects specified' }),
         form: Schema.Literals(['property', 'index', 'name', 'id', 'relative', 'range', 'test', 'whose']),
-        seld: Schema.suspend(() => Native).annotate({ description: 'Selector data: a property name, an index or first, middle, last, any, every, a name, or an id' }),
-        from: Schema.optionalKey(Schema.suspend(() => Native).annotate({ description: 'Container specifier, null or absent for the application' })),
+        seld: Schema.suspend(() => AppleEventValue).annotate({ description: 'Selector data: a property name, an index or first, middle, last, any, every, a name, or an id' }),
+        from: Schema.optionalKey(Schema.suspend(() => AppleEventValue).annotate({ description: 'Container specifier, null or absent for the application' })),
     }).annotate({ description: 'Object specifier' }),
     Schema.TaggedStruct('opaque', { type: Schema.String.annotate({ description: 'Four-character descriptor type' }), data: Schema.String.annotate({ description: 'Descriptor bytes in base64' }), value: Schema.optionalKey(Schema.String) }).annotate({
-        description: 'Descriptor the dictionary does not model, reused unchanged',
+        description: 'Non-record descriptor no other form holds exactly, reused unchanged',
     }),
     Schema.Record(
         Schema.String,
-        Schema.suspend(() => Native),
-    ).annotate({ description: 'Record by property name' }),
+        Schema.suspend(() => AppleEventValue),
+    ).annotate({ description: 'Plain record by property name or four-character keyword' }),
 ]);
 class InstalledFace extends Schema.Class<InstalledFace, { readonly brand: unique symbol }>('InstalledFace')({ postscriptName: Schema.String, family: Schema.String, style: Schema.String, fullName: Schema.String, file: Schema.String }) {
     static get installed() {
@@ -75,7 +101,8 @@ class Installation extends Schema.Class<Installation, { readonly brand: unique s
     name: Schema.String,
     version: Schema.OptionFromOptionalKey(Schema.String),
     channel: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Prerelease channel the bundle declares or its name states, absent for a release' })),
-    running: Schema.OptionFromOptionalKey(Schema.Struct({ pid: Schema.Int, finishedLaunching: Schema.Boolean })),
+    instances: Schema.Array(Schema.Struct({ pid: Schema.Int, finishedLaunching: Schema.Boolean })).annotate({ description: 'Running processes of the bundle' }),
+    pid: Schema.OptionFromOptionalKey(Schema.Int.annotate({ description: 'Process of a running instance calls address, required when the bundle runs more than one' })),
     scriptable: Schema.Boolean,
 }) {
     // --- [DISCOVERY]
@@ -85,22 +112,25 @@ class Installation extends Schema.Class<Installation, { readonly brand: unique s
     static readonly located = (query: string) => Effect.flatMap(Installation.installed, (rows) => Unmatched.single('installed Adobe application', Option.some(query))(rows, (row) => [row.url.href, row.identifier, row.name]));
 
     // --- [LIFECYCLE]
+    get target() {
+        return { application: this.url, pid: this.pid };
+    }
     launch() {
         return Automation.use((client) => client.launch({ application: this.url }));
     }
     status() {
-        return Automation.use((client) => client.status({ application: this.url }));
+        return Automation.use((client) => client.status(this.target));
     }
     watch() {
-        return Stream.unwrap(Effect.map(Automation, (client) => client.watch({ application: this.url })));
+        return Stream.unwrap(Effect.map(Automation, (client) => client.watch(this.target)));
     }
 
     // --- [ELEMENTS]
-    press(element: typeof WindowID.Type, action: string) {
-        return Automation.use((client) => client.press({ application: this.url, element, action }));
+    press(element: typeof WindowID.Type, action: typeof ElementAction.Type) {
+        return Automation.use((client) => client.press({ ...this.target, element, action }));
     }
-    screenshot(window: Option.Option<typeof WindowID.Type>) {
-        return Automation.use((client) => client.screenshot({ application: this.url, window }));
+    screenshot(options: typeof ScreenshotOptions.Type) {
+        return Automation.use((client) => client.screenshot({ ...this.target, ...options }));
     }
 
     // --- [DICTIONARY]
@@ -113,13 +143,13 @@ class Installation extends Schema.Class<Installation, { readonly brand: unique s
 
     // --- [EVENTS]
     static readonly Command = Schema.Struct({
-        reply: Native,
+        reply: AppleEventValue,
         artifacts: Schema.Array(Schema.Result(Schema.Struct({ uri: Schema.String, mimeType: Schema.OptionFromOptionalKey(Schema.String), data: Schema.Uint8ArrayFromBase64 }), Schema.ErrorInstance())).annotate({
             description: 'Each named artifact file with its media type, or why it could not be read',
         }),
     });
-    command(name: string, parameters: Readonly<Record<string, Native>>, artifacts: readonly URL[]) {
-        return Automation.use((client) => client.execute({ application: this.url, command: name, arguments: parameters, artifacts }));
+    command(name: string, parameters: Readonly<Record<string, AppleEventValue>>, artifacts: readonly URL[]) {
+        return Automation.use((client) => client.execute({ ...this.target, command: name, arguments: parameters, artifacts }));
     }
 
     // --- [SCRIPTS]
@@ -204,18 +234,20 @@ class Installation extends Schema.Class<Installation, { readonly brand: unique s
         });
     }
 }
+const Refusal = Schema.Union([Unmatched, Schema.ErrorInstance()]);
+const Target = { application: Schema.URL, pid: Installation.fields.pid };
 const Requests = RpcGroup.make(
     Rpc.make('installations', { success: Schema.Array(Installation), error: Schema.ErrorInstance() }),
     Rpc.make('launch', { payload: { application: Schema.URL }, success: Installation, error: Schema.ErrorInstance() }),
-    Rpc.make('status', { payload: { application: Schema.URL }, success: Status, error: Schema.ErrorInstance() }),
-    Rpc.make('watch', { payload: { application: Schema.URL }, success: Status, error: Schema.ErrorInstance(), stream: true }),
-    Rpc.make('press', { payload: { application: Schema.URL, element: WindowID, action: Schema.String }, success: Status, error: Schema.ErrorInstance() }),
-    Rpc.make('definition', { payload: { application: Schema.URL, selection: Schema.OptionFromOptionalKey(Schema.Struct({ kind: Kind, name: Schema.String })) }, success: Schema.String, error: Schema.ErrorInstance() }),
+    Rpc.make('status', { payload: Target, success: Status, error: Refusal }),
+    Rpc.make('watch', { payload: Target, success: Status, error: Refusal, stream: true }),
+    Rpc.make('press', { payload: { ...Target, element: WindowID, action: ElementAction }, error: Refusal }),
+    Rpc.make('definition', { payload: { application: Schema.URL, selection: Schema.OptionFromOptionalKey(Schema.Struct({ kind: Kind, name: Schema.String })) }, success: Schema.String, error: Refusal }),
     Rpc.make('terms', { payload: { application: Schema.URL, kind: Kind }, success: Schema.Array(Schema.Struct({ name: Schema.String, code: Schema.String.annotate({ description: 'Code as the scripting definition writes it' }) })), error: Schema.ErrorInstance() }),
-    Rpc.make('execute', { payload: { application: Schema.URL, command: Schema.String, arguments: Schema.Record(Schema.String, Native), artifacts: Schema.Array(Schema.URL) }, success: Installation.Command, error: Schema.ErrorInstance() }),
-    Rpc.make('screenshot', { payload: { application: Schema.URL, window: Schema.OptionFromOptionalKey(WindowID) }, success: Screenshot, error: Schema.ErrorInstance() }),
+    Rpc.make('execute', { payload: { ...Target, command: Schema.String, arguments: Schema.Record(Schema.String, AppleEventValue), artifacts: Schema.Array(Schema.URL) }, success: Installation.Command, error: Refusal }),
+    Rpc.make('screenshot', { payload: { ...Target, ...ScreenshotOptions.fields }, success: Screenshot, error: Refusal }),
     Rpc.make('faces', { success: Schema.Array(InstalledFace), error: Schema.ErrorInstance() }),
-    Rpc.make('face', { payload: { name: Schema.String }, success: InstalledFace, error: Schema.Union([Unmatched, Schema.ErrorInstance()]) }),
+    Rpc.make('face', { payload: { name: Schema.String }, success: InstalledFace, error: Refusal }),
 );
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -241,4 +273,4 @@ class Automation extends Context.Service<Automation, RpcClient.FromGroup<typeof 
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Automation, Installation, InstalledFace, Kind, Native, Screenshot, Status, WindowID };
+export { AppleEventValue, Automation, ElementAction, Installation, InstalledFace, Kind, Screenshot, ScreenshotImage, ScreenshotOptions, Status, WindowID };

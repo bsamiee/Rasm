@@ -11,7 +11,7 @@ Remaining work on Creative Cloud libraries and products, for a fresh session.
 - Installed `indesign-uxp-types` declarations, and InDesign's own `$.dictionary` read through `Model` in `model.ts`
 - Facts come from these sources, dependency sources, and Ghidra; `.archive/` folders are no source for briefs or code
 
-Swift handoff: /private/tmp/claude-501/-Users-bardiasamiee-Developer-Rasm/d76ad2f1-1d66-4d0d-86e1-b92a484eae16/scratchpad/swift-track-handoff.md
+Swift handoff: `docs/research/repository-platform/handoff/swift-track-handoff.md`
 
 ## [01]-[STATE]
 
@@ -42,14 +42,13 @@ Swift handoff: /private/tmp/claude-501/-Users-bardiasamiee-Developer-Rasm/d76ad2
 
 ## [02]-[OPEN]
 
-- Combined wire landing on both sides: `press` returns nothing and `Status` leaves the `command` union; `press` takes a label or `{field, value}`
-- Same landing: element `role` and `subrole` split with `Control` by AX role; `Status` as an enum with not-running as a case; both-range screenshots
-- Same landing: dictionary misses fail `Unmatched`, record descriptors keep a record form, TypeScript `Native` takes the Swift name
-- The Galley panel shows no text; startup failures go to the UXP console; the link state is read through `adobe://applications`
-- Swift packages adjudicated in `docs/research/repository-platform/handoff/swift-track-handoff.md` landed at newest versions, hand-rolled code removed
-- `Scripting.swift` rebuilt in focused passes, then the broader `libs/swift/macos`, with a reviewer per pass
+- Swift library and helper reduced at the root: MetaCodable replaces the `Request` decoder and memberwise initializers, one-field wrappers, restated host enums, and bool-plus-optional structs go, logic rebuilt as typed-throws bodies
+- Packages adjudicated in `docs/research/repository-platform/handoff/swift-track-handoff.md` land at newest versions, hand-rolled code removed in the same change
+- `Scripting.swift` rebuilt in focused passes, then the broader `libs/swift/macos`
+- `@rasm/automation` reduced from Swift through the library to the app: `script` as one `flatMap`, exports cut to the schemas the app's tools spell, constants, wrappers, and restated types removed where a derivation or package form exists
+- The status push watches each application a tool resolves, keyed by bundle and instance pids, one watch per process
 - The helper's JSON-RPC stdio server moves to a Swift Effect RPC library beside `RasmMacOS`
-- New ast-grep rules from `docs/research/repository-platform/handoff/patterns.md` (101 sketches with matches and exclusions), one reviewer per unit
+- New ast-grep rules from `docs/research/repository-platform/handoff/patterns.md` (101 sketches with matches and exclusions)
 - Memory lines that became checks leave the language floors once those rules land
 - Accent folding on PostgreSQL search: reconcile observes, creates, and gates `unaccent` with a text search configuration the query names
 - Table members return decoded rows, so consumers stop decoding through the table's own struct and flattening each result
@@ -119,14 +118,8 @@ Each category states what its verbs and views cover and what stays shallow, then
 
 ## [04]-[METHOD]
 
-- Agents are fresh Opus agents, never forks, and delegate to at most 4 or 5 agents when work splits without churn
-- Briefs point to standards, files, and sources, and state expectations in place of minutiae
-- Agents deliver declarations justified by host or package facts, then consumers' rebuilt shapes, then code, then checks at zero
-- Every touched project's own `check` target runs before a commit; the root typecheck covers no package tsconfig
-- Every landing passes an adversarial regression review against the folder's removed-defect record before its commit; its findings land first
 - A move is not a rebuild: moved lines are rebuilt to the floor in the same landing, and a per-tool step never duplicates the composition point
 - A derivation over Model facts lives on the Model, never as an export between view modules
-- Reports name each removal and each kept construct with the fact that keeps it
 - Domain libraries serve future extensions unrelated to MCP, and no domain module reads a tool schema or imports its consumer
 - Rebuilds change source and consumers in one chain to less code, surface, fields, and parameters, never a shuffle into new types
 - One declaration per concept (a `Schema.Class` owning schema, reader, operations), algebra before classes, tagged state over strings
@@ -135,12 +128,5 @@ Each category states what its verbs and views cover and what stays shallow, then
 - Declarations earn their place by a fact no other states; an operation whose answer another contains goes, its callers rebuilt
 - Effect 4 and installed packages (MCP, typesetting, Adobe types) are used in full, and a missing package joins at its newest release
 - Compiler-forced forms stand with their code cited; `Schema.decodeSync` and `Effect.gen({ self })` fail the check
-- Live probes confirm facts the sources state, never replace reading them; one relaunch per landing, not per probe
 - Tools are verbs over a category; a tool with no value goes, and its value joins a remaining verb
 - Facts every result needs (status, preflight) arrive at one composition point, on failed results too, never through agent polling
-- Defects met outside scope (tooling, watcher, Swift capture) get a focused agent at once
-- Adversarial reviews assume code is wrong and return findings only, each with the rebuild that removes it
-- Reviews cover folder flatness, file and function names, overlapping names, coined terms, flow, wrappers, and indirection
-- Reviews cover exported constants, large export lists, and deep nesting
-- One agent applies one review's findings, in dependency order, sequential on shared files, and pushes back on a wrong finding
-- Checkers reach zero before a commit; commits and pushes wait for the owner's word

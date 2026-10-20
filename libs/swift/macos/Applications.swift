@@ -36,20 +36,25 @@ public struct Installation: Encodable, Hashable, Sendable {
     public let identifier: String
     public let name: String
     public let version: String?
-    public private(set) var running: Instance?
+    public private(set) var instances: [Instance]
     public let scriptable: Bool
 
-    public var runningApplication: Result<NSRunningApplication, DiscoveryFailure> {
-        Result { () throws(DiscoveryFailure) in
-            guard let instance: NSRunningApplication = running.flatMap({ running in NSRunningApplication(processIdentifier: running.pid) }) else { throw .notRunning(url) }
-            return instance
+    public func runningApplication(_ pid: pid_t?) -> Result<NSRunningApplication, DiscoveryFailure> {
+        let live: [NSRunningApplication] = instances.compactMap { instance in NSRunningApplication(processIdentifier: instance.pid) }
+        let chosen: [NSRunningApplication] = live.filter { instance in pid.map { pid in instance.processIdentifier == pid } ?? true }
+        let pids: [String] = live.map { instance in String(instance.processIdentifier) }
+        return switch (chosen.first, chosen.count) {
+            case (.some(let instance), 1): .success(instance)
+            case (.none, _) where live.isEmpty: .failure(.notRunning(url))
+            case (.none, _): .failure(.unmatched(Unmatched(subject: "running instance of \(name)", query: pid.map(String.init), candidates: pids)))
+            case (.some, _): .failure(.unmatched(Unmatched(subject: "single running instance of \(name)", query: nil, candidates: pids)))
         }
     }
 
-    public func launched(within deadline: Duration) async -> Result<(installation: Self, instance: NSRunningApplication), LaunchFailure> {
-        await NSWorkspace.shared.launchApplication(at: url, within: deadline).map { instance in
+    public func launched(within deadline: Duration, createsNewApplicationInstance: Bool) async -> Result<(installation: Self, instance: NSRunningApplication), LaunchFailure> {
+        await NSWorkspace.shared.launchApplication(at: url, within: deadline, createsNewApplicationInstance: createsNewApplicationInstance).map { instance in
             var copy: Self = self
-            copy.running = Instance(instance)
+            copy.instances = instances.filter { known in known.pid != instance.processIdentifier } + [Instance(instance)]
             return (copy, instance)
         }
     }
@@ -66,7 +71,7 @@ extension Installation {
         identifier = try attribute(kMDItemCFBundleIdentifier)
         name = try attribute(kMDItemDisplayName)
         version = MDItemCopyAttribute(item, kMDItemVersion) as? String
-        running = NSRunningApplication.instances(at: url, among: runningApplications).first.map(Instance.init)
+        instances = NSRunningApplication.instances(at: url, among: runningApplications).map(Instance.init)
         scriptable = try Result { try url.resourceValues(forKeys: [.applicationIsScriptableKey]).applicationIsScriptable == true }.mapError { error in DiscoveryFailure.unreadable(url, error) }.get()
     }
 }
@@ -84,6 +89,7 @@ public enum DiscoveryFailure: CustomNSError, LocalizedError {
     case unattributed(String, path: String?)
     case unreadable(URL, any Error)
     case notRunning(URL)
+    case unmatched(Unmatched)
 
     public var errorDescription: String? {
         switch self {
@@ -92,6 +98,7 @@ public enum DiscoveryFailure: CustomNSError, LocalizedError {
             case .unattributed(let attribute, let path): "Spotlight holds no \(attribute) for \(path ?? "an indexed application bundle")"
             case .unreadable(let url, let error): "Launch Services could not read \(url.path(percentEncoded: false)): \(error.localizedDescription)"
             case .notRunning(let url): "No running instance of \(url.path(percentEncoded: false)), launch it first"
+            case .unmatched(let miss): miss.errorDescription
         }
     }
 
@@ -168,9 +175,10 @@ extension NSWorkspace {
     }
 
     // --- [LIFECYCLE]
-    public func launchApplication(at url: URL, within deadline: Duration, activates: Bool = false) async -> Result<NSRunningApplication, LaunchFailure> {
+    public func launchApplication(at url: URL, within deadline: Duration, createsNewApplicationInstance: Bool) async -> Result<NSRunningApplication, LaunchFailure> {
         let configuration: OpenConfiguration = OpenConfiguration()
-        configuration.activates = activates
+        configuration.activates = false
+        configuration.createsNewApplicationInstance = createsNewApplicationInstance
         configuration.promptsUserIfNeeded = false
         configuration.allowsRunningApplicationSubstitution = false
         configuration.appleEvent = NSAppleEventDescriptor(
@@ -187,10 +195,9 @@ extension NSWorkspace {
 
     public func activateApplication(at url: URL, within deadline: Duration) async -> Result<NSRunningApplication, ActivationFailure> {
         let end: ContinuousClock.Instant = .now + deadline
-        return await launchApplication(at: url, within: deadline, activates: true).mapError(ActivationFailure.launch).bind { instance in
-            await instance.reaching(\.isActive, within: ContinuousClock.now.duration(to: end)).map { instance }
+        return await launchApplication(at: url, within: deadline, createsNewApplicationInstance: false).mapError(ActivationFailure.launch).bind { instance in
+            await instance.activated(within: ContinuousClock.now.duration(to: end))
         }
-        .mapError { failure in if case .timedOut = failure { .declined(frontmost: frontmostApplication) } else { failure } }
     }
 
     @MainActor
@@ -222,6 +229,12 @@ extension NSRunningApplication {
     public static func instances(at url: URL, among runningApplications: [NSRunningApplication] = NSWorkspace.shared.runningApplications) -> [NSRunningApplication] {
         let path: String = url.path(percentEncoded: false)
         return runningApplications.filter { instance in instance.activationPolicy != .prohibited && instance.bundleURL?.resolvingSymlinksInPath().path(percentEncoded: false) == path }
+    }
+
+    public func activated(within deadline: Duration) async -> Result<NSRunningApplication, ActivationFailure> {
+        guard activate() else { return .failure(.declined(frontmost: NSWorkspace.shared.frontmostApplication)) }
+        let reached: Result<Void, ActivationFailure> = await reaching(\.isActive, within: deadline)
+        return reached.map { self }.mapError { failure in if case .timedOut = failure { .declined(frontmost: NSWorkspace.shared.frontmostApplication) } else { failure } }
     }
 
     public func reaching<Failure: ApplicationWaitFailure>(_ state: any KeyPath<NSRunningApplication, Bool> & Sendable, within deadline: Duration) async -> Result<Void, Failure> {

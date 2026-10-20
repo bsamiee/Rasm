@@ -32,7 +32,8 @@ ${CLAUDE_SKILL_DIR}/../../../.cache/swiftpm/build/libs/swift/macos/debug/watch-a
 ```
 
 - Elements open at the run's start count, a later one is answered when it opens
-- Exit 0 prints an `answered` line with `action`, exit 1 prints a `fail` line with the reason and the element's offered actions
+- `--field <label> --value <text>` in place of `--action` sets the text of the element's control with that label
+- Exit 0 prints an `answered` line with `action`, exit 1 prints a `fail` line with the reason, naming the element's actions, or its control labels for `--field`
 - Both lines join app's log, every watcher reports them, and the holder reports element's `closed` line
 - Actions come from the element's `actions`: an enabled control label, `AXCloseButton` for a window close button, `AXCancel` for a menu
 - Dialogs block every later script call to their app, and a dialog a call opens holds that call until an answer closes it
@@ -46,14 +47,14 @@ One watcher per app holds an `fcntl` lock on `$TMPDIR/<bundle id>.events`, obser
 
 ## [04]-[EVENTS]
 
-Lines carry `app`, instance lines `pid`, element lines add `element` with `id`, `kind`, `role`, `title`, `text` (static text of a dialog or sheet), `controls` (text fields, check boxes, and pop-up buttons with their values), and `actions`:
+Lines carry `app`, instance lines `pid`, element lines add `element` with `id`, `kind`, `role`, `subrole`, `title`, `text` (static text of a dialog or sheet), `controls` (`role`, `label`, and `value` of each text field, pop-up button, check box, and radio button, a check state as 0 off, 1 on, 2 mixed), and `actions`:
 
 | [INDEX] | [EVENT]    | [MEANING]                                                               | [ACTION]                                         |
 | :-----: | :--------- | :---------------------------------------------------------------------- | :----------------------------------------------- |
 |  [01]   | `watch`    | Watcher started                                                         | Read open elements                               |
 |  [02]   | `launch`   | Instance started                                                        | Drive app                                        |
 |  [03]   | `exit`     | Instance ended, `status` holds exit status                              | List crash reports when `status` is nonzero      |
-|  [04]   | `open`     | Window opened, `element.role` holds its subrole                         | Close an unrequested window with `AXCloseButton` |
+|  [04]   | `open`     | Window opened, `element.subrole` names its window kind                  | Close an unrequested window with `AXCloseButton` |
 |  [05]   | `open`     | Menu opened, `element.title` holds its menu bar item                    | Cancel an unrequested menu with `AXCancel`       |
 |  [06]   | `open`     | Dialog or sheet opened                                                  | Answer before the next script call               |
 |  [07]   | `answered` | Answer run performed `action`                                           | Continue                                         |

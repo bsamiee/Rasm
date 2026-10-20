@@ -202,4 +202,4 @@ const layer = (scheme: string) =>
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Attachment, Image, Instructions, layer, Progress, READING, type Route, register, rendered, resource, resourceTemplate, targeted };
+export { Attachment, Content, Image, Instructions, layer, Progress, READING, type Route, register, rendered, resource, resourceTemplate, targeted };

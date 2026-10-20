@@ -1,3 +1,5 @@
+public import Foundation
+
 // --- [TYPES] ---------------------------------------------------------------------------
 
 public protocol DeadlineFailure: Error {
@@ -29,6 +31,22 @@ public struct AggregateError<Element: Sendable>: Error {
 
     public func map<Next>(_ transform: (Element) -> Next) -> AggregateError<Next> {
         AggregateError<Next>(first: transform(first), remaining: remaining.map(transform))
+    }
+}
+
+public struct Unmatched: LocalizedError {
+    public let subject: String
+    public let query: String?
+    public let candidates: [String]
+
+    public init(subject: String, query: String?, candidates: [String]) {
+        self.subject = subject
+        self.query = query
+        self.candidates = candidates
+    }
+
+    public var errorDescription: String? {
+        "No \(subject)\(query.map { query in " matching \(query)" } ?? "")\(candidates.isEmpty ? "" : ", candidates: \(candidates.joined(separator: ", "))")"
     }
 }
 

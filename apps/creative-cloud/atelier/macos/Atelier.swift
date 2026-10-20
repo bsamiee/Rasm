@@ -121,17 +121,17 @@ struct JSONError: Encodable {
 }
 
 enum Response {
-    case value(any Encodable)
+    case value(any Encodable?)
     case stream(any AsyncSequence<Result<ApplicationStatus, AggregateError<Failure>>, Never>)
 }
 
 enum Request: Decodable {
     struct Target: Decodable {
         let application: URL
+        let pid: pid_t?
     }
 
     struct Press: Decodable {
-        let application: URL
         let element: CGWindowID
         let action: ElementAction
     }
@@ -147,15 +147,9 @@ enum Request: Decodable {
     }
 
     struct Execute: Decodable {
-        let application: URL
         let command: String
         let arguments: [String: AppleEventValue]
         let artifacts: [URL]
-    }
-
-    struct Capture: Decodable {
-        let application: URL
-        let window: CGWindowID?
     }
 
     struct Named: Decodable {
@@ -166,11 +160,11 @@ enum Request: Decodable {
     case launch(Target)
     case status(Target)
     case watch(Target)
-    case press(Press)
+    case press(Target, Press)
     case definition(Definition)
     case terms(Terms)
-    case execute(Execute)
-    case screenshot(Capture)
+    case execute(Target, Execute)
+    case screenshot(Target, ScreenshotOptions)
     case faces
     case face(Named)
 
@@ -185,11 +179,11 @@ enum Request: Decodable {
                 case .launch: try .launch(call.decode(Target.self, forKey: .params))
                 case .status: try .status(call.decode(Target.self, forKey: .params))
                 case .watch: try .watch(call.decode(Target.self, forKey: .params))
-                case .press: try .press(call.decode(Press.self, forKey: .params))
+                case .press: try .press(call.decode(Target.self, forKey: .params), call.decode(Press.self, forKey: .params))
                 case .definition: try .definition(call.decode(Definition.self, forKey: .params))
                 case .terms: try .terms(call.decode(Terms.self, forKey: .params))
-                case .execute: try .execute(call.decode(Execute.self, forKey: .params))
-                case .screenshot: try .screenshot(call.decode(Capture.self, forKey: .params))
+                case .execute: try .execute(call.decode(Target.self, forKey: .params), call.decode(Execute.self, forKey: .params))
+                case .screenshot: try .screenshot(call.decode(Target.self, forKey: .params), call.decode(ScreenshotOptions.self, forKey: .params))
                 case .faces: .faces
                 case .face: try .face(call.decode(Named.self, forKey: .params))
             }
@@ -201,24 +195,32 @@ enum Request: Decodable {
             if case .untrusted = error { Accessibility.prompt() }
             return AggregateError(first: .element(error))
         }
-        func running(_ application: URL) -> Result<NSRunningApplication, AggregateError<Failure>> {
-            Release.at(application).flatMap { release in release.installation.runningApplication.aggregated(Failure.discovery) }
+        func running(_ target: Target) -> Result<NSRunningApplication, AggregateError<Failure>> {
+            Release.at(target.application).flatMap { release in release.installation.runningApplication(target.pid).aggregated(Failure.discovery) }
+        }
+        func reached(_ target: Target) async -> Result<(installation: Installation, instance: NSRunningApplication), AggregateError<Failure>> {
+            await Release.at(target.application).bind { release in
+                switch (target.pid, release.installation.instances.isEmpty) {
+                    case (.none, true): await release.installation.launched(within: deadline, createsNewApplicationInstance: false).aggregated(Failure.launch)
+                    case (.some, _), (.none, false): release.installation.runningApplication(target.pid).map { instance in (release.installation, instance) }.aggregated(Failure.discovery)
+                }
+            }
         }
         return switch self {
             case .installations:
                 Release.all().map(Response.value)
             case .launch(let target):
                 await Release.at(target.application).bind { release in
-                    await release.installation.launched(within: deadline).map { launched in Response.value(Release(installation: launched.installation, channel: release.channel)) }.aggregated(
-                        Failure.launch
-                    )
+                    await release.installation.launched(within: deadline, createsNewApplicationInstance: false)
+                        .map { launched in Response.value(Release(installation: launched.installation, channel: release.channel)) }
+                        .aggregated(Failure.launch)
                 }
             case .status(let target):
-                running(target.application).flatMap { instance in instance.status().mapError(refused) }.map(Response.value)
+                running(target).flatMap { instance in instance.status().mapError(refused) }.map(Response.value)
             case .watch(let target):
-                running(target.application).map { instance in Response.stream(StatusChanges(instance).map { next in next.mapError(refused) }) }
-            case .press(let press):
-                running(press.application).flatMap { instance in instance.perform(press.action, on: press.element).flatMap { instance.status() }.mapError(refused) }.map(Response.value)
+                running(target).map { instance in Response.stream(StatusChanges(instance).map { next in next.mapError(refused) }) }
+            case .press(let target, let press):
+                running(target).flatMap { instance in instance.perform(press.action, on: press.element).mapError(refused) }.map { Response.value(nil) }
             case .definition(let definition):
                 await Release.at(definition.application)
                     .bind { release in await definitions.dictionary(of: release.installation, within: deadline).aggregated(Failure.definition) }
@@ -238,11 +240,10 @@ enum Request: Decodable {
                         }
                     }
                     .map(Response.value)
-            case .execute(let call):
-                await Release.at(call.application)
-                    .bind { release in await release.installation.launched(within: deadline).aggregated(Failure.launch) }
-                    .bind { launched in
-                        await definitions.dictionary(of: launched.installation, within: deadline).aggregated(Failure.definition).map { dictionary in (launched.instance, dictionary) }
+            case .execute(let target, let call):
+                await reached(target)
+                    .bind { reached in
+                        await definitions.dictionary(of: reached.installation, within: deadline).aggregated(Failure.definition).map { dictionary in (reached.instance, dictionary) }
                     }
                     .flatMap { instance, dictionary in
                         dictionary.event(call.command, arguments: call.arguments, target: NSAppleEventDescriptor(processIdentifier: instance.processIdentifier))
@@ -250,17 +251,17 @@ enum Request: Decodable {
                             .flatMap { event in event.sent().aggregated(Failure.event) }
                             .map { reply in Response.value(Executed(reply: AppleEventValue(reply, in: dictionary), reading: call.artifacts)) }
                     }
-            case .screenshot(let capture):
-                await Release.at(capture.application)
-                    .bind { release in await NSWorkspace.shared.activateApplication(at: release.installation.url, within: deadline).aggregated(Failure.activation) }
-                    .bind { instance in await instance.screenshot(ScreenshotOptions(target: .window(capture.window))).aggregated(Failure.screenshot) }
+            case .screenshot(let target, let options):
+                await reached(target)
+                    .bind { reached in await reached.instance.activated(within: deadline).aggregated(Failure.activation) }
+                    .bind { instance in await instance.screenshot(options).aggregated(Failure.screenshot) }
                     .map(Response.value)
             case .faces:
                 .success(.value(InstalledFace.installed()))
             case .face(let named):
                 Result { () throws(AggregateError<Failure>) in
                     guard let face: InstalledFace = InstalledFace.named(named.name) else {
-                        throw AggregateError(first: .unmatchedFace(named.name, InstalledFace.installed().map(\.postscriptName)))
+                        throw AggregateError(first: .unmatched(Unmatched(subject: "installed face", query: named.name, candidates: InstalledFace.installed().map(\.postscriptName))))
                     }
                     return .value(face)
                 }
@@ -335,7 +336,7 @@ enum FromServer: Encodable {
         switch self {
             case .exit(let id, .success(let value)):
                 try container.encode(id, forKey: .id)
-                if let value { try container.encode(value, forKey: .result) }
+                if let value { try container.encode(value, forKey: .result) } else { try container.encodeNil(forKey: .result) }
             case .exit(let id, .failure(let cause)):
                 let message: String =
                     switch cause.first {
@@ -383,7 +384,7 @@ enum Failure: CustomNSError, LocalizedError, Encodable {
     case dictionary(DictionaryFailure)
     case event(AppleEventFailure)
     case unreadable(URL, any Error)
-    case unmatchedFace(String, [String])
+    case unmatched(Unmatched)
 
     private enum Key: String, CodingKey {
         case subject, query, candidates
@@ -394,10 +395,9 @@ enum Failure: CustomNSError, LocalizedError, Encodable {
         switch self {
             case .notAdobe(let url): "\(url.path(percentEncoded: false)) is no application with an identifier starting \(Release.identifierPrefix)"
             case .discovery(let error as any Error), .launch(let error as any Error), .activation(let error as any Error), .element(let error as any Error), .screenshot(let error as any Error),
-                .definition(let error as any Error), .dictionary(let error as any Error), .event(let error as any Error):
+                .definition(let error as any Error), .dictionary(let error as any Error), .event(let error as any Error), .unmatched(let error as any Error):
                 error.localizedDescription
             case .unreadable(let file, let error): "\(file.path(percentEncoded: false)) could not be read: \(error.localizedDescription)"
-            case .unmatchedFace(let name, _): "CoreText matches no installed face named \(name)"
         }
     }
 
@@ -407,12 +407,12 @@ enum Failure: CustomNSError, LocalizedError, Encodable {
 
     func encode(to encoder: any Encoder) throws {
         switch self {
-            case .unmatchedFace(let query, let candidates):
+            case .unmatched(let miss), .discovery(.unmatched(let miss)), .element(.unmatched(let miss)), .definition(.unmatched(let miss)), .dictionary(.unmatched(let miss)):
                 var container: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
                 try container.encode("Unmatched", forKey: .tag)
-                try container.encode("installed face", forKey: .subject)
-                try container.encode(query, forKey: .query)
-                try container.encode(candidates, forKey: .candidates)
+                try container.encode(miss.subject, forKey: .subject)
+                try container.encodeIfPresent(miss.query, forKey: .query)
+                try container.encode(miss.candidates, forKey: .candidates)
             case .discovery(let error as any Error), .launch(let error as any Error), .activation(let error as any Error), .element(let error as any Error), .screenshot(let error as any Error),
                 .definition(let error as any Error), .dictionary(let error as any Error), .event(let error as any Error):
                 try JSONError(error: error).encode(to: encoder)

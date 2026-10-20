@@ -12,14 +12,42 @@ public enum ElementKind: String, Codable, Sendable {
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public enum Control: Codable, Hashable, Sendable {
-    public enum Kind: String, Codable, Sendable {
-        case field
-        case popUp
+public struct Control: Codable, Hashable, Sendable {
+    public enum State: Int, Codable, Sendable {
+        case off
+        case on
+        case mixed
+
+        init(_ raw: Int) throws(ElementFailure) {
+            guard let state: Self = Self(rawValue: raw) else { throw .state(raw) }
+            self = state
+        }
     }
 
-    case text(kind: Kind, label: String?, value: String?)
-    case checkBox(label: String?, on: Bool)
+    public enum Value: Hashable, Sendable {
+        case text(String)
+        case state(State)
+    }
+
+    public let role: String
+    public let label: String?
+    public let value: Value?
+}
+
+extension Control.Value: Codable {
+    public init(from decoder: any Decoder) throws {
+        let value: any SingleValueDecodingContainer = try decoder.singleValueContainer()
+        self = try Result { try .state(value.decode(Control.State.self)) }.flatMapError { _ in Result { try .text(value.decode(String.self)) } }.get()
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        let value: any Encodable =
+            switch self {
+                case .text(let text): text
+                case .state(let state): state
+            }
+        try value.encode(to: encoder)
+    }
 }
 
 public enum ElementAction: Hashable, Sendable {
@@ -78,16 +106,34 @@ public struct Element: Codable, Hashable, Sendable {
     public let id: CGWindowID
     public let kind: ElementKind
     public let role: String
+    public let subrole: String?
     public let title: String?
     public let text: [String]
     public let controls: [Control]
     public let actions: [ElementAction]
 }
 
-public struct ApplicationStatus: Codable, Equatable, Sendable {
-    public let responding: Bool
-    public let frontWindow: CGWindowID?
-    public let elements: [Element]
+public enum ApplicationStatus: Equatable, Sendable {
+    case responding(frontWindow: CGWindowID?, elements: [Element])
+    case unresponsive
+}
+
+extension ApplicationStatus: Encodable {
+    private enum Key: String, CodingKey {
+        case frontWindow, elements
+        case tag = "_tag"
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        var fields: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
+        switch self {
+            case .responding(let frontWindow, let elements):
+                try fields.encode("responding", forKey: .tag)
+                try fields.encodeIfPresent(frontWindow, forKey: .frontWindow)
+                try fields.encode(elements, forKey: .elements)
+            case .unresponsive: try fields.encode("unresponsive", forKey: .tag)
+        }
+    }
 }
 
 struct Described {
@@ -102,23 +148,20 @@ private struct Part {
     let control: Control?
     let press: String?
 
-    var field: String? {
-        if case .text(.field, let label, _) = control { label } else { nil }
-    }
-
     init(_ node: AXUIElement) throws(ElementFailure) {
         let role: String? = try node.value(kAXRoleAttribute)
         let label: String? = try node.label()
         let enabled: Bool = try node.value(kAXEnabledAttribute) ?? true
         self.node = node
         text = try role == kAXStaticTextRole ? node.value(kAXValueAttribute).flatMap { (line: String) in line.isEmpty ? nil : line } : nil
-        control =
+        control = try role.flatMap { role throws(ElementFailure) in
             switch role {
-                case .some(kAXTextFieldRole), .some(kAXTextAreaRole), .some(kAXComboBoxRole): .text(kind: .field, label: label, value: try node.value(kAXValueAttribute))
-                case .some(kAXCheckBoxRole), .some(kAXRadioButtonRole): .checkBox(label: label, on: try node.value(kAXValueAttribute) == 1)
-                case .some(kAXPopUpButtonRole): .text(kind: .popUp, label: label, value: try node.value(kAXValueAttribute))
+                case kAXTextFieldRole, kAXTextAreaRole, kAXComboBoxRole, kAXPopUpButtonRole: Control(role: role, label: label, value: try node.value(kAXValueAttribute).map(Control.Value.text))
+                case kAXCheckBoxRole, kAXRadioButtonRole:
+                    Control(role: role, label: label, value: try (node.value(kAXValueAttribute) as Int?).map { raw throws(ElementFailure) in try .state(Control.State(raw)) })
                 default: nil
             }
+        }
         let actions: [String] = try label == nil || !enabled ? [] : node.actionNames()
         press = actions.contains(kAXPressAction) ? label : nil
     }
@@ -131,7 +174,8 @@ public enum ElementFailure: LocalizedError {
     case unreadable(AXError)
     case unobservable(AggregateError<(notification: String, error: AXError)>)
     case absent(CGWindowID)
-    case unoffered(ElementAction, [ElementAction])
+    case state(Int)
+    case unmatched(Unmatched)
     case refused(ElementAction, AXError)
     case cancelled
 
@@ -146,7 +190,8 @@ public enum ElementFailure: LocalizedError {
             case .unobservable(let refusals):
                 "The application refused Accessibility notifications: \(refusals.errors.map { refusal in "\(refusal.notification) (AXError \(refusal.error.rawValue))" }.joined(separator: ", "))"
             case .absent(let id): "No open window, dialog, sheet, or menu with id \(id)"
-            case .unoffered(let action, let actions): "The element offers no \(action.label), it offers \(actions.map(\.label).joined(separator: ", "))"
+            case .state(let raw): "Accessibility reported check state \(raw), outside 0 off, 1 on, and 2 mixed"
+            case .unmatched(let miss): miss.errorDescription
             case .refused(let action, let error): "Performing \(action.label) returned AXError \(error.rawValue)"
             case .cancelled: "Canceled"
         }
@@ -340,9 +385,9 @@ extension AXUIElement {
             + [close.map { button in (ElementAction.close, button) }, cancels ? (ElementAction.cancel, self) : nil].compactMap(\.self)
         let title: String? = try kind == .menu ? (value(kAXParentAttribute) as AXUIElement?)?.label() : label()
         return Described(
-            element: Element(id: window, kind: kind, role: subrole ?? role, title: title, text: parts.compactMap(\.text), controls: parts.compactMap(\.control), actions: targets.map(\.0)),
+            element: Element(id: window, kind: kind, role: role, subrole: subrole, title: title, text: parts.compactMap(\.text), controls: parts.compactMap(\.control), actions: targets.map(\.0)),
             targets: Dictionary(targets) { first, _ in first },
-            fields: Dictionary(parts.compactMap { part in part.field.map { label in (label, part.node) } }) { first, _ in first },
+            fields: Dictionary(parts.compactMap { part in part.control?.label.map { label in (label, part.node) } }) { first, _ in first },
         )
     }
 }
@@ -352,14 +397,13 @@ extension NSRunningApplication {
     public func status() -> Result<ApplicationStatus, ElementFailure> {
         let application: AXUIElement = AXUIElementCreateApplication(processIdentifier)
         let read: Result<ApplicationStatus, ElementFailure> = Result { () throws(ElementFailure) in
-            try ApplicationStatus(
-                responding: true,
+            try .responding(
                 frontWindow: (application.value(kAXFocusedWindowAttribute) as AXUIElement?)?.window(),
                 elements: application.candidates().map { candidate throws(ElementFailure) in try candidate.described()?.element }.compactMap(\.self),
             )
         }
         return switch read {
-            case .failure(.unreadable(.cannotComplete)): .success(ApplicationStatus(responding: false, frontWindow: nil, elements: []))
+            case .failure(.unreadable(.cannotComplete)): .success(.unresponsive)
             case .success, .failure: read
         }
     }
@@ -376,8 +420,13 @@ extension NSRunningApplication {
                     case .cancel: target.targets[action].map { node in AXUIElementPerformAction(node, kAXCancelAction as CFString) }
                     case .press, .close: target.targets[action].map { node in AXUIElementPerformAction(node, kAXPressAction as CFString) }
                 }
+            let offered: Unmatched =
+                switch action {
+                    case .set: Unmatched(subject: "control of element \(id)", query: action.label, candidates: target.element.controls.compactMap(\.label))
+                    case .press, .close, .cancel: Unmatched(subject: "action of element \(id)", query: action.label, candidates: target.element.actions.map(\.label))
+                }
             switch performed {
-                case .none: throw .unoffered(action, target.element.actions)
+                case .none: throw .unmatched(offered)
                 case .some(.success), .some(.cannotComplete): break
                 case .some(let error): throw .refused(action, error)
             }
@@ -385,10 +434,11 @@ extension NSRunningApplication {
     }
 
     public func answer(_ text: String, with action: ElementAction) async -> Result<Void, ElementFailure> {
+        let shows: (Element) -> Bool = { element in ([element.title].compactMap(\.self) + element.text).contains { line in line.contains(text) } }
         for await next: Result<ApplicationStatus, ElementFailure> in StatusChanges(self) {
-            switch next.map({ snapshot in snapshot.elements.first { element in ([element.title].compactMap(\.self) + element.text).contains { line in line.contains(text) } } }) {
-                case .success(.some(let element)): return perform(action, on: element.id)
-                case .success(.none): continue
+            switch next {
+                case .success(.responding(_, let elements)): if let element: Element = elements.first(where: shows) { return perform(action, on: element.id) }
+                case .success(.unresponsive): continue
                 case .failure(let error): return .failure(error)
             }
         }

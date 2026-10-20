@@ -19,19 +19,24 @@ Stdin and stdout carry one JSON-RPC 2.0 message per line in the form Effect's `R
 - Failures reply an encoded Effect `Cause`, one `Fail` per refusal, a `Die` for an unreadable request or unencodable reply
 - Refusals an `Rpc` error union declares encode that schema's fields (`Unmatched`)
 - Applications are addressed by bundle URL as `installations` lists them, each version and channel apart
+- `status`, `watch`, `press`, `execute`, and `screenshot` address a running instance by an optional `pid`, and refuse a bundle running several instances without one as `Unmatched` listing the pids
+- `execute` and `screenshot` launch a bundle with no running instance when no `pid` is given
 - Element ids are CoreGraphics window numbers, the ids `press` and `screenshot` take
 
 ## [03]-[VALUES]
 
-`AppleEventValue` crosses as the plain JSON `Native` in `@rasm/automation` reads, with a `_tag` object for each Apple Event type JSON lacks:
+`AppleEventValue` crosses as the plain JSON its `@rasm/automation` schema reads, with a `_tag` object for each Apple Event type JSON lacks:
 - Text coerces to the enumerator, type, date, or file URL a parameter's dictionary type takes, and to an ordinal as an `index` selector
 - Codes cross as the scripting definition writes them and pass wherever a command, term, or enumerator name does
 - Commands resolve among those taking every argument as a parameter, AppleScript commands first, and more than one match fails
-- Reply values pass back unchanged as arguments, and `opaque` keeps each descriptor no other tag or JSON value holds exactly
+- Records cross as JSON objects, a record of another descriptor type (range, comparison, logical) as a `record` tag holding that type
+- Reply values pass back unchanged as arguments, and `opaque` keeps each non-record descriptor no other tag or JSON value holds exactly
 
 ## [04]-[HOST]
 
 - `Atelier.app` holds Automation, Screen Recording, and Accessibility grants once start disclaims responsibility from its spawning process
 - Element reads that find the process untrusted open the Accessibility prompt
-- Start sets a one-second Accessibility messaging timeout, an application silent past it reads `responding` false
+- Start sets a one-second Accessibility messaging timeout, an application silent past it reads `unresponsive`
 - `screenshot` activates the application before capture and fails when macOS keeps another application in front
+- ScreenCaptureKit returns a window or `application` capture as one `sdrImage` for every range, and fills `hdrImage` for a whole-display capture alone, which no target takes
+- `hdr` images hold 16-bit extended sRGB values above 1.0, which `public.tiff` keeps and `public.png`, `public.heic`, and `public.jpeg` clip
