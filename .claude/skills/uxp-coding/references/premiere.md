@@ -41,7 +41,7 @@ const folders = (host: premierepro, project: Project) =>
     );
 ```
 
-`folders` returns the bins in a project's root through `Array.fromNullishOr` over `cast`, which typings declare without `null`, and a rejected read fails `Cause.UnknownError` with the rejection as cause. `host` is the module object `require` returns.
+`folders` returns the bins in a project's root through `Array.fromNullishOr` over `cast`, which typings declare without `null`. `host` is the module object `require` returns.
 
 | [INDEX] | [NEED]         | [FORM]                                                 | [DECIDING_FACT]                                 |
 | :-----: | :------------- | :----------------------------------------------------- | :---------------------------------------------- |

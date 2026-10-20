@@ -1,6 +1,6 @@
 # [INDESIGN]
 
-InDesign DOM calls return synchronously, storage getters can return promises, and a collection returns one field of every member in one call. Typings declare DOM classes as interfaces, `instanceof` holds for the exact class alone (`Rectangle instanceof PageItem` reads false), and code discriminates instances through a member their prototypes declare or their literal `constructorName` field.
+Typings declare DOM classes as interfaces, `instanceof` holds for the exact class alone (`Rectangle instanceof PageItem` reads false), and code discriminates instances through a member their prototypes declare or their literal `constructorName` field.
 
 ## [01]-[MEMBERS]
 
@@ -8,13 +8,13 @@ InDesign holds its running object model as ExtendScript's `$.dictionary`, read t
 - `$.dictionary.toXML().descendants("topicref").@href` lists every class and enumeration name, each equal to the `indesign` module's
 - `getClass(<name>).toXML()` rows include inherited members, and `@type == "class"` rows hold enumerators and class constants
 - Readers index each `XMLList`, where `for each` yields unnamed rows
-- `varies=any` rows keep accepted types in English descriptions, not a schema for coercing values
+- `varies=any` rows state accepted types in English descriptions alone
 - "(Optional)" marks a parameter optional with no default, and reserved-word parameters are `in`, `with`, and `from`
 - `Object.getOwnPropertyDescriptors(indesign.<Class>.prototype)` lists the members the installed build exposes, getters as fields
 - Prototypes hold `constructorName`, `equals`, `toSource`, `toSpecifier`, and `toString` beside object model members
-- Read getters separately with their metadata; aggregate `.properties` invokes nested getters before a failure can be isolated
+- Aggregate `.properties` invokes nested getters before a failure can be isolated, and readers read each getter with its metadata
 - Find/Change drop-shadow and inner-shadow `angle`, `distance`, `xOffset`, and `yOffset` accessors crash without a native owner
-- Await storage getters before encoding; entry `url` can be a URL object, serialized through `String(entry.url)`
+- Encoders await storage getters, and an entry `url` can be a URL object that `String(entry.url)` serializes
 - Modules a Node program imports for their schemas import `adobe:indesign` for types alone and read the module from a service inside effects
 
 ## [02]-[SPECIFIERS]
@@ -25,29 +25,33 @@ Collection members are specifiers that resolve at each member read, and an unmat
 import type { BaseCollection, Document, InDesignDOMObject, PageItem } from 'adobe:indesign';
 
 const IDENTIFIED = /(?<kind>[\w-]+)\[@id=\d+\]$/u;
-const guards = Effect.map(Dom, (indesign) => {
-    const prototypes = Record.map(
-        Array.groupBy(
-            Array.flatMap(Object.getOwnPropertyNames(indesign), (name): readonly (readonly [string, object])[] => {
-                const type: unknown = Reflect.get(indesign, name);
-                return Predicate.isFunction(type) ? Array.map(Object.getOwnPropertyNames(type.prototype), (member) => [member, type.prototype] as const) : [];
-            }),
-            ([member]) => member,
-        ),
-        (owners) => new Set(Array.map(owners, ([, prototype]) => prototype)),
-    );
-    const owning = <A>(member: keyof A & string): (<T>(value: T) => value is T & A) => {
-        const owners = Option.getOrElse(Record.get(prototypes, member), () => new Set<unknown>());
-        return <T>(value: T): value is T & A => Predicate.isObject(value) && owners.has(Object.getPrototypeOf(value));
-    };
-    return { owning, host: owning<InDesignDOMObject<unknown>>('toSpecifier'), collection: owning<BaseCollection<unknown>>('everyItem') };
-});
+class Model extends Context.Service<Model>()('Model', {
+    make: (indesign: typeof import('adobe:indesign')) =>
+        Effect.sync(() => {
+            const model: typeof indesign = Object.create(indesign);
+            const prototypes = Record.map(
+                Array.groupBy(
+                    Array.flatMap(Object.getOwnPropertyNames(indesign), (name): readonly (readonly [string, object])[] => {
+                        const type: unknown = Reflect.get(indesign, name);
+                        return Predicate.isFunction(type) ? Array.map(Object.getOwnPropertyNames(type.prototype), (member) => [member, type.prototype] as const) : [];
+                    }),
+                    ([member]) => member,
+                ),
+                (owners) => new Set(Array.map(owners, ([, prototype]) => prototype)),
+            );
+            const owning = <A>(member: keyof A & string): (<T>(value: T) => value is T & A) => {
+                const owners = Option.getOrElse(Record.get(prototypes, member), () => new Set<unknown>());
+                return <T>(value: T): value is T & A => Predicate.isObject(value) && owners.has(Object.getPrototypeOf(value));
+            };
+            return Object.assign(model, { owning, host: owning<InDesignDOMObject<unknown>>('toSpecifier'), collection: owning<BaseCollection<unknown>>('everyItem') });
+        }),
+}) {}
 const pageItem = (document: Document, id: number): Option.Option<PageItem> => {
     const found = document.pageItems.itemByID(id);
     return found.isValid ? Array.head(found.getElements()) : Option.none();
 };
 const located = (specifier: string) =>
-    Effect.map(Effect.all([Dom, guards]), ([{ app, ScriptLanguage }, { host }]) => {
+    Effect.map(Model, ({ app, ScriptLanguage, host }) => {
         const kind = (path: string): string | undefined => IDENTIFIED.exec(path)?.groups?.kind;
         return Option.filter(
             Option.liftThrowable((): unknown => app.doScript('resolve(arguments[0])', ScriptLanguage.JAVASCRIPT, [specifier]))(),
@@ -56,7 +60,7 @@ const located = (specifier: string) =>
     });
 ```
 
-`Dom` is the service holding the `indesign` module. `getElements()` returns each member as its concrete class and throws on an invalid specifier. Reading a native getter (`constructorName`, `length`) with a class prototype as receiver crashes InDesign. `owning` reads no getter and holds for an object whose prototype is an exported class prototype declaring the member: `toSpecifier` for a DOM object, `everyItem` for a collection. A guard for one kind takes a member only that kind's prototypes declare (`documentOffset` for `Page`, `itemLayer` for every `PageItem` class). `located` passes a saved specifier to ExtendScript's `resolve` as an argument and compares an id step's class. Empty collections resolve as `undefined`, and code reads a known collection through `everyItem().getElements()` for an empty array. Supplied source calls native collection methods without computed-member rewriting.
+`getElements()` returns each member as its concrete class and throws on an invalid specifier. Reading a native getter (`constructorName`, `length`) with a class prototype as receiver crashes InDesign. `owning` reads no getter and holds for an object whose prototype is an exported class prototype declaring the member: `toSpecifier` for a DOM object, `everyItem` for a collection. A guard for one kind takes a member only that kind's prototypes declare (`documentOffset` for `Page`, `itemLayer` for every `PageItem` class). `located` passes a saved specifier to ExtendScript's `resolve` as an argument and compares an id step's class. Empty collections resolve as `undefined`, and code reads a known collection through `everyItem().getElements()` for an empty array. Supplied source calls native collection methods without computed-member rewriting.
 
 | [INDEX] | [NEED]                     | [FORM]                                          | [DECIDING_FACT]                                |
 | :-----: | :------------------------- | :---------------------------------------------- | :--------------------------------------------- |
@@ -90,13 +94,12 @@ Refusals throw one field at a time with the host's expected type ("Expected Unit
 - `documents.add(false, undefined, { documentPreferences: { pageWidth, pageHeight } })` sets a page from 1 to 15552 points
 - Existing documents refuse `pageWidth` or `pageHeight` below about 73 points
 - Swatch fields take a swatch name, and style fields a style object
-- `appliedFont` takes a `Font`, `"<family>\t<style>"`, or a family keeping `fontStyle`
-- Style `appliedFont` reads a `Font`, a family name string, or `null`
+- `appliedFont` takes a `Font`, `"<family>\t<style>"`, or a family keeping `fontStyle`, and on a style reads a `Font`, family name, or `null`
 - Absent families throw on an `appliedFont` write, and an absent style writes a missing face
 
 ## [04]-[TRANSACTIONS]
 
-Throws inside a step roll back every change in every document and record no undo entry. A plug-in's top-level `app.doScript(<function>, ScriptLanguage.UXPSCRIPT, …)` can lose its hand-off: main thread waits for a callback that never runs, plug-in thread blocks on a fence, and InDesign hangs until killed, where ExtendScript source-text calls and function calls nested inside a callback complete. A peer call the plug-in serves during an ExtendScript `$.sleep` enters a nested function `doScript`, and open menus, dialogs, and drags hold that call before its callback runs. Each kind of work takes one form:
+Throws inside a step roll back every change in every document and record no undo entry. Top-level `app.doScript(<function>, ScriptLanguage.UXPSCRIPT, …)` in a plug-in can lose its hand-off: main thread waits for a callback that never runs, plug-in thread blocks on a fence, and InDesign hangs until killed, where ExtendScript source-text calls and function calls nested inside a callback complete. Peer calls the plug-in serves during an ExtendScript `$.sleep` enter a nested function `doScript`, and open menus, dialogs, and drags hold a peer call before its callback runs. Each kind of work takes one form:
 
 | [INDEX] | [WORK]                 | [FORM]                                                                |
 | :-----: | :--------------------- | :-------------------------------------------------------------------- |
@@ -115,7 +118,7 @@ type Handoff = Data.TaggedEnum<{ Idle: Record.ReadonlyRecord<never, never>; Held
 const Handoff = Data.taggedEnum<Handoff>();
 
 const run = Effect.fn('run')(function* <A, E, R>(state: Ref.Ref<Handoff>, label: string, body: Effect.Effect<A, E, R>) {
-    const { app, SaveOptions, ScriptLanguage, UndoModes } = yield* Dom;
+    const { app, SaveOptions, ScriptLanguage, UndoModes } = yield* Model;
     yield* Effect.filterOrFail(
         Effect.sync(() => app.modalState),
         (modalState) => !modalState,
@@ -152,7 +155,7 @@ const run = Effect.fn('run')(function* <A, E, R>(state: Ref.Ref<Handoff>, label:
 
 - Nested `doScript` calls are savepoints inside their outer step, where `document.undo()` throws
 - `document.undoHistory` lists step names newest first
-- A synchronous `doScript` after awaited work groups the edits after it
+- Synchronous `doScript` calls after awaited work group the edits after them
 - Rollback restores documents and app-wide find, change, and export preferences, and leaves `app.scriptPreferences` and files on disk
 - `app.modalState` reads true under the Preferences dialog, where a plug-in `doScript` drops its field writes with no error
 - `app.modalState` reads true under an ExtendScript dialog open through `do script`, where writes take effect, and reads return under either
@@ -162,13 +165,13 @@ ExtendScript writes and rolled-back reads send source text with arguments as dat
 ```ts
 import type { InDesignDOMObject } from 'adobe:indesign';
 
-const based = (target: InDesignDOMObject<unknown>, field: string): Effect.Effect<unknown, Cause.UnknownError, Dom> => {
+const based = (target: InDesignDOMObject<unknown>, field: string): Effect.Effect<unknown, Cause.UnknownError, Model> => {
     const source = `var target = resolve(arguments[0]), field = arguments[1], value = null, done = false;
 try {
     app.doScript(function () { target.clearOverrides(); value = target[field]; done = true; throw 0; }, ScriptLanguage.JAVASCRIPT, [], UndoModes.ENTIRE_SCRIPT);
 } catch (error) { if (!done) throw error; }
 value`;
-    return Effect.flatMap(Dom, ({ app, ScriptLanguage }) =>
+    return Effect.flatMap(Model, ({ app, ScriptLanguage }) =>
         Effect.try({
             try: (): unknown => app.doScript(source, ScriptLanguage.JAVASCRIPT, [target.toSpecifier(), field]),
             catch: (cause) => new Cause.UnknownError(cause, `${target.toSpecifier()} ${field}`),
@@ -217,7 +220,7 @@ import type { Page, PageItem } from 'adobe:indesign';
 
 const Box = Schema.Struct(Struct.Record(['top', 'left', 'bottom', 'right'], Schema.Finite));
 const extent = Effect.fn('extent')(function* (...placed: readonly (Page | PageItem)[]) {
-    const { AnchorPoint, BoundingBoxLimits, CoordinateSpaces } = yield* Dom;
+    const { AnchorPoint, BoundingBoxLimits, CoordinateSpaces } = yield* Model;
     return yield* Effect.try({
         try: () => {
             const corners: ReadonlyArray<readonly [number, number]> = Array.flatMap(Array.cartesian(placed, [AnchorPoint.TOP_LEFT_ANCHOR, AnchorPoint.BOTTOM_RIGHT_ANCHOR]), ([each, anchor]) =>
@@ -249,7 +252,7 @@ Export reads app-wide preferences another script left, fails with no throw under
 import type { Page } from 'adobe:indesign';
 
 const rendered = Effect.fn('rendered')(function* (page: Page, pixels: number) {
-    const [{ app, ExportFormat, PNGExportRangeEnum }, { fs, temporary }] = yield* Effect.all([Dom, Uxp]);
+    const [{ app, ExportFormat, PNGExportRangeEnum }, { fs, temporary }] = yield* Effect.all([Model, Uxp]);
     const { top, left, bottom, right } = yield* extent(page);
     const refused = (cause: unknown) => new Cause.UnknownError(cause, `export of ${page.toSpecifier()}`);
     const pointsPerInch = 72;
@@ -292,11 +295,11 @@ Text members return a range's first-run value, and `textStyleRanges.everyItem().
 |  [05]   | Anchored object position     | `U+FFFC` in `story.contents`                       | Marker is one character                       |
 
 - GREP styles can leave `appliedCharacterStyle` as `[None]` and keep one `textStyleRange` across different formatting
-- Overlapping GREP rules can render differently from character getters; read `appliedNestedStyles` and rule order, then render
+- Overlapping GREP rules can render differently from character getters, and readers read `appliedNestedStyles` and rule order, then render
 
 ## [09]-[GREP]
 
-`findWhat`, `grepExpression`, and `changeTo` take native strings unchanged. Invalid expressions can return no matches without throwing; test an intended passage through the native search scope:
+`findWhat`, `grepExpression`, and `changeTo` take native strings unchanged. Invalid expressions can return no matches without throwing, and tests run on an intended passage through the native search scope:
 
 | [INDEX] | [PATTERN]                    | [GREP_READS]                           | [GREP_FORM]                              |
 | :-----: | :--------------------------- | :------------------------------------- | :--------------------------------------- |
@@ -314,19 +317,19 @@ Text members return a range's first-run value, and `textStyleRanges.everyItem().
 Searches and changes run in one sequence:
 1. Find and change preferences take `NothingEnum.NOTHING`, then native fields set patterns, formatting, and inclusion options
 2. `findGrep()` returns `Text` subclasses and zero-length `InsertionPoint` matches
-3. Read match text and `paragraphs.everyItem().contents` before changing; cell and footnote indices belong to their local text
-4. `changeGrep()` can return stale ranges or an empty array after changing text; array length does not report an edit count
+3. Read match text and `paragraphs.everyItem().contents` before changing, with cell and footnote indices counting in their local text
+4. `changeGrep()` can return stale ranges or an empty array after changing text, and its length counts no edits
 
 - Change To takes `$0` through `$9`, `\r`, `\t`, `\n`, `\x{XXXX}`, and `\U`, `\u`, `\L`, and inserts `\1`, `$&`, `${1}`, and `$$` as literal text
 - `saveFindChangeQuery(name, SearchModes.GREP_SEARCH)` stores application preferences, excluding search scope
 - `SearchModes` holds text, GREP, glyph, object, and color modes, and transliterate preferences have no query mode
 - Factory queries sit under `<app.filePath>/Presets/Find-Change Queries/<mode>/<$.locale>/` in GREP, object, and text modes
 - User queries sit under `Find-Change Queries/<mode>/` beside the parent of `app.scriptPreferences.scriptsFolder`
-- `findChangeGrepOptions` holds no case option; case matching uses pattern modifiers
-- Locked-layer and locked-story options permit finding, not replacement; hidden conditional text remains excluded
+- `findChangeGrepOptions` holds no case option, and pattern modifiers set case matching
+- Locked-layer and locked-story options permit finding alone, and hidden conditional text stays excluded
 - `nestedGrepStyles.add({ grepExpression, appliedCharacterStyle })` creates rules on paragraph styles and text objects
 - GREP styles inherit through paragraph styles and apply character formatting within paragraphs without changing text
-- Find/Change can match across paragraph returns; find formatting and change formatting remain separate from pattern text
+- Find/Change can match across paragraph returns, and find and change formatting stay apart from pattern text
 
 ## [10]-[FONTS]
 
@@ -336,7 +339,7 @@ Searches and changes run in one sequence:
 import type { Font } from 'adobe:indesign';
 
 const source = Effect.fn('source')(function* (face: Font, characters: string) {
-    const [{ FontStatus }, { fs, temporary }] = yield* Effect.all([Dom, Uxp]);
+    const [{ FontStatus }, { fs, temporary }] = yield* Effect.all([Model, Uxp]);
     const bytes = (path: string) => Effect.try(() => new Uint8Array(fs.readFileSync(path)));
     const subset = Effect.flatMap(temporary('font.otf'), (entry) => Effect.andThen(Effect.try(() => face.createSubsetFont(characters, entry.nativePath)), bytes(entry.url)));
     return face.status.equals(FontStatus.INSTALLED)
@@ -351,7 +354,7 @@ const source = Effect.fn('source')(function* (face: Font, characters: string) {
 - Variable faces read axes through `designAxesName` and `designAxesValues`, and a subset drops them
 - Every `designAxes*` and `numDesignAxes` read of a static face throws, a bulk read holding one included
 - Application font rows can repeat equal objects, and document and application fonts for one face can compare unequal
-- Point-size changes can reset `opsz`; set size before explicit optical-size coordinates
+- Point-size changes can reset `opsz`, and size goes before explicit optical-size coordinates
 
 ## [11]-[PREFLIGHT]
 
@@ -382,7 +385,7 @@ const script = <A, E>(work: (args: readonly string[]) => Effect.Effect<A, E, Uxp
 };
 ```
 
-`hosted` is the host `Clock` layer merged with the `Uxp` service. Typings omit `script` from `uxp`, and `Reflect.apply` keeps the host's `script` object as receiver. A `script` that fails the decode throws from `runSync` and the host alerts it. Each `do script` call loads a fresh context, `language javascript` running ExtendScript and `language uxpscript` UXP, and state for a later call goes through `insertLabel`.
+Typings omit `script` from `uxp`, and `Reflect.apply` keeps the host's `script` object as receiver. A `script` that fails the decode throws from `runSync` and the host alerts it. Each `do script` call loads a fresh context, `language javascript` running ExtendScript and `language uxpscript` UXP, and state for a later call goes through `insertLabel`.
 
 - Runners switch to async mode for source holding `async ` before a function or `await ` before an expression, and reply empty before the body runs
 - Runner tests match `async ` and `await ` inside strings and comments

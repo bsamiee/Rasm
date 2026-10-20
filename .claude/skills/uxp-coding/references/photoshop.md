@@ -39,7 +39,7 @@ const committed = (documentID: number, name: string, commands: ActionDescriptor[
     );
 ```
 
-`committed` plays a command list as one history state named `name`, or fails with the first refused command's error descriptor as cause and leaves no change. `resumeHistory` commits on the body's success and drops every change on failure or interruption, since a suspension left open commits when its body resolves. Each refusal keeps its host code in `cause`, and a consumer decodes the code it branches on. `modal` runs its body on the caller's services and passes its `signal`, and an interrupted caller interrupts the body. The body returns its `Exit` as a value that `Effect.flatten` unwraps.
+`committed` plays a command list as one history state named `name`, or fails with the first refused command's error descriptor as cause and leaves no change. `resumeHistory` commits on the body's success and drops every change on failure or interruption, since a suspension left open commits when its body resolves. `modal` runs its body on the caller's services and passes its `signal`, and an interrupted caller interrupts the body. The body returns its `Exit` as a value that `Effect.flatten` unwraps.
 
 | [INDEX] | [CALL]                                                    | [REPLY]                                                         |
 | :-----: | :-------------------------------------------------------- | :-------------------------------------------------------------- |
@@ -144,19 +144,15 @@ Failures leave each member in its own form:
 `document.saveAs` holds `psd`, `psb`, `jpg`, `gif`, `png`, and `bmp`, each taking `(file, options, asCopy)` inside a modal scope with a UXP `File` entry:
 - `localFileSystem.getEntryWithUrl('file:<folder>')`, then `createFile(<name>, { overwrite: true })`, gives the entry under `fullAccess`
 - `asCopy` true writes the file and leaves `title` and `path` unchanged
-- `close()` opens a save dialog under its default `SaveOptions.PROMPTTOSAVECHANGES`
-- `closeWithoutSaving()` in a scope discards changes synchronously
+- `close()` opens a save dialog under default `SaveOptions.PROMPTTOSAVECHANGES`, and `closeWithoutSaving()` in a scope discards changes synchronously
 - `hostControl.registerAutoCloseDocument(documentID)` closes a working document unsaved when its scope ends
-- `save` descriptors take `in: { _path: localFileSystem.createSessionToken(file), _kind: 'local' }`
-- `save` of a plain path rejects "invalid file token used"
+- `save` descriptors take `in: { _path: localFileSystem.createSessionToken(file), _kind: 'local' }`, and plain paths reject "invalid file token used"
 - `exportmanager`, which neither typing declares, serves any plug-in outside a modal scope
 - `exportImageAsync({ documentID, exportPath, exportOptions, formatOptions, exportTaskID })` writes the file
 - `exportOptions` hold `scaleHorizontal` and `scaleVertical` in percent, and `formatOptions` `{ name: 'png', colorType: 'png24' }`
 - `imaging` calls other than `createImageDataFromBuffer` throw `number` 1000 outside a modal scope, and `putPixels` records one history state
-- `imaging.getPixels` under a `targetSize` reads the smallest cache level at least that size
-- Cache `level` n holds 1/2ⁿ scale, with `sourceBounds` in its pixels
-- `imaging.encodeImageData` encodes RGB or Grayscale data as JPEG
-- `encodeImageData` resolves a `Uint8Array` where typings state `number[]`, or base64 text under `base64: true`
+- `imaging.getPixels` under `targetSize` reads the smallest cache level at least that size, `level` n at 1/2ⁿ scale with `sourceBounds` in its pixels
+- `imaging.encodeImageData` encodes RGB or Grayscale data as JPEG into a `Uint8Array` typed as `number[]`, or base64 text under `base64: true`
 
 ## [06]-[FONTS]
 
@@ -176,9 +172,8 @@ Manifest host data decides when Photoshop loads a plug-in and which calls need a
 |  [02]   | `host.data.loadEvent`     | `main` runs at launch under `"startup"`, at first use under `"use"`                               |
 
 - Load runs panel `create` and `show`, and quit runs panel `hide`, panel `destroy`, then plugin `destroy`, whether the panel shows or not
-- Showing or hiding a panel calls no handler and fires `uxpcommand` on `document` with `commandId` `uxpshowpanel` or `uxphidepanel`
-- `.psjs` scripts run once the user confirms a JavaScript load warning, and write `fs` at absolute paths
-- `.psjs` scripts throw `EvalError` for `eval` and `new Function`
+- Showing or hiding a panel calls no handler, and its `uxpcommand` event holds `commandId` `uxpshowpanel` or `uxphidepanel`
+- `.psjs` scripts run once users confirm a JavaScript load warning, write absolute `fs` paths, and throw `EvalError` for `eval` and `new Function`
 - `require('uxp').script.executionContext` of a `.psjs` script holds `hostControl`, `reportProgress`, and `onCancel`
 - `Object.keys(require('uxp').script)` reads empty
 - `~/Library/Logs/Adobe/<app name>/UXPLogs_*.log` records each plug-in load and each rejection no `unhandledRejection` flag delivers
@@ -210,7 +205,7 @@ name	readwrite	get name(): string
 ```
 
 - Rows list what the installed build holds, and a member the declarations lack reads `undeclared` with its parameters
-- A member's `app.js` body names its plays
+- Members' `app.js` bodies name their plays
 - `rg -o 'class \w+' "<app>/Contents/Required/UXP/app.js"` lists every class, and `constants.js` beside it holds each `constants` group's values
 - `strings -n 6 "<app>/Contents/MacOS/<executable>" | rg -o -m1 '/<event> \[\(.*?\)[^<\]]*(<<.*?>>)?\]'` prints a command's terminology keys
 - Terminology keys are the Actions panel's vocabulary, typed as scalar, class, enumerated, or unit, and `/list` marks a list

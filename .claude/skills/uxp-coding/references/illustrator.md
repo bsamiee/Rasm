@@ -1,6 +1,6 @@
 # [ILLUSTRATOR]
 
-Illustrator runs ExtendScript through `do javascript` (`«event miscDjxM»`) and answers with its last expression as Unicode text (`utxt`). `do script` executes an Actions panel action.
+Illustrator answers `do javascript` with its last expression as Unicode text (`utxt`), and `do script` executes an Actions panel action.
 
 ## [01]-[CALLS]
 
@@ -42,8 +42,7 @@ const ran = <E, R>(send: (source: string) => Effect.Effect<string, E, R>, source
 
 `send` passes `source` as the direct parameter of `do javascript` through an Apple Event sender, and a failure decodes as an `Error` with ExtendScript's `number` and `line` as `cause`. Host objects encode as their `String` form (`[Document Untitled-1]`), and bodies return JSON-shaped data. Thrown strings and numbers have no `number`, `message`, or `line`, and a member read on thrown `null` throws 21.
 
-- `with arguments` (`«class JArg»`) passes text, numbers, booleans, and lists, and `null` and records arrive `undefined`
-- `osascript` `argv` items arrive as text
+- `with arguments` (`«class JArg»`) passes text, numbers, booleans, and lists, `null` and records as `undefined`, and `osascript` `argv` as text
 - ExtendScript reads U+2028 and U+2029 as line terminators, and a string literal holding one raw fails to compile, in source and in JSON alike
 - Uncaught throws and syntax errors answer Apple event error 5001 with no dialog and text `Error <number>: <message>.Line: <line>->  <source line>`
 - Top-level `var` and `$.global` members persist between calls, and a source holds its state inside one function
@@ -75,8 +74,7 @@ ExtendScript is ES3 with `const`, `toSource`, and `uneval`:
 - Geometry is in points under `app.coordinateSystem` `DOCUMENTCOORDINATESYSTEM`, y growing upward from the first artboard's bottom edge
 - `pathItems.rectangle(top, left, width, height)` places an item with `position` `[left, top]` and `geometricBounds` `[left, top, right, bottom]`
 - ExtendScript holds no listener API (`app.addEventListener` reads `undefined`), and a script reads state when it runs
-- `app.preferences` getters of an unregistered key return a varying value and store the key
-- `preferenceExists(key)` reads presence without storing the key
+- `app.preferences` getters of an unregistered key return a varying value and store the key, where `preferenceExists(key)` stores none
 - Illustrator rewrites `Adobe Illustrator Prefs` whole at quit, and edits to the file while it runs are lost
 
 ## [04]-[UNITS_OF_WORK]
@@ -128,7 +126,7 @@ Caught `Error` values carry `number`, `message`, and `line`, and code branches o
 `app.textFonts` lists every installed face, `getByName(<PostScript name>)` reads one and throws 1302 for an absent name, and a `TextFont` holds `name` (PostScript), `family`, and `style`:
 - `textFrames.add()` takes text through `contents`, set in `MyriadPro-Regular` by default
 - `textRange.characterAttributes.textFont` takes a `TextFont`, and `size` takes points
-- `createOutline()` on a duplicate frame returns a `GroupItem` whose `geometricBounds` are the glyph outlines' bounds
+- `createOutline()` on a duplicate frame returns a `GroupItem` with glyph outline bounds as `geometricBounds`
 
 ## [08]-[PLUG_INS]
 

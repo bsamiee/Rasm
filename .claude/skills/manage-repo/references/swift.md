@@ -40,8 +40,8 @@ Project and target settings override root `Xcode.xcconfig`:
 - `ENABLE_DEBUG_DYLIB = NO` stays, the debug dylib and stub executor serve SwiftUI previews no product holds
 - Automatic signing with the root team resolves an unset `CODE_SIGN_IDENTITY` to Apple Development
 - Apple Development's designated requirement keeps TCC grants (Apple Events) across rebuilds, an ad hoc signature prompts again
-- TCC and `tccutil` address a bundle identifier LaunchServices registered, an executable outside a bundle gets one Automation row per path and no reset
-- Products needing a TCC grant are `application` bundles installed at the default `INSTALL_PATH` (`/Applications`), `LSBackgroundOnly` when they show no interface
+- TCC and `tccutil` address a bundle identifier LaunchServices registered, an unbundled executable gets one Automation row per path and no reset
+- Products needing a TCC grant are `application` bundles at default `INSTALL_PATH` (`/Applications`), `LSBackgroundOnly` when they show no interface
 - Interface apps add `MainActor` default isolation, tools `CREATE_INFOPLIST_SECTION_IN_BINARY` for their Info.plist keys
 - Interface apps sending no Apple Events add hardened runtime, Apple Events need an entitlement under it
 
@@ -57,7 +57,7 @@ Toolchain upgrades re-derive compiler policy in root `Xcode.xcconfig` and each l
 - `OTHER_SWIFT_FLAGS` takes no `$(inherited)`, root file is the lowest configurable level and the setting has no default
 - Strict memory safety takes an `unsafe` marker on each expression using an API with no safe form
 - Warnings as errors covers every on-by-default diagnostic group, `SWIFT_WARNINGS_AS_ERRORS_GROUPS` adds only off-by-default groups
-- `-warn-soft-deprecated` joins `OTHER_SWIFT_FLAGS` and is each manifest's one `unsafeFlags` entry, a member deprecated at version 100000 passes silently otherwise
+- `-warn-soft-deprecated` joins `OTHER_SWIFT_FLAGS` and is each manifest's one `unsafeFlags` entry, warning on members deprecated at version 100000
 - `StrictLanguageFeatures` is on, the compiler otherwise ignores a misspelled feature name
 - Performance hint groups stay off, `UntypedThrows` fails in `@Observable` expansions, `ExistentialType` on a `Codable` witness's `any Decoder`
 - Enhanced security rows stay out, each is Clang-only or needs a hardened-process entitlement
@@ -111,13 +111,13 @@ swift-format comes from the selected toolchain through `xcrun`:
 - `custom_rules` stays empty, ast-grep rules under `tools/ast-grep/rules/swift` match structure by syntax where SwiftLint matches text by regex
 - `analyzer_rules` run in `lint:swiftlint` over the compilation database `xcodebuild -showBuildSettingsForIndex -json` prints
 - `swiftlint analyze` runs no `--fix`, `unused_import`'s fix breaks builds under `MemberImportVisibility`
-- SwiftPM libraries take no analyzer pass, `unused_import` over a `swift build -v` log through `--compiler-log-path` reports `System` that a `FilePath` literal needs under `MemberImportVisibility`
+- SwiftPM libraries take no analyzer pass, `unused_import` flags the `System` import `FilePath` literals need under `MemberImportVisibility`
 - `deployment_target` holds `MACOSX_DEPLOYMENT_TARGET`, SwiftLint reads no xcconfig
 
 ## [07]-[CI]
 
 CI's macOS job runs `setup-xcode` first in shared setup, selecting the runner image's newest installed Xcode, betas included:
-- Settings CI alone needs (unsigned build, `COMPILER_INDEX_STORE_ENABLE=NO`) join `build` configuration `ci`, workflows select it with `--configuration ci`
+- CI-only settings (unsigned build, `COMPILER_INDEX_STORE_ENABLE=NO`) join `build` configuration `ci`, workflows select it with `--configuration ci`
 - Settings in `ci` and after `--` reach `build`'s xcodebuild alone
 - `xcbeautify` reads a pipe alone and stays out
 - SwiftPM and derived data caches stay out, a restore keyed on sources misses on each source change
@@ -127,9 +127,9 @@ CI's macOS job runs `setup-xcode` first in shared setup, selecting the runner im
 SwiftPM joins with the first Swift library:
 - Every `swift package` run writes a build directory, `--help` included
 - SwiftPM takes its scratch path from `SWIFTPM_BUILD_DIR`, then `--scratch-path`, then `<package>/.build`, and reads it from no configuration file
-- `SWIFTPM_BUILD_DIR` stays out of `[env]`, it holds one path for every package and reaches sourcekit-lsp's preparation `swift build`, which then builds away from its index workspace
-- Nx inference sets `SWIFTPM_BUILD_DIR` to `.cache/swiftpm/build/<projectRoot>` in each SwiftPM target's `options.env` and its `dump-package` run, commands pass no `--scratch-path`
-- `swift` run by hand in a package writes `<package>/.build`, SwiftPM work runs through the package's Nx targets
+- `SWIFTPM_BUILD_DIR` stays out of `[env]`, one path there serves every package and moves sourcekit-lsp's preparation build off its index workspace
+- Nx inference sets `SWIFTPM_BUILD_DIR` to `.cache/swiftpm/build/<projectRoot>` in each SwiftPM target's `options.env` and `dump-package` run
+- SwiftPM work runs through the package's Nx targets, and commands pass no `--scratch-path`
 - Xcode builds package targets under `-derivedDataPath` and reads no `SWIFTPM_BUILD_DIR`
 - Apps stay `.xcodeproj`, PackageDescription has no application product, Info.plist, icon, or signing API
 - Library packages take the newest tools version the installed toolchain accepts, SwiftPM's package identity is the folder name
@@ -139,8 +139,7 @@ SwiftPM joins with the first Swift library:
 - One `let settings: [SwiftSetting]` per manifest applies to every target, no mechanism shares settings across manifests
 - Settings state compiler policy in typed forms (`.strictMemorySafety()`, `.enableUpcomingFeature`, `.treatAllWarnings`)
 - Settings rows follow the order of root `Xcode.xcconfig`'s `[SWIFT]` section, SwiftPM reads no xcconfig and a policy change edits both lists
-- Executables a skill drives are `executableTarget`s under a folder the library target excludes, the skill runs the `build` output's `debug/<executable>`
-- Skills run no executable through an Nx target, Nx forwards an argument holding `=` without its quotes
+- Executables a skill drives are `executableTarget`s under a folder the library target excludes, run from `build` output's `debug/<executable>`
 - Sibling packages reference each other by `.package(path:)` with no lock entry, each keeps its own settings under a sibling's build
 - Apps reference a library as a `packages` row with `kind: "local"` and project-relative `path`, `package-product-members` name it by folder
 - `upgrade` runs `swift package update`, `Package.resolved` appears at the package root with the first remote dependency

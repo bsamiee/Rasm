@@ -5,7 +5,7 @@ description: "Use when starting or driving a desktop app, covering the shared wa
 
 # [WATCH_APPS]
 
-`watch-apps`, the executable of the `RasmMacOS` package at `libs/swift/macos` that `nx run libs/swift/macos:build` builds, prints a JSON line per window, dialog, sheet, and menu of named apps as it opens and closes, and per launch and exit. Terminals and harnesses running the watcher need Accessibility access (System Settings > Privacy & Security > Accessibility).
+`watch-apps`, the executable of the `RasmMacOS` package at `libs/swift/macos`, prints a JSON line per window, dialog, sheet, and menu of named apps as it opens and closes, and per launch and exit. Terminals and harnesses running the watcher need Accessibility access (System Settings > Privacy & Security > Accessibility).
 
 ## [01]-[SEQUENCE]
 
@@ -48,18 +48,18 @@ One watcher per app holds an `fcntl` lock on `$TMPDIR/<bundle id>.events`, obser
 
 Lines carry `app`, instance lines `pid`, element lines add `element` with `id`, `kind`, `role`, `title`, `text` (static text of a dialog or sheet), `controls` (text fields, check boxes, and pop-up buttons with their values), and `actions`:
 
-| [INDEX] | [EVENT]    | [MEANING]                                                         | [ACTION]                                         |
-| :-----: | :--------- | :---------------------------------------------------------------- | :----------------------------------------------- |
-|  [01]   | `watch`    | Watcher started                                                   | Read open elements                               |
-|  [02]   | `launch`   | Instance started                                                  | Drive app                                        |
-|  [03]   | `exit`     | Instance ended, `status` holds exit status                        | List crash reports when `status` is nonzero      |
-|  [04]   | `open`     | Window opened, `element.role` holds its subrole                   | Close an unrequested window with `AXCloseButton` |
-|  [05]   | `open`     | Menu opened, `element.title` holds its menu bar item              | Cancel an unrequested menu with `AXCancel`       |
-|  [06]   | `open`     | Dialog or sheet opened                                            | Answer before the next script call               |
-|  [07]   | `answered` | Answer run performed `action`                                     | Continue                                         |
-|  [08]   | `closed`   | Element closed or changed, a changed one opens again              | Continue                                         |
-|  [09]   | `crash`    | Crash report path, newest first                                   | Read the report                                  |
-|  [10]   | `fail`     | Refused notification, lock, log, discovery, argument, or answer   | Grant access, pass a bundle id, or re-answer     |
+| [INDEX] | [EVENT]    | [MEANING]                                                               | [ACTION]                                         |
+| :-----: | :--------- | :---------------------------------------------------------------------- | :----------------------------------------------- |
+|  [01]   | `watch`    | Watcher started                                                         | Read open elements                               |
+|  [02]   | `launch`   | Instance started                                                        | Drive app                                        |
+|  [03]   | `exit`     | Instance ended, `status` holds exit status                              | List crash reports when `status` is nonzero      |
+|  [04]   | `open`     | Window opened, `element.role` holds its subrole                         | Close an unrequested window with `AXCloseButton` |
+|  [05]   | `open`     | Menu opened, `element.title` holds its menu bar item                    | Cancel an unrequested menu with `AXCancel`       |
+|  [06]   | `open`     | Dialog or sheet opened                                                  | Answer before the next script call               |
+|  [07]   | `answered` | Answer run performed `action`                                           | Continue                                         |
+|  [08]   | `closed`   | Element closed or changed, a changed one opens again                    | Continue                                         |
+|  [09]   | `crash`    | Crash report path, newest first                                         | Read the report                                  |
+|  [10]   | `fail`     | Refused notification, log, discovery, argument, answer, or crash report | Grant access, pass a bundle id, or re-answer     |
 
 `--crashes` prints a `crash` line per report under `~/Library/Logs` (macOS `.ips` files and vendor crash logs) with app's bundle id in a header line, and exits:
 

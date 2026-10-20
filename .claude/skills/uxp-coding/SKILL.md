@@ -26,7 +26,7 @@ Host modules differ in call form, and code is written for one host's form:
 |  [04]   | Illustrator  | None          | ExtendScript through `do javascript`   |
 |  [05]   | Acrobat      | None          | Acrobat JavaScript through `do script` |
 
-- `require` resolves the running host's DOM module alone, `uxp.host.name` names that host, and code shared between hosts takes host calls as arguments
+- `require` resolves the running host's DOM module alone, `uxp.host.name` names that host, and cross-host code takes host calls as arguments
 - Illustrator and Acrobat run supplied source through one Apple event each, sent in raw form with no terminology read:
 
 ```bash
@@ -115,11 +115,11 @@ const bytes = (path: string): Effect.Effect<Option.Option<Uint8Array>, Cause.Unk
     Effect.try(() => Option.some(new Uint8Array(readFileSync(path)))).pipe(Effect.catchIf(({ cause }) => Schema.is(Missing)(cause), () => Effect.succeedNone));
 ```
 
-`new Uint8Array` accepts both representations, and `Effect.try` fails `Cause.UnknownError` with the thrown value as `cause`. `Missing` decodes the numeric `code` a missing file throws into absence, and every other failure stays on the error channel.
+`new Uint8Array` accepts both representations. `Missing` decodes the numeric `code` a missing file throws into absence, and every other failure stays on the error channel.
 
 ## [04]-[OBJECT_MODELS]
 
-Class, property, method, parameter, and enumeration facts come from the owner that states them for the installed build, and source holds no copy:
+Object model facts come from the owner that states them for the installed build:
 
 | [INDEX] | [HOST]       | [OWNER]                                             | [READ]                                          |
 | :-----: | :----------- | :-------------------------------------------------- | :---------------------------------------------- |
@@ -130,16 +130,15 @@ Class, property, method, parameter, and enumeration facts come from the owner th
 |  [05]   | Acrobat      | `acrohelp` argument to a native method              | `HelpError.extMessage` per parameter            |
 
 - Acrobat's `extMessage` lists parameters as `name: type`, optional ones in brackets
-- Native scripting dictionaries declare Apple Event commands and parameter types; script commands select their own language and undo behavior
+- Native scripting dictionaries declare Apple Event commands and parameter types, and a script command's parameters select its language and undo mode
 - Typings can predate the installed build and rename parameters a host names by reserved words, and renamed parameters call correctly by position
 - Rejected calls complete each model: host errors name a parameter with its expected type and range, and whether a member applies now
 - Probes run as undoable units, return failures as data, and leave no host dialog, test plug-in, registry row, or test document behind
-- Use `Skill(search-code)` for a declaration in `types-for-adobe` or `@types/photoshop`
 - `OSACopyScriptingDefinitionFromURL` returns XML that can contain XInclude references
 
 ## [05]-[HOST_ERRORS]
 
-Hosts throw `Error` values with text in the user's locale, return some failures as values, and return an invalid reference for an unmatched lookup. A host refusal fails `Cause.UnknownError` with the thrown value or returned failure as `cause` and a message naming the refused step. A lookup fails `Unmatched` from `@rasm/search` with its candidates, and independent writes accumulate every refusal in one cause:
+Hosts throw `Error` values with text in the user's locale, return some failures as values, and return an invalid reference for an unmatched lookup. Host refusals fail `Cause.UnknownError` with the thrown value or returned failure as `cause` and a message naming the refused step. Lookups fail with their candidates, and independent writes accumulate every refusal in one cause:
 
 ```ts
 const written: (target: object, values: Record.ReadonlyRecord<string, unknown>) => Effect.Effect<readonly string[], Cause.UnknownError> = Effect.fnUntraced(function* (target, values) {
@@ -161,19 +160,16 @@ const written: (target: object, values: Record.ReadonlyRecord<string, unknown>) 
 });
 ```
 
-`written` writes every field and fails with one reason per refused field, a nested field named by its path. `Effect.validate` partitions each element through `Effect.result`, so a nested write's reasons survive only under `Effect.sandbox`, and `Cause.fromReasons` merges the sandboxed causes. `Object.assign` throws for every refused write, where `Reflect.set` returns `false` for a getter-only member and `true` for a key the object lacks.
+`written` writes every field and fails with one reason per refused field, a nested field named by its path. `Effect.validate` partitions each element through `Effect.result`, nested write reasons survive under `Effect.sandbox` alone, and `Cause.fromReasons` merges sandboxed causes. `Object.assign` throws for every refused write, where `Reflect.set` returns `false` for a getter-only member and `true` for a key the object lacks.
 
-- `catch` names the refused step from arguments of the failed call, and `cause` keeps the host's value until a boundary renders it
-- Consumers decode a host code from `cause` where they branch on it, and an error case that only wraps a cause goes
+- `catch` names the refused step from arguments of the failed call
+- Consumers decode a host code from `cause` where they branch on it
 - Panels render a cause through `Cause.pretty` and MCP servers through `Cause.prettyErrors` with `Formatter.format`, once at their boundary
 
-| [INDEX] | [REJECTED]                                                | [REQUIRED]                                | [REASON]                         |
-| :-----: | :-------------------------------------------------------- | :---------------------------------------- | :------------------------------- |
-|  [01]   | Failure chosen by matching host message text              | Failure built by operation that threw     | Text changes per locale, release |
-|  [02]   | Pre-check copying a host rule                             | Host answer as the failure's cause        | Copy drifts from host rule       |
-|  [03]   | Literal table of facts a host states                      | One bulk host read where consumed         | Table drifts per install         |
-|  [04]   | Host call built as a string template                      | Typed source, arguments passed as data    | Template skips compiler          |
-|  [05]   | `Effect.result` run in a host callback, then `fromResult` | One `Exit` returned through host callback | Failure translated twice         |
+| [INDEX] | [REJECTED]                                                | [REQUIRED]                                | [REASON]                 |
+| :-----: | :-------------------------------------------------------- | :---------------------------------------- | :----------------------- |
+|  [01]   | Host call built as a string template                      | Typed source, arguments passed as data    | Template skips compiler  |
+|  [02]   | `Effect.result` run in a host callback, then `fromResult` | One `Exit` returned through host callback | Failure translated twice |
 
 ## [06]-[SCOPES]
 
@@ -211,7 +207,7 @@ Each host groups changes into one undo step through one primitive, and every sta
 |  [02]   | Photoshop    | `core.executeAsModal` with `suspendHistory`       | Async function, awaited | One state named at suspension  |
 |  [03]   | Premiere Pro | `project.lockedAccess`, then `executeTransaction` | Synchronous callbacks   | One entry named by transaction |
 
-- One primitive call holds one user-visible change, named by undo menu text derived from the operation and its target
+- One primitive call holds one user-visible change, named in the undo menu
 - Bodies hold host calls alone, and network, file, and decode work finishes before a body starts and enters as values
 - Values and typed failures leave a body as data, and a throw rolls back an InDesign body
 - Photoshop rolls back a throwing body under an open history suspension alone, and Premiere Pro executes the actions added before the throw
@@ -229,7 +225,7 @@ Each host entry translates one `Exit` into that entry's host form:
 |  [03]   | Panel `create`, `show`, `hide` | Forks its work and returns inside a 300 ms default timeout    |
 |  [04]   | Command `run`                  | Promise resolved on success, rejected with the squashed cause |
 
-Hosts show nothing for a rejected command, and Photoshop logs nothing for it. One registration takes every command and panel, since `setup` accepts one call, and runs each through one runtime that renders its failure:
+Hosts show nothing for a rejected command, and Photoshop logs nothing for it. One registration takes every command and panel and runs each through one runtime that renders its failure:
 
 ```ts
 import fs from 'adobe:fs';
@@ -273,7 +269,7 @@ One manifest serves one host application: `host.app` takes `ID`, `PS`, `premiere
 |  [04]   | `featureFlags.unhandledRejection` | `unhandledrejection` events             | Rejection logged, no caller told |
 
 - `plugin-temp:` reads and writes the folder `getTemporaryFolder()` returns under every permission level, and `plugin:` is read-only
-- Storage providers hold no `unlinkSync`; a temporary file's native storage entry releases it through `delete()`
+- Storage providers hold no `unlinkSync`, and a temporary file's native storage entry deletes it through `delete()`
 - Storage entries preserve native `url` schemes for file reads and expose `nativePath` for host-native writes
 - `domains` entries name a host with a top-level domain or `localhost`, and an IP literal entry is discarded
 
