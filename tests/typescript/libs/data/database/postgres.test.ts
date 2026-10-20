@@ -1,7 +1,6 @@
 import { PgClient } from '@effect/sql-pg';
 import { layer } from '@effect/vitest';
 import { types } from '@rasm/database/pg.ts';
-import type { names } from '@rasm/database/table.ts';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import { type Cause, Context, Effect, Function, Layer, Redacted } from 'effect';
 import { PullPolicy } from 'testcontainers';
@@ -33,7 +32,7 @@ layer(
 )('container', (methods) =>
     cases(
         methods,
-        (options: typeof names) =>
+        (options) =>
             Layer.unwrap(
                 Effect.map(
                     Postgres.use(({ restored }) => restored),

@@ -64,7 +64,7 @@ languageInjections:
                 stopBy: end
                 any:
                     - {kind: pair, has: {field: key, regex: '^pg$'}}
-                    - {kind: 'variable_declarator, function_declaration, method_definition', has: {field: name, regex: '(?:^|[a-z_])(?:pg|Pg|PG)(?:$|[A-Z_])'}}
+                    - {kind: 'variable_declarator, function_declaration, method_definition, class_declaration', has: {field: name, regex: '(?:^|[a-z_])(?:pg|Pg|PG)(?:$|[A-Z_])'}}
       injected: sql
     - hostLanguage: tsx
       rule:

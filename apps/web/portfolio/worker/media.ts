@@ -53,7 +53,7 @@ const advance = Match.type<{ readonly current: Upload; readonly part: Multipart.
             if (file.key !== object.field || (object.name !== undefined && file.name !== object.name)) {
                 return yield* HttpApiError.BadRequest.make();
             }
-            yield* state.stage === 'stored' ? Stream.runDrain(file.content) : Effect.flatMap(createUpload(object), ({ uploadToken, write }) => Effect.andThen(attachUpload({ key: object.key, uploadId: uploadToken }), write(file.content)));
+            yield* state.stage === 'stored' ? Stream.runDrain(file.content) : Effect.flatMap(createUpload(object), ({ uploadToken, write }) => Effect.andThen(attachUpload(object.key, uploadToken), write(file.content)));
             return { ...state, files: state.files.slice(1) } satisfies Upload;
         }),
     ),
@@ -93,7 +93,7 @@ const media = HttpApiBuilder.group(Api, 'media', (handlers) =>
             Effect.catchTag('MultipartError', () => Effect.fail(HttpApiError.BadRequest.make())),
             Effect.catchTag(['UnknownError', 'PlatformError'], unavailable),
         ),
-        pending: () => readPendingUploads(),
+        pending: () => readPendingUploads,
         discard: ({ params }) => releaseObjects({ assetId: params.id, remove: false }),
         delete: ({ params }) => releaseObjects({ assetId: params.id, remove: true }),
     }),

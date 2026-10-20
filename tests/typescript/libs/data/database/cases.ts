@@ -2,12 +2,12 @@ import { assert, type Vitest } from '@effect/vitest';
 import { plan, reconcile } from '@rasm/database/reconcile.ts';
 import { store, tenant } from '@rasm/database/store.ts';
 import { atomic, Bytes, type Catalog, names, type Relation, table, Uuid } from '@rasm/database/table.ts';
-import { Array, DateTime, Effect, Exit, type Layer, Option, Schema, type Scope } from 'effect';
+import { Array, DateTime, Effect, Exit, Option, Schema, type Scope } from 'effect';
 import { SqlClient, SqlSchema } from 'effect/sql';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Client<F, Q> = (options: typeof names) => Layer.Layer<SqlClient.SqlClient, F, Q>;
+type Client<F, Q> = Parameters<typeof store<never, F, Q>>[1];
 
 // --- [MODELS] --------------------------------------------------------------------------
 

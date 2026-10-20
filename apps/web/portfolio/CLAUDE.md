@@ -35,7 +35,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - `SqlClient` stores complete encoded documents and assets as JSON (D1 in the Worker, SQLite under Node), object storage holds media bytes
 - `SqlSchema` decodes joined JSON documents and asset collections through `PortfolioData` at store boundaries
 - ALWAYS enforce storage invariants as conditions of writing SQL statements
-- Placement references derive from stored JSON through one query
+- Placement references derive through one query over stored documents and the incoming draft alike
 - Draft and published documents each store one JSON body and a revision
 - `Revision` encodes the draft revision as a strong ETag, a write whose `If-Match` revision is stale fails with `PreconditionFailed`
 - Draft and publication writes share one `atomic` batch: the draft upsert compares and sets the revision on available asset references and returns the revision it wrote, publication copies that draft

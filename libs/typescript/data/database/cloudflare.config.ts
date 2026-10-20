@@ -1,5 +1,5 @@
 import { bindings, defineConfig, defineWorker, exports } from 'cf/config';
-import * as entrypoint from './durable.ts' with { type: 'cf-worker' };
+import * as entrypoint from '../../../../tests/typescript/libs/data/database/worker.ts' with { type: 'cf-worker' };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
