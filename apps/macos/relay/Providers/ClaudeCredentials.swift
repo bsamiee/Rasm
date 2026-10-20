@@ -208,6 +208,8 @@ nonisolated enum ClaudeStoreContent: Sendable {
 
 nonisolated struct ClaudeCredentialStore: Sendable {
     // --- [STATE]
+    static let keychainDeadline: Duration = .seconds(15)
+
     let directory: URL
     let configFile: URL
     let directoryConfigFile: URL
@@ -242,7 +244,7 @@ nonisolated struct ClaudeCredentialStore: Sendable {
     }
 
     func readItem() async -> Result<JSONDocument<ClaudeCredentialItem>?, ClaudeFailure> {
-        await SecurityCommand.readGenericPassword(service: service, account: username)
+        await SecurityCommand.readGenericPassword(service: service, account: username, within: Self.keychainDeadline)
             .claude()
             .flatMap { data in
                 data.map { data in
@@ -262,11 +264,11 @@ nonisolated struct ClaudeCredentialStore: Sendable {
             )
         }
         .mapError(ClaudeFailure.filesystem)
-        .bind { data in await SecurityCommand.writeGenericPassword(service: service, account: username, data: data).claude() }
+        .bind { data in await SecurityCommand.writeGenericPassword(service: service, account: username, data: data, within: Self.keychainDeadline).claude() }
     }
 
     func deleteItem() async -> Result<Void, ClaudeFailure> {
-        await SecurityCommand.deleteGenericPassword(service: service, account: username).claude()
+        await SecurityCommand.deleteGenericPassword(service: service, account: username, within: Self.keychainDeadline).claude()
     }
 
     // --- [ACCOUNT_FILE]

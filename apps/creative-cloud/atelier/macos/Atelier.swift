@@ -21,7 +21,7 @@ struct Release: Encodable {
     }
 
     static func all() -> Result<[Self], AggregateError<Failure>> {
-        NSWorkspace.shared.installedApplications(matching: "kMDItemCFBundleIdentifier == '\(identifierPrefix)*'", in: FileManager.default.urls(for: .applicationDirectory, in: .allDomainsMask))
+        NSWorkspace.shared.installedApplications(matching: [.identifierPrefix(identifierPrefix)], in: FileManager.default.urls(for: .applicationDirectory, in: .allDomainsMask))
             .map { installations in installations.map(Self.init) }
             .aggregated(Failure.discovery)
     }
@@ -87,7 +87,7 @@ struct Executed: Encodable {
 
 enum Reply {
     case value(any Encodable)
-    case stream(AsyncStream<ApplicationStatus>)
+    case stream(AsyncStream<Result<ApplicationStatus, ElementFailure>>)
 }
 
 enum Request: Decodable {
@@ -108,7 +108,7 @@ enum Request: Decodable {
 
     struct Terms: Decodable {
         let application: URL
-        let kind: Kind
+        let kind: ScriptingDictionary.Kind
     }
 
     struct Execute: Decodable {
@@ -160,7 +160,8 @@ enum Request: Decodable {
             }
     }
 
-    func perform(dictionaries: Dictionaries) async -> Result<Reply, AggregateError<Failure>> {
+    func perform(definitions: ScriptingDefinitions) async -> Result<Reply, AggregateError<Failure>> {
+        let deadline: Duration = .seconds(60)
         func refused(_ error: ElementFailure) -> AggregateError<Failure> {
             if case .untrusted = error { Accessibility.prompt() }
             return AggregateError(first: .element(error))
@@ -173,24 +174,28 @@ enum Request: Decodable {
                 Release.all().map(Reply.value)
             case .launch(let target):
                 await Release.at(target.application).bind { release in
-                    await release.installation.launched().map { launched in Reply.value(Release(installation: launched.installation, channel: release.channel)) }.aggregated(Failure.launch)
+                    await release.installation.launched(within: deadline).map { launched in Reply.value(Release(installation: launched.installation, channel: release.channel)) }.aggregated(
+                        Failure.launch
+                    )
                 }
             case .status(let target):
                 running(target.application).flatMap { instance in instance.status().mapError(refused) }.map(Reply.value)
             case .watch(let target):
-                await running(target.application).bind { instance in await instance.statusChanges().mapError(refused) }.map(Reply.stream)
+                running(target.application).map { instance in Reply.stream(instance.statusChanges()) }
             case .press(let press):
-                running(press.application).flatMap { instance in instance.perform(press.action, on: press.element).mapError(refused) }.map(Reply.value)
+                running(press.application).flatMap { instance in instance.perform(press.action, on: press.element).flatMap { instance.status() }.mapError(refused) }.map(Reply.value)
             case .definition(let definition):
-                await Release.at(definition.application).bind { release in await dictionaries.text(of: release.installation, selecting: definition.selection) }.map(Reply.value)
+                await Release.at(definition.application)
+                    .bind { release in await definitions.text(of: release.installation, selecting: definition.selection, within: deadline).aggregated(Failure.definition) }
+                    .map(Reply.value)
             case .terms(let terms):
                 await Release.at(terms.application)
-                    .bind { release in await dictionaries.dictionary(of: release.installation).aggregated(Failure.definition) }
+                    .bind { release in await definitions.dictionary(of: release.installation, within: deadline).aggregated(Failure.definition) }
                     .map { dictionary in Reply.value(dictionary.terms(terms.kind)) }
             case .execute(let call):
                 await Release.at(call.application)
-                    .bind { release in await release.installation.launched().aggregated(Failure.launch) }
-                    .bind { launched in await dictionaries.dictionary(of: launched.installation).aggregated(Failure.definition).map { dictionary in (launched.instance, dictionary) } }
+                    .bind { release in await release.installation.launched(within: deadline).aggregated(Failure.launch) }
+                    .bind { launched in await definitions.dictionary(of: launched.installation, within: deadline).aggregated(Failure.definition).map { dictionary in (launched.instance, dictionary) } }
                     .flatMap { instance, dictionary in
                         dictionary.event(call.command, arguments: call.arguments, target: NSAppleEventDescriptor(processIdentifier: instance.processIdentifier))
                             .mapError { errors in errors.map(Failure.dictionary) }
@@ -199,7 +204,7 @@ enum Request: Decodable {
                     }
             case .screenshot(let capture):
                 await Release.at(capture.application)
-                    .bind { release in await NSWorkspace.shared.activateApplication(at: release.installation.url).aggregated(Failure.activation) }
+                    .bind { release in await NSWorkspace.shared.activateApplication(at: release.installation.url, within: deadline).aggregated(Failure.activation) }
                     .bind { instance in await instance.screenshot(ScreenshotOptions(target: .window(capture.window))).aggregated(Failure.screenshot) }
                     .map(Reply.value)
             case .faces:
@@ -396,7 +401,7 @@ enum Atelier {
         let logger: Logger? = Logger(category: "Atelier")
         let (replies, sink): (AsyncStream<Data>, AsyncStream<Data>.Continuation) = AsyncStream.makeStream()
         let streams: Streams = Streams()
-        let dictionaries: Dictionaries = Dictionaries()
+        let definitions: ScriptingDefinitions = ScriptingDefinitions()
         let emit: @Sendable (Answer) -> Void = { answer in
             switch answer.line() {
                 case .success(let data): sink.yield(data)
@@ -415,12 +420,18 @@ enum Atelier {
                         requests.addTask(executorPreference: DispatchQueue.global()) {
                             switch Result(catching: { try JSONDecoder().decode(Message.self, from: Data(line.utf8)) }) {
                                 case .success(.call(let id, let request)):
-                                    switch await request.bind({ request in await request.perform(dictionaries: dictionaries).mapError(Answer.Fault.refused) }) {
+                                    switch await request.bind({ request in await request.perform(definitions: definitions).mapError(Answer.Fault.refused) }) {
                                         case .success(.value(let value)): emit(.reply(id: id, outcome: .result(value)))
                                         case .success(.stream(let statuses)):
                                             await streams.start(id) {
-                                                for await status: ApplicationStatus in statuses { emit(.reply(id: id, outcome: .chunk(status))) }
-                                                emit(.reply(id: id, outcome: .end))
+                                                var outcome: Answer.Outcome = .end
+                                                for await next: Result<ApplicationStatus, ElementFailure> in statuses {
+                                                    switch next {
+                                                        case .success(let status): emit(.reply(id: id, outcome: .chunk(status)))
+                                                        case .failure(let error): outcome = .fault(.refused(AggregateError(first: .element(error))))
+                                                    }
+                                                }
+                                                emit(.reply(id: id, outcome: outcome))
                                                 await streams.end(id)
                                             }
                                             .value

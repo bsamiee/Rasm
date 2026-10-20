@@ -75,7 +75,7 @@ nonisolated enum ClaudeFailure: DeadlineFailure, ProviderFailure {
     case greetingFailed
     case protocolFailure
     case cancelled
-    case timedOut
+    case timedOut(Duration)
     case lockHeld(URL)
     case lockCompromised(URL)
     indirect case cleanup(operation: Self, release: Self)
@@ -139,7 +139,7 @@ nonisolated enum ClaudeFailure: DeadlineFailure, ProviderFailure {
             case .greetingFailed: "Claude greeting failed"
             case .protocolFailure: "Unexpected Claude Code response"
             case .cancelled: "Canceled"
-            case .timedOut: "Claude Code timed out"
+            case .timedOut(let deadline): "Claude Code did not answer within \(deadline.formatted(.units(width: .wide)))"
             case .lockHeld: "Claude credential update in progress, try again when it finishes"
             case .lockCompromised: "Claude credential lock lost"
             case .cleanup(let operation, _): operation.localizedDescription

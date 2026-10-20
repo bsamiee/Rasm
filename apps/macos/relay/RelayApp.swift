@@ -53,7 +53,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_: Notification) {
         launch = Task(name: "Launch Relay") { [self] in
             let environment: [String: String]
-            switch await LoginShell.environment() {
+            switch await LoginShell.environment(within: .seconds(5)) {
                 case .success(let exported): environment = exported
                 case .failure(.run(.cancelled)): return
                 case .failure(let error):

@@ -4,7 +4,7 @@
 
 ## [01]-[SCOPE]
 
-- Adobe bundle selection, dictionary modeling, Apple Event encoding, and the protocol stay here, shared macOS capabilities go in `RasmMacOS`
+- Adobe bundle selection and the protocol stay here, dictionary modeling, Apple Event encoding, and every other macOS capability come from `RasmMacOS`
 - New capabilities extend the code every application shares, with no per-application branch or file
 - Installed dictionaries, XInclude expanded, supply every term except AppleScript's own `activate`, `get`, and `set`
 - Each application's parsed dictionary stays held until its process identifier changes

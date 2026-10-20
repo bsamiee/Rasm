@@ -56,7 +56,7 @@ actor CodexClient: ProviderClient {
     // --- [SWITCH]
     func preconditions() async -> Result<Void, CodexFailure> {
         await connection(for: liveHome).bind { connection in
-            await ProcessRun.withDeadline(Self.requestDeadline) {
+            await withDeadline(Self.requestDeadline) {
                 await connection.request(
                     CodexProtocol.EffectiveConfig.self,
                     .configRead,
@@ -142,7 +142,7 @@ actor CodexClient: ProviderClient {
                 case .account(let account, let isSelected): (home(for: account, isSelected: isSelected), account.identity)
             }
         return await connection(for: home).bind { connection in
-            await ProcessRun.withDeadline(.seconds(300)) {
+            await withDeadline(.seconds(300)) {
                 await connection.request(
                     CodexProtocol.LoginStarted.self,
                     .accountLoginStart,
@@ -194,7 +194,7 @@ actor CodexClient: ProviderClient {
     private func logOut(home: URL) async -> Result<Void, CodexFailure> {
         defer { await stopServer(home) }
         return await connection(for: home).bind { connection in
-            await ProcessRun.withDeadline(Self.requestDeadline) {
+            await withDeadline(Self.requestDeadline) {
                 await connection.request(.accountLogout)
             }
         }
@@ -208,7 +208,7 @@ actor CodexClient: ProviderClient {
         }
         .bind { identity in
             await connection(for: home).bind { connection in
-                await ProcessRun.withDeadline(Self.requestDeadline) {
+                await withDeadline(Self.requestDeadline) {
                     await connection.request(
                         CodexProtocol.AccountRateLimits.self,
                         .accountRateLimitsRead,
@@ -230,7 +230,7 @@ actor CodexClient: ProviderClient {
         return await usage(for: account, isSelected: isSelected).bind { current in
             if case .ready = current.availability(at: Date()) {
                 await connection(for: home).bind { connection in
-                    await ProcessRun.withDeadline(.seconds(120)) {
+                    await withDeadline(.seconds(120)) {
                         await CodexProtocol.greetingEffort(connection).bind { effort in
                             await CodexProtocol.sendGreeting(connection, effort: effort, workingDirectory: workingDirectory)
                         }
@@ -331,7 +331,7 @@ actor CodexClient: ProviderClient {
                     updates.yield(home)
                 }
             }
-            let initialized: Result<Void, CodexFailure> = await ProcessRun.withDeadline(requestDeadline) {
+            let initialized: Result<Void, CodexFailure> = await withDeadline(requestDeadline) {
                 await connection.initialize()
             }
             ready.yield(initialized.map { _ in connection })

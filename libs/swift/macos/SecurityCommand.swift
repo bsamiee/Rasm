@@ -16,8 +16,8 @@ public enum KeychainFailure: Error {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public enum SecurityCommand {
-    public static func readGenericPassword(service: String, account: String) async -> Result<Data?, KeychainFailure> {
-        await security(["find-generic-password", "-a", account, "-s", service, "-g"]).flatMap { output in
+    public static func readGenericPassword(service: String, account: String, within deadline: Duration) async -> Result<Data?, KeychainFailure> {
+        await security(["find-generic-password", "-a", account, "-s", service, "-g"], within: deadline).flatMap { output in
             switch (output, output?.standardError.firstMatch(of: #/^password: (?:0x(?<hex>[0-9A-F]*)|"(?<text>.*)")?/#.anchorsMatchLineEndings())) {
                 case (.none, _): .success(nil)
                 case (.some, .none): .failure(.unprinted)
@@ -29,26 +29,27 @@ public enum SecurityCommand {
         }
     }
 
-    public static func writeGenericPassword(service: String, account: String, data: Data) async -> Result<Void, KeychainFailure> {
+    public static func writeGenericPassword(service: String, account: String, data: Data, within deadline: Duration) async -> Result<Void, KeychainFailure> {
         func quoted(_ value: String) -> String {
             "\"" + value.replacing("\\", with: "\\\\").replacing("\"", with: "\\\"") + "\""
         }
         let interactiveLineLimit: Int = 4095
         let command: String = "add-generic-password -U -a \(quoted(account)) -s \(quoted(service)) -X \(data.hexEncoded)"
-        return command.utf8.count > interactiveLineLimit ? .failure(.itemTooLarge) : await security(["-i"], input: .string(command + "\n")).map { _ in () }
+        return command.utf8.count > interactiveLineLimit ? .failure(.itemTooLarge) : await security(["-i"], within: deadline, input: .string(command + "\n")).map { _ in () }
     }
 
-    public static func deleteGenericPassword(service: String, account: String) async -> Result<Void, KeychainFailure> {
-        await security(["delete-generic-password", "-a", account, "-s", service]).map { _ in () }
+    public static func deleteGenericPassword(service: String, account: String, within deadline: Duration) async -> Result<Void, KeychainFailure> {
+        await security(["delete-generic-password", "-a", account, "-s", service], within: deadline).map { _ in () }
     }
 
     private static func security(
         _ arguments: [String],
+        within deadline: Duration,
         input: some InputProtocol = .none,
     ) async -> Result<ExecutionResult<Void, StringOutput<UTF8>, StringOutput<UTF8>>?, KeychainFailure> {
         let configuration: Configuration = ProcessRun.configuration(executable: .path("/usr/bin/security"), arguments: arguments, environment: [:], workingDirectory: URL.homeDirectory)
-        return await ProcessRun.run(deadline: .seconds(15)) {
-            try await Subprocess.run(configuration, input: input, output: .string(limit: 1 << 20), error: .string(limit: 1 << 20))
+        return await ProcessRun.run(deadline: deadline) {
+            try await Subprocess.run(configuration, input: input, output: .string(limit: ProcessRun.outputLimit), error: .string(limit: ProcessRun.outputLimit))
         }
         .mapError(KeychainFailure.process)
         .flatMap { output in

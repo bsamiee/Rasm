@@ -7,7 +7,7 @@ nonisolated enum CodexFailure: DeadlineFailure, ProviderFailure {
     case applicationUnavailable
     case process(ProcessFailure)
     case cancelled
-    case timedOut
+    case timedOut(Duration)
     case connectionClosed
     case invalidResponse(field: String)
     case requestRejected(method: CodexProtocol.Method, code: Int, message: String, serverVersion: String?)
@@ -47,7 +47,7 @@ nonisolated enum CodexFailure: DeadlineFailure, ProviderFailure {
             case .applicationUnavailable: "Codex app not installed"
             case .process(let failure): failure.localizedDescription
             case .cancelled: "Canceled"
-            case .timedOut: "Codex app server timed out"
+            case .timedOut(let deadline): "Codex app server did not answer within \(deadline.formatted(.units(width: .wide)))"
             case .connectionClosed: "Codex app server connection closed"
             case .invalidResponse(let field): "Unreadable Codex \(field)"
             case .requestRejected(let method, let code, let message, .some(let serverVersion)):

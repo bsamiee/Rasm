@@ -1,9 +1,11 @@
+public import Foundation
+
 // --- [MODELS] --------------------------------------------------------------------------
 
 public enum JSONValue: Codable, Equatable, Sendable {
     case null
     case bool(Bool)
-    case number(Double)
+    case number(Decimal)
     case string(String)
     case array([Self])
     case object([String: Self])
@@ -14,7 +16,7 @@ public enum JSONValue: Codable, Equatable, Sendable {
             try container.decodeNil()
             ? .null
             : Result { try .bool(container.decode(Bool.self)) }
-                .flatMapError { _ in Result { try .number(container.decode(Double.self)) } }
+                .flatMapError { _ in Result { try .number(container.decode(Decimal.self)) } }
                 .flatMapError { _ in Result { try .string(container.decode(String.self)) } }
                 .flatMapError { _ in Result { try .array(container.decode([Self].self)) } }
                 .flatMapError { _ in Result { try .object(container.decode([String: Self].self)) } }

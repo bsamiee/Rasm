@@ -28,7 +28,7 @@ Monitor {"command": "${CLAUDE_SKILL_DIR}/../../../.cache/swiftpm/build/libs/swif
 Watchers perform nothing, an answer run waits for an app element with `<text>` in its title or text, performs `<action>` on it, and exits:
 
 ```bash
-${CLAUDE_SKILL_DIR}/../../../.cache/swiftpm/build/libs/swift/macos/debug/watch-apps <app> --answer '<text>=<action>'
+${CLAUDE_SKILL_DIR}/../../../.cache/swiftpm/build/libs/swift/macos/debug/watch-apps <app> --answer '<text>' --action '<action>'
 ```
 
 - Elements open at the run's start count, a later one is answered when it opens
@@ -59,7 +59,7 @@ Lines carry `app`, instance lines `pid`, element lines add `element` with `id`, 
 |  [07]   | `answered` | Answer run performed `action`                                     | Continue                                         |
 |  [08]   | `closed`   | Element closed or changed, a changed one opens again              | Continue                                         |
 |  [09]   | `crash`    | Crash report path, newest first                                   | Read the report                                  |
-|  [10]   | `fail`     | Refused notification, lock, log line, discovery, check, or answer | Grant access, pass a bundle id, or re-answer     |
+|  [10]   | `fail`     | Refused notification, lock, log, discovery, argument, or answer   | Grant access, pass a bundle id, or re-answer     |
 
 `--crashes` prints a `crash` line per report under `~/Library/Logs` (macOS `.ips` files and vendor crash logs) with app's bundle id in a header line, and exits:
 

@@ -91,49 +91,48 @@ public enum ScreenshotFailure: LocalizedError {
 
 extension NSRunningApplication {
     public func screenshot(_ options: ScreenshotOptions = ScreenshotOptions()) async -> Result<Screenshot, ScreenshotFailure> {
-        await Result { try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true) }
-            .mapError(ScreenshotFailure.content)
-            .flatMap { content -> Result<(filter: SCContentFilter, window: SCWindow, windows: [SCWindow]), ScreenshotFailure> in
-                let owned: [SCWindow] = content.windows.filter { window in window.owningApplication?.processID == processIdentifier }
-                let order: [CGWindowID]? = (CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]])?
-                    .compactMap { row in row[kCGWindowNumber as String] as? CGWindowID }
-                let windows: [SCWindow] = order?.compactMap { id in owned.first { window in window.windowID == id } } ?? []
-                return switch (options.target, windows.first) {
-                    case (_, .none): .failure(.noWindow)
-                    case (.window(.some(let id)), .some):
-                        windows.first { window in window.windowID == id }.map { window in .success((SCContentFilter(desktopIndependentWindow: window), window, windows)) } ?? .failure(.absent(id))
-                    case (.window(.none), .some(let front)): .success((SCContentFilter(desktopIndependentWindow: front), front, windows))
-                    case (.application, .some(let front)):
-                        content.displays.first { display in display.frame.contains(CGPoint(x: front.frame.midX, y: front.frame.midY)) }
-                            .map { display in .success((SCContentFilter(display: display, including: windows), front, windows)) } ?? .failure(.noDisplay)
+        await Result { () async throws(ScreenshotFailure) in
+            let content: SCShareableContent = try await Result { try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true) }.mapError(ScreenshotFailure.content).get()
+            let owned: [SCWindow] = content.windows.filter { window in window.owningApplication?.processID == processIdentifier }
+            let order: [CGWindowID]? = (CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]])?
+                .compactMap { row in row[kCGWindowNumber as String] as? CGWindowID }
+            let windows: [SCWindow] = order?.compactMap { id in owned.first { window in window.windowID == id } } ?? []
+            guard let front: SCWindow = windows.first else { throw .noWindow }
+            func shown(_ id: CGWindowID) throws(ScreenshotFailure) -> SCWindow {
+                guard let window: SCWindow = windows.first(where: { window in window.windowID == id }) else { throw .absent(id) }
+                return window
+            }
+            let window: SCWindow =
+                switch options.target {
+                    case .window(.some(let id)): try shown(id)
+                    case .window(.none), .application: front
                 }
-            }
-            .bind { filter, window, windows in
-                let configuration: SCScreenshotConfiguration = SCScreenshotConfiguration()
-                let native: CGSize = options.region?.size ?? filter.contentRect.size
-                let scale: CGFloat =
-                    CGFloat(filter.pointPixelScale) * (options.maxDimension.map { limit in min(1, CGFloat(limit) / (max(native.width, native.height) * CGFloat(filter.pointPixelScale))) } ?? 1)
-                configuration.width = Int((native.width * scale).rounded())
-                configuration.height = Int((native.height * scale).rounded())
-                if let region: CGRect = options.region { configuration.sourceRect = region }
-                configuration.showsCursor = options.showsCursor
-                configuration.ignoreShadows = options.ignoresShadows
-                configuration.includeChildWindows = options.includesChildWindows
-                configuration.dynamicRange = options.hdr ? .hdr : .sdr
-                return await Result { try await SCScreenshotManager.captureScreenshot(contentFilter: filter, configuration: configuration) }
-                    .mapError(ScreenshotFailure.capture)
-                    .flatMap { output in
-                        let data: CFMutableData = CFDataCreateMutable(nil, 0)
-                        let encoded: CGImage? = (options.hdr ? output.hdrImage : output.sdrImage).flatMap { image in
-                            CGImageDestinationCreateWithData(data, options.format.identifier as CFString, 1, nil).flatMap { destination in
-                                CGImageDestinationAddImage(destination, image, [kCGImageDestinationOptimizeColorForSharing: true] as CFDictionary)
-                                return CGImageDestinationFinalize(destination) ? image : nil
-                            }
-                        }
-                        return encoded.map { image in
-                            .success(Screenshot(window: ShareableWindow(window), windows: windows.map(ShareableWindow.init), image: data as Data, width: image.width, height: image.height))
-                        } ?? .failure(.encode(options.format))
-                    }
-            }
+            let filter: SCContentFilter =
+                switch (options.target, content.displays.first(where: { display in display.frame.contains(CGPoint(x: front.frame.midX, y: front.frame.midY)) })) {
+                    case (.window, _): SCContentFilter(desktopIndependentWindow: window)
+                    case (.application, .some(let display)): SCContentFilter(display: display, including: windows)
+                    case (.application, .none): throw .noDisplay
+                }
+            let configuration: SCScreenshotConfiguration = SCScreenshotConfiguration()
+            let native: CGSize = options.region?.size ?? filter.contentRect.size
+            let scale: CGFloat =
+                CGFloat(filter.pointPixelScale) * (options.maxDimension.map { limit in min(1, CGFloat(limit) / (max(native.width, native.height) * CGFloat(filter.pointPixelScale))) } ?? 1)
+            configuration.width = Int((native.width * scale).rounded())
+            configuration.height = Int((native.height * scale).rounded())
+            if let region: CGRect = options.region { configuration.sourceRect = region }
+            configuration.showsCursor = options.showsCursor
+            configuration.ignoreShadows = options.ignoresShadows
+            configuration.includeChildWindows = options.includesChildWindows
+            configuration.dynamicRange = options.hdr ? .hdr : .sdr
+            let output: SCScreenshotOutput = try await Result { try await SCScreenshotManager.captureScreenshot(contentFilter: filter, configuration: configuration) }
+                .mapError(ScreenshotFailure.capture).get()
+            let data: CFMutableData = CFDataCreateMutable(nil, 0)
+            guard let image: CGImage = options.hdr ? output.hdrImage : output.sdrImage,
+                let destination: CGImageDestination = CGImageDestinationCreateWithData(data, options.format.identifier as CFString, 1, nil)
+            else { throw .encode(options.format) }
+            CGImageDestinationAddImage(destination, image, nil)
+            guard CGImageDestinationFinalize(destination) else { throw .encode(options.format) }
+            return Screenshot(window: ShareableWindow(window), windows: windows.map(ShareableWindow.init), image: data as Data, width: image.width, height: image.height)
+        }
     }
 }

@@ -4,6 +4,23 @@ import CoreServices
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+public enum ApplicationMatch: Sendable {
+    case identifier(String)
+    case identifierPrefix(String)
+    case name(String)
+
+    var predicate: String {
+        func literal(_ text: String) -> String { text.replacing(/[\\'*]/) { match in "\\\(match.output)" } }
+        let (attribute, value): (CFString, String) =
+            switch self {
+                case .identifier(let identifier): (kMDItemCFBundleIdentifier, literal(identifier))
+                case .identifierPrefix(let prefix): (kMDItemCFBundleIdentifier, literal(prefix) + "*")
+                case .name(let name): (kMDItemDisplayName, literal(name))
+            }
+        return "\(attribute as String) == '\(value)'"
+    }
+}
+
 public struct Installation: Encodable, Hashable, Sendable {
     public struct Instance: Encodable, Hashable, Sendable {
         public let pid: pid_t
@@ -26,8 +43,8 @@ public struct Installation: Encodable, Hashable, Sendable {
         running.flatMap { running in NSRunningApplication(processIdentifier: running.pid) }.map(Result.success) ?? .failure(.notRunning(url))
     }
 
-    public func launched() async -> Result<(installation: Self, instance: NSRunningApplication), LaunchFailure> {
-        await NSWorkspace.shared.launchApplication(at: url).map { instance in
+    public func launched(within deadline: Duration) async -> Result<(installation: Self, instance: NSRunningApplication), LaunchFailure> {
+        await NSWorkspace.shared.launchApplication(at: url, within: deadline).map { instance in
             (Self(url: url, identifier: identifier, name: name, version: version, running: Instance(instance), scriptable: scriptable), instance)
         }
     }
@@ -76,14 +93,14 @@ public enum DiscoveryFailure: LocalizedError {
 public enum LaunchFailure: DeadlineFailure, LocalizedError {
     case open(any Error)
     case terminated
-    case timedOut
+    case timedOut(Duration)
     case cancelled
 
     public var errorDescription: String? {
         switch self {
             case .open(let error): "Launch Services could not open the application: \(error.localizedDescription)"
             case .terminated: "The application exited before it finished launching"
-            case .timedOut: "The application did not finish launching within the Apple Event Manager's default reply timeout of about one minute"
+            case .timedOut(let deadline): "The application did not finish launching within \(deadline.formatted(.units(width: .wide)))"
             case .cancelled: "Canceled"
         }
     }
@@ -108,19 +125,18 @@ public enum ActivationFailure: LocalizedError {
 
 extension NSWorkspace {
     // --- [DISCOVERY]
-    public func installedApplications(matching query: String, in directories: [URL]?) -> Result<[Installation], DiscoveryFailure> {
-        let text: String = "kMDItemContentType == 'com.apple.application-bundle' && (\(query))"
-        let search: MDQuery = MDQueryCreate(nil, text as CFString, [kMDItemCFBundleIdentifier, kMDItemVersion] as CFArray, [kMDItemCFBundleIdentifier, kMDItemVersion] as CFArray)
+    public func installedApplications(matching matches: [ApplicationMatch], in directories: [URL]?) -> Result<[Installation], DiscoveryFailure> {
+        let text: String = "kMDItemContentType == 'com.apple.application-bundle' && (\(matches.map(\.predicate).joined(separator: " || ")))"
         let running: [NSRunningApplication] = runningApplications
-        if let directories { MDQuerySetSearchScope(search, directories as CFArray, 0) }
-        return MDQueryExecute(search, CFOptionFlags(kMDQuerySynchronous.rawValue))
-            ? Result { () throws(DiscoveryFailure) in
-                try (0..<MDQueryGetResultCount(search)).map { index throws(DiscoveryFailure) in
-                    try Installation(unsafe unsafeBitCast(MDQueryGetResultAtIndex(search, index), to: MDItem.self), among: running)
-                }
-                .compactMap(\.self)
+        return Result { () throws(DiscoveryFailure) in
+            guard let search: MDQuery = MDQueryCreate(nil, text as CFString, nil, [kMDItemCFBundleIdentifier, kMDItemVersion] as CFArray) else { throw .query(text) }
+            if let directories { MDQuerySetSearchScope(search, directories as CFArray, 0) }
+            guard MDQueryExecute(search, CFOptionFlags(kMDQuerySynchronous.rawValue)) else { throw .query(text) }
+            return try (0..<MDQueryGetResultCount(search)).map { index throws(DiscoveryFailure) in
+                try Installation(unsafe unsafeBitCast(MDQueryGetResultAtIndex(search, index), to: MDItem.self), among: running)
             }
-            : .failure(.query(text))
+            .compactMap(\.self)
+        }
     }
 
     public func installedApplication(at url: URL) -> Result<Installation, DiscoveryFailure> {
@@ -129,7 +145,7 @@ extension NSWorkspace {
     }
 
     // --- [LIFECYCLE]
-    public func launchApplication(at url: URL, activates: Bool = false) async -> Result<NSRunningApplication, LaunchFailure> {
+    public func launchApplication(at url: URL, within deadline: Duration, activates: Bool = false) async -> Result<NSRunningApplication, LaunchFailure> {
         let configuration: OpenConfiguration = OpenConfiguration()
         configuration.activates = activates
         configuration.promptsUserIfNeeded = false
@@ -143,17 +159,19 @@ extension NSWorkspace {
         )
         return await Result { try await openApplication(at: url, configuration: configuration) }
             .mapError(LaunchFailure.open)
-            .bind { instance in await instance.finishedLaunching().map { instance } }
+            .bind { instance in await instance.reaching(\.isFinishedLaunching, within: deadline).map { instance } }
     }
 
-    @MainActor
-    public func activateApplication(at url: URL) async -> Result<NSRunningApplication, ActivationFailure> {
-        await launchApplication(at: url, activates: true).mapError(ActivationFailure.launch).flatMap { instance in
-            switch (frontmostApplication, instance.isTerminated) {
-                case (.some(let frontmost), _) where frontmost.processIdentifier == instance.processIdentifier: .success(instance)
-                case (_, true): .failure(.terminated)
-                case (let frontmost, false): .failure(.declined(frontmost: frontmost))
-            }
+    public func activateApplication(at url: URL, within deadline: Duration) async -> Result<NSRunningApplication, ActivationFailure> {
+        await launchApplication(at: url, within: deadline, activates: true).mapError(ActivationFailure.launch).bind { instance in
+            await instance.reaching(\.isActive, within: deadline).map { instance }
+                .mapError { failure in
+                    switch failure {
+                        case .timedOut: .declined(frontmost: frontmostApplication)
+                        case .terminated: .terminated
+                        case .open, .cancelled: .launch(failure)
+                    }
+                }
         }
     }
 
@@ -188,18 +206,19 @@ extension NSRunningApplication {
         return runningApplications.filter { instance in instance.activationPolicy != .prohibited && instance.bundleURL?.resolvingSymlinksInPath().path(percentEncoded: false) == path }
     }
 
-    public func finishedLaunching() async -> Result<Void, LaunchFailure> {
+    public func reaching(_ state: any KeyPath<NSRunningApplication, Bool> & Sendable, within deadline: Duration) async -> Result<Void, LaunchFailure> {
+        let instance: NSRunningApplication = self
         let (states, sink): (AsyncStream<Bool>, AsyncStream<Bool>.Continuation) = AsyncStream.makeStream()
-        let observations: [NSKeyValueObservation] = [\Self.isFinishedLaunching, \.isTerminated].map { keyPath in
-            observe(keyPath, options: [.initial, .new]) { instance, _ in
-                if instance.isFinishedLaunching || instance.isTerminated { sink.yield(instance.isFinishedLaunching) }
+        let observations: [NSKeyValueObservation] = [state, \.isTerminated].map { keyPath in
+            instance.observe(keyPath, options: [.initial, .new]) { instance, _ in
+                if instance[keyPath: state] || instance.isTerminated { sink.yield(instance[keyPath: state]) }
             }
         }
         defer {
             for observation: NSKeyValueObservation in observations { observation.invalidate() }
             sink.finish()
         }
-        return await ProcessRun.withDeadline(.seconds(60)) {
+        return await withDeadline(deadline) {
             switch await states.first(where: { _ in true }) {
                 case .some(true): .success(())
                 case .some(false): .failure(.terminated)

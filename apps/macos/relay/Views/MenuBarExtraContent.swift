@@ -121,7 +121,10 @@ struct MenuBarExtraContent: View {
         dismiss()
         openWindow(id: RelayApp.settingsWindow)
         Task(name: "Bring Relay to front") {
-            if case .failure(let error) = await NSApplication.shared.bringToFront() {
+            let reopened: Result<NSRunningApplication, any Error> = await Result {
+                try await NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: NSWorkspace.OpenConfiguration())
+            }
+            if case .failure(let error) = reopened {
                 Logger(category: "Activation")?.error("Bringing Relay to front: \(String(describing: error), privacy: .public)")
             }
         }

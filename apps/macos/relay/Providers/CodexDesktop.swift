@@ -36,7 +36,7 @@ enum CodexDesktop {
         .filter { application in !application.isTerminated }
         guard !instances.isEmpty else { return .success(()) }
         for instance: NSRunningApplication in instances {
-            let quit: Result<Void, CodexFailure> = await ProcessRun.withDeadline(.seconds(10)) {
+            let quit: Result<Void, CodexFailure> = await withDeadline(.seconds(10)) {
                 @MainActor in
                 let pid: pid_t = instance.processIdentifier
                 let terminations: AsyncCompactMapSequence<NotificationCenter.Notifications, pid_t> =

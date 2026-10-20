@@ -4,15 +4,15 @@ import PackageDescription
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 let settings: [SwiftSetting] = [
-    .enableUpcomingFeature("ImmutableWeakCaptures"),
-    .unsafeFlags(["-warn-soft-deprecated"]),
-    .strictMemorySafety(),
-    .treatAllWarnings(as: .error),
     .enableUpcomingFeature("ExistentialAny"),
+    .enableUpcomingFeature("ImmutableWeakCaptures"),
     .enableUpcomingFeature("InferIsolatedConformances"),
     .enableUpcomingFeature("InternalImportsByDefault"),
     .enableUpcomingFeature("MemberImportVisibility"),
     .enableUpcomingFeature("NonisolatedNonsendingByDefault"),
+    .strictMemorySafety(),
+    .unsafeFlags(["-warn-soft-deprecated"]),
+    .treatAllWarnings(as: .error),
     .treatWarning("StrictLanguageFeatures", as: .error),
 ]
 
@@ -26,7 +26,8 @@ let package: Package = Package(
         .executable(name: "watch-apps", targets: ["watch-apps"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/swiftlang/swift-subprocess", from: "1.0.1")
+        .package(url: "https://github.com/apple/swift-argument-parser", from: "1.8.2"),
+        .package(url: "https://github.com/swiftlang/swift-subprocess", from: "1.0.1"),
     ],
     targets: [
         .target(
@@ -38,7 +39,7 @@ let package: Package = Package(
         ),
         .executableTarget(
             name: "watch-apps",
-            dependencies: ["RasmMacOS"],
+            dependencies: ["RasmMacOS", .product(name: "ArgumentParser", package: "swift-argument-parser")],
             path: "Watch",
             swiftSettings: settings,
         ),

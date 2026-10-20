@@ -27,7 +27,7 @@ public enum LoginShell {
         )
     }
 
-    public static func environment() async -> Result<[String: String], LoginShellFailure> {
+    public static func environment(within deadline: Duration) async -> Result<[String: String], LoginShellFailure> {
         let marker: String = UUID().uuidString
         let configuration: Configuration = ProcessRun.configuration(
             executable: .path(shell),
@@ -35,20 +35,16 @@ public enum LoginShell {
             environment: initialEnvironment,
             workingDirectory: .homeDirectory,
         )
-        return await ProcessRun.run(deadline: .seconds(5)) {
-            try await Subprocess.run(configuration, output: .string(limit: 1 << 20), error: .string(limit: 1 << 20))
-        }
-        .mapError(LoginShellFailure.run)
-        .flatMap { output in
-            output.terminationStatus.isSuccess ? .success(output) : .failure(.terminationStatus(output))
-        }
-        .flatMap { output -> Result<Substring, LoginShellFailure> in
+        return await Result { () async throws(LoginShellFailure) in
+            let output: ExecutionResult<Void, StringOutput<UTF8>, StringOutput<UTF8>> = try await ProcessRun.run(deadline: deadline) {
+                try await Subprocess.run(configuration, output: .string(limit: ProcessRun.outputLimit), error: .string(limit: ProcessRun.outputLimit))
+            }
+            .mapError(LoginShellFailure.run).get()
             let parts: [Substring] = output.standardOutput.split(separator: marker, maxSplits: 1, omittingEmptySubsequences: false)
-            return parts.count == 2 ? .success(parts[1]) : .failure(.markerNotFound)
-        }
-        .map { dump in
-            Dictionary(
-                dump.split(separator: "\0").compactMap { entry in
+            guard output.terminationStatus.isSuccess else { throw .terminationStatus(output) }
+            guard parts.count == 2 else { throw .markerNotFound }
+            return Dictionary(
+                parts[1].split(separator: "\0").compactMap { entry in
                     entry.firstIndex(of: "=").map { index in (String(entry[..<index]), String(entry[entry.index(after: index)...])) }
                 }
             ) { first, _ in first }

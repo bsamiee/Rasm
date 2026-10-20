@@ -211,7 +211,7 @@ final class AccountStore {
         }
         func observe(file: URL, provider: Provider) async {
             do {
-                for try await _ in FileWatch.events(of: file).map({ try FileWatch.contentDigest(file) }).removeDuplicates().dropFirst().debounce(for: .milliseconds(300)) {
+                for try await _ in FileWatch.events(of: file).map({ try contentDigest(file) }).removeDuplicates().dropFirst().debounce(for: .milliseconds(300)) {
                     let before: [UUID: Bool] = Dictionary(
                         uniqueKeysWithValues: accounts.map { model in (model.account.id, model.isSelected) }
                     )
@@ -247,7 +247,8 @@ final class AccountStore {
         func observeRefreshLock() async {
             let lock: URL = ClaudeLock.refreshLockfile(in: claude.shared.directory)
             do {
-                for try await present: Bool in FileWatch.events(of: lock).map({ FileWatch.exists(lock) }).removeDuplicates().dropFirst() where !present {
+                for try await present: Bool in FileWatch.events(of: lock).map({ FileManager.default.fileExists(atPath: lock.path(percentEncoded: false)) }).removeDuplicates().dropFirst()
+                where !present {
                     await readSelection(.claude)
                 }
             } catch {
@@ -313,7 +314,7 @@ final class AccountStore {
         authenticationTask?.cancel()
         refreshPause?.cancel()
         for model: AccountModel in accounts { model.running?.task.cancel() }
-        _ = await ProcessRun.withDeadline(.seconds(5)) { @MainActor [self] in
+        _ = await withDeadline(.seconds(5)) { @MainActor [self] in
             await root?.value
             await authenticationTask?.value
             for model: AccountModel in accounts { await model.running?.task.value }

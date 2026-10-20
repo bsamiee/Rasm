@@ -1,7 +1,20 @@
+import CoreServices
 public import CryptoKit
 import Dispatch
 public import Foundation
 import System
+
+// --- [ERRORS] --------------------------------------------------------------------------
+
+public enum FileWatchFailure: LocalizedError {
+    case unstarted(URL)
+
+    public var errorDescription: String? {
+        switch self {
+            case .unstarted(let file): "FSEvents could not start a stream on \(file.path(percentEncoded: false))"
+        }
+    }
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -14,25 +27,26 @@ public func ifPresent<Value>(_ operation: () throws -> Value) -> Result<Value?, 
     }
 }
 
+public func contentDigest(_ file: URL) throws -> SHA256Digest? {
+    try ifPresent { try Data(contentsOf: file) }.get().map(SHA256.hash(data:))
+}
+
 public enum FileWatch {
-    // --- [EVENTS]
     public static func events(of file: URL) -> AsyncThrowingStream<Void, any Error> {
         AsyncThrowingStream { continuation in
-            let watcher: Watcher = Watcher(file: file, continuation: continuation)
-            watcher.enqueue { watcher in watcher.arm() }
+            let watcher: Watcher = Watcher(continuation: continuation)
+            watcher.enqueue { watcher in watcher.start(file) }
             continuation.onTermination = { _ in watcher.enqueue { watcher in watcher.stop() } }
         }
     }
 
-    private actor Watcher {
+    @safe private actor Watcher {
         // --- [STATE]
-        private let file: URL
-        private let continuation: AsyncThrowingStream<Void, any Error>.Continuation
+        let continuation: AsyncThrowingStream<Void, any Error>.Continuation
         private let queue: DispatchSerialQueue = DispatchSerialQueue(label: "RasmMacOS.FileWatch")
-        private var sources: [any DispatchSourceFileSystemObject] = []
+        private var stream: FSEventStreamRef?
 
-        init(file: URL, continuation: AsyncThrowingStream<Void, any Error>.Continuation) {
-            self.file = file
+        init(continuation: AsyncThrowingStream<Void, any Error>.Continuation) {
             self.continuation = continuation
         }
 
@@ -43,44 +57,37 @@ public enum FileWatch {
             queue.async { [self] in assumeIsolated(work) }
         }
 
-        func arm() {
-            stop()
-            let paths: Set<FilePath> = [FilePath(file.path(percentEncoded: false)), FilePath(file.resolvingSymlinksInPath().path(percentEncoded: false))]
-            let armed: Result<Void, any Error> = Result {
-                for path: FilePath in paths {
-                    _ = try watch(path)
-                    _ = try sequence(first: path.removingLastComponent()) { directory in directory.components.isEmpty ? nil : directory.removingLastComponent() }.first(where: watch)
-                }
+        func start(_ file: URL) {
+            let paths: Set<String> = [file.path(percentEncoded: false), file.resolvingSymlinksInPath().path(percentEncoded: false)]
+            var context: FSEventStreamContext = unsafe FSEventStreamContext(version: 0, info: Unmanaged.passUnretained(self).toOpaque(), retain: nil, release: nil, copyDescription: nil)
+            let flags: Int = kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagWatchRoot | kFSEventStreamCreateFlagNoDefer
+            unsafe stream = FSEventStreamCreate(nil, changed, &context, Array(paths) as CFArray, FSEventStreamEventId(kFSEventStreamEventIdSinceNow), 0, FSEventStreamCreateFlags(flags))
+            let started: Bool? = unsafe stream.map { stream in
+                unsafe FSEventStreamSetDispatchQueue(stream, queue)
+                return unsafe FSEventStreamStart(stream)
             }
-            switch armed {
-                case .success: continuation.yield(())
-                case .failure(let error):
+            switch started {
+                case .some(true): continuation.yield(())
+                case .some(false), .none:
                     stop()
-                    continuation.finish(throwing: error)
-            }
-            func watch(_ path: FilePath) throws -> Bool {
-                guard let descriptor: FileDescriptor = try ifPresent({ try FileDescriptor.open(path, .readOnly, options: [.eventOnly, .closeOnExec]) }).get() else { return false }
-                let source: any DispatchSourceFileSystemObject = DispatchSource.makeFileSystemObjectSource(fileDescriptor: descriptor.rawValue, eventMask: .all, queue: queue)
-                source.setEventHandler { [weak self] in self?.assumeIsolated { watcher in watcher.arm() } }
-                source.setCancelHandler { _ = try? descriptor.close() }
-                source.activate()
-                sources.append(source)
-                return true
+                    continuation.finish(throwing: FileWatchFailure.unstarted(file))
             }
         }
 
         func stop() {
-            for source: any DispatchSourceFileSystemObject in sources { source.cancel() }
-            sources = []
+            switch (unsafe stream) {
+                case .some(let stream):
+                    unsafe FSEventStreamStop(stream)
+                    unsafe FSEventStreamInvalidate(stream)
+                    unsafe FSEventStreamRelease(stream)
+                case .none: break
+            }
+            unsafe stream = nil
         }
     }
 
-    // --- [READS]
-    public static func contentDigest(_ file: URL) throws -> SHA256Digest? {
-        try ifPresent { try Data(contentsOf: file) }.get().map(SHA256.hash(data:))
-    }
-
-    public static func exists(_ entry: URL) -> Bool {
-        FileManager.default.fileExists(atPath: entry.path(percentEncoded: false))
+    private static let changed: FSEventStreamCallback = { _, info, _, _, _, _ in
+        guard let info: UnsafeMutableRawPointer = unsafe info else { return }
+        unsafe Unmanaged<Watcher>.fromOpaque(info).takeUnretainedValue().continuation.yield(())
     }
 }

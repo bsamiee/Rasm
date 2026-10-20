@@ -75,7 +75,7 @@ nonisolated extension ProviderFailure {
         self =
             switch failure {
                 case .cancelled: .cancelled
-                case .timedOut: .timedOut
+                case .timedOut(let deadline): .timedOut(deadline)
                 default: .process(failure)
             }
     }

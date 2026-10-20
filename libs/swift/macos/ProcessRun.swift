@@ -2,20 +2,13 @@ public import Foundation
 public import Subprocess
 import System
 
-// --- [TYPES] ---------------------------------------------------------------------------
-
-public protocol DeadlineFailure: Error {
-    static var timedOut: Self { get }
-    static var cancelled: Self { get }
-}
-
 // --- [ERRORS] --------------------------------------------------------------------------
 
 public enum ProcessFailure: DeadlineFailure, LocalizedError {
     case launch(SubprocessError)
     case io(any Error)
     case exit(TerminationStatus)
-    case timedOut
+    case timedOut(Duration)
     case cancelled
 
     public var errorDescription: String? {
@@ -24,7 +17,7 @@ public enum ProcessFailure: DeadlineFailure, LocalizedError {
             case .io(let error): "Process I/O failed: \(error.localizedDescription)"
             case .exit(.exited(let code)): "Process exited with status \(code)"
             case .exit(.signaled(let signal)): "Process stopped by signal \(signal)"
-            case .timedOut: "Process timed out"
+            case .timedOut(let deadline): "Process did not finish within \(deadline.formatted(.units(width: .wide)))"
             case .cancelled: "Canceled"
         }
     }
@@ -33,26 +26,7 @@ public enum ProcessFailure: DeadlineFailure, LocalizedError {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public enum ProcessRun {
-    public static func withDeadline<Value: Sendable, Failure: DeadlineFailure>(
-        _ deadline: Duration?,
-        _ work: @escaping @Sendable () async -> Result<Value, Failure>,
-    ) async -> Result<Value, Failure> {
-        if let deadline {
-            await withTaskGroup { group in
-                group.addTask(name: "work") { await work() }
-                group.addTask(name: "deadline") {
-                    await Result { try await Task.sleep(for: deadline) }
-                        .mapError { _ in Failure.cancelled }
-                        .flatMap { _ in .failure(.timedOut) }
-                }
-                let first: Result<Value, Failure> = await group.next() ?? .failure(.cancelled)
-                group.cancelAll()
-                return first
-            }
-        } else {
-            await work()
-        }
-    }
+    static let outputLimit: Int = 1 << 20
 
     public static func run<Value: Sendable>(
         deadline: Duration?,

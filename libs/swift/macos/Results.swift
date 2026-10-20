@@ -1,3 +1,10 @@
+// --- [TYPES] ---------------------------------------------------------------------------
+
+public protocol DeadlineFailure: Error {
+    static func timedOut(_ deadline: Duration) -> Self
+    static var cancelled: Self { get }
+}
+
 // --- [ERRORS] --------------------------------------------------------------------------
 
 public struct AggregateError<Element: Sendable>: Error {
@@ -64,4 +71,25 @@ public func traverse<Element, Value, Failure>(
         }
     }
     return AggregateError(split.errors).map(Result.failure) ?? .success(split.values)
+}
+
+public func withDeadline<Value: Sendable, Failure: DeadlineFailure>(
+    _ deadline: Duration?,
+    _ work: @escaping @Sendable () async -> Result<Value, Failure>,
+) async -> Result<Value, Failure> {
+    if let deadline {
+        await withTaskGroup { group in
+            group.addTask(name: "work") { await work() }
+            group.addTask(name: "deadline") {
+                await Result { try await Task.sleep(for: deadline) }
+                    .mapError { _ in Failure.cancelled }
+                    .flatMap { _ in .failure(.timedOut(deadline)) }
+            }
+            let first: Result<Value, Failure> = await group.next() ?? .failure(.cancelled)
+            group.cancelAll()
+            return first
+        }
+    } else {
+        await work()
+    }
 }
