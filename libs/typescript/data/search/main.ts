@@ -1,45 +1,46 @@
 import uFuzzy from '@leeoniya/ufuzzy';
-import { Array, Effect, Option, Schema, String } from 'effect';
+import { Array, Effect, flow, Option, Predicate, Schema } from 'effect';
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique symbol }>()('Unmatched', { subject: Schema.String, query: Schema.String, candidates: Schema.Array(Schema.String) }) {
+class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique symbol }>()('Unmatched', { subject: Schema.String, query: Schema.OptionFromOptionalKey(Schema.String), candidates: Schema.Array(Schema.String) }) {
+    static readonly matching =
+        (subject: string, query: Option.Option<string>) =>
+        <A>(candidates: readonly A[], names: (candidate: A) => readonly [label: string, ...aliases: string[]]): Effect.Effect<readonly A[], Unmatched> => {
+            const equal = new Intl.Collator('en', { usage: 'search', sensitivity: 'accent' }).compare;
+            return Option.match(query, {
+                onNone: () => Effect.succeed(candidates),
+                onSome: (wanted) =>
+                    Effect.fromOption(
+                        Option.liftPredicate(
+                            candidates.filter((candidate) => names(candidate).some((name) => equal(name, wanted) === 0)),
+                            Array.isReadonlyArrayNonEmpty,
+                        ),
+                        () => Unmatched.make({ subject, query, candidates: Array.dedupe(candidates.map(flow(names, Array.headNonEmpty))) }),
+                    ),
+            });
+        };
+    static readonly single =
+        (subject: string, query: Option.Option<string>) =>
+        <A>(candidates: readonly A[], names: (candidate: A) => readonly [label: string, ...aliases: string[]]): Effect.Effect<A, Unmatched> =>
+            Effect.map(
+                Effect.filterOrFail(Unmatched.matching(subject, query)(candidates, names), Predicate.isTupleOf(1), (matched) => Unmatched.make({ subject: `single ${subject}`, query, candidates: matched.map(flow(names, Array.headNonEmpty)) })),
+                ([only]) => only,
+            );
+
     override get message(): string {
-        return `No ${this.subject}${this.query === '' ? '' : ` matching ${this.query}`}${this.candidates.length === 0 ? '' : `, candidates: ${this.candidates.join(', ')}`}`;
+        return `No ${this.subject}${Option.match(this.query, { onNone: () => '', onSome: (query) => ` matching ${query}` })}${this.candidates.length === 0 ? '' : `, candidates: ${this.candidates.join(', ')}`}`;
     }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const ranked = (query: string, candidates: readonly string[]): readonly string[] => {
-    const [found, info, order] = new uFuzzy({ intraMode: 1 }).search([...candidates], query, 0, Number.POSITIVE_INFINITY);
+    const [found, info, order] = new uFuzzy({ intraMode: 1, unicode: true, interSplit: "[^\\p{L}\\d']+", intraSplit: '\\p{Ll}\\p{Lu}', intraBound: '\\p{L}\\d|\\d\\p{L}|\\p{Ll}\\p{Lu}', intraChars: "[\\p{L}\\d']", intraContr: "'\\p{L}{1,2}\\b" }).search([...candidates], query, 0, Number.POSITIVE_INFINITY);
     const matched = (order === null || info === null ? (found ?? []) : order.flatMap((position) => info.idx[position] ?? [])).flatMap((index) => candidates[index] ?? []);
     return matched.length === 0 ? candidates : matched;
 };
-const named = <A>(candidates: readonly A[], query: string, names: (candidate: A) => readonly string[]): readonly A[] => {
-    const key = String.toLowerCase(query);
-    return candidates.filter((candidate) => names(candidate).map(String.toLowerCase).includes(key));
-};
-const single =
-    (subject: string, query: string) =>
-    <A>(candidates: readonly A[], { names, label }: { readonly names: (candidate: A) => readonly string[]; readonly label: (candidate: A) => string }): Effect.Effect<A, Unmatched> => {
-        const matched = named(candidates, query, names);
-        return Array.match(matched, {
-            onEmpty: () => Effect.fail(Unmatched.make({ subject, query, candidates: candidates.map(label) })),
-            onNonEmpty: ([only, ...others]) => (others.length === 0 ? Effect.succeed(only) : Effect.fail(Unmatched.make({ subject: `single ${subject}`, query, candidates: matched.map(label) }))),
-        });
-    };
-const matching =
-    (subject: string, query: Option.Option<string>) =>
-    <A>(candidates: readonly A[], { names, label }: { readonly names: (candidate: A) => readonly string[]; readonly label: (candidate: A) => string }): Effect.Effect<readonly A[], Unmatched> =>
-        Option.match(query, {
-            onNone: () => Effect.succeed(candidates),
-            onSome: (wanted) => {
-                const matched = named(candidates, wanted, names);
-                return Array.isReadonlyArrayNonEmpty(matched) ? Effect.succeed(matched) : Effect.fail(Unmatched.make({ subject, query: wanted, candidates: Array.dedupe(candidates.map(label)) }));
-            },
-        });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { matching, ranked, single, Unmatched };
+export { ranked, Unmatched };

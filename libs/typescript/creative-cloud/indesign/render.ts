@@ -1,7 +1,7 @@
 import type { Page, PageItem, Spread } from 'adobe:indesign';
 import { Unmatched } from '@rasm/search';
 import { Uxp } from '@rasm/uxp/runtime';
-import { Cause, Effect, Match, Schema, Struct } from 'effect';
+import { Cause, Effect, Match, Option, Schema, Struct } from 'effect';
 import { imageSize } from 'image-size';
 import { extent } from './documents.ts';
 import { Model } from './model.ts';
@@ -29,7 +29,7 @@ class Render extends Schema.Class<Render, { readonly brand: unique symbol }>('Re
             const found = yield* Effect.filterOrFail(
                 resolve(target),
                 (value): value is Page | Spread | PageItem => (page(value) && spread(value.parent)) || spread(value) || item(value),
-                () => Unmatched.make({ subject: 'document page, spread, or page item', query: target, candidates: [] }),
+                () => Unmatched.make({ subject: 'document page, spread, or page item', query: Option.some(target), candidates: [] }),
             );
             const { source, placed, options } = Match.value(found).pipe(
                 Match.when(page, (each) => ({ source: each.parent.parent, placed: [each], options: { pageString: `+${each.documentOffset + 1}`, exportingSpread: false } })),

@@ -52,12 +52,16 @@ main(
                 resolve: ({ application: given }: { readonly application: Option.Option<string> }) =>
                     Option.match(given, {
                         onSome: Installation.located,
-                        onNone: Effect.fnUntraced(function* () {
-                            const running = (yield* listed).filter(({ installation }) => Option.isSome(installation.running));
-                            const linked = running.filter(({ extension }) => Option.isSome(extension));
-                            const candidates = (linked.length === 0 ? running : linked).map(({ installation }) => installation.url.href);
-                            return yield* Effect.fromOption(Option.map(linked.length === 1 ? Array.head(linked) : Option.none(), Struct.get('installation')), () => Unmatched.make({ subject: 'single application with a linked extension', query: '', candidates }));
-                        }),
+                        onNone: () =>
+                            Effect.map(
+                                Effect.flatMap(listed, (rows) =>
+                                    Unmatched.single('application with a linked extension', Option.none())(
+                                        rows.filter(({ installation, extension }) => Option.isSome(installation.running) && Option.isSome(extension)),
+                                        ({ installation }) => [installation.url.href],
+                                    ),
+                                ),
+                                Struct.get('installation'),
+                            ),
                     }),
                 trailer: (found: Installation, value: unknown) =>
                     Schema.is(Status)(value)

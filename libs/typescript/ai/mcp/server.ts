@@ -50,10 +50,12 @@ const Blocks = Context.Reference<(block: McpSchema.ContentBlock) => Effect.Effec
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const rendered = (cause: Cause.Cause<unknown>) =>
-    Cause.prettyErrors(cause)
+const rendered = (cause: Cause.Cause<unknown>) => {
+    const suggestions = 100;
+    return Cause.prettyErrors(Cause.map(cause, (error) => (Schema.is(Unmatched)(error) ? Unmatched.make({ subject: error.subject, query: error.query, candidates: Option.match(error.query, { onNone: () => error.candidates, onSome: (wanted) => ranked(wanted, error.candidates) }).slice(0, suggestions) }) : error)))
         .map((error) => Formatter.format(error))
         .join('\n');
+};
 const observed =
     (method: string, name: string, attributes: Readonly<Record<string, string>>) =>
     <A, E, R>(self: Effect.Effect<A, E, R>) =>
@@ -72,10 +74,8 @@ const observed =
         );
 const register = Effect.fnUntraced(function* <P extends Schema.Top, S extends Schema.Top, R>(tool: Tool.Tool<string, { readonly parameters: P; readonly success: S; readonly failure: Schema.Top; readonly failureMode: Tool.FailureMode }>, handle: (parameters: P['Type']) => Effect.Effect<S['Type'], Error, R>) {
     const context = yield* Effect.context<R>();
-    const suggestions = 100;
     const called = (given: P['Type']) =>
         Effect.provide(handle(given), context).pipe(
-            Effect.catchIf(Schema.is(Unmatched), ({ subject, query, candidates }) => Effect.fail(Unmatched.make({ subject, query, candidates: ranked(query, candidates).slice(0, suggestions) }))),
             Effect.catchCauseFilter(
                 Filter.fromPredicate((cause) => !Cause.hasInterruptsOnly(cause)),
                 (cause) => Effect.fail(new Cause.UnknownError(cause, rendered(cause))),

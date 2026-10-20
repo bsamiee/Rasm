@@ -1,4 +1,4 @@
-import { matching, single } from '@rasm/search';
+import { Unmatched } from '@rasm/search';
 import { Array, Cause, Effect, Option, pipe, Schema, Struct } from 'effect';
 import { DocumentView } from './documents.ts';
 import { Model } from './model.ts';
@@ -87,7 +87,7 @@ class Menu extends Schema.Class<Menu, { readonly brand: unique symbol }>('Menu')
                 const every = app.menuActions.everyItem();
                 return Array.zipWith(Array.zip(every.id, every.name), every.area, ([id, name], within) => ({ id, name, area: within }));
             });
-            return yield* matching('menu area', area)(rows, { names: (row) => [row.area], label: Struct.get('area') });
+            return yield* Unmatched.matching('menu area', area)(rows, (row) => [row.area]);
         });
     }
 }
@@ -104,7 +104,7 @@ class Invoke extends Mutation.extend<Invoke>('Invoke')({ action: Schema.Union([S
             Menu.Action,
             Effect.gen(function* () {
                 const { app } = yield* Model;
-                const chosen = yield* single('menu action', String(action))(yield* Menu.make({ area: Option.none() }).run(), { names: ({ id, name }) => [String(id), name], label: ({ id, name, area }) => `${id} ${name} (${area})` });
+                const chosen = yield* Unmatched.single('menu action', Option.some(String(action)))(yield* Menu.make({ area: Option.none() }).run(), ({ id, name, area }) => [`${id} ${name} (${area})`, String(id), name]);
                 yield* Effect.try({ try: () => app.menuActions.itemByID(chosen.id).invoke(), catch: (cause) => new Cause.UnknownError(cause, chosen.name) });
                 return chosen;
             }),

@@ -1,5 +1,5 @@
 import type { Document } from 'adobe:indesign';
-import { single } from '@rasm/search';
+import { Unmatched } from '@rasm/search';
 import { Array, Effect, HashMap, Option, Predicate, Schema, Struct } from 'effect';
 import { Model } from './model.ts';
 import { active, Reference, read } from './references.ts';
@@ -22,7 +22,7 @@ class Preflight extends Schema.Class<Preflight, { readonly brand: unique symbol 
         const { app } = yield* Model;
         const selected = Option.getOrElse(named, () => document.preflightOptions.preflightWorkingProfile);
         const profiles = app.preflightProfiles.everyItem();
-        const profile = Predicate.isString(selected) ? (yield* single('preflight profile', selected)(Array.zip(profiles.getElements(), profiles.name), { names: ([, name]) => [name], label: ([, name]) => name }))[0] : selected;
+        const profile = Predicate.isString(selected) ? (yield* Unmatched.single('preflight profile', Option.some(selected))(Array.zip(profiles.getElements(), profiles.name), ([, name]) => [name]))[0] : selected;
         const process = yield* Effect.acquireRelease(
             Effect.sync(() => app.preflightProcesses.add(document, profile)),
             (added) => Effect.sync(() => added.remove()),

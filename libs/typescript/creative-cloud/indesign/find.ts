@@ -1,5 +1,5 @@
 import type { Document, InDesignDOMObject, PageItem, Text } from 'adobe:indesign';
-import { matching, Unmatched } from '@rasm/search';
+import { Unmatched } from '@rasm/search';
 import { Uxp } from '@rasm/uxp/runtime';
 import { Array, Cause, Effect, flow, Number, Option, Predicate, pipe, Record, Schema, String, Struct } from 'effect';
 import { Model } from './model.ts';
@@ -69,7 +69,7 @@ class FindChange extends Mutation.extend<FindChange>('FindChange')(
                 Array.ensure<unknown>(yield* Option.match(scope, { onSome: resolve, onNone: () => active })),
                 flow(
                     Option.liftPredicate(owning<InDesignDOMObject<unknown> & Pick<Document, typeof find | typeof change>>(change)),
-                    Effect.fromOption(() => Unmatched.make({ subject: `${mode} search target`, query: Option.getOrElse(scope, () => 'active document'), candidates: [] })),
+                    Effect.fromOption(() => Unmatched.make({ subject: `${mode} search target`, query: scope, candidates: [] })),
                 ),
             );
             const refused = (name: string) => (cause: unknown) => new Cause.UnknownError(cause, `query ${name}`);
@@ -142,7 +142,7 @@ class Queries extends Schema.Class<Queries, { readonly brand: unique symbol }>('
                     ),
                 ),
             );
-            const chosen = yield* matching('saved query', name)(rows, { names: (row) => [row.name], label: Struct.get('name') });
+            const chosen = yield* Unmatched.matching('saved query', name)(rows, (row) => [row.name]);
             return yield* Effect.forEach(chosen, ({ path, ...row }) =>
                 pipe(
                     name,

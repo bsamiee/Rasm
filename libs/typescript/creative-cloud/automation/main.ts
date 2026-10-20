@@ -1,6 +1,6 @@
-import { single, Unmatched } from '@rasm/search';
+import { Unmatched } from '@rasm/search';
 import { transformSync } from 'amaro';
-import { Array, Cause, Context, Effect, FileSystem, identity, Layer, Option, Record, Schedule, Schema, Stream } from 'effect';
+import { Array, Cause, Context, Effect, FileSystem, identity, Layer, Option, pipe, Record, Schedule, Schema, Stream } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { Rpc, RpcClient, type RpcClientError, RpcGroup, RpcSerialization } from 'effect/rpc';
 import { Socket } from 'effect/socket';
@@ -82,7 +82,7 @@ class Installation extends Schema.Class<Installation, { readonly brand: unique s
     static get installed() {
         return Atelier.use((client) => client.installations());
     }
-    static readonly located = (query: string) => Effect.flatMap(Installation.installed, (rows) => single('installed Adobe application', query)(rows, { names: (row) => [row.identifier, row.name, row.url.href], label: (row) => row.url.href }));
+    static readonly located = (query: string) => Effect.flatMap(Installation.installed, (rows) => Unmatched.single('installed Adobe application', Option.some(query))(rows, (row) => [row.url.href, row.identifier, row.name]));
 
     // --- [LIFECYCLE]
     launch() {
@@ -146,12 +146,11 @@ class Installation extends Schema.Class<Installation, { readonly brand: unique s
     static readonly Script = Schema.Struct({ runtime: Schema.Literals(Record.keys(Installation.runtimes)).annotate({ description: 'Runtime that ran the source' }), result: Schema.Json });
     runtime() {
         return Effect.flatMap(this.terms('command'), (declared) =>
-            Effect.fromOption(
-                Array.findFirst(
-                    Array.flatMap(Record.toEntries(Installation.runtimes), ([runtime, { commands, encoder }]) => Array.map(commands, ([command, code]) => ({ runtime, command, code, encoder }))),
-                    ({ command, code }) => declared.some((term) => term.name === command && term.code === code),
-                ),
-                () => new Cause.NoSuchElementError(`${this.name} declares no script command`),
+            pipe(
+                Record.toEntries(Installation.runtimes),
+                Array.flatMap(([runtime, { commands, encoder }]) => Array.map(commands, ([command, code]) => ({ runtime, command, code, encoder }))),
+                Array.findFirst(({ command, code }) => declared.some((term) => term.name === command && term.code === code)),
+                Effect.fromOption(() => new Cause.NoSuchElementError(`${this.name} declares no script command`)),
             ),
         );
     }

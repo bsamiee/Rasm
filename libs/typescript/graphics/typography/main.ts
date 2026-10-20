@@ -192,11 +192,11 @@ class Face extends Schema.Class<Face, { readonly brand: unique symbol }>('Face')
         const candidates = Array.getSomes(rows.map(Struct.get('postscriptName')));
         const { face: chosen, variations: applied } = yield* Option.match(selection, {
             onNone: () =>
-                Effect.fromOption(
-                    Option.filter(Array.head(rows), () => faces.length === 1),
-                    () => Unmatched.make({ subject: 'single face in the collection', query: '', candidates }),
+                Effect.map(
+                    Unmatched.single('face in the collection', Option.none())(faces, ({ font }) => [font.postscriptName]),
+                    (face) => ({ face, variations: Record.empty<string, number>() }),
                 ),
-            onSome: (wanted) => Effect.fromOption(Option.firstSomeOf([Array.findFirst(rows, ({ postscriptName }) => Option.contains(postscriptName, wanted)), generated(wanted)]), () => Unmatched.make({ subject: 'face or instance by PostScript name', query: wanted, candidates })),
+            onSome: (wanted) => Effect.fromOption(Option.firstSomeOf([Array.findFirst(rows, ({ postscriptName }) => Option.contains(postscriptName, wanted)), generated(wanted)]), () => Unmatched.make({ subject: 'face or instance by PostScript name', query: selection, candidates })),
         });
         const tables = yield* Schema.decodeUnknownEffect(Tables)(chosen.font);
         const requested = { ...applied, ...Record.fromIterableWith([...variations, ...Option.toArray(Option.map(size, (points) => new Variation('opsz', points)))], ({ tag, value }) => [tag, value]) };

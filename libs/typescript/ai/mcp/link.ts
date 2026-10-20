@@ -66,16 +66,13 @@ const listen = Effect.fn('listen')(function* <Rpcs extends Rpc.Any, Peer, I exte
     yield* router.add('GET', path, (request) => (request.headers.origin === origin ? linking(request) : Effect.succeed(HttpServerResponse.empty({ status: 403 }))));
     return {
         peers: Effect.map(SubscriptionRef.get(links), Array.map(Struct.get('peer'))),
-        call: Effect.fnUntraced(function* (chosen: Chosen) {
-            const [only, ...others] = yield* Effect.fromOption(
-                Option.liftPredicate(
-                    (yield* SubscriptionRef.get(links)).filter(({ peer }) => serves(chosen)(peer)),
-                    Array.isArrayNonEmpty,
-                ),
-                () => new Cause.NoSuchElementError(`${name} is not linked`),
-            );
-            return others.length === 0 ? only.client : yield* Unmatched.make({ subject: `single ${name}`, query: '', candidates: yield* Effect.forEach([only, ...others], ({ peer }) => Schema.encodeEffect(identity)(peer).pipe(Effect.orDie, Effect.map(flow(UrlParams.fromInput, UrlParams.toString)))) });
-        }),
+        call: (chosen: Chosen) =>
+            SubscriptionRef.get(links).pipe(
+                Effect.map(Array.filter(({ peer }) => serves(chosen)(peer))),
+                Effect.filterOrFail(Array.isReadonlyArrayNonEmpty, () => new Cause.NoSuchElementError(`${name} is not linked`)),
+                Effect.flatMap((serving) => Unmatched.single(name, Option.none())(serving, ({ peer }) => [UrlParams.toString(UrlParams.fromInput(Schema.encodeSync(identity)(peer)))])),
+                Effect.map(Struct.get('client')),
+            ),
     };
 });
 const publish = Effect.fnUntraced(function* <Rpcs extends Rpc.Any & { readonly payloadSchema: Schema.Codec<Rpc.Payload<Rpcs>, unknown> & { readonly fields: Schema.Struct.Fields }; readonly successSchema: Schema.Codec<Rpc.Success<Rpcs>, unknown> }, Chosen, Fields extends Schema.Struct.Fields, R>(

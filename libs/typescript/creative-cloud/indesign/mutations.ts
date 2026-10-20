@@ -1,5 +1,5 @@
 import type { InDesignDOMObject } from 'adobe:indesign';
-import { single, Unmatched } from '@rasm/search';
+import { Unmatched } from '@rasm/search';
 import { Array, Cache, Cause, Effect, flow, Match, Option, Predicate, Record, Schema, Struct } from 'effect';
 import { type Member, Model } from './model.ts';
 import { active, font, owner, Reference, record, resolve, Specifier } from './references.ts';
@@ -10,8 +10,8 @@ import { Mutation } from './transactions.ts';
 // --- [DECODING]
 const member = Effect.fnUntraced(function* (kind: string, name: string) {
     const { Enumerator, enumeration, members, enumerations } = yield* Model;
-    const found = yield* Effect.fromOption(enumeration(kind), () => Unmatched.make({ subject: 'enumeration', query: kind, candidates: enumerations }));
-    return yield* Effect.fromOption(Option.liftPredicate(Reflect.get(found, name), Schema.is(Schema.instanceOf(Enumerator))), () => Unmatched.make({ subject: `${kind} member`, query: name, candidates: Array.map(members(found), String) }));
+    const found = yield* Effect.fromOption(enumeration(kind), () => Unmatched.make({ subject: 'enumeration', query: Option.some(kind), candidates: enumerations }));
+    return yield* Effect.fromOption(Option.liftPredicate(Reflect.get(found, name), Schema.is(Schema.instanceOf(Enumerator))), () => Unmatched.make({ subject: `${kind} member`, query: Option.some(name), candidates: Array.map(members(found), String) }));
 });
 const decoded = (target: unknown, row: Option.Option<Pick<typeof Member.Type, 'type' | 'description'>>): ((value: unknown) => Effect.Effect<unknown, Cause.UnknownError | Unmatched, Model>) => {
     const byName = Effect.fnUntraced(function* (type: string, name: string) {
@@ -23,7 +23,7 @@ const decoded = (target: unknown, row: Option.Option<Pick<typeof Member.Type, 't
             onNone: () => Effect.succeed<unknown>(name),
             onSome: ([document, field]) => {
                 const listed: unknown = Reflect.get(document, field);
-                return single(type, name)((model.collection(listed) ? listed.everyItem().getElements() : Array.ensure(listed)).filter(model.named), { names: (each) => [each.name], label: (each) => each.toSpecifier() });
+                return Unmatched.single(type, Option.some(name))((model.collection(listed) ? listed.everyItem().getElements() : Array.ensure(listed)).filter(model.named), (each) => [each.toSpecifier(), each.name]);
             },
         });
     });
@@ -83,7 +83,7 @@ const write: (target: InDesignDOMObject<unknown>, values: Record.ReadonlyRecord<
 
 // --- [VERBS]
 const leaf = (specifier: string): string => specifier.slice(specifier.lastIndexOf('/') + 1);
-const within = (specifier: string) => Effect.flatMap(Model, ({ host }) => Effect.filterOrFail(resolve(specifier), host, () => Unmatched.make({ subject: 'object', query: specifier, candidates: [] })));
+const within = (specifier: string) => Effect.flatMap(Model, ({ host }) => Effect.filterOrFail(resolve(specifier), host, () => Unmatched.make({ subject: 'object', query: Option.some(specifier), candidates: [] })));
 class Change extends Mutation.extend<Change>('Change')(
     {
         target: Specifier,
@@ -134,11 +134,11 @@ class Create extends Mutation.extend<Create>('Create')(
                 const model = yield* Model;
                 const found = yield* Option.match(given, { onNone: () => active, onSome: within });
                 const { fields } = yield* Cache.get(model.rows, found.constructorName);
-                const items = yield* Effect.fromOption(Option.liftPredicate(Reflect.get(found, field), model.collection), () => Unmatched.make({ subject: `collection of ${found.toSpecifier()}`, query: field, candidates: Record.keys(Record.filter(fields, model.plural)) }));
+                const items = yield* Effect.fromOption(Option.liftPredicate(Reflect.get(found, field), model.collection), () => Unmatched.make({ subject: `collection of ${found.toSpecifier()}`, query: Option.some(field), candidates: Record.keys(Record.filter(fields, model.plural)) }));
                 const { methods } = yield* Cache.get(model.rows, items.constructor.name);
-                const add = yield* Effect.fromOption(Record.get(methods, 'add'), () => Unmatched.make({ subject: `method of ${items.constructor.name}`, query: 'add', candidates: Record.keys(methods) }));
+                const add = yield* Effect.fromOption(Record.get(methods, 'add'), () => Unmatched.make({ subject: `method of ${items.constructor.name}`, query: Option.some('add'), candidates: Record.keys(methods) }));
                 const ordered = Option.getOrElse(positional, Array.empty);
-                yield* ordered.length > add.parameters.length ? Unmatched.make({ subject: `${items.constructor.name} add parameter`, query: String(add.parameters.length), candidates: Array.map(add.parameters, Struct.get('name')) }) : Effect.void;
+                yield* ordered.length > add.parameters.length ? Unmatched.make({ subject: `${items.constructor.name} add parameter`, query: Option.some(String(add.parameters.length)), candidates: Array.map(add.parameters, Struct.get('name')) }) : Effect.void;
                 const positioned = yield* Effect.forEach(Array.zip(ordered, add.parameters), ([value, parameter]) => decoded(found, Option.some(parameter))(value));
                 const made = yield* Effect.try({ try: (): unknown => Reflect.apply(items.add, items, positioned), catch: (cause) => new Cause.UnknownError(cause, `${items.everyItem().toSpecifier()} add`) }).pipe(
                     Effect.flatMap((result) => Option.match(Array.head(Array.ensure<unknown>(result).filter(model.host)), { onNone: () => Effect.die(result), onSome: Effect.succeed })),
@@ -166,7 +166,7 @@ class Remove extends Mutation.extend<Remove>('Remove')({ target: Specifier }, { 
                 const { methods } = yield* Effect.flatMap(Model, ({ rows }) => Cache.get(rows, found.constructorName));
                 const remove = yield* Record.get(methods, 'remove').pipe(
                     Option.flatMap(() => Schema.decodeUnknownOption(Schema.declare(Predicate.isFunction))(Reflect.get(found, 'remove'))),
-                    Effect.fromOption(() => Unmatched.make({ subject: `method of ${found.constructorName}`, query: 'remove', candidates: Record.keys(methods) })),
+                    Effect.fromOption(() => Unmatched.make({ subject: `method of ${found.constructorName}`, query: Option.some('remove'), candidates: Record.keys(methods) })),
                 );
                 const removed = Reference.of(found);
                 yield* Effect.try({ try: () => Reflect.apply(remove, found, []), catch: (cause) => new Cause.UnknownError(cause, target) });

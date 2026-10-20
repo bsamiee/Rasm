@@ -1,6 +1,6 @@
 import type { InDesignDOMObject } from 'adobe:indesign';
 import type { Entry } from 'adobe:uxp';
-import { single, Unmatched } from '@rasm/search';
+import { Unmatched } from '@rasm/search';
 import { Array, Cache, Effect, flow, Iterable, identity, Match, Option, Predicate, Record, Schema, Struct } from 'effect';
 import { Model } from './model.ts';
 
@@ -63,7 +63,7 @@ const read = <S extends Schema.Top>(schema: S, value: () => unknown) =>
 // --- [LOCATIONS]
 const ancestors = (object: unknown) => Effect.map(Model, ({ host }) => Array.fromIterable(Iterable.unfold(object, (above: unknown) => (host(above) && above.constructorName !== 'Application' ? Option.some([above, above.parent] as const) : Option.none()))));
 const owner = (object: unknown) => Effect.flatMap(Model, ({ document }) => Effect.map(ancestors(object), Array.findFirst(document)));
-const active = Effect.flatMap(Model, ({ app }) => Effect.try({ try: () => app.activeDocument, catch: () => Unmatched.make({ subject: 'active document', query: '', candidates: app.documents.everyItem().name }) }));
+const active = Effect.flatMap(Model, ({ app }) => Effect.try({ try: () => app.activeDocument, catch: () => Unmatched.make({ subject: 'active document', query: Option.none(), candidates: app.documents.everyItem().name }) }));
 const resolve = Effect.fn('resolve')(function* (specifier: string) {
     const model = yield* Model;
     const kind = (path: string): string | undefined => IDENTIFIED.exec(path)?.groups?.kind;
@@ -92,23 +92,22 @@ const resolve = Effect.fn('resolve')(function* (specifier: string) {
         ),
         () =>
             INDEXED.test(specifier)
-                ? Unmatched.make({ subject: Array.isReadonlyArrayNonEmpty(siblings) ? `object among indexes 0 to ${siblings.length - 1}` : 'object', query: specifier, candidates: [] })
-                : Unmatched.make({ subject: 'object', query: specifier, candidates: Array.dedupe(Array.map([...siblings, ...related.filter((each) => each.name === name)], (each) => each.toSpecifier())) }),
+                ? Unmatched.make({ subject: Array.isReadonlyArrayNonEmpty(siblings) ? `object among indexes 0 to ${siblings.length - 1}` : 'object', query: Option.some(specifier), candidates: [] })
+                : Unmatched.make({ subject: 'object', query: Option.some(specifier), candidates: Array.dedupe(Array.map([...siblings, ...related.filter((each) => each.name === name)], (each) => each.toSpecifier())) }),
     );
 });
 const font = Effect.fn('font')(function* (name: string) {
     const { app, FontStatus } = yield* Model;
     const every = app.fonts.everyItem();
     const installed = Array.map(Array.zip(Array.zip(every.name, every.postscriptName), Array.zip(every.fullName, Array.zip(every.fontFamily, every.fontStyleName))), ([[label, postscript], [full, [family, style]]], index) => ({
-        label,
-        names: [label, postscript, full, ...(style === 'Regular' ? [family] : [])],
+        names: [label, postscript, full, ...(style === 'Regular' ? [family] : [])] as const,
         font: () => app.fonts.item(index),
     }));
     const missing = Array.flatMap(Option.toArray(yield* Effect.option(active)), (open) => {
         const used = open.fonts.everyItem();
-        return Array.flatMap(Array.zip(used.name, used.status), ([label, status], index) => (FontStatus.INSTALLED.equals(status) ? [] : [{ label, names: [label], font: () => open.fonts.item(index) }]));
+        return Array.flatMap(Array.zip(used.name, used.status), ([label, status], index) => (FontStatus.INSTALLED.equals(status) ? [] : [{ names: [label] as const, font: () => open.fonts.item(index) }]));
     });
-    return (yield* single('font', name)([...installed, ...missing], { names: Struct.get('names'), label: Struct.get('label') })).font();
+    return (yield* Unmatched.single('font', Option.some(name))([...installed, ...missing], Struct.get('names'))).font();
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------

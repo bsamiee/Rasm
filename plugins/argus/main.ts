@@ -340,7 +340,7 @@ const initialize = Effect.fn('initialize')(function* () {
     const serve = Effect.fn('serve')(function* (file: string) {
         const language = languages.get(extname(file));
         if (language === undefined) {
-            return yield* Unmatched.make({ subject: 'language server', query: file, candidates: [...languages.keys()] });
+            return yield* Unmatched.make({ subject: 'language server', query: Option.some(file), candidates: [...languages.keys()] });
         }
         const server = yield* RcMap.get(running, language.entry);
         return { server, item: yield* server.open(pathToFileURL(resolve(root, file)).href, language.languageId) };

@@ -1,5 +1,5 @@
 import type { InDesignDOMObject } from 'adobe:indesign';
-import { single, Unmatched } from '@rasm/search';
+import { Unmatched } from '@rasm/search';
 import type { Uxp } from '@rasm/uxp/runtime';
 import { Array, Cache, Cause, Effect, flow, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
 import { DocumentView, LayerView, PageView, SpreadView } from './documents.ts';
@@ -71,7 +71,7 @@ class Kind extends Schema.Class<Kind, { readonly brand: unique symbol }>('Kind')
             const model = yield* Model;
             const { classes, enumerations, enumeration, rows, lineage, members } = model;
             const declaration = Effect.fnUntraced(function* (query: string) {
-                const name = yield* single('class or enumeration', query)([...classes, ...enumerations], { names: (kind) => [kind], label: String });
+                const name = yield* Unmatched.single('class or enumeration', Option.some(query))([...classes, ...enumerations], Array.of);
                 const row = yield* Effect.catchTag(Effect.asSome(Cache.get(rows, name)), 'Unmatched', () => Effect.succeedNone);
                 const { fields, methods, statics } = Option.getOrElse(row, () => ({ fields: {}, methods: {}, statics: {} }));
                 const type: unknown = Reflect.get(model, name);
@@ -111,7 +111,7 @@ const values = Effect.fn('values')(function* (found: InDesignDOMObject<unknown>,
     return yield* Effect.forEach(
         wanted,
         Effect.fnUntraced(function* (name) {
-            yield* Object.getOwnPropertyDescriptor(prototype, name)?.get === undefined ? Effect.fail(Unmatched.make({ subject: `field of ${found.toSpecifier()}`, query: name, candidates: getters(found) })) : Effect.void;
+            yield* Object.getOwnPropertyDescriptor(prototype, name)?.get === undefined ? Effect.fail(Unmatched.make({ subject: `field of ${found.toSpecifier()}`, query: Option.some(name), candidates: getters(found) })) : Effect.void;
             const refused = (cause: unknown) => new Cause.UnknownError(cause, `${found.toSpecifier()} ${name}`);
             const value = yield* Effect.result(Effect.andThen(Effect.transposeOption(Option.map(unavailable(found.constructorName, name, Option.some(found), false), flow(refused, Effect.fail))), Effect.tryPromise({ try: (): Promise<unknown> => Promise.resolve(Reflect.get(found, name)), catch: refused })));
             return { row: Struct.omit(yield* Option.match(Record.get(fields, name), { onNone: () => bare(name), onSome: Effect.succeed }), ['unavailable']), value };
