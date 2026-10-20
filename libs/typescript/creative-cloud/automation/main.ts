@@ -1,6 +1,6 @@
 import { single, Unmatched } from '@rasm/search';
 import { transformSync } from 'amaro';
-import { Array, Cause, Context, Effect, FileSystem, identity, Layer, Option, Schedule, Schema, Stream } from 'effect';
+import { Array, Cause, Context, Effect, FileSystem, identity, Layer, Option, Record, Schedule, Schema, Stream } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { Rpc, RpcClient, type RpcClientError, RpcGroup, RpcSerialization } from 'effect/rpc';
 import { Socket } from 'effect/socket';
@@ -123,9 +123,14 @@ class Installation extends Schema.Class<Installation, { readonly brand: unique s
     }
 
     // --- [SCRIPTS]
-    static readonly Script = Schema.Struct({ runtime: Schema.String.annotate({ description: 'Runtime that ran the source' }), result: Schema.Json });
-    runtime() {
-        const es3 = Option.some(`function encoded(value) {
+    static readonly runtimes = {
+        uxpscript: { commands: [['do script', 'K2  dosc']], encoder: Option.none<string>() },
+        extendscript: {
+            commands: [
+                ['do javascript', 'miscDjxM'],
+                ['DoScript', 'miscdosc'],
+            ],
+            encoder: Option.some(`function encoded(value) {
         var parts = [], key, at;
         if (value === null || value === undefined || (typeof value === "number" && !isFinite(value))) return "null";
         if (typeof value === "number" || typeof value === "boolean") return String(value);
@@ -134,16 +139,18 @@ class Installation extends Schema.Class<Installation, { readonly brand: unique s
         if (value.typename !== undefined) return encoded(String(value));
         for (key in value) parts.push(encoded(key) + ":" + encoded(value[key]));
         return "{" + parts.join(",") + "}";
-    }`);
-        const runtimes = [
-            { command: 'do script', code: 'K2  dosc', runtime: 'uxpscript', encoder: Option.none() },
-            { command: 'do javascript', code: 'miscDjxM', runtime: 'extendscript', encoder: es3 },
-            { command: 'DoScript', code: 'miscdosc', runtime: 'extendscript', encoder: es3 },
-            { command: 'do script', code: 'miscdosc', runtime: 'acrobat', encoder: Option.some('JSON.stringify') },
-        ] as const;
+    }`),
+        },
+        acrobat: { commands: [['do script', 'miscdosc']], encoder: Option.some('JSON.stringify') },
+    } as const;
+    static readonly Script = Schema.Struct({ runtime: Schema.Literals(Record.keys(Installation.runtimes)).annotate({ description: 'Runtime that ran the source' }), result: Schema.Json });
+    runtime() {
         return Effect.flatMap(this.terms('command'), (declared) =>
             Effect.fromOption(
-                Array.findFirst(runtimes, (row) => declared.some(({ name, code }) => name === row.command && code === row.code)),
+                Array.findFirst(
+                    Array.flatMap(Record.toEntries(Installation.runtimes), ([runtime, { commands, encoder }]) => Array.map(commands, ([command, code]) => ({ runtime, command, code, encoder }))),
+                    ({ command, code }) => declared.some((term) => term.name === command && term.code === code),
+                ),
                 () => new Cause.NoSuchElementError(`${this.name} declares no script command`),
             ),
         );

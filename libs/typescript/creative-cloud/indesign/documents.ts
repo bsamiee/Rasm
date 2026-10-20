@@ -2,7 +2,7 @@ import type { Document, Layer, MasterSpread, Page, PageItem, Spread } from 'adob
 import { Array, Cause, Effect, flow, Number, Option, Predicate, Record, Schema, Struct } from 'effect';
 import { Model } from './model.ts';
 import { Reference, read, Specifier } from './references.ts';
-import { Composition, composition } from './text.ts';
+import { Composition } from './text.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -59,7 +59,7 @@ class DocumentView extends Schema.TaggedClass<DocumentView, { readonly brand: un
                 swatches: found.swatches.everyItem().getElements(),
                 styles: { paragraph: found.allParagraphStyles.length, character: found.allCharacterStyles.length, object: found.allObjectStyles.length, table: found.allTableStyles.length, cell: found.allCellStyles.length },
                 preflight: { profile: Predicate.isString(preflight.preflightWorkingProfile) ? preflight.preflightWorkingProfile : preflight.preflightWorkingProfile.name, enabled: !preflight.preflightOff },
-                defaults: composition(found.textDefaults),
+                defaults: Composition.of(found.textDefaults),
             };
         });
     });

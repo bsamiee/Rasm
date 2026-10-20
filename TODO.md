@@ -71,7 +71,6 @@ Each category states what its verbs and views cover and what stays shallow, then
 
 - `StyleView` reads group path, `basedOn` chain, next style, own attributes against its base, and `Composition` of a paragraph style
 - `Composition` reads GREP styles, nested and line styles, tab stops, list type and level, bullet, and numbering format
-- `text.ts` splits `Composition` into a schema and a `composition` reader; rebuild as one class
 - Build paragraph, character, object, table, and cell styles and groups with `basedOn` chains and next style
 - Build automatic GREP styles, nested and line styles, drop caps, bullets and numbering, and tabs as one `Composition`
 - `Composition` belongs to a style, a text range, and the document text defaults

@@ -2,7 +2,7 @@ import type { InDesignDOMObject, ParagraphStyle } from 'adobe:indesign';
 import { Array, Cache, Cause, Effect, flow, Iterable, Option, Predicate, Record, Result, Schema } from 'effect';
 import { Model } from './model.ts';
 import { ancestors, encoder, Reference, read } from './references.ts';
-import { Composition, composition } from './text.ts';
+import { Composition } from './text.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -34,7 +34,7 @@ class StyleView extends Schema.TaggedClass<StyleView, { readonly brand: unique s
             basedOn: Array.fromIterable(Iterable.unfold(style.basedOn, (each) => (host(each) && Predicate.hasProperty(each, 'basedOn') ? Option.some([each, each.basedOn] as const) : Option.none()))),
             nextStyle: Option.flatMap(Option.liftPredicate(style, owning<ParagraphStyle>('nextStyle')), ({ nextStyle }) => Option.liftPredicate(nextStyle, host)),
             own: Record.filterMap(attributes, (_, name) => (encoded(Reflect.get(mine, name)) === encoded(Reflect.get(theirs, name)) ? Result.failVoid : Result.succeed<unknown>(Reflect.get(mine, name)))),
-            composition: Option.map(Option.liftPredicate(style, owning<ParagraphStyle>('nestedGrepStyles')), composition),
+            composition: Option.map(Option.liftPredicate(style, owning<ParagraphStyle>('nestedGrepStyles')), Composition.of),
         }));
     });
 }

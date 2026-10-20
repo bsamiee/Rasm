@@ -5,16 +5,30 @@ import { encoder, Reference, read } from './references.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Composition = Schema.Struct({
-    nestedGrepStyles: Schema.Array(Schema.Struct({ grepExpression: Schema.String, appliedCharacterStyle: Reference })).annotate({ description: 'Automatic GREP styles: character style applied wherever the expression matches, in order' }),
-    nestedStyles: Schema.Array(Schema.Struct({ appliedCharacterStyle: Reference, delimiter: Schema.Json, repetition: Schema.Int, inclusive: Schema.Boolean })),
-    nestedLineStyles: Schema.Array(Schema.Struct({ appliedCharacterStyle: Reference, lineCount: Schema.Int, repeatLast: Schema.Int })),
-    tabStops: Schema.Array(Schema.Struct({ position: Schema.Finite, alignment: Schema.String, leader: Schema.String, alignmentCharacter: Schema.String })),
-    bulletsAndNumberingListType: Schema.String,
-    numberingLevel: Schema.Int,
-    bulletChar: Schema.Int.annotate({ description: 'Bullet character code point' }),
-    numberingFormat: Schema.Json,
-}).annotate({ description: 'Composition rules a paragraph style, a text range, or the document text defaults own' });
+class Composition extends Schema.Class<Composition, { readonly brand: unique symbol }>('Composition')(
+    {
+        nestedGrepStyles: Schema.Array(Schema.Struct({ grepExpression: Schema.String, appliedCharacterStyle: Reference })).annotate({ description: 'Automatic GREP styles: character style applied wherever the expression matches, in order' }),
+        nestedStyles: Schema.Array(Schema.Struct({ appliedCharacterStyle: Reference, delimiter: Schema.Json, repetition: Schema.Int, inclusive: Schema.Boolean })),
+        nestedLineStyles: Schema.Array(Schema.Struct({ appliedCharacterStyle: Reference, lineCount: Schema.Int, repeatLast: Schema.Int })),
+        tabStops: Schema.Array(Schema.Struct({ position: Schema.Finite, alignment: Schema.String, leader: Schema.String, alignmentCharacter: Schema.String })),
+        bulletsAndNumberingListType: Schema.String,
+        numberingLevel: Schema.Int,
+        bulletChar: Schema.Int.annotate({ description: 'Bullet character code point' }),
+        numberingFormat: Schema.Json,
+    },
+    { description: 'Composition rules a paragraph style, a text range, or the document text defaults own' },
+) {
+    static readonly of = (owner: Pick<ParagraphStyle, keyof typeof Composition.fields>) => ({
+        nestedGrepStyles: Array.map(owner.nestedGrepStyles.everyItem().getElements(), ({ grepExpression, appliedCharacterStyle }) => ({ grepExpression, appliedCharacterStyle })),
+        nestedStyles: Array.map(owner.nestedStyles.everyItem().getElements(), ({ appliedCharacterStyle, delimiter, repetition, inclusive }) => ({ appliedCharacterStyle, delimiter, repetition, inclusive })),
+        nestedLineStyles: Array.map(owner.nestedLineStyles.everyItem().getElements(), ({ appliedCharacterStyle, lineCount, repeatLast }) => ({ appliedCharacterStyle, lineCount, repeatLast })),
+        tabStops: Array.map(owner.tabStops.everyItem().getElements(), ({ position, alignment, leader, alignmentCharacter }) => ({ position, alignment, leader, alignmentCharacter })),
+        bulletsAndNumberingListType: owner.bulletsAndNumberingListType,
+        numberingLevel: owner.numberingLevel,
+        bulletChar: owner.bulletChar.characterValue,
+        numberingFormat: owner.numberingFormat,
+    });
+}
 const Overrides = Schema.Struct(Struct.Record(['paragraph', 'character'], Schema.Boolean)).annotate({ description: 'Whether the text differs from its paragraph and character styles' });
 const Run = Reference.mapFields(
     Struct.assign({
@@ -113,24 +127,11 @@ class TextView extends Schema.TaggedClass<TextView, { readonly brand: unique sym
             appliedCharacterStyle: text.appliedCharacterStyle,
             overrides,
             runs,
-            composition: composition(text),
+            composition: Composition.of(text),
         }));
     });
 }
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-const composition = (owner: Pick<ParagraphStyle, keyof typeof Composition.fields>) => ({
-    nestedGrepStyles: Array.map(owner.nestedGrepStyles.everyItem().getElements(), ({ grepExpression, appliedCharacterStyle }) => ({ grepExpression, appliedCharacterStyle })),
-    nestedStyles: Array.map(owner.nestedStyles.everyItem().getElements(), ({ appliedCharacterStyle, delimiter, repetition, inclusive }) => ({ appliedCharacterStyle, delimiter, repetition, inclusive })),
-    nestedLineStyles: Array.map(owner.nestedLineStyles.everyItem().getElements(), ({ appliedCharacterStyle, lineCount, repeatLast }) => ({ appliedCharacterStyle, lineCount, repeatLast })),
-    tabStops: Array.map(owner.tabStops.everyItem().getElements(), ({ position, alignment, leader, alignmentCharacter }) => ({ position, alignment, leader, alignmentCharacter })),
-    bulletsAndNumberingListType: owner.bulletsAndNumberingListType,
-    numberingLevel: owner.numberingLevel,
-    bulletChar: owner.bulletChar.characterValue,
-    numberingFormat: owner.numberingFormat,
-});
-
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Composition, composition, Overrides, StoryView, TextView };
+export { Composition, Overrides, StoryView, TextView };
