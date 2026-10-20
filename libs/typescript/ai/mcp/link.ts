@@ -39,11 +39,11 @@ const listen = Effect.fn('listen')(function* <Rpcs extends Rpc.Any, Peer, I exte
         readonly follow: (client: RpcClient.RpcClient.Flat<Rpcs, RpcClientError.RpcClientError>) => Effect.Effect<void, RpcClientError.RpcClientError>;
     },
 ) {
-    class Linked extends Data.Class<{ readonly peer: Peer; readonly client: RpcClient.RpcClient.Flat<Rpcs, RpcClientError.RpcClientError> }> {}
+    class Linked extends Data.Class<{ readonly peer: Peer; readonly query: string; readonly client: RpcClient.RpcClient.Flat<Rpcs, RpcClientError.RpcClientError> }> {}
     const [router, links] = yield* Effect.all([HttpRouter.HttpRouter, SubscriptionRef.make(Array.empty<Linked>())]);
     const linking = Effect.fnUntraced(
         function* (request: HttpServerRequest.HttpServerRequest) {
-            const [found, socket, made, ended] = yield* Effect.all([HttpServerRequest.schemaSearchParams(identity), request.upgrade, Deferred.make<Linked>(), Latch.make()]);
+            const [found, query, socket, made, ended] = yield* Effect.all([HttpServerRequest.schemaSearchParams(identity), Effect.map(HttpServerRequest.ParsedSearchParams, flow(UrlParams.fromInput, UrlParams.toString)), request.upgrade, Deferred.make<Linked>(), Latch.make()]);
             const protocol = yield* RpcClient.makeProtocolSocket({ pingInterval: Duration.infinity, retryPolicy: Schedule.recurs(0) }).pipe(
                 Effect.provideService(RpcClient.ConnectionHooks, {
                     onConnect: Effect.flatMap(Deferred.await(made), (entry) => SubscriptionRef.update(links, Array.prepend(entry))),
@@ -57,7 +57,7 @@ const listen = Effect.fn('listen')(function* <Rpcs extends Rpc.Any, Peer, I exte
             );
             const clients = yield* Layer.build(middleware).pipe(Effect.provideService(RpcClient.Protocol, protocol));
             const client = yield* RpcClient.make(group, { flatten: true }).pipe(Effect.provideContext(clients), Effect.provideService(RpcClient.Protocol, protocol));
-            yield* Deferred.succeed(made, new Linked({ peer: found, client }));
+            yield* Deferred.succeed(made, new Linked({ peer: found, query, client }));
             yield* Effect.forkScoped(follow(client));
             return yield* Effect.as(ended.await, HttpServerResponse.empty());
         },
@@ -70,7 +70,7 @@ const listen = Effect.fn('listen')(function* <Rpcs extends Rpc.Any, Peer, I exte
             SubscriptionRef.get(links).pipe(
                 Effect.map(Array.filter(({ peer }) => serves(chosen)(peer))),
                 Effect.filterOrFail(Array.isReadonlyArrayNonEmpty, () => new Cause.NoSuchElementError(`${name} is not linked`)),
-                Effect.flatMap((serving) => Unmatched.single(name, Option.none())(serving, ({ peer }) => [UrlParams.toString(UrlParams.fromInput(Schema.encodeSync(identity)(peer)))])),
+                Effect.flatMap((serving) => Unmatched.single(name, Option.none())(serving, ({ query }) => [query])),
                 Effect.map(Struct.get('client')),
             ),
     };
