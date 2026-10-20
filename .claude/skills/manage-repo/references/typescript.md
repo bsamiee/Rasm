@@ -56,14 +56,12 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - `@nx/vite` stays out, it infers `serve-static`, a deprecated `serve`, and a `typecheck` beside `typecheck:tsc`
 
 [WORKERS]:
-- `cloudflare.config.ts` declares an app's Worker or a library suite's test Worker with `entrypoint` at a module beside the suite under `tests/`
+- `cloudflare.config.ts` declares an app's Worker with `entrypoint` at its product module, or a library suite's test Worker with bindings alone
 - Cloudflare plugin hooks (`config`, `configResolved`, `configureServer`) take app type, output, and requests in every Vite server
 - `worker(<directory>, <plugins>, <hosting>)` drops `<hosting>` and Cloudflare plugin when Storybook or Vitest CLIs set `STORYBOOK` or `VITEST`
 - Cloudflare plugin keeps state in `.cache/cloudflare/<project path>` and Build Output in `.cloudflare/output`, mode `test` keeps bindings in memory
 - Target `types` writes `Cloudflare.Env` and runtime types for the compatibility date to ignored `.cloudflare/types`, `typecheck:tsc` depends on it
 - Project `tsconfig.json` `types` names `./.cloudflare/types` in place of `@cloudflare/workers-types`
-- Durable Object classes of a project's own Worker are `exports` entries reached through `cloudflare:workers` `exports`
-- `entrypoint` imports the Worker module `with { type: 'cf-worker' }` where `exports` must type its classes
 
 [STORYBOOK]:
 - `.storybook/main.ts` states `framework` and `stories`, which no preset supplies, and lists `@rasm/test-support/preset` resolving its addons
