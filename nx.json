@@ -49,9 +49,9 @@
             },
             {
                 "filter": { "projects": [ "tag:build:swiftpm" ] },
-                "command": "swift build --package-path {projectRoot} --scratch-path $NX_WORKSPACE_ROOT/.cache/swiftpm/build/{projectRoot} --disable-automatic-resolution",
+                "command": "swift build --package-path {projectRoot} --disable-automatic-resolution",
                 "cache": false,
-                "outputs": [ "{workspaceRoot}/.cache/swiftpm/build/{projectRoot}/debug" ]
+                "outputs": [ "{options.env.SWIFTPM_BUILD_DIR}/debug" ]
             },
             { "filter": { "projects": [ "tag:language:rust" ] }, "command": "cargo build --locked --package {projectName}", "cache": false, "inputs": [ "default", "^default", "rust" ], "parallelism": false },
             { "filter": { "projects": [ "tag:language:typescript" ] }, "inputs": [ "production", "^production", "typescript" ] },
@@ -119,7 +119,7 @@
                     "parallel": false
                 }
             },
-            { "filter": { "projects": [ "tag:build:swiftpm" ] }, "command": "swift package --package-path {projectRoot} --scratch-path $NX_WORKSPACE_ROOT/.cache/swiftpm/build/{projectRoot} update" }
+            { "filter": { "projects": [ "tag:build:swiftpm" ] }, "command": "swift package --package-path {projectRoot} update" }
         ],
         "lint:swiftlint": [
             {
@@ -200,7 +200,7 @@
             { "filter": { "projects": [ "tag:host:dylint" ] }, "inputs": [ "...", { "runtime": "cargo dylint --version" } ] },
             {
                 "filter": { "projects": [ "tag:build:swiftpm" ] },
-                "command": "swift test --package-path {projectRoot} --scratch-path $NX_WORKSPACE_ROOT/.cache/swiftpm/build/{projectRoot} --disable-automatic-resolution",
+                "command": "swift test --package-path {projectRoot} --disable-automatic-resolution",
                 "inputs": [ "default", "^default", { "externalDependencies": [] }, { "runtime": "xcodebuild -version" } ]
             }
         ],

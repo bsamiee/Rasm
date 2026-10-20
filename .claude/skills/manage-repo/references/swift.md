@@ -126,8 +126,11 @@ CI's macOS job runs `setup-xcode` first in shared setup, selecting the runner im
 
 SwiftPM joins with the first Swift library:
 - Every `swift package` run writes a build directory, `--help` included
-- `build` and `upgrade` pass `--scratch-path` under `.cache/swiftpm/build/<projectRoot>`, SwiftPM writes `<package>/.build` otherwise
-- `SWIFTPM_BUILD_DIR` stays out, it overrides every `--scratch-path` and sends sourcekit-lsp preparation builds away from its index workspace
+- SwiftPM takes its scratch path from `SWIFTPM_BUILD_DIR`, then `--scratch-path`, then `<package>/.build`, and reads it from no configuration file
+- `SWIFTPM_BUILD_DIR` stays out of `[env]`, it holds one path for every package and reaches sourcekit-lsp's preparation `swift build`, which then builds away from its index workspace
+- Nx inference sets `SWIFTPM_BUILD_DIR` to `.cache/swiftpm/build/<projectRoot>` in each SwiftPM target's `options.env` and its `dump-package` run, commands pass no `--scratch-path`
+- `swift` run by hand in a package writes `<package>/.build`, SwiftPM work runs through the package's Nx targets
+- Xcode builds package targets under `-derivedDataPath` and reads no `SWIFTPM_BUILD_DIR`
 - Apps stay `.xcodeproj`, PackageDescription has no application product, Info.plist, icon, or signing API
 - Library packages take the newest tools version the installed toolchain accepts, SwiftPM's package identity is the folder name
 - Tools version 6 implies language mode 6, manifests hold no `swiftLanguageModes`
@@ -136,7 +139,8 @@ SwiftPM joins with the first Swift library:
 - One `let settings: [SwiftSetting]` per manifest applies to every target, no mechanism shares settings across manifests
 - Settings state compiler policy in typed forms (`.strictMemorySafety()`, `.enableUpcomingFeature`, `.treatAllWarnings`)
 - Settings rows follow the order of root `Xcode.xcconfig`'s `[SWIFT]` section, SwiftPM reads no xcconfig and a policy change edits both lists
-- Executables a skill drives are `executableTarget`s under a folder the library target excludes, the skill runs them through `swift run --quiet` with the `build` scratch path
+- Executables a skill drives are `executableTarget`s under a folder the library target excludes, the skill runs the `build` output's `debug/<executable>`
+- Skills run no executable through an Nx target, Nx forwards an argument holding `=` without its quotes
 - Sibling packages reference each other by `.package(path:)` with no lock entry, each keeps its own settings under a sibling's build
 - Apps reference a library as a `packages` row with `kind: "local"` and project-relative `path`, `package-product-members` name it by folder
 - `upgrade` runs `swift package update`, `Package.resolved` appears at the package root with the first remote dependency

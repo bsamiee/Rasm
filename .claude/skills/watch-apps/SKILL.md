@@ -5,19 +5,20 @@ description: "Use when starting or driving a desktop app, covering the shared wa
 
 # [WATCH_APPS]
 
-`watch-apps`, the executable of the `RasmMacOS` package at `libs/swift/macos`, prints a JSON line per window, dialog, sheet, and menu of named apps as it opens and closes, and per launch and exit. Terminals and harnesses running the watcher need Accessibility access (System Settings > Privacy & Security > Accessibility).
+`watch-apps`, the executable of the `RasmMacOS` package at `libs/swift/macos` that `nx run libs/swift/macos:build` builds, prints a JSON line per window, dialog, sheet, and menu of named apps as it opens and closes, and per launch and exit. Terminals and harnesses running the watcher need Accessibility access (System Settings > Privacy & Security > Accessibility).
 
 ## [01]-[SEQUENCE]
 
 Start the watcher before an app's first launch or script call, and keep it running until work ends:
-1. Start a Monitor with the app's bundle id or display name
-2. Read the `watch` line, then one `open` line per element open at start, a `fail` line names a missing grant or an unmatched name
-3. Start the app with `open -b <bundle id>`, `open -n -b <bundle id>` for an instance of its own
-4. Act on each event by its event table row, on the `pid` of the instance work drives
-5. Re-arm the Monitor with the same command on its expiry notice
+1. Build the watcher with `nx run libs/swift/macos:build`, once per session and after a change to the package
+2. Start a Monitor with the app's bundle id or display name
+3. Read the `watch` line, then one `open` line per element open at start, a `fail` line names a missing grant or an unmatched name
+4. Start the app with `open -b <bundle id>`, `open -n -b <bundle id>` for an instance of its own
+5. Act on each event by its event table row, on the `pid` of the instance work drives
+6. Re-arm the Monitor with the same command on its expiry notice
 
 ```text
-Monitor {"command": "swift run --quiet --package-path ${CLAUDE_SKILL_DIR}/../../../libs/swift/macos --scratch-path ${CLAUDE_SKILL_DIR}/../../../.cache/swiftpm/build/libs/swift/macos watch-apps <app>", "description": "<app> dialogs and lifecycle", "timeout_ms": 1800000}
+Monitor {"command": "${CLAUDE_SKILL_DIR}/../../../.cache/swiftpm/build/libs/swift/macos/debug/watch-apps <app>", "description": "<app> dialogs and lifecycle", "timeout_ms": 1800000}
 ```
 
 `open` runs each app as a launchd job in a process coalition of its own, outside the caller's.
@@ -27,7 +28,7 @@ Monitor {"command": "swift run --quiet --package-path ${CLAUDE_SKILL_DIR}/../../
 Watchers perform nothing, an answer run waits for an app element with `<text>` in its title or text, performs `<action>` on it, and exits:
 
 ```bash
-swift run --quiet --package-path ${CLAUDE_SKILL_DIR}/../../../libs/swift/macos --scratch-path ${CLAUDE_SKILL_DIR}/../../../.cache/swiftpm/build/libs/swift/macos watch-apps <app> --answer '<text>=<action>'
+${CLAUDE_SKILL_DIR}/../../../.cache/swiftpm/build/libs/swift/macos/debug/watch-apps <app> --answer '<text>=<action>'
 ```
 
 - Elements open at the run's start count, a later one is answered when it opens
@@ -63,7 +64,7 @@ Lines carry `app`, instance lines `pid`, element lines add `element` with `id`, 
 `--crashes` prints a `crash` line per report under `~/Library/Logs` (macOS `.ips` files and vendor crash logs) with app's bundle id in a header line, and exits:
 
 ```bash
-swift run --quiet --package-path ${CLAUDE_SKILL_DIR}/../../../libs/swift/macos --scratch-path ${CLAUDE_SKILL_DIR}/../../../.cache/swiftpm/build/libs/swift/macos watch-apps <app> --crashes
+${CLAUDE_SKILL_DIR}/../../../.cache/swiftpm/build/libs/swift/macos/debug/watch-apps <app> --crashes
 ```
 
 ## [05]-[ACTIONS]

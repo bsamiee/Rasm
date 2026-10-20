@@ -92,27 +92,35 @@ const _store = (root: string) =>
         Effect.map(Path.Path, (path) => ({ root, cache: new PluginCache<Record<'hash' | 'output', string>>(path.join(workspaceDataDirectory, 'workspace.hash')) })),
         ({ cache }) => Effect.sync(() => cache.writeToDisk()),
     );
-const _cached = Effect.fnUntraced(function* <A>(schema: Schema.Codec<A, string>, { root, cache }: Store, inputs: string[], [command, ...args]: [string, ...string[]]) {
+const _cached = Effect.fnUntraced(function* <A>(schema: Schema.Codec<A, string>, { root, cache }: Store, { inputs, argv: [command, ...args], env }: { readonly inputs: string[]; readonly argv: [string, ...string[]]; readonly env?: Record<string, string> }) {
     const [key, hash] = [[command, ...args].join(' '), yield* Effect.tryPromise(() => hashWithWorkspaceContext(root, inputs))];
     const text = yield* Option.fromUndefinedOr(cache.get(key)).pipe(
         Option.filter((entry) => entry.hash === hash),
         Option.map(Struct.get('output')),
-        Option.match({ onSome: Effect.succeed, onNone: () => stdout(command, args, { cwd: root }) }),
+        Option.match({ onSome: Effect.succeed, onNone: () => stdout(command, args, { cwd: root, env, extendEnv: true }) }),
     );
     return yield* Effect.tap(Schema.decodeEffect(schema)(text), () => Effect.sync(() => cache.set(key, { hash, output: text })));
 });
 const _crates = Effect.fnUntraced(function* (store: Store) {
-    const [path, { packages }] = yield* Effect.all([Path.Path, _cached(_Metadata, store, [`**/${_CARGO_MANIFEST}`, '**/*.rs'], ['cargo', 'metadata', '--format-version', '1', '--no-deps'])]);
+    const [path, { packages }] = yield* Effect.all([Path.Path, _cached(_Metadata, store, { inputs: [`**/${_CARGO_MANIFEST}`, '**/*.rs'], argv: ['cargo', 'metadata', '--format-version', '1', '--no-deps'] })]);
     return packages.map((crate) => ({ ...crate, manifest: path.relative(store.root, crate.manifest) }));
 });
 const _packages = Effect.fnUntraced(function* (store: Store) {
     const [path, manifests] = yield* Effect.all([Path.Path, _glob(store.root, [`*/**/${_SWIFT_MANIFEST}`])]);
-    const dumped = yield* Effect.validate(manifests, (manifest) => _cached(_SwiftPackage, store, [manifest], ['swift', 'package', 'dump-package', '--package-path', path.dirname(manifest), '--scratch-path', path.join('.cache/swiftpm/build', path.dirname(manifest))]), { concurrency: 'unbounded' });
-    return Array.zipWith(manifests, dumped, (manifest, { targets, dependencies }) => ({
-        manifest,
-        tested: targets.some(({ type }) => type === 'test'),
-        locals: dependencies.flatMap(({ fileSystem }) => Option.getOrElse(fileSystem, Array.empty)).map((local) => path.join(path.relative(store.root, local.path), _SWIFT_MANIFEST)),
-    }));
+    return yield* Effect.validate(
+        manifests,
+        Effect.fnUntraced(function* (manifest: string) {
+            const env = { SWIFTPM_BUILD_DIR: path.join('.cache/swiftpm/build', path.dirname(manifest)) };
+            const { targets, dependencies } = yield* _cached(_SwiftPackage, store, { inputs: [manifest], argv: ['swift', 'package', 'dump-package', '--package-path', path.dirname(manifest)], env });
+            return {
+                manifest,
+                env,
+                tested: targets.some(({ type }) => type === 'test'),
+                locals: dependencies.flatMap(({ fileSystem }) => Option.getOrElse(fileSystem, Array.empty)).map((local) => path.join(path.relative(store.root, local.path), _SWIFT_MANIFEST)),
+            };
+        }),
+        { concurrency: 'unbounded' },
+    );
 });
 const _workspace = Effect.fnUntraced(function* (root: string) {
     const [fs, path, store] = yield* Effect.all([FileSystem.FileSystem, Path.Path, _store(root)]);
@@ -243,8 +251,9 @@ const _PROJECTS = {
             return { root, name: path.parse(dir).name, ..._swift('xcode', { build: target, upgrade: target, install: target, 'lint:swiftlint': target }) };
         }),
     [_SWIFT_MANIFEST]: Effect.fnUntraced(function* ({ dir }, { file, packages }) {
-        const { tested } = yield* Effect.fromOption(Array.findFirst(yield* packages, ({ manifest }) => manifest === file));
-        return { name: dir, ..._swift('swiftpm', tested ? { test: {} } : {}) };
+        const { env, tested } = yield* Effect.fromOption(Array.findFirst(yield* packages, ({ manifest }) => manifest === file));
+        const target = { options: { env } };
+        return { name: dir, ..._swift('swiftpm', { build: target, upgrade: target, ...(tested ? { test: target } : {}) }) };
     }),
     'py.typed': ({ dir }, workspace) => Effect.map(Effect.all([Path.Path, workspace.pyproject, _python(dir, workspace)]), ([path, { moduleRoot }, targets]) => ({ name: path.relative(moduleRoot, dir).replaceAll(path.sep, '.'), tags: ['language:python'], targets })),
     'tsconfig.json': ({ dir }, { root }) => Effect.map(_suite('typescript', dir, root), (suite) => ({ ...suite, tags: ['language:typescript'], targets: { 'typecheck:tsc': {}, check: {} } })),
@@ -270,7 +279,7 @@ const _pythonVersions = Effect.fnUntraced(function* ({ root, cache, hosts }: Wor
     const [path, folders] = yield* Effect.all([Path.Path, hosts]);
     const [[runtime], scopes, gated] = yield* Effect.all(
         [
-            _cached(_PythonRuntime, { root, cache }, ['mise.toml'], ['mise', 'ls', 'python', '--current', '--json']),
+            _cached(_PythonRuntime, { root, cache }, { inputs: ['mise.toml'], argv: ['mise', 'ls', 'python', '--current', '--json'] }),
             Effect.flatMap(
                 _glob(
                     root,
