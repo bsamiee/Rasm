@@ -164,7 +164,7 @@ const written: (target: object, values: Record.ReadonlyRecord<string, unknown>) 
 
 - `catch` names the refused step from arguments of the failed call
 - Consumers decode a host code from `cause` where they branch on it
-- Panels render a cause through `Cause.pretty` and MCP servers through `Cause.prettyErrors` with `Formatter.format`, once at their boundary
+- Plug-ins log a cause to the UXP console through `Cause.pretty`, MCP servers render one through `Cause.prettyErrors` with `Formatter.format`, once at their boundary
 
 | [INDEX] | [REJECTED]                                                | [REQUIRED]                                | [REASON]                 |
 | :-----: | :-------------------------------------------------------- | :---------------------------------------- | :----------------------- |
@@ -225,7 +225,7 @@ Each host entry translates one `Exit` into that entry's host form:
 |  [03]   | Panel `create`, `show`, `hide` | Forks its work and returns inside a 300 ms default timeout    |
 |  [04]   | Command `run`                  | Promise resolved on success, rejected with the squashed cause |
 
-Hosts show nothing for a rejected command, and Photoshop logs nothing for it. One registration takes every command and panel and runs each through one runtime that renders its failure:
+Hosts show nothing for a rejected command, and Photoshop logs nothing for it. One registration takes every command and panel and runs each through one runtime that logs its failure:
 
 ```ts
 import fs from 'adobe:fs';
@@ -238,9 +238,11 @@ const plugin = <R, E, F, C extends string, P extends string>(
         readonly panels: Record.ReadonlyRecord<P, Record.ReadonlyRecord<'show' | 'hide', Effect.Effect<void, F, R | Uxp | Plugin>>>;
     },
 ): void => {
-    const runtime = ManagedRuntime.make(Layer.provideMerge(layer, Effect.try(() => fs.readFileSync('plugin:/manifest.json', 'utf-8')).pipe(Effect.flatMap(Schema.decodeEffect(Manifest.json)), Layer.effect(Plugin), Layer.merge(hosted))));
-    const run = (work: Effect.Effect<void, F, R | Uxp | Plugin>) => (): Promise<void> =>
-        runtime.runPromise(Effect.tapCause(work, (cause) => Effect.sync(() => document.body.append(Object.assign(document.createElement('sp-body'), { textContent: Cause.pretty(cause) })))));
+    const logged = flow(Cause.pretty, Console.error);
+    const runtime = ManagedRuntime.make(
+        layer.pipe(Layer.provideMerge(Effect.try(() => fs.readFileSync('plugin:/manifest.json', 'utf-8')).pipe(Effect.flatMap(Schema.decodeEffect(Manifest.json)), Layer.effect(Plugin), Layer.merge(hosted))), Layer.tapCause(logged)),
+    );
+    const run = (work: Effect.Effect<void, F, R | Uxp | Plugin>) => (): Promise<void> => runtime.runPromise(Effect.tapCause(work, logged));
     const handlers = {
         plugin: { create: (): Promise<void> => runtime.runPromise(Effect.void), destroy: (): Promise<void> => runtime.dispose() },
         commands: Record.map(entries.commands, run),
@@ -250,7 +252,7 @@ const plugin = <R, E, F, C extends string, P extends string>(
 };
 ```
 
-`hosted` merges the host `Clock` layer with `Uxp`, the service holding `uxp`, `fs`, and a scoped temporary file, and `Plugin` holds the manifest `Manifest.json` decodes from the plug-in's own folder. `Layer.provideMerge` keeps every service in the runtime's context, where `Layer.provide` feeds the layer alone and every `runPromise` reads Effect's default clock. `@adobe-uxp-types/uxp` merges the `setup` parameter with `entrypoints`, which a handler record fails for lacking `getCommand`, `getPanel`, `setup`, and `_pluginInfo`. `satisfies` checks each handler against the declared `plugin`, `commands`, and `panels` members, and `Reflect.apply` calls the untyped overload with `entrypoints` as receiver. `Effect.tapCause` renders every failure through `Cause.pretty` before `runPromise` rejects with the squashed cause. `create` builds every layer at load, a linked socket included, and `dispose` closes every scope they opened.
+`hosted` merges the host `Clock` layer with `Uxp`, the service holding `uxp`, `fs`, and a scoped temporary file, and `Plugin` holds the manifest `Manifest.json` decodes from the plug-in's own folder. `Layer.provideMerge` keeps every service in the runtime's context, where `Layer.provide` feeds the layer alone and every `runPromise` reads Effect's default clock. `@adobe-uxp-types/uxp` merges the `setup` parameter with `entrypoints`, which a handler record fails for lacking `getCommand`, `getPanel`, `setup`, and `_pluginInfo`. `satisfies` checks each handler against the declared `plugin`, `commands`, and `panels` members, and `Reflect.apply` calls the untyped overload with `entrypoints` as receiver. `ManagedRuntime` builds its layer before any entry's work runs, so `Layer.tapCause` logs a failed build and `Effect.tapCause` a failed entry to the UXP developer console before `runPromise` rejects with the squashed cause. `create` builds every layer at load, a linked socket included, and `dispose` closes every scope they opened.
 
 - `setup` throws for a `plugin` record without `create`, for a command or panel key its manifest lacks, and after one successful call
 - Panel handlers receive their root node: `create(rootNode)`, `show(rootNode, data)`, `hide(rootNode, data)`, `destroy(rootNode)`

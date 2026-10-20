@@ -1,7 +1,7 @@
 {
     "name": "@rasm/uxp",
     "private": true,
-    "description": "Effect in Adobe UXP hosts: clock, host modules, the plug-in manifest, plug-in and script entries, and the dialed link serving a contract with its status",
+    "description": "Effect in Adobe UXP hosts: clock, host modules, the plug-in manifest, plug-in and script entries, and the dialed link serving a contract",
     "type": "module",
     "exports": {
         "./*": "./*.ts"

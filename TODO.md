@@ -29,7 +29,7 @@ Remaining work on Creative Cloud libraries and products, for a fresh session.
 - Atelier publishes InDesign `inspect`, `change`, `create`, `remove`, `find_change`, and `render` as tools
 - Atelier publishes InDesign `menu`, `preflight`, `queries`, and `kinds` as resources
 - Every tool result ends with the application's status; `Unmatched` candidates render ranked and capped with the count of the rest
-- Each application has one script path: UXP through its panel with TypeScript stripped, else its dictionary script command
+- Each application has one script path, the route of the runtime row its dictionary declares: a dictionary command, or UXP through its linked panel with TypeScript stripped
 - Mutation results hold preflight of each touched document: issue count and issues introduced against the per-mutation baseline
 - Effect's MCP server over HTTP delivers no notification between calls; only Claude Code channel events reach a model, Codex surfaces no push
 - Effect's own resource path renders the first error message alone and turns an interrupt into an error; tools render the full cause

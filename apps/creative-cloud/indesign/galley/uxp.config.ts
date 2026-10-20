@@ -18,7 +18,7 @@ export default uxp(import.meta.dirname, {
         name,
         version: npm.version,
         host: manifest.host,
-        entrypoints: [{ type: 'panel', id: 'galley', label: { default: name }, minimumSize: Option.some({ width: 200, height: 60 }) }],
+        entrypoints: [{ type: 'panel', id: 'galley', label: { default: name }, minimumSize: Option.none() }],
         requiredPermissions: { ...manifest.requiredPermissions, network: Option.some({ domains: [origin] }) },
     }),
 });

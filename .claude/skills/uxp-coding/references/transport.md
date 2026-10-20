@@ -6,12 +6,11 @@ UXP cannot listen, and a plug-in serving calls to a process outside its host dia
 
 `RpcServer` reads its transport from one `SocketServer` service with a `run` member, and a `SocketServer` that dials makes the plug-in the server: `RpcServer.layer` over `layerProtocolSocketServer` over that service, with no hand-built protocol.
 
-Plug-in runtime scopes own socket serving and status UI independently of document operations:
-- `run` acquires the reader in one scope per connection, and the handler's socket reads that connection and ends with its close
+Plug-in runtime scopes own socket serving independently of document operations:
+- `run` acquires the reader in one scope per connection before the handler, so a dial refused as a close waits the retry spacing
 - `Effect.retry` with a spaced schedule surrounds that scoped connection, and `Effect.forever` redials at once after a clean close
+- `RpcServer` turns every socket error but a close into a defect, and the loop logs each defect, then sandboxes it before `Effect.retry`
 - Retries inside one scope keep each failed dial's WebSocket and finalizers until that scope closes
-- Link state is one `SubscriptionRef` set where the reader acquisition and `pull` fail or succeed, and a close fails `pull` with the code and reason
-- Host middleware sets each running call in a second `SubscriptionRef`, and one status view renders both
 - One `RpcGroup` is the whole contract, imported by both ends, and a typed failure reaches the caller through its schema
 - Calls run one at a time over synchronous DOM calls and modal scopes, and a handler returning `Rpc.fork` answers while a host call runs
 - Group middleware holds host state for each call and covers calls added before `middleware`, and a forked call joins with `add` after it

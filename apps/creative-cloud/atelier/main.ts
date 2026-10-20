@@ -1,4 +1,4 @@
-import { Atelier, Installation, InstalledFace, Kind, Native, Screenshot, Status, stripped, WindowID } from '@rasm/automation';
+import { Automation, Installation, InstalledFace, Kind, Native, Screenshot, Status, WindowID } from '@rasm/automation';
 import { FontView } from '@rasm/indesign/fonts';
 import { Render } from '@rasm/indesign/render';
 import { Script } from '@rasm/indesign/scripts';
@@ -12,7 +12,7 @@ import { Unmatched } from '@rasm/search';
 import { Face, Instance, Run, Shaped } from '@rasm/typography/main';
 import type { Source } from '@rasm/typography/source';
 import { ORIGIN } from '@rasm/uxp/runtime';
-import { Array, Config, Context, Effect, flow, Layer, Match, Option, pipe, Schema, SchemaAST, Stream, Struct } from 'effect';
+import { Array, Config, Context, Effect, Layer, Match, Option, pipe, Schema, SchemaAST, Stream, Struct } from 'effect';
 import { McpSchema, McpServer, Tool } from 'effect/ai';
 import manifest from './package.json' with { type: 'json' };
 
@@ -124,7 +124,7 @@ main(
                 ({ window: id }, chosen) => chosen.screenshot(id),
             );
             const faces = { uri: 'atelier://faces', name: 'faces', description: 'Installed faces CoreText finds, each with the file holding it', mimeType: 'application/json' };
-            yield* resource({ ...faces, content: Effect.flatMap(InstalledFace.all, json(Schema.Array(InstalledFace))) });
+            yield* resource({ ...faces, content: Effect.flatMap(InstalledFace.installed, json(Schema.Array(InstalledFace))) });
             const specimen = Schema.Struct({ face: Face, shaped: Shaped });
             yield* register(
                 Tool.make('font', {
@@ -148,17 +148,15 @@ main(
             );
             yield* register(
                 Tool.make('execute_script', {
-                    description:
-                        "Runs source in one application's script runtime: ExtendScript (ES3) through do javascript or DoScript, Acrobat JavaScript through do script, and UXP JavaScript or TypeScript through a linked extension, which strips TypeScript before the source runs. The result names the runtime that ran the source",
+                    description: "Runs source in one application's script runtime: ExtendScript (ES3) through do javascript or DoScript, Acrobat JavaScript through do script, and UXP JavaScript or TypeScript through a linked extension, which strips TypeScript before the source runs",
                     parameters: Schema.Struct({ code: Schema.String.annotate({ description: 'Function body in the runtime the application takes; its return value is the result' }) }),
-                    success: Schema.Union([Installation.Script, Script.Result]),
+                    success: Installation.Script.pipe(Schema.fieldsAssign({ preflight: Schema.optionalKey(Script.Result.fields.preflight) })),
                 }),
-                Effect.fnUntraced(function* ({ code }, chosen) {
-                    return yield* Option.match(yield* Effect.catchNoSuchElement(panel.call(chosen)), {
-                        onNone: () => chosen.script(code),
-                        onSome: (use) => Effect.flatMap(stripped(code), (plain) => use('execute_script', { code: plain })),
-                    });
-                }),
+                ({ code }, chosen) =>
+                    Effect.catchNoSuchElement(panel.call(chosen)).pipe(
+                        Effect.map(Option.map((use) => (source: string) => use('execute_script', { code: source }))),
+                        Effect.flatMap((linked) => chosen.script(code, linked)),
+                    ),
             );
             yield* register(
                 Tool.make('command', {
@@ -181,17 +179,11 @@ main(
                     success: Schema.Union([Installation.Command.pipe(Schema.fieldsAssign({ artifacts: Schema.Array(Schema.Result(Attachment, Schema.ErrorInstance())) })), Status, Invoke.Result]),
                 }),
                 ({ run }, found) =>
-                    Match.value(run).pipe(
-                        Match.tag('Command', ({ command, arguments: parameters, artifacts }) => found.command(command, parameters, artifacts)),
-                        Match.tag('Dialog', ({ element, action }) => found.press(element, action)),
-                        Match.tag(
-                            'Menu',
-                            Effect.fnUntraced(function* ({ action }) {
-                                return yield* (yield* panel.call(found))('invoke', { action });
-                            }),
-                        ),
-                        Match.exhaustive,
-                    ),
+                    Match.valueTags(run, {
+                        Command: ({ command, arguments: parameters, artifacts }) => found.command(command, parameters, artifacts),
+                        Dialog: ({ element, action }) => found.press(element, action),
+                        Menu: ({ action }) => Effect.flatMap(panel.call(found), (use) => use('invoke', { action })),
+                    }),
             );
             yield* publish(
                 InDesign.omit('enter', 'changed'),
@@ -201,47 +193,11 @@ main(
                     create: new PublishedTool({ annotations: Context.empty() }),
                     remove: new PublishedTool({ annotations: Context.empty() }),
                     find_change: new PublishedTool({ annotations: Context.empty() }),
-                    render: new PublishedTool({ annotations: READING, success: Render.Result.mapFields(Struct.assign({ image: Image('image/png') })) }),
-                    menu: new PublishedResource({
-                        uri: 'indesign://menu',
-                        complete: {
-                            area: flow(
-                                panel.call,
-                                Effect.flatMap((use) => use('menu', { area: Option.none() })),
-                                Effect.map((rows) => Array.dedupe(Array.map(rows, Struct.get('area')))),
-                            ),
-                        },
-                    }),
-                    preflight: new PublishedResource({
-                        uri: preflight,
-                        complete: {
-                            profile: flow(
-                                panel.call,
-                                Effect.flatMap((use) => use('preflight', { profile: Option.none() })),
-                                Effect.map(Struct.get('profiles')),
-                            ),
-                        },
-                    }),
-                    queries: new PublishedResource({
-                        uri: 'indesign://queries',
-                        complete: {
-                            name: flow(
-                                panel.call,
-                                Effect.flatMap((use) => use('queries', { name: Option.none() })),
-                                Effect.map(Array.map(Struct.get('name'))),
-                            ),
-                        },
-                    }),
-                    kind: new PublishedResource({
-                        uri: 'indesign://kinds',
-                        complete: {
-                            name: flow(
-                                panel.call,
-                                Effect.flatMap((use) => use('kind', { name: Option.none() })),
-                                Effect.map(Match.valueTags({ Index: ({ classes, enumerations }) => [...classes, ...enumerations], Class: ({ name }) => [name], Enumeration: ({ name }) => [name] })),
-                            ),
-                        },
-                    }),
+                    render: new PublishedTool({ annotations: READING, success: Render.Result.pipe(Schema.fieldsAssign({ image: Image('image/png') })) }),
+                    menu: new PublishedResource({ uri: 'indesign://menu', complete: { area: (rows) => Array.dedupe(Array.map(rows, Struct.get('area'))) } }),
+                    preflight: new PublishedResource({ uri: preflight, complete: { profile: Struct.get('profiles') } }),
+                    queries: new PublishedResource({ uri: 'indesign://queries', complete: { name: Array.map(Struct.get('name')) } }),
+                    kind: new PublishedResource({ uri: 'indesign://kinds', complete: { name: Match.valueTags({ Index: ({ classes, enumerations }) => [...classes, ...enumerations], Class: ({ name }) => [name], Enumeration: ({ name }) => [name] }) } }),
                 },
                 {
                     route,
@@ -256,5 +212,5 @@ main(
                 },
             );
         }),
-    ).pipe(Layer.provide(pipe(Config.String('ATELIER_PATH'), Effect.map(Atelier.spawned), Layer.unwrap))),
+    ).pipe(Layer.provide(pipe(Config.String('ATELIER_PATH'), Effect.map(Automation.spawned), Layer.unwrap))),
 );

@@ -8,12 +8,12 @@ import { type Route, rendered, targeted } from './server.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Published<A, Chosen, Key extends string> = PublishedTool<A> | PublishedResource<Chosen, Key>;
+type Published<A, Key extends string> = PublishedTool<A> | PublishedResource<A, Key>;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 class PublishedTool<A> extends Data.TaggedClass('Tool')<{ readonly annotations: Context.Context<never>; readonly success?: Schema.Codec<A, unknown> }> {}
-class PublishedResource<Chosen, Key extends string> extends Data.TaggedClass('Resource')<{ readonly uri: string; readonly complete: { readonly [Field in Key]?: (chosen: Chosen) => Effect.Effect<readonly string[], Error> } }> {}
+class PublishedResource<A, Key extends string> extends Data.TaggedClass('Resource')<{ readonly uri: string; readonly complete: { readonly [Field in Key]?: (success: A) => readonly string[] } }> {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -77,7 +77,7 @@ const listen = Effect.fn('listen')(function* <Rpcs extends Rpc.Any, Peer, I exte
 });
 const publish = Effect.fnUntraced(function* <Rpcs extends Rpc.Any & { readonly payloadSchema: Schema.Codec<Rpc.Payload<Rpcs>, unknown> & { readonly fields: Schema.Struct.Fields }; readonly successSchema: Schema.Codec<Rpc.Success<Rpcs>, unknown> }, Chosen, Fields extends Schema.Struct.Fields, R>(
     group: RpcGroup.RpcGroup<Rpcs>,
-    published: { readonly [Tag in Rpcs['_tag']]?: Published<Rpc.Success<Rpc.ExtractTag<Rpcs, Tag>>, Chosen, keyof Rpc.ExtractTag<Rpcs, Tag>['payloadSchema']['fields'] & string> },
+    published: { readonly [Tag in Rpcs['_tag']]?: Published<Rpc.Success<Rpc.ExtractTag<Rpcs, Tag>>, keyof Rpc.ExtractTag<Rpcs, Tag>['payloadSchema']['fields'] & string> },
     {
         route,
         invoke,
@@ -113,7 +113,7 @@ const publish = Effect.fnUntraced(function* <Rpcs extends Rpc.Any & { readonly p
         );
     };
     const defined = (rpc: Rpcs) => ({ name: rpc._tag, description: SchemaAST.resolveDescription(rpc.payloadSchema.ast), mimeType: 'application/json' });
-    const registered = (rpc: Rpcs, uri: string, complete: PublishedResource<Chosen, string>['complete']) =>
+    const registered = (rpc: Rpcs, uri: string, complete: PublishedResource<Rpc.Success<Rpcs>, string>['complete']) =>
         Array.match({
             onEmpty: () => server.addResource({ resource: McpSchema.Resource.make({ ...defined(rpc), uri }), annotations, handle: Effect.catchTag(read(rpc, [])(uri, []), 'InvalidParams', Effect.die) }),
             onNonEmpty: (params: Array.NonEmptyReadonlyArray<string>) =>
@@ -128,7 +128,7 @@ const publish = Effect.fnUntraced(function* <Rpcs extends Rpc.Any & { readonly p
                                 Record.filter(complete, (_, key) => params.includes(key)),
                                 flow(
                                     Option.fromUndefinedOr,
-                                    Option.map((select) => answered((_, context) => Schema.decodeEffect(given)(context?.arguments ?? {}, { errors: 'all' }).pipe(Effect.flatMap(route.resolve), Effect.flatMap(select)))),
+                                    Option.map((select) => answered((_, context) => decoded(rpc)({ route: context?.arguments ?? {}, payload: {} }).pipe(Effect.flatMap(called(rpc)), Effect.map(select)))),
                                 ),
                             ),
                         ),
@@ -140,7 +140,7 @@ const publish = Effect.fnUntraced(function* <Rpcs extends Rpc.Any & { readonly p
     return yield* Effect.forEach(
         group.requests.values(),
         (rpc: Rpcs) =>
-            Option.match(Option.flatMap(Record.get<string, Published<Rpc.Success<Rpcs>, Chosen, string> | undefined>(published, rpc._tag), Option.fromUndefinedOr), {
+            Option.match(Option.flatMap(Record.get<string, Published<Rpc.Success<Rpcs>, string> | undefined>(published, rpc._tag), Option.fromUndefinedOr), {
                 onNone: () => Effect.void,
                 onSome: (row) =>
                     Match.valueTags(row, {

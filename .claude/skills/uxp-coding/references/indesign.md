@@ -375,17 +375,16 @@ Scripts return through one `script.setResult` call and fire no timers, and each 
 ```ts
 import uxp from 'adobe:uxp';
 
-const script = <A, E>(work: (args: readonly string[]) => Effect.Effect<A, E, Uxp>): void => {
+const script = <A, I>(success: Schema.Codec<A, I>, work: (args: readonly string[]) => Effect.Effect<A, Error, Uxp>): void => {
     const target: unknown = Reflect.get(uxp, 'script');
     Effect.gen(function* () {
         const { args, setResult } = yield* Schema.decodeUnknownEffect(Schema.Struct({ args: Schema.Array(Schema.String), setResult: Schema.declare(Predicate.isFunction) }))(target);
-        const exit = yield* Effect.exit(work(args));
-        Reflect.apply(setResult, target, [yield* Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(Exit.match(exit, { onSuccess: (value) => ({ value }), onFailure: (cause) => ({ failure: Cause.pretty(cause) }) }))]);
+        Reflect.apply(setResult, target, [yield* Schema.encodeEffect(Schema.fromJsonString(Schema.toCodecJson(Schema.Exit(success, Schema.ErrorInstance(), Schema.Defect()))))(yield* Effect.exit(work(args)))]);
     }).pipe(Effect.provide(hosted), Effect.runSync);
 };
 ```
 
-Typings omit `script` from `uxp`, and `Reflect.apply` keeps the host's `script` object as receiver. A `script` that fails the decode throws from `runSync` and the host alerts it. Each `do script` call loads a fresh context, `language javascript` running ExtendScript and `language uxpscript` UXP, and state for a later call goes through `insertLabel`.
+Typings omit `script` from `uxp`, and `Reflect.apply` keeps the host's `script` object as receiver. The result is the `Exit` in `Schema.Exit`'s JSON form, its value encoded by the caller's codec. `runSync` drains Effect's scheduler before the script returns, where `runPromise` yields through timers the script never fires. A `script` that fails the decode or reaches an asynchronous step throws from `runSync` and the host alerts it. Each `do script` call loads a fresh context, `language javascript` running ExtendScript and `language uxpscript` UXP, and state for a later call goes through `insertLabel`.
 
 - Runners switch to async mode for source holding `async ` before a function or `await ` before an expression, and reply empty before the body runs
 - Runner tests match `async ` and `await ` inside strings and comments

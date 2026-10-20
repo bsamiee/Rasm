@@ -1,6 +1,6 @@
 import { Unmatched } from '@rasm/search';
 import { transformSync } from 'amaro';
-import { Array, Cause, Context, Effect, FileSystem, identity, Layer, Option, pipe, Record, Schedule, Schema, Stream } from 'effect';
+import { Array, Cause, Context, Effect, FileSystem, identity, Layer, Match, Option, pipe, Record, Schedule, Schema, Stream, Struct } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { Rpc, RpcClient, type RpcClientError, RpcGroup, RpcSerialization } from 'effect/rpc';
 import { Socket } from 'effect/socket';
@@ -57,10 +57,10 @@ const Native: Schema.Codec<Native> = Schema.Union([
     ).annotate({ description: 'Record by property name' }),
 ]);
 class InstalledFace extends Schema.Class<InstalledFace, { readonly brand: unique symbol }>('InstalledFace')({ postscriptName: Schema.String, family: Schema.String, style: Schema.String, fullName: Schema.String, file: Schema.String }) {
-    static get all() {
-        return Atelier.use((client) => client.faces());
+    static get installed() {
+        return Automation.use((client) => client.faces());
     }
-    static readonly named = (name: string) => Atelier.use((client) => client.face({ name }));
+    static readonly named = (name: string) => Automation.use((client) => client.face({ name }));
 
     source() {
         return Effect.map(
@@ -80,35 +80,35 @@ class Installation extends Schema.Class<Installation, { readonly brand: unique s
 }) {
     // --- [DISCOVERY]
     static get installed() {
-        return Atelier.use((client) => client.installations());
+        return Automation.use((client) => client.installations());
     }
     static readonly located = (query: string) => Effect.flatMap(Installation.installed, (rows) => Unmatched.single('installed Adobe application', Option.some(query))(rows, (row) => [row.url.href, row.identifier, row.name]));
 
     // --- [LIFECYCLE]
     launch() {
-        return Atelier.use((client) => client.launch({ application: this.url }));
+        return Automation.use((client) => client.launch({ application: this.url }));
     }
     status() {
-        return Atelier.use((client) => client.status({ application: this.url }));
+        return Automation.use((client) => client.status({ application: this.url }));
     }
     watch() {
-        return Stream.unwrap(Effect.map(Atelier, (client) => client.watch({ application: this.url })));
+        return Stream.unwrap(Effect.map(Automation, (client) => client.watch({ application: this.url })));
     }
 
     // --- [ELEMENTS]
     press(element: typeof WindowID.Type, action: string) {
-        return Atelier.use((client) => client.press({ application: this.url, element, action }));
+        return Automation.use((client) => client.press({ application: this.url, element, action }));
     }
     screenshot(window: Option.Option<typeof WindowID.Type>) {
-        return Atelier.use((client) => client.screenshot({ application: this.url, window }));
+        return Automation.use((client) => client.screenshot({ application: this.url, window }));
     }
 
     // --- [DICTIONARY]
     definition(selection: Option.Option<{ readonly kind: typeof Kind.Type; readonly name: string }>) {
-        return Atelier.use((client) => client.definition({ application: this.url, selection }));
+        return Automation.use((client) => client.definition({ application: this.url, selection }));
     }
     terms(kind: typeof Kind.Type) {
-        return Atelier.use((client) => client.terms({ application: this.url, kind }));
+        return Automation.use((client) => client.terms({ application: this.url, kind }));
     }
 
     // --- [EVENTS]
@@ -119,18 +119,29 @@ class Installation extends Schema.Class<Installation, { readonly brand: unique s
         }),
     });
     command(name: string, parameters: Readonly<Record<string, Native>>, artifacts: readonly URL[]) {
-        return Atelier.use((client) => client.execute({ application: this.url, command: name, arguments: parameters, artifacts }));
+        return Automation.use((client) => client.execute({ application: this.url, command: name, arguments: parameters, artifacts }));
     }
 
     // --- [SCRIPTS]
     static readonly runtimes = {
-        uxpscript: { commands: [['do script', 'K2  dosc']], encoder: Option.none<string>() },
+        uxpscript: {
+            commands: [['do script', 'K2  dosc']],
+            route: {
+                _tag: 'Linked',
+                stripped: (code: string) => {
+                    const [open, close] = ['async function body() {\n', '\n}'];
+                    return Effect.try(() => transformSync(`${open}${code}${close}`, { mode: 'strip-only' }).code.slice(open.length, -close.length));
+                },
+            },
+        },
         extendscript: {
             commands: [
                 ['do javascript', 'miscDjxM'],
                 ['DoScript', 'miscdosc'],
             ],
-            encoder: Option.some(`function encoded(value) {
+            route: {
+                _tag: 'Dictionary',
+                encoder: `function encoded(value) {
         var parts = [], key, at;
         if (value === null || value === undefined || (typeof value === "number" && !isFinite(value))) return "null";
         if (typeof value === "number" || typeof value === "boolean") return String(value);
@@ -139,51 +150,58 @@ class Installation extends Schema.Class<Installation, { readonly brand: unique s
         if (value.typename !== undefined) return encoded(String(value));
         for (key in value) parts.push(encoded(key) + ":" + encoded(value[key]));
         return "{" + parts.join(",") + "}";
-    }`),
+    }`,
+            },
         },
-        acrobat: { commands: [['do script', 'miscdosc']], encoder: Option.some('JSON.stringify') },
+        acrobat: { commands: [['do script', 'miscdosc']], route: { _tag: 'Dictionary', encoder: 'JSON.stringify' } },
     } as const;
-    static readonly Script = Schema.Struct({ runtime: Schema.Literals(Record.keys(Installation.runtimes)).annotate({ description: 'Runtime that ran the source' }), result: Schema.Json });
+    static readonly Script = Schema.Struct({ runtime: Schema.Literals(Record.keys(Installation.runtimes)).annotate({ description: 'Runtime that ran the source' }), result: Schema.OptionFromOptionalKey(Schema.Json) });
     runtime() {
         return Effect.flatMap(this.terms('command'), (declared) =>
             pipe(
                 Record.toEntries(Installation.runtimes),
-                Array.flatMap(([runtime, { commands, encoder }]) => Array.map(commands, ([command, code]) => ({ runtime, command, code, encoder }))),
+                Array.flatMap(([runtime, { commands, route }]) => Array.map(commands, ([command, code]) => ({ runtime, command, code, route }))),
                 Array.findFirst(({ command, code }) => declared.some((term) => term.name === command && term.code === code)),
                 Effect.fromOption(() => new Cause.NoSuchElementError(`${this.name} declares no script command`)),
             ),
         );
     }
-    script(code: string) {
-        return Effect.flatMap(this.runtime(), ({ command, runtime, encoder }) =>
-            Effect.fromOption(encoder, () => new Cause.IllegalArgumentError(`${this.name}'s ${command} keeps no context between calls`)).pipe(
-                Effect.flatMap((source) =>
-                    this.command(
-                        command,
-                        {
-                            direct: `(function (body, encoded) {
-    var outcome;
+    script<A extends object, E, R>(code: string, linked: Option.Option<(source: string) => Effect.Effect<A, E, R>>) {
+        const installation = this;
+        return Effect.gen(function* () {
+            const { command, runtime, route } = yield* installation.runtime();
+            return yield* Match.valueTags(route, {
+                Linked: ({ stripped }) =>
+                    Effect.fromOption(linked, () => new Cause.IllegalArgumentError(`${installation.name}'s ${command} keeps no context between calls, and no extension is linked`)).pipe(
+                        Effect.flatMap((call) => Effect.flatMap(stripped(code), call)),
+                        Effect.map(Struct.assign({ runtime })),
+                    ),
+                Dictionary: ({ encoder }) =>
+                    installation
+                        .command(
+                            command,
+                            {
+                                direct: `(function (body, encoded) {
     try {
         var value = new Function(decodeURIComponent(body)).call(this);
-        outcome = { _tag: "Success", success: value === undefined ? null : value };
+        return encodeURIComponent(encoded({ _tag: "Success", success: value === undefined ? {} : { result: value } }));
     } catch (error) {
         var known = error instanceof Error;
         var thrown = known ? { name: error.name, message: error.message } : { message: String(error) };
         if (known && typeof error.number === "number" && typeof error.line === "number") thrown.cause = { number: error.number, line: error.line };
-        outcome = { _tag: "Failure", failure: thrown };
+        return encodeURIComponent(encoded({ _tag: "Failure", failure: thrown }));
     }
-    return encodeURIComponent(encoded(outcome));
-}).call(this, "${encodeURIComponent(code)}", ${source})`,
-                        },
-                        [],
-                    ),
-                ),
-                Effect.flatMap(({ reply }) => Schema.decodeUnknownEffect(Schema.String)(reply)),
-                Effect.flatMap((text) => Schema.decodeEffect(Schema.fromJsonString(Schema.toCodecJson(Schema.Result(Schema.Json, Schema.ErrorInstance()))))(decodeURIComponent(text))),
-                Effect.flatMap(Effect.fromResult),
-                Effect.map((result) => ({ runtime, result })),
-            ),
-        );
+}).call(this, "${encodeURIComponent(code)}", ${encoder})`,
+                            },
+                            [],
+                        )
+                        .pipe(
+                            Effect.flatMap(({ reply }) => Schema.decodeUnknownEffect(Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(Schema.toCodecJson(Schema.Result(Installation.Script.mapFields(Struct.pick(['result'])), Schema.ErrorInstance()))))))(reply)),
+                            Effect.flatMap(Effect.fromResult),
+                            Effect.map(Struct.assign({ runtime })),
+                        ),
+            });
+        });
     }
 }
 const Requests = RpcGroup.make(
@@ -202,32 +220,25 @@ const Requests = RpcGroup.make(
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Atelier extends Context.Service<Atelier, RpcClient.FromGroup<typeof Requests, RpcClientError.RpcClientError>>()('@rasm/automation/main/Atelier') {
+class Automation extends Context.Service<Automation, RpcClient.FromGroup<typeof Requests, RpcClientError.RpcClientError>>()('@rasm/automation/main/Automation') {
     static readonly spawned = (executable: string) =>
-        Layer.effect(Atelier)(RpcClient.make(Requests)).pipe(
+        Layer.effect(Automation)(RpcClient.make(Requests)).pipe(
             Layer.provide(RpcClient.layerProtocolSocket({ retryPolicy: Schedule.recurs(0) })),
-            Layer.provide(
+            Layer.provide([
                 Layer.effect(Socket.Socket)(
                     Socket.fromTransformStream(
                         Effect.gen(function* () {
                             const requests = new TransformStream<Uint8Array, Uint8Array>();
-                            const child = yield* (yield* ChildProcessSpawner.ChildProcessSpawner).spawn(ChildProcess.make(executable, { stdin: Stream.orDie(Stream.fromReadableStream({ evaluate: () => requests.readable, onError: identity })), stderr: 'inherit' }));
+                            const child = yield* ChildProcessSpawner.ChildProcessSpawner.use((spawner) => spawner.spawn(ChildProcess.make(executable, { stdin: Stream.orDie(Stream.fromReadableStream({ evaluate: () => requests.readable, onError: identity })), stderr: 'inherit' })));
                             return { readable: Stream.toReadableStream(child.stdout), writable: requests.writable };
                         }).pipe(Effect.mapError((cause) => Socket.SocketError.make({ reason: Socket.SocketOpenError.make({ kind: 'Unknown', cause }) }))),
                     ),
                 ),
-            ),
-            Layer.provide(RpcSerialization.layerNdJsonRpc()),
+                RpcSerialization.layerNdJsonRpc(),
+            ]),
         );
 }
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-const stripped = (code: string) => {
-    const [open, close] = ['async function body() {\n', '\n}'];
-    return Effect.try(() => transformSync(`${open}${code}${close}`, { mode: 'strip-only' }).code.slice(open.length, -close.length));
-};
-
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Atelier, Installation, InstalledFace, Kind, Native, Screenshot, Status, stripped, WindowID };
+export { Automation, Installation, InstalledFace, Kind, Native, Screenshot, Status, WindowID };

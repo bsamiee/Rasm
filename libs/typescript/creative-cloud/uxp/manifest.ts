@@ -1,4 +1,4 @@
-import { Schema, Struct } from 'effect';
+import { Schema } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -14,7 +14,7 @@ class Manifest extends Schema.Class<Manifest, { readonly brand: unique symbol }>
     name: Schema.String,
     version: Schema.String,
     host: Schema.Struct({ app: Schema.Literals(['ID', 'PS', 'premierepro', 'ame', 'XD']), minVersion: Schema.String }),
-    entrypoints: Schema.Array(Schema.Union([Command, Command.mapFields(Struct.assign({ type: Schema.Literal('panel'), minimumSize: Schema.OptionFromOptionalKey(Schema.Struct({ width: Schema.Finite, height: Schema.Finite })) }))])),
+    entrypoints: Schema.Array(Schema.Union([Command, Command.pipe(Schema.fieldsAssign({ type: Schema.Literal('panel'), minimumSize: Schema.OptionFromOptionalKey(Schema.Struct({ width: Schema.Finite, height: Schema.Finite })) }))])),
     requiredPermissions: Schema.Struct({
         localFileSystem: Schema.OptionFromOptionalKey(Schema.Literals(['plugin', 'request', 'fullAccess'])),
         network: Schema.OptionFromOptionalKey(Schema.Struct({ domains: Schema.NonEmptyArray(Schema.String) })),
