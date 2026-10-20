@@ -29,7 +29,7 @@ Remaining work on Creative Cloud libraries and products, for a fresh session.
 - Atelier publishes InDesign `inspect`, `change`, `create`, `remove`, `find_change`, and `render` as tools
 - Atelier publishes InDesign `menu`, `preflight`, `queries`, and `kinds` as resources
 - Every tool result ends with the application's status; `Unmatched` candidates render ranked and capped with the count of the rest
-- Each application has one script path, the route of the runtime row its dictionary declares: a dictionary command, or UXP through its linked panel with TypeScript stripped
+- Each application has one script path from its runtime row: a dictionary command, or UXP through its linked panel with TypeScript stripped
 - Mutation results hold preflight of each touched document: issue count and issues introduced against the per-mutation baseline
 - Effect's MCP server over HTTP delivers no notification between calls; only Claude Code channel events reach a model, Codex surfaces no push
 - Effect's own resource path renders the first error message alone and turns an interrupt into an error; tools render the full cause
@@ -50,8 +50,11 @@ Remaining work on Creative Cloud libraries and products, for a fresh session.
 - Resource completions select from each resource's own answer through `PublishedResource.complete(success)`; the Galley entry is one `Plugin.use`
 - The Galley panel shows no text; startup failures go to the UXP console; the link state is read through `adobe://applications`
 - `execute_script` answers one result shape naming the runtime on both paths; the panel redials after a defect on its socket
-- Swift projects rebuilt for monorepo integration and modern settings, packages adjudicated and landed, `Scripting.swift` rebuilt in passes
-- ast-grep rules cleaned (wrong fixes, nesting through closures, duplicates, notes under 150 columns), then new rules from the pattern file
+- Swift packages adjudicated in `docs/research/repository-platform/handoff/swift-track-handoff.md` landed at newest versions, hand-rolled code removed
+- `Scripting.swift` rebuilt in focused passes, then the broader `libs/swift/macos`, with a reviewer per pass
+- The helper's JSON-RPC stdio server moves to a Swift Effect RPC library beside `RasmMacOS`
+- New ast-grep rules from `docs/research/repository-platform/handoff/patterns.md` (101 sketches with matches and exclusions), one reviewer per unit
+- Memory lines that became checks leave the language floors once those rules land
 - Database depth pass over the existing concerns with its tests, then the portfolio guidance checked against it
 
 ## [03]-[DEPTH]
