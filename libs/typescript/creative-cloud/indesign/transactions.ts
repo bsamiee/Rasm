@@ -1,16 +1,12 @@
-import { Array, Cause, Context, Data, Deferred, Effect, PubSub, Record, Ref, Schema, Struct } from 'effect';
+import { Array, Cause, Context, Data, Deferred, Effect, Match, PubSub, Record, Ref, Schema, Struct } from 'effect';
 import { Model } from './model.ts';
 import { Preflight } from './preflight.ts';
 import { read } from './references.ts';
 
-// --- [TYPES] ---------------------------------------------------------------------------
-
-type Handoff = Data.TaggedEnum<{ Idle: Record.ReadonlyRecord<never, never>; Held: { readonly step: Effect.Effect<void> }; Entered: Record.ReadonlyRecord<never, never> }>;
-
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Handoff = Data.taggedEnum<Handoff>();
-const Phase = Schema.TaggedUnion({ Idle: {}, Entered: {} }).annotate({ description: 'What an enter call did: found no held step, or ran the step a mutation held' });
+const Phase = Schema.TaggedUnion({ Idle: {}, Entered: { label: Schema.String } }).annotate({ description: 'What an enter call did: found no held step, or ran the step a mutation held' });
+class Held extends Data.TaggedClass('Held')<{ readonly step: Effect.Effect<void>; readonly entered: typeof Phase.cases.Entered.Type }> {}
 abstract class Mutation extends Schema.Class<Mutation, { readonly brand: unique symbol }>('Mutation')({}) {
     static readonly summarized = <F extends Schema.Struct.Fields>(own: Schema.Struct<F>) => own.pipe(Schema.fieldsAssign({ preflight: Preflight.Summary }));
 
@@ -38,7 +34,7 @@ abstract class Mutation extends Schema.Class<Mutation, { readonly brand: unique 
 
 class Transactions extends Context.Service<Transactions>()('@rasm/indesign/transactions', {
     make: Effect.gen(function* () {
-        const [{ app, SaveOptions, ScriptLanguage, UndoModes }, state, changed] = yield* Effect.all([Model, Ref.make<Handoff>(Handoff.Idle()), PubSub.unbounded<typeof Preflight.Summary.value.Type>()]);
+        const [{ app, SaveOptions, ScriptLanguage, UndoModes }, state, changed] = yield* Effect.all([Model, Ref.make<typeof Phase.Type | Held>(Phase.cases.Idle.make({})), PubSub.unbounded<typeof Preflight.Summary.value.Type>()]);
         const steps = () => {
             const every = app.documents.everyItem();
             return Array.zipWith(every.id, every.undoHistory, (id, history) => [id, history.length] as const);
@@ -53,13 +49,11 @@ class Transactions extends Context.Service<Transactions>()('@rasm/indesign/trans
             changed,
             enter: Effect.uninterruptible(
                 Effect.flatten(
-                    Ref.modify<Handoff, Effect.Effect<typeof Phase.Type>>(
-                        state,
-                        Handoff.$match({
-                            Idle: () => [Effect.succeed(Phase.cases.Idle.make({})), Handoff.Idle()] as const,
-                            Held: ({ step }) => [Effect.as(step, Phase.cases.Entered.make({})), Handoff.Entered()] as const,
-                            Entered: () => [Effect.succeed(Phase.cases.Entered.make({})), Handoff.Entered()] as const,
-                        }),
+                    Ref.modify(state, (current) =>
+                        Match.value(current).pipe(
+                            Match.tag('Held', ({ step, entered }) => [Effect.as(step, entered), entered] as const),
+                            Match.orElse((phase) => [Effect.succeed(phase), phase] as const),
+                        ),
                     ),
                 ),
             ),
@@ -75,10 +69,10 @@ class Transactions extends Context.Service<Transactions>()('@rasm/indesign/trans
                     Effect.catch((error) => Deferred.fail(done, error)),
                     Effect.asVoid,
                 );
-                const value = yield* Ref.set(state, Handoff.Held({ step })).pipe(
+                const value = yield* Ref.set(state, new Held({ step, entered: Phase.cases.Entered.make({ label }) })).pipe(
                     Effect.andThen(Effect.try({ try: (): unknown => app.doScript('$.sleep(5)', ScriptLanguage.JAVASCRIPT), catch: refused }).pipe(Effect.repeat({ until: () => Deferred.isDone(done) }))),
                     Effect.andThen(Deferred.await(done)),
-                    Effect.ensuring(Ref.set(state, Handoff.Idle())),
+                    Effect.ensuring(Ref.set(state, Phase.cases.Idle.make({}))),
                     Effect.onError(() => close([...before.keys()])),
                 );
                 return { value, touched: steps().flatMap(([id, length]) => (before.get(id) === length ? [] : [app.documents.itemByID(id)])) };

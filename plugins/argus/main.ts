@@ -338,10 +338,7 @@ const initialize = Effect.fn('initialize')(function* () {
     }).pipe(Scope.provide(scope));
     const languages = new Map(servers.flatMap((entry) => Object.entries(entry[1].extensionToLanguage).map(([extension, languageId]) => [extension, { entry, languageId }] as const)));
     const serve = Effect.fn('serve')(function* (file: string) {
-        const language = languages.get(extname(file));
-        if (language === undefined) {
-            return yield* Unmatched.make({ subject: 'language server', query: Option.some(file), candidates: [...languages.keys()] });
-        }
+        const [, language] = yield* Unmatched.single('language server for extension', Option.some(extname(file)))([...languages], ([extension]) => [extension]);
         const server = yield* RcMap.get(running, language.entry);
         return { server, item: yield* server.open(pathToFileURL(resolve(root, file)).href, language.languageId) };
     });

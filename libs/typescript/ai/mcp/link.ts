@@ -8,12 +8,12 @@ import { type Route, rendered, targeted } from './server.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Published<A, Chosen> = PublishedTool<A> | PublishedResource<Chosen>;
+type Published<A, Chosen, Key extends string> = PublishedTool<A> | PublishedResource<Chosen, Key>;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 class PublishedTool<A> extends Data.TaggedClass('Tool')<{ readonly annotations: Context.Context<never>; readonly success?: Schema.Codec<A, unknown> }> {}
-class PublishedResource<Chosen> extends Data.TaggedClass('Resource')<{ readonly uri: string; readonly complete: Record.ReadonlyRecord<string, (chosen: Chosen) => Effect.Effect<readonly string[], Error>> }> {}
+class PublishedResource<Chosen, Key extends string> extends Data.TaggedClass('Resource')<{ readonly uri: string; readonly complete: { readonly [Field in Key]?: (chosen: Chosen) => Effect.Effect<readonly string[], Error> } }> {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -55,8 +55,8 @@ const listen = Effect.fn('listen')(function* <Rpcs extends Rpc.Any, Peer, I exte
                 Effect.provideService(Socket.Socket, socket),
                 Effect.provide(serialization),
             );
-            const clients = yield* Layer.build(middleware).pipe(Effect.provideService(RpcClient.Protocol, protocol));
-            const client = yield* RpcClient.make(group, { flatten: true }).pipe(Effect.provideContext(clients), Effect.provideService(RpcClient.Protocol, protocol));
+            const clients = yield* Layer.build(Layer.provideMerge(middleware, Layer.succeed(RpcClient.Protocol, protocol)));
+            const client = yield* RpcClient.make(group, { flatten: true }).pipe(Effect.provideContext(clients));
             yield* Deferred.succeed(made, new Linked({ peer: found, query, client }));
             yield* Effect.forkScoped(follow(client));
             return yield* Effect.as(ended.await, HttpServerResponse.empty());
@@ -77,7 +77,7 @@ const listen = Effect.fn('listen')(function* <Rpcs extends Rpc.Any, Peer, I exte
 });
 const publish = Effect.fnUntraced(function* <Rpcs extends Rpc.Any & { readonly payloadSchema: Schema.Codec<Rpc.Payload<Rpcs>, unknown> & { readonly fields: Schema.Struct.Fields }; readonly successSchema: Schema.Codec<Rpc.Success<Rpcs>, unknown> }, Chosen, Fields extends Schema.Struct.Fields, R>(
     group: RpcGroup.RpcGroup<Rpcs>,
-    published: { readonly [Tag in Rpcs['_tag']]?: Published<Rpc.Success<Rpc.ExtractTag<Rpcs, Tag>>, Chosen> },
+    published: { readonly [Tag in Rpcs['_tag']]?: Published<Rpc.Success<Rpc.ExtractTag<Rpcs, Tag>>, Chosen, keyof Rpc.ExtractTag<Rpcs, Tag>['payloadSchema']['fields'] & string> },
     {
         route,
         invoke,
@@ -88,34 +88,32 @@ const publish = Effect.fnUntraced(function* <Rpcs extends Rpc.Any & { readonly p
         readonly annotations: Context.Context<never>;
     },
 ) {
-    const [server, services, register] = [yield* McpServer.McpServer, yield* Effect.context<R | Schema.Struct<Fields>['DecodingServices']>(), targeted(route)];
+    const [server, services] = yield* Effect.all([McpServer.McpServer, Effect.context<R | Schema.Struct<Fields>['DecodingServices']>()]);
     const routed = Record.keys(route.fields);
-    const bare = (schema: Schema.Top) => Schema.is(Schema.toEncoded(schema))({});
-    const failed = Effect.catchCause((cause) => Effect.fail(McpSchema.InternalError.make({ message: rendered(cause) })));
     const answered = (completed: (input: string, context: typeof McpSchema.Complete.payloadSchema.Type.context) => Effect.Effect<readonly string[], Error, R | Schema.Struct<Fields>['DecodingServices']>) => (input: string, context: typeof McpSchema.Complete.payloadSchema.Type.context) =>
         completed(input, context).pipe(
             Effect.map((values) => McpSchema.CompleteResult.make({ completion: { values: [...values] } })),
-            failed,
+            rendered,
             Effect.provideContext(services),
         );
     const given = Schema.toCodecStringTree(Schema.Struct(route.fields));
     const decoded = (rpc: Rpcs) => (values: { readonly route: unknown; readonly payload: unknown }) => Schema.decodeUnknownEffect(Schema.Struct({ route: given, payload: Schema.toCodecStringTree(rpc.payloadSchema) }))(values, { errors: 'all' });
-    const called = (rpc: Rpcs) =>
-        Effect.fnUntraced(function* ({ route: chosen, payload }: { readonly route: Schema.Struct.Type<Fields>; readonly payload: Rpc.Payload<Rpcs> }) {
-            return yield* invoke(rpc)(payload, yield* route.resolve(chosen));
-        }, failed);
+    const called =
+        (rpc: Rpcs) =>
+        ({ route: chosen, payload }: { readonly route: Schema.Struct.Type<Fields>; readonly payload: Rpc.Payload<Rpcs> }) =>
+            rendered(Effect.flatMap(route.resolve(chosen), (found) => invoke(rpc)(payload, found)));
     const read = (rpc: Rpcs, form: readonly string[]) => (uri: string, values: readonly string[]) => {
         const named = Record.fromEntries(Array.zip(form, values));
         return decoded(rpc)({ route: named, payload: named }).pipe(
             Effect.mapError(({ message }) => McpSchema.InvalidParams.make({ message })),
             Effect.flatMap(called(rpc)),
-            Effect.flatMap(flow(Schema.encodeEffect(Schema.fromJsonString(Schema.toCodecJson(rpc.successSchema))), failed)),
+            Effect.flatMap(flow(Schema.encodeEffect(Schema.fromJsonString(Schema.toCodecJson(rpc.successSchema))), rendered)),
             Effect.map((text) => McpSchema.ReadResourceResult.make({ contents: [McpSchema.TextResourceContents.make({ uri, mimeType: 'application/json', text })] })),
             Effect.provideContext(services),
         );
     };
     const defined = (rpc: Rpcs) => ({ name: rpc._tag, description: SchemaAST.resolveDescription(rpc.payloadSchema.ast), mimeType: 'application/json' });
-    const registered = (rpc: Rpcs, uri: string, complete: Record.ReadonlyRecord<string, (chosen: Chosen) => Effect.Effect<readonly string[], Error>>) =>
+    const registered = (rpc: Rpcs, uri: string, complete: PublishedResource<Chosen, string>['complete']) =>
         Array.match({
             onEmpty: () => server.addResource({ resource: McpSchema.Resource.make({ ...defined(rpc), uri }), annotations, handle: Effect.catchTag(read(rpc, [])(uri, []), 'InvalidParams', Effect.die) }),
             onNonEmpty: (params: Array.NonEmptyReadonlyArray<string>) =>
@@ -125,26 +123,28 @@ const publish = Effect.fnUntraced(function* <Rpcs extends Rpc.Any & { readonly p
                     annotations,
                     completions: {
                         ...Record.getSomes(Record.map(route.completion, flow(Option.fromUndefinedOr, Option.map(answered)))),
-                        ...Record.map(
-                            Record.filter(complete, (_, key) => params.includes(key)),
-                            (select) => answered((_, context) => Schema.decodeEffect(given)(context?.arguments ?? {}, { errors: 'all' }).pipe(Effect.flatMap(route.resolve), Effect.flatMap(select))),
+                        ...Record.getSomes(
+                            Record.map(
+                                Record.filter(complete, (_, key) => params.includes(key)),
+                                flow(
+                                    Option.fromUndefinedOr,
+                                    Option.map((select) => answered((_, context) => Schema.decodeEffect(given)(context?.arguments ?? {}, { errors: 'all' }).pipe(Effect.flatMap(route.resolve), Effect.flatMap(select)))),
+                                ),
+                            ),
                         ),
                     },
                     handle: read(rpc, params),
                 }),
         });
-    const forms = (rpc: Rpcs) => {
-        const keys = Record.keys(rpc.payloadSchema.fields);
-        return [...(bare(rpc.payloadSchema) ? [...(bare(Schema.Struct(route.fields)) ? [[]] : []), ...(routed.length > 0 && keys.length > 0 ? [routed] : [])] : []), ...(routed.length + keys.length > 0 ? [[...routed, ...keys]] : [])];
-    };
+    const forms = (rpc: Rpcs) => Array.dedupe([[], routed, [...routed, ...Record.keys(rpc.payloadSchema.fields)]]).filter((form) => Schema.is(Schema.toEncoded(Schema.Struct(Struct.omit({ ...route.fields, ...rpc.payloadSchema.fields }, form))))({}));
     return yield* Effect.forEach(
         group.requests.values(),
         (rpc: Rpcs) =>
-            Option.match(Option.flatMap(Record.get<string, Published<Rpc.Success<Rpcs>, Chosen> | undefined>(published, rpc._tag), Option.fromUndefinedOr), {
+            Option.match(Option.flatMap(Record.get<string, Published<Rpc.Success<Rpcs>, Chosen, string> | undefined>(published, rpc._tag), Option.fromUndefinedOr), {
                 onNone: () => Effect.void,
                 onSome: (row) =>
                     Match.valueTags(row, {
-                        Tool: ({ annotations: own, success }) => register(Tool.make(rpc._tag, { description: defined(rpc).description, parameters: rpc.payloadSchema, success: success ?? rpc.successSchema }).annotateMerge(Context.merge(annotations, own)), invoke(rpc)),
+                        Tool: ({ annotations: own, success }) => targeted(route)(Tool.make(rpc._tag, { description: defined(rpc).description, parameters: rpc.payloadSchema, success: success ?? rpc.successSchema }).annotateMerge(Context.merge(annotations, own)), invoke(rpc)),
                         Resource: ({ uri, complete }) => Effect.forEach(forms(rpc), registered(rpc, uri, complete), { discard: true }),
                     }),
             }),

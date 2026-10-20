@@ -29,7 +29,10 @@ class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique s
             );
 
     override get message(): string {
-        return `No ${this.subject}${Option.match(this.query, { onNone: () => '', onSome: (query) => ` matching ${query}` })}${this.candidates.length === 0 ? '' : `, candidates: ${this.candidates.join(', ')}`}`;
+        const suggestions = 100;
+        const [ordered, matching] = Option.match(this.query, { onNone: () => [this.candidates, ''] as const, onSome: (query) => [ranked(query, this.candidates), ` matching ${query}`] as const });
+        const shown = Array.take(ordered, suggestions);
+        return `No ${this.subject}${matching}${shown.length === 0 ? '' : `, candidates: ${shown.join(', ')}`}${shown.length === this.candidates.length ? '' : `, and ${this.candidates.length - shown.length} more`}`;
     }
 }
 

@@ -1,5 +1,5 @@
-import { ranked, Unmatched } from '@rasm/search';
-import { Array, Cause, Context, Deferred, Duration, Effect, Exit, Filter, Formatter, Function, Layer, Metric, Option, Predicate, pipe, Record, Ref, Schema, SchemaGetter, Stream, SubscriptionRef } from 'effect';
+import { ranked } from '@rasm/search';
+import { Array, Cause, Context, Deferred, Duration, Effect, Exit, Formatter, Function, Layer, Metric, Option, Predicate, pipe, Record, Ref, Schema, SchemaGetter, Stream, SubscriptionRef } from 'effect';
 import { McpSchema, McpServer, Tool, Toolkit } from 'effect/ai';
 import { Headers, HttpTraceContext } from 'effect/http';
 
@@ -8,7 +8,7 @@ import { Headers, HttpTraceContext } from 'effect/http';
 interface Route<Chosen, Fields extends Schema.Struct.Fields, R> {
     readonly fields: Fields;
     readonly resolve: (given: Schema.Struct.Type<Fields>) => Effect.Effect<Chosen, Error, R>;
-    readonly trailer: (chosen: Chosen, value: unknown) => Effect.Effect<Option.Option<McpSchema.ContentBlock>, Error, R>;
+    readonly trailer: (chosen: Chosen) => Effect.Effect<McpSchema.ContentBlock, Error, R>;
     readonly annotations: Context.Context<never>;
     readonly completion: { readonly [Key in keyof Fields]?: (input: string, context: typeof McpSchema.Complete.payloadSchema.Type.context) => Effect.Effect<readonly string[], Error, R> };
 }
@@ -50,12 +50,17 @@ const Blocks = Context.Reference<(block: McpSchema.ContentBlock) => Effect.Effec
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const rendered = (cause: Cause.Cause<unknown>) => {
-    const suggestions = 100;
-    return Cause.prettyErrors(Cause.map(cause, (error) => (Schema.is(Unmatched)(error) ? Unmatched.make({ subject: error.subject, query: error.query, candidates: Option.match(error.query, { onNone: () => error.candidates, onSome: (wanted) => ranked(wanted, error.candidates) }).slice(0, suggestions) }) : error)))
-        .map((error) => Formatter.format(error))
-        .join('\n');
-};
+const rendered = Effect.catchCause((cause: Cause.Cause<unknown>) =>
+    Cause.hasInterruptsOnly(cause)
+        ? Effect.interrupt
+        : Effect.fail(
+              McpSchema.InternalError.make({
+                  message: Cause.prettyErrors(cause)
+                      .map((error) => Formatter.format(error))
+                      .join('\n'),
+              }),
+          ),
+);
 const observed =
     (method: string, name: string, attributes: Readonly<Record<string, string>>) =>
     <A, E, R>(self: Effect.Effect<A, E, R>) =>
@@ -74,13 +79,7 @@ const observed =
         );
 const register = Effect.fnUntraced(function* <P extends Schema.Top, S extends Schema.Top, R>(tool: Tool.Tool<string, { readonly parameters: P; readonly success: S; readonly failure: Schema.Top; readonly failureMode: Tool.FailureMode }>, handle: (parameters: P['Type']) => Effect.Effect<S['Type'], Error, R>) {
     const context = yield* Effect.context<R>();
-    const called = (given: P['Type']) =>
-        Effect.provide(handle(given), context).pipe(
-            Effect.catchCauseFilter(
-                Filter.fromPredicate((cause) => !Cause.hasInterruptsOnly(cause)),
-                (cause) => Effect.fail(new Cause.UnknownError(cause, rendered(cause))),
-            ),
-        );
+    const called = (given: P['Type']) => rendered(Effect.provide(handle(given), context));
     const [parameters, success]: readonly [Schema.Codec<Effect.Effect<unknown, Error>, unknown, P['DecodingServices'], P['EncodingServices']>, Schema.Codec<unknown, unknown, S['DecodingServices'], S['EncodingServices']>] = [
         Schema.toCodecJson(tool.parametersSchema).pipe(Schema.decodeTo(Schema.Any, { decode: SchemaGetter.transform(called), encode: SchemaGetter.forbidden(() => 'calls decode only') })),
         Schema.toCodecJson(tool.successSchema),
@@ -100,13 +99,29 @@ const targeted =
             Effect.fnUntraced(function* (given) {
                 const [parameters, routed] = yield* Schema.decodeEffect(parts)([given, given], { errors: 'all' });
                 const chosen = yield* route.resolve(routed);
-                const value = yield* handle(parameters, chosen);
-                const [block, add] = yield* Effect.all([route.trailer(chosen, value), Blocks]);
-                yield* Option.match(block, { onNone: () => Effect.void, onSome: add });
-                return value;
+                return yield* Effect.onExitIf(
+                    handle(parameters, chosen),
+                    (exit) => !(Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause)),
+                    () =>
+                        Effect.flatMap(
+                            Effect.all([
+                                route.trailer(chosen).pipe(
+                                    rendered,
+                                    Effect.catch(({ message }) => Effect.succeed(McpSchema.TextContent.make({ text: message }))),
+                                ),
+                                Blocks,
+                            ]),
+                            ([block, add]) => add(block),
+                        ),
+                );
             }),
         );
     };
+const resource = <E, R>(options: Parameters<typeof McpServer.registerResource<E, R>>[0]) => McpServer.registerResource({ ...options, content: rendered(options.content) });
+const resourceTemplate =
+    <const Schemas extends readonly Schema.Constraint[]>(segments: TemplateStringsArray, ...schemas: Schemas): ReturnType<typeof McpServer.registerResource<Schemas>> =>
+    (options) =>
+        McpServer.registerResource<Schemas>(segments, ...schemas)({ ...options, content: (uri, ...params) => rendered(options.content(uri, ...params)) });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -118,7 +133,7 @@ const layer = (scheme: string) =>
             const uri = `${scheme}://executions`;
             const encode = Schema.encodeEffect(Schema.fromJsonString(Schema.toCodecJson(Schema.Array(Row))));
             const executions = yield* Effect.cached(
-                McpServer.registerResource({
+                resource({
                     uri,
                     name: 'executions',
                     description: 'Calls that change state, cancelled before their response, each with its arguments and completed outcome, including failures and requested input. A call left unanswered can have run, so read its outcome here before repeating it. Reads drop a completed call after listing it',
@@ -187,4 +202,4 @@ const layer = (scheme: string) =>
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Attachment, Image, Instructions, layer, Progress, READING, type Route, register, rendered, targeted };
+export { Attachment, Image, Instructions, layer, Progress, READING, type Route, register, rendered, resource, resourceTemplate, targeted };

@@ -7,7 +7,7 @@ import { Invoke } from '@rasm/indesign/session';
 import { Phase } from '@rasm/indesign/transactions';
 import { listen, PublishedResource, PublishedTool, publish } from '@rasm/mcp/link';
 import { main } from '@rasm/mcp/main';
-import { Attachment, Image, Instructions, Progress, READING, targeted } from '@rasm/mcp/server';
+import { Attachment, Image, Instructions, Progress, READING, resource, resourceTemplate, targeted } from '@rasm/mcp/server';
 import { Unmatched } from '@rasm/search';
 import { Face, Instance, Run, Shaped } from '@rasm/typography/main';
 import type { Source } from '@rasm/typography/source';
@@ -37,7 +37,7 @@ main(
                     Effect.flatMap(Progress, (report) =>
                         Option.match(phase, {
                             onNone: () => report(`${peer}: awaiting an answer; an open menu, dialog, or drag, or long work, holds the call until released`),
-                            onSome: Phase.match({ Idle: () => Effect.void, Entered: () => report(`${peer}: running the call`) }),
+                            onSome: Phase.match({ Idle: () => Effect.void, Entered: ({ label }) => report(`${peer}: ${label}`) }),
                         }),
                     ),
                 ),
@@ -54,23 +54,16 @@ main(
                     Option.match(given, {
                         onSome: Installation.located,
                         onNone: () =>
-                            Effect.map(
-                                Effect.flatMap(listed, (rows) =>
-                                    Unmatched.single('application with a linked extension', Option.none())(
-                                        rows.filter(({ installation, extension }) => Option.isSome(installation.running) && Option.isSome(extension)),
-                                        ({ installation }) => [installation.url.href],
-                                    ),
-                                ),
-                                Struct.get('installation'),
+                            panel.peers.pipe(
+                                Effect.flatMap((peers) => Unmatched.single('application with a linked extension', Option.none())(peers, ({ application: linked }) => [linked.href])),
+                                Effect.flatMap(({ application: linked }) => Installation.located(linked.href)),
                             ),
                     }),
-                trailer: (found: Installation, value: unknown) =>
-                    Schema.is(Status)(value)
-                        ? Effect.succeedNone
-                        : found.status().pipe(
-                              Effect.flatMap(json(Status)),
-                              Effect.map((text) => Option.some(McpSchema.TextContent.make({ text }))),
-                          ),
+                trailer: (found: Installation) =>
+                    found.status().pipe(
+                        Effect.flatMap(json(Status)),
+                        Effect.map((text) => McpSchema.TextContent.make({ text })),
+                    ),
                 annotations: Context.make(Tool.OpenWorld, false),
                 completion: {
                     application: () =>
@@ -81,7 +74,7 @@ main(
                 },
             };
             const register = targeted(route);
-            yield* McpServer.registerResource({
+            yield* resource({
                 uri: 'adobe://applications',
                 name: 'applications',
                 description: 'Installed Adobe applications with their running state, channel, version, scriptability, and linked extension; each url is the application other tools take',
@@ -96,11 +89,11 @@ main(
                 mimeType: 'application/xml',
                 completion: { application: () => Effect.map(Installation.installed, (rows) => rows.filter(Struct.get('scriptable')).map(Struct.get('url'))) },
             };
-            yield* McpServer.registerResource`adobe://dictionary/${installed}`({
+            yield* resourceTemplate`adobe://dictionary/${installed}`({
                 ...definition,
                 content: (_, url) => Effect.flatMap(Installation.located(url.href), (found) => found.definition(Option.none())),
             });
-            yield* McpServer.registerResource`adobe://dictionary/${installed}/${McpSchema.param('kind', Kind)}/${McpSchema.param('name', Schema.String)}`({
+            yield* resourceTemplate`adobe://dictionary/${installed}/${McpSchema.param('kind', Kind)}/${McpSchema.param('name', Schema.String)}`({
                 ...definition,
                 name: 'dictionary_term',
                 description: 'Suite declaration index or complete native definition by kind and name, including every matching overload; completion supplies installed names',
@@ -131,7 +124,7 @@ main(
                 ({ window: id }, chosen) => chosen.screenshot(id),
             );
             const faces = { uri: 'atelier://faces', name: 'faces', description: 'Installed faces CoreText finds, each with the file holding it', mimeType: 'application/json' };
-            yield* McpServer.registerResource({ ...faces, content: Effect.flatMap(InstalledFace.all, json(Schema.Array(InstalledFace))) });
+            yield* resource({ ...faces, content: Effect.flatMap(InstalledFace.all, json(Schema.Array(InstalledFace))) });
             const specimen = Schema.Struct({ face: Face, shaped: Shaped });
             yield* register(
                 Tool.make('font', {
