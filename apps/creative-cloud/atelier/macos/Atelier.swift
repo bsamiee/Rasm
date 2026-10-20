@@ -21,7 +21,7 @@ struct Release: Encodable {
     }
 
     static func all() -> Result<[Self], AggregateError<Failure>> {
-        NSWorkspace.shared.installedApplications(matching: [.identifierPrefix(identifierPrefix)], in: FileManager.default.urls(for: .applicationDirectory, in: .allDomainsMask))
+        NSWorkspace.shared.installedApplications(matching: .identifierPrefix(identifierPrefix), in: FileManager.default.urls(for: .applicationDirectory, in: .allDomainsMask))
             .map { installations in installations.map(Self.init) }
             .aggregated(Failure.discovery)
     }
@@ -43,6 +43,23 @@ extension Release {
     }
 }
 
+struct Entry: Encodable {
+    let name: String
+    let code: String
+}
+
+extension Entry {
+    init(_ term: Term) {
+        name = term.name
+        code = term.code.sdef
+    }
+
+    init(_ command: Command) {
+        name = command.name
+        code = command.code
+    }
+}
+
 struct Executed: Encodable {
     struct Artifact: Encodable {
         let uri: URL
@@ -55,10 +72,10 @@ struct Executed: Encodable {
         case tag = "_tag"
     }
 
-    let reply: Native
+    let reply: AppleEventValue
     let artifacts: [Result<Artifact, Failure>]
 
-    init(reply: Native, reading files: [URL]) {
+    init(reply: AppleEventValue, reading files: [URL]) {
         self.reply = reply
         artifacts = files.map { file in
             Result { try Artifact(uri: file, mimeType: file.resourceValues(forKeys: [.contentTypeKey]).contentType?.preferredMIMEType, data: Data(contentsOf: file)) }.mapError { error in
@@ -85,9 +102,27 @@ struct Executed: Encodable {
     }
 }
 
-enum Reply {
+struct JSONError: Encodable {
+    private enum Key: CodingKey { case name, message, cause }
+
+    let error: any Error
+
+    func encode(to encoder: any Encoder) throws {
+        let mirror: Mirror = Mirror(reflecting: error)
+        let (name, message): (String, String) =
+            mirror.displayStyle == .enum
+            ? (mirror.children.first?.label ?? String(describing: error), (error as? any LocalizedError)?.errorDescription ?? String(describing: error))
+            : ((error as NSError).domain, error.localizedDescription)
+        var fields: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
+        try fields.encode(name, forKey: .name)
+        try fields.encode(message, forKey: .message)
+        try fields.encodeIfPresent((error as NSError).underlyingErrors.first.map { cause in Self(error: cause) }, forKey: .cause)
+    }
+}
+
+enum Response {
     case value(any Encodable)
-    case stream(AsyncStream<Result<ApplicationStatus, ElementFailure>>)
+    case stream(any AsyncSequence<Result<ApplicationStatus, AggregateError<Failure>>, Never>)
 }
 
 enum Request: Decodable {
@@ -114,7 +149,7 @@ enum Request: Decodable {
     struct Execute: Decodable {
         let application: URL
         let command: String
-        let arguments: [String: Native]
+        let arguments: [String: AppleEventValue]
         let artifacts: [URL]
     }
 
@@ -160,9 +195,9 @@ enum Request: Decodable {
             }
     }
 
-    func perform(definitions: ScriptingDefinitions) async -> Result<Reply, AggregateError<Failure>> {
+    func perform(definitions: ScriptingDefinitions) async -> Result<Response, AggregateError<Failure>> {
         let deadline: Duration = .seconds(60)
-        func refused(_ error: ElementFailure) -> AggregateError<Failure> {
+        @Sendable func refused(_ error: ElementFailure) -> AggregateError<Failure> {
             if case .untrusted = error { Accessibility.prompt() }
             return AggregateError(first: .element(error))
         }
@@ -171,131 +206,153 @@ enum Request: Decodable {
         }
         return switch self {
             case .installations:
-                Release.all().map(Reply.value)
+                Release.all().map(Response.value)
             case .launch(let target):
                 await Release.at(target.application).bind { release in
-                    await release.installation.launched(within: deadline).map { launched in Reply.value(Release(installation: launched.installation, channel: release.channel)) }.aggregated(
+                    await release.installation.launched(within: deadline).map { launched in Response.value(Release(installation: launched.installation, channel: release.channel)) }.aggregated(
                         Failure.launch
                     )
                 }
             case .status(let target):
-                running(target.application).flatMap { instance in instance.status().mapError(refused) }.map(Reply.value)
+                running(target.application).flatMap { instance in instance.status().mapError(refused) }.map(Response.value)
             case .watch(let target):
-                running(target.application).map { instance in Reply.stream(instance.statusChanges()) }
+                running(target.application).map { instance in Response.stream(StatusChanges(instance).map { next in next.mapError(refused) }) }
             case .press(let press):
-                running(press.application).flatMap { instance in instance.perform(press.action, on: press.element).flatMap { instance.status() }.mapError(refused) }.map(Reply.value)
+                running(press.application).flatMap { instance in instance.perform(press.action, on: press.element).flatMap { instance.status() }.mapError(refused) }.map(Response.value)
             case .definition(let definition):
                 await Release.at(definition.application)
-                    .bind { release in await definitions.text(of: release.installation, selecting: definition.selection, within: deadline).aggregated(Failure.definition) }
-                    .map(Reply.value)
+                    .bind { release in await definitions.dictionary(of: release.installation, within: deadline).aggregated(Failure.definition) }
+                    .flatMap { dictionary in dictionary.text(selecting: definition.selection).aggregated(Failure.definition) }
+                    .map(Response.value)
             case .terms(let terms):
                 await Release.at(terms.application)
                     .bind { release in await definitions.dictionary(of: release.installation, within: deadline).aggregated(Failure.definition) }
-                    .map { dictionary in Reply.value(dictionary.terms(terms.kind)) }
+                    .map { dictionary in
+                        switch terms.kind {
+                            case .command: dictionary.commands.map(Entry.init)
+                            case .suite: dictionary.suites.map(Entry.init)
+                            case .class: dictionary.classes.map(Entry.init)
+                            case .recordType: dictionary.recordTypes.map(Entry.init)
+                            case .valueType: dictionary.valueTypes.map(Entry.init)
+                            case .enumeration: dictionary.enumerations.map(Entry.init)
+                        }
+                    }
+                    .map(Response.value)
             case .execute(let call):
                 await Release.at(call.application)
                     .bind { release in await release.installation.launched(within: deadline).aggregated(Failure.launch) }
-                    .bind { launched in await definitions.dictionary(of: launched.installation, within: deadline).aggregated(Failure.definition).map { dictionary in (launched.instance, dictionary) } }
+                    .bind { launched in
+                        await definitions.dictionary(of: launched.installation, within: deadline).aggregated(Failure.definition).map { dictionary in (launched.instance, dictionary) }
+                    }
                     .flatMap { instance, dictionary in
                         dictionary.event(call.command, arguments: call.arguments, target: NSAppleEventDescriptor(processIdentifier: instance.processIdentifier))
                             .mapError { errors in errors.map(Failure.dictionary) }
                             .flatMap { event in event.sent().aggregated(Failure.event) }
-                            .map { reply in Reply.value(Executed(reply: Native(reply, in: dictionary), reading: call.artifacts)) }
+                            .map { reply in Response.value(Executed(reply: AppleEventValue(reply, in: dictionary), reading: call.artifacts)) }
                     }
             case .screenshot(let capture):
                 await Release.at(capture.application)
                     .bind { release in await NSWorkspace.shared.activateApplication(at: release.installation.url, within: deadline).aggregated(Failure.activation) }
                     .bind { instance in await instance.screenshot(ScreenshotOptions(target: .window(capture.window))).aggregated(Failure.screenshot) }
-                    .map(Reply.value)
+                    .map(Response.value)
             case .faces:
                 .success(.value(InstalledFace.installed()))
             case .face(let named):
-                InstalledFace.named(named.name).map { face in .success(.value(face)) }
-                    ?? .failure(AggregateError(first: .unmatchedFace(named.name, InstalledFace.installed().map(\.postscriptName))))
+                Result { () throws(AggregateError<Failure>) in
+                    guard let face: InstalledFace = InstalledFace.named(named.name) else {
+                        throw AggregateError(first: .unmatchedFace(named.name, InstalledFace.installed().map(\.postscriptName)))
+                    }
+                    return .value(face)
+                }
         }
     }
 }
 
-enum Message: Decodable {
-    case call(id: Int, request: Result<Request, Answer.Fault>)
-    case interrupt(id: Int)
-    case ping
-    case other
+enum FromClient: Decodable {
+    private enum Control: String {
+        case ping = "@effect/rpc/Ping"
+        case interrupt = "@effect/rpc/Interrupt"
+        case ack = "@effect/rpc/Ack"
+        case eof = "@effect/rpc/Eof"
+    }
 
     private enum Key: CodingKey { case id, method, params, requestId }
+
+    case request(id: Int, Result<Request, any Error>)
+    case interrupt(requestId: Int)
+    case ping
+    case ack
+    case eof
 
     init(from decoder: any Decoder) throws {
         let container: KeyedDecodingContainer<Key> = try decoder.container(keyedBy: Key.self)
         self =
-            switch (try container.decodeIfPresent(Int.self, forKey: .id), try container.decode(String.self, forKey: .method)) {
-                case (.some(let id), _): .call(id: id, request: Result { try Request(from: decoder) }.mapError(Answer.Fault.invalid))
-                case (.none, "@effect/rpc/Interrupt"): try .interrupt(id: container.nestedContainer(keyedBy: Key.self, forKey: .params).decode(Int.self, forKey: .requestId))
-                case (.none, "@effect/rpc/Ping"): .ping
-                case (.none, _): .other
+            switch Control(rawValue: try container.decode(String.self, forKey: .method)) {
+                case .ping: .ping
+                case .interrupt: try .interrupt(requestId: container.nestedContainer(keyedBy: Key.self, forKey: .params).decode(Int.self, forKey: .requestId))
+                case .ack: .ack
+                case .eof: .eof
+                case .none: try .request(id: container.decode(Int.self, forKey: .id), Result { try Request(from: decoder) })
             }
     }
 }
 
-enum Answer: Encodable {
-    enum Fault: Error {
-        case invalid(any Error)
-        case refused(AggregateError<Failure>)
-        case unencodable(any Error)
-    }
+enum FromServer: Encodable {
+    enum Reason: Encodable {
+        private enum Key: String, CodingKey {
+            case error, defect
+            case tag = "_tag"
+        }
 
-    enum Outcome: Encodable {
-        case result(any Encodable)
-        case chunk(any Encodable)
-        case end
-        case fault(Fault)
+        case fail(Failure)
+        case die(any Error)
 
         func encode(to encoder: any Encoder) throws {
             var container: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
             switch self {
-                case .result(let value):
-                    try container.encode(value, forKey: .result)
-                case .chunk(let value):
-                    try container.encode(true, forKey: .chunk)
-                    var values: any UnkeyedEncodingContainer = container.nestedUnkeyedContainer(forKey: .result)
-                    try values.encode(value)
-                case .end:
-                    break
-                case .fault(let fault):
-                    let (code, tag, field, failures): (Int, String, Key, AggregateError<Failure>) =
-                        switch fault {
-                            case .invalid(let cause): (-32_600, "Die", .defect, AggregateError(first: .malformed(cause)))
-                            case .refused(let failures): (0, "Fail", .error, failures)
-                            case .unencodable(let cause): (-32_603, "Die", .defect, AggregateError(first: .unencodable(cause)))
-                        }
-                    var error: KeyedEncodingContainer<Key> = container.nestedContainer(keyedBy: Key.self, forKey: .error)
-                    try error.encode("Cause", forKey: .tag)
-                    try error.encode(code, forKey: .code)
-                    try error.encode(failures.first.localizedDescription, forKey: .message)
-                    var reasons: any UnkeyedEncodingContainer = error.nestedUnkeyedContainer(forKey: .data)
-                    for failure: Failure in failures.errors {
-                        var reason: KeyedEncodingContainer<Key> = reasons.nestedContainer(keyedBy: Key.self)
-                        try reason.encode(tag, forKey: .tag)
-                        try reason.encode(failure, forKey: field)
-                    }
+                case .fail(let failure):
+                    try container.encode("Fail", forKey: .tag)
+                    try container.encode(failure, forKey: .error)
+                case .die(let error):
+                    try container.encode("Die", forKey: .tag)
+                    try container.encode(JSONError(error: error), forKey: .defect)
             }
         }
     }
 
     private enum Key: String, CodingKey {
-        case jsonrpc, id, method, result, chunk, error, code, message, data, defect
+        case jsonrpc, id, method, result, chunk, error, code, message, data
         case tag = "_tag"
     }
 
-    case reply(id: Int, outcome: Outcome)
+    case exit(requestId: Int, Result<any Encodable?, AggregateError<Reason>>)
+    case chunk(requestId: Int, any Encodable)
     case pong
 
     func encode(to encoder: any Encoder) throws {
         var container: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
         try container.encode("2.0", forKey: .jsonrpc)
         switch self {
-            case .reply(let id, let outcome):
+            case .exit(let id, .success(let value)):
                 try container.encode(id, forKey: .id)
-                try outcome.encode(to: encoder)
+                if let value { try container.encode(value, forKey: .result) }
+            case .exit(let id, .failure(let cause)):
+                let message: String =
+                    switch cause.first {
+                        case .fail(let failure): failure.localizedDescription
+                        case .die(let error): String(describing: error)
+                    }
+                try container.encode(id, forKey: .id)
+                var error: KeyedEncodingContainer<Key> = container.nestedContainer(keyedBy: Key.self, forKey: .error)
+                try error.encode("Cause", forKey: .tag)
+                try error.encode(0, forKey: .code)
+                try error.encode(message, forKey: .message)
+                try error.encode(cause.errors, forKey: .data)
+            case .chunk(let id, let value):
+                try container.encode(id, forKey: .id)
+                try container.encode(true, forKey: .chunk)
+                var values: any UnkeyedEncodingContainer = container.nestedUnkeyedContainer(forKey: .result)
+                try values.encode(value)
             case .pong:
                 try container.encode("@effect/rpc/Pong", forKey: .method)
         }
@@ -305,7 +362,7 @@ enum Answer: Encodable {
         Result { try JSONEncoder().encode(self) }
             .flatMapError { error in
                 switch self {
-                    case .reply(let id, _): Result { try JSONEncoder().encode(Self.reply(id: id, outcome: .fault(.unencodable(error)))) }
+                    case .exit(let id, _), .chunk(let id, _): Result { try JSONEncoder().encode(Self.exit(requestId: id, .failure(AggregateError(first: .die(error))))) }
                     case .pong: .failure(error)
                 }
             }
@@ -315,7 +372,7 @@ enum Answer: Encodable {
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-enum Failure: LocalizedError, Encodable {
+enum Failure: CustomNSError, LocalizedError, Encodable {
     case notAdobe(URL)
     case discovery(DiscoveryFailure)
     case launch(LaunchFailure)
@@ -327,11 +384,9 @@ enum Failure: LocalizedError, Encodable {
     case event(AppleEventFailure)
     case unreadable(URL, any Error)
     case unmatchedFace(String, [String])
-    case malformed(any Error)
-    case unencodable(any Error)
 
     private enum Key: String, CodingKey {
-        case name, message, subject, query, candidates
+        case subject, query, candidates
         case tag = "_tag"
     }
 
@@ -343,53 +398,50 @@ enum Failure: LocalizedError, Encodable {
                 error.localizedDescription
             case .unreadable(let file, let error): "\(file.path(percentEncoded: false)) could not be read: \(error.localizedDescription)"
             case .unmatchedFace(let name, _): "CoreText matches no installed face named \(name)"
-            case .malformed(let cause), .unencodable(let cause): String(describing: cause)
         }
     }
 
-    var name: String {
-        let innermost: Any = sequence(first: self as Any) { value in
-            Mirror(reflecting: value).children.first.map(\.value).flatMap { payload in payload is any LocalizedError && Mirror(reflecting: payload).displayStyle == .enum ? payload : nil }
-        }
-        .reduce(self as Any) { _, value in value }
-        return Mirror(reflecting: innermost).children.first?.label ?? String(describing: innermost)
+    var errorUserInfo: [String: Any] {
+        if case .unreadable(_, let error) = self { [NSUnderlyingErrorKey: error] } else { [:] }
     }
 
     func encode(to encoder: any Encoder) throws {
-        var container: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
         switch self {
             case .unmatchedFace(let query, let candidates):
+                var container: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
                 try container.encode("Unmatched", forKey: .tag)
                 try container.encode("installed face", forKey: .subject)
                 try container.encode(query, forKey: .query)
                 try container.encode(candidates, forKey: .candidates)
-            case .notAdobe, .discovery, .launch, .activation, .element, .screenshot, .definition, .dictionary, .event, .unreadable, .malformed, .unencodable:
-                try container.encode(name, forKey: .name)
-                try container.encode(localizedDescription, forKey: .message)
+            case .discovery(let error as any Error), .launch(let error as any Error), .activation(let error as any Error), .element(let error as any Error), .screenshot(let error as any Error),
+                .definition(let error as any Error), .dictionary(let error as any Error), .event(let error as any Error):
+                try JSONError(error: error).encode(to: encoder)
+            case .notAdobe, .unreadable:
+                try JSONError(error: self).encode(to: encoder)
         }
     }
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-actor Streams {
+actor Calls {
     private var running: [Int: Task<Void, Never>] = [:]
-    private var accepting: Bool = true
 
-    func start(_ id: Int, _ work: @escaping @Sendable () async -> Void) -> Task<Void, Never> {
-        let task: Task<Void, Never> = Task { await work() }
-        if accepting { running[id] = task } else { task.cancel() }
-        return task
+    func start(_ id: Int, _ call: @escaping @concurrent @Sendable () async -> Void) {
+        running[id] = Task {
+            await call()
+            running[id] = nil
+        }
     }
 
-    func end(_ id: Int) {
+    func interrupt(_ id: Int) {
         running.removeValue(forKey: id)?.cancel()
     }
 
-    func endAll() {
-        accepting = false
-        for task: Task<Void, Never> in running.values { task.cancel() }
-        running.removeAll()
+    func interruptAll() async {
+        let tasks: [Task<Void, Never>] = Array(running.values)
+        for task: Task<Void, Never> in tasks { task.cancel() }
+        for task: Task<Void, Never> in tasks { await task.value }
     }
 }
 
@@ -399,13 +451,29 @@ actor Streams {
 enum Atelier {
     static func main() async {
         let logger: Logger? = Logger(category: "Atelier")
-        let (replies, sink): (AsyncStream<Data>, AsyncStream<Data>.Continuation) = AsyncStream.makeStream()
-        let streams: Streams = Streams()
+        let (lines, sink): (AsyncStream<Data>, AsyncStream<Data>.Continuation) = AsyncStream.makeStream()
+        let calls: Calls = Calls()
         let definitions: ScriptingDefinitions = ScriptingDefinitions()
-        let emit: @Sendable (Answer) -> Void = { answer in
-            switch answer.line() {
+        let send: @Sendable (FromServer) -> Void = { message in
+            switch message.line() {
                 case .success(let data): sink.yield(data)
                 case .failure(let error): logger?.debug("Dropped a reply no line can carry: \(String(describing: error), privacy: .public)")
+            }
+        }
+        @concurrent @Sendable func answer(_ id: Int, _ request: Result<Request, any Error>) async {
+            switch await request.aggregated(FromServer.Reason.die).bind({ request in await request.perform(definitions: definitions).mapError { failures in failures.map(FromServer.Reason.fail) } }) {
+                case .success(.value(let value)): send(.exit(requestId: id, .success(value)))
+                case .success(.stream(let statuses)):
+                    for await next: Result<ApplicationStatus, AggregateError<Failure>> in statuses {
+                        switch next {
+                            case .success(let status): send(.chunk(requestId: id, status))
+                            case .failure(let failures):
+                                send(.exit(requestId: id, .failure(failures.map(FromServer.Reason.fail))))
+                                return
+                        }
+                    }
+                    send(.exit(requestId: id, .success(nil)))
+                case .failure(let cause): send(.exit(requestId: id, .failure(cause)))
             }
         }
         do {
@@ -413,39 +481,18 @@ enum Atelier {
             try Accessibility.messagingTimeout(1).get()
             try await withThrowingDiscardingTaskGroup { group in
                 group.addTask {
-                    for await reply: Data in replies { try FileHandle.standardOutput.write(contentsOf: reply) }
+                    for await line: Data in lines { try FileHandle.standardOutput.write(contentsOf: line) }
                 }
-                try await withThrowingDiscardingTaskGroup { requests in
-                    for try await line: String in FileHandle.standardInput.bytes.lines {
-                        requests.addTask(executorPreference: DispatchQueue.global()) {
-                            switch Result(catching: { try JSONDecoder().decode(Message.self, from: Data(line.utf8)) }) {
-                                case .success(.call(let id, let request)):
-                                    switch await request.bind({ request in await request.perform(definitions: definitions).mapError(Answer.Fault.refused) }) {
-                                        case .success(.value(let value)): emit(.reply(id: id, outcome: .result(value)))
-                                        case .success(.stream(let statuses)):
-                                            await streams.start(id) {
-                                                var outcome: Answer.Outcome = .end
-                                                for await next: Result<ApplicationStatus, ElementFailure> in statuses {
-                                                    switch next {
-                                                        case .success(let status): emit(.reply(id: id, outcome: .chunk(status)))
-                                                        case .failure(let error): outcome = .fault(.refused(AggregateError(first: .element(error))))
-                                                    }
-                                                }
-                                                emit(.reply(id: id, outcome: outcome))
-                                                await streams.end(id)
-                                            }
-                                            .value
-                                        case .failure(let fault): emit(.reply(id: id, outcome: .fault(fault)))
-                                    }
-                                case .success(.interrupt(let id)): await streams.end(id)
-                                case .success(.ping): emit(.pong)
-                                case .success(.other): break
-                                case .failure(let error): logger?.debug("Dropped a line no reply can match: \(String(describing: error), privacy: .public)")
-                            }
-                        }
+                for try await line: String in FileHandle.standardInput.bytes.lines {
+                    switch Result(catching: { try JSONDecoder().decode(FromClient.self, from: Data(line.utf8)) }) {
+                        case .success(.request(let id, let request)): await calls.start(id) { await answer(id, request) }
+                        case .success(.interrupt(let id)): await calls.interrupt(id)
+                        case .success(.ping): send(.pong)
+                        case .success(.ack), .success(.eof): break
+                        case .failure(let error): logger?.debug("Dropped a line no reply can match: \(String(describing: error), privacy: .public)")
                     }
-                    await streams.endAll()
                 }
+                await calls.interruptAll()
                 sink.finish()
             }
         } catch {

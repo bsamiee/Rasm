@@ -32,8 +32,8 @@ public func contentDigest(_ file: URL) throws -> SHA256Digest? {
 }
 
 public enum FileWatch {
-    public static func events(of file: URL) -> AsyncThrowingStream<Void, any Error> {
-        AsyncThrowingStream { continuation in
+    public static func events(of file: URL) -> AsyncStream<Result<Void, FileWatchFailure>> {
+        AsyncStream { continuation in
             let watcher: Watcher = Watcher(continuation: continuation)
             watcher.enqueue { watcher in watcher.start(file) }
             continuation.onTermination = { _ in watcher.enqueue { watcher in watcher.stop() } }
@@ -42,11 +42,11 @@ public enum FileWatch {
 
     @safe private actor Watcher {
         // --- [STATE]
-        let continuation: AsyncThrowingStream<Void, any Error>.Continuation
+        let continuation: AsyncStream<Result<Void, FileWatchFailure>>.Continuation
         private let queue: DispatchSerialQueue = DispatchSerialQueue(label: "RasmMacOS.FileWatch")
         private var stream: FSEventStreamRef?
 
-        init(continuation: AsyncThrowingStream<Void, any Error>.Continuation) {
+        init(continuation: AsyncStream<Result<Void, FileWatchFailure>>.Continuation) {
             self.continuation = continuation
         }
 
@@ -61,26 +61,25 @@ public enum FileWatch {
             let paths: Set<String> = [file.path(percentEncoded: false), file.resolvingSymlinksInPath().path(percentEncoded: false)]
             var context: FSEventStreamContext = unsafe FSEventStreamContext(version: 0, info: Unmanaged.passUnretained(self).toOpaque(), retain: nil, release: nil, copyDescription: nil)
             let flags: Int = kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagWatchRoot | kFSEventStreamCreateFlagNoDefer
-            unsafe stream = FSEventStreamCreate(nil, changed, &context, Array(paths) as CFArray, FSEventStreamEventId(kFSEventStreamEventIdSinceNow), 0, FSEventStreamCreateFlags(flags))
-            let started: Bool? = unsafe stream.map { stream in
+            func started(_ stream: FSEventStreamRef) -> Bool {
                 unsafe FSEventStreamSetDispatchQueue(stream, queue)
                 return unsafe FSEventStreamStart(stream)
             }
-            switch started {
-                case .some(true): continuation.yield(())
-                case .some(false), .none:
-                    stop()
-                    continuation.finish(throwing: FileWatchFailure.unstarted(file))
+            unsafe stream = FSEventStreamCreate(nil, changed, &context, Array(paths) as CFArray, FSEventStreamEventId(kFSEventStreamEventIdSinceNow), 0, FSEventStreamCreateFlags(flags))
+            guard let created: FSEventStreamRef = unsafe stream, unsafe started(created) else {
+                stop()
+                continuation.yield(.failure(.unstarted(file)))
+                continuation.finish()
+                return
             }
+            continuation.yield(.success(()))
         }
 
         func stop() {
-            switch (unsafe stream) {
-                case .some(let stream):
-                    unsafe FSEventStreamStop(stream)
-                    unsafe FSEventStreamInvalidate(stream)
-                    unsafe FSEventStreamRelease(stream)
-                case .none: break
+            if let stream: FSEventStreamRef = (unsafe stream) {
+                unsafe FSEventStreamStop(stream)
+                unsafe FSEventStreamInvalidate(stream)
+                unsafe FSEventStreamRelease(stream)
             }
             unsafe stream = nil
         }
@@ -88,6 +87,6 @@ public enum FileWatch {
 
     private static let changed: FSEventStreamCallback = { _, info, _, _, _, _ in
         guard let info: UnsafeMutableRawPointer = unsafe info else { return }
-        unsafe Unmanaged<Watcher>.fromOpaque(info).takeUnretainedValue().continuation.yield(())
+        unsafe Unmanaged<Watcher>.fromOpaque(info).takeUnretainedValue().continuation.yield(.success(()))
     }
 }

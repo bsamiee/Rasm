@@ -55,6 +55,14 @@ enum Ordinal: String, Coded, Sendable {
             case .every: FourCharCode(kAEAll)
         }
     }
+
+    static func descriptor(named name: String) throws(AggregateError<DictionaryFailure>) -> NSAppleEventDescriptor {
+        guard let ordinal: Self = Self(rawValue: name) else { throw AggregateError(first: .unknownTerm(name)) }
+        guard let descriptor: NSAppleEventDescriptor = NSAppleEventDescriptor(descriptorType: DescType(typeAbsoluteOrdinal), data: NSAppleEventDescriptor(enumCode: ordinal.code).data) else {
+            throw AggregateError(first: .unencodable(DescType(typeAbsoluteOrdinal)))
+        }
+        return descriptor
+    }
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -134,21 +142,19 @@ public struct ScriptingDictionary: Sendable {
         public let name: String
     }
 
-    public struct Entry: Encodable, Sendable {
-        public let name: String
-        public let code: String
-    }
-
     public let commands: [Command]
-    public let declarations: [Kind: [Term]]
+    public let suites: [Term]
+    public let classes: [Term]
+    public let recordTypes: [Term]
+    public let valueTypes: [Term]
+    public let enumerations: [Term]
     public let properties: [Term]
+    var types: [Term] { classes + recordTypes + valueTypes }
+    private let definition: Data
 
-    public var classes: [Term] { [Kind.class, .recordType, .valueType].flatMap { kind in declarations[kind] ?? [] } }
-    public var enumerations: [Term] { declarations[.enumeration] ?? [] }
-
-    public init(definition: XMLDocument) throws(DefinitionFailure) {
+    public init(definition document: XMLDocument) throws(DefinitionFailure) {
         func elements(_ path: String) throws(DefinitionFailure) -> [XMLElement] {
-            try Result { try definition.nodes(forXPath: path).compactMap { node in node as? XMLElement } }.mapError(DefinitionFailure.xml).get()
+            try Result { try document.nodes(forXPath: path).compactMap { node in node as? XMLElement } }.mapError(DefinitionFailure.xml).get()
         }
         let named: [String: [XMLElement]] = try Dictionary(
             elements("//class | //record-type | //value-type").compactMap { element in element.attribute(forName: "name")?.stringValue.map { name in (name, [element]) } },
@@ -157,25 +163,34 @@ public struct ScriptingDictionary: Sendable {
         func inherited(_ element: XMLElement) -> [XMLElement] {
             element.elements(forName: "property") + (element.attribute(forName: "inherits")?.stringValue.flatMap { name in named[name] } ?? []).flatMap(inherited)
         }
-        func types(_ element: XMLElement) -> Set<SdefType> {
+        func sdefTypes(_ element: XMLElement) -> Set<SdefType> {
             Set(
                 ([element.attribute(forName: "type")] + element.elements(forName: "type").map { type in type.attribute(forName: "type") }).compactMap { attribute in
                     attribute?.stringValue.map(SdefType.init)
                 }
             )
         }
-        func terms(_ elements: [XMLElement], members: (XMLElement) -> [Term]) -> [Term] {
+        func terms(_ elements: [XMLElement]) -> [Term] {
             Set(
                 elements.compactMap { element in
-                    switch (element.attribute(forName: "name")?.stringValue, element.attribute(forName: "code")?.stringValue.flatMap(FourCharCode.init(sdef:))) {
-                        case (.some(let name), .some(let code)): Term(name: name, code: code, types: types(element), members: members(element))
+                    let members: [XMLElement] =
+                        switch element.name.flatMap(Kind.init(rawValue:)) {
+                            case .class, .recordType, .valueType: inherited(element)
+                            case .enumeration: element.elements(forName: "enumerator")
+                            case .suite, .command, .none: []
+                        }
+                    return switch (element.attribute(forName: "name")?.stringValue, element.attribute(forName: "code")?.stringValue.flatMap(FourCharCode.init(sdef:))) {
+                        case (.some(let name), .some(let code)): Term(name: name, code: code, types: sdefTypes(element), members: terms(members))
                         default: nil
                     }
                 }
             ).sorted { left, right in (left.name, left.code) < (right.name, right.code) }
         }
+        func declared(_ kind: Kind) throws(DefinitionFailure) -> [Term] {
+            try terms(elements("//\(kind.rawValue)"))
+        }
         commands = try Set(
-            elements("//command").compactMap { element in
+            elements("//\(Kind.command.rawValue)").compactMap { element in
                 let code: String? = element.attribute(forName: "code")?.stringValue
                 return
                     switch (
@@ -188,41 +203,40 @@ public struct ScriptingDictionary: Sendable {
                             name: name,
                             eventClass: eventClass,
                             eventID: eventID,
-                            parameters: terms(element.elements(forName: "parameter")) { _ in [] }
-                                + element.elements(forName: "direct-parameter").map { parameter in Term.direct(types(parameter)) },
+                            parameters: terms(element.elements(forName: "parameter")) + element.elements(forName: "direct-parameter").map { parameter in Term.direct(sdefTypes(parameter)) },
                         )
                     default: nil
                 }
             }
         ).sorted { left, right in (left.name, left.code) < (right.name, right.code) }
-        declarations = try Dictionary(
-            uniqueKeysWithValues: Kind.allCases.filter { kind in kind != .command }.map { kind throws(DefinitionFailure) in
-                try (
-                    kind,
-                    terms(elements("//\(kind.rawValue)")) { element in
-                        switch kind {
-                            case .class, .recordType, .valueType: terms(inherited(element)) { _ in [] }
-                            case .enumeration: terms(element.elements(forName: "enumerator")) { _ in [] }
-                            case .suite, .command: []
-                        }
-                    },
-                )
-            }
-        )
-        properties = try terms(elements("//property")) { _ in [] }
+        suites = try declared(.suite)
+        classes = try declared(.class)
+        recordTypes = try declared(.recordType)
+        valueTypes = try declared(.valueType)
+        enumerations = try declared(.enumeration)
+        properties = try terms(elements("//property"))
+        definition = document.xmlData
     }
 
-    public func terms(_ kind: Kind) -> [Entry] {
-        switch kind {
-            case .command: commands.map { command in Entry(name: command.name, code: command.code) }
-            case .suite, .class, .recordType, .valueType, .enumeration: (declarations[kind] ?? []).map { term in Entry(name: term.name, code: term.code.sdef) }
+    public func text(selecting selection: Selection?) -> Result<String, DefinitionFailure> {
+        let query: String = """
+            let $suites := for $suite in /dictionary/suite
+                let $picked := if ($kind = "suite") then (for $child in $suite[@name = $name]/* return element { name($child) } { $child/@* }) else $suite/*[name() = $kind][@name = $name]
+                where count($kind) = 0 or exists($picked) or ($kind = "suite" and $suite/@name = $name)
+                return <suite>{ $suite/@*, $picked }</suite>
+            return if (count($kind) = 0 or exists($suites)) then <dictionary>{ /dictionary/@*, $suites }</dictionary> else ()
+            """
+        let constants: [String: Any] = selection.map { selection in ["kind": selection.kind.rawValue, "name": selection.name] } ?? ["kind": [String](), "name": [String]()]
+        return Result { () throws(DefinitionFailure) in
+            let selected: [XMLNode] = try Result { try XMLDocument(data: definition).objects(forXQuery: query, constants: constants) }.mapError(DefinitionFailure.xml).get()
+                .compactMap { node in node as? XMLNode }
+            if let selection, selected.isEmpty { throw .unselected(selection) }
+            return selected.map(\.xmlString).joined()
         }
     }
 
     public func command(_ name: String, taking arguments: Set<String>) -> Result<Command, AggregateError<DictionaryFailure>> {
-        let found: [Command] =
-            [Command.language, commands].lazy.map { scope in scope.filter { command in (command.name == name || command.code == name) && arguments.isSubset(of: command.parameters.map(\.name)) } }
-            .first { scope in !scope.isEmpty } ?? []
+        let found: [Command] = Self.matches(in: [Command.language, commands]) { command in (command.name == name || command.code == name) && arguments.isSubset(of: command.parameters.map(\.name)) }
         return switch (found.first, found.count) {
             case (.some(let command), 1): .success(command)
             case (.none, _): .failure(AggregateError(first: .unknownCommand(name, arguments.sorted())))
@@ -230,7 +244,7 @@ public struct ScriptingDictionary: Sendable {
         }
     }
 
-    public func event(_ name: String, arguments: [String: Native], target: NSAppleEventDescriptor) -> Result<NSAppleEventDescriptor, AggregateError<DictionaryFailure>> {
+    public func event(_ name: String, arguments: [String: AppleEventValue], target: NSAppleEventDescriptor) -> Result<NSAppleEventDescriptor, AggregateError<DictionaryFailure>> {
         command(name, taking: Set(arguments.keys)).flatMap { command in
             let event: NSAppleEventDescriptor = NSAppleEventDescriptor(
                 eventClass: command.eventClass,
@@ -244,14 +258,14 @@ public struct ScriptingDictionary: Sendable {
         }
     }
 
-    func record(_ fields: [String: Native], in scopes: [[Term]], into descriptor: NSAppleEventDescriptor) -> Result<NSAppleEventDescriptor, AggregateError<DictionaryFailure>> {
+    func record(_ fields: [String: AppleEventValue], in scopes: [[Term]], into descriptor: NSAppleEventDescriptor) -> Result<NSAppleEventDescriptor, AggregateError<DictionaryFailure>> {
         traverse(fields.sorted { left, right in left.key < right.key }) { key, value in
             Self.resolve(key, in: scopes).flatMap { term in value.descriptor(as: term.types, in: self).map { encoded in (term.code, encoded) } }
         }
         .map { items in items.reduce(into: descriptor) { descriptor, item in descriptor.setDescriptor(item.1, forKeyword: item.0) } }
     }
 
-    static func matches(in scopes: [[Term]], where predicate: (Term) -> Bool) -> [Term] {
+    static func matches<Element>(in scopes: [[Element]], where predicate: (Element) -> Bool) -> [Element] {
         scopes.first { scope in scope.contains(where: predicate) }?.filter(predicate) ?? []
     }
 
@@ -272,13 +286,13 @@ public struct ScriptingDictionary: Sendable {
     }
 
     func scope(_ code: FourCharCode?) -> [[Term]] {
-        [classes.filter { term in term.code == code }.flatMap(\.members), properties]
+        [types.filter { term in term.code == code }.flatMap(\.members), properties]
     }
 
-    func classCode(of value: Native) -> FourCharCode? {
+    func classCode(of value: AppleEventValue) -> FourCharCode? {
         switch value {
             case .text(let name), .type(let name), .specifier(want: let name, form: _, seld: _, from: _):
-                if case .success(let term) = Self.resolve(name, in: [classes]) { term.code } else { nil }
+                if case .success(let term) = Self.resolve(name, in: [types]) { term.code } else { nil }
             case .null: FourCharCode(cApplication)
             case .bool, .number, .list, .record, .enumerator, .date, .file, .opaque: nil
         }
@@ -289,7 +303,7 @@ public struct ScriptingDictionary: Sendable {
     }
 }
 
-public indirect enum Native: Sendable {
+public indirect enum AppleEventValue: Sendable {
     case null
     case bool(Bool)
     case number(Double)
@@ -304,7 +318,7 @@ public indirect enum Native: Sendable {
     case opaque(type: DescType, data: Data, value: String?)
 }
 
-extension Native: Codable {
+extension AppleEventValue: Codable {
     private enum Tag: String, Codable { case type, enumerator, date, file, specifier, opaque }
     private enum Key: String, CodingKey {
         case tag = "_tag"
@@ -313,6 +327,29 @@ extension Native: Codable {
 
     public init(from decoder: any Decoder) throws {
         let value: any SingleValueDecodingContainer = try decoder.singleValueContainer()
+        func tagged() throws -> Self {
+            let fields: KeyedDecodingContainer<Key> = try decoder.container(keyedBy: Key.self)
+            func code() throws -> DescType {
+                let code: String = try fields.decode(String.self, forKey: .type)
+                guard let type: DescType = FourCharCode(sdef: code) else { throw DecodingError.dataCorruptedError(forKey: .type, in: fields, debugDescription: "\(code) is no four-character code") }
+                return type
+            }
+            return switch try fields.decodeIfPresent(Tag.self, forKey: .tag) {
+                case .none: try .record(value.decode([String: Self].self))
+                case .type: try .type(fields.decode(String.self, forKey: .name))
+                case .enumerator: try .enumerator(fields.decode(String.self, forKey: .name))
+                case .date: try .date(Date.ISO8601FormatStyle().parse(fields.decode(String.self, forKey: .date)))
+                case .file: try .file(fields.decode(URL.self, forKey: .url))
+                case .specifier:
+                    try .specifier(
+                        want: fields.decode(String.self, forKey: .want),
+                        form: fields.decode(KeyForm.self, forKey: .form),
+                        seld: fields.decode(Self.self, forKey: .seld),
+                        from: fields.decodeIfPresent(Self.self, forKey: .from) ?? .null,
+                    )
+                case .opaque: try .opaque(type: code(), data: fields.decode(Data.self, forKey: .data), value: fields.decodeIfPresent(String.self, forKey: .value))
+            }
+        }
         self =
             try value.decodeNil()
             ? .null
@@ -320,29 +357,7 @@ extension Native: Codable {
                 .flatMapError { _ in Result { try .number(value.decode(Double.self)) } }
                 .flatMapError { _ in Result { try .text(value.decode(String.self)) } }
                 .flatMapError { _ in Result { try .list(value.decode([Self].self)) } }
-                .flatMapError { _ in
-                    Result {
-                        let fields: KeyedDecodingContainer<Key> = try decoder.container(keyedBy: Key.self)
-                        let text: (Key) throws -> String = { key in try fields.decode(String.self, forKey: key) }
-                        let type: () throws -> DescType = {
-                            let code: String = try text(.type)
-                            guard let type: DescType = FourCharCode(sdef: code) else {
-                                throw DecodingError.dataCorruptedError(forKey: .type, in: fields, debugDescription: "\(code) is no four-character code")
-                            }
-                            return type
-                        }
-                        let from: () throws -> Self = { try fields.decodeIfPresent(Self.self, forKey: .from) ?? Self.null }
-                        return switch try fields.decodeIfPresent(Tag.self, forKey: .tag) {
-                            case .none: try Self.record(value.decode([String: Self].self))
-                            case .type: try Self.type(text(.name))
-                            case .enumerator: try Self.enumerator(text(.name))
-                            case .date: try Self.date(Date.ISO8601FormatStyle().parse(text(.date)))
-                            case .file: try Self.file(fields.decode(URL.self, forKey: .url))
-                            case .specifier: try Self.specifier(want: text(.want), form: fields.decode(KeyForm.self, forKey: .form), seld: fields.decode(Self.self, forKey: .seld), from: from())
-                            case .opaque: try Self.opaque(type: type(), data: fields.decode(Data.self, forKey: .data), value: fields.decodeIfPresent(String.self, forKey: .value))
-                        }
-                    }
-                }
+                .flatMapError { _ in Result(catching: tagged) }
                 .get()
     }
 
@@ -382,36 +397,40 @@ extension Native: Codable {
     }
 }
 
-extension Native {
+extension AppleEventValue {
     public init(_ descriptor: NSAppleEventDescriptor, in dictionary: ScriptingDictionary) {
         let opaque: () -> Self = { .opaque(type: descriptor.descriptorType, data: descriptor.data, value: descriptor.stringValue) }
-        let reference: (want: NSAppleEventDescriptor?, form: KeyForm?, seld: NSAppleEventDescriptor?, from: NSAppleEventDescriptor?) = (
-            descriptor.forKeyword(AEKeyword(keyAEDesiredClass)), descriptor.forKeyword(AEKeyword(keyAEKeyForm)).flatMap { form in KeyForm(code: form.enumCodeValue) },
-            descriptor.forKeyword(AEKeyword(keyAEKeyData)), descriptor.forKeyword(AEKeyword(keyAEContainer)),
-        )
+        func exact<Value: BinaryInteger & BitwiseCopyable>(_: Value.Type) -> Self {
+            Double(exactly: unsafe descriptor.data.withUnsafeBytes { bytes in unsafe bytes.loadUnaligned(as: Value.self) }).map(Self.number) ?? opaque()
+        }
+        func specifier() -> Self? {
+            guard let want: NSAppleEventDescriptor = descriptor.forKeyword(AEKeyword(keyAEDesiredClass)),
+                let form: KeyForm = descriptor.forKeyword(AEKeyword(keyAEKeyForm)).flatMap({ form in KeyForm(code: form.enumCodeValue) }),
+                let seld: NSAppleEventDescriptor = descriptor.forKeyword(AEKeyword(keyAEKeyData)),
+                let from: NSAppleEventDescriptor = descriptor.forKeyword(AEKeyword(keyAEContainer))
+            else { return nil }
+            let container: FourCharCode = from.forKeyword(AEKeyword(keyAEDesiredClass))?.typeCodeValue ?? FourCharCode(cApplication)
+            return .specifier(
+                want: ScriptingDictionary.term(want.typeCodeValue, in: [dictionary.types, dictionary.properties]).name,
+                form: form,
+                seld: form == .property ? .type(ScriptingDictionary.term(seld.typeCodeValue, in: dictionary.scope(container)).name) : Self(seld, in: dictionary),
+                from: Self(from, in: dictionary),
+            )
+        }
         self =
-            switch (descriptor.descriptorType, reference) {
-                case (DescType(typeObjectSpecifier), (.some(let want), .some(let form), .some(let seld), .some(let from))):
-                    .specifier(
-                        want: ScriptingDictionary.term(want.typeCodeValue, in: [dictionary.classes, dictionary.properties]).name,
-                        form: form,
-                        seld: form == .property
-                            ? .type(
-                                ScriptingDictionary.term(seld.typeCodeValue, in: dictionary.scope(from.forKeyword(AEKeyword(keyAEDesiredClass))?.typeCodeValue ?? FourCharCode(cApplication))).name
-                            )
-                            : Self(seld, in: dictionary),
-                        from: Self(from, in: dictionary),
-                    )
-                case (DescType(typeNull), _): .null
-                case (DescType(typeTrue), _), (DescType(typeFalse), _), (DescType(typeBoolean), _): .bool(descriptor.booleanValue)
-                case (DescType(typeSInt16), _), (DescType(typeSInt32), _), (DescType(typeUInt16), _), (DescType(typeUInt32), _): .number(descriptor.doubleValue)
-                case (DescType(typeIEEE32BitFloatingPoint), _) where descriptor.doubleValue.isFinite, (DescType(typeIEEE64BitFloatingPoint), _) where descriptor.doubleValue.isFinite:
+            switch descriptor.descriptorType {
+                case DescType(typeObjectSpecifier): specifier() ?? opaque()
+                case DescType(typeNull): .null
+                case DescType(typeTrue), DescType(typeFalse), DescType(typeBoolean): .bool(descriptor.booleanValue)
+                case DescType(typeSInt16), DescType(typeSInt32), DescType(typeUInt16), DescType(typeUInt32): .number(descriptor.doubleValue)
+                case DescType(typeSInt64): exact(Int64.self)
+                case DescType(typeUInt64): exact(UInt64.self)
+                case DescType(typeIEEE32BitFloatingPoint) where descriptor.doubleValue.isFinite, DescType(typeIEEE64BitFloatingPoint) where descriptor.doubleValue.isFinite:
                     .number(descriptor.doubleValue)
-                case (DescType(typeChar), _), (DescType(typeCString), _), (DescType(typePString), _), (DescType(typeUnicodeText), _), (DescType(typeUTF8Text), _),
-                    (DescType(typeUTF16ExternalRepresentation), _):
+                case DescType(typeChar), DescType(typeCString), DescType(typePString), DescType(typeUnicodeText), DescType(typeUTF8Text), DescType(typeUTF16ExternalRepresentation):
                     descriptor.stringValue.map(Self.text) ?? opaque()
-                case (DescType(typeAEList), _): .list((1..<descriptor.numberOfItems + 1).compactMap(descriptor.atIndex).map { item in Self(item, in: dictionary) })
-                case (DescType(typeAERecord), _):
+                case DescType(typeAEList): .list((1..<descriptor.numberOfItems + 1).compactMap(descriptor.atIndex).map { item in Self(item, in: dictionary) })
+                case DescType(typeAERecord):
                     .record(
                         Dictionary(
                             (1..<descriptor.numberOfItems + 1).compactMap { index in
@@ -424,11 +443,11 @@ extension Native {
                             }
                         ) { first, _ in first }
                     )
-                case (DescType(typeType), _): .type(ScriptingDictionary.term(descriptor.typeCodeValue, in: [dictionary.classes, dictionary.properties]).name)
-                case (DescType(typeEnumerated), _): .enumerator(ScriptingDictionary.term(descriptor.enumCodeValue, in: [dictionary.enumerations.flatMap(\.members)]).name)
-                case (DescType(typeAbsoluteOrdinal), _): Ordinal(code: descriptor.enumCodeValue).map { ordinal in .text(ordinal.rawValue) } ?? opaque()
-                case (DescType(typeFileURL), _), (DescType(typeAlias), _): descriptor.fileURLValue.map(Self.file) ?? opaque()
-                case (DescType(typeLongDateTime), _): descriptor.dateValue.map(Self.date) ?? opaque()
+                case DescType(typeType): .type(ScriptingDictionary.term(descriptor.typeCodeValue, in: [dictionary.types, dictionary.properties]).name)
+                case DescType(typeEnumerated): .enumerator(ScriptingDictionary.term(descriptor.enumCodeValue, in: [dictionary.enumerations.flatMap(\.members)]).name)
+                case DescType(typeAbsoluteOrdinal): Ordinal(code: descriptor.enumCodeValue).map { ordinal in .text(ordinal.rawValue) } ?? opaque()
+                case DescType(typeFileURL), DescType(typeAlias): descriptor.fileURLValue.map(Self.file) ?? opaque()
+                case DescType(typeLongDateTime): descriptor.dateValue.map(Self.date) ?? opaque()
                 default: opaque()
             }
     }
@@ -459,9 +478,12 @@ extension Native {
                     descriptors.reduce(into: .list()) { list, descriptor in list.insert(descriptor, at: list.numberOfItems + 1) }
                 }
             case .record(let fields):
-                return dictionary.record(fields, in: dictionary.scope(fields["class"].flatMap(dictionary.classCode(of:))), into: .record())
+                let named: Self? = fields.sorted { left, right in left.key < right.key }.first { key, _ in
+                    if case .success(let term) = ScriptingDictionary.resolve(key, in: [dictionary.properties]) { term.code == FourCharCode(pClass) } else { false }
+                }?.value
+                return dictionary.record(fields, in: dictionary.scope(named.flatMap(dictionary.classCode(of:))), into: .record())
             case .type(let name):
-                return ScriptingDictionary.resolve(name, in: [dictionary.classes, dictionary.properties]).map { term in NSAppleEventDescriptor(typeCode: term.code) }
+                return ScriptingDictionary.resolve(name, in: [dictionary.types, dictionary.properties]).map { term in NSAppleEventDescriptor(typeCode: term.code) }
             case .enumerator(let name):
                 return ScriptingDictionary.resolve(name, in: [dictionary.enumerators(of: types), dictionary.enumerations.flatMap(\.members)]).map { term in NSAppleEventDescriptor(enumCode: term.code)
                 }
@@ -474,33 +496,37 @@ extension Native {
                     switch (form, seld) {
                         case (.property, .text(let name)), (.property, .type(let name)):
                             ScriptingDictionary.resolve(name, in: dictionary.scope(dictionary.classCode(of: from))).map { term in NSAppleEventDescriptor(typeCode: term.code) }
-                        case (.index, .text(let text)):
-                            Ordinal(rawValue: text).flatMap { ordinal in
-                                NSAppleEventDescriptor(descriptorType: DescType(typeAbsoluteOrdinal), data: NSAppleEventDescriptor(enumCode: ordinal.code).data)
-                            }
-                            .map(Result.success) ?? .failure(AggregateError(first: .unknownTerm(text)))
+                        case (.index, .text(let text)): Result { () throws(AggregateError<DictionaryFailure>) in try Ordinal.descriptor(named: text) }
                         default:
                             seld.descriptor(as: [.primitive(.integer)], in: dictionary)
                     }
-                return combine(ScriptingDictionary.resolve(want, in: [dictionary.classes, dictionary.properties]), key, from.descriptor(as: [], in: dictionary)).flatMap { want, key, container in
-                    [
-                        (AEKeyword(keyAEDesiredClass), NSAppleEventDescriptor(typeCode: want.code)),
+                return Result { () throws(AggregateError<DictionaryFailure>) in
+                    let (desired, data, container): (Term, NSAppleEventDescriptor, NSAppleEventDescriptor) =
+                        try combine(ScriptingDictionary.resolve(want, in: [dictionary.types, dictionary.properties]), key, from.descriptor(as: [], in: dictionary)).get()
+                    let record: NSAppleEventDescriptor = [
+                        (AEKeyword(keyAEDesiredClass), NSAppleEventDescriptor(typeCode: desired.code)),
                         (AEKeyword(keyAEKeyForm), NSAppleEventDescriptor(enumCode: form.code)),
-                        (AEKeyword(keyAEKeyData), key),
+                        (AEKeyword(keyAEKeyData), data),
                         (AEKeyword(keyAEContainer), container),
                     ]
-                    .reduce(into: NSAppleEventDescriptor.record()) { record, item in record.setDescriptor(item.1, forKeyword: item.0) }
-                    .coerce(toDescriptorType: DescType(typeObjectSpecifier)).map(Result.success) ?? .failure(AggregateError(first: .unencodable(DescType(typeObjectSpecifier))))
+                    .reduce(into: .record()) { record, item in record.setDescriptor(item.1, forKeyword: item.0) }
+                    guard let specifier: NSAppleEventDescriptor = record.coerce(toDescriptorType: DescType(typeObjectSpecifier)) else {
+                        throw AggregateError(first: .unencodable(DescType(typeObjectSpecifier)))
+                    }
+                    return specifier
                 }
             case .opaque(let type, let data, _):
-                return NSAppleEventDescriptor(descriptorType: type, data: data).map(Result.success) ?? .failure(AggregateError(first: .unencodable(type)))
+                return Result { () throws(AggregateError<DictionaryFailure>) in
+                    guard let descriptor: NSAppleEventDescriptor = NSAppleEventDescriptor(descriptorType: type, data: data) else { throw AggregateError(first: .unencodable(type)) }
+                    return descriptor
+                }
         }
     }
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-public enum DefinitionFailure: LocalizedError {
+public enum DefinitionFailure: CustomNSError, LocalizedError {
     case requiresRunning(URL)
     case launch(LaunchFailure)
     case osa(OSStatus)
@@ -514,6 +540,13 @@ public enum DefinitionFailure: LocalizedError {
             case .osa(let status): "Open Scripting read no scripting definition (\(status))"
             case .xml(let error): "The scripting definition is not readable XML: \(error.localizedDescription)"
             case .unselected(let selection): "The scripting definition declares no \(selection.kind.rawValue) named \(selection.name)"
+        }
+    }
+
+    public var errorUserInfo: [String: Any] {
+        switch self {
+            case .launch(let error as any Error), .xml(let error): [NSUnderlyingErrorKey: error]
+            case .requiresRunning, .osa, .unselected: [:]
         }
     }
 }
@@ -555,62 +588,26 @@ public enum AppleEventFailure: LocalizedError {
 // --- [SERVICES] ------------------------------------------------------------------------
 
 public actor ScriptingDefinitions {
-    private var held: [URL: (process: pid_t?, document: XMLDocument, dictionary: ScriptingDictionary)] = [:]
+    private struct Held {
+        let process: pid_t?
+        let reading: Task<Result<ScriptingDictionary, DefinitionFailure>, Never>
+    }
+
+    private var held: [URL: Held] = [:]
 
     public init() {}
 
-    private func read(_ installation: Installation, within deadline: Duration) async -> Result<(document: XMLDocument, dictionary: ScriptingDictionary), DefinitionFailure> {
-        switch held[installation.url] {
-            case .some(let hit) where hit.process == installation.running?.pid: .success((hit.document, hit.dictionary))
-            case .some, .none:
-                await installation.scriptingDefinition(within: deadline)
-                    .flatMap { document in Result { () throws(DefinitionFailure) in try (document, ScriptingDictionary(definition: document)) } }
-                    .map { document, dictionary in
-                        held[installation.url] = (installation.running?.pid, document, dictionary)
-                        return (document, dictionary)
-                    }
-        }
-    }
-
     public func dictionary(of installation: Installation, within deadline: Duration) async -> Result<ScriptingDictionary, DefinitionFailure> {
-        await read(installation, within: deadline).map(\.dictionary)
-    }
-
-    public func text(of installation: Installation, selecting selection: ScriptingDictionary.Selection?, within deadline: Duration) async -> Result<String, DefinitionFailure> {
-        func shell(_ element: XMLElement, _ children: [XMLElement]) -> XMLElement {
-            let made: XMLElement = XMLElement(kind: .element)
-            made.name = element.name
-            made.setAttributesWith(
-                Dictionary((element.attributes ?? []).compactMap { attribute in attribute.name.flatMap { name in attribute.stringValue.map { value in (name, value) } } }) { first, _ in first }
-            )
-            made.setChildren(children)
-            return made
-        }
-        func named(_ element: XMLElement) -> Bool {
-            element.attribute(forName: "name")?.stringValue == selection?.name
-        }
-        return await read(installation, within: deadline).flatMap { document, _ in
-            let suites: [XMLElement] = document.rootElement()?.elements(forName: "suite") ?? []
-            let kept: Result<[XMLElement], DefinitionFailure> =
-                switch selection?.kind {
-                    case .none: .success(suites.map { suite in shell(suite, []) })
-                    case .some(.suite):
-                        .success(suites.filter(named).map { suite in shell(suite, (suite.children ?? []).compactMap { node in node as? XMLElement }.map { child in shell(child, []) }) })
-                    case .some(let kind):
-                        Result {
-                            try suites.map { suite in try (suite, suite.elements(forName: kind.rawValue).filter(named).map { element in try XMLElement(xmlString: element.xmlString) }) }
-                                .filter { _, children in !children.isEmpty }
-                                .map(shell)
-                        }
-                        .mapError(DefinitionFailure.xml)
-                }
-            return kept.flatMap { suites in
-                switch (selection, suites.isEmpty) {
-                    case (.some(let selection), true): .failure(.unselected(selection))
-                    case (_, _): .success(XMLDocument(rootElement: document.rootElement().map { root in shell(root, suites) }).xmlString)
-                }
+        let reading: Task<Result<ScriptingDictionary, DefinitionFailure>, Never> =
+            switch held[installation.url] {
+                case .some(let hit) where hit.process == installation.running?.pid: hit.reading
+                case .some, .none:
+                    Task { await installation.scriptingDefinition(within: deadline).flatMap { document in Result { () throws(DefinitionFailure) in try ScriptingDictionary(definition: document) } } }
             }
-        }
+        held[installation.url] = Held(process: installation.running?.pid, reading: reading)
+        let read: Result<ScriptingDictionary, DefinitionFailure> = await reading.value
+        if case .failure = read, held[installation.url]?.reading == reading { held[installation.url] = nil }
+        return read
     }
 }
 
@@ -619,10 +616,11 @@ public actor ScriptingDefinitions {
 extension Installation {
     public func scriptingDefinition(within deadline: Duration) async -> Result<XMLDocument, DefinitionFailure> {
         await Result { () async throws(DefinitionFailure) in
-            switch (runningApplication, Bundle(url: url)?.object(forInfoDictionaryKey: "OSAScriptingDefinition")) {
-                case (.success(let running), _): try await running.reaching(\.isFinishedLaunching, within: deadline).mapError(DefinitionFailure.launch).get()
-                case (.failure, .some): break
-                case (.failure, .none): throw .requiresRunning(url)
+            switch runningApplication {
+                case .success(let running):
+                    try await running.reaching(\.isFinishedLaunching, within: deadline).mapError(DefinitionFailure.launch).get()
+                case .failure:
+                    guard Bundle(url: url)?.object(forInfoDictionaryKey: "OSAScriptingDefinition") != nil else { throw .requiresRunning(url) }
             }
             var definition: Unmanaged<CFData>?
             let status: OSStatus = unsafe OSACopyScriptingDefinitionFromURL(url as CFURL, 0, &definition)
@@ -654,5 +652,5 @@ extension FourCharCode {
         self = code
     }
 
-    var sdef: String { String(NSFileTypeForHFSTypeCode(self).dropFirst().dropLast()) }
+    public var sdef: String { String(NSFileTypeForHFSTypeCode(self).dropFirst().dropLast()) }
 }

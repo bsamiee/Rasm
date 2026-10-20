@@ -4,7 +4,7 @@ import System
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-public enum ProcessFailure: DeadlineFailure, LocalizedError {
+public enum ProcessFailure: DeadlineFailure, CustomNSError, LocalizedError {
     case launch(SubprocessError)
     case io(any Error)
     case exit(TerminationStatus)
@@ -19,6 +19,13 @@ public enum ProcessFailure: DeadlineFailure, LocalizedError {
             case .exit(.signaled(let signal)): "Process stopped by signal \(signal)"
             case .timedOut(let deadline): "Process did not finish within \(deadline.formatted(.units(width: .wide)))"
             case .cancelled: "Canceled"
+        }
+    }
+
+    public var errorUserInfo: [String: Any] {
+        switch self {
+            case .launch(let error as any Error), .io(let error): [NSUnderlyingErrorKey: error]
+            case .exit, .timedOut, .cancelled: [:]
         }
     }
 }

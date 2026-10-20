@@ -147,9 +147,8 @@ actor ClaudeLock {
             case .success(let lockfiles): return .success(ClaudeLock(lockfiles: lockfiles))
             case .failure(.lockHeld(let url)):
                 return await withDeadline(ClaudeLockfile.staleAfter) {
-                    await Result { try await FileWatch.events(of: url).map { FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) }.first { present in !present } }
-                        .mapError(ClaudeFailure.filesystem)
-                        .flatMap { removed in removed.map { _ in .success(()) } ?? .failure(.cancelled) }
+                    await FileWatch.events(of: url).first { next in next.failure != nil || !FileManager.default.fileExists(atPath: url.path(percentEncoded: false)) }
+                        .map { next in next.mapError(ClaudeFailure.filesystem) } ?? .failure(.cancelled)
                 }
                 .flatMapError { error in if case .timedOut = error { .success(()) } else { .failure(error) } }
                 .bind { _ in await acquire(urls) }

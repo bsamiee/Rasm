@@ -67,8 +67,9 @@ public struct Screenshot: Encodable, Sendable {
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-public enum ScreenshotFailure: LocalizedError {
+public enum ScreenshotFailure: CustomNSError, LocalizedError {
     case content(any Error)
+    case windowList
     case noWindow
     case absent(CGWindowID)
     case noDisplay
@@ -78,11 +79,19 @@ public enum ScreenshotFailure: LocalizedError {
     public var errorDescription: String? {
         switch self {
             case .content(let error): "ScreenCaptureKit could not list shareable content: \(error.localizedDescription)"
+            case .windowList: "The window server returned no on-screen window list"
             case .noWindow: "Application has no on-screen window to capture"
             case .absent(let id): "Window \(id) is not an on-screen window of the application"
             case .noDisplay: "No display holds the application's front window"
             case .capture(let error): "ScreenCaptureKit could not capture: \(error.localizedDescription)"
             case .encode(let type): "ImageIO could not encode the capture as \(type.identifier)"
+        }
+    }
+
+    public var errorUserInfo: [String: Any] {
+        switch self {
+            case .content(let error), .capture(let error): [NSUnderlyingErrorKey: error]
+            case .windowList, .noWindow, .absent, .noDisplay, .encode: [:]
         }
     }
 }
@@ -94,25 +103,26 @@ extension NSRunningApplication {
         await Result { () async throws(ScreenshotFailure) in
             let content: SCShareableContent = try await Result { try await SCShareableContent.excludingDesktopWindows(true, onScreenWindowsOnly: true) }.mapError(ScreenshotFailure.content).get()
             let owned: [SCWindow] = content.windows.filter { window in window.owningApplication?.processID == processIdentifier }
-            let order: [CGWindowID]? = (CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]])?
-                .compactMap { row in row[kCGWindowNumber as String] as? CGWindowID }
-            let windows: [SCWindow] = order?.compactMap { id in owned.first { window in window.windowID == id } } ?? []
+            guard let listed: [[String: Any]] = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] else { throw .windowList }
+            let windows: [SCWindow] = listed.compactMap { row in (row[kCGWindowNumber as String] as? CGWindowID).flatMap { id in owned.first { window in window.windowID == id } } }
             guard let front: SCWindow = windows.first else { throw .noWindow }
             func shown(_ id: CGWindowID) throws(ScreenshotFailure) -> SCWindow {
                 guard let window: SCWindow = windows.first(where: { window in window.windowID == id }) else { throw .absent(id) }
                 return window
             }
-            let window: SCWindow =
-                switch options.target {
-                    case .window(.some(let id)): try shown(id)
-                    case .window(.none), .application: front
-                }
-            let filter: SCContentFilter =
-                switch (options.target, content.displays.first(where: { display in display.frame.contains(CGPoint(x: front.frame.midX, y: front.frame.midY)) })) {
-                    case (.window, _): SCContentFilter(desktopIndependentWindow: window)
-                    case (.application, .some(let display)): SCContentFilter(display: display, including: windows)
-                    case (.application, .none): throw .noDisplay
-                }
+            let window: SCWindow
+            let filter: SCContentFilter
+            switch options.target {
+                case .window(let id):
+                    window = try id.map(shown) ?? front
+                    filter = SCContentFilter(desktopIndependentWindow: window)
+                case .application:
+                    guard let display: SCDisplay = content.displays.first(where: { display in display.frame.contains(CGPoint(x: front.frame.midX, y: front.frame.midY)) }) else {
+                        throw .noDisplay
+                    }
+                    window = front
+                    filter = SCContentFilter(display: display, including: windows)
+            }
             let configuration: SCScreenshotConfiguration = SCScreenshotConfiguration()
             let native: CGSize = options.region?.size ?? filter.contentRect.size
             let scale: CGFloat =

@@ -60,6 +60,18 @@ rule:
                         - has: {kind: switch_entry, has: {kind: switch_pattern, has: {matches: newline, stopBy: end}}}
                     - pattern: $B.isNewline
                     - pattern: $_.newlines.contains($B)
-                    - matches: newline-search
+                    - all:
+                        - matches: newline-search
+                        - any:
+                            - has: {stopBy: end, pattern: $B}
+                            - all:
+                                - has: {kind: navigation_expression, has: {field: target, pattern: $BUF}}
+                                - inside:
+                                    kind: statements
+                                    stopBy: end
+                                    has:
+                                        stopBy: end
+                                        any: [{pattern: '$BUF.append($$$)'}, {pattern: '$BUF += $_'}]
+                                        has: {stopBy: end, pattern: $B}
 message: '`for` over `$BYTES` splits lines by hand, testing each `$B` for a newline'
 note: 'Iterate `lines` of an async byte sequence, `strings()` of swift-subprocess `SubprocessOutputSequence`, or `split(whereSeparator: \.isNewline)` of a string in memory'

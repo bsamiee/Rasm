@@ -112,7 +112,7 @@ final class Watch {
     }
 
     // --- [FOLLOW]
-    func run() async {
+    func run(in group: inout DiscardingTaskGroup) {
         show(Event(app: app, event: .watch))
         for instance: NSRunningApplication in NSRunningApplication.runningApplications(withBundleIdentifier: app) {
             let pid: pid_t = instance.processIdentifier
@@ -125,10 +125,8 @@ final class Watch {
         }
         switch Result(catching: { try logHandle(app, .readOnly) }) {
             case .success(let reader):
-                await withDiscardingTaskGroup { group in
-                    group.addTask { await self.follow(reader) }
-                    group.addTask { await self.take() }
-                }
+                group.addTask { await self.follow(reader) }
+                group.addTask { await self.take() }
             case .failure(let error): show(Event(app: app, event: .fail, reason: .log(error)))
         }
     }
@@ -142,22 +140,23 @@ final class Watch {
 
     func follow(_ reader: FileHandle) async {
         var buffer: Data = Data()
-        let followed: Result<Void, any Error> = await Result {
-            for try await _ in FileWatch.events(of: logURL(app)) {
-                buffer.append(reader.availableData)
-                let lines: [Data] = buffer.split(separator: UInt8(ascii: "\n"), omittingEmptySubsequences: false)
-                buffer = lines.last ?? Data()
-                for line: Data in lines.dropLast() {
-                    switch Result(catching: { try JSONDecoder().decode(Followed.self, from: line) }) {
-                        case .success(let event):
-                            track(event.event, event.pid, event.element)
-                            output.yield(.followed(line))
-                        case .failure(let error): show(Event(app: app, event: .fail, reason: .log(error)))
-                    }
+        for await next: Result<Void, FileWatchFailure> in FileWatch.events(of: logURL(app)) {
+            if case .failure(let error) = next {
+                show(Event(app: app, event: .fail, reason: .log(error)))
+                return
+            }
+            buffer.append(reader.availableData)
+            let lines: [Data] = buffer.split(separator: UInt8(ascii: "\n"), omittingEmptySubsequences: false)
+            buffer = lines.last ?? Data()
+            for line: Data in lines.dropLast() {
+                switch Result(catching: { try JSONDecoder().decode(Followed.self, from: line) }) {
+                    case .success(let event):
+                        track(event.event, event.pid, event.element)
+                        output.yield(.followed(line))
+                    case .failure(let error): show(Event(app: app, event: .fail, reason: .log(error)))
                 }
             }
         }
-        if case .failure(let error) = followed { show(Event(app: app, event: .fail, reason: .log(error))) }
     }
 
     func show(_ event: Event) {
@@ -194,9 +193,9 @@ final class Watch {
 
     func attach(_ instance: NSRunningApplication, known: Set<Shown>) {
         let pid: pid_t = instance.processIdentifier
-        attached[pid] = Task { @MainActor in
+        attached[pid] = Task { @concurrent in
             var previous: Set<Shown> = known
-            for await next: Result<ApplicationStatus, ElementFailure> in instance.statusChanges() {
+            for await next: Result<ApplicationStatus, ElementFailure> in StatusChanges(instance) {
                 switch next {
                     case .success(let status):
                         let current: Set<Shown> = Set(status.elements.map { element in Shown(pid: pid, element: element) })
@@ -209,7 +208,7 @@ final class Watch {
         }
     }
 
-    func write(_ event: Event) {
+    nonisolated func write(_ event: Event) {
         output.yield(.log(event, log))
     }
 }
@@ -260,71 +259,69 @@ func answered(_ ids: [String], _ text: String, _ action: ElementAction) async ->
     return outcome
 }
 
+@MainActor func watched(_ ids: [String]) async {
+    let watches: [Result<Watch, any Error>] = ids.map { id in Result { try Watch(app: id) } }
+    for event: Event in zip(ids, watches).compactMap({ id, watch in watch.failure.map { error in Event(app: id, event: .fail, reason: .log(error)) } }) { output.yield(.output(event)) }
+    await withDiscardingTaskGroup { group in for case .success(let watch) in watches { watch.run(in: &group) } }
+}
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 let (lines, output): (AsyncStream<Line>, AsyncStream<Line>.Continuation) = AsyncStream.makeStream(of: Line.self)
 let encoder: JSONEncoder = JSONEncoder()
 encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-let parsed: Result<WatchApps, any Error> = Result { try WatchApps.parse() }
-if case .failure(let error) = parsed, WatchApps.exitCode(for: error) == .success { WatchApps.exit(withError: error) }
-let resolved: Result<(command: WatchApps, apps: [(name: String, ids: Result<[String], DiscoveryFailure>)]), any Error> = parsed.map { command in
-    (command, command.apps.map { name in (name, NSWorkspace.shared.installedApplications(matching: [.identifier(name), .name(name)], in: nil).map { found in found.map(\.identifier) }) })
+let encoded: (Event) throws -> Data = { event in try encoder.encode(event) + [UInt8(ascii: "\n")] }
+let command: WatchApps
+switch Result(catching: { try WatchApps.parse() }) {
+    case .success(let parsed): command = parsed
+    case .failure(let error) where WatchApps.exitCode(for: error) == .success: WatchApps.exit(withError: error)
+    case .failure(let error):
+        try FileHandle.standardOutput.write(contentsOf: encoded(Event(event: .fail, reason: .arguments(error))))
+        exit(EXIT_FAILURE)
 }
-let failures: [Event] =
-    switch resolved {
-        case .success(let resolved):
-            resolved.apps.compactMap { app in
-                switch app.ids {
-                    case .success(let ids) where ids.isEmpty: Event(app: app.name, event: .fail, reason: .notInstalled)
-                    case .success: nil
-                    case .failure(let error): Event(app: app.name, event: .fail, reason: .discovery(error))
-                }
-            }
-        case .failure(let error): [Event(event: .fail, reason: .arguments(error))]
+let apps: [(name: String, ids: Result<[String], DiscoveryFailure>)] = command.apps.map { name in
+    (name, NSWorkspace.shared.installedApplications(matching: .identifier(name), .name(name), in: nil).map { found in found.map(\.identifier) })
+}
+let failures: [Event] = apps.compactMap { app in
+    switch app.ids {
+        case .success(let ids) where ids.isEmpty: Event(app: app.name, event: .fail, reason: .notInstalled)
+        case .success: nil
+        case .failure(let error): Event(app: app.name, event: .fail, reason: .discovery(error))
     }
+}
+let ids: [String] = Set(apps.compactMap { app in if case .success(let ids) = app.ids { ids } else { nil } }.joined()).sorted()
 let parent: any DispatchSourceProcess = DispatchSource.makeProcessSource(identifier: getppid(), eventMask: .exit, queue: .main)
 parent.setEventHandler { exit(EXIT_SUCCESS) }
 parent.activate()
 for event: Event in failures { output.yield(.output(event)) }
 let work: Task<Int32, Never> = Task { @MainActor in
     defer { output.finish() }
-    switch (resolved, failures.isEmpty) {
-        case (.failure, _), (.success, false):
+    switch (failures.isEmpty, command.answering, command.crashes) {
+        case (false, _, _):
             return EXIT_FAILURE
-        case (.success(let resolved), true):
-            let ids: [String] = Set(resolved.apps.compactMap { app in if case .success(let ids) = app.ids { ids } else { nil } }.joined()).sorted()
-            switch (resolved.command.answering, resolved.command.crashes) {
-                case (.some(let answer), _):
-                    let outcome: Event = await answered(ids, answer.text, answer.action)
-                    if let app: String = outcome.app, case .success(let log) = Result(catching: { try logHandle(app, .writeOnly) }) { output.yield(.log(outcome, log)) }
-                    output.yield(.output(outcome))
-                    return outcome.event == .answered ? EXIT_SUCCESS : EXIT_FAILURE
-                case (.none, true):
-                    let reports: [Event] = ids.flatMap { id in
-                        switch crashReports(for: id) {
-                            case .success(let reports): reports.map { report in Event(app: id, event: .crash, report: report.path(percentEncoded: false)) }
-                            case .failure(let error): [Event(app: id, event: .fail, reason: .crashReports(error))]
-                        }
-                    }
-                    for event: Event in reports { output.yield(.output(event)) }
-                    return EXIT_SUCCESS
-                case (.none, false):
-                    await withDiscardingTaskGroup { group in
-                        for id: String in ids {
-                            switch Result(catching: { try Watch(app: id) }) {
-                                case .success(let watch): group.addTask { await watch.run() }
-                                case .failure(let error): output.yield(.output(Event(app: id, event: .fail, reason: .log(error))))
-                            }
-                        }
-                    }
-                    return EXIT_SUCCESS
+        case (true, .some(let answer), _):
+            let outcome: Event = await answered(ids, answer.text, answer.action)
+            if let app: String = outcome.app, case .success(let log) = Result(catching: { try logHandle(app, .writeOnly) }) { output.yield(.log(outcome, log)) }
+            output.yield(.output(outcome))
+            return outcome.event == .answered ? EXIT_SUCCESS : EXIT_FAILURE
+        case (true, .none, true):
+            let reports: [Event] = ids.flatMap { id in
+                switch crashReports(for: id) {
+                    case .success(let reports): reports.map { report in Event(app: id, event: .crash, report: report.path(percentEncoded: false)) }
+                    case .failure(let error): [Event(app: id, event: .fail, reason: .crashReports(error))]
+                }
             }
+            for event: Event in reports { output.yield(.output(event)) }
+            return EXIT_SUCCESS
+        case (true, .none, false):
+            await watched(ids)
+            return EXIT_SUCCESS
     }
 }
 for await line: Line in lines {
     switch line {
-        case .output(let event): try FileHandle.standardOutput.write(contentsOf: encoder.encode(event) + [UInt8(ascii: "\n")])
-        case .log(let event, let log): try log.write(contentsOf: encoder.encode(event) + [UInt8(ascii: "\n")])
+        case .output(let event): try FileHandle.standardOutput.write(contentsOf: encoded(event))
+        case .log(let event, let log): try log.write(contentsOf: encoded(event))
         case .followed(let line): try FileHandle.standardOutput.write(contentsOf: line + [UInt8(ascii: "\n")])
     }
 }

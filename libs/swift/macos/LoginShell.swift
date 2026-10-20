@@ -1,13 +1,17 @@
-import Foundation
+public import Foundation
 public import Subprocess
 import System
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-public enum LoginShellFailure: Error {
+public enum LoginShellFailure: CustomNSError {
     case run(ProcessFailure)
     case terminationStatus(ExecutionResult<Void, StringOutput<UTF8>, StringOutput<UTF8>>)
     case markerNotFound
+
+    public var errorUserInfo: [String: Any] {
+        if case .run(let error) = self { [NSUnderlyingErrorKey: error] } else { [:] }
+    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

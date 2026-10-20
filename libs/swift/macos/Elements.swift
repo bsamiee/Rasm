@@ -124,14 +124,6 @@ private struct Part {
     }
 }
 
-private final class Ticks: Sendable {
-    let continuation: AsyncStream<Void>.Continuation
-
-    init(continuation: AsyncStream<Void>.Continuation) {
-        self.continuation = continuation
-    }
-}
-
 // --- [ERRORS] --------------------------------------------------------------------------
 
 public enum ElementFailure: LocalizedError {
@@ -141,7 +133,7 @@ public enum ElementFailure: LocalizedError {
     case absent(CGWindowID)
     case unoffered(ElementAction, [ElementAction])
     case refused(ElementAction, AXError)
-    case unmatched(String)
+    case cancelled
 
     static func reading(_ error: AXError) -> Self {
         error == .apiDisabled ? .untrusted : .unreadable(error)
@@ -156,8 +148,104 @@ public enum ElementFailure: LocalizedError {
             case .absent(let id): "No open window, dialog, sheet, or menu with id \(id)"
             case .unoffered(let action, let actions): "The element offers no \(action.label), it offers \(actions.map(\.label).joined(separator: ", "))"
             case .refused(let action, let error): "Performing \(action.label) returned AXError \(error.rawValue)"
-            case .unmatched(let text): "The application stopped answering before an element showed \(text)"
+            case .cancelled: "Canceled"
         }
+    }
+}
+
+// --- [SERVICES] ------------------------------------------------------------------------
+
+public struct StatusChanges: AsyncSequence {
+    public struct Iterator: AsyncIteratorProtocol {
+        private enum Phase {
+            case opening(Result<Observation, ElementFailure>)
+            case reading(Observation, ApplicationStatus)
+            case finished
+        }
+
+        let application: NSRunningApplication
+        private var phase: Phase
+
+        init(_ application: NSRunningApplication) {
+            self.application = application
+            phase = .opening(Result { () throws(ElementFailure) in try Observation(application) })
+        }
+
+        public mutating func next() async -> Result<ApplicationStatus, ElementFailure>? {
+            let read: Result<(Observation, ApplicationStatus), ElementFailure>? =
+                switch phase {
+                    case .opening(let observing): observing.flatMap { observation in application.status().map { status in (observation, status) } }
+                    case .reading(let observation, let last): await observation.change(from: last, of: application).map { read in read.map { status in (observation, status) } }
+                    case .finished: nil
+                }
+            phase =
+                switch read {
+                    case .success((let observation, let status)): .reading(observation, status)
+                    case .failure, .none: .finished
+                }
+            return read.map { read in read.map(\.1) }
+        }
+    }
+
+    let application: NSRunningApplication
+
+    public init(_ application: NSRunningApplication) {
+        self.application = application
+    }
+
+    public func makeAsyncIterator() -> Iterator {
+        Iterator(application)
+    }
+}
+
+private final class Ticks: Sendable {
+    let continuation: AsyncStream<Void>.Continuation
+
+    init(continuation: AsyncStream<Void>.Continuation) {
+        self.continuation = continuation
+    }
+}
+
+private final class Observation {
+    let observer: AXObserver
+    let ticks: Ticks
+    var pending: AsyncStream<Void>.Iterator
+
+    init(_ application: NSRunningApplication) throws(ElementFailure) {
+        let names: [String] = [
+            kAXWindowCreatedNotification, kAXSheetCreatedNotification, kAXMenuOpenedNotification, kAXMenuClosedNotification, kAXUIElementDestroyedNotification,
+            kAXFocusedWindowChangedNotification, kAXMainWindowChangedNotification, kAXTitleChangedNotification, kAXWindowMiniaturizedNotification,
+            kAXWindowDeminiaturizedNotification, kAXApplicationHiddenNotification, kAXApplicationShownNotification,
+        ]
+        let element: AXUIElement = AXUIElementCreateApplication(application.processIdentifier)
+        let (stream, tick): (AsyncStream<Void>, AsyncStream<Void>.Continuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
+        var created: AXObserver?
+        let creation: AXError = unsafe AXObserverCreate(application.processIdentifier, observed, &created)
+        guard let observer: AXObserver = created else { throw .reading(creation) }
+        self.observer = observer
+        ticks = Ticks(continuation: tick)
+        pending = stream.makeAsyncIterator()
+        _ = try traverse(names) { name in
+            let added: AXError = unsafe AXObserverAddNotification(observer, element, name as CFString, Unmanaged.passUnretained(ticks).toOpaque())
+            return added == .success ? .success(()) : .failure(AggregateError(first: (notification: name, error: added)))
+        }
+        .mapError(ElementFailure.unobservable).get()
+        CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
+    }
+
+    deinit {
+        CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
+        ticks.continuation.finish()
+    }
+
+    func change(from last: ApplicationStatus, of application: NSRunningApplication) async -> Result<ApplicationStatus, ElementFailure>? {
+        while await pending.next(isolation: #isolation) != nil {
+            switch application.status() {
+                case .success(last): continue
+                case let read: return read
+            }
+        }
+        return nil
     }
 }
 
@@ -276,53 +364,6 @@ extension NSRunningApplication {
         }
     }
 
-    public func statusChanges() -> AsyncStream<Result<ApplicationStatus, ElementFailure>> {
-        AsyncStream { continuation in
-            let task: Task<Void, Never> = Task {
-                let names: [String] = [
-                    kAXWindowCreatedNotification, kAXSheetCreatedNotification, kAXMenuOpenedNotification, kAXMenuClosedNotification, kAXUIElementDestroyedNotification,
-                    kAXFocusedWindowChangedNotification, kAXMainWindowChangedNotification, kAXTitleChangedNotification, kAXWindowMiniaturizedNotification,
-                    kAXWindowDeminiaturizedNotification, kAXApplicationHiddenNotification, kAXApplicationShownNotification,
-                ]
-                let application: AXUIElement = AXUIElementCreateApplication(processIdentifier)
-                let (ticks, tick): (AsyncStream<Void>, AsyncStream<Void>.Continuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
-                let refcon: Ticks = Ticks(continuation: tick)
-                var created: AXObserver?
-                let creation: AXError = unsafe AXObserverCreate(processIdentifier, observed, &created)
-                let observing: Result<AXObserver, ElementFailure> = Result { () throws(ElementFailure) in
-                    guard let observer: AXObserver = created else { throw .reading(creation) }
-                    _ = try traverse(names) { name in
-                        let added: AXError = unsafe AXObserverAddNotification(observer, application, name as CFString, Unmanaged.passUnretained(refcon).toOpaque())
-                        return added == .success ? .success(()) : .failure(AggregateError(first: (notification: name, error: added)))
-                    }
-                    .mapError(ElementFailure.unobservable).get()
-                    return observer
-                }
-                switch observing.flatMap({ observer in status().map { first in (observer, first) } }) {
-                    case .success((let observer, let first)):
-                        continuation.yield(.success(first))
-                        CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
-                        var last: ApplicationStatus = first
-                        reading: for await _ in ticks {
-                            switch status() {
-                                case .success(last): continue
-                                case .success(let next):
-                                    continuation.yield(.success(next))
-                                    last = next
-                                case .failure(let error):
-                                    continuation.yield(.failure(error))
-                                    break reading
-                            }
-                        }
-                        CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
-                    case .failure(let error): continuation.yield(.failure(error))
-                }
-                withExtendedLifetime(refcon) { continuation.finish() }
-            }
-            continuation.onTermination = { _ in task.cancel() }
-        }
-    }
-
     // --- [ACTIONS]
     public func perform(_ action: ElementAction, on id: CGWindowID) -> Result<Void, ElementFailure> {
         let application: AXUIElement = AXUIElementCreateApplication(processIdentifier)
@@ -344,14 +385,14 @@ extension NSRunningApplication {
     }
 
     public func answer(_ text: String, with action: ElementAction) async -> Result<Void, ElementFailure> {
-        for await next: Result<ApplicationStatus, ElementFailure> in statusChanges() {
+        for await next: Result<ApplicationStatus, ElementFailure> in StatusChanges(self) {
             switch next.map({ snapshot in snapshot.elements.first { element in ([element.title].compactMap(\.self) + element.text).contains { line in line.contains(text) } } }) {
                 case .success(.some(let element)): return perform(action, on: element.id)
                 case .success(.none): continue
                 case .failure(let error): return .failure(error)
             }
         }
-        return .failure(.unmatched(text))
+        return .failure(.cancelled)
     }
 }
 

@@ -211,7 +211,7 @@ final class AccountStore {
         }
         func observe(file: URL, provider: Provider) async {
             do {
-                for try await _ in FileWatch.events(of: file).map({ try contentDigest(file) }).removeDuplicates().dropFirst().debounce(for: .milliseconds(300)) {
+                for try await _ in FileWatch.events(of: file).map({ next in try next.get() }).map({ try contentDigest(file) }).removeDuplicates().dropFirst().debounce(for: .milliseconds(300)) {
                     let before: [UUID: Bool] = Dictionary(
                         uniqueKeysWithValues: accounts.map { model in (model.account.id, model.isSelected) }
                     )
@@ -247,7 +247,8 @@ final class AccountStore {
         func observeRefreshLock() async {
             let lock: URL = ClaudeLock.refreshLockfile(in: claude.shared.directory)
             do {
-                for try await present: Bool in FileWatch.events(of: lock).map({ FileManager.default.fileExists(atPath: lock.path(percentEncoded: false)) }).removeDuplicates().dropFirst()
+                for try await present: Bool in FileWatch.events(of: lock).map({ next in try next.get() }).map({ FileManager.default.fileExists(atPath: lock.path(percentEncoded: false)) })
+                    .removeDuplicates().dropFirst()
                 where !present {
                     await readSelection(.claude)
                 }

@@ -5,6 +5,10 @@ public protocol DeadlineFailure: Error {
     static var cancelled: Self { get }
 }
 
+public protocol ApplicationWaitFailure: DeadlineFailure {
+    static var terminated: Self { get }
+}
+
 // --- [ERRORS] --------------------------------------------------------------------------
 
 public struct AggregateError<Element: Sendable>: Error {

@@ -5,12 +5,16 @@ import System
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-public enum KeychainFailure: Error {
+public enum KeychainFailure: CustomNSError {
     case interactionNotAllowed
     case itemTooLarge
     case unprinted
     case failed(TerminationStatus)
     case process(ProcessFailure)
+
+    public var errorUserInfo: [String: Any] {
+        if case .process(let error) = self { [NSUnderlyingErrorKey: error] } else { [:] }
+    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
