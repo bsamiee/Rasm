@@ -41,7 +41,7 @@ Repository programs read owner-issued values from shared project `agent-runtime`
 ## [03]-[OP_SIGNIN]
 
 Desktop app integration authorizes `op` for account `my.1password.com`:
-1. `open -a 1Password` starts the app, a closed app fails `op` with `couldn't connect to the 1Password desktop app`
+1. Use `Skill(watch-apps)` to launch 1Password, a closed app fails `op` with `couldn't connect to the 1Password desktop app`
 2. `op vault list` raises the Touch ID prompt and lists vaults `Personal` and `Tokens`
 
 - Authorization covers one terminal session and its subshells, expires after 10 idle minutes or 12 hours, and ends when the app locks

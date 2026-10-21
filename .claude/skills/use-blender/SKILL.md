@@ -58,11 +58,10 @@ Pictures come from the source that draws current state:
 
 Sessions open in order:
 1. `lsof -a -nP -iTCP:9876-9877 -sTCP:LISTEN` names the GUI pid
-2. With no listener, `/usr/bin/open -n -g -a "${BLENDER_PATH%/Contents/MacOS/Blender}" --env PYTHONUNBUFFERED=1 --env PYTHONPYCACHEPREFIX="$PYTHONPYCACHEPREFIX" --stdout <log> --stderr <log> --args --no-window-focus --python-use-system-env` starts a task GUI
-3. `rg -m1 -q 'BlenderMCP server started' < <(tail -F -n +1 <log> 2>/dev/null)` with `run_in_background: true` completes once port 9876 listens
-4. One `ToolSearch` select line loads every `mcp__blender__*` and `mcp__mcp-for-blender__*` schema
-5. `mcp__blender__get_blendfile_summary_path_info` names the open file and its `is_dirty` state
-6. `mcp__mcp-for-blender__get_addon_status` answers `"source": "native"`, or `"error"` while replacing a quit GUI's socket, `native` on its next call
+2. With no listener, use the `watch-apps` skill to launch a new Blender with `PYTHONPYCACHEPREFIX`, `--no-window-focus`, and `--python-use-system-env`
+3. One `ToolSearch` select line loads every `mcp__blender__*` and `mcp__mcp-for-blender__*` schema
+4. `mcp__blender__get_blendfile_summary_path_info` names the open file and its `is_dirty` state
+5. `mcp__mcp-for-blender__get_addon_status` answers `"source": "native"`, or `"error"` while replacing a quit GUI's socket, `native` on its next call
 
 - Files outside the task close through `bpy.ops.wm.read_homefile()`, after `bpy.ops.wm.save_mainfile()` for a named file, untitled files with no save
 
@@ -78,7 +77,7 @@ result = {"closed": closed}
 ```
 
 Script-driven task GUIs run a runner script:
-- `python .claude/skills/use-blender/scripts/evaluate.py run <name> -- --no-window-focus --python <runner.py>` starts one through `open` and returns once it quits
+- `python .claude/skills/use-blender/scripts/evaluate.py run <name> -- --no-window-focus --python <runner.py>` runs one and returns once it quits
 - Runners register a persistent `bpy.app.timers` function that runs one step per call, modal jobs and drawing advancing between steps
 - Runners calling `window.event_simulate` launch with `--enable-event-simulate`, the call otherwise raising `RuntimeError`
 - Runners end with the quit call
@@ -172,13 +171,12 @@ Repository `user_default` holds extensions installed from a file, remote reposit
 
 Each source writes its log to one place:
 
-| [INDEX] | [SOURCE]          | [OUTPUT]                                                                           |
-| :-----: | :---------------- | :--------------------------------------------------------------------------------- |
-|  [01]   | Background run    | Calling shell                                                                      |
-|  [02]   | `pack`, `install` | Nx task output, native install output forwarded from the GUI                       |
-|  [03]   | Task GUI          | `--stdout` log with prints, add-on requests, and extension registration tracebacks |
-|  [04]   | GUI, no log file  | `execute_blender_code` answers, Info editor lines in `window_manager.reports`      |
-|  [05]   | Crash, Blender    | `blender.crash.txt` in `filepaths.temporary_directory`, else process `TMPDIR`      |
+| [INDEX] | [SOURCE]          | [OUTPUT]                                                                      |
+| :-----: | :---------------- | :---------------------------------------------------------------------------- |
+|  [01]   | Background run    | Calling shell                                                                 |
+|  [02]   | `pack`, `install` | Nx task output, native install output forwarded from the GUI                  |
+|  [03]   | Task GUI          | `execute_blender_code` answers, Info editor lines in `window_manager.reports` |
+|  [04]   | Crash, Blender    | `blender.crash.txt` in `filepaths.temporary_directory`, else process `TMPDIR` |
 
 Log reads follow host rules:
 - Blender Python reads Python variables (`PYTHONUNBUFFERED`, `PYTHONPYCACHEPREFIX`) under `--python-use-system-env` alone, prints reaching the log per line and bytecode `.cache/pycache`

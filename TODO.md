@@ -13,21 +13,12 @@ Remaining work on Creative Cloud libraries and products, for a fresh session.
 
 ## [01]-[STATE]
 
-- Status streams and the file watch yield typed results; waits on host state observe change events under a caller deadline
-- `@rasm/automation` is one module: `Installation`, `InstalledFace`, the `Requests` RPC group, and the `Automation` client layer
-- `@rasm/uxp` holds plug-in runtime (`plugin`, `script`, `Uxp`, `Plugin`, `Manifest`) and the dialed RPC link, which dials the manifest's network domain under its `Peer` identity
-- `@rasm/mcp` holds the loopback MCP server, `targeted` routes with a status trailer on every result but a pure interrupt, `listen` and `publish`, and the `channel` endpoint
-- `@rasm/search` is `Unmatched`, owning `matching` and `single` with collator equality, ranking and a remainder count in its message
-- Verb classes: `Inspect`, `Kind`, `Change`, `Create`, `Remove`, `Invoke`, `Script`, `FindChange`, `Render`, `Font`, `Menu`, `Preflight`, `Queries`
 - A mutation locates its target once; the baseline covers every document the located elements belong to; a find without a change is a read
 - `Kind` answers the index of classes and enumerations or one declaration, published at `indesign://kinds` with name completion
 - Atelier tools: registered again whenever the installed application names change, which tools offer as choices
 - Atelier publishes InDesign `inspect`, `change`, `create`, `remove`, `find_change`, and `render` as tools
 - Atelier publishes InDesign `menu`, `preflight`, `queries`, and `kinds` as resources
 - Every tool result ends with the application's status as a resource block, the form Claude Code forwards beside structured content
-- `Unmatched` candidates render ranked and capped with the count of the rest
-- Menu actions run under never-interact, an ellipsis-named action opens a dialog and is refused, its settings live in preference objects
-- Scripts run through a linked extension with TypeScript stripped, else through the dictionary's script command (`miscDjxM`, `miscdosc`) as ES3
 - Mutation results hold preflight of each touched document: issue count and issues introduced against the per-mutation baseline
 - The daemon's `/channel` endpoint (`atelier-channel` in `.mcp.json` and `.codex/config.toml`, protocol 2025-11-25 alone) pushes `notifications/claude/channel` status events following every running Adobe application the server serves, when observation starts and after each change, and no preflight events
 - A Claude Code session opts in with `--dangerously-load-development-channels server:atelier-channel` and receives each event as a `<channel>` turn; headless sessions and Codex receive none, and nothing else over HTTP reaches a model between calls
@@ -35,7 +26,6 @@ Remaining work on Creative Cloud libraries and products, for a fresh session.
 
 ## [02]-[OPEN]
 
-- Menu actions without an ellipsis that still open a window under never-interact are unknown; the first one found joins the refusal rule
 - Dictionary refusal rows other than InDesign `show` rest on dictionary text, the first row a send disproves or a new one found changes the table
 - Dismissing an InDesign script dialog through an Accessibility press activated InDesign once, closing Keyboard Shortcuts did not; other dialogs unmeasured
 - Single key bindings have no DOM member, shortcut editing stops at `generalPreferences.keyboardShortcutSet` and `applyShortcutSet`

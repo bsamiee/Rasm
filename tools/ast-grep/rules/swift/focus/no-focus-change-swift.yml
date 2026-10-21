@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-focus-change-swift
+language: swiftlang
+severity: error
+files: ['libs/**', 'tools/**', 'plugins/**', 'apps/creative-cloud/**', '.claude/**', '.codex/**']
+rule:
+    any:
+        - kind: call_expression
+          pattern: $SITE
+          any:
+            - all:
+                - has: {nthChild: 1, regex: '(^|\.)activate$'}
+                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 1, has: {field: name, regex: '^(options|from|ignoringOtherApps)$'}}}}
+            - has: {nthChild: 1, regex: '^((AppKit\.)?NSApp|(AppKit\.)?NSApplication\.shared)\.(activate|unhide)$'}
+            - has: {nthChild: 1, regex: '(^|\.)activateFileViewerSelecting$'}
+            - all:
+                - has: {nthChild: 1, regex: '(^|\.)(selectFile|showSearchResults)$'}
+                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: name, regex: '^(inFileViewerRootedAtPath|forQueryString)$'}}}}
+            - all:
+                - has:
+                    nthChild: 1
+                    any:
+                        - regex: '^(AppKit\.)?NSWorkspace\.shared\.open$'
+                        - {regex: '^(self\.)?open$', inside: {kind: class_declaration, stopBy: end, has: {field: name, regex: '^(AppKit\.)?NSWorkspace$'}}}
+                - not: {has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: name, regex: '^configuration$'}}}}}
+            - all:
+                - has: {nthChild: 1, regex: '(^|\.)(openApplication|open)$'}
+                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, all: [{has: {field: name, regex: '^configuration$'}}, {has: {field: value, pattern: $CONFIGURATION}}]}}}
+                - not:
+                    inside:
+                        kind: 'function_declaration, init_declaration, source_file'
+                        stopBy: {kind: 'function_declaration, init_declaration, source_file'}
+                        has: {stopBy: end, kind: assignment, pattern: $CONFIGURATION.activates = false}
+            - all:
+                - has: {nthChild: 1, regex: '^AXUIElementPerformAction$'}
+                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 2, regex: '^(kAXRaiseAction\b|"AXRaise")'}}}
+            - all:
+                - has: {nthChild: 1, regex: '^AXUIElementSetAttributeValue$'}
+                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 2, regex: '^(kAXFrontmostAttribute\b|"AXFrontmost")'}}}
+            - all:
+                - has: {nthChild: 1, regex: '^(NSAppleEventDescriptor(\.init)?|AECreateAppleEvent)$'}
+                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {stopBy: end, kind: simple_identifier, regex: '^kAEActivate$'}}}}
+            - all:
+                - has: {nthChild: 1, regex: '^NSAppleScript(\.init)?$'}
+                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, all: [{has: {field: name, regex: '^source$'}}, {has: {field: value, regex: '\bactivate\b|\bset\s+frontmost\b|AXRaise'}}]}}}
+        - kind: assignment
+          pattern: $SITE
+          all:
+            - has: {field: target, regex: '\.activates$'}
+            - has: {field: result, regex: '^true$'}
+message: '`$SITE` takes focus from the frontmost application'
+note: 'Launch and open through an `OpenConfiguration` holding `activates = false`, act on windows by Accessibility actions other than `AXRaise`, and send no `activate` event or script'

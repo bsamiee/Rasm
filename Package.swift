@@ -29,11 +29,15 @@ let modules: [Target] = [
     .target(name: "Keychain", dependencies: ["Encoding", "Processes", "Results", .product(name: "Subprocess", package: "swift-subprocess")], path: "libs/swift/macos/Keychain"),
     .target(
         name: "Applications",
-        dependencies: ["Encoding", "Files", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "Subprocess", package: "swift-subprocess")],
+        dependencies: [
+            "Encoding", "Files", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "OrderedCollections", package: "swift-collections"),
+            .product(name: "Subprocess", package: "swift-subprocess"),
+        ],
         path: "libs/swift/macos/Applications",
     ),
-    .target(name: "AppleEvents", dependencies: ["Applications", "Encoding", "Results"], path: "libs/swift/macos/AppleEvents"),
-    .target(name: "JSONRPC", dependencies: ["Encoding", "Results"], path: "libs/swift/rpc/JSONRPC"),
+    .target(name: "AppleEvents", dependencies: ["Applications", "Encoding", "Results", .product(name: "OrderedCollections", package: "swift-collections")], path: "libs/swift/macos/AppleEvents"),
+    .target(name: "AdobeScripting", dependencies: ["AppleEvents", "Applications"], path: "libs/swift/creative-cloud/AdobeScripting"),
+    .target(name: "JSONRPC", dependencies: ["Encoding", "Results", .product(name: "OrderedCollections", package: "swift-collections")], path: "libs/swift/rpc/JSONRPC"),
     .target(name: "EffectRPC", dependencies: ["CurrentProcess", "Encoding", "Results"], path: "libs/swift/rpc/EffectRPC"),
 ]
 
@@ -53,9 +57,8 @@ let package: Package = Package(
         .executableTarget(
             name: "watch-apps",
             dependencies: [
-                "Applications", "Encoding", "Files", "Results", .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                "Applications", "Encoding", "Results", .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "OrderedCollections", package: "swift-collections"),
-                .product(name: "Subprocess", package: "swift-subprocess"),
             ],
             path: "tools/watch-apps",
         )

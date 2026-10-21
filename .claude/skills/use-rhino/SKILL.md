@@ -54,7 +54,7 @@ Sessions open on:
 1. `dotnet run ${CLAUDE_SKILL_DIR}/scripts/Instances.cs` lists each Rhino visible to the router with its documents, slots, and Grasshopper definitions
 2. Document of the work, one case:
     - New work: an open untitled, unmodified document, else `spawn_slot` starts one without a splash screen on the default template
-    - Existing work: `open -g <file>` opens the file in Rhino
+    - Existing work: use the `watch-apps` skill to open the file in Rhino
 3. `list_slots` adopts the announced listeners, then `get_context` reads the target slot's selection, viewport, document, and canvas state
 
 - One Rhino application holds every open document, and each `spawn_slot` adds a document window to it

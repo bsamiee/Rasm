@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-focus-change-python
+language: python
+severity: error
+files: ['libs/**', 'tools/**', 'plugins/**', 'apps/creative-cloud/**', '.claude/**', '.codex/**']
+rule:
+    kind: 'tuple, list'
+    pattern: $SITE
+    all:
+        - any:
+            - inside: {kind: argument_list, inside: {kind: call, has: {field: function, regex: '(^|\.)(run|Popen|call|check_call|check_output|create_subprocess_exec|execv|execvp|execvpe|execve|spawnv|spawnvp|posix_spawn|posix_spawnp)$'}}}
+            - has: {nthChild: 1, kind: string, regex: '^["'']/usr/bin/(open|osascript)["'']$'}
+        - any:
+            - all:
+                - has: {nthChild: 1, kind: string, regex: '^["''](/usr/bin/)?open["'']$'}
+                - not:
+                    has:
+                        any:
+                            - kind: list_splat
+                            - {kind: string, regex: '^["''](-[eftFWRnjh]*g[A-Za-z]*|--background)["'']$'}
+                        not: {follows: {stopBy: end, regex: '^["'']--args["'']$'}}
+            - all:
+                - has: {nthChild: 1, kind: string, regex: '^["''](/usr/bin/)?osascript["'']$'}
+                - has: {kind: string, regex: '\bactivate\b|\bset\s+frontmost\b|AXRaise'}
+message: '`$SITE` takes focus from the frontmost application'
+note: 'Pass `-g` to `open` ahead of `--args`, and send no AppleScript `activate`, `AXRaise`, or `frontmost` write'

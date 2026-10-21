@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-focus-change-bash
+language: bash
+severity: error
+files: ['libs/**', 'tools/**', 'plugins/**', 'apps/creative-cloud/**', '.claude/**', '.codex/**']
+rule:
+    kind: command
+    pattern: $SITE
+    any:
+        - all:
+            - any:
+                - has: {field: name, regex: '^(/usr/bin/)?open$'}
+                - all:
+                    - has: {field: name, regex: '^(exec|command)$'}
+                    - has: {kind: word, nthChild: 2, regex: '^(/usr/bin/)?open$'}
+            - not:
+                has:
+                    kind: 'word, string, raw_string, concatenation'
+                    not: {follows: {stopBy: end, regex: '^--args$'}}
+                    any:
+                        - regex: '^[''"]?(-[eftFWRnjh]*g[A-Za-z]*|--background)[''"]?$'
+                        - has: {stopBy: end, kind: special_variable_name, regex: '^[@*]$'}
+                        - has: {stopBy: end, kind: subscript, has: {field: index, regex: '^[@*]$'}}
+        - all:
+            - has: {field: name, regex: '^(/usr/bin/)?osascript$'}
+            - has: {kind: 'word, string, raw_string, concatenation', regex: '\bactivate\b|\bset\s+frontmost\b|AXRaise'}
+message: '`$SITE` takes focus from the frontmost application'
+note: 'Pass `-g` to `open` ahead of `--args`, and send no AppleScript `activate`, `AXRaise`, or `frontmost` write'

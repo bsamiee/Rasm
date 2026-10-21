@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-focus-change-tsx
+language: tsx
+severity: error
+files: ['libs/**', 'tools/**', 'plugins/**', 'apps/creative-cloud/**', '.claude/**', '.codex/**']
+utils:
+    program:
+        kind: string
+        nthChild: 1
+        inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '(^|\.)(make|spawn|spawnSync|execFile|execFileSync)$'}}}
+    activating-script:
+        regex: '\bactivate\b|\bset\s+frontmost\b|AXRaise'
+    activating-line:
+        all:
+            - any:
+                - kind: template_string
+                  inside: {kind: call_expression, field: arguments, has: {field: function, regex: '(?s)(^|\.)make(\(.*\))?$'}}
+                - kind: 'string, template_string'
+                  nthChild: 1
+                  inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '(^|\.)(exec|execSync)$'}}}
+            - any:
+                - regex: '^[`''"]\s*(/usr/bin/)?open(\s|[`''"])'
+                  not: {regex: '^[`''"]\s*(/usr/bin/)?open(\s+([^-\s]\S*|-[^-\s]\S*|--([^a\s]\S*|a[^r\s]\S*|ar[^g\s]\S*|arg[^s\s]\S*|args\S+|ar|arg|a)?))*?\s+(-[eftFWRnjh]*g[A-Za-z]*|--background)(\s|[`''"])'}
+                - regex: '^[`''"]\s*(/usr/bin/)?osascript\s'
+                  matches: activating-script
+rule:
+    kind: call_expression
+    pattern: $SITE
+    any:
+        - all:
+            - has: {field: arguments, has: {matches: program, regex: '^[''"](/usr/bin/)?open[''"]$'}}
+            - not: {has: {field: arguments, has: {nthChild: 2, not: {kind: 'object, array'}}}}
+            - not:
+                has:
+                    field: arguments
+                    has:
+                        nthChild: 2
+                        kind: array
+                        has:
+                            any:
+                                - kind: spread_element
+                                - kind: string
+                                  regex: '^[''"](-[eftFWRnjh]*g[A-Za-z]*|--background)[''"]$'
+                                  not: {follows: {stopBy: end, regex: '^[''"]--args[''"]$'}}
+        - all:
+            - has: {field: arguments, has: {matches: program, regex: '^[''"](/usr/bin/)?osascript[''"]$'}}
+            - has: {field: arguments, has: {nthChild: 2, kind: array, has: {kind: 'string, template_string', matches: activating-script}}}
+        - has: {field: arguments, any: [{matches: activating-line}, {has: {matches: activating-line}}]}
+message: '`$SITE` takes focus from the frontmost application'
+note: 'Pass `-g` to `open` ahead of `--args`, and send no AppleScript `activate`, `AXRaise`, or `frontmost` write'
