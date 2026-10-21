@@ -62,7 +62,9 @@ final class Watcher {
 
     // --- [FOLLOW]
     func run() async {
-        let followed: AsyncStream<Result<Data, FileWatchFailure>> = FileWatch.lines(appendedTo: logURL(app))
+        let followed: Result<FileHandle, any Error> = await logHandle(app, .readOnly, options: [.create, .closeOnExec]).flatMap { handle in
+            Result { try handle.seekToEnd() }.map { _ in handle }
+        }
         show(.watch)
         for instance: NSRunningApplication in NSRunningApplication.instances(withBundleIdentifier: app) {
             let pid: pid_t = instance.processIdentifier
@@ -75,20 +77,26 @@ final class Watcher {
             for event: Event in opened { show(event) }
         }
         await withDiscardingTaskGroup { group in
-            group.addTask { await self.follow(followed) }
-            group.addTask { await self.take() }
+            switch followed {
+                case .success(let handle): group.addTask { await self.follow(FileWatch.lines(following: handle)) }
+                case .failure(let error): group.addTask { await self.show(.fail(pid: nil, reason: .file(logURL(self.app), error))) }
+            }
+            group.addTask {
+                if case .failure(let error) = await Result(catching: { try await self.hold(logHandle(self.app, .writeOnly, options: [.create, .append, .closeOnExec, .exclusiveLock]).get()) }) {
+                    await self.show(.fail(pid: nil, reason: .file(logURL(self.app), error)))
+                }
+            }
         }
     }
 
     func follow(_ lines: AsyncStream<Result<Data, FileWatchFailure>>) async {
         let decoder: JSONDecoder = JSONDecoder()
         for await read: Result<Data, FileWatchFailure> in lines {
-            switch read.map({ line in Result { try decoder.decode(Line.self, from: line) } }) {
-                case .success(.success(let line)):
+            switch Result(catching: { try decoder.decode(Line.self, from: read.get()) }) {
+                case .success(let line):
                     track(line.event)
                     output.yield(line)
-                case .success(.failure(let error)): show(.fail(pid: nil, reason: .file(logURL(app), error)))
-                case .failure(let error): show(.fail(pid: nil, reason: .described(error)))
+                case .failure(let error): show(.fail(pid: nil, reason: .file(logURL(app), error)))
             }
         }
     }
@@ -108,12 +116,6 @@ final class Watcher {
     }
 
     // --- [HOLD]
-    func take() async {
-        if case .failure(let error) = await Result(catching: { try await hold(logHandle(app, options: [.create, .append, .closeOnExec, .exclusiveLock]).get()) }) {
-            show(.fail(pid: nil, reason: .file(logURL(app), error)))
-        }
-    }
-
     func hold(_ log: FileHandle) async throws {
         let encoder: JSONEncoder = JSONEncoder()
         let write: ([Event]) throws -> Void = { [app] events in
@@ -148,6 +150,8 @@ final class Watcher {
     }
 }
 
+let log: DispatchQueue = DispatchQueue(label: "watch-apps.log", attributes: .concurrent)
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 func logURL(_ app: String) -> URL {
@@ -155,11 +159,11 @@ func logURL(_ app: String) -> URL {
 }
 
 @concurrent
-func logHandle(_ app: String, options: FileDescriptor.OpenOptions) async -> Result<FileHandle, any Error> {
-    await withTaskExecutorPreference(DispatchQueue(label: "watch-apps.log", attributes: .concurrent)) {
+func logHandle(_ app: String, _ access: FileDescriptor.AccessMode, options: FileDescriptor.OpenOptions) async -> Result<FileHandle, any Error> {
+    await withTaskExecutorPreference(log) {
         Result {
             try FileHandle(
-                fileDescriptor: FileDescriptor.open(FilePath(logURL(app).path(percentEncoded: false)), .writeOnly, options: options, permissions: [.ownerReadWrite]).rawValue,
+                fileDescriptor: FileDescriptor.open(FilePath(logURL(app).path(percentEncoded: false)), access, options: options, permissions: [.ownerReadWrite]).rawValue,
                 closeOnDealloc: true,
             )
         }
@@ -197,15 +201,15 @@ struct WatchApps: AsyncParsableCommand {
         parent.setEventHandler { exit() }
         parent.activate()
         let (lines, output): (AsyncStream<Line>, AsyncStream<Line>.Continuation) = AsyncStream.makeStream()
-        let working: Task<ExitCode, any Error> = Task { @MainActor in
+        async let code: ExitCode = { @MainActor () async throws -> ExitCode in
             defer { output.finish() }
             for line: Line in failures { output.yield(line) }
             return if failures.isEmpty { try await work(ids, output) } else { .failure }
-        }
+        }()
         let encoder: JSONEncoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         for await line: Line in lines { try FileHandle.standardOutput.write(contentsOf: encoder.encode(line) + [UInt8(ascii: "\n")]) }
-        throw try await working.value
+        throw try await code
     }
 }
 
@@ -258,7 +262,7 @@ struct Answer: AsyncParsableCommand {
                         case .failure(let error): Line(app: app, event: .fail(pid: pid, reason: .described(error)))
                     }
                 if case .failure(let error) = await Result(catching: {
-                    try await logHandle(app, options: [.create, .append, .closeOnExec]).get().write(contentsOf: JSONEncoder().encode(line) + [UInt8(ascii: "\n")])
+                    try await logHandle(app, .writeOnly, options: [.create, .append, .closeOnExec]).get().write(contentsOf: JSONEncoder().encode(line) + [UInt8(ascii: "\n")])
                 }) {
                     output.yield(Line(app: app, event: .fail(pid: nil, reason: .file(logURL(app), error))))
                 }

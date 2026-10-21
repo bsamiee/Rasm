@@ -1,4 +1,5 @@
 import AppKit
+import CurrentProcess
 import Processes
 import SwiftUI
 import os
@@ -17,13 +18,7 @@ struct AccountRemovalAlert: ViewModifier {
                 .keyboardShortcut(.defaultAction)
             Button(Self.title, role: .destructive) { store.remove(model.account.id) }
         } message: { model in
-            let email: String = model.account.identity.email
-            let message: String =
-                switch (model.isSelected, model.account.provider) {
-                    case (true, .claude): "Removing \(email) deletes its credential and signs Claude Code out"
-                    case (true, .openAI): "Removing \(email) deletes its credential and signs Codex out"
-                    case (false, _): "Removing \(email) deletes its credential"
-                }
+            let message: String = "Removing \(model.account.identity.email) deletes its credential" + (model.isSelected ? " and signs \(model.account.provider.tool) out" : "")
             Text(message)
         }
     }
@@ -156,12 +151,13 @@ private struct AccountCard: View {
                     .fixedSize(horizontal: false, vertical: true)
                 Spacer(minLength: 12)
                 if let expiry: Date = model.usage.usage?.signInExpiresAt {
-                    Text(UsagePresentation.signInExpiry(expiry))
+                    let tooltip: String = "Sign-in expires \(expiry.formatted(.detail))"
+                    Text(expiry, format: .monthDay)
                         .font(.caption)
                         .monospacedDigit()
                         .foregroundStyle(.secondary)
-                        .help(UsagePresentation.signInExpiryTooltip(expiry))
-                        .accessibilityLabel(UsagePresentation.signInExpiryTooltip(expiry))
+                        .help(tooltip)
+                        .accessibilityLabel(tooltip)
                 }
             }
             HStack(alignment: .glyphRow, spacing: 12) {
@@ -205,17 +201,17 @@ private struct AccountCard: View {
         let usage: AccountUsage? = model.usage.usage
         let isCurrent: Bool = model.usage.isCurrent
         let session: QuotaWindow? = usage?.session
-        let hasSession: Bool = usage.map { current in current.session != nil } ?? true
+        let hasSession: Bool = usage == nil || session != nil
         let isStarting: Bool = model.running?.kind == .starting
         let showsStart: Bool = isStarting || model.canStartSession(at: now)
         let startLabel: String = isStarting ? "Cancel" : "Start session"
         if hasSession {
             UsageGauge(
                 title: "Session",
-                reading: UsagePresentation.sessionReading(model.usage, at: now),
+                reading: model.usage.sessionReading(at: now),
                 fraction: showsStart ? 0 : session?.used.fraction ?? 0,
                 isCurrent: isCurrent,
-                detail: UsagePresentation.resetTooltip(session?.resetsAt),
+                detail: session.flatMap(\.resetsAt).resetTooltip,
                 leadsGlyphRow: true,
             ) {
                 if showsStart {
@@ -238,14 +234,13 @@ private struct AccountCard: View {
             .animation(.default, value: showsStart)
         }
         if let usage {
-            let weekly: [QuotaWindow] = [usage.weekly].compactMap(\.self) + usage.models
-            ForEach(weekly.enumerated(), id: \.offset) { offset, window in
+            ForEach(usage.windows.filter { window in window.kind != .session }.enumerated(), id: \.offset) { offset, window in
                 UsageGauge(
                     title: window.kind.name,
-                    reading: UsagePresentation.reading(window, at: now),
+                    reading: window.reading(at: now),
                     fraction: window.used.fraction,
                     isCurrent: isCurrent,
-                    detail: UsagePresentation.resetTooltip(window.resetsAt),
+                    detail: window.resetsAt.resetTooltip,
                     leadsGlyphRow: !hasSession && offset == 0,
                 ) {}
             }
@@ -254,12 +249,11 @@ private struct AccountCard: View {
 
     private var note: String? {
         switch (model.issue, model.running?.kind, model.authentication) {
-            case (.some(let issue), _, _): UsagePresentation.issue(issue, at: now)
+            case (.some(let issue), _, _): issue.description(at: now)
             case (.none, .signingOut, _), (.none, .removing, _): model.running?.kind.description
             case (.none, _, .signInRequired): "Sign in required"
             case (.none, _, .connected):
-                UsagePresentation.blockedLine(model.usage.usage?.availability(at: now), at: now)
-                    ?? UsagePresentation.signInLine(expiring: model.usage.usage?.signInExpiresAt, at: now)
+                model.usage.usage?.availability(at: now).blockedLine(at: now) ?? model.usage.usage?.signInLine(at: now)
         }
     }
 }

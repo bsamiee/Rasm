@@ -1,6 +1,7 @@
 import AppKit
 import Observation
 import Processes
+import Results
 import SwiftUI
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -48,7 +49,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_: Notification) {
         launch = Task(name: "Launch Relay") { [self] in
             switch await LoginShell.environment(within: .seconds(5)).map(AccountStore.init(environment:)) {
-                case .failure(.run(.cancelled)): return
+                case .failure(.run(.deadline(.cancelled))): return
                 case let launched:
                     store = launched
                     if case .success(let started) = launched { started.start() }

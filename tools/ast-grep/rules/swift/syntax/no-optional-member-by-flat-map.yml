@@ -5,24 +5,37 @@ severity: error
 utils:
     chain-root:
         any:
-            - {kind: simple_identifier, regex: '^\$0$'}
+            - {kind: simple_identifier, pattern: $P}
             - {kind: key_path_expression, regex: '^\\$'}
             - {kind: navigation_expression, has: {field: target, matches: chain-root}}
             - {kind: call_expression, has: {nthChild: 1, matches: chain-root}}
-    member-read:
+    parameter:
+        kind: lambda_function_type_parameters
+        all:
+            - has: {kind: lambda_parameter, has: {field: name, kind: simple_identifier, pattern: $P}}
+            - not: {has: {kind: lambda_parameter, nthChild: 2}}
+    called-member:
         kind: 'navigation_expression, call_expression'
         pattern: $READ
+        all:
+            - matches: chain-root
+            - has: {stopBy: end, kind: call_suffix}
+            - not: {has: {stopBy: end, kind: call_suffix, has: {stopBy: end, kind: simple_identifier, pattern: $P}}}
+    key-path-member:
+        kind: navigation_expression
+        pattern: $KEY
+        regex: '^\\\.'
         matches: chain-root
-        not: {kind: 'simple_identifier, key_path_expression'}
+    calling-closure:
+        kind: lambda_literal
+        all:
+            - has: {field: type, kind: lambda_function_type, has: {matches: parameter}}
+            - has: {kind: statements, has: {nthChild: 1, matches: called-member}, not: {has: {nthChild: 2}}}
     reader:
         any:
-            - kind: lambda_literal
-              regex: '^\{[^$]*\$0[^$]*\}$'
-              all:
-                - not: {has: {field: type, kind: lambda_function_type}}
-                - has: {kind: statements, has: {nthChild: 1, matches: member-read}, not: {has: {nthChild: 2}}}
+            - matches: calling-closure
             - kind: value_arguments
-              has: {kind: value_argument, not: {has: {kind: value_argument_label}}, has: {field: value, matches: member-read, regex: '^\\\.'}}
+              has: {kind: value_argument, not: {has: {kind: value_argument_label}}, has: {field: value, any: [{matches: calling-closure}, {matches: key-path-member}]}}
               not: {has: {kind: value_argument, nthChild: 2}}
     optional-context:
         any:
@@ -34,8 +47,18 @@ rule:
         - has: {nthChild: 1, kind: navigation_expression, all: [{has: {field: target, pattern: $X}}, {has: {field: suffix, has: {field: suffix, regex: '^flatMap$'}}}]}
         - has: {kind: call_suffix, has: {matches: reader}}
         - matches: optional-context
+rewriters:
+    - id: root
+      rule:
+        kind: simple_identifier
+        pattern: $P
+        any:
+            - inside: {kind: navigation_expression, field: target}
+            - {nthChild: 1, inside: {kind: call_expression}}
+      fix: ''
 transform:
-    REST: {replace: {source: $READ, replace: '^(\$0|\\)', by: ''}}
-fix: $X?$REST
+    CALLED: {rewrite: {source: $READ, rewriters: [root]}}
+    KEYED: {replace: {source: $KEY, replace: '^\\', by: ''}}
+fix: $X?$CALLED$KEYED
 message: '`$X.flatMap` reads one member of an optional'
 note: 'Read `<optional>?.<member>`'

@@ -38,20 +38,6 @@ nonisolated struct QuotaWindow: Equatable, Sendable {
     let rejected: Bool
 
     var blocks: Bool { used.isExhausted || rejected }
-
-    func keepingReset(from previous: Self?, at now: Date) -> Self {
-        if resetsAt == nil, let previous,
-            let reset: Date = previous.resetsAt, reset > now
-        {
-            withReset(reset)
-        } else {
-            self
-        }
-    }
-
-    func withReset(_ reset: Date) -> Self {
-        Self(kind: kind, used: used, resetsAt: reset, rejected: rejected)
-    }
 }
 
 nonisolated enum Availability: Equatable, Sendable {
@@ -69,11 +55,6 @@ nonisolated struct AccountUsage: Equatable, Sendable {
 
     var session: QuotaWindow? { windows.first { window in window.kind == .session } }
     var weekly: QuotaWindow? { windows.first { window in window.kind == .weekly } }
-    var models: [QuotaWindow] {
-        windows.filter { window in
-            if case .model = window.kind { true } else { false }
-        }
-    }
 
     func availability(at now: Date) -> Availability {
         switch (weekly, includedUsageAllowed, session, session?.resetsAt) {
@@ -85,24 +66,9 @@ nonisolated struct AccountUsage: Equatable, Sendable {
         }
     }
 
-    func keepingResets(from previous: Self?, at now: Date) -> Self {
-        withWindows(
-            windows.map { window in
-                window.keepingReset(
-                    from: previous?.windows.first { earlier in earlier.kind == window.kind },
-                    at: now,
-                )
-            }
-        )
-    }
-
-    func settingSessionReset(_ reset: Date?) -> Self {
-        if let reset, let session, session.resetsAt == nil { withWindows(windows.map { window in window.kind == .session ? window.withReset(reset) : window }) } else { self }
-    }
-
-    func withWindows(_ windows: [QuotaWindow]) -> Self {
+    func fillingResets(_ reset: (QuotaKind) -> Date?) -> Self {
         Self(
-            windows: windows,
+            windows: windows.map { window in QuotaWindow(kind: window.kind, used: window.used, resetsAt: window.resetsAt ?? reset(window.kind), rejected: window.rejected) },
             includedUsageAllowed: includedUsageAllowed,
             observedAt: observedAt,
             signInExpiresAt: signInExpiresAt,

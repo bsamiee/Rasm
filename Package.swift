@@ -21,11 +21,14 @@ let settings: [SwiftSetting] = [
 let modules: [Target] = [
     .target(name: "Results", path: "libs/swift/macos/Results"),
     .target(name: "JSON", path: "libs/swift/macos/JSON"),
-    .target(name: "Files", path: "libs/swift/macos/Files"),
+    .target(name: "CurrentProcess", path: "libs/swift/macos/CurrentProcess"),
+    .target(name: "Files", dependencies: ["Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms")], path: "libs/swift/macos/Files"),
     .target(name: "Fonts", dependencies: ["Results"], path: "libs/swift/macos/Fonts"),
     .target(name: "Processes", dependencies: ["Results", .product(name: "Subprocess", package: "swift-subprocess")], path: "libs/swift/macos/Processes"),
     .target(name: "Applications", dependencies: ["Files", "JSON", "Results"], path: "libs/swift/macos/Applications"),
-    .target(name: "AppleEvents", dependencies: ["Applications", "Results"], path: "libs/swift/macos/AppleEvents"),
+    .target(name: "AppleEvents", dependencies: ["Applications", "JSON", "Results"], path: "libs/swift/macos/AppleEvents"),
+    .target(name: "EffectRPC", dependencies: ["CurrentProcess", "JSON", "Results"], path: "libs/swift/macos/EffectRPC"),
+    .target(name: "JSONRPC", dependencies: ["JSON", "Processes", "Results", .product(name: "Subprocess", package: "swift-subprocess")], path: "libs/swift/macos/JSONRPC"),
 ]
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -36,6 +39,7 @@ let package: Package = Package(
     products: modules.map { module in .library(name: module.name, targets: [module.name]) },
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.8.2"),
+        .package(url: "https://github.com/apple/swift-async-algorithms", from: "1.1.7"),
         .package(url: "https://github.com/swiftlang/swift-subprocess", from: "1.0.2"),
     ],
     targets: modules + [

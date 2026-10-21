@@ -24,14 +24,11 @@ public enum LoginShellFailure: CustomNSError, LocalizedError {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 public enum LoginShell {
-    private static var shell: FilePath {
-        FilePath(
+    public static func environment(within timeout: Duration) async -> Result<[Environment.Key: String], LoginShellFailure> {
+        let shell: FilePath = FilePath(
             unsafe getpwuid(getuid()).flatMap { entry in unsafe entry.pointee.pw_shell.map { path in unsafe String(cString: path) } }
                 .flatMap { path in path.isEmpty ? nil : path } ?? _PATH_BSHELL
         )
-    }
-
-    public static func environment(within timeout: Duration) async -> Result<[Environment.Key: String], LoginShellFailure> {
         let marker: String = UUID().uuidString
         let user: String = ProcessInfo.processInfo.userName
         return await Result { () async throws(LoginShellFailure) in

@@ -67,10 +67,8 @@ extension FailedRead: Codable {
         let named: [String] = [kAXRoleAttribute] + labelAttributes
         var values: CFArray?
         _ = unsafe AXUIElementCopyMultipleAttributeValues(element, named as CFArray, [], &values)
-        let names: [String: String] = Dictionary(
-            uniqueKeysWithValues: zip(named, values as? [CFTypeRef] ?? []).compactMap { attribute, value in (value as? String).map { name in (attribute, name) } }
-        )
-        self.init(reads: reads, role: names[kAXRoleAttribute], label: labelAttributes.lazy.compactMap { attribute in names[attribute] }.first { label in !label.isEmpty }, error: error)
+        let attributes: [String: CFTypeRef] = Dictionary(uniqueKeysWithValues: zip(named, values as? [CFTypeRef] ?? []))
+        self.init(reads: reads, role: attributes[kAXRoleAttribute] as? String, label: AXUIElement.ownLabel(attributes), error: error)
     }
 
     public init(from decoder: any Decoder) throws {
@@ -111,18 +109,14 @@ public enum ApplicationStatus: Equatable, Sendable {
 }
 
 extension ApplicationStatus: Encodable {
-    private enum Key: String, CodingKey {
+    private enum Key: CodingKey {
         case elements
-        case tag = "_tag"
     }
 
     public func encode(to encoder: any Encoder) throws {
-        var fields: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
         switch self {
-            case .responding(let elements):
-                try fields.encode("responding", forKey: .tag)
-                try fields.encode(elements, forKey: .elements)
-            case .unresponsive: try fields.encode("unresponsive", forKey: .tag)
+            case .responding(let elements): try encoder.encode(case: "responding", keyedBy: Key.self) { fields in try fields.encode(elements, forKey: .elements) }
+            case .unresponsive: try encoder.encode(case: "unresponsive", keyedBy: Key.self)
         }
     }
 }
@@ -159,7 +153,7 @@ private struct Part {
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-public enum ElementFailure: LocalizedError {
+public enum ElementFailure: CustomNSError, LocalizedError {
     case untrusted
     case unanswered
     case unreadable(FailedRead)
@@ -189,11 +183,18 @@ public enum ElementFailure: LocalizedError {
             case .refused(let action, let error): "Performing \(action) returned AXError \(error.rawValue)"
         }
     }
+
+    public var errorUserInfo: [String: Any] {
+        if case .unmatched(let miss) = self { [NSUnderlyingErrorKey: miss] } else { [:] }
+    }
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-let accessibility: DispatchQueue = DispatchQueue(label: "Applications.accessibility", attributes: .concurrent)
+let accessibility: DispatchQueue = {
+    AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), 1)
+    return DispatchQueue(label: "Applications.accessibility", attributes: .concurrent)
+}()
 
 public struct StatusChanges: AsyncSequence {
     public struct Iterator: AsyncIteratorProtocol {
@@ -301,8 +302,7 @@ extension JSONValue {
     init?(accessibility value: CFTypeRef) {
         switch value {
             case let flag as CFBoolean where CFGetTypeID(value) == CFBooleanGetTypeID(): self = .bool(CFBooleanGetValue(flag))
-            case let number as Int: self = .number(Decimal(number))
-            case let number as Double: self = .number(Decimal(number))
+            case let number as NSNumber: self = .number(number.decimalValue)
             case let text as String: self = .string(text)
             default: return nil
         }
@@ -374,8 +374,12 @@ extension AXUIElement {
         try children().map { child throws(ElementFailure) in try kept(child.value(kAXRoleAttribute)) ? child : nil }.compactMap(\.self)
     }
 
+    static func ownLabel(_ attributes: [String: CFTypeRef]) -> String? {
+        labelAttributes.lazy.compactMap { attribute in attributes[attribute] as? String }.first { label in !label.isEmpty }
+    }
+
     func label(_ attributes: [String: CFTypeRef]) throws(ElementFailure) -> String? {
-        switch labelAttributes.lazy.compactMap({ attribute in attributes[attribute] as? String }).first(where: { label in !label.isEmpty }) {
+        switch Self.ownLabel(attributes) {
             case .some(let label): label
             case .none: try (value(kAXTitleUIElementAttribute) as AXUIElement?)?.value(kAXValueAttribute)
         }

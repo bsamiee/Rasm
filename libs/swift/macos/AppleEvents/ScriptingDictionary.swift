@@ -22,6 +22,10 @@ public final class ScriptingDictionary: Encodable, Sendable {
         public let types: Set<String>
         public let members: [Self]
 
+        static func direct(_ types: Set<String>) -> Self {
+            Self(name: "direct", code: AEKeyword(keyDirectObject), types: types, members: [])
+        }
+
         public func encode(to encoder: any Encoder) throws {
             try ["name": name, "code": code.sdef].encode(to: encoder)
         }
@@ -29,17 +33,12 @@ public final class ScriptingDictionary: Encodable, Sendable {
 
     public struct Command: Encodable, Hashable, Sendable {
         static let language: [Self] = [
-            Self(
-                name: "get",
-                eventClass: AEEventClass(kAECoreSuite),
-                eventID: AEEventID(kAEGetData),
-                parameters: [Term(name: "direct", code: AEKeyword(keyDirectObject), types: ["specifier"], members: [])],
-            ),
+            Self(name: "get", eventClass: AEEventClass(kAECoreSuite), eventID: AEEventID(kAEGetData), parameters: [.direct(["specifier"])]),
             Self(
                 name: "set",
                 eventClass: AEEventClass(kAECoreSuite),
                 eventID: AEEventID(kAESetData),
-                parameters: [Term(name: "direct", code: AEKeyword(keyDirectObject), types: ["specifier"], members: []), Term(name: "to", code: AEKeyword(keyAEData), types: ["any"], members: [])],
+                parameters: [.direct(["specifier"]), Term(name: "to", code: AEKeyword(keyAEData), types: ["any"], members: [])],
             ),
         ]
 
@@ -52,6 +51,10 @@ public final class ScriptingDictionary: Encodable, Sendable {
 
         public func encode(to encoder: any Encoder) throws {
             try ["name": name, "code": code.sdef].encode(to: encoder)
+        }
+
+        public func reason<Reason>(for event: NSAppleEventDescriptor, among rows: [(code: String, clause: EventClause, reason: Reason)]) -> Reason? {
+            rows.first { row in row.code == code.sdef && row.clause.matches(event) }?.reason
         }
     }
 
@@ -78,8 +81,11 @@ public final class ScriptingDictionary: Encodable, Sendable {
         func elements(_ path: String) throws(DefinitionFailure) -> [XMLElement] {
             try Result { try document.nodes(forXPath: path).compactMap { node in node as? XMLElement } }.mapError(DefinitionFailure.xml).get()
         }
+        let typedKinds: [Kind] = [.class, .recordType, .valueType]
         let named: [String: [XMLElement]] = try Dictionary(
-            elements("//class | //record-type | //value-type").compactMap { element in element.attribute(forName: "name")?.stringValue.map { name in (name, [element]) } },
+            elements(typedKinds.map { kind in "//\(kind.rawValue)" }.joined(separator: " | ")).compactMap { element in
+                element.attribute(forName: "name")?.stringValue.map { name in (name, [element]) }
+            },
             uniquingKeysWith: +,
         )
         let extensions: [String: [XMLElement]] = try Dictionary(
@@ -119,7 +125,7 @@ public final class ScriptingDictionary: Encodable, Sendable {
                             eventClass: AEEventClass(truncatingIfNeeded: code >> 32),
                             eventID: AEEventID(truncatingIfNeeded: code),
                             parameters: terms(element.elements(forName: "parameter"))
-                                + element.elements(forName: "direct-parameter").map { parameter in Term(name: "direct", code: AEKeyword(keyDirectObject), types: sdefTypes(parameter), members: []) },
+                                + element.elements(forName: "direct-parameter").map { parameter in Term.direct(sdefTypes(parameter)) },
                         )
                     default: nil
                 }
@@ -128,7 +134,7 @@ public final class ScriptingDictionary: Encodable, Sendable {
         let declared: [Kind: [Term]] = try Dictionary(
             uniqueKeysWithValues: Kind.allCases.filter { kind in kind != .command }.map { kind throws(DefinitionFailure) in (kind, terms(try elements("//\(kind.rawValue)"))) }
         )
-        let typed: [Term] = [Kind.class, .recordType, .valueType].flatMap { kind in declared[kind, default: []] }
+        let typed: [Term] = typedKinds.flatMap { kind in declared[kind, default: []] }
         declarations = declared
         types = Scope(typed)
         members = Dictionary(grouping: typed, by: \.code).mapValues { terms in Scope(terms.flatMap(\.members)) }
@@ -162,7 +168,7 @@ public final class ScriptingDictionary: Encodable, Sendable {
         }
     }
 
-    public func command(_ name: String, taking arguments: Set<String>) -> Result<Command, AggregateError<DictionaryFailure>> {
+    public func command(_ name: String, taking arguments: Set<String>) -> Result<Command, DictionaryFailure> {
         let code: UInt64? = UInt64(sdef: name)
         let matching: (Command) -> Bool = { command in command.name == name || command.code == code }
         let scopes: [[Command]] = [Command.language, commands].map { scope in scope.filter { command in arguments.isSubset(of: command.parameters.map(\.name)) } }
@@ -170,23 +176,21 @@ public final class ScriptingDictionary: Encodable, Sendable {
         let subject: String = arguments.isEmpty ? "command" : "command taking \(arguments.sorted().joined(separator: ", "))"
         return switch (found.first, found.count) {
             case (.some(let command), 1): .success(command)
-            case (.none, _): .failure(AggregateError(first: .unmatched(Unmatched(subject: subject, query: name, candidates: Set(scopes.joined().map(\.name)).sorted()))))
-            case (.some, _): .failure(AggregateError(first: .unmatched(Unmatched(subject: "single command", query: name, candidates: found.map(\.code.sdef)))))
+            case (.none, _): .failure(.unmatched(Unmatched(subject: subject, query: name, candidates: Set(scopes.joined().map(\.name)).sorted())))
+            case (.some, _): .failure(.unmatched(Unmatched(subject: "single command", query: name, candidates: found.map(\.code.sdef))))
         }
     }
 
-    public func event(_ name: String, arguments: [String: AppleEventValue], target: NSAppleEventDescriptor) -> Result<NSAppleEventDescriptor, AggregateError<DictionaryFailure>> {
-        command(name, taking: Set(arguments.keys)).flatMap { command in
-            let event: NSAppleEventDescriptor = NSAppleEventDescriptor(
-                eventClass: command.eventClass,
-                eventID: command.eventID,
-                targetDescriptor: target,
-                returnID: AEReturnID(kAutoGenerateReturnID),
-                transactionID: AETransactionID(kAnyTransactionID),
-            )
-            event.setAttribute(.null(), forKeyword: AEKeyword(keySubjectAttr))
-            return record(arguments, in: [Scope(command.parameters)], into: event)
-        }
+    public func event(_ command: Command, arguments: [String: AppleEventValue], target: NSAppleEventDescriptor) -> Result<NSAppleEventDescriptor, AggregateError<DictionaryFailure>> {
+        let event: NSAppleEventDescriptor = NSAppleEventDescriptor(
+            eventClass: command.eventClass,
+            eventID: command.eventID,
+            targetDescriptor: target,
+            returnID: AEReturnID(kAutoGenerateReturnID),
+            transactionID: AETransactionID(kAnyTransactionID),
+        )
+        event.setAttribute(.null(), forKeyword: AEKeyword(keySubjectAttr))
+        return record(arguments, in: [Scope(command.parameters)], into: event)
     }
 
     func record(_ fields: [String: AppleEventValue], in scopes: [Scope], into descriptor: NSAppleEventDescriptor) -> Result<NSAppleEventDescriptor, AggregateError<DictionaryFailure>> {

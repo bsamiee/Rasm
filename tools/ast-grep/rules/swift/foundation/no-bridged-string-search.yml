@@ -94,4 +94,4 @@ transform:
     NATIVE: {rewrite: {source: $SITE, rewriters: [first-range, native-replacing]}}
 fix: $NATIVE
 message: '`$SITE` searches through the bridged `NSString` member in place of the Swift collection algorithm'
-note: 'Guard an empty needle and call `firstRange(of:)` or `replacing(_:with:)`, which returns `Substring` on a `Substring`'
+note: 'Guard an empty needle and call `firstRange(of:)` or `replacing(_:with:)`, a `Substring` result on a `Substring` receiver'

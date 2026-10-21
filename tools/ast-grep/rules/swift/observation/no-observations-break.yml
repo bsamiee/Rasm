@@ -7,6 +7,7 @@ rule:
     pattern: $SITE
     all:
         - has: {kind: statements, has: {nthChild: 1, kind: control_transfer_statement, regex: '^break$'}, not: {has: {nthChild: 2}}}
+        - not: {has: {stopBy: {kind: statements}, kind: navigation_expression, regex: '^(_Concurrency\.)?Task\.isCancelled$'}}
         - inside:
             kind: statements
             inside:

@@ -64,7 +64,7 @@ nonisolated struct ClaudeUsageResponse: Decodable, Sendable {
         )
         .mapError(ClaudeFailure.invalidQuota)
         .get()
-        let windows: [QuotaWindow] = [session, weekly].compactMap(\.self) + models.compactMap(\.self)
+        let windows: [QuotaWindow] = ([session, weekly] + models).compactMap(\.self)
         guard !windows.isEmpty else { throw .invalidResponse(.usage, nil) }
         return AccountUsage(windows: windows, includedUsageAllowed: nil, observedAt: observedAt, signInExpiresAt: signInExpiresAt)
     }

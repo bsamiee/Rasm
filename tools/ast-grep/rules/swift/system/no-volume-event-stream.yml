@@ -21,4 +21,4 @@ rule:
                             pattern: $ROOT
                             regex: '^(NSOpenStepRootDirectory\(\)|"/"|(URL\((filePath|fileURLWithPath): "/"\)|FilePath\("/"\))\.(path|string)(\(.*\))?)$'
 message: '`FSEventStreamCreate` over `$ROOT` streams every file event on the volume'
-note: 'Watch a file through `DispatchSource.makeFileSystemObjectSource` on it and its nearest existing directory, and root FSEvents at the watched tree'
+note: 'Root the stream at the watched file or directory, FSEvents resolves symlinks in the path and survives a rename over the file'

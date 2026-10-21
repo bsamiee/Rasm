@@ -6,16 +6,8 @@ utils:
     run-body:
         kind: lambda_literal
         inside: {kind: call_expression, stopBy: {kind: call_expression}, has: {nthChild: 1, regex: '^(Subprocess\.)?run$'}}
-    output-loop:
-        kind: for_statement
-        has: {field: collection, regex: '\.standard(Output|Error)(\.strings\([^)]*\))?$'}
-    drain:
-        matches: output-loop
-        all:
-            - has: {field: item, regex: '^_$'}
-            - not: {has: {kind: statements}}
     collect:
-        matches: output-loop
+        kind: for_statement
         all:
             - has: {field: collection, regex: '\.standard(Output|Error)$'}
             - has: {field: item, has: {stopBy: end, kind: simple_identifier, pattern: $BUFFER}}
@@ -37,7 +29,7 @@ utils:
 rule:
     pattern: $SITE
     any:
-        - matches: drain
+        - matches: swift-output-discarding-loop
           inside:
             matches: run-body
             stopBy: end
@@ -46,16 +38,16 @@ rule:
                 has:
                     nthChild: 1
                     any:
-                        - matches: drain
+                        - matches: swift-output-discarding-loop
                         - has:
                             stopBy: {kind: lambda_literal}
                             kind: call_expression
                             all:
                                 - has: {nthChild: 1, regex: '^Result$'}
-                                - has: {kind: call_suffix, has: {kind: lambda_literal, has: {matches: sole, has: {matches: drain}}}}
+                                - has: {kind: call_suffix, has: {kind: lambda_literal, has: {matches: sole, has: {matches: swift-output-discarding-loop}}}}
         - matches: collect
           inside: {matches: run-body, stopBy: end}
 transform:
     HEAD: {replace: {source: $SITE, replace: '(?s)\n.*$', by: ''}}
-message: '`$HEAD` drains or collects output by hand that an output option of the run handles'
+message: '`$HEAD` discards or collects output by hand in place of an output option of the run'
 note: 'Pass `output: .discarded` for unread output or `.string(limit:)`, `.data(limit:)`, or `.bytes(limit:)` for collected output, with no loop'

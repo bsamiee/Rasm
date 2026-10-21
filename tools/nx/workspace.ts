@@ -35,7 +35,13 @@ const Parsed = (expected: string, parse: (text: string) => unknown): Schema.deco
 const Toml = Parsed('TOML', parseToml);
 const Yaml = Parsed('YAML', parseYaml);
 const Release = Schema.String.check(Schema.isPattern(/^\d+\.\d+$/u));
-const Mise = Toml.pipe(Schema.decodeTo(Schema.Struct({ daemons: Schema.Record(Schema.String, Schema.Union([Schema.String, Schema.Struct({ run: Schema.OptionFromOptionalKey(Schema.String) })])) })));
+const Mise = Toml.pipe(
+    Schema.decodeTo(
+        Schema.Struct({
+            daemons: Schema.Record(Schema.String, Schema.Union([Schema.String, Schema.Struct({ run: Schema.OptionFromOptionalKey(Schema.String), boot: Schema.Boolean.pipe(Schema.withDecodingDefaultKey(Effect.succeed(false))) }).pipe(Schema.encodeKeys({ boot: 'boot_start' }))])),
+        }),
+    ),
+);
 const PythonRuntime = Schema.fromJsonString(Schema.NonEmptyArray(Schema.Struct({ version: Schema.String })));
 const ImportGraph = Schema.fromJsonString(Schema.Record(Schema.String, Schema.Array(Schema.String)));
 const Sgconfig = Yaml.pipe(Schema.decodeTo(Schema.Struct({ ruleDirs: Schema.Array(Schema.String) })));
@@ -213,7 +219,7 @@ const markers = {
         const crate = yield* Effect.fromOption(Array.findFirst(all, ({ manifest }) => manifest === file));
         const bins = crate.targets.filter(({ kind }) => kind.includes('bin'));
         const named = new Set(bins.map(({ name }) => name));
-        const launched = Object.values(daemons).some((daemon) => typeof daemon !== 'string' && Option.exists(daemon.run, (run) => !named.isDisjointFrom(new Set(run.split(' ')))));
+        const launched = Object.entries(daemons).flatMap(([daemon, row]) => (typeof row !== 'string' && row.boot && Option.exists(row.run, (run) => !named.isDisjointFrom(new Set(run.split(' ')))) ? [daemon] : []));
         const tested = crate.targets.some(({ test }) => test);
         const dylint = crate.dependencies.some(({ name }) => name === 'dylint_linting');
         const selection = tested ? { options: { args: crate.targets.some(({ kind, types }) => kind.some((type) => type !== 'bin' && types.includes(type))) ? ['--lib', '--bins', '--tests'] : ['--all-targets'] } } : {};
@@ -228,7 +234,7 @@ const markers = {
                 check: {},
                 ...(tested ? { test: {}, ...(dylint ? {} : { coverage: {} }) } : {}),
                 ...(bins.length > 0 ? { build: {} } : {}),
-                ...(launched ? { install: {}, 'install:cargo': {}, 'upgrade:cargo': { dependsOn: [{ projects: ['directory:.'], target: 'upgrade:rust' }] } } : {}),
+                ...(launched.length > 0 ? { install: { options: { args: launched } }, 'install:cargo': {}, 'upgrade:cargo': { dependsOn: [{ projects: ['directory:.'], target: 'upgrade:rust' }] } } : {}),
             },
         };
     }),

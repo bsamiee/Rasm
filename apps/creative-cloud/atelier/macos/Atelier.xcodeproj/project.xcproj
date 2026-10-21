@@ -48,15 +48,15 @@
           "build-phase": { "build-phase": "frameworks" },
         }, {
           "package": "..",
+          "product-name": "CurrentProcess",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "..",
+          "product-name": "EffectRPC",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "..",
           "product-name": "Fonts",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "Processes",
-          "build-phase": { "build-phase": "frameworks" },
-        }, {
-          "package": "..",
-          "product-name": "Results",
           "build-phase": { "build-phase": "frameworks" },
         },
       ],

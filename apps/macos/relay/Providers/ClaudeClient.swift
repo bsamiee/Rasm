@@ -1,4 +1,3 @@
-import CryptoKit
 import Files
 import Foundation
 import JSON
@@ -25,9 +24,9 @@ actor ClaudeClient: ProviderClient {
     private let environment: [Environment.Key: String]
     private let username: String
     private let session: URLSession
-    private var verifiedIdentities: [SHA256Digest: AccountIdentity] = [:]
+    private var verifiedIdentities: [String: AccountIdentity] = [:]
     private var lastCredential: ClaudeCredential?
-    private var installedVersion: Substring?
+    private var installedVersion: Task<Result<Substring, ClaudeFailure>, Never>?
 
     init(paths: FileLocations, environment: [Environment.Key: String]) {
         self.paths = paths
@@ -38,26 +37,7 @@ actor ClaudeClient: ProviderClient {
         configuration.timeoutIntervalForResource = 30
         configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
         session = URLSession(configuration: configuration)
-        let configured: String? = environment["CLAUDE_CONFIG_DIR"].flatMap { value in
-            value.isEmpty ? nil : value
-        }
-        let secure: String? = environment["CLAUDE_SECURESTORAGE_CONFIG_DIR"]
-        let defaultDirectory: URL = paths.home.appending(path: ".claude", directoryHint: .isDirectory)
-        let configDirectory: URL =
-            configured.map { value in URL(filePath: value, directoryHint: .isDirectory) } ?? defaultDirectory
-        shared = ClaudeCredentialStore(
-            directory: secure.map { value in
-                value.isEmpty
-                    ? defaultDirectory
-                    : URL(filePath: value.precomposedStringWithCanonicalMapping, directoryHint: .isDirectory)
-            } ?? configDirectory,
-            configFile: (configured == nil ? paths.home : configDirectory).appending(path: ".claude.json"),
-            directoryConfigFile: configDirectory.appending(path: ".config.json"),
-            configDirectoryPath: (secure.map { value in value.isEmpty ? nil : value } ?? configured)?
-                .precomposedStringWithCanonicalMapping,
-            username: username,
-            variables: ["CLAUDE_CONFIG_DIR": environment["CLAUDE_CONFIG_DIR"], "CLAUDE_SECURESTORAGE_CONFIG_DIR": secure],
-        )
+        shared = ClaudeCredentialStore(home: paths.home, environment: environment, username: username)
     }
 
     private func store(for account: Account, isSelected: Bool) -> ClaudeCredentialStore {
@@ -65,16 +45,7 @@ actor ClaudeClient: ProviderClient {
     }
 
     private nonisolated func privateStore(_ id: UUID) -> ClaudeCredentialStore {
-        let directory: URL = paths.claudeDirectory(id)
-        let path: String = FilePath(directory.path(percentEncoded: false)).string.precomposedStringWithCanonicalMapping
-        return ClaudeCredentialStore(
-            directory: directory,
-            configFile: directory.appending(path: ".claude.json"),
-            directoryConfigFile: directory.appending(path: ".config.json"),
-            configDirectoryPath: path,
-            username: username,
-            variables: ["CLAUDE_CONFIG_DIR": path],
-        )
+        ClaudeCredentialStore(home: paths.home, environment: ["CLAUDE_CONFIG_DIR": FilePath(paths.claudeDirectory(id).path(percentEncoded: false)).string], username: username)
     }
 
     // --- [SELECTION]
@@ -139,8 +110,9 @@ actor ClaudeClient: ProviderClient {
         let parking: ClaudeCredentialStore? = outgoing.map { outgoing in privateStore(outgoing.id) }
         let pending: ClaudePendingSwitch = ClaudePendingSwitch(incoming: account.id, outgoing: outgoing?.id)
         return await Result { () async throws(ClaudeFailure) in
-            _ = try await identity(of: shared)
-            _ = try await identity(of: incoming)
+            for store: ClaudeCredentialStore in [shared, incoming] where try store.identity() == nil {
+                _ = try await identified(store.read(), in: store)
+            }
             let last: ClaudeCredential? = lastCredential
             let credential: ClaudeCredential = try await ClaudeLock.withLock(directories: [shared, incoming, parking].compactMap(\.self).map(\.directory)) {
                 () async throws(ClaudeFailure) in
@@ -208,20 +180,8 @@ actor ClaudeClient: ProviderClient {
         return await Result { () async throws(ClaudeFailure) in try await run(["auth", "logout"], store: store, within: .seconds(60), output: .discarded) }.mapError(ProviderError.init(failure:))
     }
 
-    func remove(_ account: Account, isSelected: Bool) async -> Result<Void, ProviderError> {
-        await Result { () async throws(ProviderError) in
-            try await signOut(account, isSelected: isSelected).get()
-            try await deletePrivateStore(id: account.id).get()
-        }
-    }
-
     func deletePrivateStore(id: UUID) async -> Result<Void, ProviderError> {
-        let store: ClaudeCredentialStore = privateStore(id)
-        return await Result { () async throws(ClaudeFailure) in
-            try await store.deleteItem()
-            _ = try ifPresent { try FileManager.default.removeItem(at: store.directory) }.mapError(ClaudeFailure.filesystem).get()
-        }
-        .mapError(ProviderError.init(failure:))
+        await Result { () async throws(ClaudeFailure) in try await privateStore(id).deleteItem() }.mapError(ProviderError.init(failure:))
     }
 
     // --- [USAGE]
@@ -234,28 +194,17 @@ actor ClaudeClient: ProviderClient {
             let stored: ClaudeCredential = try await credential(for: account, isSelected: isSelected, replacing: nil)
             let sent: Result<AccountUsage, ClaudeFailure> = await Result { () async throws(ClaudeFailure) in try await send(verify(stored)) }
             guard case .failure(let error) = sent, error.isUnauthorized else { return try sent.get() }
-            verifiedIdentities[stored.token.fingerprint] = nil
+            verifiedIdentities[stored.token.accessToken] = nil
             return try await send(verify(credential(for: account, isSelected: isSelected, replacing: stored)))
         }
         .mapError(ProviderError.init(failure:))
     }
 
-    func startSession(
-        for account: Account,
-        isSelected: Bool,
-    ) async -> Result<AccountUsage, ProviderError> {
-        let store: ClaudeCredentialStore = store(for: account, isSelected: isSelected)
-        return await Result { () async throws(ProviderError) in
-            let current: AccountUsage = try await usage(for: account, isSelected: isSelected).get()
-            guard current.availability(at: Date()) == .ready else { return current }
-            let reset: Date? = try await Result { () async throws(ClaudeFailure) in
-                let stored: ClaudeCredential = try await credential(for: account, isSelected: isSelected, replacing: nil)
-                return try await ClaudeSession.run(configuration(store: store), token: stored.token)
-            }
-            .mapError(ProviderError.init(failure:))
-            .get()
-            return try await usage(for: account, isSelected: isSelected).get().settingSessionReset(reset)
+    func greet(_ account: Account, isSelected: Bool) async -> Result<Date?, ProviderError> {
+        await Result { () async throws(ClaudeFailure) in
+            try await ClaudeSession.run(configuration(store: store(for: account, isSelected: isSelected)), token: credential(for: account, isSelected: isSelected, replacing: nil).token)
         }
+        .mapError(ProviderError.init(failure:))
     }
 
     private func credential(
@@ -304,7 +253,7 @@ actor ClaudeClient: ProviderClient {
                 }
                 let token: ClaudeOAuthToken = try response.oauth(replacing: current.token, posted: posted, at: now)
                 try await store.writeOAuth(token.document, over: item)
-                if let identity: AccountIdentity = try response.identity(plan: token.document.known.subscriptionType) { verifiedIdentities[token.fingerprint] = identity }
+                if let identity: AccountIdentity = try response.identity(plan: token.document.known.subscriptionType) { verifiedIdentities[token.accessToken] = identity }
                 return ClaudeCredential(token: token, account: current.account, identity: current.identity)
             case .failure(.signInRequired):
                 throw .signInRequired.releasing(
@@ -332,10 +281,6 @@ actor ClaudeClient: ProviderClient {
         }
     }
 
-    private func identity(of store: ClaudeCredentialStore) async throws(ClaudeFailure) -> AccountIdentity? {
-        if let identity: AccountIdentity = try store.identity() { identity } else { try await identified(store.read(), in: store).credential?.identity }
-    }
-
     private func identified(
         _ content: ClaudeStoreContent,
         in store: ClaudeCredentialStore,
@@ -352,15 +297,14 @@ actor ClaudeClient: ProviderClient {
             ),
         )
         try await store.writeAccount(account)
-        verifiedIdentities[token.fingerprint] = identity
+        verifiedIdentities[token.accessToken] = identity
         return .credential(ClaudeCredential(token: token, account: account, identity: identity))
     }
 
     private func verify(_ credential: ClaudeCredential) async throws(ClaudeFailure) -> ClaudeCredential {
-        let fingerprint: SHA256Digest = credential.token.fingerprint
-        let identity: AccountIdentity = if let verified: AccountIdentity = verifiedIdentities[fingerprint] { verified } else { try await profile(of: credential.token) }
+        let identity: AccountIdentity = if let verified: AccountIdentity = verifiedIdentities[credential.token.accessToken] { verified } else { try await profile(of: credential.token) }
         guard identity.isSameAccount(as: credential.identity) else { throw .accountChanged }
-        verifiedIdentities[fingerprint] = identity
+        verifiedIdentities[credential.token.accessToken] = identity
         return credential
     }
 
@@ -379,10 +323,20 @@ actor ClaudeClient: ProviderClient {
         body: Data? = nil,
     ) async throws(ClaudeFailure) -> Value {
         guard let url: URL = URL(string: endpoint.rawValue) else { throw .invalidResponse(endpoint, nil) }
-        if installedVersion == nil {
-            installedVersion = try await run(["--version"], store: shared, within: .seconds(15), output: .string(limit: 1 << 10)).split(whereSeparator: \.isWhitespace).first
-        }
-        guard let installedVersion else { throw .protocolFailure }
+        let reading: Task<Result<Substring, ClaudeFailure>, Never> =
+            installedVersion
+            ?? Task {
+                await Result { () async throws(ClaudeFailure) in
+                    guard let version: Substring = try await run(["--version"], store: shared, within: .seconds(15), output: .string(limit: 1 << 10)).split(whereSeparator: \.isWhitespace).first else {
+                        throw .protocolFailure
+                    }
+                    return version
+                }
+            }
+        installedVersion = reading
+        let read: Result<Substring, ClaudeFailure> = await reading.value
+        if case .failure = read, installedVersion == reading { installedVersion = nil }
+        let installedVersion: Substring = try read.get()
         var request: URLRequest = URLRequest(url: url, timeoutInterval: endpoint.timeout)
         request.httpMethod = body == nil ? "GET" : "POST"
         request.httpBody = body
@@ -391,14 +345,13 @@ actor ClaudeClient: ProviderClient {
         let (data, response): (Data, URLResponse) = try await Result { try await session.data(for: request) }
             .mapError { error -> ClaudeFailure in
                 switch error {
-                    case is CancellationError: .cancelled
-                    case URLError.cancelled: .cancelled
+                    case is CancellationError, URLError.cancelled: .deadline(.cancelled)
                     default: .transport(error)
                 }
             }
             .get()
         return switch response {
-            case let http as HTTPURLResponse where http.statusCode == 200 && Task.isCancelled: throw .cancelled
+            case let http as HTTPURLResponse where http.statusCode == 200 && Task.isCancelled: throw .deadline(.cancelled)
             case let http as HTTPURLResponse where http.statusCode == 200:
                 try Result { try ClaudeEndpoint.decoder.decode(Value.self, from: data) }.mapError { error in ClaudeFailure.invalidResponse(endpoint, error) }.get()
             case let http as HTTPURLResponse:

@@ -25,7 +25,7 @@ rule:
             has: {kind: inheritance_specifier, pattern: $BY, regex: '^(Swift\.)?(Error|CodingKey)$'}
         - regex: '^(Swift\.)?(Encodable|Decodable)$'
           inside:
-            kind: *owner
+            kind: protocol_declaration
             has: {kind: inheritance_specifier, pattern: $BY, regex: '^(Swift\.)?Codable$'}
         - regex: '^(Swift\.)?Sequence$'
           inside:

@@ -101,7 +101,7 @@ extension NSWorkspace {
             var last: [Installation]?
             for await _: Void in events where !query.isGathering {
                 query.disableUpdates()
-                let paths: [String?] = (0..<query.resultCount).map { index in (query.result(at: index) as? NSMetadataItem)?.value(forAttribute: NSMetadataItemPathKey) as? String }
+                let paths: [String?] = (0..<query.resultCount).map { index in query.value(ofAttribute: NSMetadataItemPathKey, forResultAt: index) as? String }
                 query.enableUpdates()
                 let listing: Result<[Installation], AggregateError<DiscoveryFailure>> = await Installation.listed(paths, among: runningApplications)
                 switch listing {

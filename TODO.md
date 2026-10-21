@@ -3,7 +3,7 @@
 Remaining work on Creative Cloud libraries and products, for a fresh session.
 
 [STANDARDS]:
-- `CLAUDE.md` and memories `code-quality-bar`, `typescript-quality-floor`, `swift-quality-floor`, `library-shape`
+- `CLAUDE.md` and memories `code-quality-bar`, `typescript-quality-floor`, `library-shape`
 - Skills `uxp-coding`, `clean-prose`, `search-code`, `use-ghidra`, `watch-apps`, `manage-repo`
 
 [SOURCES]:
@@ -21,7 +21,7 @@ Remaining work on Creative Cloud libraries and products, for a fresh session.
 - Verb classes: `Inspect`, `Kind`, `Change`, `Create`, `Remove`, `Invoke`, `Script`, `FindChange`, `Render`, `Font`, `Menu`, `Preflight`, `Queries`
 - A mutation locates its target once; the baseline covers every document the located elements belong to; a find without a change is a read
 - `Kind` answers the index of classes and enumerations or one declaration, published at `indesign://kinds` with name completion
-- Atelier tools: `launch`, `screenshot`, `font`, `execute_script`, `command` (dictionary command, dialog actions, menu action), registered again whenever the installed application names change, which tools offer as choices
+- Atelier tools: registered again whenever the installed application names change, which tools offer as choices
 - Atelier publishes InDesign `inspect`, `change`, `create`, `remove`, `find_change`, and `render` as tools
 - Atelier publishes InDesign `menu`, `preflight`, `queries`, and `kinds` as resources
 - Every tool result ends with the application's status as a resource block, the form Claude Code forwards beside structured content

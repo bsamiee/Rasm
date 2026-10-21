@@ -3,7 +3,6 @@ id: no-task-in-defer
 language: swiftlang
 severity: error
 rule:
-    kind: 'call_expression, constructor_expression'
     all:
         - matches: swift-task-launch
         - has: {nthChild: 1, pattern: $TASK}

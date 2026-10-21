@@ -21,15 +21,14 @@ public enum InstanceEvent: Sendable {
 public enum LaunchFailure: DeadlineFailure, CustomNSError, LocalizedError {
     case open(any Error)
     case terminated
-    case timedOut(Duration)
-    case cancelled
+    case deadline(Deadline)
 
     public var errorDescription: String? {
         switch self {
             case .open(let error): "Launch Services could not open the application: \(error.localizedDescription)"
             case .terminated: "The application exited before it finished launching"
-            case .timedOut(let timeout): "The application did not finish launching within \(timeout.formatted(.units(width: .wide)))"
-            case .cancelled: "Canceled"
+            case .deadline(.timedOut(let timeout)): "The application did not finish launching within \(timeout.formatted(.units(width: .wide)))"
+            case .deadline(.cancelled): "Canceled"
         }
     }
 
@@ -112,6 +111,6 @@ extension NSRunningApplication {
             for observation: NSKeyValueObservation in observations { observation.invalidate() }
             sink.finish()
         }
-        return await withTimeout(timeout) { await states.first { _ in true } ?? .failure(.cancelled) }
+        return await withTimeout(timeout) { await states.first { _ in true } ?? .failure(.deadline(.cancelled)) }
     }
 }

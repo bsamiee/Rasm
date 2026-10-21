@@ -10,13 +10,9 @@ utils:
               has: {pattern: '$ENCODER.encode($VALUE)'}
 rule:
     kind: call_expression
-    any:
-        - pattern: '$VALUE.decode(as: $TYPE)'
-        - pattern: '$VALUE.decode(as: $TYPE, $$$REST)'
-        - all:
-            - pattern: '$DECODER.decode($TYPE, from: $ENCODED)'
-            - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, all: [{has: {field: name, regex: '^from$'}}, {has: {field: value, matches: encoding}}]}}}
+    pattern: '$DECODER.decode($TYPE, from: $ENCODED)'
+    has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, all: [{has: {field: name, regex: '^from$'}}, {has: {field: value, matches: encoding}}]}}}
 constraints:
     TYPE: {regex: '\.self$|^[a-z_]\w*$'}
-message: '`$VALUE` decodes into `$TYPE` through an encode and a second decode'
+message: '`$ENCODED` decodes into `$TYPE` through an encode and a second decode'
 note: 'Decode the target type in the read that produced the value, inside a `JSONDocument` when a write must keep unknown fields'

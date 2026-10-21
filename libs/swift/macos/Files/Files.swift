@@ -1,19 +1,24 @@
 import CoreServices
 import Dispatch
 public import Foundation
+import Synchronization
 import System
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-public enum FileWatchFailure: LocalizedError {
+public enum FileWatchFailure: CustomNSError, LocalizedError {
     case unstarted(URL)
-    case unreadable(URL, any Error)
+    case unreadable(any Error)
 
     public var errorDescription: String? {
         switch self {
             case .unstarted(let file): "FSEvents could not start a stream on \(file.path(percentEncoded: false))"
-            case .unreadable(let file, let error): "Reading \(file.path(percentEncoded: false)) failed: \(error.localizedDescription)"
+            case .unreadable(let error): "Reading followed lines failed: \(error.localizedDescription)"
         }
+    }
+
+    public var errorUserInfo: [String: Any] {
+        if case .unreadable(let error) = self { [NSUnderlyingErrorKey: error] } else { [:] }
     }
 }
 
@@ -37,47 +42,27 @@ public enum FileWatch {
         }
     }
 
-    public static func lines(appendedTo file: URL) -> AsyncStream<Result<Data, FileWatchFailure>> {
-        let (chunks, chunk): (AsyncStream<Result<Data?, FileWatchFailure>>, AsyncStream<Result<Data?, FileWatchFailure>>.Continuation) = AsyncStream.makeStream()
-        let opened: Result<FileHandle, any Error> = Result {
-            let handle: FileHandle = try FileHandle(
-                fileDescriptor: FileDescriptor.open(FilePath(file.path(percentEncoded: false)), .readOnly, options: [.create, .closeOnExec], permissions: [.ownerReadWrite]).rawValue,
-                closeOnDealloc: true,
-            )
-            try handle.seekToEnd()
-            return handle
-        }
-        switch opened {
-            case .success(let handle):
-                let source: any DispatchSourceRead = DispatchSource.makeReadSource(fileDescriptor: handle.fileDescriptor, queue: DispatchQueue(label: "Files.FileWatch.lines"))
-                source.setEventHandler { chunk.yield(Result { try handle.readToEnd() }.mapError { error in .unreadable(file, error) }) }
-                source.setCancelHandler { withExtendedLifetime(handle) { chunk.finish() } }
-                chunk.onTermination = { _ in source.cancel() }
-                source.activate()
-            case .failure(let error):
-                chunk.yield(.failure(.unreadable(file, error)))
-                chunk.finish()
-        }
-        return AsyncStream { continuation in
-            let following: Task<Void, Never> = Task {
-                defer {
-                    chunk.finish()
-                    continuation.finish()
-                }
-                var pending: Data = Data()
-                for await read: Result<Data?, FileWatchFailure> in chunks {
-                    switch read {
-                        case .success(let appended):
+    public static func lines(following handle: FileHandle) -> AsyncStream<Result<Data, FileWatchFailure>> {
+        AsyncStream { continuation in
+            let pending: Mutex<Data> = Mutex(Data())
+            let source: any DispatchSourceRead = DispatchSource.makeReadSource(fileDescriptor: handle.fileDescriptor, queue: DispatchQueue(label: "Files.FileWatch.lines"))
+            source.setEventHandler {
+                switch Result(catching: { try handle.readToEnd() }) {
+                    case .success(let appended):
+                        let lines: [Data] = pending.withLock { pending in
                             let lines: [Data] = (pending + (appended ?? Data())).split(separator: UInt8(ascii: "\n"), omittingEmptySubsequences: false)
                             pending = lines[lines.endIndex - 1]
-                            for line: Data in lines.dropLast() { continuation.yield(.success(line)) }
-                        case .failure(let error):
-                            continuation.yield(.failure(error))
-                            return
-                    }
+                            return lines.dropLast()
+                        }
+                        for line: Data in lines { continuation.yield(.success(line)) }
+                    case .failure(let error):
+                        continuation.yield(.failure(.unreadable(error)))
+                        source.cancel()
                 }
             }
-            continuation.onTermination = { _ in following.cancel() }
+            source.setCancelHandler { withExtendedLifetime(handle) { continuation.finish() } }
+            continuation.onTermination = { _ in source.cancel() }
+            source.activate()
         }
     }
 

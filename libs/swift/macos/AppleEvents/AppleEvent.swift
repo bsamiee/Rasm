@@ -3,6 +3,57 @@ public import Applications
 import Carbon.OpenScripting
 public import Results
 
+// --- [MODELS] --------------------------------------------------------------------------
+
+public enum EventClause: Sendable {
+    public enum Values: Sendable {
+        case any
+        case among(Set<String?>)
+        case except(String)
+
+        func contain(_ descriptor: NSAppleEventDescriptor?) -> Bool {
+            let value: String? = descriptor.map { descriptor in
+                descriptor.descriptorType == DescType(typeEnumerated)
+                    ? descriptor.enumCodeValue.sdef
+                    : descriptor.coerce(toDescriptorType: DescType(typeBoolean)).map { boolean in DescType(boolean.booleanValue ? typeTrue : typeFalse).sdef } ?? descriptor.descriptorType.sdef
+            }
+            return switch self {
+                case .any: true
+                case .among(let listed): listed.contains(value)
+                case .except(let excluded): value != excluded
+            }
+        }
+    }
+
+    case always
+    case parameter(String, Values)
+    case property(String, of: Set<String>?, Values)
+    case direct(of: Set<String>)
+
+    func matches(_ event: NSAppleEventDescriptor) -> Bool {
+        let direct: NSAppleEventDescriptor? = event.paramDescriptor(forKeyword: AEKeyword(keyDirectObject))
+        switch self {
+            case .always:
+                return true
+            case .parameter(let keyword, let values):
+                return values.contain(FourCharCode(sdef: keyword).flatMap(event.paramDescriptor(forKeyword:)))
+            case .property(let property, let containers, let values):
+                let data: NSAppleEventDescriptor? = event.paramDescriptor(forKeyword: AEKeyword(keyAEData))
+                let assigned: NSAppleEventDescriptor? =
+                    switch direct?.forKeyword(AEKeyword(keyAEKeyData))?.typeCodeValue {
+                        case FourCharCode(sdef: property): data
+                        case FourCharCode(pProperties): FourCharCode(sdef: property).flatMap { code in data?.forKeyword(code) }
+                        case .some, .none: nil
+                    }
+                let container: String? = direct?.forKeyword(AEKeyword(keyAEContainer))?.forKeyword(AEKeyword(keyAEDesiredClass))?.typeCodeValue.sdef
+                return direct?.forKeyword(AEKeyword(keyAEKeyForm))?.enumCodeValue == FourCharCode(formPropertyID) && assigned != nil
+                    && containers.map { containers in container.map(containers.contains) == true } != false && values.contain(assigned)
+            case .direct(let classes):
+                return direct?.forKeyword(AEKeyword(keyAEDesiredClass)).map { want in classes.contains(want.typeCodeValue.sdef) } == true
+        }
+    }
+}
+
 // --- [ERRORS] --------------------------------------------------------------------------
 
 public enum DefinitionFailure: CustomNSError, LocalizedError {
@@ -23,8 +74,8 @@ public enum DefinitionFailure: CustomNSError, LocalizedError {
 
     public var errorUserInfo: [String: Any] {
         switch self {
-            case .launch(let error as any Error), .xml(let error): [NSUnderlyingErrorKey: error]
-            case .requiresRunning, .osa, .unmatched: [:]
+            case .launch(let error as any Error), .xml(let error), .unmatched(let error as any Error): [NSUnderlyingErrorKey: error]
+            case .requiresRunning, .osa: [:]
         }
     }
 }
@@ -43,7 +94,10 @@ public enum DictionaryFailure: CustomNSError, LocalizedError {
     }
 
     public var errorUserInfo: [String: Any] {
-        if case .undated(_, let error) = self { [NSUnderlyingErrorKey: error] } else { [:] }
+        switch self {
+            case .unmatched(let error as any Error), .undated(_, let error): [NSUnderlyingErrorKey: error]
+            case .unencodable: [:]
+        }
     }
 }
 
@@ -64,6 +118,8 @@ public enum AppleEventFailure: LocalizedError {
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
+
+let appleEvents: DispatchQueue = DispatchQueue(label: "AppleEvents", attributes: .concurrent)
 
 public actor ScriptingDefinitions {
     private struct Held {
@@ -100,7 +156,7 @@ extension Installation {
             for instance: NSRunningApplication in instances.compactMap(NSRunningApplication.init(processIdentifier:)) {
                 try await instance.finishedLaunching(within: timeout).mapError(DefinitionFailure.launch).get()
             }
-            return try await withTaskExecutorPreference(DispatchQueue(label: "AppleEvents.definitions", attributes: .concurrent)) { () throws(DefinitionFailure) in
+            return try await withTaskExecutorPreference(appleEvents) { () throws(DefinitionFailure) in
                 var definition: Unmanaged<CFData>?
                 let status: OSStatus = unsafe OSACopyScriptingDefinitionFromURL(url as CFURL, 0, &definition)
                 guard status == noErr, let data: CFData = unsafe definition?.takeRetainedValue() else { throw .osa(status) }
@@ -111,9 +167,10 @@ extension Installation {
 }
 
 extension NSAppleEventDescriptor {
+    @concurrent
     public func sent(within timeout: Duration) async -> Result<NSAppleEventDescriptor, AppleEventFailure> {
         let undelivered: Set<OSStatus> = [OSStatus(procNotFound), OSStatus(errAEEventNotPermitted)]
-        return await withTaskExecutorPreference(DispatchQueue(label: "AppleEvents.sending", attributes: .concurrent)) {
+        return await withTaskExecutorPreference(appleEvents) {
             Result { try sendEvent(options: [.waitForReply, .neverInteract], timeout: timeout / .seconds(1)) }
                 .mapError { error -> AppleEventFailure in
                     let status: OSStatus = OSStatus((error as NSError).code)

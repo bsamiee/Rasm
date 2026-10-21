@@ -81,4 +81,4 @@ rule:
                             - kind: prefix_expression
                               all: [{has: {field: operation, regex: '^&$'}}, {has: {field: target, pattern: $GROWN}}]
 message: '`$GROWN` grows each pass of a loop with no exit and no removal'
-note: 'Bound the collection, drain it per pass, or build it inside the loop body so each pass starts empty'
+note: 'Bound the collection, remove its elements per pass, or declare it inside the loop body'

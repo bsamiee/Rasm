@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-executable-path-buffer
+language: swiftlang
+severity: error
+rule:
+    kind: call_expression
+    pattern: $CALL
+    any:
+        - has: {nthChild: 1, kind: simple_identifier, regex: '^_NSGetExecutablePath$'}
+        - all:
+            - has: {nthChild: 1, kind: simple_identifier, regex: '^proc_pidpath$'}
+            - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 1, regex: '^(getpid\(\)|ProcessInfo\.processInfo\.processIdentifier)$'}}}
+message: '`$CALL` fills a C buffer with the path of the running executable'
+note: 'Read `Bundle.main.executablePath` or `Bundle.main.executableURL`, set for every launch form'

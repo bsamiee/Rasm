@@ -37,6 +37,7 @@ rule:
           any:
             - pattern: '$R.write(to: $U, options: $O)'
             - pattern: '$R.write(toFile: $U, options: $O)'
+            - pattern: '$R.write(to: $U, options: $O, originalContentsURL: $_)'
           has:
             kind: call_suffix
             has:
@@ -68,4 +69,4 @@ transform:
     APPENDED: {replace: {source: $WITHOUT_OPTIONS, replace: '(?s)^(.*?)(,?)(\s*)\)$', by: '${1}, options: [.atomic]${2}${3})'}}
 fix: '$ATOMICALLY$SINGLE$APPENDED'
 message: '`$R.write` truncates the file in place and exposes partial content until writing ends'
-note: 'Pass `.atomic` in the `options:` of `Data.write` or `atomically: true` to `String.write` and `NSData.write`'
+note: 'Pass `.atomic` in the `options:` of `Data.write` and `FileWrapper.write`, or `atomically: true` to `String.write` and `NSData.write`'

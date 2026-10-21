@@ -4,14 +4,15 @@
 
 ## [01]-[SCOPE]
 
-- Atelier holds Adobe bundle selection and the wire protocol
+- Atelier holds Adobe bundle selection, its request methods, and its refusal rows, `EffectRPC` serves the wire and `AppleEvents` matches the rows
 - Capabilities extend code every Adobe application shares, with no per-application branch or file
 - Calls raise no application and open no dialog or panel: launches run in the background, Apple Events send with never-interact
 - Never-interact is advisory, `Adobe.refusals` refuses a dictionary command that activates or opens UI before it is sent
-- `Adobe.refusals` holds host facts keyed by bundle identifier, event code, and a parameter or property value
+- `Adobe.refusals` holds host facts keyed by bundle identifier stem, event code, and a parameter or property value, a stem covers every channel and version
 - InDesign `show` (`UIUIshow`) is the one row proven live, every other row rests on its dictionary text
 - Window ordering inside an application (`bring to front`, `make` a document or window) passes, InDesign keeps it in its frame window
-- Command form refuses menu-invoke codes toward the Menu form and script runners toward `execute_script`
+- `Adobe.routes` refuses menu-invoke codes toward the Menu form and script runners outside `Installation.runtimes` toward `execute_script`, whose dictionary runtimes send through `execute`
+- The `command` tool refuses an `Installation.runtimes` command by name or code toward `execute_script` before it reaches `execute`
 
 ## [02]-[PROTOCOL]
 
@@ -33,7 +34,7 @@ Stdin and stdout carry one JSON-RPC 2.0 message per line in the form Effect's `R
 
 ## [03]-[VALUES]
 
-`AppleEventValue` crosses as the plain JSON its `@rasm/automation` schema reads, with a `_tag` object for each Apple Event type JSON lacks:
+`AppleEventValue` crosses as the plain JSON its `@rasm/automation` schema reads, with an Effect tagged struct for each Apple Event type JSON lacks:
 - Text coerces to the enumerator, type, date, or file URL a parameter's dictionary type takes, and to an ordinal as an `index` selector
 - Codes as the scripting definition writes them pass wherever a command, term, or enumerator name does
 - Codes holding a control byte cross in the `0x` hexadecimal form sdef(5) states, commands as 16 hex digits

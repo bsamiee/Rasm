@@ -16,6 +16,13 @@ nonisolated enum Provider: String, CaseIterable, Codable, Sendable {
         }
     }
 
+    var tool: String {
+        switch self {
+            case .claude: "Claude Code"
+            case .openAI: "Codex"
+        }
+    }
+
     @MainActor var symbol: ImageResource {
         switch self {
             case .claude: .claude
@@ -75,8 +82,7 @@ nonisolated extension ProviderFailure {
     init(process error: any Error) {
         self =
             switch ProcessFailure(error) {
-                case .cancelled: .cancelled
-                case .timedOut(let deadline): .timedOut(deadline)
+                case .deadline(let deadline): .deadline(deadline)
                 case let failure: .process(failure)
             }
     }
@@ -88,10 +94,20 @@ nonisolated protocol ProviderClient: Actor {
     func select(_ account: Account, outgoing: Account?) async -> Result<AccountIdentity, ProviderError>
     func signIn(_ target: SignInTarget, codes: AsyncStream<String>) async -> Result<AccountIdentity, ProviderError>
     func signOut(_ account: Account, isSelected: Bool) async -> Result<Void, ProviderError>
-    func remove(_ account: Account, isSelected: Bool) async -> Result<Void, ProviderError>
     func deletePrivateStore(id: UUID) async -> Result<Void, ProviderError>
     func usage(for account: Account, isSelected: Bool) async -> Result<AccountUsage, ProviderError>
-    func startSession(for account: Account, isSelected: Bool) async -> Result<AccountUsage, ProviderError>
+    func greet(_ account: Account, isSelected: Bool) async -> Result<Date?, ProviderError>
+}
+
+nonisolated extension ProviderClient {
+    func startSession(for account: Account, isSelected: Bool) async -> Result<AccountUsage, ProviderError> {
+        await Result { () async throws(ProviderError) in
+            let current: AccountUsage = try await usage(for: account, isSelected: isSelected).get()
+            guard current.availability(at: Date()) == .ready else { return current }
+            let reset: Date? = try await greet(account, isSelected: isSelected).get()
+            return try await usage(for: account, isSelected: isSelected).get().fillingResets { kind in kind == .session ? reset : nil }
+        }
+    }
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -109,27 +125,16 @@ nonisolated struct AccountIdentity: Equatable, Sendable {
         self.plan = plan
     }
 
-    static func make(
-        accountID: String,
-        organizationID: String?,
-        email: String,
-        plan: String?,
-    ) -> Result<Self, AggregateError<IdentityError>> {
-        let canonicalID: String = accountID.trimmingCharacters(in: .whitespacesAndNewlines)
-        let canonicalEmail: String = email.trimmingCharacters(in: .whitespacesAndNewlines)
-        let checkedID: Result<String, AggregateError<IdentityError>> =
-            canonicalID.isEmpty ? .failure(AggregateError(first: .missingAccountID)) : .success(canonicalID)
-        let checkedEmail: Result<String, AggregateError<IdentityError>> =
-            canonicalEmail.isEmpty ? .failure(AggregateError(first: .missingEmail)) : .success(canonicalEmail)
-        let checkedOrganization: Result<String?, AggregateError<IdentityError>> =
-            switch organizationID?.trimmingCharacters(in: .whitespacesAndNewlines) {
-                case .none: .success(nil)
-                case .some(let value) where value.isEmpty: .failure(AggregateError(first: .emptyOrganizationID))
-                case .some(let value): .success(value)
-            }
-        return combine(checkedID, checkedEmail, checkedOrganization).map { id, email, organization in
-            Self(accountID: id, organizationID: organization, email: email, plan: plan)
+    static func make(accountID: String?, organizationID: String?, email: String?, plan: String?) -> Result<Self, AggregateError<IdentityError>> {
+        func required(_ value: String?, _ field: any PartialKeyPath<Self> & Sendable) -> Result<String, AggregateError<IdentityError>> {
+            value.map { value in value.trimmingCharacters(in: .whitespacesAndNewlines) }.flatMap { value in value.isEmpty ? nil : value }.map(Result.success)
+                ?? .failure(AggregateError(first: IdentityError(field: field)))
         }
+        return combine(
+            required(accountID, \.accountID),
+            required(email, \.email),
+            organizationID.map { value in required(value, \.organizationID).map(Optional.some) } ?? .success(nil),
+        ).map { id, email, organization in Self(accountID: id, organizationID: organization, email: email, plan: plan) }
     }
 
     func isSameAccount(as other: Self) -> Bool {
@@ -167,15 +172,15 @@ struct AuthenticationPresentation: Identifiable, Sendable {
     let provider: Provider
     var phase: AuthenticationPhase
     let startedAt: Date
+    let codes: AsyncStream<String>.Continuation
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-nonisolated enum IdentityError: Error {
-    case missingAccountID
-    case missingOrganizationID
-    case missingEmail
-    case emptyOrganizationID
+nonisolated struct IdentityError: Error, CustomStringConvertible {
+    let field: any PartialKeyPath<AccountIdentity> & Sendable
+
+    var description: String { "Missing \(field)" }
 }
 
 nonisolated struct ProviderError: Error {

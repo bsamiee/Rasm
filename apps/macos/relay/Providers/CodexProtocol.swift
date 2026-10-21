@@ -1,6 +1,7 @@
 import Files
 import Foundation
 import JSON
+import JSONRPC
 import Results
 import System
 
@@ -8,7 +9,14 @@ import System
 
 nonisolated enum CodexProtocol {
     // --- [JSON_RPC]
-    enum Method: String, Codable, Sendable {
+    static let decoder: JSONDecoder = {
+        let decoder: JSONDecoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .secondsSince1970
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        return decoder
+    }()
+
+    enum Method: String, Sendable {
         case initialize
         case initialized
         case modelList = "model/list"
@@ -25,39 +33,22 @@ nonisolated enum CodexProtocol {
         case accountLogout = "account/logout"
     }
 
-    struct Message<Payload: Sendable>: Sendable {
-        var id: JSONValue?
-        var method: Lenient<Method> = Lenient(value: nil)
-        var params: Payload?
-        var result: Payload?
-        var error: ErrorObject?
-    }
-
-    struct Skip: Decodable, Sendable {
-        init(from _: any Decoder) {}
-    }
-
-    struct ErrorObject: Codable, Sendable {
-        let code: Int
-        let message: String
-    }
-
     // --- [REQUESTS]
     static let authMode: String = "chatgpt"
 
     struct InitializeParams: Encodable, Sendable {
         struct ClientInfo: Encodable, Sendable {
-            let name: String
-            let title: String
-            let version: String
+            let name: String? = Bundle.main.bundleIdentifier
+            let title: String? = Bundle.main.object(forInfoDictionaryKey: kCFBundleNameKey as String) as? String
+            let version: String? = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
         }
 
         struct Capabilities: Encodable, Sendable {
-            let experimentalApi: Bool
+            let experimentalApi: Bool = true
         }
 
-        let clientInfo: ClientInfo
-        let capabilities: Capabilities
+        let clientInfo: ClientInfo = ClientInfo()
+        let capabilities: Capabilities = Capabilities()
     }
 
     struct PageParams: Encodable, Sendable {
@@ -126,10 +117,6 @@ nonisolated enum CodexProtocol {
     }
 
     // --- [MESSAGES]
-    struct InitializeResult: Decodable, Sendable {
-        let userAgent: String?
-    }
-
     struct Page<Item: Decodable & Sendable>: Decodable, Sendable {
         let data: [Item]
         let nextCursor: String?
@@ -161,13 +148,9 @@ nonisolated enum CodexProtocol {
 
         func usage(identity: AccountIdentity, observedAt: Date) throws(CodexFailure) -> AccountUsage {
             guard accountId == nil || accountId == identity.organizationID else { throw .identityChanged }
-            let codex: RateLimitSnapshot? =
-                switch (rateLimitsByLimitId, rateLimits.isCodex) {
-                    case (.some(let byID), _): byID[RateLimitSnapshot.codexLimitID]
-                    case (.none, true): rateLimits
-                    case (.none, false): nil
-                }
-            guard let limits: RateLimitSnapshot = codex else { throw .invalidResponse(.accountRateLimitsRead, nil) }
+            guard let limits: RateLimitSnapshot = rateLimitsByLimitId.map({ byID in byID[RateLimitSnapshot.codexLimitID] }) ?? (rateLimits.isCodex ? rateLimits : nil) else {
+                throw .invalidResponse(.accountRateLimitsRead)
+            }
             let reached: Bool = limits.rateLimitReachedType != nil || limits.spendControlReached == true
             let windows: [QuotaWindow?] = try traverse([limits.primary, limits.secondary].compactMap(\.self)) { window -> Result<QuotaWindow?, AggregateError<QuotaFailure>> in
                 let kind: QuotaKind? =
@@ -217,7 +200,7 @@ nonisolated enum CodexProtocol {
 
     struct TurnError: Decodable, Sendable {
         let message: String
-        let codexErrorInfo: Lenient<String>
+        @Lenient var codexErrorInfo: String?
     }
 
     enum TurnStatus: String, Decodable, Sendable {
@@ -226,7 +209,7 @@ nonisolated enum CodexProtocol {
 
     struct Turn: Decodable, Sendable {
         let id: String
-        let status: Lenient<TurnStatus>
+        @Lenient var status: TurnStatus?
         let error: TurnError?
     }
 
@@ -240,8 +223,8 @@ nonisolated enum CodexProtocol {
     }
 
     struct LoginStarted: Decodable, Sendable {
-        let loginId: String?
-        let authUrl: String?
+        let loginId: String
+        let authUrl: URL
     }
 
     struct LoginCompleted: Decodable, Sendable {
@@ -266,21 +249,25 @@ nonisolated enum CodexProtocol {
     // --- [GREETING]
     static let greetingModelName: String = "gpt-5.6-luna"
 
-    static func greet(_ connection: CodexConnection, workingDirectory: URL) async throws(CodexFailure) {
+    static func greet(_ connection: JSONRPCConnection<Method, CodexFailure>, workingDirectory: URL) async throws(CodexFailure) {
+        func pages<Item: Decodable & Sendable>(_ method: Method, of _: Item.Type, after cursor: String? = nil) async throws(CodexFailure) -> [Item] {
+            let page: Page<Item> = try await connection.request(method, params: PageParams(cursor: cursor), returning: Page<Item>.self)
+            let rest: [Item] = if let next: String = page.nextCursor { try await pages(method, of: Item.self, after: next) } else { [] }
+            return page.data + rest
+        }
         let directory: String = FilePath(workingDirectory.path(percentEncoded: false)).string
-        guard let model: Model = try await connection.pages(Model.self, .modelList).first(where: { value in value.model == greetingModelName }) else { throw .modelUnavailable }
+        guard let model: Model = try await pages(.modelList, of: Model.self).first(where: { value in value.model == greetingModelName }) else { throw .modelUnavailable }
         let supported: Set<String> = Set(model.supportedReasoningEfforts.map(\.reasoningEffort))
         guard let effort: String = ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"].first(where: supported.contains) else {
-            throw .invalidResponse(.modelList, nil)
+            throw .invalidResponse(.modelList)
         }
         let disabled: [String] =
-            try await connection.pages(ExperimentalFeature.self, .experimentalFeatureList).filter(\.enabled).map { feature in "features.\(feature.name)" } + [
+            try await pages(.experimentalFeatureList, of: ExperimentalFeature.self).filter(\.enabled).map { feature in "features.\(feature.name)" } + [
                 "orchestrator.skills.enabled", "skills.include_instructions", "token_budget.use_history_notes_extension",
                 "tools.experimental_request_user_input.enabled", "tools.update_plan.enabled",
             ]
-        let effective: EffectiveConfig = try await connection.request(EffectiveConfig.self, .configRead, params: ConfigReadParams(includeLayers: false, cwd: directory))
+        let effective: EffectiveConfig = try await connection.request(.configRead, params: ConfigReadParams(includeLayers: false, cwd: directory), returning: EffectiveConfig.self)
         let started: ThreadStarted = try await connection.request(
-            ThreadStarted.self,
             .threadStart,
             params: ThreadStartParams(
                 model: greetingModelName,
@@ -304,22 +291,23 @@ nonisolated enum CodexProtocol {
                     ),
                 ),
             ),
+            returning: ThreadStarted.self,
         )
         let outcome: Result<Void, CodexFailure> = await Result { () async throws(CodexFailure) in
             let turn: TurnStarted = try await connection.request(
-                TurnStarted.self,
                 .turnStart,
                 params: TurnStartParams(threadId: started.thread.id, input: [TextInput(text: "hi")], effort: effort, serviceTierForTurn: "default"),
+                returning: TurnStarted.self,
             )
-            let completed: TurnCompleted = try await connection.notification(TurnCompleted.self, .turnCompleted) { completed in
+            let completed: TurnCompleted = try await connection.notification(.turnCompleted, returning: TurnCompleted.self) { completed in
                 completed.threadId == started.thread.id && completed.turn.id == turn.turn.id
             }
-            switch (completed.turn.status.value, completed.turn.error) {
+            switch (completed.turn.status, completed.turn.error) {
                 case (.completed, _): return
-                case (.interrupted, _): throw .cancelled
-                case (.failed, .some(let error)) where error.codexErrorInfo.value == "unauthorized": throw .turnUnauthorized(message: error.message)
+                case (.interrupted, _): throw .deadline(.cancelled)
+                case (.failed, .some(let error)) where error.codexErrorInfo == "unauthorized": throw .turnUnauthorized(message: error.message)
                 case (.failed, .some(let error)): throw .turnFailed(message: error.message)
-                case (.failed, .none), (.none, _): throw .invalidResponse(.turnCompleted, nil)
+                case (.failed, .none), (.none, _): throw .invalidResponse(.turnCompleted)
             }
         }
         let detached: Result<Void, CodexFailure> = await Result { () async throws(CodexFailure) in
@@ -327,19 +315,6 @@ nonisolated enum CodexProtocol {
         }
         try outcome.get()
         try detached.get()
-    }
-}
-
-extension CodexProtocol.Message: Decodable where Payload: Decodable {}
-
-extension CodexProtocol.Message: Encodable where Payload: Encodable {
-    func encode(to encoder: any Encoder) throws {
-        var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
-        try container.encodeIfPresent(id, forKey: .id)
-        try container.encodeIfPresent(method.value, forKey: .method)
-        try container.encodeIfPresent(params, forKey: .params)
-        try container.encodeIfPresent(result, forKey: .result)
-        try container.encodeIfPresent(error, forKey: .error)
     }
 }
 
@@ -371,27 +346,27 @@ nonisolated enum CodexAuthFile {
         }
     }
 
-    static let name: String = "auth.json"
+    static func file(in home: URL) -> URL { home.appending(path: "auth.json") }
 
-    static func read(at url: URL) throws(CodexFailure) -> (data: Data, identity: AccountIdentity?)? {
+    static func read(in home: URL) throws(CodexFailure) -> (data: Data, identity: AccountIdentity?)? {
+        let url: URL = file(in: home)
         guard let data: Data = try ifPresent({ try Data(contentsOf: url) }).mapError(CodexFailure.storage).get() else { return nil }
-        let document: Document = try Result { try CodexConnection.decoder.decode(Document.self, from: data) }.mapError { error in CodexFailure.invalidAuthFile(url, error) }.get()
+        let document: Document = try Result { try CodexProtocol.decoder.decode(Document.self, from: data) }.mapError { error in CodexFailure.invalidAuthFile(url, error) }.get()
         if let mode: String = document.authMode, mode != CodexProtocol.authMode { throw .subscriptionRequired }
         guard let tokens: Document.Tokens = document.tokens, let idToken: String = tokens.idToken else { return (data, nil) }
         let components: [Substring] = idToken.split(separator: ".")
         guard components.count == 3 else { throw .invalidAuthFile(url, nil) }
         let encoded: String = String(components[1]).replacing("-", with: "+").replacing("_", with: "/")
         guard let payload: Data = Data(base64Encoded: encoded + String(repeating: "=", count: (4 - encoded.count % 4) % 4)) else { throw .invalidAuthFile(url, nil) }
-        let claims: Claims = try Result { try CodexConnection.decoder.decode(Claims.self, from: payload) }.mapError { error in CodexFailure.invalidAuthFile(url, error) }.get()
-        let user: Result<String, AggregateError<IdentityError>> =
-            (claims.auth?.chatgptUserId ?? claims.auth?.userId).map(Result.success) ?? .failure(AggregateError(first: .missingAccountID))
-        let workspace: Result<String, AggregateError<IdentityError>> =
-            (claims.auth?.chatgptAccountId ?? tokens.accountId).map(Result.success) ?? .failure(AggregateError(first: .missingOrganizationID))
-        let email: Result<String, AggregateError<IdentityError>> = claims.email.map(Result.success) ?? .failure(AggregateError(first: .missingEmail))
-        let identity: AccountIdentity = try combine(user, workspace, email)
-            .flatMap { user, workspace, email in AccountIdentity.make(accountID: user, organizationID: workspace, email: email, plan: claims.auth?.chatgptPlanType) }
-            .mapError(CodexFailure.invalidIdentity)
-            .get()
+        let claims: Claims = try Result { try CodexProtocol.decoder.decode(Claims.self, from: payload) }.mapError { error in CodexFailure.invalidAuthFile(url, error) }.get()
+        let workspace: String? = claims.auth?.chatgptAccountId ?? tokens.accountId
+        let identity: AccountIdentity = try combine(
+            AccountIdentity.make(accountID: claims.auth?.chatgptUserId ?? claims.auth?.userId, organizationID: workspace, email: claims.email, plan: claims.auth?.chatgptPlanType),
+            workspace.map(Result.success) ?? .failure(AggregateError(first: IdentityError(field: \AccountIdentity.organizationID))),
+        )
+        .map { identity, _ in identity }
+        .mapError(CodexFailure.invalidIdentity)
+        .get()
         return (data, identity)
     }
 }

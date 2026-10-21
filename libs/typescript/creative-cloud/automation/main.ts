@@ -91,7 +91,7 @@ const Execute = Schema.Struct({
         .annotate({ description: 'File URLs the command writes, returned with the reply' })
         .pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
 });
-class InstalledFace extends Schema.Class<InstalledFace, { readonly brand: unique symbol }>('InstalledFace')({ postscriptName: Schema.String, family: Schema.String, style: Schema.String, displayName: Schema.String, file: Schema.String }) {}
+class InstalledFace extends Schema.Class<InstalledFace, { readonly brand: unique symbol }>('InstalledFace')({ postscriptName: Schema.String, family: Schema.String, style: Schema.String, displayName: Schema.String, file: Schema.URL }) {}
 class Installation extends Schema.Class<Installation, { readonly brand: unique symbol }>('Installation')({
     url: Schema.URL,
     identifier: Schema.String,

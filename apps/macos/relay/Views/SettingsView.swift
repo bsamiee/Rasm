@@ -191,7 +191,7 @@ private struct AccountSettings: View {
                 .disabled(model.isBusy)
             } footer: {
                 if let issue: ProviderError = model.issue {
-                    TimelineView(.everyMinute) { context in Text(UsagePresentation.issue(issue, at: context.date)) }
+                    TimelineView(.everyMinute) { context in Text(issue.description(at: context.date)) }
                 }
                 if let blocking: AccountOperation = model.blockingOperation { Text(blocking.refusalDescription) }
             }
@@ -248,7 +248,7 @@ private struct SignInSheet: View {
                 switch pending.phase {
                     case .refused:
                         TimelineView(.everyMinute) { context in
-                            Text(UsagePresentation.authentication(pending.phase, at: context.date))
+                            Text(pending.phase.description(at: context.date))
                                 .font(.callout)
                         }
                         Button("Done") { store.dismissAuthentication() }
@@ -260,7 +260,7 @@ private struct SignInSheet: View {
                         HStack(spacing: 8) {
                             ProgressView().controlSize(.small)
                             TimelineView(.everyMinute) { context in
-                                Text(UsagePresentation.authentication(pending.phase, at: context.date))
+                                Text(pending.phase.description(at: context.date))
                             }
                             .font(.callout)
                             Spacer()

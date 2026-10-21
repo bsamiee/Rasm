@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-truncated-exit-status
+language: swiftlang
+severity: error
+utils:
+    status-type: {kind: user_type, regex: '^(Security\.|Darwin\.)?OSStatus$'}
+    status:
+        any:
+            - {kind: simple_identifier, regex: '^errSec\w+$'}
+            - kind: simple_identifier
+              pattern: $S
+              inside:
+                stopBy: end
+                kind: 'function_declaration, init_declaration, lambda_literal'
+                has:
+                    stopBy: {kind: 'function_declaration, init_declaration, lambda_literal'}
+                    any:
+                        - {kind: parameter, all: [{has: {field: name, kind: simple_identifier, pattern: $S}}, {has: {matches: status-type}}]}
+                        - {kind: lambda_parameter, all: [{has: {field: name, pattern: $S}}, {has: {matches: status-type}}]}
+                        - kind: property_declaration
+                          all:
+                            - has: {field: name, has: {field: bound_identifier, pattern: $S}}
+                            - has: {kind: type_annotation, has: {matches: status-type}}
+            - kind: call_expression
+              all:
+                - has: {nthChild: 1, regex: '^U?Int(32|64)?$'}
+                - has: {kind: call_suffix, has: {kind: value_arguments, not: {has: {nthChild: 2}}, has: {kind: value_argument, has: {field: value, matches: status}}}}
+rule:
+    pattern: $SITE
+    any:
+        - kind: call_expression
+          all:
+            - has: {nthChild: 1, regex: '^U?Int8$'}
+            - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, all: [{has: {field: name, regex: '^truncatingIfNeeded$'}}, {has: {field: value, matches: status}}]}}}
+        - kind: bitwise_operation
+          all:
+            - has: {field: op, regex: '^&$'}
+            - has: {field: rhs, regex: '^(0x0*[fF]{2}|255)$'}
+            - has: {field: lhs, matches: status}
+message: '`$SITE` keeps 8 bits of an `OSStatus` that `waitid` reports in 24'
+note: 'Mask the status with `& 0x00FF_FFFF`, the width of `TerminationStatus.exited`, before comparing it to a child exit'

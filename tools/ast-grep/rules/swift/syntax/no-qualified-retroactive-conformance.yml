@@ -34,5 +34,5 @@ rule:
                 kind: source_file
                 stopBy: end
                 has: {kind: import_declaration, has: {kind: identifier, has: {kind: simple_identifier, nthChild: 1, pattern: $PROTOCOL_MODULE}}}
-message: '`$TYPE: $PROTOCOL` conforms a type of an imported module to a protocol of an imported module'
+message: '`$TYPE: $PROTOCOL` conforms a type of `$TYPE_MODULE` to a protocol of `$PROTOCOL_MODULE`'
 note: 'Wrap the imported value in a type this module owns and conform the wrapper'

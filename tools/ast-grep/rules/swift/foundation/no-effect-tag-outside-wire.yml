@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-effect-tag-outside-wire
+language: swiftlang
+severity: error
+ignores: ['libs/swift/macos/EffectRPC/**']
+rule:
+    kind: line_string_literal
+    regex: '^"_tag"$'
+message: '`"_tag"` names Effect''s tagged-union key outside `EffectRPC`, the module that owns Effect''s wire'
+note: 'Encode a tagged union with `encoder.encode(case:keyedBy:_:)` and decode its case under `Discriminator(decoder.userInfo)`, the key `EffectRPC` carries in its coders'

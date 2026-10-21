@@ -1,5 +1,5 @@
 import CoreText
-import Foundation
+public import Foundation
 public import Results
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -9,7 +9,7 @@ public struct InstalledFace: Codable, Hashable, Sendable {
     public let family: String
     public let style: String
     public let displayName: String
-    public let file: String
+    public let file: URL
 
     public static func installed() -> [Self] {
         let collection: CTFontCollection = CTFontCollectionCreateFromAvailableFonts([kCTFontCollectionRemoveDuplicatesOption as String: true] as CFDictionary)
@@ -31,7 +31,7 @@ extension InstalledFace {
             CTFontDescriptorCopyAttribute(descriptor, kCTFontURLAttribute) as? URL,
         ) {
             case (.some(let postscriptName), .some(let family), .some(let style), .some(let displayName), .some(let file)):
-                self.init(postscriptName: postscriptName, family: family, style: style, displayName: displayName, file: file.path(percentEncoded: false))
+                self.init(postscriptName: postscriptName, family: family, style: style, displayName: displayName, file: file)
             default: return nil
         }
     }

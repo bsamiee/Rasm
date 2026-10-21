@@ -12,7 +12,7 @@ import { Unmatched } from '@rasm/search';
 import { Face, Instance, Run, Shaped } from '@rasm/typography/main';
 import type { Source } from '@rasm/typography/source';
 import { ORIGIN, Peer } from '@rasm/uxp/link';
-import { Array, Config, Context, Effect, FileSystem, flow, identity, Layer, Match, Option, Result, Schema, SchemaAST, Sink, Stream, Struct, SubscriptionRef } from 'effect';
+import { Array, Cause, Config, Context, Effect, FileSystem, flow, identity, Layer, Match, Option, Path, Record, Result, Schema, SchemaAST, Sink, Stream, Struct, SubscriptionRef } from 'effect';
 import { McpSchema, Tool } from 'effect/ai';
 import manifest from './package.json' with { type: 'json' };
 
@@ -147,8 +147,8 @@ main(
                                 const typeset = (source: typeof Source.Type) => Effect.map(Face.open(source, { variations, size }), (face) => ({ face, shaped: face.shape(run) }));
                                 return yield* Option.match(chosen, {
                                     onNone: Effect.fnUntraced(function* () {
-                                        const [found, files] = yield* Effect.all([automation.face({ name }), FileSystem.FileSystem]);
-                                        return { ...found, specimen: yield* typeset({ data: yield* files.readFile(found.file), postscriptName: Option.some(found.postscriptName) }) };
+                                        const [found, files, path] = yield* Effect.all([automation.face({ name }), FileSystem.FileSystem, Path.Path]);
+                                        return { ...found, specimen: yield* typeset({ data: yield* files.readFile(yield* path.fromFileUrl(found.file)), postscriptName: Option.some(found.postscriptName) }) };
                                     }),
                                     onSome: Effect.fnUntraced(function* ({ installation }) {
                                         const { view, source } = yield* (yield* panel.call(installation))('font', { name, text: run.text });
@@ -182,7 +182,10 @@ main(
                             }),
                             ({ run }, { installation, pid }) =>
                                 Match.valueTags(run, {
-                                    Command: (command) => automation.execute({ ...command, pid }),
+                                    Command: Effect.fnUntraced(function* (command) {
+                                        const code = Record.fromIterableBy((yield* automation.terms({ url: installation.url })).command, Struct.get('name'))[command.command]?.code ?? command.command;
+                                        return yield* Object.hasOwn(Installation.runtimes, code) ? Effect.fail(new Cause.IllegalArgumentError(`${command.command} (${code}) runs a script, execute_script runs it, nothing was sent`)) : automation.execute({ ...command, pid });
+                                    }),
                                     Dialog: (press) => automation.press({ ...press, pid }),
                                     Menu: ({ action }) => Effect.flatMap(linked(installation), (use) => use('invoke', { action })),
                                 }),

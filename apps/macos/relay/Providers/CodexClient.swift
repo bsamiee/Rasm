@@ -1,20 +1,31 @@
+import AppKit
 import Files
 import Foundation
+import JSONRPC
 import Processes
 import Results
 import Subprocess
 import System
 
+// --- [MODELS] --------------------------------------------------------------------------
+
+private nonisolated struct CodexPackage: Decodable {
+    let entrypoint: String
+    let version: String
+}
+
 // --- [SERVICES] ------------------------------------------------------------------------
 
-private struct CodexServer {
-    let connection: CodexConnection
+private nonisolated struct CodexServer {
+    let connection: JSONRPCConnection<CodexProtocol.Method, CodexFailure>
     let task: Task<Void, Never>
     let identity: AccountIdentity?
 }
 
 actor CodexClient: ProviderClient {
     // --- [STATE]
+    private static let desktop: String = "com.openai.codex"
+
     nonisolated let liveHome: URL
     nonisolated let updates: AsyncStream<URL>
     private let paths: FileLocations
@@ -32,7 +43,7 @@ actor CodexClient: ProviderClient {
         (updates, updatesContinuation) = AsyncStream<URL>.makeStream()
     }
 
-    nonisolated var liveAuthFile: URL { liveHome.appending(path: CodexAuthFile.name) }
+    nonisolated var liveAuthFile: URL { CodexAuthFile.file(in: liveHome) }
 
     nonisolated func home(for account: Account, isSelected: Bool) -> URL {
         isSelected ? liveHome : paths.codexHome(account.id)
@@ -40,34 +51,30 @@ actor CodexClient: ProviderClient {
 
     // --- [SELECTION]
     func currentSelection(selected _: Account?) -> Result<AccountIdentity?, ProviderError> {
-        Result { () throws(CodexFailure) in try CodexAuthFile.read(at: liveAuthFile)?.identity }.mapError(ProviderError.init(failure:))
+        Result { () throws(CodexFailure) in try CodexAuthFile.read(in: liveHome)?.identity }.mapError(ProviderError.init(failure:))
     }
 
     func holdsCredential(for account: Account) -> Result<Bool, ProviderError> {
         Result { () throws(CodexFailure) in
-            try CodexAuthFile.read(at: paths.codexHome(account.id).appending(path: CodexAuthFile.name))?.identity?.isSameAccount(as: account.identity) ?? false
+            try CodexAuthFile.read(in: paths.codexHome(account.id))?.identity?.isSameAccount(as: account.identity) ?? false
         }
         .mapError(ProviderError.init(failure:))
     }
 
     private func identity(at home: URL) throws(CodexFailure) -> AccountIdentity {
-        guard let identity: AccountIdentity = try CodexAuthFile.read(at: home.appending(path: CodexAuthFile.name))?.identity else { throw .signInRequired }
+        guard let identity: AccountIdentity = try CodexAuthFile.read(in: home)?.identity else { throw .signInRequired }
         return identity
     }
 
     // --- [SWITCH]
     func preconditions() async throws(CodexFailure) {
-        let connection: CodexConnection = try await connection(for: liveHome)
-        let response: CodexProtocol.EffectiveConfig = try await connection.request(
-            CodexProtocol.EffectiveConfig.self,
+        let response: CodexProtocol.EffectiveConfig = try await connection(for: liveHome).request(
             .configRead,
             params: CodexProtocol.ConfigReadParams(includeLayers: false, cwd: nil),
+            returning: CodexProtocol.EffectiveConfig.self,
         )
-        switch (response.config.cliAuthCredentialsStore, response.config.forcedChatgptWorkspaceId) {
-            case (.keyring, _), (.auto, _), (.ephemeral, _): throw .keyringStorage
-            case (_, .some): throw .forcedWorkspace
-            case (_, .none): return
-        }
+        guard response.config.cliAuthCredentialsStore ?? .file == .file else { throw .keyringStorage }
+        guard response.config.forcedChatgptWorkspaceId == nil else { throw .forcedWorkspace }
     }
 
     func select(
@@ -84,29 +91,23 @@ actor CodexClient: ProviderClient {
             .mapError(CodexFailure.storage)
             .get()
         }
-        let incoming: URL = paths.codexHome(account.id).appending(path: CodexAuthFile.name)
+        let incoming: URL = paths.codexHome(account.id)
         return await Result { () async throws(CodexFailure) in
-            try await CodexDesktop.refuseWhileRunning()
+            guard NSRunningApplication.runningApplications(withBundleIdentifier: Self.desktop).allSatisfy(\.isTerminated) else { throw .desktopRunning }
             try await preconditions()
             await stopServer(liveHome)
-            await stopServer(paths.codexHome(account.id))
+            await stopServer(incoming)
             if let outgoing { await stopServer(paths.codexHome(outgoing.id)) }
-            guard let saved: (data: Data, identity: AccountIdentity?) = try CodexAuthFile.read(at: incoming), let identity: AccountIdentity = saved.identity,
+            guard let saved: (data: Data, identity: AccountIdentity?) = try CodexAuthFile.read(in: incoming), let identity: AccountIdentity = saved.identity,
                 identity.isSameAccount(as: account.identity)
             else { throw .signInRequired }
-            let live: (data: Data, identity: AccountIdentity?)? = try CodexAuthFile.read(at: liveAuthFile)
+            let live: (data: Data, identity: AccountIdentity?)? = try CodexAuthFile.read(in: liveHome)
             if live?.identity?.isSameAccount(as: account.identity) != true {
-                let matchesOutgoing: Bool =
-                    switch (live?.identity, outgoing) {
-                        case (.none, .none): true
-                        case (.some(let identity), .some(let outgoing)): identity.isSameAccount(as: outgoing.identity)
-                        case (.none, .some), (.some, .none): false
-                    }
-                guard matchesOutgoing else { throw .identityChanged }
-                if let outgoing, let live { try installFile(live.data, to: paths.codexHome(outgoing.id).appending(path: CodexAuthFile.name)) }
+                guard live?.identity.map({ identity in outgoing?.identity.isSameAccount(as: identity) == true }) ?? (outgoing == nil) else { throw .identityChanged }
+                if let outgoing, let live { try installFile(live.data, to: CodexAuthFile.file(in: paths.codexHome(outgoing.id))) }
                 try installFile(saved.data, to: liveAuthFile)
             }
-            try remove(incoming)
+            try remove(CodexAuthFile.file(in: incoming))
             return identity
         }
         .mapError(ProviderError.init(failure:))
@@ -124,16 +125,18 @@ actor CodexClient: ProviderClient {
                 case .account(let account, let isSelected): (home(for: account, isSelected: isSelected), account.identity)
             }
         return await Result { () async throws(CodexFailure) in
-            let connection: CodexConnection = try await connection(for: home)
+            let connection: JSONRPCConnection<CodexProtocol.Method, CodexFailure> = try await connection(for: home)
             try await withTimeout(.seconds(300)) {
                 await Result { () async throws(CodexFailure) in
-                    let started: CodexProtocol.LoginStarted = try await connection.request(CodexProtocol.LoginStarted.self, .accountLoginStart, params: CodexProtocol.LoginStartParams())
-                    guard let loginID: String = started.loginId, let address: String = started.authUrl, let url: URL = URL(string: address), url.scheme == "https",
-                        url.host(percentEncoded: false) != nil
-                    else { throw .invalidResponse(.accountLoginStart, nil) }
-                    try await CodexDesktop.openSignIn(url)
-                    let completed: CodexProtocol.LoginCompleted = try await connection.notification(CodexProtocol.LoginCompleted.self, .accountLoginCompleted) { completed in
-                        completed.loginId == loginID
+                    let started: CodexProtocol.LoginStarted = try await connection.request(
+                        .accountLoginStart,
+                        params: CodexProtocol.LoginStartParams(),
+                        returning: CodexProtocol.LoginStarted.self,
+                    )
+                    guard started.authUrl.scheme == "https", started.authUrl.host(percentEncoded: false) != nil else { throw .invalidResponse(.accountLoginStart) }
+                    guard NSWorkspace.shared.open(started.authUrl) else { throw .signInPageUnopened }
+                    let completed: CodexProtocol.LoginCompleted = try await connection.notification(.accountLoginCompleted, returning: CodexProtocol.LoginCompleted.self) {
+                        completed in completed.loginId == started.loginId
                     }
                     guard completed.success else { throw .signInRefused(reason: completed.error) }
                 }
@@ -153,13 +156,6 @@ actor CodexClient: ProviderClient {
         await Result { () async throws(CodexFailure) in try await logOut(home: home(for: account, isSelected: isSelected)) }.mapError(ProviderError.init(failure:))
     }
 
-    func remove(_ account: Account, isSelected: Bool) async -> Result<Void, ProviderError> {
-        await Result { () async throws(ProviderError) in
-            try await signOut(account, isSelected: isSelected).flatMapError { error in error.failure.requiresSignIn ? .success(()) : .failure(error) }.get()
-            try await deletePrivateStore(id: account.id).get()
-        }
-    }
-
     func deletePrivateStore(id: UUID) async -> Result<Void, ProviderError> {
         let home: URL = paths.codexHome(id)
         await stopServer(home)
@@ -168,45 +164,34 @@ actor CodexClient: ProviderClient {
 
     private func logOut(home: URL) async throws(CodexFailure) {
         defer { await stopServer(home) }
-        let connection: CodexConnection = try await connection(for: home)
-        try await connection.request(.accountLogout)
+        try await connection(for: home).request(.accountLogout)
     }
 
     // --- [USAGE]
     func usage(for account: Account, isSelected: Bool) async -> Result<AccountUsage, ProviderError> {
-        await Result { () async throws(CodexFailure) in
-            let home: URL = home(for: account, isSelected: isSelected)
+        let home: URL = home(for: account, isSelected: isSelected)
+        return await Result { () async throws(CodexFailure) in
             let identity: AccountIdentity = try identity(at: home)
             guard identity.isSameAccount(as: account.identity) else { throw .identityChanged }
-            let connection: CodexConnection = try await connection(for: home)
-            return try await connection.request(CodexProtocol.AccountRateLimits.self, .accountRateLimitsRead, params: CodexProtocol.RateLimitsReadParams(excludeResetCreditDetails: true))
+            return try await connection(for: home)
+                .request(
+                    .accountRateLimitsRead,
+                    params: CodexProtocol.RateLimitsReadParams(excludeResetCreditDetails: true),
+                    returning: CodexProtocol.AccountRateLimits.self,
+                )
                 .usage(identity: identity, observedAt: Date())
         }
         .mapError(ProviderError.init(failure:))
     }
 
-    func startSession(
-        for account: Account,
-        isSelected: Bool,
-    ) async -> Result<AccountUsage, ProviderError> {
-        let home: URL = home(for: account, isSelected: isSelected)
+    func greet(_ account: Account, isSelected: Bool) async -> Result<Date?, ProviderError> {
         let workingDirectory: URL = paths.workingDirectory
-        return await Result { () async throws(ProviderError) in
-            let current: AccountUsage = try await usage(for: account, isSelected: isSelected).get()
-            guard case .ready = current.availability(at: Date()) else { return current }
-            try await Result { () async throws(CodexFailure) in
-                let connection: CodexConnection = try await connection(for: home)
-                try await withTimeout(.seconds(120)) {
-                    await Result { () async throws(CodexFailure) in
-                        try await CodexProtocol.greet(connection, workingDirectory: workingDirectory)
-                    }
-                }
-                .get()
-            }
-            .mapError(ProviderError.init(failure:))
-            .get()
-            return try await usage(for: account, isSelected: isSelected).get()
+        return await Result { () async throws(CodexFailure) in
+            let connection: JSONRPCConnection<CodexProtocol.Method, CodexFailure> = try await connection(for: home(for: account, isSelected: isSelected))
+            try await withTimeout(.seconds(120)) { await Result { () async throws(CodexFailure) in try await CodexProtocol.greet(connection, workingDirectory: workingDirectory) } }.get()
+            return nil
         }
+        .mapError(ProviderError.init(failure:))
     }
 
     // --- [SERVERS]
@@ -215,15 +200,21 @@ actor CodexClient: ProviderClient {
         updatesContinuation.finish()
     }
 
-    private func connection(for home: URL) async throws(CodexFailure) -> CodexConnection {
-        let identity: AccountIdentity? = try CodexAuthFile.read(at: home.appending(path: CodexAuthFile.name))?.identity
+    private func connection(for home: URL) async throws(CodexFailure) -> JSONRPCConnection<CodexProtocol.Method, CodexFailure> {
+        let identity: AccountIdentity? = try CodexAuthFile.read(in: home)?.identity
         if let server: CodexServer = servers[home], server.identity == identity, !(await server.connection.isFinished) {
             return server.connection
         }
         await stopServer(home)
         let workingDirectory: URL = paths.workingDirectory
         let excludedEnvironmentVariables: Set<Environment.Key> = ["OPENAI_API_KEY", "OPENAI_BASE_URL", "OPENAI_ORG_ID", "OPENAI_PROJECT_ID"]
-        let executable: URL = try await CodexDesktop.serverExecutable()
+        guard
+            let package: URL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: Self.desktop).flatMap(Bundle.init(url:))?
+                .url(forResource: "codex-cli", withExtension: nil)
+        else { throw .applicationUnavailable }
+        let manifest: CodexPackage = try Result { try JSONDecoder().decode(CodexPackage.self, from: Data(contentsOf: package.appending(path: "codex-package.json"))) }
+            .mapError(CodexFailure.storage)
+            .get()
         try Result {
             try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
             try FileManager.default.createDirectory(at: workingDirectory, withIntermediateDirectories: true)
@@ -231,7 +222,7 @@ actor CodexClient: ProviderClient {
         .mapError(CodexFailure.storage)
         .get()
         let invocation: Configuration = Configuration(
-            executable: .path(FilePath(executable.path(percentEncoded: false))),
+            executable: .path(FilePath(package.appending(path: manifest.entrypoint).path(percentEncoded: false))),
             arguments: ["app-server"],
             environment: .custom(environment.filter { key, _ in !key.rawValue.hasPrefix("CODEX_") && !excludedEnvironmentVariables.contains(key) })
                 .updating(["CODEX_HOME": FilePath(home.path(percentEncoded: false)).string]),
@@ -240,30 +231,41 @@ actor CodexClient: ProviderClient {
         )
         let ready:
             (
-                stream: AsyncStream<Result<CodexConnection, CodexFailure>>,
-                continuation: AsyncStream<Result<CodexConnection, CodexFailure>>.Continuation
+                stream: AsyncStream<Result<JSONRPCConnection<CodexProtocol.Method, CodexFailure>, CodexFailure>>,
+                continuation: AsyncStream<Result<JSONRPCConnection<CodexProtocol.Method, CodexFailure>, CodexFailure>>.Continuation
             ) = AsyncStream.makeStream()
-        let continuation: AsyncStream<URL>.Continuation = updatesContinuation
+        let updates: AsyncStream<URL>.Continuation = updatesContinuation
         let task: Task<Void, Never> = Task(name: "codex app-server \(home.lastPathComponent)") {
-            let outcome: Result<ExecutionResult<Void, SequenceOutput, DiscardedOutput>, ProcessFailure> = await Result {
-                try await Subprocess.run(invocation, input: .inputWriter, output: .sequence, error: .discarded) { execution in
-                    await Self.serve(CodexConnection(execution: execution), home: home, updates: continuation, ready: ready.continuation)
-                }
-            }
-            .mapError(ProcessFailure.init)
-            if case .failure(let error) = outcome {
-                let failure: CodexFailure =
-                    switch error {
-                        case .launch(let launch) where launch.code == .executableNotFound: .applicationUnavailable
-                        default: CodexFailure(process: error)
+            do {
+                _ = try await Subprocess.run(invocation, input: .inputWriter, output: .sequence, error: .discarded) { execution in
+                    await JSONRPCConnection<CodexProtocol.Method, CodexFailure>.run(
+                        over: execution,
+                        decoder: CodexProtocol.decoder,
+                        timeout: .seconds(60),
+                        retaining: [.accountLoginCompleted, .turnCompleted],
+                        serve: { _ in .failure(JSONRPCRejection(code: -32601, message: "Relay does not provide agent tools")) },
+                        failure: { failure in .rpc(failure, serverVersion: manifest.version) },
+                    ) { connection in
+                        let limits: AsyncStream<CodexProtocol.RateLimitsUpdated> = await connection.subscribe(.accountRateLimitsUpdated, to: CodexProtocol.RateLimitsUpdated.self)
+                        ready.continuation.yield(
+                            await Result { () async throws(CodexFailure) in
+                                try await connection.request(.initialize, params: CodexProtocol.InitializeParams())
+                                try await connection.notify(.initialized)
+                                return connection
+                            }
+                        )
+                        ready.continuation.finish()
+                        for await update: CodexProtocol.RateLimitsUpdated in limits where update.rateLimits.isCodex {
+                            updates.yield(home)
+                        }
                     }
-                ready.continuation.yield(.failure(failure))
+                }
+            } catch {
+                ready.continuation.yield(.failure(CodexFailure(process: error)))
                 ready.continuation.finish()
             }
         }
-        var iterator: AsyncStream<Result<CodexConnection, CodexFailure>>.Iterator =
-            ready.stream.makeAsyncIterator()
-        switch await iterator.next() ?? .failure(.connectionClosed) {
+        switch await ready.stream.first(where: { _ in true }) ?? .failure(.deadline(.cancelled)) {
             case .success(let connection):
                 servers[home] = CodexServer(connection: connection, task: task, identity: identity)
                 return connection
@@ -274,27 +276,8 @@ actor CodexClient: ProviderClient {
         }
     }
 
-    private nonisolated static func serve(
-        _ connection: CodexConnection,
-        home: URL,
-        updates: AsyncStream<URL>.Continuation,
-        ready: AsyncStream<Result<CodexConnection, CodexFailure>>.Continuation,
-    ) async {
-        await withDiscardingTaskGroup { group in
-            group.addTask(name: "codex read") { await connection.read() }
-            group.addTask(name: "codex rate limits") {
-                for await update: CodexProtocol.RateLimitsUpdated in connection.updates where update.rateLimits.isCodex {
-                    updates.yield(home)
-                }
-            }
-            ready.yield(await Result { () async throws(CodexFailure) in try await connection.initialize() }.map { _ in connection })
-            ready.finish()
-        }
-    }
-
     private func stopServer(_ home: URL) async {
         guard let server: CodexServer = servers.removeValue(forKey: home) else { return }
-        await server.connection.finish(.connectionClosed)
         server.task.cancel()
         await server.task.value
     }

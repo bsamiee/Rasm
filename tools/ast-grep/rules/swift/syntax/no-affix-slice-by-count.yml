@@ -5,6 +5,56 @@ severity: error
 utils:
     count-difference:
         has: {kind: call_suffix, has: {stopBy: end, kind: additive_expression, has: {field: lhs, pattern: $R.count}}}
+    prefix-test:
+        any: [{pattern: $R.hasPrefix($AFFIX)}, {pattern: '$R.starts(with: $AFFIX)'}]
+    suffix-test:
+        pattern: $R.hasSuffix($AFFIX)
+    prefix-tested:
+        any: [{matches: prefix-test}, {has: {stopBy: end, matches: prefix-test}}]
+    suffix-tested:
+        any: [{matches: suffix-test}, {has: {stopBy: end, matches: suffix-test}}]
+    prefix-clause:
+        not: {kind: statements}
+        precedes: {stopBy: end, kind: statements}
+        matches: prefix-tested
+    suffix-clause:
+        not: {kind: statements}
+        precedes: {stopBy: end, kind: statements}
+        matches: suffix-tested
+    prefix-guard:
+        kind: guard_statement
+        has: {matches: prefix-clause}
+    suffix-guard:
+        kind: guard_statement
+        has: {matches: suffix-clause}
+    prefix-guarded:
+        any:
+            - inside:
+                stopBy: end
+                kind: statements
+                nthChild: {position: 1, ofRule: {kind: statements}}
+                inside: {kind: 'if_statement, while_statement', has: {matches: prefix-clause}}
+            - inside: {stopBy: end, kind: ternary_expression, field: if_true, has: {field: condition, matches: prefix-tested}}
+            - inside:
+                stopBy: end
+                kind: statements
+                inside: {kind: switch_entry, has: {follows: {kind: where_keyword}, matches: prefix-tested}}
+            - follows: {stopBy: end, matches: prefix-guard}
+            - inside: {stopBy: end, follows: {stopBy: end, matches: prefix-guard}}
+    suffix-guarded:
+        any:
+            - inside:
+                stopBy: end
+                kind: statements
+                nthChild: {position: 1, ofRule: {kind: statements}}
+                inside: {kind: 'if_statement, while_statement', has: {matches: suffix-clause}}
+            - inside: {stopBy: end, kind: ternary_expression, field: if_true, has: {field: condition, matches: suffix-tested}}
+            - inside:
+                stopBy: end
+                kind: statements
+                inside: {kind: switch_entry, has: {follows: {kind: where_keyword}, matches: suffix-tested}}
+            - follows: {stopBy: end, matches: suffix-guard}
+            - inside: {stopBy: end, follows: {stopBy: end, matches: suffix-guard}}
 rule:
     all:
         - pattern: $SLICE
@@ -15,14 +65,14 @@ rule:
                     - pattern: $R.removeFirst($$$)
                     - pattern: '$R[$R.index($R.startIndex, offsetBy: $$$)...]'
                     - {pattern: $R.suffix($$$), matches: count-difference}
-                - matches: {swift-guarded-branch: {condition: {any: [{pattern: $R.hasPrefix($AFFIX)}, {pattern: '$R.starts(with: $AFFIX)'}]}}}
+                - matches: prefix-guarded
             - all:
                 - any:
                     - pattern: $R.dropLast($$$)
                     - pattern: $R.removeLast($$$)
                     - pattern: '$R[..<$R.index($R.endIndex, offsetBy: $$$)]'
                     - {pattern: $R.prefix($$$), matches: count-difference}
-                - matches: {swift-guarded-branch: {condition: {pattern: $R.hasSuffix($AFFIX)}}}
+                - matches: suffix-guarded
 rewriters:
     - id: trimmed-copy
       rule:

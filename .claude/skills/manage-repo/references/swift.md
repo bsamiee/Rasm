@@ -74,7 +74,7 @@ Toolchain upgrades re-derive compiler policy in root `Xcode.xcconfig` and the ma
 ## [07]-[SWIFT_FORMAT]
 
 `.swift-format` owns Swift layout and indentation, `.editorconfig` holds no `[*.swift]` section:
-- `rules` lists every rule `dump-configuration` prints but `AllPublicDeclarationsHaveDocumentation`, code holds no doc comments
+- `rules` lists every rule `dump-configuration` prints but `AllPublicDeclarationsHaveDocumentation`, code holds no doc comments, and rules a SwiftLint rule reports at every site
 - Rules `rules` omits are off, toolchain upgrades judge each rule `dump-configuration` adds
 - Unknown top-level keys load with no message, an unknown rule name fails `lint --strict`
 - Nested option objects decode only with every key present

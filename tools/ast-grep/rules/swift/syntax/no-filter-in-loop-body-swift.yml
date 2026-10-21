@@ -88,10 +88,10 @@ utils:
             - has: {stopBy: end, kind: simple_identifier, pattern: $READ}
 rewriters:
     - id: grouped-condition
-      rule: {kind: 'disjunction_expression, ternary_expression', pattern: $C, inside: {kind: guard_statement}}
+      rule: {kind: 'disjunction_expression, ternary_expression', pattern: $C, inside: {kind: 'guard_statement, if_statement'}}
       fix: '($C)'
     - id: condition
-      rule: {pattern: $C, not: {any: [{kind: statements}, {regex: '^(guard|else)$'}]}, inside: {kind: guard_statement}}
+      rule: {pattern: $C, not: {any: [{kind: statements}, {regex: '^(guard|if|else)$'}]}, inside: {kind: 'guard_statement, if_statement'}}
       fix: '$C'
 rule:
     any:
@@ -159,14 +159,33 @@ rule:
             - has:
                 kind: statements
                 pattern: $STMTS
-                has:
-                    nthChild: 1
-                    kind: if_statement
-                    all:
-                        - matches: boolean-test
-                        - not: {has: {regex: '^(,|else)$'}}
-                        - has: {field: condition, pattern: $SKIPPED, matches: reads-item}
-                        - has: {matches: continue-body}
+                all:
+                    - has: {nthChild: 2}
+                    - has:
+                        nthChild: 1
+                        kind: if_statement
+                        all:
+                            - matches: boolean-test
+                            - not: {has: {regex: '^(,|else)$'}}
+                            - has: {field: condition, pattern: $SKIPPED, matches: reads-item}
+                            - has: {matches: continue-body}
+        - matches: plain-loop
+          all:
+            - matches: kept-item
+            - has:
+                kind: statements
+                all:
+                    - not: {has: {nthChild: 2}}
+                    - has:
+                        nthChild: 1
+                        kind: if_statement
+                        pattern: $CONDITIONS
+                        all:
+                            - matches: boolean-test
+                            - has: {regex: '^,$'}
+                            - not: {has: {regex: '^else$'}}
+                            - has: {not: {kind: statements}, matches: reads-item}
+                            - has: {kind: statements, pattern: $BODY}
 transform:
     TRIED: {replace: {source: $TRY, replace: '(?s)^.*$', by: 'try '}}
     AWAITED: {replace: {source: $AWAIT, replace: '(?s)^.*$', by: 'await '}}
@@ -188,5 +207,5 @@ fix: |-
     for $TRIED$AWAITED$CASE$GUARDED$Y$COLON$KEPT$ANNOTATION in $COLL$PRESENT$KEY$APPLIED$OPEN$PARAMETER$BIND$SOURCE$CLOSE$WHERE$NEGATED {
         $STATEMENTS$REST
     }
-message: '`for` selects elements by a test at the top of its body'
+message: '`for` over `$COLL` selects elements by a test at the top of its body'
 note: 'Select in the `for` header by `case <pattern>`, `.compactMap { }`, `where <a> && <b>` for a `guard`, or `where !(<test>)` for a leading `continue`'

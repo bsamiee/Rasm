@@ -1,10 +1,7 @@
 {
     "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
     "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
-    "files": {
-        "ignoreUnknown": true,
-        "includes": [ "**", "!!.venv", "!!.cache", "!!.artifacts", "!**/*.xcassets", "!**/*.icon" ]
-    },
+    "files": { "ignoreUnknown": true, "includes": [ "**", "!!.venv", "!!.cache", "!!.artifacts", "!**/*.xcassets", "!**/*.icon" ] },
     "formatter": { "useEditorconfig": true, "lineWidth": 320 },
     "javascript": { "formatter": { "quoteStyle": "single" }, "resolver": { "experimentalPnpmCatalogs": true } },
     "json": { "formatter": { "expand": "auto", "delimiterSpacing": true } },
@@ -132,6 +129,7 @@
         { "includes": [ "**/*.config.ts", "**/worker/index.ts", "**/.storybook/*.{ts,tsx}", "tools/ast-grep/grammars/*/grammar.js" ], "linter": { "rules": { "style": { "noDefaultExport": "off" } } } },
         { "includes": [ "**/.storybook/*.stories.tsx" ], "linter": { "rules": { "style": { "useComponentExportOnlyModules": "off" } } } },
         { "includes": [ "**/cloudflare.config.ts" ], "linter": { "rules": { "performance": { "noNamespaceImport": "off" } } } },
-        { "includes": [ "plugins/function-hooks/**" ], "linter": { "rules": { "correctness": { "noUndeclaredDependencies": "off" } } } }
+        { "includes": [ "plugins/function-hooks/**" ], "linter": { "rules": { "correctness": { "noUndeclaredDependencies": "off" } } } },
+        { "includes": [ "biome.json", "nx.json", "package.json" ], "json": { "formatter": { "expand": "never" } } }
     ]
 }

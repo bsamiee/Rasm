@@ -33,13 +33,13 @@
     "explorer.fileNesting.enabled": true,
     "explorer.fileNesting.patterns": {
         ".gitignore": ".gitattributes",
-        "Cargo.toml": "rust-toolchain.toml, rustfmt.toml, clippy.toml, Cargo.lock",
+        "Cargo.toml": "Cargo.lock, clippy.toml, rust-toolchain.toml, rustfmt.toml",
         "CLAUDE.md": ".mcp.json, AGENTS.md",
-        "Directory.Build.props": "Directory.Build.targets, Directory.Packages.props, Directory.Build.rsp, global.json, NuGet.config, Workspace.slnx",
-        "nx.json": ".editorconfig, .periphery.yml, .swift-format, .swiftlint.yml, .yamlfmt.yaml, .yamllint.yaml, mise.toml, pmd.xml, sgconfig.yml",
-        "package.json": "biome.json, pnpm-workspace.yaml, pnpm-lock.yaml, tsconfig.base.json, tsconfig.json, vite.config.ts, vitest.config.ts",
-        "Package.swift": "Package.resolved, Xcode.xcconfig",
-        "pyproject.toml": "uv.lock, pixi.lock",
+        "Directory.Build.props": "Directory.Build.rsp, Directory.Build.targets, Directory.Packages.props, global.json, NuGet.config, Workspace.slnx",
+        "nx.json": ".editorconfig, .yamlfmt.yaml, .yamllint.yaml, mise.toml, pmd.xml, sgconfig.yml",
+        "package.json": "biome.json, pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig.base.json, tsconfig.json, vite.config.ts, vitest.config.ts",
+        "Package.swift": ".periphery.yml, .swift-format, .swiftlint.yml, Package.resolved, Xcode.xcconfig",
+        "pyproject.toml": "pixi.lock, uv.lock",
         "README.md": "LICENSE"
     },
 
@@ -88,5 +88,8 @@
     "[shellscript]": { "editor.defaultFormatter": "mads-hartmann.bash-ide-vscode" },
 
     // --- [TOML] ------------------------------------------------------------------------
-    "[toml]": { "editor.defaultFormatter": "tombi-toml.tombi" }
+    "[toml]": { "editor.defaultFormatter": "tombi-toml.tombi" },
+
+    // --- [MISE] ------------------------------------------------------------------------
+    "mise.enableConfigDiagnostics": false
 }

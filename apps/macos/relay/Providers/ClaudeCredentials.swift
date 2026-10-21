@@ -3,7 +3,6 @@ import Files
 import Foundation
 import JSON
 import Processes
-import Results
 import Subprocess
 import System
 
@@ -40,12 +39,9 @@ nonisolated struct ClaudeOAuthToken: Sendable {
 
     var expiresAt: Date? { Self.date(document.known.expiresAt) }
     var refreshTokenExpiresAt: Date? { Self.date(document.known.refreshTokenExpiresAt) }
-    var fingerprint: SHA256Digest { SHA256.hash(data: Data(accessToken.utf8)) }
-
-    static let refreshMargin: TimeInterval = 300
 
     func needsRefresh(at now: Date) -> Bool {
-        expiresAt.map { expiry in expiry <= now.addingTimeInterval(Self.refreshMargin) } ?? false
+        expiresAt.map { expiry in expiry <= now.addingTimeInterval(300) } ?? false
     }
 
     static func make(_ document: JSONDocument<Attributes>) throws(ClaudeFailure) -> Self? {
@@ -138,13 +134,7 @@ nonisolated struct ClaudeOAuthAccount: Codable, Sendable {
     let organizationType: String?
 
     func identity(plan: String?) throws(ClaudeFailure) -> AccountIdentity {
-        try combine(
-            accountUuid.map(Result.success) ?? .failure(AggregateError(first: .missingAccountID)),
-            emailAddress.map(Result.success) ?? .failure(AggregateError(first: .missingEmail)),
-        )
-        .flatMap { accountID, email in AccountIdentity.make(accountID: accountID, organizationID: organizationUuid, email: email, plan: plan ?? organizationType) }
-        .mapError(ClaudeFailure.invalidIdentity)
-        .get()
+        try AccountIdentity.make(accountID: accountUuid, organizationID: organizationUuid, email: emailAddress, plan: plan ?? organizationType).mapError(ClaudeFailure.invalidIdentity).get()
     }
 }
 
@@ -192,7 +182,20 @@ nonisolated struct ClaudeCredentialStore: Sendable {
     let directoryConfigFile: URL
     let configDirectoryPath: String?
     let username: String
-    let variables: [Environment.Key: String?]
+    let variables: [Environment.Key: String]
+
+    init(home: URL, environment: [Environment.Key: String], username: String) {
+        let defaultDirectory: URL = home.appending(path: ".claude", directoryHint: .isDirectory)
+        let configured: URL? = environment["CLAUDE_CONFIG_DIR"].flatMap { value in value.isEmpty ? nil : URL(filePath: value, directoryHint: .isDirectory) }
+        configDirectoryPath = (environment["CLAUDE_SECURESTORAGE_CONFIG_DIR"] ?? environment["CLAUDE_CONFIG_DIR"]).flatMap { value in
+            value.isEmpty ? nil : value.precomposedStringWithCanonicalMapping
+        }
+        directory = configDirectoryPath.map { value in URL(filePath: value, directoryHint: .isDirectory) } ?? defaultDirectory
+        configFile = (configured ?? home).appending(path: ".claude.json")
+        directoryConfigFile = (configured ?? defaultDirectory).appending(path: ".config.json")
+        self.username = username
+        variables = environment.filter { key, _ in ["CLAUDE_CONFIG_DIR", "CLAUDE_SECURESTORAGE_CONFIG_DIR"].contains(key) }
+    }
 
     var service: String {
         configDirectoryPath.map { value in
@@ -249,11 +252,19 @@ nonisolated struct ClaudeCredentialStore: Sendable {
     func writeAccount(_ account: JSONDocument<ClaudeOAuthAccount>) async throws(ClaudeFailure) {
         let file: URL = existingConfigFile
         try Result { try FileManager.default.createDirectory(at: file.deletingLastPathComponent(), withIntermediateDirectories: true) }.mapError(ClaudeFailure.filesystem).get()
-        try await ClaudeLock.withLock(file: file) { () throws(ClaudeFailure) in
+        let retries: [Duration] = [200, 400, 800, 1600, 3200, 4000].map { delay in .milliseconds(delay) * Double.random(in: 1..<2) }
+        try await Lockfile.withLocks([Lockfile(file.appendingPathExtension("lock"), retries: retries)]) { () throws(ClaudeFailure) in
             let fields: [String: JSONValue] = try Self.read(at: file)?.fields ?? [:]
-            try Result { try JSONEncoder().encode(JSONDocument(fields: fields, known: ClaudeAccountFile(oauthAccount: account, hasCompletedOnboarding: true))).write(to: file, options: .atomic) }
-                .mapError(ClaudeFailure.filesystem)
-                .get()
+            let mode: FilePermissions? = try ifPresent { try FilePath(file.path(percentEncoded: false)).stat().permissions }.mapError(ClaudeFailure.filesystem).get()
+            try Result {
+                let document: FileWrapper = FileWrapper(
+                    regularFileWithContents: try JSONEncoder().encode(JSONDocument(fields: fields, known: ClaudeAccountFile(oauthAccount: account, hasCompletedOnboarding: true)))
+                )
+                document.fileAttributes = [FileAttributeKey.posixPermissions.rawValue: Int((mode ?? .ownerReadWrite).rawValue)]
+                try document.write(to: file, options: .atomic, originalContentsURL: nil)
+            }
+            .mapError(ClaudeFailure.filesystem)
+            .get()
         }
     }
 

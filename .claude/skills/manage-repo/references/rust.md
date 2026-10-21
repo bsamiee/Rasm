@@ -75,7 +75,6 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - Untested members set `test` and `bench` false on `[lib]` and `[[bin]]`, `doctest` false on `[lib]`, and `clippy --tests` compiles no empty harness
 - Members name their crate root beside `Cargo.toml` through `[lib] path` or `[[bin]] path`, Cargo discovers targets under `src/` alone
 - Binary packages take their binary's name, the Nx project and installed command then share one name
-- `install` places a binary in `$CARGO_HOME/bin` and restarts each `[daemons]` row running it, rows name the command on mise's `PATH`
 
 ## [07]-[CHECKERS]
 

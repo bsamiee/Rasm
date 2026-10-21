@@ -1,6 +1,6 @@
 import AppKit
 import AsyncAlgorithms
-import CryptoKit
+import CurrentProcess
 import Files
 import Foundation
 import Network
@@ -50,7 +50,6 @@ final class AccountStore {
     private let saves: (stream: AsyncStream<Void>, continuation: AsyncStream<Void>.Continuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
     @ObservationIgnored private var root: Task<Void, Never>?
     @ObservationIgnored private var authenticationTask: Task<Void, Never>?
-    @ObservationIgnored private var authenticationCodes: AsyncStream<String>.Continuation?
     @ObservationIgnored private var refreshPause: Task<Void, any Error>?
     @ObservationIgnored private var lastPanelOpen: ContinuousClock.Instant?
 
@@ -64,7 +63,7 @@ final class AccountStore {
     func issue(at now: Date) -> String? {
         let messages: [String] =
             [storageIssue?.localizedDescription].compactMap(\.self)
-            + ([pendingSwitchIssue] + Provider.allCases.map { provider in providerIssues[provider] }).compactMap { error in error.map { error in UsagePresentation.issue(error, at: now) } }
+            + ([pendingSwitchIssue] + Provider.allCases.map { provider in providerIssues[provider] }).compactMap { error in error?.description(at: now) }
         return messages.isEmpty ? nil : messages.joined(separator: "\n")
     }
 
@@ -98,18 +97,17 @@ final class AccountStore {
         }
     }
 
+    private func stores(of model: AccountModel) -> Set<CredentialStore> {
+        Set([.privateAccount(model.account.id)] + (model.isSelected ? [.live(model.account.provider)] : []))
+    }
+
     private func run(
         _ model: AccountModel,
         _ operation: AccountOperation,
         _ work: @escaping (Set<CredentialStore>) async -> Void,
     ) {
         guard !isStopping else { return }
-        model.run(operation) { [self] in
-            await withStores(
-                Set([.privateAccount(model.account.id)] + (model.isSelected ? [.live(model.account.provider)] : [])),
-                work,
-            )
-        }
+        model.run(operation) { [self] in await withStores(stores(of: model), work) }
     }
 
     // --- [LIFECYCLE]
@@ -184,7 +182,10 @@ final class AccountStore {
         }
         func observe(file: URL, provider: Provider) async {
             do {
-                for try await _ in FileWatch.events(of: file).map({ next in try next.get() }).map({ try ifPresent { try Data(contentsOf: file) }.get().map(SHA256.hash(data:)) }).removeDuplicates()
+                for try await _ in FileWatch.events(of: file).map({ next in
+                    try next.get()
+                    return try ifPresent { try Data(contentsOf: file) }.get()
+                }).removeDuplicates()
                     .dropFirst().debounce(for: .milliseconds(300))
                 {
                     let before: [UUID: Bool] = Dictionary(
@@ -224,8 +225,10 @@ final class AccountStore {
         func observeRefreshLock() async {
             let lock: URL = ClaudeLock.refreshLockfile(in: claude.shared.directory)
             do {
-                for try await present: Bool in FileWatch.events(of: lock).map({ next in try next.get() }).map({ FileManager.default.fileExists(atPath: lock.path(percentEncoded: false)) })
-                    .removeDuplicates().dropFirst()
+                for try await present: Bool in FileWatch.events(of: lock).map({ next in
+                    try next.get()
+                    return FileManager.default.fileExists(atPath: lock.path(percentEncoded: false))
+                }).removeDuplicates().dropFirst()
                 where !present {
                     await readSelection(.claude)
                 }
@@ -267,11 +270,13 @@ final class AccountStore {
                 .min()
                 .map { date in .seconds(date.timeIntervalSince(now) + 1) }
                 let delay: Duration = min(base, boundary ?? base)
-                let pause: Task<Void, any Error> = Task(name: "Refresh pause") {
-                    try await Task.sleep(for: delay)
-                }
+                let pause: Task<Void, any Error> = Task(name: "Refresh pause") { try await Task.sleep(for: delay) }
                 refreshPause = pause
-                let slept: Result<Void, any Error> = await pause.result
+                let slept: Result<Void, any Error> = await withTaskCancellationHandler {
+                    await pause.result
+                } onCancel: {
+                    pause.cancel()
+                }
                 guard !Task.isCancelled else { return }
                 if case .success = slept { refresh(accounts, trigger: .background) }
             }
@@ -282,7 +287,6 @@ final class AccountStore {
         isStopping = true
         root?.cancel()
         authenticationTask?.cancel()
-        refreshPause?.cancel()
         for model: AccountModel in accounts { model.running?.task.cancel() }
         let stopped: Result<Void, ProcessFailure> = await withTimeout(.seconds(5)) { @MainActor [self] in
             await root?.value
@@ -454,12 +458,10 @@ final class AccountStore {
 
     func submitAuthenticationCode(_ code: String) {
         let trimmed: String = code.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard case .pending? = authentication?.phase,
-            let codes: AsyncStream<String>.Continuation = authenticationCodes, !trimmed.isEmpty
-        else { return }
+        guard case .pending? = authentication?.phase, !trimmed.isEmpty else { return }
         authentication?.phase = .completing
-        codes.yield(trimmed)
-        codes.finish()
+        authentication?.codes.yield(trimmed)
+        authentication?.codes.finish()
     }
 
     func cancelAuthentication() {
@@ -497,8 +499,12 @@ final class AccountStore {
     func remove(_ id: UUID) {
         guard let model: AccountModel = model(id) else { return }
         let account: Account = model.account
-        run(model, .removing) { [self] stores in
-            switch await client(for: account.provider).remove(account, isSelected: model.isSelected) {
+        run(model, .removing) { [self, client = client(for: account.provider)] stores in
+            let removed: Result<Void, ProviderError> = await Result { () async throws(ProviderError) in
+                try await client.signOut(account, isSelected: model.isSelected).flatMapError { error in error.failure.requiresSignIn ? .success(()) : .failure(error) }.get()
+                try await client.deletePrivateStore(id: id).get()
+            }
+            switch removed {
                 case .success:
                     accounts.removeAll { other in other.account.id == id }
                     removeAccountDirectory(id)
@@ -513,46 +519,18 @@ final class AccountStore {
 
     private func authenticate(_ id: UUID, provider: Provider) {
         let existing: AccountModel? = model(id)
-        authentication = AuthenticationPresentation(
-            id: id,
-            provider: provider,
-            phase: .pending,
-            startedAt: Date(),
-        )
-        let codes: (stream: AsyncStream<String>, continuation: AsyncStream<String>.Continuation) =
-            AsyncStream<String>.makeStream()
-        authenticationCodes = codes.continuation
+        let codes: (stream: AsyncStream<String>, continuation: AsyncStream<String>.Continuation) = AsyncStream<String>.makeStream()
+        authentication = AuthenticationPresentation(id: id, provider: provider, phase: .pending, startedAt: Date(), codes: codes.continuation)
         let task: Task<Void, Never> = Task(name: "Sign in \(provider.name)") { [self] in
-            defer {
-                codes.continuation.finish()
-                if authentication?.id == id || authentication == nil {
-                    authenticationCodes = nil
-                    authenticationTask = nil
-                }
-            }
-            await withStores(
-                Set([.privateAccount(id)] + (existing?.isSelected == true ? [.live(provider)] : []))
-            ) { stores in
+            defer { codes.continuation.finish() }
+            await withStores(existing.map(stores(of:)) ?? [.privateAccount(id)]) { stores in
                 let result: Result<AccountIdentity, ProviderError> = await client(for: provider).signIn(
                     existing.map { model in .account(model.account, isSelected: model.isSelected) } ?? .newAccount(id),
                     codes: codes.stream,
                 )
-                codes.continuation.finish()
-                authenticationCodes = nil
                 switch result {
-                    case .success(let identity) where !Task.isCancelled:
-                        await connect(identity, owning: stores)
-                    case .success:
-                        if existing == nil {
-                            await withTaskCancellationShield { await deletePrivateStore(id, provider: provider, owning: stores) }
-                        }
-                        authentication = nil
-                    case .failure(let error) where error.failure.isCancellation || Task.isCancelled:
-                        if existing == nil {
-                            await withTaskCancellationShield { await deletePrivateStore(id, provider: provider, owning: stores) }
-                        }
-                        authentication = nil
-                    case .failure(let error):
+                    case .success(let identity) where !Task.isCancelled: await connect(identity, owning: stores)
+                    case .failure(let error) where !error.failure.isCancellation && !Task.isCancelled:
                         let refusal: AuthenticationRefusal =
                             if let existing, error.failure.isAccountMismatch {
                                 .differentAccount(email: existing.account.identity.email)
@@ -561,6 +539,9 @@ final class AccountStore {
                             }
                         if let existing { await record(error, for: existing, owning: stores) }
                         authentication?.phase = .refused(refusal)
+                    case .success, .failure:
+                        if existing == nil { await withTaskCancellationShield { await deletePrivateStore(id, provider: provider, owning: stores) } }
+                        authentication = nil
                 }
                 if stores.contains(.live(provider)) {
                     await withTaskCancellationShield { await readSelection(provider, owning: stores) }
@@ -578,25 +559,15 @@ final class AccountStore {
                         && model.account.identity.isSameAccount(as: identity)
                 }
             }
-            await withStores(
-                Set(
-                    [matchingAccount()].compactMap(\.self).flatMap { model in
-                        [.privateAccount(model.account.id)] + (model.isSelected ? [.live(provider)] : [])
-                    }
-                ),
-                owning: stores,
-            ) { stores in
+            await withStores(matchingAccount().map(stores(of:)) ?? [], owning: stores) { stores in
                 let duplicate: AccountModel? = matchingAccount()
-                let replaced: AccountModel?
-                switch (duplicate, existing) {
-                    case (.some(let connected), _) where connected.isConnected || connected.isBusy:
-                        connected.issue = nil
-                        if existing == nil { await deletePrivateStore(id, provider: provider, owning: stores) }
-                        authentication?.phase = .refused(.alreadyConnected(email: identity.email))
-                        return
-                    case (.some(let signedOut), .none): replaced = signedOut
-                    case (.some, .some), (.none, _): replaced = nil
+                if let duplicate, duplicate.isConnected || duplicate.isBusy {
+                    duplicate.issue = nil
+                    if existing == nil { await deletePrivateStore(id, provider: provider, owning: stores) }
+                    authentication?.phase = .refused(.alreadyConnected(email: identity.email))
+                    return
                 }
+                let replaced: AccountModel? = existing == nil ? duplicate : nil
                 let model: AccountModel =
                     existing
                     ?? AccountModel(
@@ -653,7 +624,9 @@ final class AccountStore {
         switch result {
             case .success(let usage):
                 let now: Date = Date()
-                let carried: AccountUsage = usage.keepingResets(from: model.usage.usage, at: now)
+                let carried: AccountUsage = usage.fillingResets { kind in
+                    model.usage.usage?.windows.first { earlier in earlier.kind == kind }?.resetsAt.flatMap { reset in reset > now ? reset : nil }
+                }
                 model.usage = .current(carried)
                 model.authentication = .connected
                 model.retryAfter = nil

@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-library-fixed-delay
+language: swiftlang
+severity: error
+files: ['libs/swift/**']
+rule:
+    kind: value_argument
+    all:
+        - has:
+            field: value
+            kind: call_expression
+            pattern: $DELAY
+            all:
+                - has: {nthChild: 1, regex: '^(Duration)?\.(seconds|milliseconds|microseconds|nanoseconds|attoseconds)$'}
+                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: value, kind: 'integer_literal, real_literal'}}}}
+        - any:
+            - has: {field: name, regex: '^within$'}
+            - inside:
+                kind: value_arguments
+                inside:
+                    kind: call_suffix
+                    inside:
+                        kind: call_expression
+                        has: {nthChild: 1, regex: '(^|\.)(sleep|withTimeout|AsyncTimerSequence|repeating|debounce|throttle)$'}
+message: '`$DELAY` fixes a wait, timeout, or interval inside a library'
+note: 'Take the duration from the caller, which owns the timing (a retry delay, heartbeat, or deadline), or derive it from a value the caller passed'

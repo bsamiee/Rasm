@@ -1,3 +1,4 @@
+import Files
 import Foundation
 import Processes
 import Results
@@ -59,7 +60,7 @@ nonisolated struct ClaudeErrorBody: Decodable, Sendable {
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-nonisolated enum ClaudeFailure: DeadlineFailure, ProviderFailure {
+nonisolated enum ClaudeFailure: ProviderFailure, LockFailure {
     case executableMissing
     case signInRequired
     case accountOnHold(URL)
@@ -77,16 +78,14 @@ nonisolated enum ClaudeFailure: DeadlineFailure, ProviderFailure {
     case modelUnavailable
     case greetingFailed
     case protocolFailure
-    case cancelled
-    case timedOut(Duration)
-    case lockHeld(URL)
-    case lockCompromised(URL)
+    case deadline(Deadline)
+    case lock(LockfileFailure)
     indirect case cleanup(operation: Self, release: Self)
 
     init(child error: any Error) {
         self =
             switch ProcessFailure(error) {
-                case .launch(let launch) where launch.code == .executableNotFound: .executableMissing
+                case .subprocess(let error) where error.code == .executableNotFound: .executableMissing
                 case let failure: Self(process: failure)
             }
     }
@@ -119,7 +118,7 @@ nonisolated enum ClaudeFailure: DeadlineFailure, ProviderFailure {
 
     var isCancellation: Bool {
         switch cause {
-            case .cancelled, .keychain(.process(.cancelled)): true
+            case .deadline(.cancelled), .keychain(.process(.deadline(.cancelled))): true
             default: false
         }
     }
@@ -148,10 +147,10 @@ nonisolated enum ClaudeFailure: DeadlineFailure, ProviderFailure {
             case .modelUnavailable: "Haiku model unavailable"
             case .greetingFailed: "Claude greeting failed"
             case .protocolFailure: "Unexpected Claude Code response"
-            case .cancelled: "Canceled"
-            case .timedOut(let deadline): "Claude Code did not answer within \(deadline.formatted(.units(width: .wide)))"
-            case .lockHeld: "Claude credential update in progress, try again when it finishes"
-            case .lockCompromised: "Claude credential lock lost"
+            case .deadline(.cancelled): "Canceled"
+            case .deadline(.timedOut(let deadline)): "Claude Code did not answer within \(deadline.formatted(.units(width: .wide)))"
+            case .lock(.held): "Claude credential update in progress, try again when it finishes"
+            case .lock(let failure): failure.localizedDescription
             case .cleanup(let operation, _): operation.localizedDescription
         }
     }

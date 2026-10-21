@@ -1,4 +1,5 @@
 import Foundation
+import JSONRPC
 import Processes
 import Results
 
@@ -7,14 +8,12 @@ import Results
 nonisolated enum CodexFailure: DeadlineFailure, ProviderFailure {
     case applicationUnavailable
     case process(ProcessFailure)
-    case cancelled
-    case timedOut(Duration)
-    case connectionClosed
-    case invalidResponse(CodexProtocol.Method?, any Error?)
+    case deadline(Deadline)
+    case rpc(JSONRPCFailure<CodexProtocol.Method>, serverVersion: String)
+    case invalidResponse(CodexProtocol.Method)
     case invalidAuthFile(URL, any Error?)
     case invalidIdentity(AggregateError<IdentityError>)
     case invalidQuota(AggregateError<QuotaFailure>)
-    case requestRejected(method: CodexProtocol.Method, code: Int, message: String, serverVersion: String?)
     case signInRequired
     case subscriptionRequired
     case signInPageUnopened
@@ -40,7 +39,7 @@ nonisolated enum CodexFailure: DeadlineFailure, ProviderFailure {
     }
 
     var isCancellation: Bool {
-        if case .cancelled = self { true } else { false }
+        if case .deadline(.cancelled) = self { true } else { false }
     }
 
     var retryAfter: Date? { nil }
@@ -49,18 +48,13 @@ nonisolated enum CodexFailure: DeadlineFailure, ProviderFailure {
         switch self {
             case .applicationUnavailable: "Codex app not installed"
             case .process(let failure): failure.localizedDescription
-            case .cancelled: "Canceled"
-            case .timedOut(let deadline): "Codex app server did not answer within \(deadline.formatted(.units(width: .wide)))"
-            case .connectionClosed: "Codex app server connection closed"
-            case .invalidResponse(.some(let method), _): "Unreadable Codex \(method.rawValue) response"
-            case .invalidResponse(.none, _): "Unreadable Codex app server message"
+            case .deadline(.timedOut(let timeout)): "Codex app server did not answer within \(timeout.formatted(.units(width: .wide)))"
+            case .deadline(.cancelled): "Canceled"
+            case .rpc(let failure, let serverVersion): "Codex app server \(serverVersion): \(failure.localizedDescription)"
+            case .invalidResponse(let method): "Unreadable Codex \(method.rawValue) response"
             case .invalidAuthFile(let url, _): "Unreadable Codex \(url.lastPathComponent)"
             case .invalidIdentity: "Incomplete OpenAI account identity"
             case .invalidQuota: "Unreadable Codex usage"
-            case .requestRejected(let method, let code, let message, .some(let serverVersion)):
-                "Codex app server \(serverVersion) rejected \(method.rawValue) with \(code): \(message)"
-            case .requestRejected(let method, let code, let message, .none):
-                "Codex app server rejected \(method.rawValue) with \(code): \(message)"
             case .signInRequired: "Sign in required"
             case .subscriptionRequired: "ChatGPT sign-in required"
             case .signInPageUnopened: "Could not open the OpenAI sign-in page"

@@ -94,7 +94,6 @@ only_rules:
     - sorted_first_last
     - static_operator
     - static_over_final_class
-    - strict_fileprivate
     - superfluous_disable_command
     - superfluous_else
     - todo

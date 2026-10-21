@@ -12,9 +12,11 @@ rule:
     kind: simple_identifier
     regex: '^(file(Read)?NoSuchFile|noSuchFileOrDirectory|ENOENT|NSFile(Read)?NoSuchFileError|fileDoesNotExist|(kCF|NS)URLErrorFileDoesNotExist)$'
     pattern: $SITE
-    not:
-        any:
-            - inside: {kind: enum_entry}
-            - inside: {stopBy: end, matches: read-if-present}
+    any:
+        - inside: {stopBy: end, kind: 'pattern, switch_pattern'}
+        - inside: {stopBy: &owner {kind: 'statements, lambda_literal'}, kind: 'if_statement, guard_statement, while_statement', has: {field: condition, regex: '^case$'}}
+        - inside: {stopBy: *owner, kind: 'equality_expression, comparison_expression'}
+        - inside: {stopBy: *owner, kind: call_expression, has: {nthChild: 1, regex: '\.contains$'}}
+    not: {inside: {stopBy: end, matches: read-if-present}}
 message: '`$SITE` classifies a missing file outside the read-if-present function'
 note: 'Read through one function that runs the throwing operation and returns `Result<Value?, any Error>`, `.success(nil)` for a missing file'

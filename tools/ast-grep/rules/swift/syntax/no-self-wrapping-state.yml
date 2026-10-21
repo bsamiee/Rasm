@@ -54,5 +54,5 @@ rule:
         kind: source_file
         stopBy: end
         has: {stopBy: end, matches: recursive-case}
-message: 'Each pass nests `$STATE` inside `.$CASE`, so the loop waiting for `$STATE` to stop changing never ends'
+message: 'Each pass nests `$STATE` inside `.$CASE`, the loop waiting for `$STATE` to stop changing never ends'
 note: 'Map each pass into a finite lattice, joining the parts (`union`, `formUnion`, the set of roots) or wrapping only a value holding no earlier wrap'

@@ -60,15 +60,39 @@ extension JSONDocument: Encodable where Known: Encodable {
     }
 }
 
+@propertyWrapper
 public struct Lenient<Value: Decodable & Sendable>: Decodable, Sendable {
-    public let value: Value?
+    public let wrappedValue: Value?
 
-    public init(value: Value?) {
-        self.value = value
+    public init(wrappedValue: Value?) {
+        self.wrappedValue = wrappedValue
     }
 
     public init(from decoder: any Decoder) {
-        value = try? Value(from: decoder)
+        wrappedValue = try? Value(from: decoder)
+    }
+}
+
+extension Lenient: Encodable where Value: Encodable {
+    public func encode(to encoder: any Encoder) throws {
+        var container: any SingleValueEncodingContainer = encoder.singleValueContainer()
+        try container.encode(wrappedValue)
+    }
+}
+
+public struct Discriminator: CodingKey {
+    private static let key: CodingUserInfoKey? = CodingUserInfoKey(rawValue: "Discriminator")
+
+    public let stringValue: String
+    public var intValue: Int? { nil }
+    public var userInfo: [CodingUserInfoKey: any Sendable] { Self.key.map { key in [key: self] } ?? [:] }
+
+    public init(stringValue: String) { self.stringValue = stringValue }
+    public init?(intValue _: Int) { nil }
+
+    public init(_ userInfo: [CodingUserInfoKey: Any]) throws(CocoaError) {
+        guard let carried: Self = Self.key.flatMap({ key in userInfo[key] }) as? Self else { throw CocoaError(.coderValueNotFound) }
+        self = carried
     }
 }
 
@@ -76,6 +100,20 @@ public struct Lenient<Value: Decodable & Sendable>: Decodable, Sendable {
 
 extension KeyedDecodingContainer {
     public func decode<Value>(_: Lenient<Value>.Type, forKey key: Key) -> Lenient<Value> {
-        Lenient(value: try? decode(Value.self, forKey: key))
+        Lenient(wrappedValue: try? decode(Value.self, forKey: key))
+    }
+}
+
+extension KeyedEncodingContainer {
+    public mutating func encode<Value: Encodable>(_ value: Lenient<Value>, forKey key: Key) throws {
+        try encodeIfPresent(value.wrappedValue, forKey: key)
+    }
+}
+
+extension Encoder {
+    public func encode<Key: CodingKey>(case name: some Encodable, keyedBy _: Key.Type, _ fill: (inout KeyedEncodingContainer<Key>) throws -> Void = { _ in }) throws {
+        try [Discriminator(userInfo).stringValue: name].encode(to: self)
+        var fields: KeyedEncodingContainer<Key> = container(keyedBy: Key.self)
+        try fill(&fields)
     }
 }

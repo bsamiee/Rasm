@@ -58,19 +58,8 @@ private nonisolated struct ClaudeUserMessage: Encodable, Sendable {
 
     let type: ClaudeMessageType = .user
     let sessionID: UUID
+    let parentToolUseID: JSONValue = .null
     let message: Message
-
-    enum CodingKeys: CodingKey {
-        case type, sessionID, parentToolUseID, message
-    }
-
-    func encode(to encoder: any Encoder) throws {
-        var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(type, forKey: .type)
-        try container.encode(sessionID, forKey: .sessionID)
-        try container.encodeNil(forKey: .parentToolUseID)
-        try container.encode(message, forKey: .message)
-    }
 }
 
 private nonisolated struct ClaudeRateLimitInfo: Decodable, Sendable {
@@ -102,13 +91,13 @@ private nonisolated struct ClaudeControlResponse: Decodable, Sendable {
     }
 
     let requestId: String
-    let subtype: Lenient<ClaudeSubtype>
+    @Lenient var subtype: ClaudeSubtype?
     let response: Response?
 }
 
 private nonisolated struct ClaudeMessage: Decodable, Sendable {
-    let type: Lenient<ClaudeMessageType>
-    let subtype: Lenient<ClaudeSubtype>
+    @Lenient var type: ClaudeMessageType?
+    @Lenient var subtype: ClaudeSubtype?
     let isError: Bool?
     let rateLimitInfo: ClaudeRateLimitInfo?
     let response: ClaudeControlResponse?
@@ -149,7 +138,7 @@ nonisolated enum ClaudeSession {
         @Sendable func converse(_ execution: Execution<CustomWriteInput, SequenceOutput, DiscardedOutput>) async -> Result<Date?, ClaudeFailure> {
             func send(_ message: some Encodable) async throws(ClaudeFailure) {
                 do {
-                    _ = try await execution.standardInputWriter.write((ClaudeEndpoint.encoder.encode(message) + [UInt8(ascii: "\n")]).bytes)
+                    try await execution.standardInputWriter.writeLine(message, encoder: ClaudeEndpoint.encoder)
                 } catch {
                     throw ClaudeFailure(process: error)
                 }
@@ -160,14 +149,14 @@ nonisolated enum ClaudeSession {
                 return .requesting(sent)
             }
             func advance(_ phase: ClaudeSessionPhase, _ message: ClaudeMessage) async throws(ClaudeFailure) -> ClaudeSessionPhase {
-                guard !Task.isCancelled else { throw .cancelled }
-                switch (phase, message.type.value) {
+                guard !Task.isCancelled else { throw .deadline(.cancelled) }
+                switch (phase, message.type) {
                     case (.greeting, .result):
-                        guard message.subtype.value == .success, message.isError != true else { throw .greetingFailed }
+                        guard message.subtype == .success, message.isError != true else { throw .greetingFailed }
                         return .finished
                     case (.requesting(let sent), .controlResponse):
                         guard let response: ClaudeControlResponse = message.response, response.requestId == sent.requestID else { return phase }
-                        guard response.subtype.value == .success else { throw .protocolFailure }
+                        guard response.subtype == .success else { throw .protocolFailure }
                         switch sent.request {
                             case .initialize:
                                 guard
@@ -187,13 +176,13 @@ nonisolated enum ClaudeSession {
             return await Result { () async throws(ClaudeFailure) in
                 var phase: ClaudeSessionPhase = try await request(.initialize)
                 var reset: Date?
-                for try await line: String in execution.standardOutput.strings().mapError(ClaudeFailure.init(process:)) {
-                    let message: ClaudeMessage = try Result { try ClaudeEndpoint.decoder.decode(ClaudeMessage.self, from: Data(line.utf8)) }.mapError { _ in ClaudeFailure.protocolFailure }.get()
-                    if message.type.value == .rateLimitEvent, let seconds: Double = message.rateLimitInfo?.sessionResetSeconds { reset = Date(timeIntervalSince1970: seconds) }
+                for try await line: Data in execution.standardOutput.jsonLines.mapError(ClaudeFailure.init(process:)) {
+                    let message: ClaudeMessage = try Result { try ClaudeEndpoint.decoder.decode(ClaudeMessage.self, from: line) }.mapError { _ in ClaudeFailure.protocolFailure }.get()
+                    if message.type == .rateLimitEvent, let seconds: Double = message.rateLimitInfo?.sessionResetSeconds { reset = Date(timeIntervalSince1970: seconds) }
                     phase = try await advance(phase, message)
                     if case .finished = phase { return reset }
                 }
-                throw Task.isCancelled ? .cancelled : .protocolFailure
+                throw Task.isCancelled ? .deadline(.cancelled) : .protocolFailure
             }
         }
         let outcome: Result<Date?, ClaudeFailure> = await Result { () async throws(ClaudeFailure) in

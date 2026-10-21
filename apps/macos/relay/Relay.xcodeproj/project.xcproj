@@ -68,11 +68,19 @@
       "package-product-members": [
         {
           "package": "..",
+          "product-name": "CurrentProcess",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "..",
           "product-name": "Files",
           "build-phase": { "build-phase": "frameworks" },
         }, {
           "package": "..",
           "product-name": "JSON",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "..",
+          "product-name": "JSONRPC",
           "build-phase": { "build-phase": "frameworks" },
         }, {
           "package": "..",
