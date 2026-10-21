@@ -5,7 +5,7 @@ avoid-breaking-exported-api = false
 
 # --- [FORMS]
 warn-on-all-wildcard-imports                 = true       # `wildcard_imports` covers prelude, test-module `super::*`, and `pub use` globs
-matches-for-let-else                         = "AllTypes" # `manual_let_else` covers diverging matches on every type, not `Option` and `Result` alone
+matches-for-let-else                         = "AllTypes" # `manual_let_else` covers diverging matches on every type beyond `Option` and `Result`
 max-struct-bools                             = 1
 max-fn-params-bools                          = 1          # `true, false` arguments state no meaning at a call site
 excessive-nesting-threshold                  = 5          # Impl blocks count as one level, a free fn nests 4 control levels and a method 3
@@ -31,7 +31,7 @@ allowed-duplicate-crates = [
     "r-efi",                 # 5 under `getrandom` 0.3 beside 6 under `getrandom` 0.4
     "matchit",               # 0.8.4 pinned exactly by newest `axum` 0.8.9 beside 0.9 for resource URI routes
     "bitflags",              # 1 under newest `defmt` 1.2.0, which `cargo metadata` resolves through the weak `defmt?/alloc` of every `jiff` 0.2.38 and `jiff-core` 0.1.1 build though no build compiles it (rust-clippy#16440), beside 2 under `nix`, `rustix`, and `tower-http`
-    "base64",                # 0.22 under newest `bollard` 0.21.1, `docker_credential` 1.4.0, `tonic` 0.14.6, and `opentelemetry-proto` 0.33.1 beside 0.23 under newest `hyper-util` 0.1.21 system proxy
+    "base64",                # 0.22 under newest `bollard` 0.21.1, `docker_credential` 1.4.0, `tonic` 0.14.6, and `opentelemetry-proto` 0.33.1 beside 0.23 under newest `hyper-util` 0.1.21 system proxy, `reqwest`, and `rmcp`
     "core-foundation",       # 0.9 under `system-configuration` 0.7, which newest `hyper-util` 0.1.21 system proxy pins, beside 0.10 under `security-framework` and `rustls-platform-verifier`
     "cpufeatures",           # 0.2 under newest `const-hex` 1.19.3 that `opentelemetry-proto` serde reads beside 0.3 under `chacha20` for `rand` 0.10
     "windows-sys",           # 0.52 under newest `ring` 0.17.14, which `cargo metadata` resolves through the weak `ring?/alloc` of every `rustls-webpki` 0.103.15 build though no build compiles it (rust-clippy#16440), beside 0.61 under `tokio`, `mio`, `socket2`, and `rustls-platform-verifier`

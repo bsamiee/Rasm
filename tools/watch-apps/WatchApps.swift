@@ -1,49 +1,84 @@
 import AppKit
 import Applications
 import ArgumentParser
+import AsyncAlgorithms
 import Encoding
 import Files
+import OrderedCollections
 import Results
+import Subprocess
 import System
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+let encoder: JSONEncoder = {
+    let encoder: JSONEncoder = JSONEncoder()
+    encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+    return encoder
+}()
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-enum Event: Codable {
+enum Event: Codable, Hashable {
     case watch
     case launch(pid: pid_t)
-    case exit(pid: pid_t, status: Int?)
+    case exit(pid: pid_t, status: Int32?, signal: Int32?)
     case open(pid: pid_t, element: Element)
     case closed(pid: pid_t, element: Element)
+    case unresponsive(pid: pid_t)
+    case responding(pid: pid_t)
     case answered(pid: pid_t, action: ElementAction)
-    case fail(pid: pid_t?, reason: Failure)
-    case crash(report: String)
+    case crash(report: CrashReport)
+    case fail(pid: pid_t?, file: String?, reason: String)
+
+    static func failed(_ error: any Error, pid: pid_t? = nil, file: URL? = nil) -> Self {
+        .fail(pid: pid, file: file?.path(percentEncoded: false), reason: error.localizedDescription)
+    }
 }
 
-struct Line: Codable {
-    let app: String
-    let event: Event
-}
-
-// --- [ERRORS] --------------------------------------------------------------------------
-
-enum Failure: Codable {
-    case described(any Error)
-    case file(URL, any Error)
-    case followed(String)
-
-    init(from decoder: any Decoder) throws {
-        self = try .followed(decoder.singleValueContainer().decode(String.self))
+extension Set<Event> {
+    func changes(from event: InstanceEvent) -> [Event] {
+        let pid: pid_t = event.instance.processIdentifier
+        return switch event {
+            case .launched: [.launch(pid: pid)]
+            case .terminated(_, .success(.exited(let status))): [.exit(pid: pid, status: status, signal: nil)]
+            case .terminated(_, .success(.signaled(let signal))): [.exit(pid: pid, status: nil, signal: signal)]
+            case .terminated(_, .failure(let error)): [.exit(pid: pid, status: nil, signal: nil), .failed(error, pid: pid)]
+            case .status(_, .failure(let error)): [.failed(error, pid: pid)]
+            case .status(_, .success(.unresponsive)): [.unresponsive(pid: pid)]
+            case .status(_, .success(.responding(let elements))):
+                [.responding(pid: pid)]
+                    + compactMap { fact in if case .open(pid, let element) = fact, !elements.contains(element) { element } else { nil } }
+                    .sorted(using: KeyPathComparator(\.id)).map { element in .closed(pid: pid, element: element) }
+                    + elements.map { element in .open(pid: pid, element: element) }
+        }
     }
 
-    func encode(to encoder: any Encoder) throws {
-        var reason: any SingleValueEncodingContainer = encoder.singleValueContainer()
-        let text: String =
-            switch self {
-                case .described(let error): error.localizedDescription
-                case .file(let file, let error): "\(file.path(percentEncoded: false)): \(error.localizedDescription)"
-                case .followed(let text): text
+    func ran(_ pid: pid_t) -> Bool {
+        contains { fact in
+            switch fact {
+                case .launch(pid), .exit(pid, _, _): true
+                default: false
             }
-        try reason.encode(text)
+        }
+    }
+
+    mutating func record(_ event: Event) -> Bool {
+        switch event {
+            case .launch, .open, .unresponsive, .crash: return insert(event).inserted
+            case .closed(let pid, let element): return remove(.open(pid: pid, element: element)) != nil
+            case .responding(let pid): return remove(.unresponsive(pid: pid)) != nil
+            case .exit(let pid, _, _):
+                guard remove(.launch(pid: pid)) != nil else { return false }
+                self = filter { fact in
+                    switch fact {
+                        case .open(pid, _), .unresponsive(pid), .exit(pid, _, _): false
+                        default: true
+                    }
+                }
+                return insert(event).inserted
+            case .watch, .answered, .fail: return true
+        }
     }
 }
 
@@ -53,121 +88,98 @@ enum Failure: Codable {
 final class Watcher {
     // --- [STATE]
     let app: String
-    let output: AsyncStream<Line>.Continuation
-    var visible: [pid_t: Set<Element>] = [:]
+    let output: AsyncStream<(app: String, event: Event)>.Continuation
+    var shown: Set<Event> = []
 
-    init(app: String, output: AsyncStream<Line>.Continuation) {
+    init(app: String, output: AsyncStream<(app: String, event: Event)>.Continuation) {
         self.app = app
         self.output = output
     }
 
+    // --- [LOG]
+    static func log(of app: String) -> URL {
+        URL.temporaryDirectory.appending(path: "\(app).events")
+    }
+
+    nonisolated static func open(_ log: URL, _ access: FileDescriptor.AccessMode, options: FileDescriptor.OpenOptions) throws -> FileHandle {
+        try FileHandle(fileDescriptor: FileDescriptor.open(FilePath(log.path(percentEncoded: false)), access, options: options, permissions: [.ownerReadWrite]).rawValue, closeOnDealloc: true)
+    }
+
+    @concurrent
+    static func lock(_ log: URL) async throws -> FileHandle {
+        try await withTaskExecutorPreference(DispatchQueue(label: "watch-apps.log", attributes: .concurrent)) {
+            try open(log, .writeOnly, options: [.create, .append, .closeOnExec, .exclusiveLock])
+        }
+    }
+
     // --- [FOLLOW]
     func run() async {
-        let followed: Result<FileHandle, any Error> = await logHandle(app, .readOnly, options: [.create, .closeOnExec]).flatMap { handle in
-            Result { try handle.seekToEnd() }.map { _ in handle }
-        }
-        show(.watch)
+        let reader: Result<FileHandle, any Error> = Result { try Self.open(Self.log(of: app), .readOnly, options: [.create, .closeOnExec]) }
+            .flatMap { handle in Result { try handle.seekToEnd() }.map { _ in handle } }
+        show([.watch])
         for instance: NSRunningApplication in NSRunningApplication.instances(withBundleIdentifier: app) {
-            let pid: pid_t = instance.processIdentifier
-            let opened: [Event] =
-                switch await instance.status() {
-                    case .success(.responding(let elements)): elements.map { element in .open(pid: pid, element: element) }
-                    case .success(.unresponsive): []
-                    case .failure(let error): [.fail(pid: pid, reason: .described(error))]
-                }
-            for event: Event in opened { show(event) }
+            show([.launch(pid: instance.processIdentifier)] + shown.changes(from: .status(instance, await instance.status())))
         }
         await withDiscardingTaskGroup { group in
-            switch followed {
-                case .success(let handle): group.addTask { await self.follow(FileWatch.lines(following: handle)) }
-                case .failure(let error): group.addTask { await self.show(.fail(pid: nil, reason: .file(logURL(self.app), error))) }
-            }
-            group.addTask {
-                if case .failure(let error) = await Result(catching: { try await self.hold(logHandle(self.app, .writeOnly, options: [.create, .append, .closeOnExec, .exclusiveLock]).get()) }) {
-                    await self.show(.fail(pid: nil, reason: .file(logURL(self.app), error)))
+            group.addTask { await self.follow(reader) }
+            group.addTask { await self.hold() }
+            group.addTask { await self.crashes() }
+        }
+    }
+
+    func show(_ events: [Event]) {
+        for event: Event in events where shown.record(event) { output.yield((app, event)) }
+    }
+
+    func follow(_ reader: Result<FileHandle, any Error>) async {
+        switch reader {
+            case .failure(let error): show([.failed(error, file: Self.log(of: app))])
+            case .success(let handle):
+                let decoder: JSONDecoder = JSONDecoder()
+                for await read: Result<Data, FileWatchFailure> in FileWatch.lines(following: handle) {
+                    let events: [Event] =
+                        switch Result(catching: { try decoder.decode([String: Event].self, from: read.get()) }) {
+                            case .success(let line): Array(line.values)
+                            case .failure(let error): [.failed(error, file: Self.log(of: app))]
+                        }
+                    show(events)
                 }
-            }
         }
     }
 
-    func follow(_ lines: AsyncStream<Result<Data, FileWatchFailure>>) async {
-        let decoder: JSONDecoder = JSONDecoder()
-        for await read: Result<Data, FileWatchFailure> in lines {
-            switch Result(catching: { try decoder.decode(Line.self, from: read.get()) }) {
-                case .success(let line):
-                    track(line.event)
-                    output.yield(line)
-                case .failure(let error): show(.fail(pid: nil, reason: .file(logURL(app), error)))
-            }
-        }
-    }
-
-    func show(_ event: Event) {
-        track(event)
-        output.yield(Line(app: app, event: event))
-    }
-
-    func track(_ event: Event) {
-        switch event {
-            case .open(let pid, let element): visible[pid, default: []].insert(element)
-            case .closed(let pid, let element): visible[pid]?.remove(element)
-            case .exit(let pid, _): visible[pid] = nil
-            case .watch, .launch, .answered, .fail, .crash: break
+    func crashes() async {
+        for await reads: [Result<CrashReport, CrashReportFailure>] in CrashReport.following() {
+            show(
+                reads.compactMap { read in
+                    switch read {
+                        case .success(let report) where shown.ran(report.pid): .crash(report: report)
+                        case .success: nil
+                        case .failure(let error): .failed(error)
+                    }
+                }
+            )
         }
     }
 
     // --- [HOLD]
-    func hold(_ log: FileHandle) async throws {
-        let encoder: JSONEncoder = JSONEncoder()
-        let write: ([Event]) throws -> Void = { [app] events in
-            try log.write(contentsOf: Data(events.map { event in try encoder.encodeLine(Line(app: app, event: event)) }.joined()))
-        }
-        let ordered: KeyPathComparator<Element> = KeyPathComparator(\.id)
-        let running: Set<pid_t> = Set(NSRunningApplication.instances(withBundleIdentifier: app).map(\.processIdentifier))
-        try write(
-            visible.filter { pid, _ in !running.contains(pid) }.sorted { left, right in left.key < right.key }
-                .flatMap { pid, elements in elements.sorted(using: ordered).map { element in .closed(pid: pid, element: element) } }
-        )
-        var previous: [pid_t: Set<Element>] = visible.filter { pid, _ in running.contains(pid) }
-        for await event: InstanceEvent in NSWorkspace.shared.instanceEvents(of: { [app] instance in instance.bundleIdentifier == app }) {
-            let pid: pid_t = event.instance.processIdentifier
-            let known: Set<Element> = previous[pid, default: []]
-            let (now, written): (Set<Element>, [Event]) =
-                switch event {
-                    case .launched: (known, [.launch(pid: pid)])
-                    case .terminated(_, let status): ([], [.exit(pid: pid, status: status)])
-                    case .status(_, .success(.responding(let elements))):
-                        (
-                            Set(elements),
-                            known.subtracting(elements).sorted(using: ordered).map { element in .closed(pid: pid, element: element) }
-                                + Set(elements).subtracting(known).sorted(using: ordered).map { element in .open(pid: pid, element: element) },
-                        )
-                    case .status(_, .success(.unresponsive)): (known, [])
-                    case .status(_, .failure(let error)): (known, [.fail(pid: pid, reason: .described(error))])
-                }
-            previous[pid] = now
-            try write(written)
-        }
-    }
-}
-
-let log: DispatchQueue = DispatchQueue(label: "watch-apps.log", attributes: .concurrent)
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-func logURL(_ app: String) -> URL {
-    URL.temporaryDirectory.appending(path: "\(app).events")
-}
-
-@concurrent
-func logHandle(_ app: String, _ access: FileDescriptor.AccessMode, options: FileDescriptor.OpenOptions) async -> Result<FileHandle, any Error> {
-    await withTaskExecutorPreference(log) {
-        Result {
-            try FileHandle(
-                fileDescriptor: FileDescriptor.open(FilePath(logURL(app).path(percentEncoded: false)), access, options: options, permissions: [.ownerReadWrite]).rawValue,
-                closeOnDealloc: true,
+    func hold() async {
+        let log: URL = Self.log(of: app)
+        let held: Result<Void, any Error> = await Result {
+            let handle: FileHandle = try await Self.lock(log)
+            let write: ([Event]) throws -> Void = { [app] events in
+                try handle.write(contentsOf: Data(events.map { event in try encoder.encodeLine([app: event]) }.joined()))
+            }
+            var logged: Set<Event> = shown
+            let running: Set<pid_t> = Set(NSRunningApplication.instances(withBundleIdentifier: app).map(\.processIdentifier))
+            try write(
+                logged.compactMap { fact in if case .launch(let pid) = fact, !running.contains(pid) { pid } else { nil } }.sorted().map { pid in .exit(pid: pid, status: nil, signal: nil) }
+                    .filter { event in logged.record(event) }
             )
+            for await change: InstanceEvent in NSWorkspace.shared.instanceEvents(of: { [app] instance in instance.bundleIdentifier == app }) {
+                try write(logged.changes(from: change).filter { event in logged.record(event) })
+            }
         }
+        if case .failure(let error) = held { show([.failed(error, file: log)]) }
     }
 }
 
@@ -176,113 +188,238 @@ func logHandle(_ app: String, _ access: FileDescriptor.AccessMode, options: File
 @main
 struct WatchApps: AsyncParsableCommand {
     static let configuration: CommandConfiguration = CommandConfiguration(
-        abstract: "Follow, answer, and list crash reports of installed applications",
-        subcommands: [Watch.self, Answer.self, Crashes.self],
+        abstract: "Follow, launch, answer, and list crash reports of installed applications, exiting 1 after printing a fail line",
+        subcommands: [Watch.self, Launch.self, Answer.self, Crashes.self],
     )
 
     @MainActor
-    static func run(_ names: [String], _ work: @escaping @MainActor ([String], AsyncStream<Line>.Continuation) async throws -> ExitCode) async throws {
-        let predicate: NSPredicate = NSCompoundPredicate(
-            orPredicateWithSubpredicates: names.flatMap { name in [kMDItemCFBundleIdentifier as String, NSMetadataItemDisplayNameKey].map { key in NSPredicate(format: "%K == %@", key, name) } }
-        )
-        guard let listed: Result<[Installation], AggregateError<DiscoveryFailure>> = await NSWorkspace.shared.applications(matching: predicate).first(where: { @Sendable _ in true }) else {
-            throw CancellationError()
-        }
-        let (ids, failures): ([String], [Line]) =
-            switch listed {
-                case .failure(let error): ([], names.flatMap { name in error.errors.map { failure in Line(app: name, event: .fail(pid: nil, reason: .described(failure))) } })
-                case .success(let rows):
-                    (
-                        Set(rows.map(\.identifier)).sorted(),
-                        names.filter { name in !rows.contains { row in [row.identifier, row.name].contains(name) } }
-                            .map { name in Line(app: name, event: .fail(pid: nil, reason: .described(Unmatched(subject: "installed application", query: name, candidates: [])))) },
-                    )
+    static func listing(_ name: String, _ comparison: NSComparisonPredicate.Operator) async -> Result<[Installation], AggregateError<DiscoveryFailure>>? {
+        let keys: [String] = [kMDItemCFBundleIdentifier as String, NSMetadataItemDisplayNameKey]
+        let matching: NSPredicate = NSCompoundPredicate(
+            orPredicateWithSubpredicates: keys.map { key in
+                NSComparisonPredicate(
+                    leftExpression: NSExpression(forKeyPath: key),
+                    rightExpression: NSExpression(forConstantValue: name),
+                    modifier: .direct,
+                    type: comparison,
+                    options: [.caseInsensitive, .diacriticInsensitive],
+                )
             }
+        )
+        return await NSWorkspace.shared.applications(matching: matching).first { @Sendable _ in true }
+    }
+
+    @MainActor
+    static func run(_ names: [String], _ work: @escaping @MainActor ([Installation], AsyncStream<(app: String, event: Event)>.Continuation) async -> Void) async throws {
+        let lookups: [(name: String, rows: Task<Result<[Installation], any Error>, Never>)] = OrderedSet(names).map { name in
+            (
+                name,
+                Task {
+                    switch await Self.listing(name, .equalTo) {
+                        case .success([]):
+                            switch await Self.listing(name, .contains) {
+                                case .success(let rows): .failure(Unmatched(subject: "installed application", query: name, candidates: rows.map(\.identifier)))
+                                case .failure(let error): .failure(error)
+                                case nil: .failure(CancellationError())
+                            }
+                        case .success(let rows): .success(rows)
+                        case .failure(let error): .failure(error)
+                        case nil: .failure(CancellationError())
+                    }
+                },
+            )
+        }
+        let resolved: Result<[[Installation]], AggregateError<(app: String, event: Event)>> = traverse(await Array(lookups.async.map { lookup in (lookup.name, await lookup.rows.value) })) {
+            name,
+            rows in
+            rows.mapError { error in AggregateError(first: (name, .failed(error))) }
+        }
+        let (lines, output): (AsyncStream<(app: String, event: Event)>, AsyncStream<(app: String, event: Event)>.Continuation) = AsyncStream.makeStream()
         let parent: any DispatchSourceProcess = DispatchSource.makeProcessSource(identifier: getppid(), eventMask: .exit, queue: .main)
-        parent.setEventHandler { exit() }
+        parent.setEventHandler { output.finish() }
         parent.activate()
-        let (lines, output): (AsyncStream<Line>, AsyncStream<Line>.Continuation) = AsyncStream.makeStream()
-        async let code: ExitCode = { @MainActor () async throws -> ExitCode in
+        async let _: Void = { @MainActor in
             defer { output.finish() }
-            for line: Line in failures { output.yield(line) }
-            return if failures.isEmpty { try await work(ids, output) } else { .failure }
+            switch resolved {
+                case .success(let rows): await work(OrderedSet(rows.joined()).elements, output)
+                case .failure(let failed): for line: (app: String, event: Event) in failed.errors { output.yield(line) }
+            }
         }()
-        let encoder: JSONEncoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        for await line: Line in lines { try FileHandle.standardOutput.write(contentsOf: encoder.encodeLine(line)) }
-        throw try await code
+        var failed: Bool = false
+        for await (app, event): (app: String, event: Event) in lines {
+            try FileHandle.standardOutput.write(contentsOf: encoder.encodeLine([app: event]))
+            if case .fail = event { failed = true }
+        }
+        Self.exit(withError: failed ? ExitCode.failure : nil)
     }
 }
 
 struct Installed: ParsableArguments {
-    @Argument(help: "Bundle identifiers or display names of installed applications")
+    @Argument(help: "Bundle identifiers or display names of installed applications, matched without case or diacritics")
     var names: [String]
 }
 
 struct Watch: AsyncParsableCommand {
-    static let configuration: CommandConfiguration = CommandConfiguration(abstract: "Print each window, dialog, sheet, and menu as it opens and closes, and each launch and exit")
+    static let configuration: CommandConfiguration = CommandConfiguration(
+        abstract: "Print each running instance, each window, dialog, sheet, and menu as it opens and closes, each launch, exit, and hang, and each crash report of a watched instance"
+    )
 
     @OptionGroup var installed: Installed
 
     func run() async throws {
-        try await WatchApps.run(installed.names) { ids, output in
+        try await WatchApps.run(installed.names) { installations, output in
             await withDiscardingTaskGroup { group in
-                for watcher: Watcher in ids.map({ id in Watcher(app: id, output: output) }) { group.addTask { await watcher.run() } }
+                for watcher: Watcher in OrderedSet(installations.map(\.identifier)).map({ id in Watcher(app: id, output: output) }) { group.addTask { await watcher.run() } }
             }
-            return .failure
+        }
+    }
+}
+
+struct Launch: AsyncParsableCommand {
+    static let configuration: CommandConfiguration = CommandConfiguration(
+        abstract: "Open each application in the background without a document window, and exit when it finishes launching"
+    )
+
+    @OptionGroup var installed: Installed
+
+    @Flag(help: "Open a new instance when one is running")
+    var new: Bool = false
+
+    @Option(help: "Seconds the application gets to finish launching, unbounded when absent")
+    var within: Int?
+
+    func run() async throws {
+        let (new, timeout): (Bool, Duration?) = (new, within.map { seconds in .seconds(seconds) })
+        try await WatchApps.run(installed.names) { installations, output in
+            await withDiscardingTaskGroup { group in
+                for (id, rows): (String, [Installation]) in OrderedDictionary(grouping: installations, by: \.identifier) {
+                    group.addTask {
+                        let launched: Result<NSRunningApplication, any Error> = await Result {
+                            let installation: Installation = try Unmatched.single(rows, subject: "installation of \(id)", query: nil, candidates: []) { row in row.url.path(percentEncoded: false) }
+                                .get()
+                            let configuration: NSWorkspace.OpenConfiguration = NSWorkspace.OpenConfiguration()
+                            configuration.createsNewApplicationInstance = new
+                            return try await NSWorkspace.shared.launchApplication(at: installation.url, within: timeout, configuration: configuration).get()
+                        }
+                        let event: Event =
+                            switch launched {
+                                case .success(let instance): .launch(pid: instance.processIdentifier)
+                                case .failure(let error): .failed(error)
+                            }
+                        output.yield((id, event))
+                    }
+                }
+            }
         }
     }
 }
 
 struct Answer: AsyncParsableCommand {
-    struct Prompt: ParsableArguments {
+    struct Instance: ParsableArguments {
         @OptionGroup var installed: Installed
+
+        @Option(help: "Process identifier of the instance to answer, among several running")
+        var pid: pid_t?
+    }
+
+    struct Prompt: ParsableArguments {
+        @OptionGroup var instance: Instance
 
         @Option(help: "Text in the title or static text of the element to answer")
         var text: String
 
         func answer(_ action: ElementAction) async throws {
-            let text: String = text
-            try await WatchApps.run(installed.names) { ids, output in
-                let shows: @Sendable (Element) -> Bool = { element in ([element.title].compactMap(\.self) + element.text).contains { line in line.contains(text) } }
-                let found: (instance: NSRunningApplication, target: Result<Element, ElementFailure>)? = await NSWorkspace.shared
-                    .instanceEvents(of: { instance in instance.bundleIdentifier.map(ids.contains) == true })
-                    .compactMap { event -> (instance: NSRunningApplication, target: Result<Element, ElementFailure>)? in
-                        switch event {
-                            case .status(let instance, .success(.responding(let elements))): elements.first(where: shows).map { element in (instance, .success(element)) }
-                            case .status(let instance, .failure(let error)): (instance, .failure(error))
-                            case .launched, .terminated, .status(_, .success(.unresponsive)): nil
-                        }
-                    }
-                    .first { @Sendable _ in true }
-                guard let found, let app: String = found.instance.bundleIdentifier else { throw CancellationError() }
-                let pid: pid_t = found.instance.processIdentifier
-                let line: Line =
-                    switch await Result(catching: { () async throws(ElementFailure) in try await found.instance.perform(action, on: found.target.get().id).get() }) {
-                        case .success: Line(app: app, event: .answered(pid: pid, action: action))
-                        case .failure(let error): Line(app: app, event: .fail(pid: pid, reason: .described(error)))
-                    }
-                if case .failure(let error) = await Result(catching: {
-                    try await logHandle(app, .writeOnly, options: [.create, .append, .closeOnExec]).get().write(contentsOf: JSONEncoder().encodeLine(line))
-                }) {
-                    output.yield(Line(app: app, event: .fail(pid: nil, reason: .file(logURL(app), error))))
-                }
-                output.yield(line)
-                return if case .answered = line.event { .success } else { .failure }
+            let (text, pid): (String, pid_t?) = (text, instance.pid)
+            try await WatchApps.run(instance.installed.names) { installations, output in
+                let ids: OrderedSet<String> = OrderedSet(installations.map(\.identifier))
+                guard
+                    let found: (app: String, instance: NSRunningApplication, target: Result<Element, ElementFailure>) = await NSWorkspace.shared
+                        .instanceEvents(of: { instance in instance.bundleIdentifier.map(ids.contains) == true && (pid == nil || pid == instance.processIdentifier) })
+                        .compactMap({ event -> (app: String, instance: NSRunningApplication, target: Result<Element, ElementFailure>)? in
+                            switch event {
+                                case .status(let instance, .success(.responding(let elements))):
+                                    instance.bundleIdentifier.flatMap { app in
+                                        elements.first { element in ([element.title].compactMap(\.self) + element.text).contains { line in line.contains(text) } }.map { element in
+                                            (app, instance, .success(element))
+                                        }
+                                    }
+                                case .status(let instance, .failure(let error)): instance.bundleIdentifier.map { app in (app, instance, .failure(error)) }
+                                case .launched, .terminated, .status(_, .success(.unresponsive)): nil
+                            }
+                        })
+                        .first(where: { @Sendable _ in true })
+                else { return }
+                await Answer.perform(action, on: found.target.map { element in .element(element.id) }, of: found.instance, app: found.app, output: output)
             }
         }
     }
 
+    @MainActor
+    static func perform(
+        _ action: ElementAction,
+        on target: Result<ElementTarget, ElementFailure>,
+        of instance: NSRunningApplication,
+        app: String,
+        output: AsyncStream<(app: String, event: Event)>.Continuation,
+    ) async {
+        let pid: pid_t = instance.processIdentifier
+        let log: URL = Watcher.log(of: app)
+        let event: Event =
+            switch await Result(catching: { () async throws(ElementFailure) in try await instance.perform(action, on: target.get()).get() }) {
+                case .success: .answered(pid: pid, action: action)
+                case .failure(let error): .failed(error, pid: pid)
+            }
+        output.yield((app, event))
+        if case .failure(let error) = Result(catching: { try Watcher.open(log, .writeOnly, options: [.create, .append, .closeOnExec]).write(contentsOf: encoder.encodeLine([app: event])) }) {
+            output.yield((app, .failed(error, file: log)))
+        }
+    }
+
     struct Press: AsyncParsableCommand {
-        static let configuration: CommandConfiguration = CommandConfiguration(abstract: "Press the control of the element with a label from its actions")
+        static let configuration: CommandConfiguration = CommandConfiguration(abstract: "Press the control of the element with a label from its actions, or an item reached through them")
 
         @OptionGroup var prompt: Prompt
 
-        @Option(help: "Control label from the element's actions")
+        @Option(help: "Label of an action the element lists, or of the item the --under labels reach")
         var action: String
 
+        @Option(help: "Label of each item leading to the action, outermost first: the first an action the element lists, each next a child of the one before")
+        var under: [String] = []
+
         func run() async throws {
-            try await prompt.answer(.press(action))
+            try await prompt.answer(.press(label: action, under: under))
+        }
+    }
+
+    struct Menu: AsyncParsableCommand {
+        static let configuration: CommandConfiguration = CommandConfiguration(
+            abstract: "Press an item of the running instance's menu bar through the menus leading to it, without waiting for an element"
+        )
+
+        @OptionGroup var instance: Instance
+
+        @Option(help: "Label of each menu leading to the item, outermost first, starting at a menu bar item")
+        var menu: [String]
+
+        @Option(help: "Label of the menu item to press")
+        var item: String
+
+        func run() async throws {
+            let (pid, action): (pid_t?, ElementAction) = (instance.pid, .press(label: item, under: menu))
+            try await WatchApps.run(instance.installed.names) { installations, output in
+                let ids: OrderedSet<String> = OrderedSet(installations.map(\.identifier))
+                let running: [(app: String, instance: NSRunningApplication)] = ids.flatMap { app in NSRunningApplication.instances(withBundleIdentifier: app).map { instance in (app, instance) } }
+                switch Unmatched.single(
+                    running.filter { entry in pid == nil || pid == entry.instance.processIdentifier },
+                    subject: "running instance",
+                    query: pid.map(String.init),
+                    candidates: running.map { entry in String(entry.instance.processIdentifier) },
+                    named: { entry in String(entry.instance.processIdentifier) },
+                ) {
+                    case .success(let found): await Answer.perform(action, on: .success(.menuBar), of: found.instance, app: found.app, output: output)
+                    case .failure(let miss): output.yield((ids.joined(separator: ", "), .failed(miss)))
+                }
+            }
         }
     }
 
@@ -303,8 +440,8 @@ struct Answer: AsyncParsableCommand {
     }
 
     static let configuration: CommandConfiguration = CommandConfiguration(
-        abstract: "Wait for an element showing text, perform an action on it, and exit",
-        subcommands: [Press.self, Set.self],
+        abstract: "Wait for an element showing text and perform an action on it, or press a menu bar item, and exit",
+        subcommands: [Press.self, Set.self, Menu.self],
     )
 }
 
@@ -314,15 +451,11 @@ struct Crashes: AsyncParsableCommand {
     @OptionGroup var installed: Installed
 
     func run() async throws {
-        try await WatchApps.run(installed.names) { ids, output in
-            let found: [(lines: [Line], code: ExitCode)] = ids.map { id in
-                switch crashReports(for: id) {
-                    case .success(let reports): (reports.map { report in Line(app: id, event: .crash(report: report.path(percentEncoded: false))) }, .success)
-                    case .failure(let error): (error.errors.map { failed in Line(app: id, event: .fail(pid: nil, reason: .file(failed.url, failed.error))) }, .failure)
-                }
+        try await WatchApps.run(installed.names) { installations, output in
+            for id: String in OrderedSet(installations.map(\.identifier)) {
+                let (reports, failures): ([CrashReport], [CrashReportFailure]) = CrashReport.reports(for: id)
+                for event: Event in reports.map(Event.crash) + failures.map({ failure in .failed(failure) }) { output.yield((id, event)) }
             }
-            for line: Line in found.flatMap(\.lines) { output.yield(line) }
-            return found.contains { found in found.code == .failure } ? .failure : .success
         }
     }
 }

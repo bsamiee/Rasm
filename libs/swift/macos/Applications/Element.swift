@@ -6,6 +6,7 @@ public import Results
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 private let labelAttributes: [String] = [kAXTitleAttribute, kAXDescriptionAttribute]
+let messagingTimeout: Duration = .seconds(1)
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -15,42 +16,21 @@ public struct Control: Codable, Hashable, Sendable {
     public let value: JSONValue?
 }
 
-public struct FailedRead: Hashable, Sendable {
+public struct FailedRead: Codable, Hashable, Sendable {
     public let reads: [String]
     public let role: String?
     public let label: String?
-    public let error: AXError
-}
-
-extension FailedRead: Codable {
-    private enum Key: CodingKey { case reads, role, label, error }
+    public let error: AXError.RawValue
 
     public init(_ error: AXError, reading reads: [String], on element: AXUIElement) {
         let named: [String] = [kAXRoleAttribute] + labelAttributes
         var values: CFArray?
         _ = unsafe AXUIElementCopyMultipleAttributeValues(element, named as CFArray, [], &values)
         let attributes: [String: CFTypeRef] = Dictionary(uniqueKeysWithValues: zip(named, values as? [CFTypeRef] ?? []))
-        self.init(reads: reads, role: attributes[kAXRoleAttribute] as? String, label: AXUIElement.ownLabel(attributes), error: error)
-    }
-
-    public init(from decoder: any Decoder) throws {
-        let fields: KeyedDecodingContainer<Key> = try decoder.container(keyedBy: Key.self)
-        let code: Int32 = try fields.decode(Int32.self, forKey: .error)
-        guard let error: AXError = AXError(rawValue: code) else { throw DecodingError.dataCorruptedError(forKey: .error, in: fields, debugDescription: "AXError \(code) names no case") }
-        try self.init(
-            reads: fields.decode([String].self, forKey: .reads),
-            role: fields.decodeIfPresent(String.self, forKey: .role),
-            label: fields.decodeIfPresent(String.self, forKey: .label),
-            error: error,
-        )
-    }
-
-    public func encode(to encoder: any Encoder) throws {
-        var fields: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
-        try fields.encode(reads, forKey: .reads)
-        try fields.encodeIfPresent(role, forKey: .role)
-        try fields.encodeIfPresent(label, forKey: .label)
-        try fields.encode(error.rawValue, forKey: .error)
+        self.reads = reads
+        role = attributes[kAXRoleAttribute] as? String
+        label = AXUIElement.ownLabel(attributes)
+        self.error = error.rawValue
     }
 }
 
@@ -73,16 +53,20 @@ struct Described {
 
 private struct Part {
     let node: AXUIElement
+    let label: String?
+    let actions: [String]
     let text: String?
     let control: Control?
-    let press: String?
+
+    var press: String? { label.flatMap { label in actions.contains(kAXPressAction) && !["...", "…"].contains { ellipsis in label.hasSuffix(ellipsis) } ? label : nil } }
 
     init(_ node: AXUIElement) throws(ElementFailure) {
         let attributes: [String: CFTypeRef] = try node.values([kAXRoleAttribute, kAXEnabledAttribute, kAXValueAttribute] + labelAttributes)
         let role: String? = attributes[kAXRoleAttribute] as? String
         let label: String? = try node.label(attributes)
-        let actions: [String] = try label == nil || attributes[kAXEnabledAttribute] as? Bool == false ? [] : node.actionNames()
         self.node = node
+        self.label = label
+        actions = try label == nil || attributes[kAXEnabledAttribute] as? Bool == false ? [] : node.actionNames()
         text = role == kAXStaticTextRole ? (attributes[kAXValueAttribute] as? String).flatMap { line in line.isEmpty ? nil : line } : nil
         control = role.flatMap { role in
             switch role {
@@ -91,7 +75,6 @@ private struct Part {
                 default: nil
             }
         }
-        press = label.flatMap { label in actions.contains(kAXPressAction) && !["...", "…"].contains { ellipsis in label.hasSuffix(ellipsis) } ? label : nil }
     }
 }
 
@@ -119,7 +102,7 @@ public enum ElementFailure: CustomNSError, LocalizedError {
             case .untrusted: "Accessibility access is off for this process: allow it under System Settings, Privacy & Security, Accessibility"
             case .unanswered: "The application did not answer an Accessibility request within the messaging timeout"
             case .unreadable(let read):
-                "Accessibility read of \(read.reads.joined(separator: ", ")) on \(read.role ?? "an element")\(read.label.map { label in " \"\(label)\"" } ?? "") failed with AXError \(read.error.rawValue)"
+                "Accessibility read of \(read.reads.joined(separator: ", ")) on \(read.role ?? "an element")\(read.label.map { label in " \"\(label)\"" } ?? "") failed with AXError \(read.error)"
             case .unobservable(let refusals):
                 "The application refused Accessibility notifications: \(refusals.errors.map { refusal in "\(refusal.notification) (AXError \(refusal.error.rawValue))" }.joined(separator: ", "))"
             case .absent(let id): "No open window, dialog, sheet, or menu with id \(id)"
@@ -136,7 +119,7 @@ public enum ElementFailure: CustomNSError, LocalizedError {
 // --- [SERVICES] ------------------------------------------------------------------------
 
 let accessibility: DispatchQueue = {
-    AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), 1)
+    AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), Float(messagingTimeout / .seconds(1)))
     return DispatchQueue(label: "Applications.accessibility", attributes: .concurrent)
 }()
 
@@ -235,9 +218,24 @@ extension AXUIElement {
         return try menus + children { role in role != kAXMenuBarRole }.map { child throws(ElementFailure) in try child.children { role in role == kAXSheetRole } + [child] }.flatMap(\.self)
     }
 
+    func items() throws(ElementFailure) -> [(name: String, node: AXUIElement, action: String?)] {
+        try children().map { child throws(ElementFailure) in try child.value(kAXRoleAttribute) == kAXMenuRole ? child.children() : [child] }.flatMap(\.self)
+            .map { node throws(ElementFailure) in try Part(node) }
+            .compactMap { part in part.label.map { label in (label, part.node, part.press.map { _ in kAXPressAction }) } }
+    }
+
     func descendants() throws(ElementFailure) -> [AXUIElement] {
         let collections: Set<String?> = [kAXScrollAreaRole, kAXOutlineRole, kAXTableRole, kAXListRole, kAXBrowserRole]
         return try [self] + children { role in !collections.contains(role) }.map { child throws(ElementFailure) in try child.descendants() }.flatMap(\.self)
+    }
+
+    func described(window id: CGWindowID) throws(ElementFailure) -> Described {
+        let reads: some Sequence<Result<AXUIElement?, ElementFailure>> = try candidates().lazy.map { candidate in Result { () throws(ElementFailure) in try candidate.window() == id ? candidate : nil }
+        }
+        return switch try reads.first(where: { read in if case .success(.none) = read { false } else { true } })?.get()?.described() {
+            case .some(let described): described
+            case .none: throw .absent(id)
+        }
     }
 
     func described() throws(ElementFailure) -> Described? {
@@ -252,13 +250,13 @@ extension AXUIElement {
             return (kept.compactMap(\.value), kept.compactMap(\.unreadable))
         }
         guard let window: CGWindowID = try window() else { return nil }
-        let attributes: [String: CFTypeRef] = try values([kAXRoleAttribute, kAXSubroleAttribute] + labelAttributes)
+        let attributes: [String: CFTypeRef] = try values([kAXRoleAttribute, kAXSubroleAttribute, kAXModalAttribute] + labelAttributes)
         guard let role: String = attributes[kAXRoleAttribute] as? String else { return nil }
         let subrole: String? = attributes[kAXSubroleAttribute] as? String
         let nodes: [AXUIElement] =
-            switch (subrole, role) {
-                case (.some(kAXDialogSubrole), _), (.some(kAXSystemDialogSubrole), _), (_, kAXSheetRole), (_, kAXLayoutAreaRole): try descendants()
-                case (_, kAXMenuRole): try children()
+            switch (subrole, role, attributes[kAXModalAttribute] as? Bool) {
+                case (.some(kAXDialogSubrole), _, _), (.some(kAXSystemDialogSubrole), _, _), (_, kAXSheetRole, _), (_, kAXLayoutAreaRole, _), (_, _, .some(true)): try descendants()
+                case (_, kAXMenuRole, _): try children()
                 default: []
             }
         let (parts, unreadableParts): ([Part], [FailedRead]) = try separated(nodes.map { node in Result { () throws(ElementFailure) in try Part(node) } })

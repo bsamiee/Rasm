@@ -8,16 +8,16 @@ description: "Use when reading or annotating a binary through Ghidra, covering h
 `analyzeHeadless` imports and analyzes each binary once into its own Ghidra project under `$GHIDRA_PROJECT_DIR`, program named after its file. Later reads run scripts on the saved program, one file per script. ghidra-cli bridges serve edits of names, comments, and functions alone.
 
 [SCRIPTS]:
-- [01]-[ANALYZERS](scripts/Analyzers.java): Prescript turning off the analyzers its arguments name before analysis
-- [02]-[STUBS](scripts/Stubs.java): Every `__objc_stubs` function named after the message it sends and typed as a message send
-- [03]-[CATALOG](scripts/Catalog.java): Every string, import, and function with the functions referencing or calling each
-- [04]-[DECOMPILE](scripts/Decompile.java): Seeds with callers and callees, the globals and types the bodies reference, in one indexed C file
-- [05]-[CALLSITES](scripts/CallSites.java): Every call site of seed functions with the argument text the decompiler resolved there
-- [06]-[HEADERS](scripts/Headers.java): C headers parsed into the program's types, prototypes applied to the named functions
-- [07]-[ARGUMENTS](scripts/Arguments.java): Output path, seed, and setting parser that collects every argument error
-- [08]-[FUNCTIONS](scripts/Functions.java): Call graph walks through thunks and stubs, stub selectors, string referrers, and parallel decompiles
-- [09]-[REPORT](scripts/Report.java): `Result` type with `Success` and `Failure` cases, and the writer of every script's file
-- [10]-[BRIDGES](scripts/bridges.py): Session hook that stops each bridge of an ended Claude Code session and clears files dead bridges left
+- [01]-[ANALYZERS](scripts/Analyzers.java): Prescript skipping named analyzers during an import
+- [02]-[STUBS](scripts/Stubs.java): Postscript naming and typing Objective-C message-send stubs
+- [03]-[CATALOG](scripts/Catalog.java): Postscript writing the program index seeds come from
+- [04]-[DECOMPILE](scripts/Decompile.java): Postscript decompiling seeds and their call neighborhood into one file
+- [05]-[CALLSITES](scripts/CallSites.java): Postscript listing seed call sites with resolved arguments
+- [06]-[HEADERS](scripts/Headers.java): Postscript applying C header types and prototypes
+- [07]-[ARGUMENTS](scripts/Arguments.java): Argument parsing every postscript shares
+- [08]-[FUNCTIONS](scripts/Functions.java): Call graph and decompile operations every postscript shares
+- [09]-[REPORT](scripts/Report.java): Result type and file writer every postscript shares
+- [10]-[BRIDGES](scripts/bridges.py): Session hook stopping ghidra-cli bridges of ended sessions
 
 [FACTS]:
 - Run: Postscripts take the output path as their first argument after the script name

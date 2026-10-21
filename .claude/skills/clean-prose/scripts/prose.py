@@ -24,18 +24,20 @@ from wcwidth import wcswidth
 
 
 class Marker(Enum):
-    """Comment sign per source language with the suffixes it owns and the openings of its preamble lines, markdown the member with no sign."""
+    """Comment sign per source language with the suffixes it owns and the openings of its preamble lines, markdown the member with no sign and data formats the members with no preamble."""
 
     sign: str
     suffixes: tuple[str, ...]
     preamble: str
     MARKDOWN = "", (".md",), "(?!)"
-    HASH = "#", (".py", ".sh", ".toml", ".nix", ".yml", ".yaml"), r"#!|import |from [\w.]+ import |if (?:typing\.)?TYPE_CHECKING:|set [-+]\w"
+    HASH = "#", (".py", ".sh"), r"#!|import |from [\w.]+ import |if (?:typing\.)?TYPE_CHECKING:|set [-+]\w"
+    HASH_DATA = "#", (".toml", ".nix", ".yml", ".yaml"), "(?!)"
     SLASH = (
         "//",
-        (".cs", ".ts", ".tsx", ".js", ".jsx", ".java", ".swift", ".jsonc"),
+        (".cs", ".ts", ".tsx", ".js", ".jsx", ".java", ".swift"),
         r"#[!:]|(?:@\w+ )?import |(?:global )?using (?:static )?[\w.]+(?: = [^;]+)?;|namespace [\w.]+;|package [\w.]+;|extern alias \w+;|\[assembly: ",
     )
+    SLASH_DATA = "//", (".jsonc",), "(?!)"
     DASH = "--", (".sql", ".lua"), "(?!)"
 
     def __init__(self, sign: str, suffixes: tuple[str, ...], preamble: str) -> None:
@@ -60,7 +62,7 @@ class Kind(Flag):
     METADATA = r"^# /// [a-zA-Z0-9-]+$(?:\n#(?: .*)?$)*?\n# ///$"
     HEADING = r"^(?P<level>#{1,6}) (?P<t>.+)$"
     TABLE = r"^(?P<row>\|(?: *(?P<t>(?:\\\||[^|\n])*?) *\|)+ *$)(?:\n(?&row))*"
-    LIST_ITEM = r"^(?P<bullet> *(?:[-*+]|\d+\.) )(?:(?P<chain>\[[^\]]*\](?:-\[[^\]]*\])*)(?:\((?P<path>[^)]*)\):|:?) )?(?P<t>.+)$(?:\n(?!(?&bullet)) +(?P<t>\S.*)$)*"
+    LIST_ITEM = r"^(?P<bullet> *(?:[-*+]|\d+(?:\.\w+)*\.) )(?:(?P<chain>\[[^\]]*\](?:-\[[^\]]*\])*)(?:\((?P<path>[^)]*)\):|:?) )?(?P<t>.+)$(?:\n(?!(?&bullet)) +(?P<t>\S.*)$)*"
     LABEL = r"^\[[A-Z_]+\](?::(?: (?P<t>.+))?)?$"
     DIVIDER = r"^(?P<head>[ \t]*(?&sign) --- )(?P<tok>\[[^\]]+\]).*?(?P<fill> -+)?$"
     DIRECTIVE = r"^[ \t]*(?&sign) (?:@?[a-z][a-z0-9-]*(?::|-(?:ignore|disable|enable|expect-error|nocheck)\b| (?:disable|enable)\b)|noqa\b).*$"
@@ -250,10 +252,10 @@ def lift_sequence(fn: Callable[[list[Block]], list[Block]]) -> Callable[[Kind, l
     return lambda _, blocks: fn(blocks)
 
 
-def opening_matches(pattern: str) -> Callable[[Doc], list[Line]]:
-    """Lift a text pattern to a report over the opening of every text span, the span its subject."""
+def opening_matches(group: str, pattern: str) -> Callable[[Doc], list[Line]]:
+    """Lift a pattern to a report over the opening of every span the group captures, the match its subject."""
     rx = regex.compile(pattern)
-    return lambda d: [Line(b.head.n + b.text.count("\n", 0, a), b.text[a:e]) for b in d.blocks for a, e in parts(b.kind, b.text).spans("t") if rx.match(b.text, a, e)]
+    return lambda d: [Line(b.head.n + b.text.count("\n", 0, a), m[0]) for b in d.blocks for a, e in parts(b.kind, b.text).spans(group) if (m := rx.match(b.text, a, e))]
 
 
 # --- [TEXT]
@@ -522,8 +524,9 @@ FIXES = (
 )
 REPORTS = (
     Report(Kind.HEADING, "`{}` is not the one `[TOKEN]` H1", h1s),
-    Report(TEXT, "Text opens with an article", opening_matches(r"(?i)(?:a|an|the)\s+\S")),
-    Report(Kind.LIST_ITEM | Kind.TABLE | Kind.COMMENT, "Text opens with a lowercase letter", opening_matches(r"\p{Ll}")),
+    Report(TEXT, "Text opens with an article", opening_matches("t", r"(?i)(?:a|an|the)\s+\S")),
+    Report(Kind.LIST_ITEM | Kind.TABLE | Kind.COMMENT, "Text opens with a lowercase letter", opening_matches("t", r"\p{Ll}")),
+    Report(Kind.LIST_ITEM, "Marker `{}` opens no Markdown list item", opening_matches("bullet", r" *\K\d+(?:\.\w+)+\.")),
     Report(TEXT & MARKDOWN, "`{}` resolves to no file", dead),
     Report(
         TEXT,

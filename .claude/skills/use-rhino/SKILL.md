@@ -7,6 +7,9 @@ description: "Use when a task drives a Rhino document, a .3dm file, or a Grassho
 
 Covers Rhino and Grasshopper 2 work through the `rhino-mcp-platform` server, with every application left in the background.
 
+[SCRIPTS]:
+- [01]-[INSTANCES](scripts/Instances.cs): Session-opening read of every Rhino the router reaches
+
 ## [01]-[TOOL_INDEX]
 
 | [INDEX] | [TOOL]                                           | [USE_WHEN]                                                       |
@@ -49,8 +52,9 @@ Covers Rhino and Grasshopper 2 work through the `rhino-mcp-platform` server, wit
 
 Sessions open on:
 1. `dotnet run ${CLAUDE_SKILL_DIR}/scripts/Instances.cs` lists each Rhino visible to the router with its documents, slots, and Grasshopper definitions
-2.a. New work: an open untitled, unmodified document, else `spawn_slot` starts one without a splash screen on the default template
-2.b. Existing work: `open -g <file>` opens the file in Rhino
+2. Document of the work, one case:
+    - New work: an open untitled, unmodified document, else `spawn_slot` starts one without a splash screen on the default template
+    - Existing work: `open -g <file>` opens the file in Rhino
 3. `list_slots` adopts the announced listeners, then `get_context` reads the target slot's selection, viewport, document, and canvas state
 
 - One Rhino application holds every open document, and each `spawn_slot` adds a document window to it

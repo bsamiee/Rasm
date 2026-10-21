@@ -1,12 +1,15 @@
 public import AppKit
 import Carbon.OpenScripting
+import Combine
 public import Results
+public import Subprocess
+public import System
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 public enum InstanceEvent: Sendable {
     case launched(NSRunningApplication)
-    case terminated(NSRunningApplication, status: Int?)
+    case terminated(NSRunningApplication, status: Result<TerminationStatus, Errno>)
     case status(NSRunningApplication, Result<ApplicationStatus, ElementFailure>)
 
     public var instance: NSRunningApplication {
@@ -40,8 +43,7 @@ public enum LaunchFailure: DeadlineFailure, CustomNSError, LocalizedError {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension NSWorkspace {
-    public func launchApplication(at url: URL, within timeout: Duration) async -> Result<NSRunningApplication, LaunchFailure> {
-        let configuration: OpenConfiguration = OpenConfiguration()
+    public func launchApplication(at url: URL, within timeout: Duration?, configuration: sending OpenConfiguration = OpenConfiguration()) async -> Result<NSRunningApplication, LaunchFailure> {
         configuration.activates = false
         configuration.addsToRecentItems = false
         configuration.promptsUserIfNeeded = false
@@ -62,36 +64,18 @@ extension NSWorkspace {
 
     @MainActor
     public func instanceEvents(of matching: @escaping @Sendable (NSRunningApplication) -> Bool) -> AsyncStream<InstanceEvent> {
-        let center: NotificationCenter = notificationCenter
-        let opening: [NSRunningApplication] = runningApplications.filter { instance in instance.launchedWithWindows && matching(instance) }
-        let changes: AsyncStream<InstanceEvent> = AsyncStream { continuation in
-            let tasks: [Task<Void, Never>] = [Self.didLaunchApplicationNotification, Self.didTerminateApplicationNotification].map { name in
-                Task { @MainActor [notes = center.notifications(named: name)] in
-                    for await note: Notification in notes {
-                        if let instance: NSRunningApplication = note.userInfo?[Self.applicationUserInfoKey] as? NSRunningApplication, instance.createsWindows, matching(instance) {
-                            continuation.yield(name == Self.didLaunchApplicationNotification ? .launched(instance) : .terminated(instance, status: note.userInfo?["NSWorkspaceExitStatusKey"] as? Int))
-                        }
-                    }
-                }
-            }
-            continuation.onTermination = { _ in
-                for task: Task<Void, Never> in tasks { task.cancel() }
-            }
-        }
-        return AsyncStream { continuation in
+        AsyncStream { continuation in
             let following: Task<Void, Never> = Task { @MainActor in
+                let (inserted, insert): (AsyncStream<NSRunningApplication>, AsyncStream<NSRunningApplication>.Continuation) = AsyncStream.makeStream()
+                let observation: NSKeyValueObservation = observe(\.runningApplications, options: [.initial, .new]) { _, change in
+                    for instance: NSRunningApplication in change.newValue ?? [] where instance.createsWindows && matching(instance) { insert.yield(instance) }
+                }
                 await withDiscardingTaskGroup { group in
-                    func observe(_ instance: NSRunningApplication) {
-                        group.addTask(executorPreference: accessibility) { @concurrent in
-                            for await next: Result<ApplicationStatus, ElementFailure> in StatusChanges(instance) { continuation.yield(.status(instance, next)) }
-                        }
-                    }
-                    for instance: NSRunningApplication in opening { observe(instance) }
-                    for await change: InstanceEvent in changes {
-                        continuation.yield(change)
-                        if case .launched(let instance) = change { observe(instance) }
+                    for await instance: NSRunningApplication in inserted {
+                        group.addTask { for await event: InstanceEvent in instance.events() { continuation.yield(event) } }
                     }
                 }
+                observation.invalidate()
                 continuation.finish()
             }
             continuation.onTermination = { _ in following.cancel() }
@@ -100,17 +84,79 @@ extension NSWorkspace {
 }
 
 extension NSRunningApplication {
-    public func finishedLaunching(within timeout: Duration) async -> Result<Void, LaunchFailure> {
-        let (states, sink): (AsyncStream<Result<Void, LaunchFailure>>, AsyncStream<Result<Void, LaunchFailure>>.Continuation) = AsyncStream.makeStream()
-        let observations: [NSKeyValueObservation] = [\.isFinishedLaunching, \.isTerminated].map { keyPath in
-            observe(keyPath, options: [.initial, .new]) { instance, _ in
-                if instance.isFinishedLaunching || instance.isTerminated { sink.yield(instance.isFinishedLaunching ? .success(()) : .failure(.terminated)) }
+    public func events() -> AsyncStream<InstanceEvent> {
+        AsyncStream { continuation in
+            let following: Task<Void, Never> = Task {
+                let exit: Result<TerminationStatus, Errno>? = await withDiscardingTaskGroup { lifetime in
+                    lifetime.addTask {
+                        guard case .success = await self.finishedLaunching(within: nil) else { return }
+                        continuation.yield(.launched(self))
+                        switch self.statusChanges() {
+                            case .success(let changes):
+                                for await change: Result<ApplicationStatus, ElementFailure> in changes where !Task.isCancelled { continuation.yield(.status(self, change)) }
+                            case .failure(let error): continuation.yield(.status(self, .failure(error)))
+                        }
+                    }
+                    defer { lifetime.cancelAll() }
+                    return await self.termination().first { _ in true }
+                }
+                if let exit: Result<TerminationStatus, Errno> { continuation.yield(.terminated(self, status: exit)) }
+                continuation.finish()
+            }
+            continuation.onTermination = { _ in following.cancel() }
+        }
+    }
+
+    public func finishedLaunching(within timeout: Duration?) async -> Result<Void, LaunchFailure> {
+        let finished: @Sendable () async -> Result<Void, LaunchFailure> = {
+            await self.publisher(for: \.isFinishedLaunching).combineLatest(self.publisher(for: \.isTerminated)).compactMap { done, gone in done || gone ? done : nil }
+                .buffer(size: 1, prefetch: .byRequest, whenFull: .dropOldest).values.first { _ in true }
+                .map { done in done ? .success(()) : .failure(.terminated) } ?? .failure(.deadline(.cancelled))
+        }
+        return if let timeout: Duration {
+            await withTimeout(timeout, finished)
+        } else {
+            await finished()
+        }
+    }
+
+    private func termination() -> AsyncStream<Result<TerminationStatus, Errno>> {
+        AsyncStream { continuation in
+            let registered: Result<FileHandle, Errno> = Result { () throws(Errno) in
+                let descriptor: Int32 = kqueue()
+                guard descriptor >= 0 else { throw Errno(rawValue: errno) }
+                let queue: FileHandle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
+                var exit: kevent = unsafe kevent(
+                    ident: UInt(processIdentifier),
+                    filter: Int16(EVFILT_PROC),
+                    flags: UInt16(EV_ADD | EV_ONESHOT),
+                    fflags: NOTE_EXIT | UInt32(NOTE_EXITSTATUS),
+                    data: 0,
+                    udata: nil,
+                )
+                guard unsafe kevent(descriptor, &exit, 1, nil, 0, nil) == 0 else { throw Errno(rawValue: errno) }
+                return queue
+            }
+            switch registered {
+                case .success(let queue):
+                    queue.readabilityHandler = { queue in
+                        var exited: kevent = unsafe kevent()
+                        var now: timespec = timespec()
+                        let read: Int32 = unsafe kevent(queue.fileDescriptor, nil, 0, &exited, 1, &now)
+                        continuation.yield(read < 0 ? .failure(Errno(rawValue: errno)) : .success(TerminationStatus(waitStatus: Int32(truncatingIfNeeded: unsafe exited.data))))
+                        continuation.finish()
+                    }
+                    continuation.onTermination = { _ in queue.readabilityHandler = nil }
+                case .failure(let error):
+                    continuation.yield(.failure(error))
+                    continuation.finish()
             }
         }
-        defer {
-            for observation: NSKeyValueObservation in observations { observation.invalidate() }
-            sink.finish()
-        }
-        return await withTimeout(timeout) { await states.first { _ in true } ?? .failure(.deadline(.cancelled)) }
+    }
+}
+
+extension TerminationStatus {
+    init(waitStatus status: Int32) {
+        self = status & _WSTOPPED == 0 ? .exited(status >> 8 & 0xff) : .signaled(status & _WSTOPPED)
     }
 }

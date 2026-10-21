@@ -3,40 +3,34 @@ import Results
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public enum ElementAction: Hashable, Sendable {
-    case press(String)
+public enum ElementAction: Codable, Hashable, Sendable {
+    case press(label: String, under: [String])
     case set(field: String, value: String)
 
     public var label: String {
         switch self {
-            case .press(let label), .set(let label, _): label
+            case .press(let label, _), .set(let label, _): label
         }
     }
 }
 
-extension ElementAction: Codable {
-    private enum Key: CodingKey { case field, value }
+public enum ElementTarget: Hashable, Sendable, CustomStringConvertible {
+    case element(CGWindowID)
+    case menuBar
 
-    public init(from decoder: any Decoder) throws {
-        self = try Result { try .press(decoder.singleValueContainer().decode(String.self)) }
-            .flatMapError { _ in
-                Result {
-                    let fields: KeyedDecodingContainer<Key> = try decoder.container(keyedBy: Key.self)
-                    return try .set(field: fields.decode(String.self, forKey: .field), value: fields.decode(String.self, forKey: .value))
-                }
-            }
-            .get()
+    public var description: String {
+        switch self {
+            case .element(let id): "element \(id)"
+            case .menuBar: "the menu bar"
+        }
     }
 
-    public func encode(to encoder: any Encoder) throws {
+    func entries(of application: AXUIElement) throws(ElementFailure) -> (offered: [(name: String, node: AXUIElement, action: String?)], fields: [(label: String, node: AXUIElement)]) {
         switch self {
-            case .press(let label):
-                var single: any SingleValueEncodingContainer = encoder.singleValueContainer()
-                try single.encode(label)
-            case .set(let field, let value):
-                var fields: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
-                try fields.encode(field, forKey: .field)
-                try fields.encode(value, forKey: .value)
+            case .element(let id):
+                let described: Described = try application.described(window: id)
+                return (described.targets.map { entry in (entry.name, entry.node, entry.action) }, described.fields)
+            case .menuBar: return (try (application.value(kAXMenuBarAttribute) as AXUIElement?)?.items() ?? [], [])
         }
     }
 }
@@ -45,29 +39,38 @@ extension ElementAction: Codable {
 
 extension NSRunningApplication {
     @concurrent
-    public func perform(_ action: ElementAction, on id: CGWindowID) async -> Result<Void, ElementFailure> {
+    public func perform(_ action: ElementAction, on target: ElementTarget) async -> Result<Void, ElementFailure> {
         await withTaskExecutorPreference(accessibility) {
             let application: AXUIElement = AXUIElementCreateApplication(processIdentifier)
             return Result { () throws(ElementFailure) in
-                let found: AXUIElement? = try application.candidates().map { candidate throws(ElementFailure) in try candidate.window() == id ? candidate : nil }.compactMap(\.self).first
-                guard let target: Described = try found?.described() else { throw .absent(id) }
-                let (kind, offered, performs): (String, [String], [() -> AXError]) =
-                    switch action {
-                        case .set(let field, let value):
-                            (
-                                "control", target.element.controls.compactMap(\.label),
-                                target.fields.filter { entry in entry.label == field }.map { entry in { AXUIElementSetAttributeValue(entry.node, kAXValueAttribute as CFString, value as CFString) } },
-                            )
-                        case .press(let name):
-                            (
-                                "action", target.element.actions,
-                                target.targets.filter { entry in entry.name == name }.map { entry in { AXUIElementPerformAction(entry.node, entry.action as CFString) } },
-                            )
-                    }
-                let perform: () -> AXError = try Unmatched.single(performs, subject: "\(kind) of element \(id)", query: action.label, candidates: offered) { _ in action.label }
-                    .mapError(ElementFailure.unmatched)
-                    .get()
-                switch perform() {
+                func pick<Entry>(_ kind: String, _ query: String, among entries: [Entry], named name: (Entry) -> String) throws(ElementFailure) -> Entry {
+                    try Unmatched.single(entries.filter { entry in name(entry) == query }, subject: "\(kind) of \(target)", query: query, candidates: entries.map(name), named: name)
+                        .mapError(ElementFailure.unmatched)
+                        .get()
+                }
+                let (offered, fields): ([(name: String, node: AXUIElement, action: String?)], [(label: String, node: AXUIElement)]) = try target.entries(of: application)
+                let outcome: AXError
+                switch action {
+                    case .set(let field, let value):
+                        outcome = try AXUIElementSetAttributeValue(pick("control", field, among: fields, named: \.label).node, kAXValueAttribute as CFString, value as CFString)
+                    case .press(let label, let under):
+                        let level: [(name: String, node: AXUIElement, action: String?)] = try under.reduce(
+                            Result<[(name: String, node: AXUIElement, action: String?)], ElementFailure>.success(offered)
+                        ) {
+                            reached,
+                            step in
+                            reached.flatMap { level in Result { () throws(ElementFailure) in try pick("item", step, among: level, named: \.name).node.items() } }
+                        }
+                        .get()
+                        let entry: (name: String, node: AXUIElement, action: String) = try pick(
+                            "action",
+                            label,
+                            among: level.compactMap { entry in entry.action.map { action in (entry.name, entry.node, action) } },
+                            named: \.name,
+                        )
+                        outcome = AXUIElementPerformAction(entry.node, entry.action as CFString)
+                }
+                switch outcome {
                     case .success, .cannotComplete: break
                     case let error: throw .refused(action.label, error)
                 }

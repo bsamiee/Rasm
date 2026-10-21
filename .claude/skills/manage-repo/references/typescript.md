@@ -4,7 +4,6 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 
 ## [01]-[CATALOG]
 
-- `packages` globs match directories, each holding a `package.json` joins the workspace
 - `package.json` rows name `catalog:` versions, and `workspace:*` names a sibling resolving to its workspace copy alone
 - `catalogMode: strict` fails a `pnpm add` outside the catalog range
 - `overrides` rows rewrite resolved versions and peer ranges across the graph, `<parent>><child>` scopes a row, `catalog:` keeps one version source
@@ -16,13 +15,12 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - `skills.dirs: []` turns off agent skill links, pnpm offers no package skill for approval and removes links it created
 - `CI` set makes `pnpm install` frozen, a lock out of step with a `package.json` fails the install in place of a lock rewrite
 - `ncu --target newest` takes the latest publish, prereleases included, `greatest` takes abandoned prerelease lines with a higher number
-- `ncu --reject` rows (`typescript`, a suffixed `github:` tag `ncu` ranks below the plain one) take their version from `eng/typescript/upgrade/typescript.ts`
+- `ncu --reject` skips rows `ncu` cannot pick (`typescript`, `tree-sitter-swift`'s suffixed tag), `eng/typescript/upgrade/typescript.ts` moves them
 - `pnpm install` keeps orphaned packages for `modulesCacheMaxAge`, `pnpm prune` removes them, then `playwright install` deletes unused browser builds
 
 ## [02]-[COMPILER]
 
 - `${configDir}` in a base configuration's path fields resolves to the extending file's directory
-- `tsc` under `noEmit` checks a project from its directory and writes no file
 - Packages import each other's `.ts` source through `exports` entries the pnpm link resolves
 - `tsc` compiles sibling source under the importer's options, the importer listing each typings package, `paths` row, and JavaScript depth it needs
 - `maxNodeModuleJsDepth` counts a linked sibling package as one level, its untyped JavaScript dependencies take the sibling's depth plus one
@@ -34,7 +32,7 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - Host platform library `tsconfig.json` states host `lib` and `types`, projects for the host extend it
 - `tsconfig.base.json` excludes project Vite, Vitest, and UXP configs, root `tsconfig.json` compiles them, `.storybook/main.ts`, and test MCP config
 - Project programs name `.storybook/*.stories.tsx` beside `**/*`, which skips dot directories, and reach `.storybook/preview` through story imports
-- `tsconfig.base.json` `$schema` names installed `typescript` schema, editors read it alone, a `json.schemas` row adds Schema Store's old `lib` list
+- `tsconfig.base.json` `$schema` names installed `typescript` schema, Schema Store's copy lists an older `lib` set
 - `tsconfig.base.json` plugin entry holds every rule severity, project entries merge over it (`diagnostics: false` where a host loads no `effect`)
 - Project `typecheck:tsc` hashes compiler package versions alone, root `typecheck:tsc` keeps Nx's default hash of every installed package
 
@@ -43,7 +41,7 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - Node strips types from `.ts` files with no loader (`process.features.typescript` reads `strip`), `erasableSyntaxOnly` keeps every file strippable
 - Targets running a file name `node <file>.ts` with `cwd` at the project
 - Shared Vite and Vitest factories take the project directory through `import.meta.dirname`
-- Root `vitest.config.ts` provides every project the `.artifacts` root as `artifacts`, a suite writing files another target reads joins its path to `inject('artifacts')` under a `ProvidedContext` augmentation
+- Suites writing files another target reads join their path to `inject('artifacts')`, the `.artifacts` root `vitest.config.ts` provides
 
 ## [04]-[WEB]
 

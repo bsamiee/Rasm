@@ -183,7 +183,7 @@ final class AccountStore {
         func observe(file: URL, provider: Provider) async {
             do {
                 for try await _ in FileWatch.events(of: file).map({ next in
-                    try next.get()
+                    _ = try next.get()
                     return try ifPresent { try Data(contentsOf: file) }.get()
                 }).removeDuplicates()
                     .dropFirst().debounce(for: .milliseconds(300))
@@ -226,7 +226,7 @@ final class AccountStore {
             let lock: URL = ClaudeLock.refreshLockfile(in: claude.shared.directory)
             do {
                 for try await present: Bool in FileWatch.events(of: lock).map({ next in
-                    try next.get()
+                    _ = try next.get()
                     return FileManager.default.fileExists(atPath: lock.path(percentEncoded: false))
                 }).removeDuplicates().dropFirst()
                 where !present {

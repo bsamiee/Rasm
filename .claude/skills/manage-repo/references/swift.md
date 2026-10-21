@@ -10,8 +10,8 @@ SwiftPM builds modules and executables through root `Package.swift`, Xcode build
 - Module names avoid SDK module names, a target named `Accessibility`, `System`, or `ApplicationServices` cycles through AppKit
 - Products list library modules alone, SwiftPM synthesizes each executable's product
 - Test targets take `<Module>Tests` and depend on their module, Nx attaches each to that module's `test` target
-- Remote packages take `.package(url:from:)` in the manifest and `remote` `up-to-next-major-version` rows in a project, `upgrade:swift` moves both forms
-- `settings` restates `Xcode.xcconfig` compiler policy in typed forms, `unsafeFlags` where no typed form exists, and every target's `linkerSettings` restates `OTHER_LDFLAGS`
+- Remote packages take `.package(url:from:)` in the manifest and `up-to-next-major-version` rows in a project, `upgrade:swift` moves both
+- Manifest `settings` restate `Xcode.xcconfig` compiler and linker policy in typed forms, `unsafeFlags` where none exists
 - Checkers run from root tool rows, a SwiftLint or swift-format package plugin adds a second tool version
 
 ## [02]-[SWIFTPM]
@@ -26,7 +26,6 @@ SwiftPM builds modules and executables through root `Package.swift`, Xcode build
 `project.xcproj` uses Xcode's hierarchical JSON format under Apple's schema for keys and defaults:
 - Edits keep target and product IDs, schemes and external projects reference them
 - Project `configurations` define names once, target `specialized-configurations` appear only for configuration files or IDs
-- `build-settings` holds settings shared across configurations, conditional keys select configuration differences
 - `kind: "folder"` at `path: "."` discovers sources through `target-membership`, files join existing build phases by type
 - Apps with assets take a `resources` phase with `membership-exceptions` excluding non-sources
 - Projects hold one shared scheme in `xcshareddata/xcschemes`, its `BuildAction` and `LaunchAction` naming the target
@@ -67,14 +66,14 @@ Toolchain upgrades re-derive compiler policy in root `Xcode.xcconfig` and the ma
 
 ## [06]-[LOCKS]
 
-- Xcode reads no lock of a local package and re-resolves a copied one, each app resolves through its committed `project.xcworkspace/xcshareddata/swiftpm/Package.resolved`
+- Apps resolve through their committed `xcshareddata/swiftpm/Package.resolved`, Xcode reads no local package lock and re-resolves a copied one
 - Xcode commands (`xcodebuild`, `xcode-build-server config`) pass `-project`, a resolve under `-project` takes no scheme
-- `-disableAutomaticPackageResolution` fails a stale lock on fresh derived data alone, `upgrade:xcode` deletes the lock and `workspace-state.json` before resolving
+- `-disableAutomaticPackageResolution` fails a stale lock on fresh derived data alone
 
 ## [07]-[SWIFT_FORMAT]
 
 `.swift-format` owns Swift layout and indentation, `.editorconfig` holds no `[*.swift]` section:
-- `rules` lists every rule `dump-configuration` prints but `AllPublicDeclarationsHaveDocumentation`, code holds no doc comments, and rules a SwiftLint rule reports at every site
+- `rules` lists every `dump-configuration` rule except `AllPublicDeclarationsHaveDocumentation` and rules SwiftLint reports at every site
 - Rules `rules` omits are off, toolchain upgrades judge each rule `dump-configuration` adds
 - Unknown top-level keys load with no message, an unknown rule name fails `lint --strict`
 - Nested option objects decode only with every key present

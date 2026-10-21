@@ -4,7 +4,6 @@ Nx infers projects through plugins, orders targets through `dependsOn`, caches o
 
 ## [01]-[PROJECTS]
 
-- Plugins infer a project from each file matching their glob, a matching file that defines no project yields none
 - Plugins export `createDependencies` beside `createNodes` for undeclared edges, a static edge names its `sourceFile`
 - Nx merges inferred projects sharing a root, each file of one directory adds its targets to one project
 - Workspace plugin markers match a base name, an extension, or `<directory>/<base>` for a generic name (`.storybook/main.ts`)
@@ -27,7 +26,6 @@ Use JSON discovery from workspace root:
 
 - Discovery merges a configuration's options under `--configuration` alone, without it a target reports the configuration name
 - Target options show a shallow merge before executor normalization
-- Output discovery proves neither execution nor artifact freshness, the tool's own run decides validity and exit status
 - `nx show project` without `--json` opens a browser in a TTY
 
 ## [03]-[TARGETS]
@@ -48,11 +46,8 @@ Use JSON discovery from workspace root:
 - Pipes, loops, conditionals, and variables in a command entry make it a script
 - Tools taking no directory or walking ignored trees (`yamlfmt`, `yamllint`) run as `fd --hidden --extension <ext> --exec-batch <tool>`
 - `fd --exec-batch` runs no process without a match
-- `dependsOn` names a target of the project (`build`), of its dependencies (`^build`), or of named projects (`{ projects, target }`)
 - Target names in `dependsOn` match as minimatch globs, `!(<name>)` leaves out a target the glob would include
-- `params: forward` on a `dependsOn` entry passes its arguments to the dependency
 - Commands that run `nx` inside a target name a dependency, `dependsOn` holds it
-- `configurations` holds named option sets merged over `options`, `--configuration <name>` selects one, `defaultConfiguration` the default
 - Configurations differing in arguments alone set `args` over one `command`
 - `cache: true` alone caches a target, `cache: false` overrides a `targetDefaults` entry setting it for the name
 - Container targets take `cache: false` and `parallelism: false`, no task input hashes container or service state
@@ -71,15 +66,12 @@ Use JSON discovery from workspace root:
 |  [06]   | `{ "dependentTasksOutputFiles": "<glob>" }`    | Outputs of dependency tasks, `transitive: true` recurses     |
 |  [07]   | `{ "json": "<path>", "fields": ["<field>"] }`  | Listed fields of a JSON file, `excludeFields` the rest       |
 
-- Cache hits replay a successful run at the same hash and restore the files `outputs` name
 - File inputs include untracked files and exclude ignored files
 - `includeIgnored: true` on a `{ "fileset": "<glob>" }` entry hashes ignored matches from disk, on a `!` entry excludes ignored matches
 - Named inputs hold files every target naming them reads, an input one target reads inlines into it, one a plugin reads (`production`) stays
 
 ## [05]-[SCOPE]
 
-- `affected` selects changed projects and dependents from `--files`, `--uncommitted`, `--untracked`, or `--base` with `--head`
-- Base resolves from `--base`, `NX_BASE`, `nx.json` `defaultBase`, then `main`, and head from `--head` or `NX_HEAD`
-- Base selection without a head diffs against `HEAD` and adds uncommitted and untracked files
+- `affected` with a base and no head diffs against `HEAD` and adds uncommitted and untracked files
 - Files belong to the nearest containing project root, a plugin file `nx.json` names to every project
 - `affected` runs each selected target's command unchanged, a root target over its whole file set

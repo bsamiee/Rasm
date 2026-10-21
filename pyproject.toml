@@ -21,10 +21,10 @@ dependencies = [
     "psdtags",           # Photoshop layer records for layered documents
     "scikit-image",      # Structural similarity over image comparison planes
     "scipy",             # Colour algebra, vector quadrature, FFT sizing, and zoom transforms
-    "structlog",         # Structured logging through typed bound loggers carrying each extension's context
+    "structlog",         # Structured logging through typed bound loggers holding each extension's context
     "tenacity",          # Batch target retries over configured domain retry policies
     "tifffile",          # Linear Raw DNG and TIFF containers for layered documents
-    "typing-extensions", # Runtime TypeForm schemas on interpreters whose `typing` lacks `TypeForm`
+    "typing-extensions", # Runtime `TypeForm` schemas where `typing` lacks `TypeForm`
     "typing-inspection", # Annotation metadata and generic type-alias inspection
     "tzdata",            # IANA time zones for zoneinfo on platforms without a database
 ]
@@ -71,7 +71,7 @@ workspace = [
     "opentelemetry-instrumentation-sqlite3",                                      # sqlite3 DBAPI spans
     "opentelemetry-instrumentation-system-metrics",                               # Host and process gauges over psutil
     "opentelemetry-instrumentation-threading",                                    # Cross-thread trace-context propagation
-    "opentelemetry-processor-baggage",                                            # Baggage to span attribute promotion for tenant dimension
+    "opentelemetry-processor-baggage",                                            # Baggage entries copied to span attributes for tenant dimension
     "opentelemetry-resource-detector-containerid",                                # container.id resource detector
     "opentelemetry-sdk",                                                          # Tracer, meter, and logger providers with processors and samplers
     "opentelemetry-semantic-conventions",                                         # Schema URL for telemetry
@@ -86,9 +86,9 @@ workspace = [
     "pyroscope-otel",                                                             # Continuous-profiling span links beside OTLP exporters
     "regex",                                                                      # Emoji and pictograph property classes `re` lacks
     "ruamel-yaml",                                                                # Round-trip YAML with comments and layout kept
-    "tblib",                                                                      # Cross-process traceback fidelity for worker exceptions
+    "tblib",                                                                      # Picklable tracebacks for worker exceptions across processes
     "tomlkit",                                                                    # Round-trip TOML with comments and layout kept
-    "wasmtime",                                                                   # In-process WASM guest sandbox for sandboxed workers
+    "wasmtime",                                                                   # In-process WASM guest sandbox for workers
     "watchfiles",                                                                 # File-change watching over Rust notify backend
     "xxhash",                                                                     # Content identity hashes matching C# System.IO.Hashing
 
@@ -96,7 +96,7 @@ workspace = [
     "asyncssh",                                                                   # SSH and SFTP client for remote workers
     "brotli",                                                                     # Brotli compression
     "cloudevents",                                                                # CloudEvents attribute validation and protocol bindings
-    "confluent-kafka[avro,json,protobuf,schemaregistry]",                         # Kafka client over librdkafka with Schema Registry serdes, built from sdist against Pixi's librdkafka with no cp315 wheel
+    "confluent-kafka[avro,json,protobuf,schemaregistry]",                         # Kafka client with Schema Registry serdes, built from sdist on Pixi's librdkafka where no cp315 wheel exists
     "connectrpc",                                                                 # Connect, gRPC, and gRPC-Web ASGI services and typed clients
     "detools",                                                                    # Binary-delta engine
     "fastavro",                                                                   # Avro codec and .avsc validation
@@ -131,7 +131,7 @@ workspace = [
     "findiff",                                                                    # Finite-difference operators for solvers and sensitivity
     "gmsh; sys_platform != 'linux' or platform_machine != 'aarch64'",             # Unstructured meshes with physical groups for scikit-fem and meshio, no linux aarch64 wheel or sdist
     "highspy",                                                                    # HiGHS LP, MIP, and QP solver, a cvxpy backend
-    "jax",                                                                        # XLA accelerator
+    "jax",                                                                        # Autodiff and XLA-compiled array programs
     "jaxtyping",                                                                  # Array and PyTree shape and dtype contracts that import no jax
     "lineax",                                                                     # JAX linear solvers
     "mpmath",                                                                     # Arbitrary-precision real and complex math
@@ -177,7 +177,7 @@ workspace = [
     "substrait[extensions]",                                                      # Typed Substrait plan IR with extension registry and validator
 
     # --- [ARROW_LAKEHOUSE]
-    "adbc-driver-flightsql",                                                      # Arrow Flight SQL distributed remote driver
+    "adbc-driver-flightsql",                                                      # Arrow Flight SQL remote driver
     "adbc-driver-manager",                                                        # ADBC driver manager for Arrow Flight SQL and DuckDB
     "adbc-driver-postgresql",                                                     # PostgreSQL driver for COPY ingest and partitioned Arrow reads
     "adbc-driver-snowflake",                                                      # Snowflake driver for federation, chunked reads, and bulk ingest
@@ -187,7 +187,7 @@ workspace = [
     "arro3-io",                                                                   # Arrow IPC, Parquet, CSV, JSON, and NDJSON IO without pyarrow
     "deltalake",                                                                  # Lakehouse tables
     "nanoarrow",                                                                  # Arrow C Data Interface interop
-    "pyarrow",                                                                    # Arrow C++ bridge on Pixi's Arrow series, daft caps it below 26, the first cp315 wheel release
+    "pyarrow",                                                                    # Arrow C++ bridge built on Pixi's Arrow series under daft's <26 cap, which predates cp315 wheels
     "pyiceberg",                                                                  # Apache Iceberg tables
     "pylance",                                                                    # Lance columnar/vector format
 
@@ -336,7 +336,7 @@ workspace = [
     "schemdraw",                                                                  # Native-SVG schematic diagrams
     "skia-pathops",                                                               # Vector booleans, offsets, and stroke outlines
     "svgelements",                                                                # SVG geometry, transform, and parse helpers
-    "ziafont",                                                                    # Font glyph text-to-SVG-path
+    "ziafont",                                                                    # Text to SVG glyph paths
     "ziamath",                                                                    # Math-to-SVG rendering
 
     # --- [CODES_METADATA]
@@ -346,7 +346,7 @@ workspace = [
     "python-barcode",                                                             # Linear barcode generation beside Segno
     "python-magic",                                                               # libmagic fallback for signatures puremagic lacks
     "segno",                                                                      # QR and Micro-QR vector codes
-    "zxing-cpp",                                                                  # 2D matrix codes encode and decode
+    "zxing-cpp",                                                                  # 2D matrix code encode and decode
 ]
 dev       = [
     # --- [CHECKERS]
@@ -354,13 +354,13 @@ dev       = [
     "mypy",                                                                       # Type checker rasm:typecheck runs
     "pydantic",                                                                   # Model strategies in test support and pydantic.mypy plugin
     "refurb",                                                                     # Modernization checker over a mypy build rasm:lint runs
-    "ruff",                                                                       # Linter and formatter rasm:lint and rasm:format run, import graph the Nx plugin reads for Python project edges
+    "ruff",                                                                       # Linter, formatter, and import graph source of Nx Python project edges
     "ty",                                                                         # Type checker rasm:typecheck runs
     "yamllint",                                                                   # YAML linter rasm:lint runs
 
     # --- [TESTING]
     "anyio",                                                                      # Structured concurrency in tools, a required pytest plugin
-    "coverage",                                                                   # Coverage engine pytest-cov drives, configured by [tool.coverage]
+    "coverage",                                                                   # Coverage engine pytest-cov drives
     "hypothesis",                                                                 # Property-based tests, a required pytest plugin
     "opentelemetry-api",                                                          # Tracer access in test runtime plugin
     "opentelemetry-sdk",                                                          # Tracer provider and span processor in test runtime plugin
@@ -393,23 +393,23 @@ dev       = [
     "wcwidth",                                                                    # Display width of text with wide, combining, and emoji characters
 
     # --- [STUBS]
-    "brotli-stubs",                                                               # Stubs for brotli
+    "brotli-stubs",
     "fake-bpy-module-latest",                                                     # Stubs for bpy, bmesh, mathutils, and gpu
-    "pandas-stubs",                                                               # Stubs for pandas
-    "scipy-stubs",                                                                # Stubs for scipy
-    "types-atomicwrites",                                                         # Stubs for atomicwrites
-    "types-geopandas",                                                            # Stubs for geopandas
-    "types-lxml",                                                                 # Stubs for lxml
-    "types-networkx",                                                             # Stubs for networkx
+    "pandas-stubs",
+    "scipy-stubs",
+    "types-atomicwrites",
+    "types-geopandas",
+    "types-lxml",
+    "types-networkx",
     "types-opencolorio",                                                          # Stubs for PyOpenColorIO
-    "types-openpyxl",                                                             # Stubs for openpyxl
-    "types-protobuf",                                                             # Stubs for protobuf
-    "types-psutil",                                                               # Stubs for psutil
-    "types-pygments",                                                             # Stubs for pygments
-    "types-pyphen",                                                               # Stubs for pyphen
-    "types-regex",                                                                # Stubs for regex
-    "types-reportlab",                                                            # Stubs for reportlab
-    "types-shapely",                                                              # Stubs for shapely
+    "types-openpyxl",
+    "types-protobuf",
+    "types-psutil",
+    "types-pygments",
+    "types-pyphen",
+    "types-regex",
+    "types-reportlab",
+    "types-shapely",
 ]
 
 # --- [UV] -------------------------------------------------------------------------------
@@ -513,14 +513,14 @@ ignore                    = [
     "raw-string-in-exception",                                                                                                                                                                                       # Moves the message into a local the raise alone reads
     "f-string-in-exception",                                                                                                                                                                                         # Moves the message into a local the raise alone reads
     "raise-vanilla-args",                                                                                                                                                                                            # Pushes an exception class per message, raises stay for defects
-    "typing-only-first-party-import",                                                                                                                                                                                # Fixes add `lazy` to modules every run loads and move multi-name imports into `TYPE_CHECKING` blocks, which raise `NameError` where cyclopts `App.command` reads annotations
-    "typing-only-third-party-import",                                                                                                                                                                                # Fixes add `lazy` to modules every run loads and move multi-name imports into `TYPE_CHECKING` blocks, which raise `NameError` where cyclopts `App.command` reads annotations
-    "typing-only-standard-library-import",                                                                                                                                                                           # Fixes add `lazy` to modules every run loads and move multi-name imports into `TYPE_CHECKING` blocks, which raise `NameError` where cyclopts `App.command` reads annotations
+    "typing-only-first-party-import",                                                                                                                                                                                # Fixes mark always-loaded modules `lazy`, and multi-name imports moved to `TYPE_CHECKING` raise `NameError` in cyclopts `App.command`
+    "typing-only-third-party-import",                                                                                                                                                                                # Fixes mark always-loaded modules `lazy`, and multi-name imports moved to `TYPE_CHECKING` raise `NameError` in cyclopts `App.command`
+    "typing-only-standard-library-import",                                                                                                                                                                           # Fixes mark always-loaded modules `lazy`, and multi-name imports moved to `TYPE_CHECKING` raise `NameError` in cyclopts `App.command`
     "suspicious-subprocess-import",                                                                                                                                                                                  # Reports every `subprocess` import, process boundaries call it
     "implicit-namespace-package",                                                                                                                                                                                    # Import roots under backend `module-root` are namespace packages
-    "missing-copyright-notice",                                                                                                                                                                                      # Files carry no license header
+    "missing-copyright-notice",                                                                                                                                                                                      # Files hold no license header
     "commented-out-code",                                                                                                                                                                                            # Reads `# --- [<FAMILY>]` subsection dividers as code
-    "float-equality-comparison",                                                                                                                                                                                     # Compares authored controls with their exact identity value (`0.0`, `1.0`) and guards division by exact zero
+    "float-equality-comparison",                                                                                                                                                                                     # Code compares authored controls with exact identity values (`0.0`, `1.0`) and guards division by exact zero
     "non-pep695-generic-class",                                                                                                                                                                                      # ty reads frozen `msgspec.Struct` fields as invariant, covariant records keep `TypeVar` variance
     "zip-without-explicit-strict",                                                                                                                                                                                   # `strict=True` asserts lengths the code constructs
     "batched-without-explicit-strict",                                                                                                                                                                               # `strict=True` asserts lengths the code constructs
@@ -563,8 +563,8 @@ pylint                    = { allow-magic-value-types = ["str", "bytes", "int"],
 [tool.ruff.lint.per-file-ignores]
 "tests/**"                                      = ["assert"]
 "{libs/python/blender,apps/blender}/**"         = [
-    "boolean-positional-value-in-call",                                                     # bpy, gpu, and RNA writes take booleans as values (`path_resolve(path, False)`, `gpu.state.scissor_test_set(True)`, `written(owner, "value", True)`), as do `Ok(True)` and `default_value(False)`
-    "import-private-name",                                                                  # Blender supplies `_bpy_internal` and `_blendfile_header`, and Windows `_winapi`, with no public module
+    "boolean-positional-value-in-call",                                                     # bpy, gpu, RNA writes, and `Ok` take booleans as values (`gpu.state.scissor_test_set(True)`, `Ok(True)`)
+    "import-private-name",                                                                  # Blender (`_bpy_internal`, `_blendfile_header`) and Windows (`_winapi`) supply private modules with no public form
     "no-self-use",                                                                          # Structural `Row`, `Part`, and `Effect` protocol methods read no `self`, and `@override` rejects a method with no base class
 ]
 "apps/blender/**"                               = ["non-empty-init-module"]                 # Extension `__init__.py` composes the `register` and `unregister` entry points Blender imports
@@ -715,9 +715,9 @@ disable    = [
     "FURB104",                # Ruff PTH109 reports the form
     "FURB105",                # Ruff runs FURB105
     "FURB106",                # `expandtabs` differs from the replacement unless tabs lead the string
-    "FURB107",                # Rewrites to `contextlib.suppress`, which `banned-api` rejects, Ruff SIM105 and S110 report the swallowed exception
+    "FURB107",                # Rewrites to `contextlib.suppress` `banned-api` rejects, Ruff SIM105 and S110 report swallowed exceptions
     "FURB108",                # Ruff PLR1714 reports the form
-    "FURB109",                # Rewrites to a tuple membership, which Ruff PLR6201 rejects
+    "FURB109",                # Rewrites to a tuple membership Ruff PLR6201 rejects
     "FURB110",                # Ruff runs FURB110
     "FURB111",                # Ruff PLW0108 reports the form
     "FURB112",                # Ruff C408 reports the form
@@ -728,7 +728,7 @@ disable    = [
     "FURB119",                # Ruff RUF010 reports the form
     "FURB120",                # Crashes on argument lists the mypy cache drops (`'FuncItem' arguments undefined`), RASM102 reports same-module restated defaults
     "FURB121",                # Ruff SIM101 reports the form
-    "FURB124",                # Chaining `x is y is z` compares the outer operands, which mypy comparison-overlap rejects when their types differ
+    "FURB124",                # Chained `x is y is z` compares outer operands mypy comparison-overlap rejects when types differ
     "FURB125",                # Ruff PLR1711 reports the form
     "FURB126",                # Dropping a trailing `case _` arm fails mypy exhaustive-match
     "FURB128",                # Ruff PLR1712 reports the form
@@ -742,7 +742,7 @@ disable    = [
     "FURB141",                # Ruff PTH110 reports the form
     "FURB144",                # Ruff PTH107 and PTH108 report the form
     "FURB146",                # Ruff PTH112, PTH113, PTH114, and PTH117 report the form
-    "FURB147",                # Ruff PTH118 reports the form, the check also rejects `posixpath.join` on archive and URL paths
+    "FURB147",                # Ruff PTH118 reports the form, and the check rejects `posixpath.join` on archive and URL paths
     "FURB150",                # Ruff PTH102 and PTH103 report the form
     "FURB151",                # `Path.touch` keeps an existing file's content, the replaced `open` truncates it
     "FURB152",                # Ruff runs FURB152
@@ -765,7 +765,7 @@ disable    = [
     "FURB173",                # Merged literal `{...} | d` infers its own value type, failing the target parameter's type under mypy
     "FURB176",                # Ruff DTZ003 and DTZ004 report the form
     "FURB177",                # Ruff runs FURB177
-    "FURB179",                # Rewrites to `chain.from_iterable`, joining heterogeneous tuple elements to `object`, ast-grep `no-unpacked-chain-argument` and `no-chain-flattening` report hand flattening
+    "FURB179",                # `chain.from_iterable` rewrite joins heterogeneous tuple elements to `object`, ast-grep `no-unpacked-chain-argument` and `no-chain-flattening` report hand flattening
     "FURB180",                # Ruff runs FURB180
     "FURB184",                # Matches names with no type or binding check, chaining drops annotations and reused bindings
     "FURB188",                # Ruff runs FURB188
@@ -853,4 +853,4 @@ array-values-order.enabled = false
 root    = "profile.*"
 path    = "tombi://www.schemastore.org/cargo.json#/definitions/Profile"
 include = ["Cargo.toml"]
-strict  = false                                                         # Schema lacks the `trim-paths` key that `[profile.dist]` sets
+strict  = false                                                         # Schema lacks `trim-paths` key `[profile.dist]` sets

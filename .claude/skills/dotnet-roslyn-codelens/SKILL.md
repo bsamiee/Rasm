@@ -1,6 +1,6 @@
 ---
 name: dotnet-roslyn-codelens
-description: "Use when reading, diagnosing, or refactoring C# through Roslyn, covering tool choice, trust, change workflow, envelopes, and errors."
+description: "Use when reading, diagnosing, or refactoring C# through Roslyn, covering tool choice, trust, envelopes, and errors."
 ---
 
 # [DOTNET_ROSLYN_CODELENS]
@@ -325,25 +325,7 @@ Solutions named on the server's command line load with the first one active. Wit
 - `mcp__roslyn-codelens__get_task_status` — the status, result, or error of one background task
 - `mcp__roslyn-codelens__list_running_tasks` — background tasks running or finished within the last 5 minutes
 
-## [04]-[CHANGE_WORKFLOW]
-
-1. `mcp__roslyn-codelens__get_type_overview` — context, hierarchy, and diagnostics
-2. `mcp__roslyn-codelens__analyze_change_impact` — every file, project, and call site the change affects
-3. `mcp__roslyn-codelens__find_references` — every reference by kind
-4. `mcp__roslyn-codelens__find_callers` — every call site
-5. `mcp__roslyn-codelens__find_implementations` — every implementor and derived type
-6. `mcp__roslyn-codelens__get_project_dependencies` — the position of the project in the reference graph
-7. `mcp__roslyn-codelens__get_di_registrations` — container registrations and lifetimes
-8. `mcp__roslyn-codelens__find_reflection_usage` — coupling that no reference reports
-9. `mcp__roslyn-codelens__find_attribute_usages` — attribute-driven behavior
-10. `mcp__roslyn-codelens__get_diagnostics` — existing errors and warnings
-11. `mcp__roslyn-codelens__get_code_fixes` / `mcp__roslyn-codelens__get_code_actions` — code fixes and refactorings
-12. `mcp__roslyn-codelens__apply_code_action` — the chosen fix or refactoring
-13. `mcp__roslyn-codelens__find_unused_symbols` with `includeInternal=true` — unreferenced internal code to delete, public API without consumers stays
-
-Name concrete types, interfaces, and call sites: "`<Interface>` implementations: `<TypeA>`, `<TypeB>`".
-
-## [05]-[RESPONSE_ENVELOPE]
+## [04]-[RESPONSE_ENVELOPE]
 
 Every list-returning tool wraps its results in one envelope:
 
@@ -376,7 +358,7 @@ Tools that add a `summary` aggregate:
 - `mcp__roslyn-codelens__get_complexity_metrics` — `{ max, avg, overThreshold, maxCognitive }`
     - `max`, `avg`, and `overThreshold` describe the selected `metric`, `maxCognitive` is always the cognitive number
 
-## [06]-[ERROR_CODES]
+## [05]-[ERROR_CODES]
 
 When a tool cannot proceed, the response has `isError: true` and a JSON body of `{ code, message, details? }`. Switch on `code`:
 

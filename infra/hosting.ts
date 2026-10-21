@@ -5,7 +5,7 @@ import { Container, type ContainerArgs, getRegistryImageOutput, Network, RemoteI
 import { Image } from '@pulumi/docker-build';
 import { IamPolicy, IamUser, IamUserPolicyAttachment, Provider, S3Bucket } from '@pulumi/minio';
 import { Extension, Grant, Provider as PostgresProvider, Schema as PostgresSchema, type ProviderArgs, Role, type RoleArgs } from '@pulumi/postgresql';
-import { type CustomResourceOptions, type Input, interpolate, jsonStringify, output, secret } from '@pulumi/pulumi';
+import { type CustomResourceOptions, type Input, interpolate, jsonStringify, secret } from '@pulumi/pulumi';
 import { RandomInteger, RandomPassword } from '@pulumi/random';
 import { Bindings, migrator } from '@rasm/hosting/bindings.ts';
 import { contract } from '@rasm/hosting/sites.ts';
@@ -211,60 +211,43 @@ const targets = {
             volumes: [volume(`${name}-identity`, '/var/lib/authelia')],
             wait: true,
         });
-        const authority = interpolate`${identity.name}:9091`;
-        const authenticate = {
-            handler: 'reverse_proxy',
-            upstreams: [{ dial: authority }],
-            rewrite: { method: 'GET', uri: '/api/authz/forward-auth' },
-            headers: { request: { set: { 'X-Forwarded-Method': ['{http.request.method}'], 'X-Forwarded-Uri': ['{http.request.uri}'] } } },
-            handle_response: [
-                {
-                    match: { status_code: [2] },
-                    routes: [
-                        { handle: [{ handler: 'headers', request: { delete: Object.values(contract.headers) } }] },
-                        ...Record.toEntries({ 'Remote-User': contract.headers.id, 'Remote-Email': contract.headers.email }).map(([answer, header]) => ({
-                            match: [{ not: [{ vars: { [`{http.reverse_proxy.header.${answer}}`]: [''] } }] }],
-                            handle: [{ handler: 'headers', request: { set: { [header]: [`{http.reverse_proxy.header.${answer}}`] } } }],
-                        })),
-                    ],
-                },
+        const authelia = { handler: 'reverse_proxy', upstreams: [{ dial: interpolate`${identity.name}:9091` }] };
+        const copies = Record.toEntries(Record.mapKeys({ 'Remote-User': contract.headers.id, 'Remote-Email': contract.headers.email }, (answer) => `{http.reverse_proxy.header.${answer}}`)).map(([answer, header]) => ({
+            match: [{ vars_regexp: { [answer]: { pattern: '.' } } }],
+            handle: [{ handler: 'headers', request: { set: { [header]: [answer] } } }],
+        }));
+        const redirects = Record.toEntries({
+            signin: { source: `{http.request.uri.query.${contract.returnTo}}`, input_regexp: '^(/.*)$', location: 'https://{http.request.host}{target}' },
+            signout: { source: '{http.request.uri.query}', input_regexp: `(?:^|&)${contract.returnTo}=((?:/|%2[Ff])[^&]*)`, location: 'https://auth.{http.request.host}/logout?rd=https://{http.request.host}{target}' },
+        }).map(([action, { source, input_regexp, location }]) => ({
+            match: [{ path: [contract.paths[action]] }],
+            handle: [
+                { handler: 'map', source, destinations: ['{target}'], mappings: [{ input_regexp, outputs: ['$1'] }], defaults: ['/'] },
+                { handler: 'static_response', status_code: 302, headers: { Location: [location] } },
             ],
-        };
+        }));
+        const routes = [
+            { match: [{ host: sites.map((site) => `auth.${site}`) }], handle: [authelia] },
+            {
+                match: [{ host: sites }],
+                handle: [
+                    {
+                        ...authelia,
+                        rewrite: { method: 'GET', uri: '/api/authz/forward-auth' },
+                        headers: { request: { set: { 'X-Forwarded-Method': ['{http.request.method}'], 'X-Forwarded-Uri': ['{http.request.uri}'] } } },
+                        handle_response: [{ match: { status_code: [2] }, routes: [{ handle: [{ handler: 'headers', request: { delete: Object.values(contract.headers) } }] }, ...copies] }],
+                    },
+                    { handler: 'subroute', routes: redirects },
+                    { handler: 'reverse_proxy', upstreams: [{ dial: interpolate`${app.name}:${port}` }] },
+                ],
+            },
+        ];
+        const config = { file: '/etc/caddy/caddy.json', content: jsonStringify({ admin: { disabled: true }, apps: { http: { servers: { [name]: { listen: [':443'], routes } } } } }) };
         const proxy = container(`${name}-proxy`, pull(`${name}-proxy`, 'caddy:latest'), {
-            command: ['caddy', 'run', '--config', '/etc/caddy/caddy.json'],
-            uploads: [
-                {
-                    file: '/etc/caddy/caddy.json',
-                    content: output({
-                        admin: { disabled: true },
-                        apps: {
-                            http: {
-                                servers: {
-                                    [name]: {
-                                        listen: [':443'],
-                                        routes: [
-                                            { handle: [{ handler: 'map', source: `{http.request.uri.query.${contract.returnTo}}`, destinations: ['{target}'], mappings: [{ input_regexp: '^(/.*)$', outputs: ['$1'] }], defaults: ['/'] }] },
-                                            ...sites.flatMap((site) => [
-                                                { match: [{ host: [`auth.${site}`] }], handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: authority }] }] },
-                                                { match: [{ host: [site] }], handle: [authenticate] },
-                                                { match: [{ host: [site], path: [contract.paths.signin] }], handle: [{ handler: 'static_response', status_code: 302, headers: { Location: [`https://${site}{target}`] } }] },
-                                                { match: [{ host: [site], path: [contract.paths.signout] }], handle: [{ handler: 'static_response', status_code: 302, headers: { Location: [`https://auth.${site}/logout?rd=https://${site}{target}`] } }] },
-                                                { match: [{ host: [site] }], handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: interpolate`${app.name}:${port}` }] }] },
-                                            ]),
-                                        ],
-                                    },
-                                },
-                            },
-                        },
-                    }).apply(JSON.stringify),
-                },
-            ],
+            command: ['caddy', 'run', '--config', config.file],
+            uploads: [config],
             volumes: [volume(`${name}-proxy`, '/data')],
-            ports: [
-                { internal: 80, external: 80 },
-                { internal: 443, external: 443 },
-                { internal: 443, external: 443, protocol: 'udp' },
-            ],
+            ports: [{ internal: 80 }, { internal: 443 }, { internal: 443, protocol: 'udp' }].map((published) => ({ ...published, external: published.internal })),
         });
         return { urls: sites.map((site) => `https://${site}`), proxy: proxy.name, ownerPassword: owner.result };
     }),

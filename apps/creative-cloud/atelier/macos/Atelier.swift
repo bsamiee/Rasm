@@ -127,7 +127,7 @@ enum Request: Decodable {
                     return try await .value(Adobe.running(pid).get().instance.status().get())
                 case .press(let pid, let element, let actions):
                     let instance: NSRunningApplication = try Adobe.running(pid).get().instance
-                    for action: ElementAction in actions { try await instance.perform(action, on: element).get() }
+                    for action: ElementAction in actions { try await instance.perform(action, on: .element(element)).get() }
                     return .value(nil)
                 case .terms(let url):
                     return try await .value(definitions.dictionary(of: Adobe.installation(at: url).get(), within: timeout).get())
@@ -206,6 +206,8 @@ enum Adobe {
         "com.adobe.illustrator": [
             ("misckCPk", .always, .interface),
             ("ART5kLWC", .always, .interface),
+            ("miscDjxM", .parameter("JXMd", .among(["a942", "e941"])), .interface),
+            ("miscdosc", .parameter("DLOG", .among([nil, "true"])), .interface),
             ("aevtodoc", .parameter("DLOG", .among([nil, "true"])), .interface),
             ("coresetd", .property("pUIL", of: nil, .except("e45a")), .interface),
         ],

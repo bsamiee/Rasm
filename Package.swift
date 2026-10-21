@@ -27,7 +27,11 @@ let modules: [Target] = [
     .target(name: "Fonts", dependencies: ["Results"], path: "libs/swift/macos/Fonts"),
     .target(name: "Processes", dependencies: ["Results", .product(name: "Subprocess", package: "swift-subprocess")], path: "libs/swift/macos/Processes"),
     .target(name: "Keychain", dependencies: ["Encoding", "Processes", "Results", .product(name: "Subprocess", package: "swift-subprocess")], path: "libs/swift/macos/Keychain"),
-    .target(name: "Applications", dependencies: ["Encoding", "Files", "Results"], path: "libs/swift/macos/Applications"),
+    .target(
+        name: "Applications",
+        dependencies: ["Encoding", "Files", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "Subprocess", package: "swift-subprocess")],
+        path: "libs/swift/macos/Applications",
+    ),
     .target(name: "AppleEvents", dependencies: ["Applications", "Encoding", "Results"], path: "libs/swift/macos/AppleEvents"),
     .target(name: "JSONRPC", dependencies: ["Encoding", "Results"], path: "libs/swift/rpc/JSONRPC"),
     .target(name: "EffectRPC", dependencies: ["CurrentProcess", "Encoding", "Results"], path: "libs/swift/rpc/EffectRPC"),
@@ -42,12 +46,17 @@ let package: Package = Package(
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.8.2"),
         .package(url: "https://github.com/apple/swift-async-algorithms", from: "1.1.7"),
+        .package(url: "https://github.com/apple/swift-collections", from: "1.7.3"),
         .package(url: "https://github.com/swiftlang/swift-subprocess", from: "1.0.2"),
     ],
     targets: modules + [
         .executableTarget(
             name: "watch-apps",
-            dependencies: ["Applications", "Encoding", "Files", "Results", .product(name: "ArgumentParser", package: "swift-argument-parser")],
+            dependencies: [
+                "Applications", "Encoding", "Files", "Results", .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"), .product(name: "OrderedCollections", package: "swift-collections"),
+                .product(name: "Subprocess", package: "swift-subprocess"),
+            ],
             path: "tools/watch-apps",
         )
     ],

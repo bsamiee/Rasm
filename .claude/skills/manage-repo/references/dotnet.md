@@ -9,7 +9,6 @@ MSBuild directory files and central package versions own every shared .NET decla
 - Version edits splice attribute text in place, `XmlDocument` or `ProjectRootElement` saves collapse row alignment
 - Newest release is the highest listed framework-compatible release by `NuGetVersion` across base versions, a stable release above its prereleases
 - Prereleases of one base version rank by `NuGetVersion` where the first differing label is numeric on both sides, else by feed publish time
-- Compatibility reads registration dependency groups, a release declaring no framework-specific group downloads its package to read assets
 - Package metadata and downloads read NuGet's HTTP cache under its default age
 - Rows move down when their current version is unlisted or incompatible with the repository target framework
 - `global.json` `sdk.version` moves by hand to the newest `mise ls-remote dotnet` entry
@@ -45,13 +44,11 @@ C# file-based apps inherit `Directory.Build.*`, central package versions, and `.
 ## [05]-[ANALYZERS]
 
 Roslyn analyzers sit in `tools/roslyn/Rasm.Analyzers`, code fixes in `tools/roslyn/Rasm.Analyzers.CodeFixes`:
-- `nx run-many -t build -p 'directory:tools/roslyn/**'` runs in the persistent checkout before editors open or daemons start
-- Rebuilt analyzers load after VS Code's `.NET: Restart Language Server` and `mise daemons restart roslyn-codelens`
 - Analyzer projects target `netstandard2.0`, authoring packages match the Roslyn API every consuming host loads
 - Analyzer projects take no workspace language packages, project usings, or transitive pinning, holding Roslyn's dependency floor for every host
 - Rules resolve package types through `Compilation.GetTypeByMetadataName` over consumer references, analyzer projects reference no checked package
 - Shared references add analyzer outputs while retaining existing ordinary compile references
-- Semantic formatting targets schedule analyzer builds, direct `dotnet format --no-restore` callers build them first
+- Semantic formatting targets schedule analyzer builds
 - Analyzer references undefine `RhinoPlugIn` and `ArtifactsPivots`, plug-in library copies share one analyzer build
 - Code fix providers and `Microsoft.CodeAnalysis.CSharp.Workspaces` stay in the code fix project, RS1038 rejects Workspaces beside analyzer types
 - New rules join `Rasm.Analyzers.Tests` as a `Samples/<RULE>/` folder of `.txt` samples with `{|ID:...|}` markup and no harness edit

@@ -3,4 +3,4 @@
 test:
     runner: nextest
     disable_nextest_doctest: true # Binary-only packages hold no library target, `cargo test --doc` after a nextest run fails on them
-    unreferenced: reject # Snapshot files no assertion reads fail `cargo insta test`, removals delete every mention
+    unreferenced: reject # Snapshot files no assertion reads fail `cargo insta test`

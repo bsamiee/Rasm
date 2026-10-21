@@ -95,15 +95,12 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 ## [08]-[UPGRADES]
 
 - `cargo upgrade` from cargo-edit moves each catalog row to its newest release, breaking releases included, Cargo itself moves no requirement
-- `cargo update` follows every catalog move
 - `channel` and `clippy_utils.rev` move by hand, Dylint's driver reads `sym.rs` at the first rust-clippy `Rustup` merge holding the channel
 - `clippy_utils.rev` is the newest first-parent rust-clippy commit before the next `sym.rs` change, a later one fails `lints` UI tests
 - `cargo dylint upgrade` takes the first commit of the newest `clippy_utils` version and refuses a nightly older than the declared one
 - `cargo dylint upgrade --rust-version` reads stable `rust-<version>` tags alone
 - `mise upgrade` installs the declared channel with its profile and components through rustup, and the matching `http:rustc-source`
-- Nightly or Clippy revision moves require unchanged UI fixtures and strict Clippy to pass
 - Prereleases join by hand through a catalog row naming one, `cargo upgrade` then moves that row to newer releases and prereleases
-- Edition moves run `cargo fix --edition`, then set `[workspace.package]` and `rustfmt.toml` `edition` together
 
 ## [09]-[LINT_LIBRARIES]
 

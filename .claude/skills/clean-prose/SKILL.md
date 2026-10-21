@@ -12,7 +12,7 @@ Governs every English text in a project (markdown, comments, messages, identifie
 - [02]-[REWRITES](references/rewrites.md): Before and after pairs for structural moves, with rewrites that look right and fail
 
 [SCRIPTS]:
-- [01]-[PROSE](scripts/prose.py): Additive auto-fix and report pass
+- [01]-[PROSE](scripts/prose.py): House style check and fix over markdown, dividers, and comments
 
 ## [01]-[TERMINOLOGY]
 
@@ -215,3 +215,10 @@ Rewrite of an existing file:
 8. Report bytes before and after, renames, coined terms removed, couplings left in place, facts added, corrected, or kept in longer form
 
 New text follows the same rules from its first draft. Every run reads `references/word-map.md` and `references/rewrites.md` whole before its first edit.
+
+`check` reports findings in named files and folders, `fix` writes fixable ones and reports the rest:
+
+```bash
+uv run python ${CLAUDE_SKILL_DIR}/scripts/prose.py check <path>...
+uv run python ${CLAUDE_SKILL_DIR}/scripts/prose.py fix <path>...
+```

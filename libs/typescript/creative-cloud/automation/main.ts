@@ -10,8 +10,15 @@ import { Socket } from 'effect/socket';
 const Pid = Schema.Int.annotate({ description: 'Process of a running instance' });
 const WindowID = Schema.Finite.check(Schema.isUint32()).annotate({ description: 'CoreGraphics window number of a window, dialog, sheet, or menu; status, press, and screenshot share it' });
 const ElementAction = Schema.Union([
-    Schema.String.annotate({ description: 'Action the element lists: an enabled control label, AXCloseButton, AXCancelButton, or AXDefaultButton for a window button, AXCancel for a menu' }),
-    Schema.Struct({ field: Schema.String.annotate({ description: 'Label of a control the element lists' }), value: Schema.String.annotate({ description: 'Text the control receives' }) }),
+    Schema.Struct({
+        press: Schema.Struct({
+            label: Schema.String.annotate({ description: 'Action the element lists, or the item under reaches' }),
+            under: Schema.Array(Schema.String)
+                .annotate({ description: 'Labels leading to label, outermost first: the first an action the element lists, each next a child of the one before' })
+                .pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+        }),
+    }),
+    Schema.Struct({ set: Schema.Struct({ field: Schema.String.annotate({ description: 'Label of a control the element lists' }), value: Schema.String.annotate({ description: 'Text the control receives' }) }) }),
 ]);
 const Status = Schema.TaggedUnion({
     responding: {

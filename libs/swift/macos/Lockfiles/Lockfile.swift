@@ -55,7 +55,7 @@ public struct Lockfile: Equatable, Sendable {
         guard case .held = error, case .success = released, let delay: Duration = blocked.retries.first else { throw Failure.lock(error).releasing(released) }
         try await race {
             await FileWatch.events(of: blocked.url).first { next in if case .failure = next { true } else { !FileManager.default.fileExists(atPath: blocked.url.path(percentEncoded: false)) } }
-                .map { next in next.mapError { error in Failure.lock(.filesystem(error)) } } ?? .failure(.deadline(.cancelled))
+                .map { next in next.map { _ in }.mapError { error in Failure.lock(.filesystem(error)) } } ?? .failure(.deadline(.cancelled))
         } against: {
             await Result { try await Task.sleep(for: delay) }.mapError { _ in Failure.deadline(.cancelled) }
         }

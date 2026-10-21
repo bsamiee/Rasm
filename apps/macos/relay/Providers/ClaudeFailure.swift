@@ -61,7 +61,7 @@ nonisolated struct ClaudeErrorBody: Decodable, Sendable {
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-nonisolated enum ClaudeFailure: ProviderFailure, LockFailure {
+nonisolated enum ClaudeFailure: DeadlineFailure, ProviderFailure, LockFailure {
     case executableMissing
     case signInRequired
     case accountOnHold(URL)

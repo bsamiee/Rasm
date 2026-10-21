@@ -14,6 +14,9 @@ Covers MCP-driven GUI sessions, background runs, extension installs, logs, and e
 - [04]-[PARAMETRIC](references/parametric.md): Sverchok trees, formula nodes, tree code, VI-Suite analyses, topology optimization, and pin solves
 - [05]-[INTERCHANGE](references/interchange.md): Rhino, STEP, DXF, 3ds Max, mesh, and SVG imports, Rhino exports, and attribute tables
 
+[SCRIPTS]:
+- [01]-[EVALUATE](scripts/evaluate.py): Isolated Blender runs on factory settings with repository modules
+
 ## [01]-[TOOL_INDEX]
 
 Server `blender` reaches the GUI through extension `bl_ext.blender_lab.mcp` on port 9877, and server `mcp-for-blender` through add-on `blender_mcp` on port 9876. Table lists every tool a session calls:

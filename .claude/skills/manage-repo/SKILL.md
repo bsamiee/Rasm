@@ -16,8 +16,9 @@ Rules for adding the next project, tool, plugin, or harness row, current state a
 - [06]-[SWIFT](references/swift.md): Package, SwiftPM, project files, settings, compiler, locks, swift-format, SwiftLint, Periphery, language server
 - [07]-[JAVA](references/java.md): Formatter form, PMD ruleset and release tags, clone detection, language server
 - [08]-[RUST](references/rust.md): Workspace root, toolchain, catalog, lints, builds, members, checkers, upgrades, lint libraries, modules
-- [09]-[INFRA](references/infra.md): Automation API, resource rows and options, workflow syntax decisions
-- [10]-[PLUGINS](references/plugins.md): Plugin folder layout, Claude Code and Codex loading, MCP server rows, converting components
+
+[SCRIPTS]:
+- [01]-[MAINTAIN](scripts/maintain.sh): Upgrade tools, packages, daemons, and editor environment
 
 ## [01]-[PLACEMENT]
 
