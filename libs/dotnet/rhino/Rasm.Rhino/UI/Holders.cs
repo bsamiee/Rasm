@@ -194,7 +194,7 @@ internal sealed class HeaderButtons(Seq<HeaderButton> buttons, IPlugInSink sink,
                     return header.ButtonDetails(index, ref bitmap, ref toolTip) ? Some((Bitmap: bitmap, ToolTip: toolTip)) : None;
                 }).Bind(found => found.Traverse(value => DisposalOps.Acquire(IO.lift(value.Bitmap.ToEto), owned)
                     .Map(bitmap => (Image: bitmap, value.ToolTip))).As()));
-        return header is HeaderButtons authored ? authored.Realize(retain) : Monad.recur<IO, Seq<ButtonDrawable>, Seq<ButtonDrawable>>(Seq<ButtonDrawable>(), controls =>
+        return header is HeaderButtons authored ? authored.Realize(retain) : Monad.recur(Seq<ButtonDrawable>(), controls =>
             from images in IO.lift(static () => new Retained<IDisposable>(DisposalOps.Release))
             from initial in DisposalOps.Acquire(
                 owned => IconSlot.SectionHeader.Size().Bind(size => read(controls.Count, new(size, size), owned)),

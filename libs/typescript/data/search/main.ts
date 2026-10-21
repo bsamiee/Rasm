@@ -4,6 +4,7 @@ import { Array, Effect, flow, Option, Predicate, Schema } from 'effect';
 // --- [ERRORS] --------------------------------------------------------------------------
 
 class Unmatched extends Schema.TaggedError<Unmatched, { readonly brand: unique symbol }>()('Unmatched', { subject: Schema.String, query: Schema.OptionFromOptionalKey(Schema.String), candidates: Schema.Array(Schema.String) }) {
+    static readonly Refusal = Schema.Union([Unmatched, Schema.ErrorInstance()]);
     static readonly matching =
         (subject: string, query: Option.Option<string>) =>
         <A>(candidates: readonly A[], names: (candidate: A) => readonly string[]): Effect.Effect<readonly A[], Unmatched> => {

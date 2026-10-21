@@ -47,6 +47,12 @@ utils:
         any:
             - inside: {stopBy: end, matches: scope, has: {stopBy: end, kind: 'property_declaration, parameter', regex: '\bSubstring\b', has: {stopBy: end, kind: simple_identifier, pattern: $R}}}
             - inside: {stopBy: end, matches: string-extension, has: {field: name, regex: 'Substring$'}}
+    data-needle:
+        kind: value_argument
+        all:
+            - matches: needle
+            - has: {field: value, kind: simple_identifier, pattern: $N}
+            - inside: {stopBy: end, matches: scope, has: {stopBy: end, kind: 'property_declaration, parameter', regex: '\bData\b', has: {stopBy: end, kind: simple_identifier, pattern: $N}}}
 rule:
     kind: call_expression
     pattern: $SITE
@@ -54,6 +60,7 @@ rule:
         - any:
             - matches: search-call
             - matches: replace-call
+        - not: {has: {kind: call_suffix, has: {kind: value_arguments, has: {matches: data-needle}}}}
         - has:
             nthChild: 1
             any:

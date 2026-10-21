@@ -1,5 +1,5 @@
 import Foundation
-import RasmMacOS
+import Results
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -56,34 +56,24 @@ nonisolated struct ClaudeUsageResponse: Decodable, Sendable {
     let sevenDay: Window?
     let limits: [Limit]?
 
-    func usage(observedAt: Date, signInExpiresAt: Date?) -> Result<AccountUsage, ClaudeFailure> {
-        let session: Result<QuotaWindow?, AggregateError<QuotaFailure>> =
-            fiveHour?.quotaWindow(kind: .session) ?? .success(nil)
-        let weekly: Result<QuotaWindow?, AggregateError<QuotaFailure>> =
-            sevenDay?.quotaWindow(kind: .weekly) ?? .success(nil)
-        let models: Result<[QuotaWindow?], AggregateError<QuotaFailure>> = traverse(limits ?? []) { limit in
-            limit.quotaWindow()
-        }
-        return combine(session, weekly, models).mapError(ClaudeFailure.invalidQuota).flatMap { session, weekly, models in
-            let windows: [QuotaWindow] = [session, weekly].compactMap(\.self) + models.compactMap(\.self)
-            return windows.isEmpty
-                ? .failure(.invalidResponse)
-                : .success(
-                    AccountUsage(
-                        windows: windows,
-                        includedUsageAllowed: nil,
-                        observedAt: observedAt,
-                        signInExpiresAt: signInExpiresAt,
-                    )
-                )
-        }
+    func usage(observedAt: Date, signInExpiresAt: Date?) throws(ClaudeFailure) -> AccountUsage {
+        let (session, weekly, models): (QuotaWindow?, QuotaWindow?, [QuotaWindow?]) = try combine(
+            fiveHour?.quotaWindow(kind: .session) ?? .success(nil),
+            sevenDay?.quotaWindow(kind: .weekly) ?? .success(nil),
+            traverse(limits ?? []) { limit in limit.quotaWindow() },
+        )
+        .mapError(ClaudeFailure.invalidQuota)
+        .get()
+        let windows: [QuotaWindow] = [session, weekly].compactMap(\.self) + models.compactMap(\.self)
+        guard !windows.isEmpty else { throw .invalidResponse(.usage, nil) }
+        return AccountUsage(windows: windows, includedUsageAllowed: nil, observedAt: observedAt, signInExpiresAt: signInExpiresAt)
     }
 
     static func resetDate(_ value: String?) -> Result<Date?, AggregateError<QuotaFailure>> {
         value.map { value in
             Result { try Date(value, strategy: .iso8601) }
                 .map(Optional.some)
-                .aggregated { _ in .invalidResetDate }
+                .aggregated { error in .invalidResetDate(value, error) }
         } ?? .success(nil)
     }
 }

@@ -1,6 +1,7 @@
 import DeveloperToolsSupport
 import Foundation
-import RasmMacOS
+import Processes
+import Results
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -71,12 +72,12 @@ nonisolated protocol ProviderFailure: DeadlineFailure, LocalizedError {
 }
 
 nonisolated extension ProviderFailure {
-    init(process failure: ProcessFailure) {
+    init(process error: any Error) {
         self =
-            switch failure {
+            switch ProcessFailure(error) {
                 case .cancelled: .cancelled
                 case .timedOut(let deadline): .timedOut(deadline)
-                default: .process(failure)
+                case let failure: .process(failure)
             }
     }
 }
@@ -172,6 +173,7 @@ struct AuthenticationPresentation: Identifiable, Sendable {
 
 nonisolated enum IdentityError: Error {
     case missingAccountID
+    case missingOrganizationID
     case missingEmail
     case emptyOrganizationID
 }

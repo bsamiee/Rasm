@@ -1,8 +1,7 @@
 import AppKit
 import Observation
-import RasmMacOS
+import Processes
 import SwiftUI
-import os
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -11,15 +10,11 @@ struct RelayApp: App {
     static let settingsWindow: String = "settings"
 
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate: AppDelegate
-    @Environment(\.openWindow) private var openWindow: OpenWindowAction
+    @SwiftUI.Environment(\.openWindow) private var openWindow: OpenWindowAction
 
     var body: some Scene {
         MenuBarExtra {
-            if let store: AccountStore = delegate.store {
-                MenuBarExtraContent(store: store)
-            } else {
-                ProgressView().controlSize(.small).padding(16)
-            }
+            MenuBarExtraContent(store: delegate.store)
         } label: {
             Image(.relaySymbol)
                 .accessibilityLabel("Relay")
@@ -27,10 +22,10 @@ struct RelayApp: App {
         .menuBarExtraStyle(.window)
 
         Window("Settings", id: Self.settingsWindow) {
-            if let store: AccountStore = delegate.store {
-                SettingsView(store: store)
-            } else {
-                ProgressView().controlSize(.small)
+            switch delegate.store {
+                case .success(let store): SettingsView(store: store)
+                case .failure(let error): Text(error.localizedDescription).padding(24)
+                case .none: ProgressView().controlSize(.small)
             }
         }
         .defaultSize(width: 680, height: 460)
@@ -47,22 +42,17 @@ struct RelayApp: App {
 
 @Observable
 private final class AppDelegate: NSObject, NSApplicationDelegate {
-    private(set) var store: AccountStore?
+    private(set) var store: Result<AccountStore, LoginShellFailure>?
     @ObservationIgnored private var launch: Task<Void, Never>?
 
     func applicationDidFinishLaunching(_: Notification) {
         launch = Task(name: "Launch Relay") { [self] in
-            let environment: [String: String]
-            switch await LoginShell.environment(within: .seconds(5)) {
-                case .success(let exported): environment = exported
+            switch await LoginShell.environment(within: .seconds(5)).map(AccountStore.init(environment:)) {
                 case .failure(.run(.cancelled)): return
-                case .failure(let error):
-                    Logger(category: "Launch")?.error("Login shell environment: \(String(describing: error), privacy: .public)")
-                    environment = LoginShell.initialEnvironment
+                case let launched:
+                    store = launched
+                    if case .success(let started) = launched { started.start() }
             }
-            let launched: AccountStore = AccountStore(environment: environment)
-            store = launched
-            launched.start()
         }
     }
 
@@ -70,7 +60,7 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
         Task(name: "Quit Relay") { [self] in
             launch?.cancel()
             await launch?.value
-            await store?.stop()
+            if case .success(let launched) = store { await launched.stop() }
             sender.reply(toApplicationShouldTerminate: true)
         }
         return .terminateLater

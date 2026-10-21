@@ -15,6 +15,18 @@ utils:
                         kind: 'class_body, enum_class_body'
                         inside: {kind: class_declaration, has: {kind: modifiers, has: {kind: attribute, regex: '^@main$'}}}
             - inside:
+                stopBy: end
+                kind: function_declaration
+                all:
+                    - has: {field: name, regex: '^run$'}
+                    - inside:
+                        kind: class_body
+                        inside:
+                            kind: class_declaration
+                            all:
+                                - has: {kind: modifiers, has: {kind: attribute, regex: '^@main$'}}
+                                - has: {kind: inheritance_specifier, regex: 'ParsableCommand$'}
+            - inside:
                 stopBy: {kind: 'function_declaration, lambda_literal, class_declaration, protocol_declaration, property_declaration, init_declaration, deinit_declaration, subscript_declaration'}
                 kind: source_file
     callee:

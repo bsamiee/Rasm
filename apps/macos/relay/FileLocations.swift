@@ -1,12 +1,13 @@
+import Files
 import Foundation
-import RasmMacOS
+import Subprocess
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 nonisolated struct FileLocations: Sendable {
     let home: URL
 
-    init(environment: [String: String]) {
+    init(environment: [Environment.Key: String]) {
         home =
             environment["HOME"].flatMap { value in
                 value.isEmpty ? nil : URL(filePath: value, directoryHint: .isDirectory)

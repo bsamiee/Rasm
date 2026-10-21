@@ -110,7 +110,7 @@
             "includes": [ "**" ],
             "linter": {
                 "rules": {
-                    "complexity": { "noExcessiveLinesPerFunction": "off", "noForEach": "off" },
+                    "complexity": { "noExcessiveLinesPerFunction": "off", "noForEach": "off", "useMaxParams": { "level": "error", "options": { "max": 10 } } },
                     "correctness": { "noNodejsModules": "off", "noSolidDestructuredProps": "off", "noUndeclaredVariables": "off", "noUnknownFunction": { "level": "error", "options": { "ignore": [ "theme" ] } }, "noUnresolvedImports": "off", "useQwikValidLexicalScope": "off" },
                     "performance": { "noImgElement": "off", "noJsxPropsBind": "off", "useSolidForComponent": "off" },
                     "security": { "noSecrets": "off" },

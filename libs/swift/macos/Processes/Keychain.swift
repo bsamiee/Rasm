@@ -1,0 +1,95 @@
+public import Foundation
+import Results
+import Security
+import Subprocess
+import System
+
+// --- [ERRORS] --------------------------------------------------------------------------
+
+public enum KeychainFailure: CustomNSError, LocalizedError {
+    case interactionNotAllowed
+    case itemTooLarge
+    case unprinted
+    case process(ProcessFailure)
+
+    public var errorDescription: String? {
+        switch self {
+            case .interactionNotAllowed: "The login keychain is locked"
+            case .itemTooLarge: "The item exceeds the line security -i reads"
+            case .unprinted: "security printed no password for the item"
+            case .process(let error): error.localizedDescription
+        }
+    }
+
+    public var errorUserInfo: [String: Any] {
+        if case .process(let error) = self { [NSUnderlyingErrorKey: error] } else { [:] }
+    }
+}
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+public enum Keychain {
+    public static func genericPassword(service: String, account: String, within timeout: Duration) async -> Result<Data?, KeychainFailure> {
+        await security(["find-generic-password", "-a", account, "-s", service, "-g"], within: timeout).flatMap { output in
+            switch (output, output?.standardError.firstMatch(of: #/^password: (?:0x(?<hex>[0-9A-F]*)|"(?<text>.*)")?/#.anchorsMatchLineEndings())) {
+                case (.none, _): .success(nil)
+                case (.some, .none): .failure(.unprinted)
+                case (.some, .some(let line)):
+                    .success(
+                        line.hex.map { hex in Data(hex.matches(of: /[0-9A-F]{2}/).compactMap { pair in UInt8(pair.output, radix: 16) }) } ?? line.text.map { text in Data(text.utf8) } ?? Data()
+                    )
+            }
+        }
+    }
+
+    public static func setGenericPassword(_ data: Data, service: String, account: String, within timeout: Duration) async -> Result<Void, KeychainFailure> {
+        func quoted(_ value: String) -> String {
+            "\"" + value.replacing("\\", with: "\\\\").replacing("\"", with: "\\\"") + "\""
+        }
+        let interactiveLineLimit: Int = 4095
+        let line: String = "add-generic-password -U -a \(quoted(account)) -s \(quoted(service)) -X \(data.hexEncoded)"
+        return line.utf8.count > interactiveLineLimit ? .failure(.itemTooLarge) : await security(["-i"], within: timeout, input: .string(line + "\n")).map { _ in () }
+    }
+
+    public static func deleteGenericPassword(service: String, account: String, within timeout: Duration) async -> Result<Void, KeychainFailure> {
+        await security(["delete-generic-password", "-a", account, "-s", service], within: timeout).map { _ in () }
+    }
+
+    private static func security(
+        _ arguments: [String],
+        within timeout: Duration,
+        input: some InputProtocol = .none,
+    ) async -> Result<ExecutionResult<Void, DiscardedOutput, StringOutput<UTF8>>?, KeychainFailure> {
+        func exitStatus(of status: OSStatus) -> Int32 { Int32(UInt8(truncatingIfNeeded: status)) }
+        return await withTimeout(timeout) {
+            await Result {
+                try await Subprocess.run(
+                    .path("/usr/bin/security"),
+                    arguments: Arguments(arguments),
+                    environment: .custom([:]),
+                    workingDirectory: FilePath(URL.homeDirectory.path(percentEncoded: false)),
+                    platformOptions: .session,
+                    input: input,
+                    output: .discarded,
+                    error: .string(limit: 1 << 20),
+                )
+            }
+            .mapError(ProcessFailure.init)
+        }
+        .mapError(KeychainFailure.process)
+        .flatMap { output in
+            switch output.terminationStatus {
+                case .exited(0): .success(output)
+                case .exited(exitStatus(of: errSecItemNotFound)): .success(nil)
+                case .exited(exitStatus(of: errSecInteractionNotAllowed)): .failure(.interactionNotAllowed)
+                case .exited, .signaled: .failure(.process(.exit(output.terminationStatus)))
+            }
+        }
+    }
+}
+
+extension Sequence<UInt8> {
+    public var hexEncoded: String {
+        map { byte in String(byte >> 4, radix: 16) + String(byte & 0x0F, radix: 16) }.joined()
+    }
+}

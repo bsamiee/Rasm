@@ -21,7 +21,7 @@ const cleanup = Effect.fn('cleanup')(function* (self: number, darwin: boolean) {
     const [fs, path, home, ghidra, pulumi] = yield* Effect.all([FileSystem.FileSystem, Path.Path, Config.String('HOME'), Config.String('GHIDRA_PROJECT_DIR'), Config.String('PULUMI_HOME')]);
     const root = path.resolve(workspaceRoot);
     const shown = { stdout: 'inherit' } as const;
-    const residues = ['.cache', '.artifacts', '.playwright-cli', '.playwright-mcp'];
+    const residues = ['.build', '.cache', '.artifacts', '.playwright-cli', '.playwright-mcp'];
     const under = (roots: readonly string[]) => (entry: string) => roots.some((at) => entry === at || entry.startsWith(`${at}${path.sep}`));
     const lineage = (entry: string) => Array.unfold(path.dirname(entry), (at) => (at === path.dirname(at) ? Option.none() : Option.some([at, path.dirname(at)] as const)));
     const lines = (text: string) => text.split('\n').filter(String.isNonEmpty);

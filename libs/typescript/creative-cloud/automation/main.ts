@@ -1,55 +1,49 @@
 import { Unmatched } from '@rasm/search';
 import { transformSync } from 'amaro';
-import { Array, Cause, Context, Duration, Effect, identity, Layer, Match, Option, pipe, Record, Schedule, Schema, Sink, Stream, Struct, SubscriptionRef } from 'effect';
+import { Array, Cause, Context, Duration, Effect, identity, Layer, Match, Option, Record, Schedule, Schema, Sink, Stream, Struct, SubscriptionRef } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { Rpc, RpcClient, RpcGroup, RpcSerialization } from 'effect/rpc';
 import { Socket } from 'effect/socket';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+const Pid = Schema.Int.annotate({ description: 'Process of a running instance' });
 const WindowID = Schema.Finite.check(Schema.isUint32()).annotate({ description: 'CoreGraphics window number of a window, dialog, sheet, or menu; status, press, and screenshot share it' });
 const ElementAction = Schema.Union([
-    Schema.String.annotate({ description: 'Action the element lists: an enabled control label, AXCloseButton for the close button, AXCancel for a menu' }),
+    Schema.String.annotate({ description: 'Action the element lists: an enabled control label, AXCloseButton, AXCancelButton, or AXDefaultButton for a window button, AXCancel for a menu' }),
     Schema.Struct({ field: Schema.String.annotate({ description: 'Label of a control the element lists' }), value: Schema.String.annotate({ description: 'Text the control receives' }) }),
 ]);
 const Status = Schema.TaggedUnion({
     responding: {
-        frontWindow: Schema.OptionFromOptionalKey(WindowID),
         elements: Schema.Array(
             Schema.Struct({
                 id: WindowID,
-                kind: Schema.Literals(['window', 'dialog', 'sheet', 'menu']),
-                role: Schema.String.annotate({ description: 'Accessibility role' }),
-                subrole: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Accessibility subrole' })),
+                role: Schema.String.annotate({ description: 'Accessibility role: AXWindow, AXSheet, or AXMenu' }),
+                subrole: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Accessibility subrole: AXStandardWindow, AXDialog, AXSystemDialog, or AXFloatingWindow' })),
                 title: Schema.OptionFromOptionalKey(Schema.String),
                 text: Schema.Array(Schema.String).annotate({ description: 'Static text the element shows' }),
                 controls: Schema.Array(
                     Schema.Struct({
                         role: Schema.String.annotate({ description: 'Accessibility role of a text field, text area, combo box, pop-up button, check box, or radio button' }),
                         label: Schema.OptionFromOptionalKey(Schema.String),
-                        value: Schema.OptionFromOptionalKey(Schema.Union([Schema.String, Schema.Literals([0, 1, 2])]).annotate({ description: 'Text of a field or pop-up button, or check box and radio button state: 0 off, 1 on, 2 mixed' })),
+                        value: Schema.OptionFromOptionalKey(Schema.Union([Schema.String, Schema.Finite, Schema.Boolean]).annotate({ description: 'Text of a field or pop-up button, or check box and radio button state: 0 off, 1 on, 2 mixed' })),
                     }),
                 ),
-                actions: Schema.Array(Schema.String).annotate({ description: 'Actions press accepts: an enabled control label, AXCloseButton for the close button, AXCancel for a menu' }),
+                actions: Schema.Array(Schema.String).annotate({ description: 'Actions press accepts' }),
+                unreadable: Schema.Array(
+                    Schema.Struct({
+                        reads: Schema.Array(Schema.String).annotate({ description: 'Accessibility attributes or actions the read attempted' }),
+                        role: Schema.OptionFromOptionalKey(Schema.String),
+                        label: Schema.OptionFromOptionalKey(Schema.String),
+                        error: Schema.Finite.check(Schema.isInt32()).annotate({ description: 'AXError code the host returned' }),
+                    }),
+                ).annotate({ description: 'Parts of the element the host could not read, so text, controls, and actions can be incomplete' }),
             }),
-        ),
+        ).annotate({ description: 'Open windows, dialogs, sheets, and menus, front to back' }),
     },
     unresponsive: {},
-}).annotate({ description: 'Front window and open elements of a responding application, or unresponsive when it answered no accessibility request within the messaging timeout' });
-const Rect = Schema.Tuple([Schema.Tuple([Schema.Finite, Schema.Finite]), Schema.Tuple([Schema.Finite, Schema.Finite])]).annotate({ description: 'Origin and size in points as [[x, y], [width, height]]' });
-const Window = Schema.Struct({ id: WindowID, title: Schema.OptionFromOptionalKey(Schema.String), layer: Schema.Int, frame: Rect, onScreen: Schema.Boolean });
-const ScreenshotImage = Schema.Struct({ data: Schema.Uint8ArrayFromBase64, mimeType: Schema.String, width: Schema.Int.annotate({ description: 'Image width in pixels' }), height: Schema.Int.annotate({ description: 'Image height in pixels' }) });
-const Screenshot = Schema.Struct({ window: Window, windows: Schema.Array(Window), sdrImage: Schema.OptionFromOptionalKey(ScreenshotImage), hdrImage: Schema.OptionFromOptionalKey(ScreenshotImage) });
-const ScreenshotOptions = Schema.Struct({
-    target: Schema.OptionFromOptionalKey(Schema.Union([WindowID, Schema.Literal('application')]).annotate({ description: 'Window id, or application for every window of the application on the display holding its front window; absent for the front window' })),
-    sourceRect: Schema.OptionFromOptionalKey(Rect.annotate({ description: 'Captured part of the content in points' })),
-    destinationRect: Schema.OptionFromOptionalKey(Rect.annotate({ description: 'Part of the output image the capture fills, in pixels' })),
-    maxDimension: Schema.OptionFromOptionalKey(Schema.Int.check(Schema.isGreaterThan(0)).annotate({ description: 'Longest side of the image in pixels, a capture larger than it scales down and a smaller one keeps native size' })),
-    dynamicRange: Schema.Literals(['sdr', 'hdr', 'bothSDRAndHDR'])
-        .annotate({ description: 'Images ScreenCaptureKit returns: hdr and bothSDRAndHDR return one sdrImage holding 16-bit extended sRGB values above 1.0, and hdrImage stays absent for window and application captures' })
-        .pipe(Schema.withDecodingDefaultKey(Effect.succeed('sdr' as const))),
-    contentType: Schema.String.annotate({ description: 'Uniform type identifier ImageIO writes: public.tiff keeps extended range, public.png, public.heic, and public.jpeg clip values above 1.0' }).pipe(Schema.withDecodingDefaultKey(Effect.succeed('public.png'))),
-});
+}).annotate({ description: 'Open elements of a responding application, or unresponsive when it answered no accessibility request within the messaging timeout' });
+const Screenshot = Schema.Struct({ image: Schema.Uint8ArrayFromBase64, width: Schema.Int.annotate({ description: 'Image width in pixels' }), height: Schema.Int.annotate({ description: 'Image height in pixels' }) });
 const Kind = Schema.Literals(['suite', 'command', 'class', 'record-type', 'value-type', 'enumeration']).annotate({ description: 'Scripting definition element kind' });
 type AppleEventValue = null | boolean | number | string | readonly AppleEventValue[] | { readonly [term: string]: AppleEventValue };
 const AppleEventValue: Schema.Codec<AppleEventValue> = Schema.Union([
@@ -83,18 +77,31 @@ const AppleEventValue: Schema.Codec<AppleEventValue> = Schema.Union([
         Schema.suspend(() => AppleEventValue),
     ).annotate({ description: 'Plain record by property name or four-character keyword' }),
 ]);
-class InstalledFace extends Schema.Class<InstalledFace, { readonly brand: unique symbol }>('InstalledFace')({ postscriptName: Schema.String, family: Schema.String, style: Schema.String, fullName: Schema.String, file: Schema.String }) {}
+const Capture = Schema.Struct({
+    window: Schema.OptionFromOptionalKey(WindowID.annotate({ description: 'One window to capture; absent captures every on-screen window of the application in one image' })),
+    pixels: Schema.OptionFromOptionalKey(Schema.Int.check(Schema.isGreaterThan(0)).annotate({ description: 'Longest side of the image in pixels, a capture larger than it scales down and a smaller one keeps native size' })),
+});
+const Press = Schema.Struct({ element: WindowID, actions: Schema.NonEmptyArray(ElementAction).annotate({ description: 'Actions performed in order, stopping at the first refusal' }) });
+const Execute = Schema.Struct({
+    command: Schema.String.annotate({ description: 'Command name or code from the application dictionary' }),
+    arguments: Schema.Record(Schema.String, AppleEventValue)
+        .annotate({ description: 'Dictionary parameters by name; direct supplies the direct parameter. Reuse native reply values unchanged' })
+        .pipe(Schema.withDecodingDefaultKey(Effect.succeed({}))),
+    artifacts: Schema.Array(Schema.URLFromString)
+        .annotate({ description: 'File URLs the command writes, returned with the reply' })
+        .pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+});
+class InstalledFace extends Schema.Class<InstalledFace, { readonly brand: unique symbol }>('InstalledFace')({ postscriptName: Schema.String, family: Schema.String, style: Schema.String, displayName: Schema.String, file: Schema.String }) {}
 class Installation extends Schema.Class<Installation, { readonly brand: unique symbol }>('Installation')({
     url: Schema.URL,
     identifier: Schema.String,
     name: Schema.String,
     version: Schema.OptionFromOptionalKey(Schema.String),
-    instances: Schema.Array(Schema.Int).annotate({ description: 'Process ids of the running instances of the bundle' }),
-    pid: Schema.OptionFromOptionalKey(Schema.Int.annotate({ description: 'Process of a running instance calls address, required when the bundle runs more than one' })),
+    instances: Schema.Array(Pid).annotate({ description: 'Processes of the running instances of the bundle' }),
     scriptable: Schema.Boolean,
 }) {
     // --- [DISCOVERY]
-    static readonly located = (query: string) => Automation.use(({ installed }) => Effect.flatMap(SubscriptionRef.get(installed), (rows) => Unmatched.single('installed Adobe application', Option.some(query))(rows, (row) => [row.name])));
+    static readonly located = (query: string) => Automation.use(({ installed }) => Effect.flatMap(installed, (rows) => Unmatched.single('installed Adobe application', Option.some(query))(rows, (row) => [row.name])));
 
     // --- [DICTIONARY]
     static readonly Terms = Schema.Struct(Struct.Record(Kind.literals, Schema.Array(Schema.Struct({ name: Schema.String, code: Schema.String.annotate({ description: 'Code as the scripting definition writes it' }) })))).annotate({ description: 'Every declaration of the scripting dictionary by kind, name, and code' });
@@ -109,24 +116,36 @@ class Installation extends Schema.Class<Installation, { readonly brand: unique s
 
     // --- [SCRIPTS]
     static readonly runtimes = {
-        uxpscript: {
-            commands: [['do script', 'K2  dosc']],
-            route: {
-                _tag: 'Linked',
-                stripped: (source: string) => {
+        'K2  dosc': { _tag: 'Linked', runtime: 'uxpscript' },
+        miscDjxM: { _tag: 'Dictionary', runtime: 'extendscript' },
+        miscdosc: { _tag: 'Dictionary', runtime: 'javascript' },
+    } as const;
+    static readonly Script = Schema.Struct({ runtime: Schema.Literals(Object.values(Installation.runtimes).map(Struct.get('runtime'))).annotate({ description: 'Runtime that ran the source' }), result: Schema.OptionFromOptionalKey(Schema.Json) });
+    script<A extends object, E, R>(pid: number, source: string, linked: Option.Option<(stripped: string) => Effect.Effect<A, E, R>>) {
+        const { url, name } = this;
+        return Effect.gen(function* () {
+            const automation = yield* Automation;
+            const declared = (yield* automation.terms({ url })).command.map(Struct.get('code'));
+            const [code, row] = yield* Effect.fromOption(
+                Array.findFirst(Record.toEntries(Installation.runtimes), ([each]) => declared.includes(each)),
+                () => new Cause.NoSuchElementError(`${name} declares no script command`),
+            );
+            const ran = yield* Match.valueTags(row, {
+                Linked: () => {
                     const [open, close] = ['async function body() {\n', '\n}'];
-                    return Effect.try(() => transformSync(`${open}${source}${close}`, { mode: 'strip-only' }).code.slice(open.length, -close.length));
+                    return Effect.flatMap(
+                        Effect.all([Effect.fromOption(linked, () => new Cause.IllegalArgumentError(`${name} runs ${row.runtime} through a linked extension, and none is linked`)), Effect.try(() => transformSync(`${open}${source}${close}`, { mode: 'strip-only' }).code.slice(open.length, -close.length))]),
+                        ([call, stripped]) => call(stripped),
+                    );
                 },
-            },
-        },
-        extendscript: {
-            commands: [
-                ['do javascript', 'miscDjxM'],
-                ['DoScript', 'miscdosc'],
-            ],
-            route: {
-                _tag: 'Dictionary',
-                encoder: `function encoded(value) {
+                Dictionary: () =>
+                    automation
+                        .execute({
+                            pid,
+                            command: code,
+                            arguments: {
+                                direct: `(function (body) {
+    function encoded(value) {
         var parts = [], key, at;
         if (value === null || value === undefined || (typeof value === "number" && !isFinite(value))) return "null";
         if (typeof value === "number" || typeof value === "boolean") return String(value);
@@ -135,38 +154,7 @@ class Installation extends Schema.Class<Installation, { readonly brand: unique s
         if (value.typename !== undefined) return encoded(String(value));
         for (key in value) parts.push(encoded(key) + ":" + encoded(value[key]));
         return "{" + parts.join(",") + "}";
-    }`,
-            },
-        },
-        acrobat: { commands: [['do script', 'miscdosc']], route: { _tag: 'Dictionary', encoder: 'JSON.stringify' } },
-    } as const;
-    static readonly Script = Schema.Struct({ runtime: Schema.Literals(Record.keys(Installation.runtimes)).annotate({ description: 'Runtime that ran the source' }), result: Schema.OptionFromOptionalKey(Schema.Json) });
-    script<A extends object, E, R>(source: string, linked: Option.Option<(stripped: string) => Effect.Effect<A, E, R>>) {
-        const { url, pid, name } = this;
-        return Automation.use((client) => client.terms({ url })).pipe(
-            Effect.flatMap(({ command: declared }) =>
-                pipe(
-                    Record.toEntries(Installation.runtimes),
-                    Array.flatMap(([runtime, { commands, route }]) => Array.map(commands, ([command, code]) => ({ runtime, command, code, route }))),
-                    Array.findFirst(({ command, code }) => declared.some((term) => term.name === command && term.code === code)),
-                    Effect.fromOption(() => new Cause.NoSuchElementError(`${name} declares no script command`)),
-                ),
-            ),
-            Effect.flatMap(({ command, runtime, route }) =>
-                Match.valueTags(route, {
-                    Linked: ({ stripped }) =>
-                        Effect.fromOption(linked, () => new Cause.IllegalArgumentError(`${name}'s ${command} keeps no context between calls, and no extension is linked`)).pipe(
-                            Effect.flatMap((call) => Effect.flatMap(stripped(source), call)),
-                            Effect.map(Struct.assign({ runtime })),
-                        ),
-                    Dictionary: ({ encoder }) =>
-                        Automation.use((client) =>
-                            client.execute({
-                                url,
-                                pid,
-                                command,
-                                arguments: {
-                                    direct: `(function (body, encoded) {
+    }
     try {
         var value = new Function(decodeURIComponent(body)).call(this);
         return encodeURIComponent(encoded({ _tag: "Success", success: value === undefined ? {} : { result: value } }));
@@ -176,36 +164,33 @@ class Installation extends Schema.Class<Installation, { readonly brand: unique s
         if (known && typeof error.number === "number" && typeof error.line === "number") thrown.cause = { number: error.number, line: error.line };
         return encodeURIComponent(encoded({ _tag: "Failure", failure: thrown }));
     }
-}).call(this, "${encodeURIComponent(source)}", ${encoder})`,
-                                },
-                                artifacts: [],
-                            }),
-                        ).pipe(
-                            Effect.flatMap(({ reply }) => Schema.decodeUnknownEffect(Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(Schema.toCodecJson(Schema.Result(Installation.Script.mapFields(Struct.pick(['result'])), Schema.ErrorInstance()))))))(reply)),
+}).call(this, "${encodeURIComponent(source)}")`,
+                            },
+                            artifacts: [],
+                        })
+                        .pipe(
+                            Effect.map(Struct.get('reply')),
+                            Effect.flatMap(Schema.decodeUnknownEffect(Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(Schema.toCodecJson(Schema.Result(Installation.Script.mapFields(Struct.pick(['result'])), Schema.ErrorInstance()))))))),
                             Effect.flatMap(Effect.fromResult),
-                            Effect.map(Struct.assign({ runtime })),
                         ),
-                }),
-            ),
-        );
+            });
+            return { ...ran, runtime: row.runtime };
+        });
     }
 }
-const Refusal = Schema.Union([Unmatched, Schema.ErrorInstance()]);
-const Target = Struct.pick(Installation.fields, ['url', 'pid']);
 const Requests = RpcGroup.make(
-    Rpc.make('installations', { success: Schema.Array(Installation).annotate({ description: 'Installed applications at subscription and after each launch or exit of an instance' }), error: Schema.ErrorInstance(), stream: true }),
+    Rpc.make('installations', { success: Schema.Result(Schema.Array(Installation), Schema.ErrorInstance()).annotate({ description: 'Installed applications at subscription and after each launch or exit of an instance, or why discovery failed' }), error: Schema.ErrorInstance(), stream: true }),
     Rpc.make('statuses', {
-        success: Schema.Struct({ pid: Schema.Int, status: Schema.Result(Status, Schema.ErrorInstance()) }).annotate({ description: 'Status of a running instance when observation starts and after its windows, dialogs, sheets, or menus changed, or why it can no longer be observed' }),
+        success: Schema.Struct({ pid: Pid, status: Schema.Result(Status, Schema.ErrorInstance()) }).annotate({ description: 'Status of a running instance when observation starts and after its windows, dialogs, sheets, or menus changed, or why it can no longer be observed' }),
         stream: true,
     }),
-    Rpc.make('launch', { payload: { url: Target.url }, success: Schema.Struct({ pid: Schema.Int.annotate({ description: 'Process of the instance once it finished launching' }) }), error: Schema.ErrorInstance() }),
-    Rpc.make('activate', { payload: Target, error: Refusal }),
-    Rpc.make('status', { payload: Target, success: Status, error: Refusal }),
-    Rpc.make('press', { payload: { ...Target, element: WindowID, actions: Schema.NonEmptyArray(ElementAction).annotate({ description: 'Actions performed in order, stopping at the first refusal' }) }, error: Refusal }),
-    Rpc.make('terms', { payload: { url: Target.url }, success: Installation.Terms, error: Schema.ErrorInstance() }),
-    Rpc.make('definition', { payload: { url: Target.url, selection: Schema.Struct({ kind: Kind, name: Schema.String }) }, success: Schema.String, error: Refusal }),
-    Rpc.make('execute', { payload: { ...Target, command: Schema.String, arguments: Schema.Record(Schema.String, AppleEventValue), artifacts: Schema.Array(Schema.URL) }, success: Installation.Executed, error: Refusal }),
-    Rpc.make('screenshot', { payload: { ...Target, ...ScreenshotOptions.fields }, success: Screenshot, error: Refusal }),
+    Rpc.make('launch', { payload: { url: Schema.URL }, success: Schema.Struct({ pid: Pid.annotate({ description: 'Process of the instance once it finished launching' }) }), error: Schema.ErrorInstance() }),
+    Rpc.make('status', { payload: { pid: Pid }, success: Status, error: Schema.ErrorInstance() }),
+    Rpc.make('press', { payload: { pid: Pid, ...Press.fields }, error: Unmatched.Refusal }),
+    Rpc.make('terms', { payload: { url: Schema.URL }, success: Installation.Terms, error: Schema.ErrorInstance() }),
+    Rpc.make('definition', { payload: { url: Schema.URL, kind: Kind, name: Schema.String }, success: Schema.String, error: Unmatched.Refusal }),
+    Rpc.make('execute', { payload: { pid: Pid, ...Execute.fields }, success: Installation.Executed, error: Unmatched.Refusal }),
+    Rpc.make('screenshot', { payload: { pid: Pid, ...Capture.fields }, success: Screenshot, error: Unmatched.Refusal }),
     Rpc.make('faces', { success: Schema.Array(InstalledFace) }),
     Rpc.make('face', { payload: { name: Schema.String.annotate({ description: 'PostScript name, full name, or family for its default face, in any case, as CoreText resolves it' }) }, success: InstalledFace, error: Unmatched }),
 );
@@ -216,12 +201,12 @@ class Automation extends Context.Service<Automation>()('@rasm/automation/main/Au
     make: Effect.gen(function* () {
         const client = yield* RpcClient.make(Requests);
         const [first, rest] = yield* Stream.peel(client.installations(), Sink.head());
-        const installed = yield* Effect.flatMap(
+        const installations = yield* Effect.flatMap(
             Effect.fromOption(first, () => new Cause.NoSuchElementError('installations ended before listing any application')),
             SubscriptionRef.make,
         );
-        yield* Effect.forkScoped(Stream.runForEach(rest, (rows) => SubscriptionRef.set(installed, rows)));
-        return { ...Struct.omit(client, ['installations']), installed };
+        yield* Effect.forkScoped(Stream.runForEach(rest, (listing) => SubscriptionRef.set(installations, listing)));
+        return { ...client, installations, installed: Effect.flatMap(SubscriptionRef.get(installations), Effect.fromResult) };
     }),
 }) {
     static readonly spawned = (executable: string) =>
@@ -244,4 +229,4 @@ class Automation extends Context.Service<Automation>()('@rasm/automation/main/Au
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { AppleEventValue, Automation, ElementAction, Installation, InstalledFace, Kind, Screenshot, ScreenshotImage, ScreenshotOptions, Status, WindowID };
+export { AppleEventValue, Automation, Capture, ElementAction, Execute, Installation, InstalledFace, Kind, Pid, Press, Screenshot, Status, WindowID };

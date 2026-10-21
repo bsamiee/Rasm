@@ -28,7 +28,8 @@ Rasm/
 │   ├── dylint/               # Rust lints reading types and resolved paths Clippy lacks
 │   ├── nx/                   # Nx plugin inferring a project from each project file
 │   ├── refurb/               # Python checks reading mypy types Ruff lacks
-│   └── roslyn/               # C# analyzers, code fixes, and BannedSymbols*.txt bans
+│   ├── roslyn/               # C# analyzers, code fixes, and BannedSymbols*.txt bans
+│   └── watch-apps/           # Executable streaming app windows, dialogs, menus, and lifecycle as JSON lines
 ├── plugins/                  # Agent harness marketplace
 ├── mise.toml                 # Tool binaries, process environment, and local daemons
 ├── global.json               # .NET SDK versions
@@ -42,8 +43,8 @@ Rasm/
 ├── Directory.Build.rsp       # MSBuild switches every command-line build under the root reads
 ├── Workspace.slnx            # .NET solution
 ├── NuGet.config              # NuGet source
-├── Workspace.xcworkspace     # Xcode workspace over every app project and their package lock
-├── Xcode.xcconfig            # Build settings every Xcode project inherits at project level
+├── Package.swift             # Swift modules, executables, and remote package catalog
+├── Xcode.xcconfig            # Build settings every Xcode project inherits
 ├── tsconfig.base.json        # Compiler options every TypeScript project extends
 ├── tsconfig.json             # Root TypeScript project over files outside every package
 ├── vitest.config.ts          # Test and coverage options every project config imports
@@ -95,6 +96,7 @@ flowchart LR
 Targets run tools with their arguments on the command, a pipeline or command list joins tools for work no single tool does.
 
 - `nx run rasm:check` runs every root checker and type checker, `nx run rasm:lint:<tool>` runs one checker
+- `nx run <project>:check` builds a Swift app or module and runs Periphery over it, work `rasm:check` leaves to each project
 - `nx run <project>:<target> -- <arguments>` appends to the command, paths in place of a root tool's default file set, switches to `dotnet build`
 - `nx run rasm:format` runs `dotnet format` over the solution and file-based apps, then every other writer
 - `nx run rasm:format:files -- <paths>` runs non-.NET writers over named Git files
@@ -129,7 +131,7 @@ Targets run tools with their arguments on the command, a pipeline or command lis
 |  [10]   | Tool with no consumer          | Machine setup                                                                                        |
 |  [11]   | Ghidra install                 | Official distribution through mise                                                                   |
 |  [12]   | Xcode build setting            | `Xcode.xcconfig`, per-product rows in the `.xcodeproj` target                                        |
-|  [13]   | Swift package version          | `.xcodeproj` or `Package.swift` package requirement                                                  |
+|  [13]   | Swift package version          | Root `Package.swift` `dependencies` row, `.xcodeproj` `remote` row for a package an app imports      |
 |  [14]   | Rust package version           | `Cargo.toml` `[workspace.dependencies]` row                                                          |
 |  [15]   | Agent harness plugin           | `plugins/<name>`                                                                                     |
 |  [16]   | Persistent local process       | `mise.toml` `[daemons]` row                                                                          |
@@ -170,6 +172,7 @@ Targets run tools with their arguments on the command, a pipeline or command lis
 - Installed Rhino supplies host assemblies at runtime, build output holds none
 - Project files are the language manifests and markers Nx plugins read, never `project.json`
 - `Workspace.slnx` lists every project `.csproj`
+- Swift modules are root `Package.swift` targets, each in its own folder under `libs/swift/<group>/`, executables under `tools/`
 - Projects hold no `src/` directory
 - Schema libraries reconcile the live database to owning types, with no migration file or history table
 - Reconciles drop or retype only what owning types declare retired or retyped

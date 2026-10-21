@@ -1,9 +1,9 @@
 import { layer as nodeSpawner } from '@effect/platform-node/NodeChildProcessSpawner';
 import { layer as nodeFileSystem } from '@effect/platform-node/NodeFileSystem';
 import { layerPosix } from '@effect/platform-node/NodePath';
-import { type CreateDependencies, type CreateDependenciesContext, type CreateNodes, createNodesFromFiles, DependencyType, type FileMap, type Optional, type ProjectConfiguration, parseJson } from '@nx/devkit';
+import { type CreateDependencies, type CreateDependenciesContext, type CreateNodes, createNodesFromFiles, DependencyType, type FileMap, type Optional, type ProjectConfiguration, parseJson, type RawProjectGraphDependency } from '@nx/devkit';
 import { globWithWorkspaceContext, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
-import { Array, Cause, Effect, FileSystem, flow, Layer, ManagedRuntime, Option, Path, Record, Schema, SchemaGetter, SchemaIssue, Struct } from 'effect';
+import { Array, Cause, Effect, FileSystem, Filter, Layer, ManagedRuntime, Option, Path, Record, Schema, SchemaGetter, SchemaIssue, Struct } from 'effect';
 import { XMLParser } from 'fast-xml-parser';
 import { parse as parseToml } from 'smol-toml';
 import { parse as parseYaml } from 'yaml';
@@ -21,6 +21,7 @@ const SWIFT_MANIFEST = 'Package.swift';
 const XCODE_PROJECT = 'project.xcproj';
 const PYPROJECT = 'pyproject.toml';
 const CLOUDFLARE_CONFIG = 'cloudflare.config.ts';
+const SWIFTPM = { SWIFTPM_BUILD_DIR: '.cache/swiftpm/build' };
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -71,17 +72,25 @@ const Metadata = Schema.fromJsonString(
         ),
     }),
 );
+const Named = Schema.Tuple([Schema.String, Schema.Unknown]);
 const SwiftPackage = Schema.fromJsonString(
     Schema.Struct({
-        name: Schema.String,
-        targets: Schema.Array(Schema.Struct({ type: Schema.String })),
-        dependencies: Schema.Array(Schema.Struct({ fileSystem: Schema.Array(Schema.Struct({ path: Schema.String })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) })),
+        targets: Schema.Array(
+            Schema.Struct({
+                name: Schema.String,
+                type: Schema.String,
+                path: Schema.String,
+                dependencies: Schema.Array(Schema.Union([Schema.Struct({ byName: Named }), Schema.Struct({ target: Named }), Schema.Struct({ product: Schema.Array(Schema.Unknown) })])),
+            }),
+        ),
+        products: Schema.Array(Schema.Struct({ name: Schema.String, targets: Schema.Array(Schema.String) })),
+        platforms: Schema.Array(Schema.Struct({ platformName: Schema.String })),
     }),
 );
 const XcodeProject = Parsed('JSON', parseJson).pipe(
     Schema.decodeTo(
         Schema.Struct({
-            packages: Schema.Array(Schema.Union([Schema.Struct({ kind: Schema.Literal('local'), path: Schema.String }), Schema.Struct({ kind: Schema.Literal('remote') })])).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))),
+            targets: Schema.Array(Schema.Struct({ members: Schema.Array(Schema.Struct({ product: Schema.String }).pipe(Schema.encodeKeys({ product: 'product-name' }))).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) }).pipe(Schema.encodeKeys({ members: 'package-product-members' }))),
         }),
     ),
 );
@@ -117,24 +126,6 @@ const readCrates = Effect.fnUntraced(function* (store: Store) {
     const [path, { packages }] = yield* Effect.all([Path.Path, cached(Metadata, store, { inputs: [`**/${CARGO_MANIFEST}`, '**/*.rs'], argv: ['cargo', 'metadata', '--format-version', '1', '--no-deps'] })]);
     return packages.map((crate) => ({ ...crate, manifest: path.relative(store.root, crate.manifest) }));
 });
-const readPackages = Effect.fnUntraced(function* (store: Store) {
-    const [path, manifests] = yield* Effect.all([Path.Path, glob(store.root, [`*/**/${SWIFT_MANIFEST}`])]);
-    return yield* Effect.validate(
-        manifests,
-        Effect.fnUntraced(function* (manifest: string) {
-            const env = { SWIFTPM_BUILD_DIR: path.join('.cache/swiftpm/build', path.dirname(manifest)) };
-            const { name, targets, dependencies } = yield* cached(SwiftPackage, store, { inputs: [manifest], argv: ['swift', 'package', 'dump-package', '--package-path', path.dirname(manifest)], env });
-            return {
-                name,
-                manifest,
-                env,
-                tested: targets.some(({ type }) => type === 'test'),
-                locals: dependencies.flatMap(({ fileSystem }) => fileSystem).map((local) => path.join(path.relative(store.root, local.path), SWIFT_MANIFEST)),
-            };
-        }),
-        { concurrency: 'unbounded' },
-    );
-});
 const openWorkspace = Effect.fnUntraced(function* (root: string) {
     const [fs, path, store] = yield* Effect.all([FileSystem.FileSystem, Path.Path, openStore(root)]);
     return {
@@ -144,7 +135,7 @@ const openWorkspace = Effect.fnUntraced(function* (root: string) {
             mise: Effect.cached(decode(Mise, root, 'mise.toml')),
             hosts: Effect.cached(fs.readDirectory(path.join(root, 'apps'))),
             crates: Effect.cached(readCrates(store)),
-            packages: Effect.cached(readPackages(store)),
+            swift: Effect.cached(cached(SwiftPackage, store, { inputs: [SWIFT_MANIFEST], argv: ['swift', 'package', 'dump-package'], env: SWIFTPM })),
         })),
     };
 });
@@ -167,10 +158,11 @@ const pythonTargets = Effect.fnUntraced(function* (dir: string, { root, pyprojec
     );
     return suites.length > 0 ? { check: {}, test: { command: 'pytest', options: { args: [...suites, '--cov'] }, inputs: suites.map((suite) => `{workspaceRoot}/${suite}/**/*`) } } : {};
 });
+const suiteInput = (suite: string) => ({ namedInputs: { default: ['{projectRoot}/**/*', `{workspaceRoot}/${suite}/**/*`] } });
 const suiteInputs = Effect.fnUntraced(function* (language: string, dir: string, root: string) {
     const path = yield* Path.Path;
     const suite = path.join('tests', language, ...dir.split(path.sep).filter((segment) => segment !== language));
-    return Array.match(yield* glob(root, [`${suite}/**/*`]), { onEmpty: () => ({}), onNonEmpty: () => ({ namedInputs: { default: ['{projectRoot}/**/*', `{workspaceRoot}/${suite}/**/*`] } }) });
+    return Array.match(yield* glob(root, [`${suite}/**/*`]), { onEmpty: () => ({}), onNonEmpty: () => suiteInput(suite) });
 });
 const swiftProject = (tags: readonly string[], env: Record<string, string>, targets: readonly string[]) => ({
     tags: ['language:swift', ...tags],
@@ -256,12 +248,8 @@ const markers = {
     [XCODE_PROJECT]: ({ dir }) =>
         Effect.map(Path.Path, (path) => {
             const root = path.dirname(dir);
-            return { root, name: path.parse(dir).name, ...swiftProject(['host:macos', 'build:xcode'], { XCODE_DERIVED_DATA_PATH: path.join('.cache/xcode', root) }, ['install', 'lint:swiftlint']) };
+            return { root, name: path.parse(dir).name, ...swiftProject(['build:xcode'], { XCODE_DERIVED_DATA_PATH: path.join('.cache/xcode', root) }, ['install', 'lint:swiftlint', 'upgrade:xcode']) };
         }),
-    [SWIFT_MANIFEST]: Effect.fnUntraced(function* (_, { file, packages }) {
-        const { name, env, tested } = yield* Effect.fromOption(Array.findFirst(yield* packages, ({ manifest }) => manifest === file));
-        return { name, ...swiftProject(['build:swiftpm'], env, ['upgrade', ...(tested ? ['test'] : [])]) };
-    }),
     'py.typed': ({ dir }, workspace) => Effect.map(Effect.all([Path.Path, workspace.pyproject, pythonTargets(dir, workspace)]), ([path, { moduleRoot }, targets]) => ({ name: path.relative(moduleRoot, dir).replaceAll(path.sep, '.'), tags: ['language:python'], targets })),
     'tsconfig.json': ({ dir }, { root }) => Effect.map(suiteInputs('typescript', dir, root), (suite) => ({ ...suite, tags: ['language:typescript'], targets: { 'typecheck:tsc': {}, check: {} } })),
     'vite.config.ts': ({ dir }, { configFiles }) => Effect.map(Path.Path, (path) => ({ tags: ['bundler:vite', ...(configFiles.includes(path.join(dir, CLOUDFLARE_CONFIG)) ? ['output:cloudflare'] : [])], targets: { build: {}, serve: {} } })),
@@ -360,6 +348,43 @@ const pythonVersions = Effect.fnUntraced(function* ({ root, cache, hosts }: Work
         },
     };
 });
+const swiftModules = Effect.fnUntraced(function* ({ swift, hosts }: Workspace) {
+    const [{ targets, platforms }, folders] = yield* Effect.all([swift, hosts]);
+    const [suites, sources] = Array.partition(
+        targets,
+        Filter.fromPredicate(({ type }) => type === 'test'),
+    );
+    const project = swiftProject(['build:swiftpm', ...Array.intersection(platforms.map(Struct.get('platformName')), folders).map((host) => `host:${host}`)], SWIFTPM, []);
+    const modules = sources.map((target) => {
+        const suite = Array.findFirst(suites, ({ name }) => name === `${target.name}Tests`);
+        return [
+            target.path,
+            {
+                ...project,
+                root: target.path,
+                name: target.name,
+                ...Option.match(suite, {
+                    onNone: () => ({}),
+                    onSome: ({ name, path }) => ({ ...suiteInput(path), targets: { ...project.targets, test: { options: { env: SWIFTPM, args: ['--filter', name] } } } }),
+                }),
+            },
+        ] as const;
+    });
+    const check = { SWIFTPM_BUILD_DIR: '.cache/swiftpm/check' };
+    return {
+        projects: {
+            ...Object.fromEntries(modules),
+            '.': {
+                root: '.',
+                targets: {
+                    'upgrade:swift': { options: { env: SWIFTPM } },
+                    'typecheck:swift': { inputs: ['swift', ...targets.map(({ path }) => `{workspaceRoot}/${path}/**/*`)], outputs: [`{workspaceRoot}/${check.SWIFTPM_BUILD_DIR}/swiftc.log`], options: { env: check } },
+                    'lint:swiftlint': { options: { env: check, args: targets.map(({ path }) => path) } },
+                },
+            },
+        },
+    };
+});
 
 // --- [DEPENDENCIES]
 const imports = (root: string, { projectFileMap }: FileMap) =>
@@ -370,37 +395,31 @@ const imports = (root: string, { projectFileMap }: FileMap) =>
             onNonEmpty: (files) => Effect.map(Effect.flatMap(stdout('ruff', ['analyze', 'graph', ...files], { cwd: root }), Schema.decodeEffect(ImportGraph)), (graph) => Object.entries(graph).flatMap(([file, targets]) => targets.map((target) => [file, target] as const))),
         },
     );
+const locals = ({ dependencies }: (typeof SwiftPackage.Type)['targets'][number]) => dependencies.flatMap((dependency) => [...('byName' in dependency ? [dependency.byName[0]] : []), ...('target' in dependency ? [dependency.target[0]] : [])]);
 const edges = Effect.fnUntraced(function* ({ fileMap, filesToProcess, workspaceRoot }: CreateDependenciesContext) {
     const [path, workspace] = yield* Effect.all([Path.Path, openWorkspace(workspaceRoot)]);
-    const [sources, crates, swift, xcode] = yield* Effect.all(
+    const [sources, crates, { targets, products }, xcode] = yield* Effect.all(
         [
             imports(workspaceRoot, filesToProcess),
             workspace.crates,
-            workspace.packages,
+            workspace.swift,
             Effect.flatMap(
                 glob(workspaceRoot, [`*/**/${XCODE_PROJECT}`]),
-                Effect.validate(
-                    (file: string) =>
-                        Effect.map(
-                            decode(XcodeProject, workspaceRoot, file),
-                            flow(
-                                Struct.get('packages'),
-                                Array.flatMap((row) => (row.kind === 'local' ? [[file, path.join(path.dirname(path.dirname(file)), row.path, SWIFT_MANIFEST)] as const] : [])),
-                            ),
-                        ),
-                    { concurrency: 'unbounded' },
-                ),
+                Effect.validate((file: string) => Effect.map(decode(XcodeProject, workspaceRoot, file), ({ targets: rows }) => [file, rows.flatMap(Struct.get('members')).map(Struct.get('product'))] as const), { concurrency: 'unbounded' }),
             ),
         ],
         { concurrency: 'unbounded' },
     );
     const owners = Object.fromEntries(Object.entries(fileMap.projectFileMap).flatMap(([owner, files]) => files.map(({ file }) => [file, owner] as const)));
+    const modules: RawProjectGraphDependency[] = targets.filter(({ type }) => type !== 'test').flatMap((target) => locals(target).map((name) => ({ source: target.name, target: name, type: DependencyType.implicit })));
+    const linked: RawProjectGraphDependency[] = xcode.flatMap(([file, names]) => Array.cartesianWith(Option.toArray(Record.get(owners, file)), products.filter(({ name }) => names.includes(name)).flatMap(Struct.get('targets')), (source, target) => ({ source, target, sourceFile: file, type: DependencyType.static })));
     return [
-        ...sources,
-        ...crates.flatMap(({ manifest, dependencies }) => Array.getSomes(dependencies.map((dependency) => dependency.path)).map((member) => [manifest, path.join(path.relative(workspaceRoot, member), CARGO_MANIFEST)] as const)),
-        ...swift.flatMap(({ manifest, locals }) => locals.map((local) => [manifest, local] as const)),
-        ...xcode.flat(),
-    ].flatMap(([sourceFile, file]) => Option.toArray(Option.filter(Option.all([Record.get(owners, sourceFile), Record.get(owners, file)]), ([source, target]) => source !== target)).map(([source, target]) => ({ source, target, sourceFile, type: DependencyType.static })));
+        ...[...sources, ...crates.flatMap(({ manifest, dependencies }) => Array.getSomes(dependencies.map((dependency) => dependency.path)).map((member) => [manifest, path.join(path.relative(workspaceRoot, member), CARGO_MANIFEST)] as const))].flatMap(([sourceFile, file]) =>
+            Option.toArray(Option.filter(Option.all([Record.get(owners, sourceFile), Record.get(owners, file)]), ([source, target]) => source !== target)).map(([source, target]) => ({ source, target, sourceFile, type: DependencyType.static })),
+        ),
+        ...modules,
+        ...linked,
+    ];
 }, Effect.scoped);
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -408,13 +427,15 @@ const edges = Effect.fnUntraced(function* ({ fileMap, filesToProcess, workspaceR
 const runtime = ManagedRuntime.make(Layer.provideMerge(nodeSpawner, Layer.merge(nodeFileSystem, layerPosix)));
 const rendered = Effect.catchCause((cause: Cause.Cause<unknown>) => Effect.die(new Error(Cause.pretty(cause))));
 const createNodes: CreateNodes = [
-    `{${PYPROJECT},*/**/{${Object.keys(markers).join(',')}}}`,
+    `{${PYPROJECT},${SWIFT_MANIFEST},*/**/{${Object.keys(markers).join(',')}}}`,
     (files, options, context) =>
         runtime.runPromise(
             Effect.scoped(
                 Effect.gen(function* () {
                     const [path, workspace] = yield* Effect.all([Path.Path, openWorkspace(context.workspaceRoot)]);
-                    const inferred = yield* Effect.promise(() => createNodesFromFiles((file) => runtime.runPromise(rendered(file === PYPROJECT ? pythonVersions(workspace) : infer(file, workspace, files))), files, options, context));
+                    const roots = { [PYPROJECT]: pythonVersions, [SWIFT_MANIFEST]: swiftModules };
+                    const node = (file: string) => Option.match(Record.get(file)(roots), { onNone: () => infer(file, workspace, files), onSome: (root) => root(workspace) });
+                    const inferred = yield* Effect.promise(() => createNodesFromFiles((file) => runtime.runPromise(rendered(node(file))), files, options, context));
                     return [...inferred, ...(yield* workspace.crates).flatMap(({ manifest, metadata }) => Option.toArray(Option.flatMap(metadata, Struct.get('nx'))).map((nx) => [manifest, { projects: { [path.dirname(manifest)]: nx } }] as const))];
                 }),
             ),

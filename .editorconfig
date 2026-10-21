@@ -225,7 +225,7 @@ dotnet_diagnostic.IDE0070.severity = error                                    # 
 dotnet_diagnostic.IDE0072.severity = none                                     # Its discard arm on enum switches hides missing members from CS8509
 dotnet_diagnostic.IDE0076.severity = error                                    # Remove invalid SuppressMessage targets
 dotnet_diagnostic.IDE0077.severity = error                                    # SuppressMessage targets in the Roslyn format
-dotnet_diagnostic.IDE0079.severity = error                                    # Remove stale suppressions
+dotnet_diagnostic.IDE0079.severity = none                                     # Never on build and unread by dotnet format, an IDE-only error
 dotnet_diagnostic.IDE0080.severity = error                                    # Remove unnecessary null-forgiving (!) operator
 dotnet_diagnostic.IDE0082.severity = error                                    # nameof over typeof(T).Name
 dotnet_diagnostic.IDE0100.severity = error                                    # Remove redundant equality (x == true)

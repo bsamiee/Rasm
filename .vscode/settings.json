@@ -10,7 +10,6 @@
         "**/dist": true,
         "**/.pixi": true,
         "**/.venv": true,
-        "**/.vs": true,
         "**/xcuserdata": true,
         "**/__pycache__": true
     },
@@ -23,7 +22,6 @@
         "**/.cloudflare/**": true,
         "**/.pixi/**": true,
         "**/.venv/**": true,
-        "**/.vs/**": true,
         "**/__pycache__/**": true,
         "**/dist/**": true,
         "**/docs/research/**": true,
@@ -32,7 +30,6 @@
 
     // --- [FILE_NESTING] ----------------------------------------------------------------
     "explorer.fileNesting.enabled": true,
-    "explorer.fileNesting.expand": false,
     "explorer.fileNesting.patterns": {
         "CLAUDE.md": ".mcp.json, AGENTS.md",
         "README.md": "LICENSE",
@@ -40,35 +37,40 @@
         ".gitignore": ".gitattributes",
         "pyproject.toml": "uv.lock, pixi.lock",
         "Cargo.toml": "rust-toolchain.toml, rustfmt.toml, clippy.toml, Cargo.lock",
-        "nx.json": ".editorconfig, .periphery.yml, .swift-format, .swiftlint.yml, .yamlfmt.yaml, .yamllint.yaml, mise.toml, pmd.xml, sgconfig.yml, Xcode.xcconfig",
+        "Package.swift": "Package.resolved, Xcode.xcconfig",
+        "nx.json": ".editorconfig, .periphery.yml, .swift-format, .swiftlint.yml, .yamlfmt.yaml, .yamllint.yaml, mise.toml, pmd.xml, sgconfig.yml",
         "package.json": "biome.json, pnpm-workspace.yaml, pnpm-lock.yaml, tsconfig.base.json, tsconfig.json, vite.config.ts, vitest.config.ts"
     },
 
     // --- [PYTHON] ----------------------------------------------------------------------
-    "mypy-type-checker.importStrategy": "fromEnvironment",
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
     "python.terminal.activateEnvironment": false,
+    "mypy-type-checker.importStrategy": "fromEnvironment",
+    "ty.experimental.useUv": "on",
+    "ty.diagnosticMode": "workspace",
     "[python]": { "editor.defaultFormatter": "charliermarsh.ruff" },
 
     // --- [TYPESCRIPT] ------------------------------------------------------------------
     "js/ts.experimental.useTsgo": true,
     "js/ts.tsdk.path": "./node_modules/typescript",
-    "js/ts.trace.server": "off",
+    "css.validate": false,
     "[typescript][typescriptreact][javascript][javascriptreact][json][jsonc][css]": { "editor.defaultFormatter": "biomejs.biome" },
 
     // --- [DOTNET] ----------------------------------------------------------------------
     "csharp.suppressBuildAssetsNotification": true,
     "dotnet.defaultSolution": "Workspace.slnx",
     "dotnet.projects.enableAutomaticRestore": false,
+    "dotnet.backgroundAnalysis.analyzerDiagnosticsScope": "fullSolution",
+    "dotnet.backgroundAnalysis.compilerDiagnosticsScope": "fullSolution",
 
     // --- [RUST] ------------------------------------------------------------------------
     "rust-analyzer.cargo.extraEnv": { "CARGO_BUILD_TARGET_DIR": "${workspaceFolder}/.artifacts/rust/rust-analyzer", "CARGO_BUILD_BUILD_DIR": "${workspaceFolder}/.cache/rust/rust-analyzer" },
-    "rust-analyzer.check.overrideCommand": [ "cargo", "clippy", "--locked", "--workspace", "--lib", "--bins", "--tests", "--message-format=json-diagnostic-rendered-ansi", "--keep-going", "--", "-D", "warnings" ],
+    "rust-analyzer.check.overrideCommand": [ "sh", "-c", "cargo clippy --locked --workspace --lib --bins --tests --keep-going --message-format=json-diagnostic-rendered-ansi; cargo dylint --all --workspace -- --locked --lib --bins --tests --message-format=json-diagnostic-rendered-ansi" ],
     "rust-analyzer.rustc.source": ".cargo/rustc-source/Cargo.toml",
 
     // --- [SWIFT] -----------------------------------------------------------------------
+    "swift.autoGenerateLaunchConfigurations": false,
     "swift.buildPath": "${workspaceFolder}/.cache/swiftpm/vscode",
-    "swift.searchSubfoldersForPackages": true,
-    "swift.ignoreSearchingForPackagesInSubfolders": [ ".", ".build", "Packages", "out", "bazel-out", "bazel-bin", "research" ],
 
     // --- [JAVA] ------------------------------------------------------------------------
     "java.configuration.runtimes": [ { "name": "JavaSE-27", "path": "${JAVA_HOME}", "default": true } ],
@@ -77,8 +79,6 @@
     "java.import.gradle.enabled": false,
     "java.project.sourcePaths": [ ".claude/skills/use-ghidra/scripts" ],
     "java.project.referencedLibraries": [ "${GHIDRA_INSTALL_DIR}/Ghidra/**/lib/*.jar" ],
-    "java.format.settings.google.extra": "--aosp",
-    "[java]": { "editor.defaultFormatter": "josevseb.google-java-format-for-vs-code" },
 
     // --- [YAML] ------------------------------------------------------------------------
     "yaml.format.enable": false,

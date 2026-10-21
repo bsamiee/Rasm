@@ -13,7 +13,7 @@
   "packages": [
     {
       "kind": "local",
-      "path": "../../../libs/swift/macos",
+      "path": "../../..",
     }, {
       "kind": "remote",
       "repository": "https://github.com/apple/swift-async-algorithms",
@@ -67,8 +67,20 @@
       ],
       "package-product-members": [
         {
-          "package": "macos",
-          "product-name": "RasmMacOS",
+          "package": "..",
+          "product-name": "Files",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "..",
+          "product-name": "JSON",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "..",
+          "product-name": "Processes",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "..",
+          "product-name": "Results",
           "build-phase": { "build-phase": "frameworks" },
         }, {
           "package": "swift-async-algorithms",

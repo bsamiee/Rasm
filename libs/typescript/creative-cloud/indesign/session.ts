@@ -89,7 +89,10 @@ class Menu extends Schema.Class<Menu, { readonly brand: unique symbol }>('Menu')
         ).pipe(Effect.flatMap((rows) => Unmatched.matching('menu area', area)(rows, (row) => [row.area])));
     }
 }
-class Invoke extends Mutation.extend<Invoke>('Invoke')({ action: Schema.Union([Schema.Int, Schema.String]).annotate({ description: 'Menu action id or name from the menu resource' }) }, { description: 'Invokes one menu action as the user would, in one undo step' }) {
+class Invoke extends Mutation.extend<Invoke>('Invoke')(
+    { action: Schema.Union([Schema.Int, Schema.String]).annotate({ description: 'Menu action id or name from the menu resource' }) },
+    { description: 'Invokes one menu action as the user would, in one undo step; an action whose name ends in an ellipsis opens a dialog and is refused, its settings living on the application preference objects inspect and change read and write' },
+) {
     static readonly Result = Mutation.summarized(Menu.Action);
 
     override get label(): string {
@@ -103,7 +106,12 @@ class Invoke extends Mutation.extend<Invoke>('Invoke')({ action: Schema.Union([S
             documents,
             Effect.fnUntraced(function* () {
                 const { app } = yield* Model;
-                const chosen = yield* Unmatched.single('menu action', Option.some(String(action)))(yield* Menu.make({ area: Option.none() }).run(), ({ id, name, area }) => [`${id} ${name} (${area})`, String(id), name]);
+                const chosen = yield* Unmatched.single('menu action', Option.some(String(action)))(yield* Menu.make({ area: Option.none() }).run(), ({ id, name, area }) => [`${id} ${name} (${area})`, String(id), name]).pipe(
+                    Effect.filterOrFail(
+                        ({ name }) => !name.endsWith('...'),
+                        ({ name }) => new Cause.IllegalArgumentError(`${name} opens a dialog; inspect and change read and write its settings on the application preference objects`),
+                    ),
+                );
                 yield* Effect.try({ try: () => app.menuActions.itemByID(chosen.id).invoke(), catch: (cause) => new Cause.UnknownError(cause, chosen.name) });
                 return chosen;
             }),

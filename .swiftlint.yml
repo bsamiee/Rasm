@@ -5,8 +5,8 @@ only_rules:
     - anonymous_argument_in_multiline_closure
     - array_init
     - async_without_await
-    - block_based_kvo
     - blanket_disable_command
+    - block_based_kvo
     - class_delegate_protocol
     - comma_inheritance
     - compiler_protocol_init
@@ -127,7 +127,7 @@ blanket_disable_command:
 deployment_target:
     macOS_deployment_target: '27.0'
 discouraged_direct_init:
-    types: [Bundle, Bundle.init, DateFormatter, DateFormatter.init, ISO8601DateFormatter, ISO8601DateFormatter.init, NSError, NSError.init, UIDevice, UIDevice.init]
+    types: [Bundle, DateFormatter, ISO8601DateFormatter, NSError]
 modifier_order:
     preferred_modifier_order: [acl, setterACL, override, isolation, dynamic, mutators, lazy, final, required, convenience, typeMethods, owned]
 nesting:

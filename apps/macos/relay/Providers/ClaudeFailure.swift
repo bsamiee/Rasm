@@ -1,5 +1,6 @@
 import Foundation
-import RasmMacOS
+import Processes
+import Results
 import Subprocess
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -11,11 +12,17 @@ nonisolated enum ClaudeEndpoint: String, Sendable {
 
     var timeout: TimeInterval { self == .token ? 30 : 15 }
 
-    static var decoder: JSONDecoder {
+    static let decoder: JSONDecoder = {
         let decoder: JSONDecoder = JSONDecoder()
         decoder.keyDecodingStrategy = .convertFromSnakeCase
         return decoder
-    }
+    }()
+
+    static let encoder: JSONEncoder = {
+        let encoder: JSONEncoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        return encoder
+    }()
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -56,16 +63,12 @@ nonisolated enum ClaudeFailure: DeadlineFailure, ProviderFailure {
     case executableMissing
     case signInRequired
     case accountOnHold(URL)
-    case authenticationFailed(TerminationStatus)
     case process(ProcessFailure)
-    case descriptorNotInherited(Int32)
-    case keychainLocked
-    case keychainFailed(TerminationStatus)
-    case credentialTooLarge
+    case keychain(KeychainFailure)
     case filesystem(any Error)
-    case invalidCredentials
+    case invalidCredentials(any Error?)
     case invalidIdentity(AggregateError<IdentityError>)
-    case invalidResponse
+    case invalidResponse(ClaudeEndpoint, any Error?)
     case invalidQuota(AggregateError<QuotaFailure>)
     case http(ClaudeEndpoint, status: Int, error: ClaudeAPIError?)
     case rateLimited(ClaudeEndpoint, until: Date)
@@ -79,6 +82,14 @@ nonisolated enum ClaudeFailure: DeadlineFailure, ProviderFailure {
     case lockHeld(URL)
     case lockCompromised(URL)
     indirect case cleanup(operation: Self, release: Self)
+
+    init(child error: any Error) {
+        self =
+            switch ProcessFailure(error) {
+                case .launch(let launch) where launch.code == .executableNotFound: .executableMissing
+                case let failure: Self(process: failure)
+            }
+    }
 
     var cause: Self {
         switch self {
@@ -107,7 +118,10 @@ nonisolated enum ClaudeFailure: DeadlineFailure, ProviderFailure {
     }
 
     var isCancellation: Bool {
-        if case .cancelled = cause { true } else { false }
+        switch cause {
+            case .cancelled, .keychain(.process(.cancelled)): true
+            default: false
+        }
     }
 
     var retryAfter: Date? {
@@ -119,16 +133,12 @@ nonisolated enum ClaudeFailure: DeadlineFailure, ProviderFailure {
             case .executableMissing: "Claude Code not installed"
             case .signInRequired: "Sign in required"
             case .accountOnHold(let url): "Account on hold: \(url.absoluteString)"
-            case .authenticationFailed(let status): "Claude Code sign-in failed: \(status)"
             case .process(let failure): failure.localizedDescription
-            case .descriptorNotInherited(let descriptor): "posix_spawn could not inherit descriptor \(descriptor)"
-            case .keychainLocked: "Login keychain locked"
-            case .keychainFailed(let status): "Keychain access failed: \(status)"
-            case .credentialTooLarge: "Claude credential too large to save"
+            case .keychain(let failure): failure.localizedDescription
             case .filesystem(let error): "Could not access Claude files: \(error.localizedDescription)"
             case .invalidCredentials: "Unreadable Claude credential"
             case .invalidIdentity: "Incomplete Claude account identity"
-            case .invalidResponse: "Unreadable Claude response"
+            case .invalidResponse(let endpoint, _): "Unreadable Claude \(endpoint) response"
             case .invalidQuota: "Unreadable Claude usage"
             case .http(let endpoint, let status, .some(let error)): "Claude \(endpoint) request returned \(status): \(error.message)"
             case .http(let endpoint, let status, .none): "Claude \(endpoint) request returned \(status)"
@@ -170,22 +180,6 @@ nonisolated extension ClaudeFailure {
                     .map(Self.accountOnHold) ?? rejected
             case .token where code == "invalid_grant" && [400, 401].contains(status): .signInRequired
             case .profile, .usage, .token: rejected
-        }
-    }
-}
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-nonisolated extension Result where Failure == KeychainFailure {
-    func claude() -> Result<Success, ClaudeFailure> {
-        mapError { failure in
-            switch failure {
-                case .interactionNotAllowed: .keychainLocked
-                case .itemTooLarge: .credentialTooLarge
-                case .unprinted: .invalidCredentials
-                case .failed(let status): .keychainFailed(status)
-                case .process(let error): ClaudeFailure(process: error)
-            }
         }
     }
 }

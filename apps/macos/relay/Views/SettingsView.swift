@@ -1,4 +1,3 @@
-import AppKit
 import ServiceManagement
 import SwiftUI
 
@@ -231,14 +230,6 @@ private struct GeneralSettings: View {
         }
         .formStyle(.grouped)
         .navigationTitle("General")
-        .task {
-            store.refreshLoginItem()
-            for await _ in NotificationCenter.default.notifications(
-                named: NSApplication.didBecomeActiveNotification
-            ) {
-                store.refreshLoginItem()
-            }
-        }
     }
 }
 

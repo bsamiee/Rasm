@@ -2,13 +2,12 @@ import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
 import { readJsonFile } from '@nx/devkit';
 import { Array, Effect, FileSystem, flow, Option, Path, Record, Schema, String } from 'effect';
-import { isValid, normalizeFull } from 'verkit';
+import { normalizeFull } from 'verkit';
 import { stdout } from '../process.ts';
-import { Capture, newest, splice } from './bounds.ts';
+import { Capture, newest, scan, splice } from './bounds.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Requirements = Schema.fromJsonString(Schema.Array(Schema.Struct({ file: Schema.String, metaVariables: Schema.Struct({ single: Schema.Struct({ URL: Capture, FROM: Capture }) }) })));
 const Remote = Schema.StructWithRest(Schema.Struct({ kind: Schema.Literal('remote'), repository: Schema.String, version: Schema.Struct({ 'up-to-next-major-version': Schema.String }) }), [Schema.JsonObject]);
 const Project = Schema.StructWithRest(Schema.Struct({ packages: Schema.Array(Schema.Union([Remote, Schema.JsonObject])) }), [Schema.JsonObject]);
 
@@ -21,7 +20,7 @@ const project = Effect.fn('project')(function* (file: string, document: typeof P
         file,
         yield* Schema.encodeEffect(Schema.fromJsonString(Project))({
             ...document,
-            packages: document.packages.map((row) => (remote(row) ? { ...row, version: { 'up-to-next-major-version': Option.getOrElse(Record.get(tags, row.repository), () => row.version['up-to-next-major-version']) } } : row)),
+            packages: document.packages.map((row) => (remote(row) ? { ...row, version: { 'up-to-next-major-version': Option.getOrThrow(Record.get(tags, row.repository)) } } : row)),
         }),
     );
     yield* stdout('xcrun', ['xcprojformatter', '--update', file]);
@@ -36,7 +35,7 @@ Effect.gen(function* () {
         [
             Array.match(listed['Package.swift'] ?? [], {
                 onEmpty: () => Effect.succeed([]),
-                onNonEmpty: (files) => Effect.flatMap(stdout('ast-grep', ['scan', '--custom-languages', 'allow', '--inline-rules', '{id: requirement, language: swiftlang, severity: info, rule: {pattern: \'.package(url: "$URL", from: "$FROM")\'}}', '--json=compact', ...files]), Schema.decodeEffect(Requirements)),
+                onNonEmpty: (files) => scan({ requirement: 'language: swiftlang, rule: {pattern: \'.package(url: "$URL", from: "$FROM")\'}' }, { URL: Capture, FROM: Capture }, ['--custom-languages', 'allow', ...files]),
             }),
             Effect.validate(
                 listed['project.xcproj'] ?? [],
@@ -51,8 +50,8 @@ Effect.gen(function* () {
         { concurrency: 'unbounded' },
     );
     const urls = Array.dedupe([...requirements.map(({ metaVariables }) => metaVariables.single.URL.text), ...documents.flatMap(([, document]) => document.packages.filter(Schema.is(Remote)).map(({ repository }) => repository))]);
-    const tags = Record.getSomes(Object.fromEntries(yield* Effect.validate(urls, (url) => Effect.map(newest(url, isValid), (tag) => [url, Option.flatMap(tag, flow(normalizeFull, Option.fromNullOr))] as const), { concurrency: 'unbounded' })));
-    const edits = requirements.flatMap(({ file, metaVariables: { single } }) => Option.toArray(Record.get(tags, single.URL.text)).map((tag) => ({ file, span: single.FROM.range.byteOffset, tag })));
+    const tags = Object.fromEntries(yield* Effect.validate(urls, (url) => Effect.map(newest(url, flow(normalizeFull, Option.fromNullOr)), (tag) => [url, tag] as const), { concurrency: 'unbounded' }));
+    const edits = requirements.map(({ file, metaVariables: { single } }) => ({ file, span: single.FROM.range.byteOffset, tag: Option.getOrThrow(Record.get(tags, single.URL.text)) }));
     yield* Effect.forEach(
         Object.entries(Array.groupBy(edits, ({ file }) => file)),
         ([file, found]) =>

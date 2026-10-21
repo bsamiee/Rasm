@@ -1,6 +1,9 @@
+import AsyncAlgorithms
 import Darwin
 import Foundation
-import RasmMacOS
+import JSON
+import Processes
+import Results
 import Subprocess
 import System
 
@@ -16,17 +19,8 @@ private nonisolated enum ClaudeMessageType: String, Codable, Sendable {
 
 private nonisolated enum ClaudeSubtype: String, Codable, Sendable {
     case initialize
-    case listModels = "list_models"
     case setModel = "set_model"
     case success
-}
-
-private nonisolated enum ClaudeRole: String, Encodable, Sendable {
-    case user
-}
-
-private nonisolated enum ClaudeRateLimitType: String, Decodable, Sendable {
-    case fiveHour = "five_hour"
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -34,7 +28,6 @@ private nonisolated enum ClaudeRateLimitType: String, Decodable, Sendable {
 private nonisolated struct ClaudeControlRequest: Encodable, Sendable {
     enum Request: Encodable, Sendable {
         case initialize
-        case listModels
         case setModel(String)
 
         enum CodingKeys: CodingKey {
@@ -45,7 +38,6 @@ private nonisolated struct ClaudeControlRequest: Encodable, Sendable {
             var container: KeyedEncodingContainer<CodingKeys> = encoder.container(keyedBy: CodingKeys.self)
             switch self {
                 case .initialize: try container.encode(ClaudeSubtype.initialize, forKey: .subtype)
-                case .listModels: try container.encode(ClaudeSubtype.listModels, forKey: .subtype)
                 case .setModel(let model):
                     try container.encode(ClaudeSubtype.setModel, forKey: .subtype)
                     try container.encode(model, forKey: .model)
@@ -60,7 +52,7 @@ private nonisolated struct ClaudeControlRequest: Encodable, Sendable {
 
 private nonisolated struct ClaudeUserMessage: Encodable, Sendable {
     struct Message: Encodable, Sendable {
-        let role: ClaudeRole = .user
+        let role: String = "user"
         let content: String
     }
 
@@ -91,18 +83,17 @@ private nonisolated struct ClaudeRateLimitInfo: Decodable, Sendable {
     }
 
     let unifiedWindows: Windows?
-    let rateLimitType: Lenient<ClaudeRateLimitType>
+    let rateLimitType: String?
     let resetsAt: Double?
 
     var sessionResetSeconds: Double? {
-        unifiedWindows?.fiveHour?.resetsAt ?? (rateLimitType.value == .fiveHour ? resetsAt : nil)
+        unifiedWindows?.fiveHour?.resetsAt ?? (rateLimitType == "five_hour" ? resetsAt : nil)
     }
 }
 
 private nonisolated struct ClaudeModelOption: Decodable, Sendable {
     let value: String?
     let resolvedModel: String?
-    let disabled: Bool?
 }
 
 private nonisolated struct ClaudeControlResponse: Decodable, Sendable {
@@ -110,14 +101,9 @@ private nonisolated struct ClaudeControlResponse: Decodable, Sendable {
         let models: [ClaudeModelOption]?
     }
 
-    let requestID: String
+    let requestId: String
     let subtype: Lenient<ClaudeSubtype>
     let response: Response?
-
-    enum CodingKeys: String, CodingKey {
-        case requestID = "requestId"
-        case subtype, response
-    }
 }
 
 private nonisolated struct ClaudeMessage: Decodable, Sendable {
@@ -131,151 +117,95 @@ private nonisolated struct ClaudeMessage: Decodable, Sendable {
 private nonisolated enum ClaudeSessionPhase: Sendable {
     case requesting(ClaudeControlRequest)
     case greeting
-}
-
-private nonisolated enum ClaudeSessionStep: Sendable {
-    case awaiting(ClaudeSessionPhase, sessionReset: Date?)
-    case finished(sessionReset: Date?)
+    case finished
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 nonisolated enum ClaudeSession {
-    static func run(
-        executable: Executable,
-        token: ClaudeOAuthToken,
-        environment: [String: String],
-        workingDirectory: URL,
-    ) async -> Result<Date?, ClaudeFailure> {
-        await Result { () throws(Errno) in try FileDescriptor.pipe(options: .closeOnExec) }.mapError(ClaudeFailure.filesystem)
-            .flatMap { pipe in
-                Result { try pipe.writeEnd.closeAfter { try pipe.writeEnd.writeAll(token.accessToken.utf8) } }
-                    .map { _ in pipe.readEnd }
-                    .mapError { error in
-                        try? pipe.readEnd.close()
-                        return .filesystem(error)
-                    }
-            }
-            .bind { descriptor in
-                defer { try? descriptor.close() }
-                let sessionID: UUID = UUID()
-                let tokenVariables: [String: String?] = [
-                    "CLAUDE_CODE_SUBSCRIPTION_TYPE": token.document.known.subscriptionType,
-                    "CLAUDE_CODE_RATE_LIMIT_TIER": token.document.known.rateLimitTier,
-                    "CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR": String(descriptor.rawValue),
-                ]
-                var invocation: Configuration = ProcessRun.configuration(
-                    executable: executable,
-                    arguments: [
-                        "-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
-                        "--tools", "", "--setting-sources=", "--strict-mcp-config", "--disable-slash-commands",
-                        "--no-session-persistence", "--max-turns", "1", "--session-id", sessionID.uuidString,
-                        "--system-prompt", "Reply with one word.",
-                        "--settings", "{\"disableAllHooks\":true,\"autoMemoryEnabled\":false}",
-                    ],
-                    environment: environment.merging(tokenVariables.compactMapValues(\.self)) { _, new in new },
-                    workingDirectory: workingDirectory,
-                )
-                let source: Int32 = descriptor.rawValue
-                unsafe invocation.platformOptions.preSpawnProcessConfigurator = { _, actions in
-                    guard unsafe posix_spawn_file_actions_addinherit_np(&actions, source) == 0 else {
-                        throw ClaudeFailure.descriptorNotInherited(source)
-                    }
-                }
-                return await ProcessRun.run(deadline: .seconds(120)) { [invocation] in
-                    try await Subprocess.run(invocation, input: .inputWriter, output: .sequence, error: .discarded) { execution in
-                        func send(_ message: some Encodable, closingInput: Bool) async -> Result<Void, ClaudeFailure> {
-                            await Result {
-                                let encoder: JSONEncoder = JSONEncoder()
-                                encoder.keyEncodingStrategy = .convertToSnakeCase
-                                return try encoder.encode(message) + [UInt8(ascii: "\n")]
-                            }
-                            .mapError { _ in ClaudeFailure.protocolFailure }
-                            .bind { line in
-                                await Result { () async throws(SubprocessError) in
-                                    _ = try await execution.standardInputWriter.write(line.bytes)
-                                    if closingInput { try await execution.standardInputWriter.finish() }
-                                }
-                                .mapError { error in ClaudeFailure(process: ProcessRun.failure(error)) }
-                            }
-                        }
-                        func sendControlRequest(_ request: ClaudeControlRequest.Request, sessionReset: Date?) async -> Result<ClaudeSessionStep, ClaudeFailure> {
-                            let sent: ClaudeControlRequest = ClaudeControlRequest(requestID: UUID().uuidString, request: request)
-                            return await send(sent, closingInput: false)
-                                .map { _ in .awaiting(.requesting(sent), sessionReset: sessionReset) }
-                        }
-                        func advance(_ phase: ClaudeSessionPhase, sessionReset: Date?, message: ClaudeMessage) async -> Result<ClaudeSessionStep, ClaudeFailure> {
-                            guard !Task.isCancelled else { return .failure(.cancelled) }
-                            if message.type.value == .rateLimitEvent, let seconds: Double = message.rateLimitInfo?.sessionResetSeconds {
-                                return .success(.awaiting(phase, sessionReset: Date(timeIntervalSince1970: seconds)))
-                            }
-                            if case .greeting = phase, message.type.value == .result {
-                                return message.subtype.value == .success && message.isError != true
-                                    ? .success(.finished(sessionReset: sessionReset)) : .failure(.greetingFailed)
-                            }
-                            guard case .requesting(let sent) = phase, message.type.value == .controlResponse,
-                                let response: ClaudeControlResponse = message.response,
-                                response.requestID == sent.requestID
-                            else { return .success(.awaiting(phase, sessionReset: sessionReset)) }
-                            guard response.subtype.value == .success else { return .failure(.protocolFailure) }
-                            switch sent.request {
-                                case .initialize:
-                                    return await sendControlRequest(.listModels, sessionReset: sessionReset)
-                                case .listModels:
-                                    return
-                                        if let model: ClaudeModelOption = response.response?.models?.first(where: { item in
-                                            item.disabled != true
-                                                && (item.value == "haiku" || item.resolvedModel?.hasPrefix("claude-haiku-") == true)
-                                        }),
-                                        let resolved: String = model.resolvedModel
-                                    {
-                                        await sendControlRequest(.setModel(resolved), sessionReset: sessionReset)
-                                    } else {
-                                        .failure(.modelUnavailable)
-                                    }
-                                case .setModel:
-                                    let greeting: ClaudeUserMessage = ClaudeUserMessage(
-                                        sessionID: sessionID,
-                                        message: ClaudeUserMessage.Message(content: "hi"),
-                                    )
-                                    return await send(greeting, closingInput: true).map { _ in
-                                        .awaiting(.greeting, sessionReset: sessionReset)
-                                    }
-                            }
-                        }
-                        var step: Result<ClaudeSessionStep, ClaudeFailure> = await sendControlRequest(.initialize, sessionReset: nil)
-                        let lines: SubprocessOutputSequence.StringSequence<UTF8> = execution.standardOutput.strings()
-                        let decoder: JSONDecoder = JSONDecoder()
-                        decoder.keyDecodingStrategy = .convertFromSnakeCase
-                        let read: Result<Void, any Error> = await Result {
-                            for try await line: String in lines {
-                                guard case .success(.awaiting(let phase, let reset)) = step else { break }
-                                step = await Result { try decoder.decode(ClaudeMessage.self, from: Data(line.utf8)) }
-                                    .mapError { _ in ClaudeFailure.protocolFailure }
-                                    .bind { message in await advance(phase, sessionReset: reset, message: message) }
-                                if case .success(.finished) = step { break }
-                            }
-                        }
-                        let outcome: Result<Date?, ClaudeFailure> = step.flatMap { step in
-                            switch step {
-                                case .finished(let reset): .success(reset)
-                                case .awaiting: .failure(Task.isCancelled ? .cancelled : .protocolFailure)
-                            }
-                        }
-                        return read.mapError { error in ClaudeFailure(process: ProcessRun.failure(error)) }.flatMap { _ in outcome }
-                    }
-                }
-                .mapError { failure in
-                    switch failure {
-                        case .io(let cause as ClaudeFailure): cause
-                        default: ClaudeFailure(process: failure)
-                    }
+    static func run(_ invocation: Configuration, token: ClaudeOAuthToken) async throws(ClaudeFailure) -> Date? {
+        let pipe: (readEnd: FileDescriptor, writeEnd: FileDescriptor) = try Result { () throws(Errno) in try FileDescriptor.pipe(options: .closeOnExec) }
+            .mapError(ClaudeFailure.filesystem)
+            .get()
+        let sessionID: UUID = UUID()
+        var greeting: Configuration = invocation
+        greeting.arguments = [
+            "-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
+            "--tools", "", "--setting-sources=", "--strict-mcp-config", "--disable-slash-commands",
+            "--no-session-persistence", "--max-turns", "1", "--session-id", sessionID.uuidString,
+            "--system-prompt", "Reply with one word.",
+            "--settings", "{\"disableAllHooks\":true,\"autoMemoryEnabled\":false}",
+        ]
+        greeting.environment = invocation.environment.updating([
+            "CLAUDE_CODE_SUBSCRIPTION_TYPE": token.document.known.subscriptionType,
+            "CLAUDE_CODE_RATE_LIMIT_TIER": token.document.known.rateLimitTier,
+            "CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR": String(pipe.readEnd.rawValue),
+        ])
+        let source: Int32 = pipe.readEnd.rawValue
+        unsafe greeting.platformOptions.preSpawnProcessConfigurator = { _, actions in
+            let code: Int32 = unsafe posix_spawn_file_actions_addinherit_np(&actions, source)
+            guard code == 0 else { throw Errno(rawValue: code) }
+        }
+        @Sendable func converse(_ execution: Execution<CustomWriteInput, SequenceOutput, DiscardedOutput>) async -> Result<Date?, ClaudeFailure> {
+            func send(_ message: some Encodable) async throws(ClaudeFailure) {
+                do {
+                    _ = try await execution.standardInputWriter.write((ClaudeEndpoint.encoder.encode(message) + [UInt8(ascii: "\n")]).bytes)
+                } catch {
+                    throw ClaudeFailure(process: error)
                 }
             }
-            .flatMap { result in
-                result.closureResult.flatMap { reset in
-                    result.terminationStatus.isSuccess ? .success(reset) : .failure(.process(.exit(result.terminationStatus)))
+            func request(_ request: ClaudeControlRequest.Request) async throws(ClaudeFailure) -> ClaudeSessionPhase {
+                let sent: ClaudeControlRequest = ClaudeControlRequest(requestID: UUID().uuidString, request: request)
+                try await send(sent)
+                return .requesting(sent)
+            }
+            func advance(_ phase: ClaudeSessionPhase, _ message: ClaudeMessage) async throws(ClaudeFailure) -> ClaudeSessionPhase {
+                guard !Task.isCancelled else { throw .cancelled }
+                switch (phase, message.type.value) {
+                    case (.greeting, .result):
+                        guard message.subtype.value == .success, message.isError != true else { throw .greetingFailed }
+                        return .finished
+                    case (.requesting(let sent), .controlResponse):
+                        guard let response: ClaudeControlResponse = message.response, response.requestId == sent.requestID else { return phase }
+                        guard response.subtype.value == .success else { throw .protocolFailure }
+                        switch sent.request {
+                            case .initialize:
+                                guard
+                                    let model: String = response.response?.models?
+                                        .first(where: { item in item.value == "haiku" || item.resolvedModel?.hasPrefix("claude-haiku-") == true })?
+                                        .resolvedModel
+                                else { throw .modelUnavailable }
+                                return try await request(.setModel(model))
+                            case .setModel:
+                                try await send(ClaudeUserMessage(sessionID: sessionID, message: ClaudeUserMessage.Message(content: "hi")))
+                                do { try await execution.standardInputWriter.finish() } catch { throw ClaudeFailure(process: error) }
+                                return .greeting
+                        }
+                    default: return phase
                 }
             }
+            return await Result { () async throws(ClaudeFailure) in
+                var phase: ClaudeSessionPhase = try await request(.initialize)
+                var reset: Date?
+                for try await line: String in execution.standardOutput.strings().mapError(ClaudeFailure.init(process:)) {
+                    let message: ClaudeMessage = try Result { try ClaudeEndpoint.decoder.decode(ClaudeMessage.self, from: Data(line.utf8)) }.mapError { _ in ClaudeFailure.protocolFailure }.get()
+                    if message.type.value == .rateLimitEvent, let seconds: Double = message.rateLimitInfo?.sessionResetSeconds { reset = Date(timeIntervalSince1970: seconds) }
+                    phase = try await advance(phase, message)
+                    if case .finished = phase { return reset }
+                }
+                throw Task.isCancelled ? .cancelled : .protocolFailure
+            }
+        }
+        let outcome: Result<Date?, ClaudeFailure> = await Result { () async throws(ClaudeFailure) in
+            _ = try Result { try pipe.writeEnd.closeAfter { try pipe.writeEnd.writeAll(token.accessToken.utf8) } }.mapError(ClaudeFailure.filesystem).get()
+            let result: ExecutionResult<Result<Date?, ClaudeFailure>, SequenceOutput, DiscardedOutput> = try await withTimeout(.seconds(120)) { [greeting] in
+                await Result { try await Subprocess.run(greeting, input: .inputWriter, output: .sequence, error: .discarded, body: converse) }.mapError(ClaudeFailure.init(child:))
+            }
+            .get()
+            guard result.terminationStatus.isSuccess else { throw .process(.exit(result.terminationStatus)) }
+            return try result.closureResult.get()
+        }
+        let closed: Result<Void, ClaudeFailure> = Result { try pipe.readEnd.close() }.mapError(ClaudeFailure.filesystem)
+        return try outcome.mapError { error in error.releasing(closed) }.flatMap { reset in closed.map { _ in reset } }.get()
     }
 }

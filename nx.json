@@ -10,8 +10,8 @@
         "vite": [ "{workspaceRoot}/vite.config.ts", { "externalDependencies": [ "vite", "effect", "@vitejs/plugin-react", "@cloudflare/vite-plugin" ] } ],
         "typescript": [ "{workspaceRoot}/tsconfig.base.json", { "json": "{workspaceRoot}/package.json", "fields": [ "type", "imports" ] }, { "runtime": "node --version" } ],
         "rust": [ "{workspaceRoot}/{Cargo.toml,Cargo.lock,rust-toolchain.toml,.cargo/config.toml}", { "externalDependencies": [] } ],
-        "swift": [ { "externalDependencies": [] }, { "runtime": "xcodebuild -version" } ],
-        "xcode": [ "{workspaceRoot}/{Xcode.xcconfig,Workspace.xcworkspace/**/*}" ],
+        "swift": [ "{workspaceRoot}/{Package.swift,Package.resolved}", { "externalDependencies": [] }, { "runtime": "xcodebuild -version" } ],
+        "xcode": [ "{workspaceRoot}/Xcode.xcconfig" ],
         "pythonFiles": [ "{workspaceRoot}/**/*.{py,pyi}" ],
         "rustFiles": [ "{workspaceRoot}/**/*.rs" ],
         "lintLibrary": [ "{projectRoot}/**/*.rs", "!{projectRoot}/examples/**/*", "{projectRoot}/Cargo.toml" ],
@@ -42,14 +42,15 @@
                 "options": {
                     "cwd": "{projectRoot}",
                     "commands": [
-                        "xcodebuild -workspace \"$NX_WORKSPACE_ROOT/Workspace.xcworkspace\" -scheme {projectName} -destination platform=macOS -derivedDataPath \"$NX_WORKSPACE_ROOT/$XCODE_DERIVED_DATA_PATH\" -disableAutomaticPackageResolution build LM_SKIP_METADATA_EXTRACTION=YES",
-                        { "command": "xcode-build-server config -workspace \"$NX_WORKSPACE_ROOT/Workspace.xcworkspace\" -scheme {projectName} --build_root \"$NX_WORKSPACE_ROOT/$XCODE_DERIVED_DATA_PATH\"", "forwardAllArgs": false }
+                        { "command": "mkdir -p \"$NX_WORKSPACE_ROOT/$XCODE_DERIVED_DATA_PATH\"", "forwardAllArgs": false },
+                        "set -o pipefail; xcodebuild -project {projectName}.xcodeproj -scheme {projectName} -destination platform=macOS -derivedDataPath \"$NX_WORKSPACE_ROOT/$XCODE_DERIVED_DATA_PATH\" -disableAutomaticPackageResolution clean build LM_SKIP_METADATA_EXTRACTION=YES | tee \"$NX_WORKSPACE_ROOT/$XCODE_DERIVED_DATA_PATH/xcodebuild.log\"",
+                        { "command": "xcode-build-server config -project {projectName}.xcodeproj -scheme {projectName} --build_root \"$NX_WORKSPACE_ROOT/$XCODE_DERIVED_DATA_PATH\"", "forwardAllArgs": false }
                     ],
                     "parallel": false
                 },
                 "configurations": { "ci": { "args": [ "CODE_SIGN_STYLE=Manual", "CODE_SIGN_IDENTITY=-", "DEVELOPMENT_TEAM=" ] } }
             },
-            { "filter": { "projects": [ "tag:build:swiftpm" ] }, "command": "swift build --package-path {projectRoot} --disable-automatic-resolution", "cache": false },
+            { "filter": { "projects": [ "tag:build:swiftpm" ] }, "command": "swift build --target {projectName} --disable-automatic-resolution", "cache": false, "parallelism": false },
             { "filter": { "projects": [ "tag:language:rust" ] }, "command": "cargo build --locked --package {projectName}", "cache": false, "inputs": [ "default", "^default", "rust" ], "parallelism": false },
             { "filter": { "projects": [ "tag:language:typescript" ] }, "inputs": [ "production", "^production", "typescript" ] },
             { "filter": { "projects": [ "tag:bundler:vite" ] }, "command": "vite build", "options": { "cwd": "{projectRoot}" }, "inputs": [ "...", "vite" ], "outputs": [ "{projectRoot}/dist" ] },
@@ -76,8 +77,9 @@
                 "options": {
                     "commands": [
                         "rm -rf \"$NX_WORKSPACE_ROOT/.artifacts/{projectRoot}/install\"",
-                        "xcodebuild -workspace \"$NX_WORKSPACE_ROOT/Workspace.xcworkspace\" -scheme {projectName} -configuration Release -destination platform=macOS -derivedDataPath \"$NX_WORKSPACE_ROOT/$XCODE_DERIVED_DATA_PATH/release\" -clonedSourcePackagesDirPath \"$NX_WORKSPACE_ROOT/$XCODE_DERIVED_DATA_PATH/SourcePackages\" -disableAutomaticPackageResolution install \"DSTROOT=$NX_WORKSPACE_ROOT/.artifacts/{projectRoot}/install\" ARCHS=arm64 LM_SKIP_METADATA_EXTRACTION=YES",
-                        "sudo ditto \"$NX_WORKSPACE_ROOT/.artifacts/{projectRoot}/install\" /"
+                        "xcodebuild -project \"$NX_WORKSPACE_ROOT/{projectRoot}/{projectName}.xcodeproj\" -scheme {projectName} -configuration Release -destination platform=macOS -derivedDataPath \"$NX_WORKSPACE_ROOT/$XCODE_DERIVED_DATA_PATH/release\" -clonedSourcePackagesDirPath \"$NX_WORKSPACE_ROOT/$XCODE_DERIVED_DATA_PATH/SourcePackages\" -disableAutomaticPackageResolution install \"DSTROOT=$NX_WORKSPACE_ROOT/.artifacts/{projectRoot}/install\" ARCHS=arm64 LM_SKIP_METADATA_EXTRACTION=YES",
+                        "rm -rf \"/Applications/{projectName}.app\"",
+                        "ditto \"$NX_WORKSPACE_ROOT/.artifacts/{projectRoot}/install\" /"
                     ],
                     "parallel": false
                 },
@@ -101,21 +103,27 @@
             }
         ],
         "{install,upgrade}:cargo": { "command": "cargo install --locked --profile dist --path {projectRoot}", "parallelism": false },
-        "upgrade": [ { "filter": { "projects": [ "tag:build:swiftpm" ] }, "command": "swift package --package-path {projectRoot} update", "dependsOn": [ { "projects": [ "rasm" ], "target": "upgrade:swift" } ] } ],
-        "lint:swiftlint": [
+        "upgrade:xcode": [
             {
                 "filter": { "projects": [ "tag:build:xcode" ] },
                 "executor": "nx:run-commands",
-                "cache": true,
-                "dependsOn": [ "build" ],
-                "inputs": [ "default", "^default", "swift", "xcode", "{workspaceRoot}/.swiftlint.yml", { "runtime": "swiftlint version" } ],
+                "dependsOn": [ { "projects": [ "rasm" ], "target": "upgrade:swift" } ],
                 "options": {
                     "commands": [
-                        "xcodebuild -workspace Workspace.xcworkspace -scheme {projectName} -destination platform=macOS -derivedDataPath \"$XCODE_DERIVED_DATA_PATH\" -disableAutomaticPackageResolution -showBuildSettingsForIndex -json | jq '[.[] | to_entries[] | select(.value.swiftASTCommandArguments) | {file: .key, arguments: .value.swiftASTCommandArguments}]' > \"$XCODE_DERIVED_DATA_PATH/compile_commands.json\"",
-                        "swiftlint analyze --quiet --compile-commands \"$XCODE_DERIVED_DATA_PATH/compile_commands.json\" {projectRoot}"
+                        "rm -f \"{projectRoot}/{projectName}.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved\" \"$XCODE_DERIVED_DATA_PATH/SourcePackages/workspace-state.json\"",
+                        "xcodebuild -resolvePackageDependencies -project \"{projectRoot}/{projectName}.xcodeproj\" -derivedDataPath \"$XCODE_DERIVED_DATA_PATH\""
                     ],
                     "parallel": false
                 }
+            }
+        ],
+        "lint:swiftlint": [
+            {
+                "filter": { "projects": [ "tag:build:xcode" ] },
+                "command": "swiftlint analyze --quiet --compiler-log-path \"$XCODE_DERIVED_DATA_PATH/xcodebuild.log\" {projectRoot}",
+                "cache": true,
+                "dependsOn": [ "build" ],
+                "inputs": [ "default", "^default", "swift", "xcode", "{workspaceRoot}/.swiftlint.yml", { "runtime": "swiftlint version" } ]
             }
         ],
         "lint:periphery": [
@@ -146,8 +154,14 @@
         "run:*.cs": { "command": "dotnet run" },
         "format:*": { "parallelism": false },
         "lint:*": { "cache": true },
-        "{format,lint}:{dotnet-format,*.cs}": {
+        "format:{dotnet-format,*.cs}": {
             "command": "dotnet format --binarylog \"$NX_WORKSPACE_ROOT/.artifacts/dotnet/binlog/$NX_TASK_TARGET_PROJECT/$(printf %s \"$NX_TASK_TARGET_TARGET\" | tr : -).binlog\"",
+            "parallelism": false,
+            "dependsOn": [ "...", { "target": "build", "projects": [ "directory:tools/roslyn/**" ] } ]
+        },
+        "lint:{dotnet-format,*.cs}": {
+            "command": "dotnet format --binarylog \"$NX_WORKSPACE_ROOT/.artifacts/dotnet/binlog/$NX_TASK_TARGET_PROJECT/$(printf %s \"$NX_TASK_TARGET_TARGET\" | tr : -).binlog\"",
+            "cache": true,
             "parallelism": false,
             "dependsOn": [ "...", { "target": "build", "projects": [ "directory:tools/roslyn/**" ] } ]
         },
@@ -192,8 +206,9 @@
             { "filter": { "projects": [ "tag:host:dylint" ] }, "inputs": [ "...", { "runtime": "cargo dylint --version" } ] },
             {
                 "filter": { "projects": [ "tag:build:swiftpm" ] },
-                "command": "swift test --package-path {projectRoot} --disable-automatic-resolution",
-                "inputs": [ "default", "^default", "swift" ]
+                "command": "swift test --disable-automatic-resolution",
+                "inputs": [ "default", "^default", "swift" ],
+                "parallelism": false
             }
         ],
         "e2e": [ { "filter": { "plugin": "@nx/playwright/plugin" }, "cache": false, "parallelism": true } ],

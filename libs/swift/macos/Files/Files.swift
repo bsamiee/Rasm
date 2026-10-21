@@ -1,5 +1,4 @@
 import CoreServices
-public import CryptoKit
 import Dispatch
 public import Foundation
 import System
@@ -8,10 +7,12 @@ import System
 
 public enum FileWatchFailure: LocalizedError {
     case unstarted(URL)
+    case unreadable(URL, any Error)
 
     public var errorDescription: String? {
         switch self {
             case .unstarted(let file): "FSEvents could not start a stream on \(file.path(percentEncoded: false))"
+            case .unreadable(let file, let error): "Reading \(file.path(percentEncoded: false)) failed: \(error.localizedDescription)"
         }
     }
 }
@@ -27,10 +28,6 @@ public func ifPresent<Value>(_ operation: () throws -> Value) -> Result<Value?, 
     }
 }
 
-public func contentDigest(_ file: URL) throws -> SHA256Digest? {
-    try ifPresent { try Data(contentsOf: file) }.get().map(SHA256.hash(data:))
-}
-
 public enum FileWatch {
     public static func events(of file: URL) -> AsyncStream<Result<Void, FileWatchFailure>> {
         AsyncStream { continuation in
@@ -40,10 +37,54 @@ public enum FileWatch {
         }
     }
 
+    public static func lines(appendedTo file: URL) -> AsyncStream<Result<Data, FileWatchFailure>> {
+        let (chunks, chunk): (AsyncStream<Result<Data?, FileWatchFailure>>, AsyncStream<Result<Data?, FileWatchFailure>>.Continuation) = AsyncStream.makeStream()
+        let opened: Result<FileHandle, any Error> = Result {
+            let handle: FileHandle = try FileHandle(
+                fileDescriptor: FileDescriptor.open(FilePath(file.path(percentEncoded: false)), .readOnly, options: [.create, .closeOnExec], permissions: [.ownerReadWrite]).rawValue,
+                closeOnDealloc: true,
+            )
+            try handle.seekToEnd()
+            return handle
+        }
+        switch opened {
+            case .success(let handle):
+                let source: any DispatchSourceRead = DispatchSource.makeReadSource(fileDescriptor: handle.fileDescriptor, queue: DispatchQueue(label: "Files.FileWatch.lines"))
+                source.setEventHandler { chunk.yield(Result { try handle.readToEnd() }.mapError { error in .unreadable(file, error) }) }
+                source.setCancelHandler { withExtendedLifetime(handle) { chunk.finish() } }
+                chunk.onTermination = { _ in source.cancel() }
+                source.activate()
+            case .failure(let error):
+                chunk.yield(.failure(.unreadable(file, error)))
+                chunk.finish()
+        }
+        return AsyncStream { continuation in
+            let following: Task<Void, Never> = Task {
+                defer {
+                    chunk.finish()
+                    continuation.finish()
+                }
+                var pending: Data = Data()
+                for await read: Result<Data?, FileWatchFailure> in chunks {
+                    switch read {
+                        case .success(let appended):
+                            let lines: [Data] = (pending + (appended ?? Data())).split(separator: UInt8(ascii: "\n"), omittingEmptySubsequences: false)
+                            pending = lines[lines.endIndex - 1]
+                            for line: Data in lines.dropLast() { continuation.yield(.success(line)) }
+                        case .failure(let error):
+                            continuation.yield(.failure(error))
+                            return
+                    }
+                }
+            }
+            continuation.onTermination = { _ in following.cancel() }
+        }
+    }
+
     @safe private actor Watcher {
         // --- [STATE]
         let continuation: AsyncStream<Result<Void, FileWatchFailure>>.Continuation
-        private let queue: DispatchSerialQueue = DispatchSerialQueue(label: "RasmMacOS.FileWatch")
+        private let queue: DispatchSerialQueue = DispatchSerialQueue(label: "Files.FileWatch")
         private var stream: FSEventStreamRef?
 
         init(continuation: AsyncStream<Result<Void, FileWatchFailure>>.Continuation) {

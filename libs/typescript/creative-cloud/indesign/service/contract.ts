@@ -16,10 +16,6 @@ import { Phase } from '../transactions.ts';
 const PATH = '/indesign';
 const WIRE = RpcSerialization.layerSchemaBinary({ fingerprintPayloads: true });
 
-// --- [MODELS] --------------------------------------------------------------------------
-
-const Failure = Schema.Union([Unmatched, Schema.ErrorInstance()]);
-
 // --- [SERVICES] ------------------------------------------------------------------------
 
 class Hold extends RpcMiddleware.Service<Hold>()('@rasm/indesign/service/contract/Hold', { error: Schema.ErrorInstance(), requiredForClient: true }) {
@@ -50,19 +46,19 @@ class Hold extends RpcMiddleware.Service<Hold>()('@rasm/indesign/service/contrac
 
 const Enter = Rpc.make('enter', { payload: {}, success: Phase });
 const InDesign = RpcGroup.make(
-    Rpc.make('inspect', { payload: Inspect, success: Inspect.Result, error: Failure }),
-    Rpc.make('change', { payload: Change, success: Change.Result, error: Failure }),
-    Rpc.make('create', { payload: Create, success: Create.Result, error: Failure }),
-    Rpc.make('remove', { payload: Remove, success: Remove.Result, error: Failure }),
-    Rpc.make('execute_script', { payload: Script, success: Script.Result, error: Failure }),
-    Rpc.make('find_change', { payload: FindChange, success: FindChange.Result, error: Failure }),
-    Rpc.make('font', { payload: Font, success: Font.Result, error: Failure }),
-    Rpc.make('kind', { payload: Kind, success: Kind.Result, error: Failure }),
-    Rpc.make('render', { payload: Render, success: Render.Result, error: Failure }),
-    Rpc.make('menu', { payload: Menu, success: Menu.Result, error: Failure }),
-    Rpc.make('invoke', { payload: Invoke, success: Invoke.Result, error: Failure }),
-    Rpc.make('preflight', { payload: Preflight, success: Preflight.Result, error: Failure }),
-    Rpc.make('queries', { payload: Queries, success: Queries.Result, error: Failure }),
+    Rpc.make('inspect', { payload: Inspect, success: Inspect.Result, error: Unmatched.Refusal }),
+    Rpc.make('change', { payload: Change, success: Change.Result, error: Unmatched.Refusal }),
+    Rpc.make('create', { payload: Create, success: Create.Result, error: Unmatched.Refusal }),
+    Rpc.make('remove', { payload: Remove, success: Remove.Result, error: Unmatched.Refusal }),
+    Rpc.make('execute_script', { payload: Script, success: Script.Result, error: Unmatched.Refusal }),
+    Rpc.make('find_change', { payload: FindChange, success: FindChange.Result, error: Unmatched.Refusal }),
+    Rpc.make('font', { payload: Font, success: Font.Result, error: Unmatched.Refusal }),
+    Rpc.make('kind', { payload: Kind, success: Kind.Result, error: Unmatched.Refusal }),
+    Rpc.make('render', { payload: Render, success: Render.Result, error: Unmatched.Refusal }),
+    Rpc.make('menu', { payload: Menu, success: Menu.Result, error: Unmatched.Refusal }),
+    Rpc.make('invoke', { payload: Invoke, success: Invoke.Result, error: Unmatched.Refusal }),
+    Rpc.make('preflight', { payload: Preflight, success: Preflight.Result, error: Unmatched.Refusal }),
+    Rpc.make('queries', { payload: Queries, success: Queries.Result, error: Unmatched.Refusal }),
 )
     .middleware(Hold)
     .add(Enter);

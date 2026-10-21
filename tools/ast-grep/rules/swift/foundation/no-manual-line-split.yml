@@ -45,6 +45,7 @@ rule:
     all:
         - has: {field: collection, pattern: $BYTES}
         - has: {field: item, has: {field: bound_identifier, pattern: $B}}
+        - not: {has: {stopBy: end, kind: call_expression, regex: '^\w+\.decode\([^,]+, from: '}}
         - has:
             kind: statements
             has:
@@ -87,4 +88,4 @@ rule:
                                                             - has: {field: name, has: {field: bound_identifier, pattern: $PIECE}}
                                                             - has: {field: value, any: [{pattern: $B}, {has: {stopBy: end, pattern: $B}}]}
 message: '`for` over `$BYTES` splits lines by hand'
-note: 'Iterate `lines` of an async byte sequence, `strings()` of swift-subprocess output, or `split(whereSeparator: \.isNewline)` of text in memory'
+note: 'Iterate `lines` of an async byte sequence, `strings()` of swift-subprocess output, or `split(whereSeparator: \.isNewline)` of text in memory; a wire framed on one byte (NDJSON) decodes each `\n`-terminated buffer, `lines` ends at U+2028, U+2029, and U+0085'

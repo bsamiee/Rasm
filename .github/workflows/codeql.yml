@@ -42,7 +42,7 @@ jobs:
                 build-mode: ${{ matrix.build-mode }}
             - run: nx run-many -t build -p tag:language:dotnet --exclude='tag:host:rhino'
               if: matrix.language == 'csharp'
-            - run: nx run-many -t build -p tag:host:macos --configuration ci
+            - run: nx run-many -t build -p tag:language:swift --configuration ci
               if: matrix.language == 'swift'
             - uses: github/codeql-action/analyze@v4
               with:

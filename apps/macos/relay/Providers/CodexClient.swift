@@ -1,5 +1,7 @@
+import Files
 import Foundation
-import RasmMacOS
+import Processes
+import Results
 import Subprocess
 import System
 
@@ -14,13 +16,12 @@ actor CodexClient: ProviderClient {
     // --- [STATE]
     nonisolated let liveHome: URL
     nonisolated let updates: AsyncStream<URL>
-    private static let requestDeadline: Duration = .seconds(60)
     private let paths: FileLocations
-    private let environment: [String: String]
+    private let environment: [Environment.Key: String]
     private let updatesContinuation: AsyncStream<URL>.Continuation
     private var servers: [URL: CodexServer] = [:]
 
-    init(paths: FileLocations, environment: [String: String]) {
+    init(paths: FileLocations, environment: [Environment.Key: String]) {
         self.paths = paths
         self.environment = environment
         liveHome =
@@ -38,38 +39,33 @@ actor CodexClient: ProviderClient {
 
     // --- [SELECTION]
     func currentSelection(known _: [Account]) -> Result<AccountIdentity?, ProviderError> {
-        CodexAuthFile.read(at: liveAuthFile).map { file in file?.identity }.mapError(ProviderError.init(failure:))
+        Result { () throws(CodexFailure) in try CodexAuthFile.read(at: liveAuthFile)?.identity }.mapError(ProviderError.init(failure:))
     }
 
     func holdsCredential(for account: Account) -> Result<Bool, ProviderError> {
-        CodexAuthFile.read(at: paths.codexHome(account.id).appending(path: CodexAuthFile.name))
-            .map { file in file?.identity?.isSameAccount(as: account.identity) ?? false }
-            .mapError(ProviderError.init(failure:))
+        Result { () throws(CodexFailure) in
+            try CodexAuthFile.read(at: paths.codexHome(account.id).appending(path: CodexAuthFile.name))?.identity?.isSameAccount(as: account.identity) ?? false
+        }
+        .mapError(ProviderError.init(failure:))
     }
 
-    private func identity(at home: URL) -> Result<AccountIdentity, CodexFailure> {
-        CodexAuthFile.read(at: home.appending(path: CodexAuthFile.name)).flatMap { file in
-            file?.identity.map(Result.success) ?? .failure(.signInRequired)
-        }
+    private func identity(at home: URL) throws(CodexFailure) -> AccountIdentity {
+        guard let identity: AccountIdentity = try CodexAuthFile.read(at: home.appending(path: CodexAuthFile.name))?.identity else { throw .signInRequired }
+        return identity
     }
 
     // --- [SWITCH]
-    func preconditions() async -> Result<Void, CodexFailure> {
-        await connection(for: liveHome).bind { connection in
-            await withDeadline(Self.requestDeadline) {
-                await connection.request(
-                    CodexProtocol.EffectiveConfig.self,
-                    .configRead,
-                    params: CodexProtocol.ConfigReadParams(includeLayers: false, cwd: nil),
-                )
-            }
-        }
-        .flatMap { response in
-            switch (response.config.authCredentialsStore, response.config.forcedWorkspace) {
-                case (.keyring, _), (.auto, _), (.ephemeral, _): .failure(.keyringStorage)
-                case (_, .some): .failure(.forcedWorkspace)
-                case (_, .none): .success(())
-            }
+    func preconditions() async throws(CodexFailure) {
+        let connection: CodexConnection = try await connection(for: liveHome)
+        let response: CodexProtocol.EffectiveConfig = try await connection.request(
+            CodexProtocol.EffectiveConfig.self,
+            .configRead,
+            params: CodexProtocol.ConfigReadParams(includeLayers: false, cwd: nil),
+        )
+        switch (response.config.cliAuthCredentialsStore, response.config.forcedChatgptWorkspaceId) {
+            case (.keyring, _), (.auto, _), (.ephemeral, _): throw .keyringStorage
+            case (_, .some): throw .forcedWorkspace
+            case (_, .none): return
         }
     }
 
@@ -77,61 +73,46 @@ actor CodexClient: ProviderClient {
         _ account: Account,
         outgoing: Account?,
     ) async -> Result<AccountIdentity, ProviderError> {
-        func installFile(_ data: Data, to destination: URL) -> Result<Void, CodexFailure> {
-            Result {
+        func installFile(_ data: Data, to destination: URL) throws(CodexFailure) {
+            try Result {
                 let file: FileWrapper = FileWrapper(regularFileWithContents: data)
                 file.fileAttributes = [FileAttributeKey.posixPermissions.rawValue: 0o600]
                 try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
                 try file.write(to: destination, options: .atomic, originalContentsURL: nil)
             }
             .mapError(CodexFailure.storage)
+            .get()
         }
         let incoming: URL = paths.codexHome(account.id).appending(path: CodexAuthFile.name)
-        return await preconditions()
-            .bind { _ in
-                await stopServer(liveHome)
-                await stopServer(paths.codexHome(account.id))
-                if let outgoing { await stopServer(paths.codexHome(outgoing.id)) }
-                return CodexAuthFile.read(at: incoming)
-            }
-            .flatMap { file -> Result<(data: Data, identity: AccountIdentity), CodexFailure> in
-                if let file, let identity: AccountIdentity = file.identity, identity.isSameAccount(as: account.identity) {
-                    .success((file.data, identity))
-                } else {
-                    .failure(.signInRequired)
-                }
-            }
-            .flatMap { saved in CodexAuthFile.read(at: liveAuthFile).map { live in (saved, live) } }
-            .flatMap { saved, live -> Result<AccountIdentity, CodexFailure> in
-                if live?.identity?.isSameAccount(as: account.identity) == true { return remove(incoming).map { _ in saved.identity } }
+        return await Result { () async throws(CodexFailure) in
+            try await CodexDesktop.refuseWhileRunning()
+            try await preconditions()
+            await stopServer(liveHome)
+            await stopServer(paths.codexHome(account.id))
+            if let outgoing { await stopServer(paths.codexHome(outgoing.id)) }
+            guard let saved: (data: Data, identity: AccountIdentity?) = try CodexAuthFile.read(at: incoming), let identity: AccountIdentity = saved.identity,
+                identity.isSameAccount(as: account.identity)
+            else { throw .signInRequired }
+            let live: (data: Data, identity: AccountIdentity?)? = try CodexAuthFile.read(at: liveAuthFile)
+            if live?.identity?.isSameAccount(as: account.identity) != true {
                 let matchesOutgoing: Bool =
                     switch (live?.identity, outgoing) {
                         case (.none, .none): true
                         case (.some(let identity), .some(let outgoing)): identity.isSameAccount(as: outgoing.identity)
                         case (.none, .some), (.some, .none): false
                     }
-                guard matchesOutgoing else { return .failure(.identityChanged) }
-                let parked: Result<Void, CodexFailure> =
-                    if let outgoing, let live {
-                        installFile(live.data, to: paths.codexHome(outgoing.id).appending(path: CodexAuthFile.name))
-                    } else {
-                        .success(())
-                    }
-                return
-                    parked
-                    .flatMap { _ in installFile(saved.data, to: liveAuthFile) }
-                    .flatMap { _ in remove(incoming) }
-                    .map { _ in saved.identity }
+                guard matchesOutgoing else { throw .identityChanged }
+                if let outgoing, let live { try installFile(live.data, to: paths.codexHome(outgoing.id).appending(path: CodexAuthFile.name)) }
+                try installFile(saved.data, to: liveAuthFile)
             }
-            .bind { saved in
-                await CodexDesktop.relaunchIfRunning().map { _ in saved }
-            }
-            .mapError(ProviderError.init(failure:))
+            try remove(incoming)
+            return identity
+        }
+        .mapError(ProviderError.init(failure:))
     }
 
-    private func remove(_ url: URL) -> Result<Void, CodexFailure> {
-        ifPresent { try FileManager.default.removeItem(at: url) }.map { _ in () }
-            .mapError(CodexFailure.storage)
+    private func remove(_ url: URL) throws(CodexFailure) {
+        _ = try ifPresent { try FileManager.default.removeItem(at: url) }.mapError(CodexFailure.storage).get()
     }
 
     // --- [SIGN_IN]
@@ -141,82 +122,64 @@ actor CodexClient: ProviderClient {
                 case .newAccount(let id): (paths.codexHome(id), nil)
                 case .account(let account, let isSelected): (home(for: account, isSelected: isSelected), account.identity)
             }
-        return await connection(for: home).bind { connection in
-            await withDeadline(.seconds(300)) {
-                await connection.request(
-                    CodexProtocol.LoginStarted.self,
-                    .accountLoginStart,
-                    params: CodexProtocol.LoginStartParams(type: .chatgpt),
-                )
-                .flatMap { started -> Result<(loginID: String, url: URL), CodexFailure> in
-                    if let loginID: String = started.loginId, let address: String = started.authUrl,
-                        let url: URL = URL(string: address), url.scheme == "https", url.host(percentEncoded: false) != nil
-                    {
-                        .success((loginID, url))
-                    } else {
-                        .failure(.invalidResponse(field: "sign-in response"))
-                    }
-                }
-                .bind { loginID, url in await CodexDesktop.openSignIn(url).map { _ in loginID } }
-                .bind { loginID in
-                    await connection.notification(CodexProtocol.LoginCompleted.self, .accountLoginCompleted) { completed in
+        return await Result { () async throws(CodexFailure) in
+            let connection: CodexConnection = try await connection(for: home)
+            try await withTimeout(.seconds(300)) {
+                await Result { () async throws(CodexFailure) in
+                    let started: CodexProtocol.LoginStarted = try await connection.request(CodexProtocol.LoginStarted.self, .accountLoginStart, params: CodexProtocol.LoginStartParams())
+                    guard let loginID: String = started.loginId, let address: String = started.authUrl, let url: URL = URL(string: address), url.scheme == "https",
+                        url.host(percentEncoded: false) != nil
+                    else { throw .invalidResponse(.accountLoginStart, nil) }
+                    try await CodexDesktop.openSignIn(url)
+                    let completed: CodexProtocol.LoginCompleted = try await connection.notification(CodexProtocol.LoginCompleted.self, .accountLoginCompleted) { completed in
                         completed.loginId == loginID
                     }
-                }
-                .flatMap { completed in
-                    completed.success ? .success(()) : .failure(.signInRefused(reason: completed.error))
+                    guard completed.success else { throw .signInRefused(reason: completed.error) }
                 }
             }
-        }
-        .bind { _ in identity(at: home) }
-        .bind { identity in
-            if expected.map(identity.isSameAccount(as:)) ?? true { .success(identity) } else { await logOut(home: home).flatMap { _ in .failure(.identityChanged) } }
+            .get()
+            let identity: AccountIdentity = try identity(at: home)
+            guard expected.map(identity.isSameAccount(as:)) ?? true else {
+                try await logOut(home: home)
+                throw .identityChanged
+            }
+            return identity
         }
         .mapError(ProviderError.init(failure:))
     }
 
     func signOut(_ account: Account, isSelected: Bool) async -> Result<Void, ProviderError> {
-        await logOut(home: home(for: account, isSelected: isSelected)).mapError(ProviderError.init(failure:))
+        await Result { () async throws(CodexFailure) in try await logOut(home: home(for: account, isSelected: isSelected)) }.mapError(ProviderError.init(failure:))
     }
 
     func remove(_ account: Account, isSelected: Bool) async -> Result<Void, ProviderError> {
-        await signOut(account, isSelected: isSelected)
-            .flatMapError { error in error.failure.requiresSignIn ? .success(()) : .failure(error) }
-            .bind { _ in await deletePrivateStore(id: account.id) }
+        await Result { () async throws(ProviderError) in
+            try await signOut(account, isSelected: isSelected).flatMapError { error in error.failure.requiresSignIn ? .success(()) : .failure(error) }.get()
+            try await deletePrivateStore(id: account.id).get()
+        }
     }
 
     func deletePrivateStore(id: UUID) async -> Result<Void, ProviderError> {
         let home: URL = paths.codexHome(id)
         await stopServer(home)
-        return remove(home).mapError(ProviderError.init(failure:))
+        return Result { () throws(CodexFailure) in try remove(home) }.mapError(ProviderError.init(failure:))
     }
 
-    private func logOut(home: URL) async -> Result<Void, CodexFailure> {
+    private func logOut(home: URL) async throws(CodexFailure) {
         defer { await stopServer(home) }
-        return await connection(for: home).bind { connection in
-            await withDeadline(Self.requestDeadline) {
-                await connection.request(.accountLogout)
-            }
-        }
+        let connection: CodexConnection = try await connection(for: home)
+        try await connection.request(.accountLogout)
     }
 
     // --- [USAGE]
     func usage(for account: Account, isSelected: Bool) async -> Result<AccountUsage, ProviderError> {
-        let home: URL = home(for: account, isSelected: isSelected)
-        return await identity(at: home).flatMap { identity in
-            identity.isSameAccount(as: account.identity) ? .success(identity) : .failure(.identityChanged)
-        }
-        .bind { identity in
-            await connection(for: home).bind { connection in
-                await withDeadline(Self.requestDeadline) {
-                    await connection.request(
-                        CodexProtocol.AccountRateLimits.self,
-                        .accountRateLimitsRead,
-                        params: CodexProtocol.RateLimitsReadParams(excludeResetCreditDetails: true),
-                    )
-                }
-            }
-            .flatMap { response in CodexProtocol.usage(response, identity: identity, observedAt: Date()) }
+        await Result { () async throws(CodexFailure) in
+            let home: URL = home(for: account, isSelected: isSelected)
+            let identity: AccountIdentity = try identity(at: home)
+            guard identity.isSameAccount(as: account.identity) else { throw .identityChanged }
+            let connection: CodexConnection = try await connection(for: home)
+            return try await connection.request(CodexProtocol.AccountRateLimits.self, .accountRateLimitsRead, params: CodexProtocol.RateLimitsReadParams(excludeResetCreditDetails: true))
+                .usage(identity: identity, observedAt: Date())
         }
         .mapError(ProviderError.init(failure:))
     }
@@ -227,20 +190,21 @@ actor CodexClient: ProviderClient {
     ) async -> Result<AccountUsage, ProviderError> {
         let home: URL = home(for: account, isSelected: isSelected)
         let workingDirectory: URL = paths.workingDirectory
-        return await usage(for: account, isSelected: isSelected).bind { current in
-            if case .ready = current.availability(at: Date()) {
-                await connection(for: home).bind { connection in
-                    await withDeadline(.seconds(120)) {
-                        await CodexProtocol.greetingEffort(connection).bind { effort in
-                            await CodexProtocol.sendGreeting(connection, effort: effort, workingDirectory: workingDirectory)
-                        }
+        return await Result { () async throws(ProviderError) in
+            let current: AccountUsage = try await usage(for: account, isSelected: isSelected).get()
+            guard case .ready = current.availability(at: Date()) else { return current }
+            try await Result { () async throws(CodexFailure) in
+                let connection: CodexConnection = try await connection(for: home)
+                try await withTimeout(.seconds(120)) {
+                    await Result { () async throws(CodexFailure) in
+                        try await CodexProtocol.greet(connection, workingDirectory: workingDirectory)
                     }
                 }
-                .mapError(ProviderError.init(failure:))
-                .bind { _ in await usage(for: account, isSelected: isSelected) }
-            } else {
-                .success(current)
+                .get()
             }
+            .mapError(ProviderError.init(failure:))
+            .get()
+            return try await usage(for: account, isSelected: isSelected).get()
         }
     }
 
@@ -250,72 +214,62 @@ actor CodexClient: ProviderClient {
         updatesContinuation.finish()
     }
 
-    private func connection(for home: URL) async -> Result<CodexConnection, CodexFailure> {
+    private func connection(for home: URL) async throws(CodexFailure) -> CodexConnection {
         if let server: CodexServer = servers[home], !(await server.connection.isFinished) {
-            return .success(server.connection)
+            return server.connection
         }
         servers.removeValue(forKey: home)
         let workingDirectory: URL = paths.workingDirectory
-        let excludedEnvironmentVariables: Set<String> = ["OPENAI_API_KEY", "OPENAI_BASE_URL", "OPENAI_ORG_ID", "OPENAI_PROJECT_ID"]
-        let variables: [String: String] =
-            environment
-            .filter { key, _ in
-                !key.hasPrefix("CODEX_") && !excludedEnvironmentVariables.contains(key)
-            }
-            .merging(["CODEX_HOME": FilePath(home.path(percentEncoded: false)).string]) { _, override in override }
-        return await CodexDesktop.serverExecutable()
-            .flatMap { executable in
-                Result {
-                    try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
-                    try FileManager.default.createDirectory(
-                        at: workingDirectory,
-                        withIntermediateDirectories: true,
-                    )
+        let excludedEnvironmentVariables: Set<Environment.Key> = ["OPENAI_API_KEY", "OPENAI_BASE_URL", "OPENAI_ORG_ID", "OPENAI_PROJECT_ID"]
+        let executable: URL = try await CodexDesktop.serverExecutable()
+        try Result {
+            try FileManager.default.createDirectory(at: home, withIntermediateDirectories: true)
+            try FileManager.default.createDirectory(at: workingDirectory, withIntermediateDirectories: true)
+        }
+        .mapError(CodexFailure.storage)
+        .get()
+        let invocation: Configuration = Configuration(
+            executable: .path(FilePath(executable.path(percentEncoded: false))),
+            arguments: ["app-server"],
+            environment: .custom(environment.filter { key, _ in !key.rawValue.hasPrefix("CODEX_") && !excludedEnvironmentVariables.contains(key) })
+                .updating(["CODEX_HOME": FilePath(home.path(percentEncoded: false)).string]),
+            workingDirectory: FilePath(workingDirectory.path(percentEncoded: false)),
+            platformOptions: .session,
+        )
+        let ready:
+            (
+                stream: AsyncStream<Result<CodexConnection, CodexFailure>>,
+                continuation: AsyncStream<Result<CodexConnection, CodexFailure>>.Continuation
+            ) = AsyncStream.makeStream()
+        let continuation: AsyncStream<URL>.Continuation = updatesContinuation
+        let task: Task<Void, Never> = Task(name: "codex app-server \(home.lastPathComponent)") {
+            let outcome: Result<ExecutionResult<Void, SequenceOutput, DiscardedOutput>, ProcessFailure> = await Result {
+                try await Subprocess.run(invocation, input: .inputWriter, output: .sequence, error: .discarded) { execution in
+                    await Self.serve(CodexConnection(execution: execution), home: home, updates: continuation, ready: ready.continuation)
                 }
-                .mapError(CodexFailure.storage).map { _ in executable }
             }
-            .bind { executable -> Result<CodexConnection, CodexFailure> in
-                let invocation: Configuration = ProcessRun.configuration(
-                    executable: .path(FilePath(executable.path(percentEncoded: false))),
-                    arguments: ["app-server"],
-                    environment: variables,
-                    workingDirectory: workingDirectory,
-                )
-                let ready:
-                    (
-                        stream: AsyncStream<Result<CodexConnection, CodexFailure>>,
-                        continuation: AsyncStream<Result<CodexConnection, CodexFailure>>.Continuation
-                    ) = AsyncStream.makeStream()
-                let continuation: AsyncStream<URL>.Continuation = updatesContinuation
-                let task: Task<Void, Never> = Task(name: "codex app-server \(home.lastPathComponent)") {
-                    let outcome: Result<ExecutionResult<Void, SequenceOutput, DiscardedOutput>, ProcessFailure> = await ProcessRun.run(deadline: nil) {
-                        try await Subprocess.run(invocation, input: .inputWriter, output: .sequence, error: .discarded) { execution in
-                            await Self.serve(CodexConnection(execution: execution), home: home, updates: continuation, ready: ready.continuation)
-                        }
+            .mapError(ProcessFailure.init)
+            if case .failure(let error) = outcome {
+                let failure: CodexFailure =
+                    switch error {
+                        case .launch(let launch) where launch.code == .executableNotFound: .applicationUnavailable
+                        default: CodexFailure(process: error)
                     }
-                    if case .failure(let error) = outcome {
-                        let failure: CodexFailure =
-                            switch error {
-                                case .launch(let launch) where launch.code == .executableNotFound: .applicationUnavailable
-                                default: CodexFailure(process: error)
-                            }
-                        ready.continuation.yield(.failure(failure))
-                        ready.continuation.finish()
-                    }
-                }
-                var iterator: AsyncStream<Result<CodexConnection, CodexFailure>>.Iterator =
-                    ready.stream.makeAsyncIterator()
-                let first: Result<CodexConnection, CodexFailure> =
-                    await iterator.next() ?? .failure(.connectionClosed)
-                switch first {
-                    case .success(let connection):
-                        servers[home] = CodexServer(connection: connection, task: task)
-                    case .failure:
-                        task.cancel()
-                        await task.value
-                }
-                return first
+                ready.continuation.yield(.failure(failure))
+                ready.continuation.finish()
             }
+        }
+        var iterator: AsyncStream<Result<CodexConnection, CodexFailure>>.Iterator =
+            ready.stream.makeAsyncIterator()
+        switch await iterator.next() ?? .failure(.connectionClosed) {
+            case .success(let connection):
+                servers[home] = CodexServer(connection: connection, task: task)
+                return connection
+            case .failure(let error):
+                task.cancel()
+                await task.value
+                throw error
+        }
     }
 
     private nonisolated static func serve(
@@ -331,10 +285,7 @@ actor CodexClient: ProviderClient {
                     updates.yield(home)
                 }
             }
-            let initialized: Result<Void, CodexFailure> = await withDeadline(requestDeadline) {
-                await connection.initialize()
-            }
-            ready.yield(initialized.map { _ in connection })
+            ready.yield(await Result { () async throws(CodexFailure) in try await connection.initialize() }.map { _ in connection })
             ready.finish()
         }
     }

@@ -5,7 +5,7 @@ import { FetchHttpClient, HttpClient, HttpClientResponse } from 'effect/http';
 import { findMaxSatisfying, isValid } from 'verkit';
 import { parse } from 'yaml';
 import { stdout } from '../process.ts';
-import { Capture, newest, splice } from './bounds.ts';
+import { Capture, newest, scan, splice } from './bounds.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -34,13 +34,13 @@ Effect.gen(function* () {
                     Effect.flatMap(HttpClientResponse.schemaBodyJson(Upstream)),
                     Effect.map(({ tags }) => tags.typescript.next),
                 ),
-            Effect.flatMap(
-                newest(`https://github.com/${repository}`, (tag) => isValid(tag) && tag.endsWith('-with-generated-files')),
-                Effect.fromOption,
+            newest(
+                `https://github.com/${repository}`,
+                Option.liftPredicate((tag: string) => isValid(tag) && tag.endsWith('-with-generated-files')),
             ),
             stdout('pnpm', ['view', 'typescript', 'versions', '--json']).pipe(
                 Effect.flatMap(Schema.decodeEffect(Schema.fromJsonString(Schema.Array(Schema.String)))),
-                Effect.flatMap((versions) => Effect.fromOption(Option.fromNullOr(findMaxSatisfying(versions, `^${docgen}`)))),
+                Effect.flatMap((versions) => Effect.fromNullishOr(findMaxSatisfying(versions, `^${docgen}`))),
             ),
         ],
         { concurrency: 'unbounded' },
@@ -50,17 +50,10 @@ Effect.gen(function* () {
         'tree-sitter-swift': ['catalog', 'tree-sitter-swift', `github:${repository}#${grammar}`],
         docgen: ['docgen', 'typescript', `npm:typescript@${compiler}`],
     } as const;
-    const found = yield* Effect.flatMap(
-        stdout('ast-grep', [
-            'scan',
-            '--inline-rules',
-            Object.entries(rows)
-                .map(([id, [parent, key]]) => `{id: ${id}, language: yaml, severity: info, rule: {pattern: "${key}: $VALUE", inside: {kind: block_mapping_pair, has: {field: key, regex: "^${parent}$"}, stopBy: end}}}`)
-                .join('\n---\n'),
-            '--json=compact',
-            file,
-        ]),
-        Schema.decodeEffect(Schema.fromJsonString(Schema.Array(Schema.Struct({ ruleId: Schema.Literals(Record.keys(rows)), metaVariables: Schema.Struct({ single: Schema.Struct({ VALUE: Capture }) }) })))),
+    const found = yield* scan(
+        Record.map(rows, ([parent, key]) => `language: yaml, rule: {pattern: "${key}: $VALUE", inside: {kind: block_mapping_pair, has: {field: key, regex: "^${parent}$"}, stopBy: end}}`),
+        { VALUE: Capture },
+        [file],
     );
     yield* splice(
         file,

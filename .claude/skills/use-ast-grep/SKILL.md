@@ -218,6 +218,7 @@ Fixes emit walrus conditionals as `(v := (a if b else c))`.
 | :-----: | :---------------------------- | :------------------------------------------------------------------------------------------------- |
 |  [01]   | `if let a = b, c > 0 { }`     | `if_statement` holds each clause token in field `condition`, `field: condition` reads the first    |
 |  [02]   | `lhs + receiver.member(args)` | `call_expression` over `additive_expression` with `rhs: navigation_expression`, call wraps the `+` |
+|  [03]   | `if let a = unsafe b { }`     | `ERROR`, `unsafe` takes `b { }` as a trailing-closure call, `(unsafe b)` and `unsafe (b)` parse     |
 
 | [INDEX] | [SQL]                          | [SHAPE]                                                                                     |
 | :-----: | :----------------------------- | :------------------------------------------------------------------------------------------ |

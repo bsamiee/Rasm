@@ -16,35 +16,38 @@ let settings: [SwiftSetting] = [
     .treatWarning("StrictLanguageFeatures", as: .error),
 ]
 
+// --- [MODELS] --------------------------------------------------------------------------
+
+let modules: [Target] = [
+    .target(name: "Results", path: "libs/swift/macos/Results"),
+    .target(name: "JSON", path: "libs/swift/macos/JSON"),
+    .target(name: "Files", path: "libs/swift/macos/Files"),
+    .target(name: "Fonts", dependencies: ["Results"], path: "libs/swift/macos/Fonts"),
+    .target(name: "Processes", dependencies: ["Results", .product(name: "Subprocess", package: "swift-subprocess")], path: "libs/swift/macos/Processes"),
+    .target(name: "Applications", dependencies: ["Files", "JSON", "Results"], path: "libs/swift/macos/Applications"),
+    .target(name: "AppleEvents", dependencies: ["Applications", "Results"], path: "libs/swift/macos/AppleEvents"),
+]
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 let package: Package = Package(
-    name: "RasmMacOS",
+    name: "Rasm",
     platforms: [.macOS(.v27)],
-    products: [
-        .library(name: "RasmMacOS", targets: ["RasmMacOS"]),
-        .executable(name: "watch-apps", targets: ["watch-apps"]),
-    ],
+    products: modules.map { module in .library(name: module.name, targets: [module.name]) },
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.8.2"),
         .package(url: "https://github.com/swiftlang/swift-subprocess", from: "1.0.2"),
     ],
-    targets: [
-        .target(
-            name: "RasmMacOS",
-            dependencies: [.product(name: "Subprocess", package: "swift-subprocess")],
-            path: ".",
-            exclude: ["Watch"],
-        ),
+    targets: modules + [
         .executableTarget(
             name: "watch-apps",
-            dependencies: ["RasmMacOS", .product(name: "ArgumentParser", package: "swift-argument-parser")],
-            path: "Watch",
-            linkerSettings: [.unsafeFlags(["-Xlinker", "-fatal_warnings"])],
-        ),
+            dependencies: ["Applications", "Files", "Results", .product(name: "ArgumentParser", package: "swift-argument-parser")],
+            path: "tools/watch-apps",
+        )
     ],
 )
 
 for target: Target in package.targets {
     target.swiftSettings = settings
+    target.linkerSettings = [.unsafeFlags(["-Xlinker", "-fatal_warnings"])]
 }

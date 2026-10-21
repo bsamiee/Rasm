@@ -13,7 +13,7 @@
   "packages": [
     {
       "kind": "local",
-      "path": "../../../../libs/swift/macos",
+      "path": "../../../..",
     },
   ],
   "files": [
@@ -39,8 +39,24 @@
       ],
       "package-product-members": [
         {
-          "package": "macos",
-          "product-name": "RasmMacOS",
+          "package": "..",
+          "product-name": "AppleEvents",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "..",
+          "product-name": "Applications",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "..",
+          "product-name": "Fonts",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "..",
+          "product-name": "Processes",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "..",
+          "product-name": "Results",
           "build-phase": { "build-phase": "frameworks" },
         },
       ],

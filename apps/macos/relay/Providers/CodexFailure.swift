@@ -1,5 +1,6 @@
 import Foundation
-import RasmMacOS
+import Processes
+import Results
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -9,7 +10,10 @@ nonisolated enum CodexFailure: DeadlineFailure, ProviderFailure {
     case cancelled
     case timedOut(Duration)
     case connectionClosed
-    case invalidResponse(field: String)
+    case invalidResponse(CodexProtocol.Method?, any Error?)
+    case invalidAuthFile(URL, any Error?)
+    case invalidIdentity(AggregateError<IdentityError>)
+    case invalidQuota(AggregateError<QuotaFailure>)
     case requestRejected(method: CodexProtocol.Method, code: Int, message: String, serverVersion: String?)
     case signInRequired
     case subscriptionRequired
@@ -22,8 +26,7 @@ nonisolated enum CodexFailure: DeadlineFailure, ProviderFailure {
     case storage(any Error)
     case keyringStorage
     case forcedWorkspace
-    case desktopLaunch(any Error)
-    case desktopQuitRefused
+    case desktopRunning
 
     var requiresSignIn: Bool {
         switch self {
@@ -49,7 +52,11 @@ nonisolated enum CodexFailure: DeadlineFailure, ProviderFailure {
             case .cancelled: "Canceled"
             case .timedOut(let deadline): "Codex app server did not answer within \(deadline.formatted(.units(width: .wide)))"
             case .connectionClosed: "Codex app server connection closed"
-            case .invalidResponse(let field): "Unreadable Codex \(field)"
+            case .invalidResponse(.some(let method), _): "Unreadable Codex \(method.rawValue) response"
+            case .invalidResponse(.none, _): "Unreadable Codex app server message"
+            case .invalidAuthFile(let url, _): "Unreadable Codex \(url.lastPathComponent)"
+            case .invalidIdentity: "Incomplete OpenAI account identity"
+            case .invalidQuota: "Unreadable Codex usage"
             case .requestRejected(let method, let code, let message, .some(let serverVersion)):
                 "Codex app server \(serverVersion) rejected \(method.rawValue) with \(code): \(message)"
             case .requestRejected(let method, let code, let message, .none):
@@ -66,8 +73,7 @@ nonisolated enum CodexFailure: DeadlineFailure, ProviderFailure {
             case .storage(let error): "Could not access Codex files: \(error.localizedDescription)"
             case .keyringStorage: "Account switching requires cli_auth_credentials_store = \"file\""
             case .forcedWorkspace: "Account switching requires forced_chatgpt_workspace_id to be unset"
-            case .desktopLaunch(let error): "Could not open the Codex app: \(error.localizedDescription)"
-            case .desktopQuitRefused: "Codex app refused to quit"
+            case .desktopRunning: "Account switching requires the Codex app to be closed"
         }
     }
 }

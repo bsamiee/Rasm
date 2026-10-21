@@ -131,5 +131,5 @@ enum UsageState: Sendable {
 
 nonisolated enum QuotaFailure: Error {
     case invalidPercentage(Double)
-    case invalidResetDate
+    case invalidResetDate(String, any Error)
 }

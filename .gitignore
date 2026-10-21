@@ -5,6 +5,8 @@ node_modules/
 # --- [TOOL_WRITES] ----------------------------------------------------------------------
 
 .cache/
+.build/
+.swiftpm/
 /.cargo/rustc-source
 dist/
 .cloudflare/
@@ -21,7 +23,6 @@ buildServer.json
 *.3dmbak
 /Grasshopper.*
 xcuserdata/
-project.xcworkspace/
 __pycache__/
 
 # --- [SECRETS] --------------------------------------------------------------------------

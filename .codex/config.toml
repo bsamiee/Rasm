@@ -64,9 +64,9 @@ default_tools_approval_mode = "approve"
 url                         = "https://mcp.deepwiki.com/mcp"
 
 [mcp_servers.greptile]
-url                  = "https://api.greptile.com/mcp"
-http_headers_helper  = "doppler secrets get GREPTILE_API_KEY --plain --project agent-runtime --config dev | jq -R '{Authorization: \"Bearer \\(.)\"}'"
-enabled              = false
+url                 = "https://api.greptile.com/mcp"
+http_headers_helper = "doppler secrets get GREPTILE_API_KEY --plain --project agent-runtime --config dev | jq -R '{Authorization: \"Bearer \\(.)\"}'"
+enabled             = false
 
 [mcp_servers.openaiDeveloperDocs]
 default_tools_approval_mode = "approve"
@@ -77,8 +77,8 @@ default_tools_approval_mode = "approve"
 url                         = "https://code.claude.com/docs/mcp"
 
 [mcp_servers.illustrator]
-url                  = "http://localhost:18412/v1/mcp"
-http_headers_helper  = "eng/scripts/illustrator-token.sh"
+url                 = "http://localhost:18412/v1/mcp"
+http_headers_helper = "eng/scripts/illustrator-token.sh"
 
 [mcp_servers.arena]
 url     = "https://mcp.are.na/mcp"

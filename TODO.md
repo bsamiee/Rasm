@@ -11,8 +11,6 @@ Remaining work on Creative Cloud libraries and products, for a fresh session.
 - Installed `indesign-uxp-types` declarations, and InDesign's own `$.dictionary` read through `Model` in `model.ts`
 - Facts come from these sources, dependency sources, and Ghidra; `.archive/` folders are no source for briefs or code
 
-Swift handoff: `docs/research/repository-platform/handoff/swift-track-handoff.md`
-
 ## [01]-[STATE]
 
 - Status streams and the file watch yield typed results; waits on host state observe change events under a caller deadline
@@ -26,8 +24,10 @@ Swift handoff: `docs/research/repository-platform/handoff/swift-track-handoff.md
 - Atelier tools: `launch`, `screenshot`, `font`, `execute_script`, `command` (dictionary command, dialog actions, menu action), registered again whenever the installed application names change, which tools offer as choices
 - Atelier publishes InDesign `inspect`, `change`, `create`, `remove`, `find_change`, and `render` as tools
 - Atelier publishes InDesign `menu`, `preflight`, `queries`, and `kinds` as resources
-- Every tool result ends with the application's status; `Unmatched` candidates render ranked and capped with the count of the rest
-- Each application has one script path from its runtime row: a dictionary command, or UXP through its linked panel with TypeScript stripped
+- Every tool result ends with the application's status as a resource block, the form Claude Code forwards beside structured content
+- `Unmatched` candidates render ranked and capped with the count of the rest
+- Menu actions run under never-interact, an ellipsis-named action opens a dialog and is refused, its settings live in preference objects
+- Scripts run through a linked extension with TypeScript stripped, else through the dictionary's script command (`miscDjxM`, `miscdosc`) as ES3
 - Mutation results hold preflight of each touched document: issue count and issues introduced against the per-mutation baseline
 - The daemon's `/channel` endpoint (`atelier-channel` in `.mcp.json` and `.codex/config.toml`, protocol 2025-11-25 alone) pushes `notifications/claude/channel` status events following every running Adobe application the server serves, when observation starts and after each change, and no preflight events
 - A Claude Code session opts in with `--dangerously-load-development-channels server:atelier-channel` and receives each event as a `<channel>` turn; headless sessions and Codex receive none, and nothing else over HTTP reaches a model between calls
@@ -35,9 +35,11 @@ Swift handoff: `docs/research/repository-platform/handoff/swift-track-handoff.md
 
 ## [02]-[OPEN]
 
-- Swift library and helper reduced at the root: MetaCodable replaces the `Request` decoder and memberwise initializers, one-field wrappers, restated host enums, and bool-plus-optional structs go, logic rebuilt as typed-throws bodies
-- Packages adjudicated in `docs/research/repository-platform/handoff/swift-track-handoff.md` land at newest versions, hand-rolled code removed in the same change
-- `Scripting.swift` rebuilt in focused passes, then the broader `libs/swift/macos`
+- Menu actions without an ellipsis that still open a window under never-interact are unknown; the first one found joins the refusal rule
+- Dictionary refusal rows other than InDesign `show` rest on dictionary text, the first row a send disproves or a new one found changes the table
+- Dismissing an InDesign script dialog through an Accessibility press activated InDesign once, closing Keyboard Shortcuts did not; other dialogs unmeasured
+- Single key bindings have no DOM member, shortcut editing stops at `generalPreferences.keyboardShortcutSet` and `applyShortcutSet`
+- UXP `process` holds no pid, so a panel cannot name its instance and panel routes address the single running one
 - Accent folding on PostgreSQL search: reconcile observes, creates, and gates `unaccent` with a text search configuration the query names
 - Table members return decoded rows, so consumers stop decoding through the table's own struct and flattening each result
 

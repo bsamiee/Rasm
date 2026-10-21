@@ -11,6 +11,8 @@ struct RunningOperation {
 
 @Observable
 final class AccountModel {
+    static let usageReadSpacing: TimeInterval = 180
+
     var account: Account
     var authentication: AuthenticationState
     var usage: UsageState
@@ -40,7 +42,7 @@ final class AccountModel {
     var usageReadAfter: Date? {
         let nextRead: Date? =
             switch usage {
-                case .current(let usage): usage.observedAt.addingTimeInterval(180)
+                case .current(let usage): usage.observedAt.addingTimeInterval(Self.usageReadSpacing)
                 case .stale, .unavailable: nil
             }
         return [retryAfter, nextRead].compactMap(\.self).max()

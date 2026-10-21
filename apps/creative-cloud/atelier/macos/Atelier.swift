@@ -1,20 +1,37 @@
 import AppKit
+import AppleEvents
+import Applications
+import Carbon.OpenScripting
+import CoreServices
+import Fonts
 import Foundation
-import RasmMacOS
+import Processes
+import Results
 import UniformTypeIdentifiers
 import os
 
+// --- [TYPES] ---------------------------------------------------------------------------
+
+enum Interference {
+    case activation
+    case interface
+    case menuAction
+    case script
+}
+
 // --- [MODELS] --------------------------------------------------------------------------
 
-extension Result where Success: Encodable, Failure: Encodable {
+struct Outcome<Success: Encodable & Sendable, Failure: Encodable & Error>: Encodable, Sendable {
     private enum Key: String, CodingKey {
         case success, failure
         case tag = "_tag"
     }
 
+    let result: Result<Success, Failure>
+
     func encode(to encoder: any Encoder) throws {
         var fields: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
-        switch self {
+        switch result {
             case .success(let value):
                 try fields.encode("Success", forKey: .tag)
                 try fields.encode(value, forKey: .success)
@@ -25,252 +42,249 @@ extension Result where Success: Encodable, Failure: Encodable {
     }
 }
 
-struct Entry: Encodable {
-    let name: String
-    let code: String
-}
-
-extension Entry {
-    init(_ term: Term) {
-        name = term.name
-        code = term.code.sdef
-    }
-
-    init(_ command: Command) {
-        name = command.name
-        code = command.code
-    }
-}
-
 struct Executed: Encodable {
-    struct Artifact: Encodable {
+    struct Artifact: Encodable, Sendable {
         let uri: URL
         let mimeType: String?
         let data: Data
     }
 
-    private enum Key: CodingKey { case reply, artifacts }
-
     let reply: AppleEventValue
-    let artifacts: [Result<Artifact, Failure>]
+    let artifacts: [Outcome<Artifact, Encoded>]
 
     init(reply: AppleEventValue, reading files: [URL]) {
         self.reply = reply
         artifacts = files.map { file in
-            Result { try Artifact(uri: file, mimeType: file.resourceValues(forKeys: [.contentTypeKey]).contentType?.preferredMIMEType, data: Data(contentsOf: file)) }.mapError { error in
-                .unreadable(file, error)
-            }
+            Outcome(
+                result: Result { try Artifact(uri: file, mimeType: file.resourceValues(forKeys: [.contentTypeKey]).contentType?.preferredMIMEType, data: Data(contentsOf: file)) }
+                    .mapError { error in Encoded(Refusal.unreadable(file, error)) }
+            )
         }
-    }
-
-    func encode(to encoder: any Encoder) throws {
-        var container: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
-        try container.encode(reply, forKey: .reply)
-        var reads: any UnkeyedEncodingContainer = container.nestedUnkeyedContainer(forKey: .artifacts)
-        for read: Result<Artifact, Failure> in artifacts { try read.encode(to: reads.superEncoder()) }
     }
 }
 
-struct Launched: Encodable {
-    let pid: pid_t
+struct Captured: Encodable {
+    let image: Data
+    let width: Int
+    let height: Int
 }
 
 struct InstanceStatus: Encodable {
-    private enum Key: CodingKey { case pid, status }
-
     let pid: pid_t
-    let status: Result<ApplicationStatus, Failure>
-
-    func encode(to encoder: any Encoder) throws {
-        var container: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
-        try container.encode(pid, forKey: .pid)
-        try status.encode(to: container.superEncoder(forKey: .status))
-    }
+    let status: Outcome<ApplicationStatus, Encoded>
 }
 
-struct JSONError: Encodable {
-    private enum Key: CodingKey { case name, message, cause }
+struct Encoded: Error, Encodable {
+    private enum Key: String, CodingKey {
+        case name, message, cause, subject, query, candidates
+        case tag = "_tag"
+    }
 
     let error: any Error
 
+    init(_ error: any Error) {
+        self.error = error
+    }
+
     func encode(to encoder: any Encoder) throws {
-        let mirror: Mirror = Mirror(reflecting: error)
-        let (name, message): (String, String) =
-            mirror.displayStyle == .enum
-            ? (mirror.children.first?.label ?? String(describing: error), (error as? any LocalizedError)?.errorDescription ?? String(describing: error))
-            : ((error as NSError).domain, error.localizedDescription)
         var fields: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
-        try fields.encode(name, forKey: .name)
-        try fields.encode(message, forKey: .message)
-        try fields.encodeIfPresent((error as NSError).underlyingErrors.first.map { cause in Self(error: cause) }, forKey: .cause)
+        switch error {
+            case let miss as Unmatched, ElementFailure.unmatched(let miss), DefinitionFailure.unmatched(let miss), DictionaryFailure.unmatched(let miss):
+                try fields.encode("Unmatched", forKey: .tag)
+                try fields.encode(miss.subject, forKey: .subject)
+                try fields.encodeIfPresent(miss.query, forKey: .query)
+                try fields.encode(miss.candidates, forKey: .candidates)
+            default:
+                let mirror: Mirror = Mirror(reflecting: error)
+                let (name, message): (String, String) =
+                    mirror.displayStyle == .enum
+                    ? (mirror.children.first?.label ?? String(describing: error), (error as? any LocalizedError)?.errorDescription ?? String(describing: error))
+                    : ((error as NSError).domain, error.localizedDescription)
+                try fields.encode(name, forKey: .name)
+                try fields.encode(message, forKey: .message)
+                try fields.encodeIfPresent((error as NSError).underlyingErrors.first.map(Self.init), forKey: .cause)
+        }
+    }
+}
+
+enum Values {
+    case any
+    case among(Set<String?>)
+    case except(String)
+
+    func contain(_ descriptor: NSAppleEventDescriptor?) -> Bool {
+        let value: String? = descriptor.map { descriptor in
+            descriptor.descriptorType == DescType(typeEnumerated)
+                ? descriptor.enumCodeValue.sdef
+                : descriptor.coerce(toDescriptorType: DescType(typeBoolean)).map { boolean in DescType(boolean.booleanValue ? typeTrue : typeFalse).sdef } ?? descriptor.descriptorType.sdef
+        }
+        return switch self {
+            case .any: true
+            case .among(let refused): refused.contains(value)
+            case .except(let safe): value != safe
+        }
+    }
+}
+
+enum Clause {
+    case always
+    case parameter(String, Values)
+    case property(String, of: Set<String>, Values)
+    case direct(of: Set<String>)
+
+    func refuses(_ event: NSAppleEventDescriptor) -> Bool {
+        let direct: NSAppleEventDescriptor? = event.paramDescriptor(forKeyword: AEKeyword(keyDirectObject))
+        switch self {
+            case .always:
+                return true
+            case .parameter(let keyword, let values):
+                return values.contain(FourCharCode(sdef: keyword).flatMap(event.paramDescriptor(forKeyword:)))
+            case .property(let property, let containers, let values):
+                let data: NSAppleEventDescriptor? = event.paramDescriptor(forKeyword: AEKeyword(keyAEData))
+                let assigned: NSAppleEventDescriptor? =
+                    switch direct?.forKeyword(AEKeyword(keyAEKeyData))?.typeCodeValue {
+                        case FourCharCode(sdef: property): data
+                        case FourCharCode(pProperties): FourCharCode(sdef: property).flatMap { code in data?.forKeyword(code) }
+                        case .some, .none: nil
+                    }
+                let container: String? = direct?.forKeyword(AEKeyword(keyAEContainer))?.forKeyword(AEKeyword(keyAEDesiredClass))?.typeCodeValue.sdef
+                return direct?.forKeyword(AEKeyword(keyAEKeyForm))?.enumCodeValue == FourCharCode(formPropertyID) && assigned != nil
+                    && (containers.isEmpty || container.map(containers.contains) == true) && values.contain(assigned)
+            case .direct(let classes):
+                return direct?.forKeyword(AEKeyword(keyAEDesiredClass)).map { want in classes.contains(want.typeCodeValue.sdef) } == true
+        }
     }
 }
 
 enum Response {
     case value(any Encodable?)
-    case stream(any AsyncSequence<Result<any Encodable & Sendable, AggregateError<Failure>>, Never>)
+    case stream(any AsyncSequence<Result<any Encodable & Sendable, AggregateError<any Error>>, Never>)
 }
 
 enum Request: Decodable {
-    struct Target: Decodable {
-        let url: URL
-        let pid: pid_t?
-    }
-
-    struct Press: Decodable {
-        let element: CGWindowID
-        let actions: [ElementAction]
-    }
-
-    struct Definition: Decodable {
-        let url: URL
-        let selection: ScriptingDictionary.Selection
-    }
-
-    struct Execute: Decodable {
-        let command: String
-        let arguments: [String: AppleEventValue]
-        let artifacts: [URL]
-    }
-
-    struct Named: Decodable {
-        let name: String
-    }
-
     case installations
     case statuses
-    case launch(Target)
-    case activate(Target)
-    case status(Target)
-    case press(Target, Press)
-    case terms(Target)
-    case definition(Definition)
-    case execute(Target, Execute)
-    case screenshot(Target, ScreenshotOptions)
+    case launch(URL)
+    case status(pid_t)
+    case press(pid_t, element: CGWindowID, actions: [ElementAction])
+    case terms(URL)
+    case definition(URL, kind: ScriptingDictionary.Kind, name: String)
+    case execute(pid_t, command: String, arguments: [String: AppleEventValue], artifacts: [URL])
+    case screenshot(pid_t, window: CGWindowID?, pixels: Int?)
     case faces
-    case face(Named)
+    case face(String)
 
-    private enum Method: String, Decodable { case installations, statuses, launch, activate, status, press, terms, definition, execute, screenshot, faces, face }
+    private enum Method: String, Decodable { case installations, statuses, launch, status, press, terms, definition, execute, screenshot, faces, face }
     private enum Key: CodingKey { case method, params }
+    private enum Field: CodingKey { case url, pid, element, actions, kind, name, command, arguments, artifacts, window, pixels }
 
     init(from decoder: any Decoder) throws {
         let call: KeyedDecodingContainer<Key> = try decoder.container(keyedBy: Key.self)
+        let method: Method = try call.decode(Method.self, forKey: .method)
+        let params: () throws -> KeyedDecodingContainer<Field> = { try call.nestedContainer(keyedBy: Field.self, forKey: .params) }
         self =
-            switch try call.decode(Method.self, forKey: .method) {
+            switch method {
                 case .installations: .installations
                 case .statuses: .statuses
-                case .launch: try .launch(call.decode(Target.self, forKey: .params))
-                case .activate: try .activate(call.decode(Target.self, forKey: .params))
-                case .status: try .status(call.decode(Target.self, forKey: .params))
-                case .press: try .press(call.decode(Target.self, forKey: .params), call.decode(Press.self, forKey: .params))
-                case .terms: try .terms(call.decode(Target.self, forKey: .params))
-                case .definition: try .definition(call.decode(Definition.self, forKey: .params))
-                case .execute: try .execute(call.decode(Target.self, forKey: .params), call.decode(Execute.self, forKey: .params))
-                case .screenshot: try .screenshot(call.decode(Target.self, forKey: .params), call.decode(ScreenshotOptions.self, forKey: .params))
+                case .launch: try .launch(params().decode(URL.self, forKey: .url))
+                case .status: try .status(params().decode(pid_t.self, forKey: .pid))
+                case .press:
+                    try .press(
+                        params().decode(pid_t.self, forKey: .pid),
+                        element: params().decode(CGWindowID.self, forKey: .element),
+                        actions: params().decode([ElementAction].self, forKey: .actions),
+                    )
+                case .terms: try .terms(params().decode(URL.self, forKey: .url))
+                case .definition:
+                    try .definition(params().decode(URL.self, forKey: .url), kind: params().decode(ScriptingDictionary.Kind.self, forKey: .kind), name: params().decode(String.self, forKey: .name))
+                case .execute:
+                    try .execute(
+                        params().decode(pid_t.self, forKey: .pid),
+                        command: params().decode(String.self, forKey: .command),
+                        arguments: params().decode([String: AppleEventValue].self, forKey: .arguments),
+                        artifacts: params().decode([URL].self, forKey: .artifacts),
+                    )
+                case .screenshot:
+                    try .screenshot(
+                        params().decode(pid_t.self, forKey: .pid),
+                        window: params().decodeIfPresent(CGWindowID.self, forKey: .window),
+                        pixels: params().decodeIfPresent(Int.self, forKey: .pixels),
+                    )
                 case .faces: .faces
-                case .face: try .face(call.decode(Named.self, forKey: .params))
+                case .face: try .face(params().decode(String.self, forKey: .name))
             }
     }
 
-    func perform(definitions: ScriptingDefinitions) async -> Result<Response, AggregateError<Failure>> {
-        let deadline: Duration = .seconds(60)
-        func running(_ target: Target) -> Result<NSRunningApplication, AggregateError<Failure>> {
-            Adobe.installation(at: target.url).flatMap { installation in installation.runningApplication(target.pid).aggregated(Failure.discovery) }
-        }
-        func reached(_ target: Target) async -> Result<(installation: Installation, instance: NSRunningApplication), AggregateError<Failure>> {
-            await Adobe.installation(at: target.url).bind { installation in
-                switch (target.pid, installation.instances.isEmpty) {
-                    case (.none, true):
-                        await NSWorkspace.shared.launchApplication(at: installation.url, within: deadline, createsNewApplicationInstance: false, activates: false)
-                            .aggregated(Failure.launch)
-                            .flatMap { instance in Installation.at(installation.url, among: [instance]).map { launched in (launched, instance) }.aggregated(Failure.discovery) }
-                    case (.some, _), (.none, false): installation.runningApplication(target.pid).map { instance in (installation, instance) }.aggregated(Failure.discovery)
-                }
+    func perform(definitions: ScriptingDefinitions) async -> Result<Response, AggregateError<any Error>> {
+        let timeout: Duration = .seconds(60)
+        func dictionary(of url: URL) async -> Result<ScriptingDictionary, AggregateError<any Error>> {
+            await Result { () async throws(AggregateError<any Error>) in
+                try await definitions.dictionary(of: Adobe.installation(at: url).get(), within: timeout).aggregated { error in error as any Error }.get()
             }
-        }
-        func activated(_ target: Target) async -> Result<NSRunningApplication, AggregateError<Failure>> {
-            await reached(target).bind { reached in await NSWorkspace.shared.activateApplication(at: reached.installation.url, within: deadline).aggregated(Failure.activation) }
         }
         return switch self {
             case .installations:
                 await .success(
                     .stream(
-                        NSWorkspace.shared.applications(matching: .identifierPrefix(Adobe.identifierPrefix), in: FileManager.default.urls(for: .applicationDirectory, in: .allDomainsMask)).map {
-                            listing -> Result<any Encodable & Sendable, AggregateError<Failure>> in listing.map(\.self).aggregated(Failure.discovery)
-                        }
+                        NSWorkspace.shared.applications(
+                            matching: NSPredicate(format: "%K BEGINSWITH %@", kMDItemCFBundleIdentifier as String, Adobe.identifierPrefix),
+                            in: FileManager.default.urls(for: .applicationDirectory, in: .allDomainsMask),
+                        )
+                        .map { listing -> Result<any Encodable & Sendable, AggregateError<any Error>> in .success(Outcome(result: listing.mapError(Encoded.init))) }
                     )
                 )
             case .statuses:
                 await .success(
                     .stream(
-                        NSWorkspace.shared.instanceEvents(of: Adobe.owns).compactMap { event -> Result<any Encodable & Sendable, AggregateError<Failure>>? in
-                            if case .status(let instance, let read) = event { .success(InstanceStatus(pid: instance.processIdentifier, status: read.mapError(Failure.element))) } else { nil }
+                        NSWorkspace.shared.instanceEvents(of: Adobe.scripted).compactMap { event -> Result<any Encodable & Sendable, AggregateError<any Error>>? in
+                            if case .status(let instance, let read) = event {
+                                .success(InstanceStatus(pid: instance.processIdentifier, status: Outcome(result: read.mapError(Encoded.init))))
+                            } else {
+                                nil
+                            }
                         }
                     )
                 )
-            case .launch(let target):
-                await Adobe.installation(at: target.url).bind { installation in
-                    await NSWorkspace.shared.launchApplication(at: installation.url, within: deadline, createsNewApplicationInstance: false, activates: false)
-                        .map { instance in Response.value(Launched(pid: instance.processIdentifier)) }
-                        .aggregated(Failure.launch)
+            case .launch(let url):
+                await Result { () async throws(AggregateError<any Error>) in
+                    let installation: Installation = try Adobe.installation(at: url).get()
+                    let instance: NSRunningApplication = try await NSWorkspace.shared.launchApplication(at: installation.url, within: timeout).aggregated { error in error as any Error }.get()
+                    return Response.value(["pid": instance.processIdentifier])
                 }
-            case .activate(let target):
-                await activated(target).map { _ in Response.value(nil) }
-            case .status(let target):
-                running(target).flatMap { instance in instance.status().aggregated(Failure.element) }.map(Response.value)
-            case .press(let target, let press):
-                running(target)
-                    .flatMap { instance in
-                        press.actions
-                            .reduce(Result<Void, ElementFailure>.success(())) { performed, action in performed.flatMap { instance.perform(action, on: press.element) } }
-                            .aggregated(Failure.element)
-                    }
-                    .map { Response.value(nil) }
-            case .terms(let target):
-                await Adobe.installation(at: target.url)
-                    .bind { installation in await definitions.dictionary(of: installation, within: deadline).aggregated(Failure.definition) }
-                    .map { dictionary in
-                        Response.value(
-                            Dictionary(
-                                uniqueKeysWithValues: ScriptingDictionary.Kind.allCases.map { kind in
-                                    let listed: [Entry] =
-                                        switch kind {
-                                            case .command: dictionary.commands.map(Entry.init)
-                                            case .suite: dictionary.suites.map(Entry.init)
-                                            case .class: dictionary.classes.map(Entry.init)
-                                            case .recordType: dictionary.recordTypes.map(Entry.init)
-                                            case .valueType: dictionary.valueTypes.map(Entry.init)
-                                            case .enumeration: dictionary.enumerations.map(Entry.init)
-                                        }
-                                    return (kind.rawValue, listed)
-                                }
-                            )
-                        )
-                    }
-            case .definition(let definition):
-                await Adobe.installation(at: definition.url)
-                    .bind { installation in await definitions.dictionary(of: installation, within: deadline).aggregated(Failure.definition) }
-                    .flatMap { dictionary in dictionary.text(selecting: definition.selection).aggregated(Failure.definition) }
-                    .map(Response.value)
-            case .execute(let target, let call):
-                await reached(target)
-                    .bind { reached in
-                        await definitions.dictionary(of: reached.installation, within: deadline).aggregated(Failure.definition).map { dictionary in (reached.instance, dictionary) }
-                    }
-                    .flatMap { instance, dictionary in
-                        dictionary.event(call.command, arguments: call.arguments, target: NSAppleEventDescriptor(processIdentifier: instance.processIdentifier))
-                            .mapError { errors in errors.map(Failure.dictionary) }
-                            .flatMap { event in event.sent().aggregated(Failure.event) }
-                            .map { reply in Response.value(Executed(reply: AppleEventValue(reply, in: dictionary), reading: call.artifacts)) }
-                    }
-            case .screenshot(let target, let options):
-                await activated(target)
-                    .bind { instance in await instance.screenshot(options).aggregated(Failure.screenshot) }
-                    .map(Response.value)
+            case .status(let pid):
+                await Result { () async throws(AggregateError<any Error>) in
+                    try await Response.value(Adobe.running(pid).get().instance.status().aggregated { error in error as any Error }.get())
+                }
+            case .press(let pid, let element, let actions):
+                await Result { () async throws(AggregateError<any Error>) in
+                    let instance: NSRunningApplication = try Adobe.running(pid).get().instance
+                    for action: ElementAction in actions { try await instance.perform(action, on: element).aggregated { error in error as any Error }.get() }
+                    return Response.value(nil)
+                }
+            case .terms(let url):
+                await dictionary(of: url).map(Response.value)
+            case .definition(let url, let kind, let name):
+                await dictionary(of: url).flatMap { dictionary in dictionary.text(of: kind, named: name).aggregated { error in error } }.map(Response.value)
+            case .execute(let pid, let command, let arguments, let artifacts):
+                await Result { () async throws(AggregateError<any Error>) in
+                    let installation: Installation = try Adobe.running(pid).get().installation
+                    let dictionary: ScriptingDictionary = try await definitions.dictionary(of: installation, within: timeout).aggregated { error in error as any Error }.get()
+                    let event: NSAppleEventDescriptor = try dictionary.event(command, arguments: arguments, target: NSAppleEventDescriptor(processIdentifier: pid))
+                        .mapError { errors in errors.map { error in error as any Error } }
+                        .flatMap { event in Adobe.admitted(event, named: command, by: installation.identifier) }
+                        .get()
+                    let reply: NSAppleEventDescriptor = try await event.sent(within: timeout).aggregated { error in error as any Error }.get()
+                    return Response.value(Executed(reply: AppleEventValue(reply, in: dictionary), reading: artifacts))
+                }
+            case .screenshot(let pid, let window, let pixels):
+                await Result { () async throws(AggregateError<any Error>) in
+                    let image: CGImage = try await Adobe.running(pid).get().instance.screenshot(of: window, longestSide: pixels).aggregated { error in error as any Error }.get().image
+                    return try image.data(as: .png).map { data in Response.value(Captured(image: data, width: image.width, height: image.height)) }.aggregated { error in error as any Error }.get()
+                }
             case .faces:
                 .success(.value(InstalledFace.installed()))
-            case .face(let named):
-                InstalledFace.named(named.name).map(Response.value).aggregated(Failure.unmatched)
+            case .face(let name):
+                InstalledFace.named(name).map(Response.value).aggregated { error in error }
         }
     }
 }
@@ -305,18 +319,18 @@ enum FromServer: Encodable {
             case tag = "_tag"
         }
 
-        case fail(Failure)
+        case fail(any Error)
         case die(any Error)
 
         func encode(to encoder: any Encoder) throws {
             var container: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
             switch self {
-                case .fail(let failure):
+                case .fail(let error):
                     try container.encode("Fail", forKey: .tag)
-                    try container.encode(failure, forKey: .error)
+                    try container.encode(Encoded(error), forKey: .error)
                 case .die(let error):
                     try container.encode("Die", forKey: .tag)
-                    try container.encode(JSONError(error: error), forKey: .defect)
+                    try container.encode(Encoded(error), forKey: .defect)
             }
         }
     }
@@ -325,6 +339,8 @@ enum FromServer: Encodable {
         case id, result, chunk, error, data
         case tag = "_tag"
     }
+
+    private static let encoder: JSONEncoder = JSONEncoder()
 
     case exit(requestId: Int, Result<any Encodable?, AggregateError<Reason>>)
     case chunk(requestId: Int, any Encodable)
@@ -353,60 +369,34 @@ enum FromServer: Encodable {
     }
 
     func line() -> Result<Data, any Error> {
-        Result { try JSONEncoder().encode(self) }
-            .flatMapError { error in Result { try JSONEncoder().encode(Self.exit(requestId: requestId, .failure(AggregateError(first: .die(error))))) } }
+        Result { try Self.encoder.encode(self) }
+            .flatMapError { error in Result { try Self.encoder.encode(Self.exit(requestId: requestId, .failure(AggregateError(first: .die(error))))) } }
             .map { data in data + Data("\n".utf8) }
     }
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-enum Failure: CustomNSError, LocalizedError, Encodable {
+enum Refusal: CustomNSError, LocalizedError {
     case notAdobe(URL)
-    case discovery(DiscoveryFailure)
-    case launch(LaunchFailure)
-    case activation(ActivationFailure)
-    case element(ElementFailure)
-    case screenshot(ScreenshotFailure)
-    case definition(DefinitionFailure)
-    case dictionary(DictionaryFailure)
-    case event(AppleEventFailure)
+    case noProcess(pid_t)
     case unreadable(URL, any Error)
-    case unmatched(Unmatched)
-
-    private enum Key: String, CodingKey {
-        case subject, query, candidates
-        case tag = "_tag"
-    }
+    case interferes(String, code: String, Interference)
 
     var errorDescription: String? {
         switch self {
             case .notAdobe(let url): "\(url.path(percentEncoded: false)) is no application with an identifier starting \(Adobe.identifierPrefix)"
-            case .discovery(let error as any Error), .launch(let error as any Error), .activation(let error as any Error), .element(let error as any Error), .screenshot(let error as any Error),
-                .definition(let error as any Error), .dictionary(let error as any Error), .event(let error as any Error), .unmatched(let error as any Error):
-                error.localizedDescription
+            case .noProcess(let pid): "No running application bundle has pid \(pid)"
             case .unreadable(let file, let error): "\(file.path(percentEncoded: false)) could not be read: \(error.localizedDescription)"
+            case .interferes(let command, let code, .activation): "\(command) (\(code)) activates the application or opens another one, nothing was sent"
+            case .interferes(let command, let code, .interface): "\(command) (\(code)) opens a window, dialog, or panel with these arguments, nothing was sent"
+            case .interferes(let command, let code, .menuAction): "\(command) (\(code)) runs a menu action, the Menu form runs it, nothing was sent"
+            case .interferes(let command, let code, .script): "\(command) (\(code)) runs a script, execute_script runs it, nothing was sent"
         }
     }
 
     var errorUserInfo: [String: Any] {
         if case .unreadable(_, let error) = self { [NSUnderlyingErrorKey: error] } else { [:] }
-    }
-
-    func encode(to encoder: any Encoder) throws {
-        switch self {
-            case .unmatched(let miss), .discovery(.unmatched(let miss)), .element(.unmatched(let miss)), .definition(.unmatched(let miss)), .dictionary(.unmatched(let miss)):
-                var container: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
-                try container.encode("Unmatched", forKey: .tag)
-                try container.encode(miss.subject, forKey: .subject)
-                try container.encodeIfPresent(miss.query, forKey: .query)
-                try container.encode(miss.candidates, forKey: .candidates)
-            case .discovery(let error as any Error), .launch(let error as any Error), .activation(let error as any Error), .element(let error as any Error), .screenshot(let error as any Error),
-                .definition(let error as any Error), .dictionary(let error as any Error), .event(let error as any Error):
-                try JSONError(error: error).encode(to: encoder)
-            case .notAdobe, .unreadable:
-                try JSONError(error: self).encode(to: encoder)
-        }
     }
 }
 
@@ -416,9 +406,9 @@ actor Calls {
     private var running: [Int: Task<Void, Never>] = [:]
 
     func start(_ id: Int, _ call: @escaping @concurrent @Sendable () async -> Void) {
-        running[id] = Task {
+        running[id] = Task(executorPreference: DispatchQueue(label: "Atelier.requests", attributes: .concurrent)) {
             await call()
-            running[id] = nil
+            await self.interrupt(id)
         }
     }
 
@@ -432,14 +422,87 @@ actor Calls {
 enum Adobe {
     static let identifierPrefix: String = "com.adobe."
 
-    static func owns(_ instance: NSRunningApplication) -> Bool {
-        instance.bundleIdentifier?.hasPrefix(identifierPrefix) == true
+    static let routes: [String: Interference] = [
+        "UIUIInvk": .menuAction, "CAROexec": .menuAction, "K2  dosc": .script, "miscDjxM": .script, "miscdosc": .script, "miscDoAc": .script, "miscfile": .script,
+    ]
+
+    static let refusals: [String: [(code: String, clause: Clause, interference: Interference)]] = [
+        "com.adobe.InDesign": [
+            ("UIUIshow", .always, .activation),
+            ("K2LKrvlO", .always, .activation),
+            ("K2LKrvlB", .always, .activation),
+            ("TeXTSTed", .always, .interface),
+            ("K2  TpsV", .always, .interface),
+            ("K2  casc", .always, .interface),
+            ("K2  tile", .always, .interface),
+            ("K2  rstr", .direct(of: ["cwin", "Lwin", "Swin"]), .interface),
+            ("aevtpdoc", .parameter("prno", .among(["true"])), .interface),
+            ("K2  ePrB", .parameter("BPBD", .among(["true"])), .interface),
+            ("CoReclos", .parameter("svop", .among([nil, "ask "])), .interface),
+            ("aevtquit", .parameter("savo", .among([nil, "ask "])), .interface),
+            ("coresetd", .property("pvis", of: ["CPNS", "pgsp", "cLbp"], .among(["true"])), .interface),
+            ("coresetd", .property("UIAc", of: [], .except("eNvr")), .interface),
+        ]
+            + [
+                "K2  expt", "InBKexpt", "InESexpt", "K2PIexpt", "K2XLexpt", "TeXTexpt", "K2  exAs", "InESexAs", "K2PIexAs", "K2XLexAs", "TeXTexAs", "K2PIplac", "InESplac", "TeXTplac",
+                "K2  LCDr", "K2  LPGn", "K2PIcopl", "InEScopl", "TeXTcopl", "K2PIplli", "TeXTplli",
+            ]
+            .map { code in (code, .parameter("imot", .among(["true"])), .interface) },
+        "com.adobe.illustratorBeta": [
+            ("misckCPk", .always, .interface),
+            ("ART5kLWC", .always, .interface),
+            ("aevtodoc", .parameter("DLOG", .among([nil, "true"])), .interface),
+            ("coresetd", .property("pUIL", of: [], .except("e45a")), .interface),
+        ],
+        "com.adobe.Photoshop": [
+            ("8BIMpsop", .always, .interface),
+            ("8BIMptmg", .always, .interface),
+            ("PsCSodoc", .parameter("ShwD", .except("Nevr")), .interface),
+            ("PsCSclos", .parameter("savo", .among([nil, "ask "])), .interface),
+            ("coresetd", .property("AUiL", of: [], .except("Nevr")), .interface),
+        ],
+        "com.adobe.Acrobat.Pro": [
+            ("coresetd", .property("pisf", of: [], .any), .activation),
+            ("CARObfrt", .always, .activation),
+            ("coreclos", .parameter("savo", .among(["ask "])), .interface),
+            ("aevtquit", .parameter("savo", .among(["ask "])), .interface),
+            ("coresetd", .property("pskw", of: [], .among(["fals"])), .interface),
+        ],
+        "com.adobe.AfterEffectsBeta.application": [
+            ("aevtpdoc", .parameter("pdlg", .among(["true"])), .interface),
+            ("coresetd", .property("pvis", of: [], .among(["true"])), .interface),
+            ("coresetd", .property("pmnd", of: [], .among(["fals"])), .interface),
+        ],
+        "com.adobe.PremiereProBeta.27": [
+            ("CR8RCPAE", .always, .interface),
+            ("CR8RCRPr", .always, .activation),
+        ],
+    ]
+
+    static func installation(at url: URL) -> Result<Installation, AggregateError<any Error>> {
+        Installation.at(url)
+            .aggregated { error in error }
+            .flatMap { installation in installation.identifier.hasPrefix(identifierPrefix) ? .success(installation) : .failure(AggregateError(first: Refusal.notAdobe(url))) }
     }
 
-    static func installation(at url: URL) -> Result<Installation, AggregateError<Failure>> {
-        Installation.at(url)
-            .aggregated(Failure.discovery)
-            .flatMap { installation in installation.identifier.hasPrefix(identifierPrefix) ? .success(installation) : .failure(AggregateError(first: .notAdobe(url))) }
+    static func running(_ pid: pid_t) -> Result<(instance: NSRunningApplication, installation: Installation), AggregateError<any Error>> {
+        switch NSRunningApplication(processIdentifier: pid).flatMap({ instance in instance.bundleURL.map { url in (instance, url) } }) {
+            case .some((let instance, let url)): installation(at: url).map { installation in (instance, installation) }
+            case .none: .failure(AggregateError(first: Refusal.noProcess(pid)))
+        }
+    }
+
+    static func scripted(_ instance: NSRunningApplication) -> Bool {
+        switch instance.bundleURL.map(installation(at:)) {
+            case .some(.success(let installation)): installation.scriptable
+            case .some(.failure), .none: false
+        }
+    }
+
+    static func admitted(_ event: NSAppleEventDescriptor, named command: String, by identifier: String) -> Result<NSAppleEventDescriptor, AggregateError<any Error>> {
+        let code: String = (UInt64(event.eventClass) << 32 | UInt64(event.eventID)).sdef
+        let interference: Interference? = routes[code] ?? refusals[identifier, default: []].first { row in row.code == code && row.clause.refuses(event) }?.interference
+        return interference.map { interference in .failure(AggregateError(first: Refusal.interferes(command, code: code, interference))) } ?? .success(event)
     }
 }
 
@@ -448,21 +511,25 @@ enum Adobe {
 @main
 enum Atelier {
     static func main() async {
-        let logger: Logger? = Logger(category: "Atelier")
+        let logger: Logger = Logger(category: "Atelier")
         let (lines, sink): (AsyncStream<Data>, AsyncStream<Data>.Continuation) = AsyncStream.makeStream()
         let calls: Calls = Calls()
         let definitions: ScriptingDefinitions = ScriptingDefinitions()
+        let decoder: JSONDecoder = JSONDecoder()
         let send: @Sendable (FromServer) -> Void = { message in
             switch message.line() {
                 case .success(let data): sink.yield(data)
-                case .failure(let error): logger?.debug("Dropped a reply no line can carry: \(String(describing: error), privacy: .public)")
+                case .failure(let error): logger.debug("Dropped a reply no line can carry: \(String(describing: error), privacy: .public)")
             }
         }
         @concurrent @Sendable func answer(_ id: Int, _ request: Result<Request, any Error>) async {
-            switch await request.aggregated(FromServer.Reason.die).bind({ request in await request.perform(definitions: definitions).mapError { failures in failures.map(FromServer.Reason.fail) } }) {
+            let outcome: Result<Response, AggregateError<FromServer.Reason>> = await Result { () async throws(AggregateError<FromServer.Reason>) in
+                try await request.aggregated(FromServer.Reason.die).get().perform(definitions: definitions).mapError { failures in failures.map(FromServer.Reason.fail) }.get()
+            }
+            switch outcome {
                 case .success(.value(let value)): send(.exit(requestId: id, .success(value)))
                 case .success(.stream(let chunks)):
-                    for await chunk: Result<any Encodable & Sendable, AggregateError<Failure>> in chunks {
+                    for await chunk: Result<any Encodable & Sendable, AggregateError<any Error>> in chunks {
                         switch chunk {
                             case .success(let value): send(.chunk(requestId: id, value))
                             case .failure(let cause):
@@ -476,24 +543,28 @@ enum Atelier {
         }
         do {
             try disclaimResponsibility()
-            try Accessibility.messagingTimeout(1).get()
-            Accessibility.prompt()
+            AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), 1)
+            AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
             try await withThrowingDiscardingTaskGroup { group in
-                group.addTask {
+                group.addTask(executorPreference: DispatchQueue(label: "Atelier.replies", attributes: .concurrent)) {
                     for await line: Data in lines { try FileHandle.standardOutput.write(contentsOf: line) }
                 }
-                for try await line: String in FileHandle.standardInput.bytes.lines {
-                    switch Result(catching: { try JSONDecoder().decode(FromClient.self, from: Data(line.utf8)) }) {
+                var line: Data = Data()
+                for try await byte: UInt8 in FileHandle.standardInput.bytes {
+                    line.append(byte)
+                    guard byte == UInt8(ascii: "\n") else { continue }
+                    defer { line = Data() }
+                    switch Result(catching: { try decoder.decode(FromClient.self, from: line) }) {
                         case .success(.request(let id, let request)): await calls.start(id) { await answer(id, request) }
                         case .success(.interrupt(let id)): await calls.interrupt(id)
                         case .success(.ack): break
-                        case .failure(let error): logger?.debug("Dropped a line no reply can match: \(String(describing: error), privacy: .public)")
+                        case .failure(let error): logger.debug("Dropped a line no reply can match: \(String(describing: error), privacy: .public)")
                     }
                 }
                 sink.finish()
             }
         } catch {
-            logger?.fault("Stopped reading requests: \(String(describing: error), privacy: .public)")
+            logger.fault("Stopped reading requests: \(String(describing: error), privacy: .public)")
             exit(EXIT_FAILURE)
         }
     }

@@ -1,5 +1,5 @@
 import AppKit
-import RasmMacOS
+import Processes
 import SwiftUI
 import os
 
@@ -48,7 +48,7 @@ struct AccountMenuItems: View {
 }
 
 struct MenuBarExtraContent: View {
-    let store: AccountStore
+    let store: Result<AccountStore, LoginShellFailure>?
 
     @Environment(\.openWindow) private var openWindow: OpenWindowAction
     @Environment(\.dismiss) private var dismiss: DismissAction
@@ -85,29 +85,41 @@ struct MenuBarExtraContent: View {
         .padding(.vertical, 16)
         .frame(width: 384)
         .background { PanelToolTips() }
-        .onAppear { store.setMenuBarExtraVisible(true) }
-        .onDisappear { store.setMenuBarExtraVisible(false) }
-        .modifier(AccountRemovalAlert(store: store, model: $accountToRemove))
     }
 
     private func accounts(at now: Date) -> some View {
         VStack(spacing: 24) {
-            if store.storageState == .loading {
-                ProgressView().controlSize(.small)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-            } else if store.accounts.isEmpty {
-                Button("Add Account", action: showSettings)
-                    .disabled(!store.canAddAccount)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-            } else {
-                ForEach(store.accounts, id: \.account.id) { model in
-                    AccountCard(model: model, store: store, now: now, remove: { accountToRemove = model })
-                }
+            switch store {
+                case .success(let store) where store.storageState != .loading:
+                    VStack(spacing: 24) {
+                        if store.accounts.isEmpty {
+                            Button("Add Account", action: showSettings)
+                                .disabled(!store.canAddAccount)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 8)
+                        } else {
+                            ForEach(store.accounts, id: \.account.id) { model in
+                                AccountCard(model: model, store: store, now: now, remove: { accountToRemove = model })
+                            }
+                        }
+                    }
+                    .onAppear { store.setMenuBarExtraVisible(true) }
+                    .onDisappear { store.setMenuBarExtraVisible(false) }
+                    .modifier(AccountRemovalAlert(store: store, model: $accountToRemove))
+                case .success, .none:
+                    ProgressView().controlSize(.small)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                case .failure: EmptyView()
             }
 
-            if let issue: String = store.issue(at: now) {
+            let issue: String? =
+                switch store {
+                    case .success(let store): store.issue(at: now)
+                    case .failure(let error): error.localizedDescription
+                    case .none: nil
+                }
+            if let issue {
                 Text(issue)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -125,7 +137,7 @@ struct MenuBarExtraContent: View {
                 try await NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: NSWorkspace.OpenConfiguration())
             }
             if case .failure(let error) = reopened {
-                Logger(category: "Activation")?.error("Bringing Relay to front: \(String(describing: error), privacy: .public)")
+                Logger(category: "Activation").error("Bringing Relay to front: \(String(describing: error), privacy: .public)")
             }
         }
     }
@@ -179,7 +191,7 @@ private struct AccountCard: View {
         }
         .buttonStyle(.accessoryBar)
         .foregroundStyle(model.isSelected ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.secondary))
-        .disabled(!model.isSelected && !model.canSelect)
+        .disabled(!model.canSelect)
         .overlay {
             if model.running?.kind == .selecting { ProgressView().controlSize(.mini) }
         }

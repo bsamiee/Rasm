@@ -1,7 +1,6 @@
 {
     "recommendations": [
         "hverlin.mise-vscode",
-        "editorconfig.editorconfig",
         "biomejs.biome",
         "typescriptteam.native-preview",
         "charliermarsh.ruff",
@@ -11,11 +10,28 @@
         "rust-lang.rust-analyzer",
         "swiftlang.swift-vscode",
         "redhat.java",
-        "josevseb.google-java-format-for-vs-code",
         "tombi-toml.tombi",
         "redhat.vscode-yaml",
         "mads-hartmann.bash-ide-vscode",
         "github.vscode-github-actions"
     ],
-    "unwantedRecommendations": [ "vscjava.vscode-java-pack", "vscjava.vscode-gradle", "vscjava.vscode-maven", "vscjava.vscode-java-test", "vscjava.vscode-java-dependency", "vscjava.vscode-java-debug", "tamasfe.even-better-toml" ]
+    "unwantedRecommendations": [
+        "vscjava.vscode-java-pack",
+        "vscjava.vscode-gradle",
+        "vscjava.vscode-maven",
+        "vscjava.vscode-java-test",
+        "vscjava.vscode-java-dependency",
+        "vscjava.vscode-java-debug",
+        "tamasfe.even-better-toml",
+        "ms-python.vscode-pylance",
+        "ms-python.debugpy",
+        "ms-python.vscode-python-envs",
+        "ms-playwright.playwright",
+        "mechatroner.rainbow-csv",
+        "davidanson.vscode-markdownlint",
+        "dbaeumer.vscode-eslint",
+        "firefox-devtools.vscode-firefox-debug",
+        "ms-edgedevtools.vscode-edge-devtools",
+        "christian-kohler.npm-intellisense"
+    ]
 }

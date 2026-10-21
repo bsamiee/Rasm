@@ -1,6 +1,5 @@
 import AppKit
 import Foundation
-import RasmMacOS
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -13,56 +12,20 @@ private nonisolated struct CodexPackage: Decodable {
 enum CodexDesktop {
     private static let bundleIdentifier: String = "com.openai.codex"
 
-    static func applicationURL() -> Result<URL, CodexFailure> {
-        NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier)
-            .map(Result.success) ?? .failure(.applicationUnavailable)
+    static func serverExecutable() throws(CodexFailure) -> URL {
+        guard let application: URL = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier) else { throw .applicationUnavailable }
+        let package: URL = application.appending(path: "Contents/Resources/codex-cli", directoryHint: .isDirectory)
+        let manifest: CodexPackage = try Result { try JSONDecoder().decode(CodexPackage.self, from: Data(contentsOf: package.appending(path: "codex-package.json"))) }
+            .mapError(CodexFailure.storage)
+            .get()
+        return package.appending(path: manifest.entrypoint)
     }
 
-    static func serverExecutable() -> Result<URL, CodexFailure> {
-        applicationURL().flatMap { application in
-            let package: URL = application.appending(path: "Contents/Resources/codex-cli", directoryHint: .isDirectory)
-            return Result {
-                try JSONDecoder().decode(CodexPackage.self, from: Data(contentsOf: package.appending(path: "codex-package.json")))
-            }
-            .map { manifest in package.appending(path: manifest.entrypoint) }
-            .mapError { _ in .applicationUnavailable }
-        }
+    static func refuseWhileRunning() throws(CodexFailure) {
+        guard NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier).allSatisfy(\.isTerminated) else { throw .desktopRunning }
     }
 
-    static func relaunchIfRunning() async -> Result<Void, CodexFailure> {
-        let instances: [NSRunningApplication] = NSRunningApplication.runningApplications(
-            withBundleIdentifier: bundleIdentifier
-        )
-        .filter { application in !application.isTerminated }
-        guard !instances.isEmpty else { return .success(()) }
-        for instance: NSRunningApplication in instances {
-            let quit: Result<Void, CodexFailure> = await withDeadline(.seconds(10)) {
-                @MainActor in
-                let pid: pid_t = instance.processIdentifier
-                let terminations: AsyncCompactMapSequence<NotificationCenter.Notifications, pid_t> =
-                    NSWorkspace.shared.notificationCenter
-                    .notifications(named: NSWorkspace.didTerminateApplicationNotification)
-                    .compactMap { notification in
-                        (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?
-                            .processIdentifier
-                    }
-                guard instance.terminate() else { return .failure(.desktopQuitRefused) }
-                guard !instance.isTerminated else { return .success(()) }
-                return await terminations.contains(pid) ? .success(()) : .failure(.cancelled)
-            }
-            if case .failure = quit { instance.forceTerminate() }
-            guard !Task.isCancelled else { return .failure(.cancelled) }
-        }
-        return await applicationURL().bind { application in
-            await Result {
-                try await NSWorkspace.shared.openApplication(at: application, configuration: NSWorkspace.OpenConfiguration())
-            }
-            .mapError(CodexFailure.desktopLaunch)
-            .map { _ in () }
-        }
-    }
-
-    static func openSignIn(_ url: URL) -> Result<Void, CodexFailure> {
-        NSWorkspace.shared.open(url) ? .success(()) : .failure(.signInPageUnopened)
+    static func openSignIn(_ url: URL) throws(CodexFailure) {
+        guard NSWorkspace.shared.open(url) else { throw .signInPageUnopened }
     }
 }

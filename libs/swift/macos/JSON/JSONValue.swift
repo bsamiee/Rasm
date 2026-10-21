@@ -2,7 +2,7 @@ public import Foundation
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public enum JSONValue: Codable, Equatable, Sendable {
+public enum JSONValue: Codable, Hashable, Sendable {
     case null
     case bool(Bool)
     case number(Decimal)

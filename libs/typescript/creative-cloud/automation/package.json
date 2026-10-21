@@ -1,7 +1,7 @@
 {
     "name": "@rasm/automation",
     "private": true,
-    "description": "Drives installed Adobe applications from Node through a helper process: discovery, launch, activation, status, dialogs, dictionaries, Apple Event commands, scripts, screenshots, and installed faces",
+    "description": "Drives installed Adobe applications from Node through a helper process: discovery, launch, status, dialogs, dictionaries, Apple Event commands, scripts, screenshots, and installed faces, with the frontmost application unchanged",
     "sideEffects": false,
     "type": "module",
     "exports": "./main.ts",
