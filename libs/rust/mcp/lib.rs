@@ -16,7 +16,6 @@ use jsonschema::ValidationError;
 use nonempty_collections::NEVec;
 use opentelemetry::{InstrumentationScope, KeyValue, global, metrics::Histogram, propagation::Extractor};
 use opentelemetry_semantic_conventions::attribute::{ERROR_TYPE, EXCEPTION_MESSAGE, JSONRPC_REQUEST_ID, RPC_RESPONSE_STATUS_CODE};
-use rasm_telemetry::{Telemetry, options};
 use rmcp::{
     ErrorData, RoleServer, ServerHandler, ServiceError,
     model::{
@@ -97,7 +96,7 @@ struct Options {
     #[arg(long, env = "MCP_ALLOWED_HOSTS", value_name = "AUTHORITY", value_delimiter = ',', help = "Host authority to answer beside loopback names and bound address")]
     allowed_host: Vec<Authority>,
     #[command(flatten)]
-    telemetry: options::Options,
+    telemetry: rasm_telemetry::Options,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -441,7 +440,7 @@ where
         let served = http.as_mut().take_output().unwrap_or(Ok(())).map_err(|source| Failed::Io { operation: Operation::Serve, source });
         validated::Validated::from(ended).map2(served.into(), |(), ()| ()).ok()
     };
-    Telemetry::run(telemetry, &command, [], "info,rmcp=warn,rmcp::service=error", io::stderr, Identity::new(), |_| {
+    telemetry.run(&command, [], "info,rmcp=warn,rmcp::service=error", Identity::new(), |_| {
         let runtime = runtime::Runtime::new().map_err(|source| Failed::Io { operation: Operation::Runtime, source })?;
         let hosted = runtime.block_on(listening);
         runtime.shutdown_background();

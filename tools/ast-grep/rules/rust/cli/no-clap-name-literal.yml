@@ -3,20 +3,29 @@ id: no-clap-name-literal
 language: rust
 severity: error
 utils:
+    key:
+        kind: identifier
+        pattern: $KEY
+        regex: '^(long|id|name)$'
+        follows: {regex: '^[,(]$'}
     keyed:
         any:
-            - follows: {regex: '^=$', follows: {kind: identifier, pattern: $KEY, regex: '^(long|id|name)$'}}
+            - follows: {regex: '^=$', follows: {matches: key}}
               inside: {kind: token_tree, inside: {kind: attribute, field: arguments}}
             - inside:
                 kind: token_tree
                 regex: '^\('
-                follows: {kind: identifier, pattern: $KEY, regex: '^(long|id|name)$'}
+                follows: {matches: key}
                 inside: {kind: token_tree, inside: {kind: attribute, field: arguments}}
+    semantic-group:
+        kind: attribute_item
+        regex: '(?s)^#\[\s*group\s*\(.*\b(required|multiple|requires|requires_all|conflicts_with|conflicts_with_all)\b'
 rule:
     kind: 'string_literal, raw_string_literal'
     pattern: $NAME
     all:
         - regex: '^r?#*"[A-Za-z][A-Za-z0-9]*([-_][A-Za-z0-9]+)*"#*$'
+        - not: {regex: '^r?#*"(self|Self|super|crate)"#*$'}
         - matches: keyed
         - inside:
             kind: attribute
@@ -25,7 +34,13 @@ rule:
                 - has: {nthChild: 1, kind: identifier, regex: '^(arg|clap|command|value)$'}
                 - all:
                     - has: {nthChild: 1, kind: identifier, regex: '^group$'}
-                    - not: {has: {field: arguments, has: {kind: identifier, regex: '^(required|multiple|requires|requires_all|conflicts_with|conflicts_with_all)$'}}}
+                    - not:
+                        inside:
+                            kind: attribute_item
+                            any:
+                                - matches: semantic-group
+                                - precedes: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, matches: semantic-group}
+                                - follows: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, matches: semantic-group}
         - not: {matches: rust-test-scope}
 message: '`$KEY` spells `$NAME`, a name clap derives from the annotated item or the package'
 note: 'Name the field, variant, or struct after its flag, value, or id and delete the key: a flag keeps a bare `long`, an enum whose values take another case takes `#[value(rename_all = <case>)]`, a flattened `Args` struct takes `#[group(skip)]`, and a top-level command reads the package name'

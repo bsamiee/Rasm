@@ -1,9 +1,9 @@
-use std::{io, process::ExitCode};
+use std::process::ExitCode;
 
 use clap::{Args as _, Command, FromArgMatches as _};
 use nonempty_collections::NEVec;
 use opentelemetry::global;
-use rasm_telemetry::{Telemetry, options::Options};
+use rasm_telemetry::Options;
 use tracing::subscriber;
 use tracing_subscriber::{Registry, layer::Identity};
 
@@ -12,9 +12,16 @@ use tracing_subscriber::{Registry, layer::Identity};
 #[test]
 fn refused_install_keeps_process_globals() -> Result<(), clap::Error> {
     let mut command = Options::augment_args(Command::new(env!("CARGO_CRATE_NAME")));
-    let options = Options::from_arg_matches(&command.try_get_matches_from_mut([env!("CARGO_CRATE_NAME"), "--propagators=tracecontext,baggage"])?)?;
+    let options = Options::from_arg_matches(&command.try_get_matches_from_mut([
+        env!("CARGO_CRATE_NAME"),
+        "--propagators=tracecontext,baggage",
+        "--log=info",
+        "--traces-exporter=none",
+        "--metrics-exporter=none",
+        "--logs-exporter=none",
+    ])?)?;
     let (held, mut worked) = (subscriber::set_global_default(Registry::default()), false);
-    let code = Telemetry::run(options, &command, [], "", io::sink, Identity::new(), |_| {
+    let code = options.run(&command, [], "", Identity::new(), |_| {
         worked = true;
         Ok::<_, NEVec<!>>(ExitCode::SUCCESS)
     });

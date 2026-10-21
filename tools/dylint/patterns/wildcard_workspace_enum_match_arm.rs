@@ -2,11 +2,11 @@ use core::iter;
 
 use clippy_utils::{
     diagnostics::span_lint_hir_and_then,
-    fn_def_id, is_refutable, is_wild,
+    expr_or_init, fn_def_id, is_refutable, is_wild,
     macros::{MacroCall, root_macro_call},
     paths::PathNS,
     peel_blocks, peel_hir_expr_refs, peel_hir_expr_while, peel_hir_pat_refs, recurse_or_patterns,
-    res::{MaybeDef as _, MaybeQPath as _},
+    res::MaybeDef as _,
     sym,
 };
 use itertools::Itertools as _;
@@ -14,15 +14,15 @@ use rustc_ast::LitKind;
 use rustc_data_structures::fx::FxHashSet;
 use rustc_hir::{
     Arm, BinOpKind, Expr, ExprKind, HirId, LetStmt, MatchSource, Pat, PatExpr, PatExprKind, PatKind, UnOp,
-    def::{CtorKind, CtorOf, DefKind, Res},
+    def::{CtorOf, DefKind, Res},
     def_id::DefId,
     pat_util::EnumerateAndAdjustIterator as _,
 };
 use rustc_lint::{LateContext, LateLintPass};
-use rustc_middle::ty::{self, AdtDef, Ty, TyCtxt, TypeckResults};
+use rustc_middle::ty::{self, AdtDef, Ty, TyCtxt, TypeckResults, VariantDef};
 use rustc_span::{Span, Spanned, Symbol};
 
-use crate::{expanded_externally, paths, workspace_def};
+use crate::{constructed, expanded_externally, paths, workspace_def};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -47,7 +47,9 @@ pub(crate) struct Pass {
 lint!(Pass; WILDCARD_WORKSPACE_ENUM_MATCH_ARM: "`match` catch-all arms, `if .. else` variant tests, and `matches!` and `let .. else` patterns that send each workspace enum variant they leave unnamed to one branch");
 
 impl Pass {
-    pub(crate) fn new(tcx: TyCtxt<'_>) -> Self { Self { contains: paths(tcx, PathNS::Value, &["slice::contains", "alloc::collections::VecDeque::contains"]) } }
+    pub(crate) fn new(tcx: TyCtxt<'_>) -> Self {
+        Self { contains: paths(tcx, PathNS::Value, &["slice::contains", "alloc::collections::VecDeque::contains", "std::collections::HashSet::contains", "alloc::collections::BTreeSet::contains"]) }
+    }
 }
 
 impl<'tcx> LateLintPass<'tcx> for Pass {
@@ -55,25 +57,37 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         fn reported_by_clippy<'tcx>(cx: &LateContext<'tcx>, typeck: &TypeckResults<'tcx>, scrutinee: &Expr<'_>, arms: &'tcx [Arm<'tcx>]) -> Vec<Span> {
             let catch_all = |arm: &Arm<'_>| matches!(peel_hir_pat_refs(arm.pat).0.kind, PatKind::Binding(.., None)) || arm.guard.is_none() && is_wild(peel_hir_pat_refs(arm.pat).0);
             let mixed = arms.iter().filter(|arm| matches!(arm.pat.kind, PatKind::Or(alternatives) if alternatives.len() > 1 && alternatives.iter().any(is_wild)));
-            let mut alternatives = Vec::new();
-            arms.iter().filter(|arm| arm.guard.is_none()).for_each(|arm| recurse_or_patterns(arm.pat, |pat| alternatives.push(pat)));
-            let covered = alternatives
-                .into_iter()
-                .filter_map(|pat| match peel_hir_pat_refs(pat).0.kind {
-                    PatKind::Expr(&PatExpr { kind: PatExprKind::Path(qpath), hir_id, .. }) => typeck.qpath_res(&qpath, hir_id).opt_def_id(),
-                    PatKind::TupleStruct(qpath, fields, _) if fields.iter().all(|field| !is_refutable(cx, field)) => typeck.qpath_res(&qpath, pat.hir_id).opt_def_id(),
-                    PatKind::Struct(qpath, fields, _) if fields.iter().all(|field| !is_refutable(cx, field.pat)) => typeck.qpath_res(&qpath, pat.hir_id).opt_def_id(),
-                    _ => None,
-                })
-                .collect::<FxHashSet<_>>();
+            let covered = covered(cx, typeck, arms.iter().filter(|arm| arm.guard.is_none()).map(|arm| arm.pat));
             let single = workspace_enum(cx, typeck.expr_ty(scrutinee))
                 .zip(arms.iter().rfind(|arm| catch_all(arm)))
-                .filter(|&(adt, _)| {
-                    !arms.iter().all(catch_all)
-                        && adt.variants().iter().filter(|variant| !covered.contains(&variant.def_id) && variant.ctor_def_id().is_none_or(|ctor| !covered.contains(&ctor))).count() == 1
-                })
+                .filter(|&(adt, _)| !arms.iter().all(catch_all) && unnamed(adt, &covered).count() == 1)
                 .map(|(_, arm)| arm);
             mixed.chain(single).map(|arm| arm.pat.span).collect()
+        }
+
+        fn tested<'tcx>(cx: &LateContext<'tcx>, typeck: &TypeckResults<'tcx>, contains: &FxHashSet<DefId>, condition: &'tcx Expr<'tcx>) -> Option<(Symbol, Span)> {
+            let condition = peel_hir_expr_while(condition, |inner| if let ExprKind::DropTemps(inner) | ExprKind::Unary(UnOp::Not, inner) = inner.kind { Some(inner) } else { None });
+            let variant = |written: &'tcx Expr<'tcx>| {
+                let adt = workspace_enum(cx, typeck.expr_ty(written))?;
+                constructed(typeck, written).map(|_| cx.tcx.item_name(adt.did()))
+            };
+            let found = |name: Option<Symbol>| name.map(|name| (name, condition.span.source_callsite()));
+            match condition.kind {
+                ExprKind::Binary(operator, left, right) if matches!(operator.node, BinOpKind::And | BinOpKind::Or) =>
+                    tested(cx, typeck, contains, left).or_else(|| tested(cx, typeck, contains, right)),
+                ExprKind::Binary(operator, left, right) if matches!(operator.node, BinOpKind::Eq | BinOpKind::Ne) => found(variant(right).or_else(|| variant(left))),
+                ExprKind::Let(bound) => found(named(cx, typeck, bound.pat).map(|(name, _)| name)),
+                ExprKind::Match(_, [arm, ..], MatchSource::Normal)
+                    if matches_call(cx, condition).is_some()
+                        && let Some((name, 1)) = named(cx, typeck, arm.pat) =>
+                    found(Some(name)),
+                ExprKind::MethodCall(_, receiver, [argument], _) if fn_def_id(cx, condition).is_some_and(|called| contains.contains(&called)) =>
+                    found(variant(peel_hir_expr_refs(argument).0).or_else(|| match expr_or_init(cx, peel_hir_expr_refs(receiver).0).kind {
+                        ExprKind::Array(listed) => listed.iter().find_map(variant),
+                        _ => None,
+                    })),
+                _ => None,
+            }
         }
 
         let typeck = cx.typeck_results();
@@ -88,7 +102,8 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             ExprKind::Match(_, [arm, ..], MatchSource::Normal)
                 if let Some(call) = matches_call(cx, expr)
                     && !expanded_externally(cx, call.span)
-                    && let Some((name, 2..)) = named(cx, typeck, arm.pat) =>
+                    && let Some((name, 2..)) = named(cx, typeck, arm.pat)
+                    && workspace_enum(cx, typeck.pat_ty(arm.pat)).is_none_or(|adt| unnamed(adt, &covered(cx, typeck, [arm.pat])).next().is_some()) =>
                 report(cx, expr.hir_id, call.span, format!("`matches!` sends each `{name}` variant it leaves unnamed to `false`")),
             ExprKind::Match(scrutinee, arms, MatchSource::Normal) if matches_call(cx, expr).is_none() && !expanded_externally(cx, expr.span) && !like_matches(arms) => {
                 let Shape { named, caught } = shape(cx, typeck, arms.iter().filter(|arm| arm.guard.is_none()).map(|arm| arm.pat));
@@ -101,11 +116,9 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             }
             ExprKind::If(condition, then, Some(otherwise))
                 if !expanded_externally(cx, expr.span)
-                    && !(matches!(condition.peel_drop_temps().kind, ExprKind::Let(_))
-                        && typeck.expr_ty(expr).is_bool()
-                        && literal(then).zip(literal(otherwise)).is_some_and(|(kept, other)| kept != other))
+                    && !matches!((condition.peel_drop_temps().kind, literal(then).zip(literal(otherwise))), (ExprKind::Let(_), Some((kept, other))) if kept != other)
                     && let Some((name, span)) = tested(cx, typeck, &self.contains, condition) =>
-                report(cx, expr.hir_id, span, format!("`if` over `{name}` sends each variant its condition leaves unnamed to `else`")),
+                report(cx, expr.hir_id, span, format!("`if` over `{name}` sends each variant its condition leaves unnamed to one branch")),
             _ => {}
         }
     }
@@ -129,27 +142,26 @@ fn workspace_enum<'tcx>(cx: &LateContext<'tcx>, held: Ty<'tcx>) -> Option<AdtDef
     }
 }
 
-fn matches_call(cx: &LateContext<'_>, tested: &Expr<'_>) -> Option<MacroCall> { root_macro_call(tested.span).filter(|call| cx.tcx.is_diagnostic_item(sym::matches_macro, call.def_id)) }
-
-fn tested<'tcx>(cx: &LateContext<'tcx>, typeck: &TypeckResults<'tcx>, contains: &FxHashSet<DefId>, condition: &'tcx Expr<'tcx>) -> Option<(Symbol, Span)> {
-    let condition = peel_hir_expr_while(condition, |inner| if let ExprKind::DropTemps(inner) | ExprKind::Unary(UnOp::Not, inner) = inner.kind { Some(inner) } else { None });
-    let variant = |written: &Expr<'_>| {
-        let adt = workspace_enum(cx, typeck.expr_ty(written))?;
-        matches!(written.res(typeck), Res::Def(DefKind::Ctor(CtorOf::Variant, CtorKind::Const), ctor) if cx.tcx.parent(cx.tcx.parent(ctor)) == adt.did()).then(|| cx.tcx.item_name(adt.did()))
-    };
-    let found = |name: Option<Symbol>| name.map(|name| (name, condition.span.source_callsite()));
-    match condition.kind {
-        ExprKind::Binary(operator, left, right) if matches!(operator.node, BinOpKind::And | BinOpKind::Or) => tested(cx, typeck, contains, left).or_else(|| tested(cx, typeck, contains, right)),
-        ExprKind::Binary(operator, left, right) if matches!(operator.node, BinOpKind::Eq | BinOpKind::Ne) => found(variant(right).or_else(|| variant(left))),
-        ExprKind::Let(tested) => found(named(cx, typeck, tested.pat).map(|(name, _)| name)),
-        ExprKind::Match(_, [arm, ..], MatchSource::Normal)
-            if matches_call(cx, condition).is_some()
-                && let Some((name, 1)) = named(cx, typeck, arm.pat) =>
-            found(Some(name)),
-        ExprKind::MethodCall(_, _, [argument], _) if fn_def_id(cx, condition).is_some_and(|called| contains.contains(&called)) => found(variant(peel_hir_expr_refs(argument).0)),
-        _ => None,
-    }
+fn covered<'tcx, P>(cx: &LateContext<'tcx>, typeck: &TypeckResults<'tcx>, patterns: P) -> FxHashSet<DefId>
+where P: IntoIterator<Item = &'tcx Pat<'tcx>> {
+    let mut alternatives = Vec::new();
+    patterns.into_iter().for_each(|pat| recurse_or_patterns(pat, |alternative| alternatives.push(alternative)));
+    alternatives
+        .into_iter()
+        .filter_map(|pat| match peel_hir_pat_refs(pat).0.kind {
+            PatKind::Expr(&PatExpr { kind: PatExprKind::Path(qpath), hir_id, .. }) => typeck.qpath_res(&qpath, hir_id).opt_def_id(),
+            PatKind::TupleStruct(qpath, fields, _) if fields.iter().all(|field| !is_refutable(cx, field)) => typeck.qpath_res(&qpath, pat.hir_id).opt_def_id(),
+            PatKind::Struct(qpath, fields, _) if fields.iter().all(|field| !is_refutable(cx, field.pat)) => typeck.qpath_res(&qpath, pat.hir_id).opt_def_id(),
+            _ => None,
+        })
+        .collect()
 }
+
+fn unnamed<'tcx>(adt: AdtDef<'tcx>, covered: &FxHashSet<DefId>) -> impl Iterator<Item = &'tcx VariantDef> {
+    adt.variants().iter().filter(|variant| !covered.contains(&variant.def_id) && variant.ctor_def_id().is_none_or(|ctor| !covered.contains(&ctor)))
+}
+
+fn matches_call(cx: &LateContext<'_>, tested: &Expr<'_>) -> Option<MacroCall> { root_macro_call(tested.span).filter(|call| cx.tcx.is_diagnostic_item(sym::matches_macro, call.def_id)) }
 
 fn shape<'tcx, P>(cx: &LateContext<'tcx>, typeck: &TypeckResults<'tcx>, patterns: P) -> Shape
 where P: IntoIterator<Item = &'tcx Pat<'tcx>> {

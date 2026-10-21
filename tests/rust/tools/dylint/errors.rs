@@ -841,7 +841,7 @@ fn error_field_without_sources(found: &str) {
     22 | fn displayed(text: &str) -> Result<u16, Unread> { parsed(text).inspect_err(|error| tracing::warn!({ EXCEPTION_MESSAGE } = %error, "p...
        |                                                                                                                            ^^^^^
        |
-       = help: record `Report::new(error)` under `%` or `field::display`, its text names the error and each source
+       = help: record `std::error::Report::new(error)` under `%` or `field::display`, its text names the error and each source
        = note: `#[warn(error_field_without_sources)]` on by default
 
     warning: tracing field records error `Unread` outside `Report`
@@ -850,7 +850,7 @@ fn error_field_without_sources(found: &str) {
     24 | fn debugged(text: &str) -> Result<u16, Unread> { parsed(text).inspect_err(|error| tracing::warn!({ EXCEPTION_MESSAGE } = ?error, "po...
        |                                                                                                                           ^^^^^
        |
-       = help: record `Report::new(error)` under `%` or `field::display`, its text names the error and each source
+       = help: record `std::error::Report::new(error)` under `%` or `field::display`, its text names the error and each source
 
     warning: tracing field records error `dyn std::error::Error` outside `Report`
       --> tools/dylint/examples/error_field_without_sources.rs:26:120
@@ -858,7 +858,7 @@ fn error_field_without_sources(found: &str) {
     26 | ...r(|error| tracing::warn!({ EXCEPTION_MESSAGE } = error as &(dyn Error + 'static), "port unread")) }
        |                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
-       = help: record `Report::new(error)` under `%` or `field::display`, its text names the error and each source
+       = help: record `std::error::Report::new(error)` under `%` or `field::display`, its text names the error and each source
 
     warning: tracing field records error `std::num::ParseIntError` outside `Report`
       --> tools/dylint/examples/error_field_without_sources.rs:28:122
@@ -866,7 +866,7 @@ fn error_field_without_sources(found: &str) {
     28 | ...spect_err(|error| tracing::warn!({ EXCEPTION_MESSAGE } = %error.source, "port unread")) }
        |                                                              ^^^^^^^^^^^^
        |
-       = help: record `Report::new(error)` under `%` or `field::display`, its text names the error and each source
+       = help: record `std::error::Report::new(error)` under `%` or `field::display`, its text names the error and each source
 
     warning: tracing field records error `Unread` outside `Report`
       --> tools/dylint/examples/error_field_without_sources.rs:30:140
@@ -874,7 +874,7 @@ fn error_field_without_sources(found: &str) {
     30 | ...or| drop(tracing::info_span!("port", { EXCEPTION_MESSAGE } = %error))) }
        |                                                                  ^^^^^
        |
-       = help: record `Report::new(error)` under `%` or `field::display`, its text names the error and each source
+       = help: record `std::error::Report::new(error)` under `%` or `field::display`, its text names the error and each source
 
     warning: tracing field records error `Unread` outside `Report`
       --> tools/dylint/examples/error_field_without_sources.rs:34:102
@@ -882,7 +882,7 @@ fn error_field_without_sources(found: &str) {
     34 |         tracing::info_span!("port", { EXCEPTION_MESSAGE } = Empty).record(EXCEPTION_MESSAGE, display(error));
        |                                                                                                      ^^^^^
        |
-       = help: record `Report::new(error)` under `%` or `field::display`, its text names the error and each source
+       = help: record `std::error::Report::new(error)` under `%` or `field::display`, its text names the error and each source
     "#);
 }
 

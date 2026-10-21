@@ -43,15 +43,6 @@ fn rest_pattern_workspace_field(found: &str) {
 
 fn wildcard_workspace_enum_match_arm(found: &str) {
     insta::assert_snapshot!(found, @"
-    warning: `matches!` sends each `RenderError` variant it leaves unnamed to `false`
-       --> tools/dylint/examples/untyped_error.rs:393:34
-        |
-    393 | ...r| matches!(error, RenderError::Format(_) | RenderError::Narrow(_) | RenderError::Abandoned(_) | RenderError::Parse(_) | RenderError::Never(_)), |...
-        |       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        |
-        = help: name each variant in a `match`, join variants that share a branch with an or-pattern, and keep a binding with `name @ (A | B)`
-        = note: `#[warn(wildcard_workspace_enum_match_arm)]` on by default
-
     warning: catch-all pattern covers each `Signal` variant the other arms leave unnamed
       --> tools/dylint/examples/wildcard_workspace_enum_match_arm.rs:25:9
        |
@@ -101,7 +92,7 @@ fn wildcard_workspace_enum_match_arm(found: &str) {
        |
        = help: name each variant in a `match`, join variants that share a branch with an or-pattern, and keep a binding with `name @ (A | B)`
 
-    warning: `if` over `Signal` sends each variant its condition leaves unnamed to `else`
+    warning: `if` over `Signal` sends each variant its condition leaves unnamed to one branch
        --> tools/dylint/examples/wildcard_workspace_enum_match_arm.rs:102:44
         |
     102 | const fn if_let(signal: Signal) -> u8 { if let Signal::Start = signal { 0 } else { 1 } }
@@ -125,7 +116,7 @@ fn wildcard_workspace_enum_match_arm(found: &str) {
         |
         = help: name each variant in a `match`, join variants that share a branch with an or-pattern, and keep a binding with `name @ (A | B)`
 
-    warning: `if` over `Signal` sends each variant its condition leaves unnamed to `else`
+    warning: `if` over `Signal` sends each variant its condition leaves unnamed to one branch
        --> tools/dylint/examples/wildcard_workspace_enum_match_arm.rs:125:52
         |
     125 | const fn tested_branch(signal: Signal) -> u8 { if !matches!(signal, Signal::Stop) { 0 } else { 1 } }
@@ -133,7 +124,7 @@ fn wildcard_workspace_enum_match_arm(found: &str) {
         |
         = help: name each variant in a `match`, join variants that share a branch with an or-pattern, and keep a binding with `name @ (A | B)`
 
-    warning: `if` over `Signal` sends each variant its condition leaves unnamed to `else`
+    warning: `if` over `Signal` sends each variant its condition leaves unnamed to one branch
        --> tools/dylint/examples/wildcard_workspace_enum_match_arm.rs:127:40
         |
     127 | fn compared(signal: Signal) -> u8 { if signal == Signal::Resume { 0 } else { 1 } }
@@ -186,7 +177,7 @@ fn wildcard_workspace_enum_match_arm(found: &str) {
         |
         = help: name each variant in a `match`, join variants that share a branch with an or-pattern, and keep a binding with `name @ (A | B)`
 
-    warning: `if` over `Signal` sends each variant its condition leaves unnamed to `else`
+    warning: `if` over `Signal` sends each variant its condition leaves unnamed to one branch
        --> tools/dylint/examples/wildcard_workspace_enum_match_arm.rs:177:51
         |
     177 | fn listed(left: Signal, right: Signal) -> u8 { if [left, right].contains(&Signal::Stop) { 0 } else { 1 } }
@@ -194,7 +185,7 @@ fn wildcard_workspace_enum_match_arm(found: &str) {
         |
         = help: name each variant in a `match`, join variants that share a branch with an or-pattern, and keep a binding with `name @ (A | B)`
 
-    warning: `if` over `Signal` sends each variant its condition leaves unnamed to `else`
+    warning: `if` over `Signal` sends each variant its condition leaves unnamed to one branch
        --> tools/dylint/examples/wildcard_workspace_enum_match_arm.rs:179:51
         |
     179 | fn either(left: Signal, right: Signal) -> u8 { if left == Signal::Stop || right == Signal::Pause { 0 } else { 1 } }
@@ -202,19 +193,51 @@ fn wildcard_workspace_enum_match_arm(found: &str) {
         |
         = help: name each variant in a `match`, join variants that share a branch with an or-pattern, and keep a binding with `name @ (A | B)`
 
-    warning: `if` over `Signal` sends each variant its condition leaves unnamed to `else`
-       --> tools/dylint/examples/wildcard_workspace_enum_match_arm.rs:181:58
+    warning: `if` over `Signal` sends each variant its condition leaves unnamed to one branch
+       --> tools/dylint/examples/wildcard_workspace_enum_match_arm.rs:182:8
         |
-    181 | const fn chained(signal: Signal, ready: bool) -> u8 { if let Signal::Start = signal && ready { 0 } else { 1 } }
-        |                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^
+    182 |     if let Signal::Start = signal
+        |        ^^^^^^^^^^^^^^^^^^^^^^^^^^
         |
         = help: name each variant in a `match`, join variants that share a branch with an or-pattern, and keep a binding with `name @ (A | B)`
 
-    warning: `if` over `Signal` sends each variant its condition leaves unnamed to `else`
-       --> tools/dylint/examples/wildcard_workspace_enum_match_arm.rs:183:50
+    warning: `if` over `Signal` sends each variant its condition leaves unnamed to one branch
+       --> tools/dylint/examples/wildcard_workspace_enum_match_arm.rs:191:50
         |
-    183 | fn queued(signals: &VecDeque<Signal>) -> u8 { if signals.contains(&Signal::Resume) { 0 } else { 1 } }
+    191 | fn queued(signals: &VecDeque<Signal>) -> u8 { if signals.contains(&Signal::Resume) { 0 } else { 1 } }
         |                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        |
+        = help: name each variant in a `match`, join variants that share a branch with an or-pattern, and keep a binding with `name @ (A | B)`
+
+    warning: `if` over `Signal` sends each variant its condition leaves unnamed to one branch
+       --> tools/dylint/examples/wildcard_workspace_enum_match_arm.rs:208:40
+        |
+    208 | fn membered(signal: Signal) -> u8 { if [Signal::Start, Signal::Pause].contains(&signal) { 0 } else { 1 } }
+        |                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        |
+        = help: name each variant in a `match`, join variants that share a branch with an or-pattern, and keep a binding with `name @ (A | B)`
+
+    warning: `if` over `Signal` sends each variant its condition leaves unnamed to one branch
+       --> tools/dylint/examples/wildcard_workspace_enum_match_arm.rs:210:49
+        |
+    210 | fn hashed(signals: &HashSet<Signal>) -> u8 { if signals.contains(&Signal::Stop) { 0 } else { 1 } }
+        |                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        |
+        = help: name each variant in a `match`, join variants that share a branch with an or-pattern, and keep a binding with `name @ (A | B)`
+
+    warning: `if` over `Command` sends each variant its condition leaves unnamed to one branch
+       --> tools/dylint/examples/wildcard_workspace_enum_match_arm.rs:212:41
+        |
+    212 | fn wrapped(command: Command) -> u8 { if command == (Command::Send { signal: Signal::Stop }) { 0 } else { 1 } }
+        |                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+        |
+        = help: name each variant in a `match`, join variants that share a branch with an or-pattern, and keep a binding with `name @ (A | B)`
+
+    warning: `if` over `Signal` sends each variant its condition leaves unnamed to one branch
+       --> tools/dylint/examples/wildcard_workspace_enum_match_arm.rs:214:39
+        |
+    214 | fn negated(signal: Signal) -> u8 { if signal != Signal::Stop { 0 } else { 1 } }
+        |                                       ^^^^^^^^^^^^^^^^^^^^^^
         |
         = help: name each variant in a `match`, join variants that share a branch with an or-pattern, and keep a binding with `name @ (A | B)`
     ");

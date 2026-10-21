@@ -788,17 +788,17 @@ fn restated_constant(found: &str) {
     applicability MaybeIncorrect: name the constant its crate declares for the string
 
     warning: `"service.name"` spells `opentelemetry_semantic_conventions::attribute::SERVICE_NAME`
-      --> tools/dylint/examples/restated_constant.rs:21:55
+      --> tools/dylint/examples/restated_constant.rs:21:61
        |
-    21 | fn spelled() -> [(&'static str, &'static str); 2] { [("service.name", "bridge"), ("http.server.request.duration", "1.5")] }
-       |                                                       ^^^^^^^^^^^^^^ help: name the constant its crate declares for the string: `opentelemetry_semantic_conventions::attribute::SERVICE_NAME`
+    21 | const fn spelled() -> [(&'static str, &'static str); 2] { [("service.name", "bridge"), ("http.server.request.duration", "1.5")] }
+       |                                                             ^^^^^^^^^^^^^^ help: name the constant its crate declares for the string: `opentelemetry_semantic_conventions::attribute::SERVICE_NAME`
     applicability MaybeIncorrect: name the constant its crate declares for the string
 
     warning: `"http.server.request.duration"` spells `opentelemetry_semantic_conventions::metric::HTTP_SERVER_REQUEST_DURATION`
-      --> tools/dylint/examples/restated_constant.rs:21:83
+      --> tools/dylint/examples/restated_constant.rs:21:89
        |
-    21 | fn spelled() -> [(&'static str, &'static str); 2] { [("service.name", "bridge"), ("http.server.request.duration", "1.5")] }
-       |                                                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: name the constant its crate declares for the string: `opentelemetry_semantic_conventions::metric::HTTP_SERVER_REQUEST_DURATION`
+    21 | const fn spelled() -> [(&'static str, &'static str); 2] { [("service.name", "bridge"), ("http.server.request.duration", "1.5")] }
+       |                                                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: name the constant its crate declares for the string: `opentelemetry_semantic_conventions::metric::HTTP_SERVER_REQUEST_DURATION`
     applicability MaybeIncorrect: name the constant its crate declares for the string
 
     warning: `"code.file.path"` spells `opentelemetry_semantic_conventions::attribute::CODE_FILE_PATH`
@@ -816,8 +816,8 @@ fn restated_constant(found: &str) {
     27 |         "service.namespace"
        |         ^^^^^^^^^^^^^^^^^^^
     ...
-    31 | fn expanded() -> &'static str { namespaced!() }
-       |                                 ------------- in this macro invocation
+    31 | const fn expanded() -> &'static str { namespaced!() }
+       |                                       ------------- in this macro invocation
        |
     help: name the constant its crate declares for the string
       --> tools/dylint/examples/restated_constant.rs:27:9
@@ -825,8 +825,8 @@ fn restated_constant(found: &str) {
     27 |         "service.namespace"
        |         ^^^^^^^^^^^^^^^^^^^
     ...
-    31 | fn expanded() -> &'static str { namespaced!() }
-       |                                 ------------- in this macro invocation
+    31 | const fn expanded() -> &'static str { namespaced!() }
+       |                                       ------------- in this macro invocation
     "#);
 }
 

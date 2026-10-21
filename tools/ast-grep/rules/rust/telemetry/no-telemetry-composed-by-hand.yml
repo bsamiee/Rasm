@@ -7,7 +7,7 @@ utils:
     subscriber-install:
         any:
             - kind: scoped_identifier
-              regex: '^(::)?(tracing(::(subscriber|dispatcher))?::(set_global_default|set_default|with_default)|(tracing_log::)?LogTracer::init)$'
+              regex: '^(::)?((tracing::)?(subscriber|dispatcher)|tracing)::(set_global_default|set_default|with_default)$|^(::)?(tracing_log::)?LogTracer::init$'
             - all:
                 - regex: '^(set_global_default|set_default|with_default)$'
                 - matches: {rust-imported-name: {source: {regex: '\btracing\b'}, name: {regex: '^(set_global_default|set_default|with_default)$'}}}
@@ -15,20 +15,16 @@ utils:
               all:
                 - has: {field: field, regex: '^init$'}
                 - any:
-                    - has: {field: value, regex: '(?s)\b(LogTracer::builder|log_tracer::Builder::(new|default))\(\)'}
-                    - all:
-                        - has: {field: value, regex: '(?s)^Builder::(new|default)\(\)'}
-                        - inside: {kind: source_file, stopBy: end, has: {kind: use_declaration, regex: '(?s)\blog_tracer::.*\bBuilder\b'}}
+                    - has: {field: value, matches: tracer-builder}
                     - all:
                         - has: {field: value, kind: identifier, pattern: $BUILDER}
-                        - inside:
-                            kind: block
-                            stopBy: end
-                            has:
-                                kind: let_declaration
-                                all:
-                                    - has: {field: pattern, pattern: $BUILDER}
-                                    - has: {field: value, regex: '(?s)\b(LogTracer::builder|log_tracer::Builder::(new|default))\(\)'}
+                        - inside: {kind: block, stopBy: end, has: {kind: let_declaration, all: [{has: {field: pattern, pattern: $BUILDER}}, {has: {field: value, matches: tracer-builder}}]}}
+    tracer-builder:
+        any:
+            - regex: '(?s)\b(LogTracer::builder|log_tracer::Builder::(new|default))\(\)'
+            - all:
+                - regex: '(?s)^\w*Builder::(new|default)\(\)'
+                - inside: {kind: source_file, stopBy: end, has: {kind: use_declaration, regex: '(?s)\blog_tracer::.*\bBuilder\b'}}
     global-install:
         any:
             - kind: scoped_identifier
@@ -53,4 +49,4 @@ rule:
     not: {matches: rust-test-scope}
     inside: {kind: call_expression, field: function}
 message: '`$SITE` composes telemetry outside `rasm-telemetry`'
-note: 'Run the process entry under `rasm_telemetry::Telemetry::run`, which installs the subscriber, `log` forwarding, exporters, propagator, and panic hook and flushes them when the work returns'
+note: 'Run the process entry under `rasm_telemetry::Options::run`, which installs the subscriber, `log` forwarding, exporters, propagator, and panic hook and flushes them when the work returns'

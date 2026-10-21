@@ -92,12 +92,11 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
         let accessed = |method: Option<DefId>, arguments: &[Expr<'_>], operand: Option<&Expr<'_>>| {
             let method = method?;
             let kind = *self.methods.get(&method)?;
-            let access = if arguments.iter().any(|key| fixed(cx, key)) {
-                "accesses an untyped JSON document by a fixed key"
-            } else if kind == Document::Value && arguments.is_empty() && self.document(signature(cx.tcx, method).output()).is_none() && !operand.is_some_and(|operand| self.keyed(cx, operand)) {
-                "reads an untyped JSON document by variant"
-            } else {
-                return None;
+            let access = match kind {
+                _ if arguments.iter().any(|key| fixed(cx, key)) => "accesses an untyped JSON document by a fixed key",
+                Document::Value if arguments.is_empty() && self.document(signature(cx.tcx, method).output()).is_none() && !operand.is_some_and(|operand| self.keyed(cx, operand)) =>
+                    "reads an untyped JSON document by variant",
+                Document::Value | Document::Map => return None,
             };
             Some(with_forced_trimmed_paths!(format!("`{}` {access}", item_path(cx, method))))
         };

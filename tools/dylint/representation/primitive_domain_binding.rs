@@ -172,7 +172,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
                 (Some(encoded), ..) => format!("declare a {declared} with `#[serde_as(as = \"{encoded}\")]`"),
                 (None, Domain::Path, true) => String::from("declare a `&Path` through `Path::new` under `#![feature(const_convert)]`"),
                 (None, Domain::Duration, _) => format!("declare a {declared} and convert where a protocol or API takes the number"),
-                _ => format!("declare a {declared}"),
+                (None, Domain::Instant | Domain::ByteSize | Domain::Calendar | Domain::Quantity, _) | (None, Domain::Path, false) => format!("declare a {declared}"),
             };
             span_lint_hir_and_then(cx, PRIMITIVE_DOMAIN_BINDING, node, ident.span, format!("`{ident}` holds {stated} as `{held}`"), |diag| {
                 diag.help(help);

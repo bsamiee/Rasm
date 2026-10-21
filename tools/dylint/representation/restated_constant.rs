@@ -3,6 +3,7 @@ use clippy_utils::{
     diagnostics::span_lint_hir_and_then,
 };
 use rustc_ast::LitKind;
+use rustc_crate_store::ExternCrate;
 use rustc_data_structures::fx::{FxHashMap, FxHashSet};
 use rustc_errors::Applicability;
 use rustc_hir::{
@@ -22,7 +23,7 @@ pub(crate) struct Pass {
     named: FxHashMap<Symbol, DefId>,
 }
 
-lint!(Pass; RESTATED_CONSTANT: "string literals spelling a constant that a direct dependency names after the string");
+lint!(Pass; RESTATED_CONSTANT: "string literals spelling a constant that a direct dependency the crate already names declares after the string");
 
 impl Pass {
     pub(crate) fn new(tcx: TyCtxt<'_>) -> Self {
@@ -46,7 +47,7 @@ impl Pass {
             named: tcx
                 .crates(())
                 .iter()
-                .filter(|&&krate| tcx.extern_crate(krate).is_some_and(|source| source.is_direct()))
+                .filter(|&&krate| tcx.extern_crate(krate).is_some_and(ExternCrate::is_direct))
                 .flat_map(|krate| constants(tcx, krate.as_def_id(), &mut visited))
                 .filter(|&constant| tcx.lookup_deprecation(constant).is_none())
                 .filter_map(|constant| {
@@ -87,7 +88,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
     }
 
     fn check_pat(&mut self, cx: &LateContext<'tcx>, pat: &'tcx Pat<'tcx>) {
-        if let PatKind::Expr(&PatExpr { kind: PatExprKind::Lit { lit, negated: false }, .. }) = pat.kind {
+        if let PatKind::Expr(&PatExpr { kind: PatExprKind::Lit { lit, .. }, .. }) = pat.kind {
             self.restated(cx, pat.hir_id, pat.span, lit.node);
         }
     }

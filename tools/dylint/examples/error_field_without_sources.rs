@@ -39,7 +39,4 @@ fn reported(text: &str) -> Result<u16, Unread> { parsed(text).inspect_err(|error
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-fn main() {
-    let text = black_box("port");
-    black_box(&(displayed(text), debugged(text), erased(text), sourced(text), spanned(text), recorded(text), reported(text)));
-}
+fn main() { black_box(&(displayed, debugged, erased, sourced, spanned, recorded, reported)); }

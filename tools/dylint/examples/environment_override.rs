@@ -39,10 +39,12 @@ fn inverted() -> Resource { Resource::builder_empty().with_detectors(&[Box::new(
 
 fn layered() -> Resource { Resource::builder_empty().with_detector(Box::new(TelemetryResourceDetector)).with_detector(Box::new(EnvResourceDetector::new())).with_service_name("fixture").build() }
 
+fn restored() -> Resource { Resource::builder().with_detector(Box::new(TelemetryResourceDetector)).with_detector(Box::new(EnvResourceDetector::new())).build() }
+
 fn listed() -> Resource { Resource::builder_empty().with_detectors(&[Box::new(TelemetryResourceDetector), Box::new(EnvResourceDetector::new())]).build() }
 
 fn environmental() -> Result<SpanExporter, ExporterBuildError> { SpanExporter::builder().build() }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-fn main() { black_box(&(configured, qualified, temporal, sampled, batched, periodic, detected, chained, reordered, inverted, layered, listed, environmental)); }
+fn main() { black_box(&(configured, qualified, temporal, sampled, batched, periodic, detected, chained, reordered, inverted, layered, restored, listed, environmental)); }

@@ -2,14 +2,38 @@
 id: no-coined-telemetry-variable
 language: rust
 severity: error
+utils:
+    env-value:
+        all:
+            - any:
+                - follows: {regex: '^=$', follows: {kind: identifier, regex: '^env$'}}
+                - inside: {kind: token_tree, regex: '^\(', follows: {kind: identifier, regex: '^env$'}}
+            - inside: {kind: token_tree, stopBy: {kind: attribute}, inside: {kind: attribute}}
 rule:
-    kind: 'string_literal, raw_string_literal'
-    pattern: $NAME
-    all:
-        - regex: '^r?#*"([A-Z0-9]+_)*(OTLP|OTEL|OPENTELEMETRY|TELEMETRY)(_[A-Z0-9]+)*"#*$'
-        - not: {regex: '^r?#*"OTEL_'}
-        - follows: {regex: '^=$', follows: {regex: '^env$'}}
-        - inside: {kind: token_tree, stopBy: {kind: attribute}, inside: {kind: attribute}}
-        - not: {matches: rust-test-scope}
-message: '`$NAME` coins a telemetry variable outside the `OTEL_` names OpenTelemetry specifies'
-note: 'Read the setting from the `OTEL_*` variable the OpenTelemetry environment specification names (`OTEL_TRACES_EXPORTER`, `OTEL_EXPORTER_OTLP_ENDPOINT`), or flatten `rasm_telemetry::options::Options`, which reads it'
+    any:
+        - kind: 'string_literal, raw_string_literal'
+          pattern: $NAME
+          all:
+            - regex: '^r?#*"([A-Z0-9]+_)*(OTLP|OTEL|OPENTELEMETRY|TELEMETRY)(_[A-Z0-9]+)*"#*$'
+            - not: {regex: '^r?#*"OTEL_'}
+            - any:
+                - matches: env-value
+                - all:
+                    - inside: {kind: 'const_item, static_item', field: value, has: {field: name, pattern: $CONST}}
+                    - inside: {kind: source_file, stopBy: end, has: {stopBy: end, kind: identifier, pattern: $CONST, matches: env-value}}
+        - kind: identifier
+          regex: '^env$'
+          all:
+            - follows: {regex: '^[,(]$'}
+            - precedes: {regex: '^[,)]$'}
+            - inside: {kind: token_tree, inside: {kind: attribute, field: arguments, has: {nthChild: 1, kind: identifier, regex: '^(arg|clap)$'}}}
+            - inside:
+                kind: attribute_item
+                stopBy: end
+                precedes:
+                    stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}
+                    kind: field_declaration
+                    has: {field: name, pattern: $NAME, regex: '(^|_)(otlp|otel|opentelemetry|telemetry)(_|$)', not: {regex: '^otel_'}}
+    not: {matches: rust-test-scope}
+message: '`$NAME` names a telemetry variable outside the `OTEL_` names OpenTelemetry specifies'
+note: 'Read the setting from the `OTEL_*` variable the OpenTelemetry environment specification names (`OTEL_TRACES_EXPORTER`, `OTEL_EXPORTER_OTLP_ENDPOINT`), or flatten `rasm_telemetry::Options`, which reads it'

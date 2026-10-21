@@ -3,6 +3,7 @@
 extern crate rustc_abi;
 extern crate rustc_ast;
 extern crate rustc_attr_ir;
+extern crate rustc_crate_store;
 extern crate rustc_data_structures;
 extern crate rustc_errors;
 extern crate rustc_hir;
@@ -130,7 +131,7 @@ impl Recorded {
             _ => None,
         }?;
         let call = expr.span.source_callsite();
-        (!call.from_expansion() && !macro_backtrace(expr.span).any(|call| matches!(call.kind, MacroKind::Attr | MacroKind::Derive))).then(|| {
+        (!call.from_expansion() && !macro_backtrace(expr.span).any(|expansion| matches!(expansion.kind, MacroKind::Attr | MacroKind::Derive))).then(|| {
             let value = peel_hir_expr_refs(recorded).0;
             let shown = match value.kind {
                 ExprKind::Call(_, [shown]) if fn_def_id(cx, value).is_some_and(|wrapper| self.wrappers.contains(&wrapper)) => peel_hir_expr_refs(shown).0,

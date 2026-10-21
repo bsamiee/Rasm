@@ -1,9 +1,9 @@
 use core::{cmp::Ordering, hint::black_box};
-use std::collections::VecDeque;
+use std::collections::{HashSet, VecDeque};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 enum Signal {
     Start,
     Pause,
@@ -11,7 +11,7 @@ enum Signal {
     Stop,
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Command {
     Send { signal: Signal },
     Wait,
@@ -205,27 +205,15 @@ fn swept(signals: &[Signal]) -> u8 {
     }
 }
 
-// --- [COMPOSITION] ---------------------------------------------------------------------
+fn membered(signal: Signal) -> u8 { if [Signal::Start, Signal::Pause].contains(&signal) { 0 } else { 1 } }
 
-fn main() {
-    black_box(&(
-        wildcard(Signal::Start),
-        bound(Signal::Stop),
-        hidden(Signal::Pause),
-        borrowed(&Signal::Resume),
-        named(Signal::Pause),
-        guarded(Signal::Stop, true),
-        armed(Signal::Stop, true),
-        [sent(Command::Wait), sent(Command::Send { signal: Signal::Pause })],
-        foreign(Ordering::Less),
-        optional(None),
-        member,
-        [if_let(Signal::Stop), if_let_alone(Signal::Stop), compared(Signal::Stop), tested_branch(Signal::Stop)],
-        (let_else(Signal::Stop), let_else_set(Signal::Start), tested(Signal::Stop), tested_set(Signal::Pause), looped(Signal::Pause), stopped(Signal::Stop), paused(Signal::Pause)),
-        [nested(None), paired(Signal::Stop, Signal::Start), paired_count(Signal::Stop, 2), outcome(Ok(Signal::Stop)), expanded(Signal::Stop)],
-        (listed, either, chained, queued, held, ordered, swept),
-    ));
-}
+fn hashed(signals: &HashSet<Signal>) -> u8 { if signals.contains(&Signal::Stop) { 0 } else { 1 } }
+
+fn wrapped(command: Command) -> u8 { if command == (Command::Send { signal: Signal::Stop }) { 0 } else { 1 } }
+
+fn negated(signal: Signal) -> u8 { if signal != Signal::Stop { 0 } else { 1 } }
+
+const fn every(signal: Signal) -> bool { matches!(signal, Signal::Start | Signal::Pause | Signal::Resume | Signal::Stop) }
 
 const fn stopped(signal: Signal) -> bool {
     match signal {
@@ -235,3 +223,50 @@ const fn stopped(signal: Signal) -> bool {
 }
 
 const fn paused(signal: Signal) -> bool { if let Signal::Pause = signal { true } else { false } }
+
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
+fn main() {
+    black_box(&(
+        wildcard,
+        bound,
+        hidden,
+        borrowed,
+        named,
+        guarded,
+        armed,
+        sent,
+        foreign,
+        optional,
+        member,
+        if_let,
+        if_let_alone,
+        compared,
+        tested_branch,
+        let_else,
+        let_else_set,
+        tested,
+        tested_set,
+        looped,
+        stopped,
+        paused,
+        nested,
+        paired,
+        paired_count,
+        outcome,
+        expanded,
+        listed,
+        either,
+        chained,
+        queued,
+        held,
+        ordered,
+        swept,
+        membered,
+        hashed,
+        wrapped,
+        negated,
+        every,
+        Command::Wait,
+    ));
+}
