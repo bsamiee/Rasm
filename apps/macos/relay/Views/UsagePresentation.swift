@@ -2,9 +2,9 @@ import Foundation
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-nonisolated private let separator: String = " · "
-nonisolated private let awaitingUpdate: String = "Awaiting update"
-nonisolated private let blockedText: String = "Blocked"
+private nonisolated let separator: String = " · "
+private nonisolated let awaitingUpdate: String = "Awaiting update"
+private nonisolated let blockedText: String = "Blocked"
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

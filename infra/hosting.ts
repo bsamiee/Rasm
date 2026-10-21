@@ -5,7 +5,7 @@ import { Container, type ContainerArgs, getRegistryImageOutput, Network, RemoteI
 import { Image } from '@pulumi/docker-build';
 import { IamPolicy, IamUser, IamUserPolicyAttachment, Provider, S3Bucket } from '@pulumi/minio';
 import { Extension, Grant, Provider as PostgresProvider, Schema as PostgresSchema, type ProviderArgs, Role, type RoleArgs } from '@pulumi/postgresql';
-import { type CustomResourceOptions, type Input, interpolate, output, secret } from '@pulumi/pulumi';
+import { type CustomResourceOptions, type Input, interpolate, jsonStringify, output, secret } from '@pulumi/pulumi';
 import { RandomInteger, RandomPassword } from '@pulumi/random';
 import { Bindings, migrator } from '@rasm/hosting/bindings.ts';
 import { contract } from '@rasm/hosting/sites.ts';
@@ -109,7 +109,7 @@ const targets = {
                       })),
                   }),
             assets: assetsDir === undefined ? undefined : { directory: assetsDir, config: config.assets },
-            bindings: [...bindings.flat(), { name: 'ACCESS', type: 'json', json: output({ team: interpolate`https://${getZeroTrustOrganizationOutput({ accountId }).authDomain}`, aud: access.aud }).apply(JSON.stringify) }],
+            bindings: [...bindings.flat(), { name: 'ACCESS', type: 'json', json: jsonStringify({ team: interpolate`https://${getZeroTrustOrganizationOutput({ accountId }).authDomain}`, aud: access.aud }) }],
             deploy: true,
         });
         return {
@@ -147,7 +147,7 @@ const targets = {
                 const buckets = Record.filterMap(env, (binding, variable) => (binding.type === 'r2' ? Result.succeed(new S3Bucket(named(variable), { bucket: binding.name ?? named(variable), forceDestroy: !protect }, { provider, protect }).bucket) : Result.failVoid));
                 const policy = new IamPolicy(
                     name,
-                    { name, policy: output({ Version: '2012-10-17', Statement: [{ Effect: 'Allow', Action: ['s3:*'], Resource: Object.values(buckets).flatMap((bucket) => [interpolate`arn:aws:s3:::${bucket}`, interpolate`arn:aws:s3:::${bucket}/*`]) }] }).apply(JSON.stringify) },
+                    { name, policy: jsonStringify({ Version: '2012-10-17', Statement: [{ Effect: 'Allow', Action: ['s3:*'], Resource: Object.values(buckets).flatMap((bucket) => [interpolate`arn:aws:s3:::${bucket}`, interpolate`arn:aws:s3:::${bucket}/*`]) }] }) },
                     { provider },
                 );
                 const account = new IamUser(name, { name, secret: password(`${name}-store-user`).result }, { provider });
@@ -221,59 +221,35 @@ const targets = {
             wait: true,
         });
         const authority = interpolate`${identity.name}:9091`;
-        const authenticate = {
-            handler: 'reverse_proxy',
-            upstreams: [{ dial: authority }],
-            rewrite: { method: 'GET', uri: '/api/authz/forward-auth' },
-            headers: { request: { set: { 'X-Forwarded-Method': ['{http.request.method}'], 'X-Forwarded-Uri': ['{http.request.uri}'] } } },
-            handle_response: [
-                {
-                    match: { status_code: [2] },
-                    routes: [
-                        { handle: [{ handler: 'headers', request: { delete: Object.values(contract.headers) } }] },
-                        ...Record.toEntries({ 'Remote-User': contract.headers.id, 'Remote-Email': contract.headers.email }).map(([answer, header]) => ({
-                            match: [{ not: [{ vars: { [`{http.reverse_proxy.header.${answer}}`]: [''] } }] }],
-                            handle: [{ handler: 'headers', request: { set: { [header]: [`{http.reverse_proxy.header.${answer}}`] } } }],
-                        })),
-                    ],
-                },
-            ],
-        };
         const proxy = container(`${name}-proxy`, pull(`${name}-proxy`, 'caddy:latest'), {
-            command: ['caddy', 'run', '--config', '/etc/caddy/caddy.json'],
             uploads: [
                 {
-                    file: '/etc/caddy/caddy.json',
-                    content: output({
-                        admin: { disabled: true },
-                        apps: {
-                            http: {
-                                servers: {
-                                    [name]: {
-                                        listen: [':443'],
-                                        routes: [
-                                            { handle: [{ handler: 'map', source: `{http.request.uri.query.${contract.returnTo}}`, destinations: ['{target}'], mappings: [{ input_regexp: '^(/.*)$', outputs: ['$1'] }], defaults: ['/'] }] },
-                                            ...sites.flatMap((site) => [
-                                                { match: [{ host: [`auth.${site}`] }], handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: authority }] }] },
-                                                { match: [{ host: [site] }], handle: [authenticate] },
-                                                { match: [{ host: [site], path: [contract.paths.signin] }], handle: [{ handler: 'static_response', status_code: 302, headers: { Location: [`https://${site}{target}`] } }] },
-                                                { match: [{ host: [site], path: [contract.paths.signout] }], handle: [{ handler: 'static_response', status_code: 302, headers: { Location: [`https://auth.${site}/logout?rd=https://${site}{target}`] } }] },
-                                                { match: [{ host: [site] }], handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: interpolate`${app.name}:${port}` }] }] },
-                                            ]),
-                                        ],
-                                    },
-                                },
-                            },
-                        },
-                    }).apply(JSON.stringify),
+                    file: '/etc/caddy/Caddyfile',
+                    content: interpolate`{
+                        admin off
+                    }
+                    ${sites.map((site) => `auth.${site}`).join(', ')} {
+                        reverse_proxy ${authority}
+                    }
+                    ${sites.join(', ')} {
+                        route {
+                            map {query.${contract.returnTo}} {target} {
+                                ~^(/.*)$ $1
+                                default /
+                            }
+                            forward_auth ${authority} {
+                                uri /api/authz/forward-auth
+                                copy_headers Remote-User>${contract.headers.id} Remote-Email>${contract.headers.email}
+                            }
+                            redir ${contract.paths.signin} https://{host}{target} 302
+                            redir ${contract.paths.signout} https://auth.{host}/logout?rd=https://{host}{target} 302
+                            reverse_proxy ${app.name}:${port}
+                        }
+                    }`,
                 },
             ],
             volumes: [volume(`${name}-proxy`, '/data')],
-            ports: [
-                { internal: 80, external: 80 },
-                { internal: 443, external: 443 },
-                { internal: 443, external: 443, protocol: 'udp' },
-            ],
+            ports: ([[80, 'tcp'], [443, 'tcp'], [443, 'udp']] as const).map(([port, protocol]) => ({ internal: port, external: port, protocol })),
         });
         return { urls: sites.map((site) => `https://${site}`), proxy: proxy.name, ownerPassword: owner.result };
     }),
@@ -286,13 +262,7 @@ const hosting = Effect.fn('hosting')(function* (directory: string, target: keyof
     const { config, configPath } = build.workers.default;
     const bindings = yield* fs.readFileString(configPath).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(Bindings))));
     const name = disposable ? `${config.name}-disposable` : config.name;
-    const hostnames = bindings.domains.flatMap((domain) =>
-        Match.value(domain).pipe(
-            Match.when(Match.string, (hostname) => [hostname]),
-            Match.when({ production: true }, ({ hostname }) => [hostname]),
-            Match.orElse(() => []),
-        ),
-    );
+    const hostnames = Array.filterMap(bindings.domains, Match.type<(typeof bindings.domains)[number]>().pipe(Match.when(Match.string, (hostname) => hostname), Match.when({ production: true }, ({ hostname }) => hostname), Match.result));
     return { projectName: 'rasm-hosting', stackName: `${name}.${target}`, program: () => Effect.runPromiseWith(context)<Record<string, unknown>, Config.ConfigError | Cause.NoSuchElementError | Cause.UnknownError>(targets[target](build, bindings, { name, hostnames, protect: !disposable })) };
 });
 

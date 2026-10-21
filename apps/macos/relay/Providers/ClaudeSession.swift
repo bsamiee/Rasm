@@ -1,7 +1,7 @@
 import AsyncAlgorithms
 import Darwin
+import Encoding
 import Foundation
-import JSON
 import Processes
 import Results
 import Subprocess
@@ -138,7 +138,7 @@ nonisolated enum ClaudeSession {
         @Sendable func converse(_ execution: Execution<CustomWriteInput, SequenceOutput, DiscardedOutput>) async -> Result<Date?, ClaudeFailure> {
             func send(_ message: some Encodable) async throws(ClaudeFailure) {
                 do {
-                    try await execution.standardInputWriter.writeLine(message, encoder: ClaudeEndpoint.encoder)
+                    _ = try await execution.standardInputWriter.write(ClaudeEndpoint.encoder.encodeLine(message))
                 } catch {
                     throw ClaudeFailure(process: error)
                 }

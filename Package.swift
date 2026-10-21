@@ -19,16 +19,18 @@ let settings: [SwiftSetting] = [
 // --- [MODELS] --------------------------------------------------------------------------
 
 let modules: [Target] = [
-    .target(name: "Results", path: "libs/swift/macos/Results"),
-    .target(name: "JSON", path: "libs/swift/macos/JSON"),
+    .target(name: "Results", path: "libs/swift/core/Results"),
+    .target(name: "Encoding", path: "libs/swift/core/Encoding"),
     .target(name: "CurrentProcess", path: "libs/swift/macos/CurrentProcess"),
-    .target(name: "Files", dependencies: ["Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms")], path: "libs/swift/macos/Files"),
+    .target(name: "Files", dependencies: ["Results"], path: "libs/swift/macos/Files"),
+    .target(name: "Lockfiles", dependencies: ["Files", "Results", .product(name: "AsyncAlgorithms", package: "swift-async-algorithms")], path: "libs/swift/macos/Lockfiles"),
     .target(name: "Fonts", dependencies: ["Results"], path: "libs/swift/macos/Fonts"),
     .target(name: "Processes", dependencies: ["Results", .product(name: "Subprocess", package: "swift-subprocess")], path: "libs/swift/macos/Processes"),
-    .target(name: "Applications", dependencies: ["Files", "JSON", "Results"], path: "libs/swift/macos/Applications"),
-    .target(name: "AppleEvents", dependencies: ["Applications", "JSON", "Results"], path: "libs/swift/macos/AppleEvents"),
-    .target(name: "EffectRPC", dependencies: ["CurrentProcess", "JSON", "Results"], path: "libs/swift/macos/EffectRPC"),
-    .target(name: "JSONRPC", dependencies: ["JSON", "Processes", "Results", .product(name: "Subprocess", package: "swift-subprocess")], path: "libs/swift/macos/JSONRPC"),
+    .target(name: "Keychain", dependencies: ["Encoding", "Processes", "Results", .product(name: "Subprocess", package: "swift-subprocess")], path: "libs/swift/macos/Keychain"),
+    .target(name: "Applications", dependencies: ["Encoding", "Files", "Results"], path: "libs/swift/macos/Applications"),
+    .target(name: "AppleEvents", dependencies: ["Applications", "Encoding", "Results"], path: "libs/swift/macos/AppleEvents"),
+    .target(name: "JSONRPC", dependencies: ["Encoding", "Results"], path: "libs/swift/rpc/JSONRPC"),
+    .target(name: "EffectRPC", dependencies: ["CurrentProcess", "Encoding", "Results"], path: "libs/swift/rpc/EffectRPC"),
 ]
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -45,7 +47,7 @@ let package: Package = Package(
     targets: modules + [
         .executableTarget(
             name: "watch-apps",
-            dependencies: ["Applications", "Files", "Results", .product(name: "ArgumentParser", package: "swift-argument-parser")],
+            dependencies: ["Applications", "Encoding", "Files", "Results", .product(name: "ArgumentParser", package: "swift-argument-parser")],
             path: "tools/watch-apps",
         )
     ],

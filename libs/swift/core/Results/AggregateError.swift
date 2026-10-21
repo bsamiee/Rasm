@@ -1,19 +1,6 @@
 public import Foundation
 
-// --- [TYPES] ---------------------------------------------------------------------------
-
-public protocol DeadlineFailure: Error {
-    static func deadline(_ deadline: Deadline) -> Self
-}
-
-public protocol TaggedError: Error, Encodable {}
-
 // --- [ERRORS] --------------------------------------------------------------------------
-
-public enum Deadline: Error, Equatable {
-    case timedOut(Duration)
-    case cancelled
-}
 
 public struct AggregateError<Element: Sendable>: Error {
     public let first: Element
@@ -40,22 +27,6 @@ extension AggregateError: CustomNSError, LocalizedError where Element: Error {
     public var errorDescription: String? { errors.map(\.localizedDescription).joined(separator: "\n") }
 
     public var errorUserInfo: [String: Any] { [NSMultipleUnderlyingErrorsKey: errors] }
-}
-
-public struct Unmatched: LocalizedError, TaggedError {
-    public let subject: String
-    public let query: String?
-    public let candidates: [String]
-
-    public init(subject: String, query: String?, candidates: [String]) {
-        self.subject = subject
-        self.query = query
-        self.candidates = candidates
-    }
-
-    public var errorDescription: String? {
-        "No \(subject)\(query.map { query in " matching \(query)" } ?? "")\(candidates.isEmpty ? "" : ", candidates: \(candidates.joined(separator: ", "))")"
-    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -88,27 +59,4 @@ public func traverse<Element, Value, Failure>(
         }
     }
     return AggregateError(split.errors).map(Result.failure) ?? .success(split.values)
-}
-
-public func race<Value: Sendable, Failure: DeadlineFailure>(
-    _ work: @escaping @Sendable () async -> Result<Value, Failure>,
-    against rival: @escaping @Sendable () async -> Result<Value, Failure>,
-) async -> Result<Value, Failure> {
-    await withTaskGroup { group in
-        group.addTask(name: "work") { await work() }
-        group.addTask(name: "rival") { await rival() }
-        defer { group.cancelAll() }
-        return await group.next() ?? .failure(.deadline(.cancelled))
-    }
-}
-
-public func withTimeout<Value: Sendable, Failure: DeadlineFailure>(
-    _ timeout: Duration,
-    _ work: @escaping @Sendable () async -> Result<Value, Failure>,
-) async -> Result<Value, Failure> {
-    await race(work) {
-        await Result { try await Task.sleep(for: timeout) }
-            .mapError { _ in Failure.deadline(.cancelled) }
-            .flatMap { _ in .failure(.deadline(.timedOut(timeout))) }
-    }
 }

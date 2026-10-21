@@ -1,6 +1,6 @@
 import CoreServices
+import Encoding
 public import Foundation
-import JSON
 public import Results
 
 // --- [TYPES] ---------------------------------------------------------------------------

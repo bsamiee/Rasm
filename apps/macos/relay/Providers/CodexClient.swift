@@ -239,7 +239,8 @@ actor CodexClient: ProviderClient {
             do {
                 _ = try await Subprocess.run(invocation, input: .inputWriter, output: .sequence, error: .discarded) { execution in
                     await JSONRPCConnection<CodexProtocol.Method, CodexFailure>.run(
-                        over: execution,
+                        reading: execution.standardOutput.jsonLines,
+                        writing: { line in _ = try await execution.standardInputWriter.write(line) },
                         decoder: CodexProtocol.decoder,
                         timeout: .seconds(60),
                         retaining: [.accountLoginCompleted, .turnCompleted],

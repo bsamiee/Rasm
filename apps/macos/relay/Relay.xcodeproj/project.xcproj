@@ -72,15 +72,23 @@
           "build-phase": { "build-phase": "frameworks" },
         }, {
           "package": "..",
+          "product-name": "Encoding",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "..",
           "product-name": "Files",
           "build-phase": { "build-phase": "frameworks" },
         }, {
           "package": "..",
-          "product-name": "JSON",
+          "product-name": "JSONRPC",
           "build-phase": { "build-phase": "frameworks" },
         }, {
           "package": "..",
-          "product-name": "JSONRPC",
+          "product-name": "Keychain",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "..",
+          "product-name": "Lockfiles",
           "build-phase": { "build-phase": "frameworks" },
         }, {
           "package": "..",

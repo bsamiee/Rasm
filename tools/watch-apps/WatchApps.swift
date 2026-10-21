@@ -1,6 +1,7 @@
 import AppKit
 import Applications
 import ArgumentParser
+import Encoding
 import Files
 import Results
 import System
@@ -119,7 +120,7 @@ final class Watcher {
     func hold(_ log: FileHandle) async throws {
         let encoder: JSONEncoder = JSONEncoder()
         let write: ([Event]) throws -> Void = { [app] events in
-            try log.write(contentsOf: Data(events.map { event in try encoder.encode(Line(app: app, event: event)) + [UInt8(ascii: "\n")] }.joined()))
+            try log.write(contentsOf: Data(events.map { event in try encoder.encodeLine(Line(app: app, event: event)) }.joined()))
         }
         let ordered: KeyPathComparator<Element> = KeyPathComparator(\.id)
         let running: Set<pid_t> = Set(NSRunningApplication.instances(withBundleIdentifier: app).map(\.processIdentifier))
@@ -208,7 +209,7 @@ struct WatchApps: AsyncParsableCommand {
         }()
         let encoder: JSONEncoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-        for await line: Line in lines { try FileHandle.standardOutput.write(contentsOf: encoder.encode(line) + [UInt8(ascii: "\n")]) }
+        for await line: Line in lines { try FileHandle.standardOutput.write(contentsOf: encoder.encodeLine(line)) }
         throw try await code
     }
 }
@@ -262,7 +263,7 @@ struct Answer: AsyncParsableCommand {
                         case .failure(let error): Line(app: app, event: .fail(pid: pid, reason: .described(error)))
                     }
                 if case .failure(let error) = await Result(catching: {
-                    try await logHandle(app, .writeOnly, options: [.create, .append, .closeOnExec]).get().write(contentsOf: JSONEncoder().encode(line) + [UInt8(ascii: "\n")])
+                    try await logHandle(app, .writeOnly, options: [.create, .append, .closeOnExec]).get().write(contentsOf: JSONEncoder().encodeLine(line))
                 }) {
                     output.yield(Line(app: app, event: .fail(pid: nil, reason: .file(logURL(app), error))))
                 }

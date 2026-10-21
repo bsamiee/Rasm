@@ -1,4 +1,5 @@
 import AsyncAlgorithms
+import Files
 public import Foundation
 public import Results
 public import System
@@ -166,15 +167,5 @@ private actor Holder<Failure: LockFailure> {
             lockfiles[index] = try Result { () throws(LockfileFailure) in try lockfiles[index].updated() }.mapError(Failure.lock).get()
         }
         throw .deadline(.cancelled)
-    }
-}
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-extension URL {
-    public func canonical() throws(Errno) -> URL {
-        guard let resolved: UnsafeMutablePointer<CChar> = unsafe realpath(path(percentEncoded: false), nil) else { throw Errno(rawValue: errno) }
-        defer { unsafe free(resolved) }
-        return URL(filePath: unsafe String(cString: resolved))
     }
 }

@@ -127,6 +127,8 @@ deployment_target:
     macOS_deployment_target: '27.0'
 discouraged_direct_init:
     types: [Bundle, DateFormatter, ISO8601DateFormatter, NSError]
+legacy_objc_type:
+    allowed_types: [NSNumber]
 modifier_order:
     preferred_modifier_order: [acl, setterACL, override, isolation, dynamic, mutators, lazy, final, required, convenience, typeMethods, owned]
 nesting:

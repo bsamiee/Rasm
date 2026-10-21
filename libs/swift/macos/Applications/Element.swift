@@ -1,6 +1,6 @@
-public import AppKit
 public import ApplicationServices
-public import JSON
+public import Encoding
+public import Foundation
 public import Results
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -13,44 +13,6 @@ public struct Control: Codable, Hashable, Sendable {
     public let role: String
     public let label: String?
     public let value: JSONValue?
-}
-
-public enum ElementAction: Hashable, Sendable {
-    case press(String)
-    case set(field: String, value: String)
-
-    public var label: String {
-        switch self {
-            case .press(let label), .set(let label, _): label
-        }
-    }
-}
-
-extension ElementAction: Codable {
-    private enum Key: CodingKey { case field, value }
-
-    public init(from decoder: any Decoder) throws {
-        self = try Result { try .press(decoder.singleValueContainer().decode(String.self)) }
-            .flatMapError { _ in
-                Result {
-                    let fields: KeyedDecodingContainer<Key> = try decoder.container(keyedBy: Key.self)
-                    return try .set(field: fields.decode(String.self, forKey: .field), value: fields.decode(String.self, forKey: .value))
-                }
-            }
-            .get()
-    }
-
-    public func encode(to encoder: any Encoder) throws {
-        switch self {
-            case .press(let label):
-                var single: any SingleValueEncodingContainer = encoder.singleValueContainer()
-                try single.encode(label)
-            case .set(let field, let value):
-                var fields: KeyedEncodingContainer<Key> = encoder.container(keyedBy: Key.self)
-                try fields.encode(field, forKey: .field)
-                try fields.encode(value, forKey: .value)
-        }
-    }
 }
 
 public struct FailedRead: Hashable, Sendable {
@@ -101,24 +63,6 @@ public struct Element: Codable, Hashable, Sendable {
     public let controls: [Control]
     public let actions: [String]
     public let unreadable: [FailedRead]
-}
-
-public enum ApplicationStatus: Equatable, Sendable {
-    case responding([Element])
-    case unresponsive
-}
-
-extension ApplicationStatus: Encodable {
-    private enum Key: CodingKey {
-        case elements
-    }
-
-    public func encode(to encoder: any Encoder) throws {
-        switch self {
-            case .responding(let elements): try encoder.encode(case: "responding", keyedBy: Key.self) { fields in try fields.encode(elements, forKey: .elements) }
-            case .unresponsive: try encoder.encode(case: "unresponsive", keyedBy: Key.self)
-        }
-    }
 }
 
 struct Described {
@@ -195,106 +139,6 @@ let accessibility: DispatchQueue = {
     AXUIElementSetMessagingTimeout(AXUIElementCreateSystemWide(), 1)
     return DispatchQueue(label: "Applications.accessibility", attributes: .concurrent)
 }()
-
-public struct StatusChanges: AsyncSequence {
-    public struct Iterator: AsyncIteratorProtocol {
-        private enum Phase {
-            case opening(Result<Observation, ElementFailure>)
-            case reading(Observation, ApplicationStatus)
-            case finished
-        }
-
-        let application: NSRunningApplication
-        private var phase: Phase
-
-        init(_ application: NSRunningApplication) {
-            self.application = application
-            phase = .opening(Result { () throws(ElementFailure) in try Observation(application) })
-        }
-
-        public mutating func next() async -> Result<ApplicationStatus, ElementFailure>? {
-            let read: Result<(Observation, ApplicationStatus), ElementFailure>? =
-                switch (phase, application.isTerminated) {
-                    case (.finished, _), (_, true): nil
-                    case (.opening(.failure(let error)), false): .failure(error)
-                    case (.opening(.success(let observation)), false): await application.status().map { status in (observation, status) }
-                    case (.reading(let observation, let last), false): await observation.change(from: last, of: application).map { read in read.map { status in (observation, status) } }
-                }
-            phase =
-                switch read {
-                    case .success((let observation, let status)): .reading(observation, status)
-                    case .failure, .none: .finished
-                }
-            return read.map { read in read.map(\.1) }
-        }
-    }
-
-    let application: NSRunningApplication
-
-    public init(_ application: NSRunningApplication) {
-        self.application = application
-    }
-
-    public func makeAsyncIterator() -> Iterator {
-        Iterator(application)
-    }
-}
-
-private final class Ticks: Sendable {
-    let continuation: AsyncStream<Void>.Continuation
-
-    init(continuation: AsyncStream<Void>.Continuation) {
-        self.continuation = continuation
-    }
-}
-
-private final class Observation {
-    let observer: AXObserver
-    let ticks: Ticks
-    let lifetime: NSKeyValueObservation
-    var pending: AsyncStream<Void>.Iterator
-
-    init(_ application: NSRunningApplication) throws(ElementFailure) {
-        let names: [String] = [
-            kAXWindowCreatedNotification, kAXSheetCreatedNotification, kAXMenuOpenedNotification, kAXMenuClosedNotification, kAXUIElementDestroyedNotification,
-            kAXFocusedWindowChangedNotification, kAXMainWindowChangedNotification, kAXTitleChangedNotification, kAXWindowMiniaturizedNotification,
-            kAXWindowDeminiaturizedNotification, kAXApplicationHiddenNotification, kAXApplicationShownNotification, kAXValueChangedNotification,
-        ]
-        let element: AXUIElement = AXUIElementCreateApplication(application.processIdentifier)
-        let (stream, tick): (AsyncStream<Void>, AsyncStream<Void>.Continuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
-        var created: AXObserver?
-        let creation: AXError = unsafe AXObserverCreate(application.processIdentifier, observed, &created)
-        guard let observer: AXObserver = created else { throw .reading(creation, ["AXObserverCreate"], on: element) }
-        self.observer = observer
-        ticks = Ticks(continuation: tick)
-        lifetime = application.observe(\.isTerminated, options: [.initial, .new]) { instance, _ in
-            if instance.isTerminated { tick.finish() }
-        }
-        pending = stream.makeAsyncIterator()
-        _ = try traverse(names) { name in
-            let added: AXError = unsafe AXObserverAddNotification(observer, element, name as CFString, Unmanaged.passUnretained(ticks).toOpaque())
-            return added == .success ? .success(()) : .failure(AggregateError(first: (notification: name, error: added)))
-        }
-        .mapError { refusals -> ElementFailure in refusals.first.error == .apiDisabled ? .untrusted : .unobservable(refusals) }.get()
-        CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
-    }
-
-    deinit {
-        CFRunLoopRemoveSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
-        lifetime.invalidate()
-        ticks.continuation.finish()
-    }
-
-    func change(from last: ApplicationStatus, of application: NSRunningApplication) async -> Result<ApplicationStatus, ElementFailure>? {
-        while await pending.next(isolation: #isolation) != nil, !application.isTerminated {
-            switch await application.status() {
-                case .success(last): continue
-                case let read: return read
-            }
-        }
-        return nil
-    }
-}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -444,63 +288,6 @@ extension AXUIElement {
             fields: parts.compactMap { part in part.control?.label.map { label in (label, part.node) } },
         )
     }
-}
-
-extension NSRunningApplication {
-    // --- [STATUS]
-    @concurrent
-    public func status() async -> Result<ApplicationStatus, ElementFailure> {
-        await withTaskExecutorPreference(accessibility) {
-            let application: AXUIElement = AXUIElementCreateApplication(processIdentifier)
-            let read: Result<ApplicationStatus, ElementFailure> = Result { () throws(ElementFailure) in
-                try .responding(application.candidates().map { candidate throws(ElementFailure) in try candidate.described()?.element }.compactMap(\.self))
-            }
-            return switch read {
-                case .failure(.unanswered): .success(.unresponsive)
-                case .success, .failure: read
-            }
-        }
-    }
-
-    // --- [ACTIONS]
-    @concurrent
-    public func perform(_ action: ElementAction, on id: CGWindowID) async -> Result<Void, ElementFailure> {
-        await withTaskExecutorPreference(accessibility) {
-            let application: AXUIElement = AXUIElementCreateApplication(processIdentifier)
-            return Result { () throws(ElementFailure) in
-                let found: AXUIElement? = try application.candidates().map { candidate throws(ElementFailure) in try candidate.window() == id ? candidate : nil }.compactMap(\.self).first
-                guard let target: Described = try found?.described() else { throw .absent(id) }
-                let (kind, offered, performs): (String, [String], [() -> AXError]) =
-                    switch action {
-                        case .set(let field, let value):
-                            (
-                                "control", target.element.controls.compactMap(\.label),
-                                target.fields.filter { entry in entry.label == field }.map { entry in { AXUIElementSetAttributeValue(entry.node, kAXValueAttribute as CFString, value as CFString) } },
-                            )
-                        case .press(let name):
-                            (
-                                "action", target.element.actions,
-                                target.targets.filter { entry in entry.name == name }.map { entry in { AXUIElementPerformAction(entry.node, entry.action as CFString) } },
-                            )
-                    }
-                let perform: () -> AXError =
-                    switch (performs.first, performs.count) {
-                        case (.some(let perform), 1): perform
-                        case (.none, _): throw .unmatched(Unmatched(subject: "\(kind) of element \(id)", query: action.label, candidates: offered))
-                        case (.some, _): throw .unmatched(Unmatched(subject: "single \(kind) of element \(id)", query: action.label, candidates: offered))
-                    }
-                switch perform() {
-                    case .success, .cannotComplete: break
-                    case let error: throw .refused(action.label, error)
-                }
-            }
-        }
-    }
-}
-
-private let observed: AXObserverCallback = { _, _, _, refcon in
-    guard let refcon: UnsafeMutableRawPointer = unsafe refcon else { return }
-    unsafe Unmanaged<Ticks>.fromOpaque(refcon).takeUnretainedValue().continuation.yield(())
 }
 
 @_silgen_name("_AXUIElementGetWindow")

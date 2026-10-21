@@ -2,7 +2,7 @@
 id: no-effect-tag-outside-wire
 language: swiftlang
 severity: error
-ignores: ['libs/swift/macos/EffectRPC/**']
+ignores: ['libs/swift/rpc/EffectRPC/**']
 rule:
     kind: line_string_literal
     regex: '^"_tag"$'

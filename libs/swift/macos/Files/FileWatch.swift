@@ -2,7 +2,6 @@ import CoreServices
 import Dispatch
 public import Foundation
 import Synchronization
-import System
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -23,15 +22,6 @@ public enum FileWatchFailure: CustomNSError, LocalizedError {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-
-public func ifPresent<Value>(_ operation: () throws -> Value) -> Result<Value?, any Error> {
-    Result { try operation() }.map(Optional.some).flatMapError { error in
-        switch error {
-            case CocoaError.fileNoSuchFile, CocoaError.fileReadNoSuchFile, .noSuchFileOrDirectory as Errno: .success(nil)
-            default: .failure(error)
-        }
-    }
-}
 
 public enum FileWatch {
     public static func events(of file: URL) -> AsyncStream<Result<Void, FileWatchFailure>> {

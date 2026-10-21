@@ -52,10 +52,6 @@ public final class ScriptingDictionary: Encodable, Sendable {
         public func encode(to encoder: any Encoder) throws {
             try ["name": name, "code": code.sdef].encode(to: encoder)
         }
-
-        public func reason<Reason>(for event: NSAppleEventDescriptor, among rows: [(code: String, clause: EventClause, reason: Reason)]) -> Reason? {
-            rows.first { row in row.code == code.sdef && row.clause.matches(event) }?.reason
-        }
     }
 
     struct Scope: Sendable {
@@ -174,11 +170,7 @@ public final class ScriptingDictionary: Encodable, Sendable {
         let scopes: [[Command]] = [Command.language, commands].map { scope in scope.filter { command in arguments.isSubset(of: command.parameters.map(\.name)) } }
         let found: [Command] = scopes.first { scope in scope.contains(where: matching) }?.filter(matching) ?? []
         let subject: String = arguments.isEmpty ? "command" : "command taking \(arguments.sorted().joined(separator: ", "))"
-        return switch (found.first, found.count) {
-            case (.some(let command), 1): .success(command)
-            case (.none, _): .failure(.unmatched(Unmatched(subject: subject, query: name, candidates: Set(scopes.joined().map(\.name)).sorted())))
-            case (.some, _): .failure(.unmatched(Unmatched(subject: "single command", query: name, candidates: found.map(\.code.sdef))))
-        }
+        return Unmatched.single(found, subject: subject, query: name, candidates: Set(scopes.joined().map(\.name)).sorted(), named: \.code.sdef).mapError(DictionaryFailure.unmatched)
     }
 
     public func event(_ command: Command, arguments: [String: AppleEventValue], target: NSAppleEventDescriptor) -> Result<NSAppleEventDescriptor, AggregateError<DictionaryFailure>> {
@@ -203,11 +195,9 @@ public final class ScriptingDictionary: Encodable, Sendable {
     static func resolve(_ name: String, in scopes: [Scope]) -> Result<Term, AggregateError<DictionaryFailure>> {
         let named: [Term] = scopes.lazy.compactMap { scope in scope.named[name] }.first ?? []
         let codes: [FourCharCode] = named.isEmpty ? [FourCharCode(sdef: name)].compactMap(\.self) : Set(named.map(\.code)).sorted()
-        return switch (codes.first, codes.count) {
-            case (.some(let code), 1): .success(Term(name: name, code: code, types: Set(named.flatMap(\.types)), members: []))
-            case (.none, _): .failure(AggregateError(first: .unmatched(Unmatched(subject: "term", query: name, candidates: Set(scopes.flatMap(\.named.keys)).sorted()))))
-            case (.some, _): .failure(AggregateError(first: .unmatched(Unmatched(subject: "single term", query: name, candidates: codes.map(\.sdef)))))
-        }
+        return Unmatched.single(codes, subject: "term", query: name, candidates: Set(scopes.flatMap(\.named.keys)).sorted(), named: \.sdef)
+            .map { code in Term(name: name, code: code, types: Set(named.flatMap(\.types)), members: []) }
+            .mapError { miss in AggregateError(first: .unmatched(miss)) }
     }
 
     static func term(_ code: FourCharCode, in scopes: [Scope]) -> Term {
@@ -231,5 +221,28 @@ public final class ScriptingDictionary: Encodable, Sendable {
 
     func enumerators(of types: Set<String>) -> Scope {
         Scope(declarations[.enumeration, default: []].filter { enumeration in types.contains(enumeration.name) }.flatMap(\.members))
+    }
+}
+
+// --- [ERRORS] --------------------------------------------------------------------------
+
+public enum DictionaryFailure: CustomNSError, LocalizedError {
+    case unmatched(Unmatched)
+    case unencodable(DescType)
+    case undated(String, any Error)
+
+    public var errorDescription: String? {
+        switch self {
+            case .unmatched(let miss): miss.errorDescription
+            case .unencodable(let type): "No Apple Event descriptor of type \(type.sdef) holds the value"
+            case .undated(let text, let error): "\(text) is no ISO 8601 date: \(error.localizedDescription)"
+        }
+    }
+
+    public var errorUserInfo: [String: Any] {
+        switch self {
+            case .unmatched(let error as any Error), .undated(_, let error): [NSUnderlyingErrorKey: error]
+            case .unencodable: [:]
+        }
     }
 }

@@ -1,5 +1,6 @@
 import Files
 import Foundation
+import Lockfiles
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

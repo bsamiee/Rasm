@@ -1,6 +1,6 @@
+import Encoding
 import Files
 import Foundation
-import JSON
 import Processes
 import Results
 import Subprocess

@@ -1,8 +1,6 @@
+public import Encoding
 public import Foundation
-public import JSON
-public import Processes
 public import Results
-public import Subprocess
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -37,14 +35,14 @@ public struct JSONRPCRejection: Error, Codable {
 }
 
 public enum JSONRPCFailure<Method: RawRepresentable & Sendable>: CustomNSError, LocalizedError where Method.RawValue == String {
-    case process(ProcessFailure)
+    case transport(any Error)
     case closed
     case invalidMessage(Method?, any Error)
     case rejected(Method, JSONRPCRejection)
 
     public var errorDescription: String? {
         switch self {
-            case .process(let failure): failure.localizedDescription
+            case .transport(let error): error.localizedDescription
             case .closed: "Connection closed"
             case .invalidMessage(.some(let method), _): "Unreadable \(method.rawValue) message"
             case .invalidMessage(.none, _): "Unreadable message"
@@ -54,7 +52,7 @@ public enum JSONRPCFailure<Method: RawRepresentable & Sendable>: CustomNSError, 
 
     public var errorUserInfo: [String: Any] {
         switch self {
-            case .process(let error as any Error), .invalidMessage(_, let error): [NSUnderlyingErrorKey: error]
+            case .transport(let error), .invalidMessage(_, let error): [NSUnderlyingErrorKey: error]
             case .closed, .rejected: [:]
         }
     }
@@ -75,7 +73,7 @@ public actor JSONRPCConnection<Method: RawRepresentable & Hashable & Sendable, F
         let close: @Sendable (Failure) -> Void
     }
 
-    private let writer: StandardInputWriter
+    private let write: @Sendable (Data) async throws -> Void
     private let decoder: JSONDecoder
     private let timeout: Duration
     private let failure: @Sendable (JSONRPCFailure<Method>) -> Failure
@@ -85,19 +83,20 @@ public actor JSONRPCConnection<Method: RawRepresentable & Hashable & Sendable, F
     private var terminal: Failure?
 
     private init(
-        writer: StandardInputWriter,
+        write: @escaping @Sendable (Data) async throws -> Void,
         decoder: JSONDecoder,
         timeout: Duration,
         failure: @escaping @Sendable (JSONRPCFailure<Method>) -> Failure,
     ) {
-        self.writer = writer
+        self.write = write
         self.decoder = decoder
         self.timeout = timeout
         self.failure = failure
     }
 
     public static func run<Value>(
-        over execution: Execution<CustomWriteInput, SequenceOutput, some OutputProtocol>,
+        reading lines: sending some AsyncSequence<Data, any Error>,
+        writing write: @escaping @Sendable (Data) async throws -> Void,
         decoder: JSONDecoder,
         timeout: Duration,
         retaining: Set<Method>,
@@ -105,15 +104,10 @@ public actor JSONRPCConnection<Method: RawRepresentable & Hashable & Sendable, F
         failure: @escaping @Sendable (JSONRPCFailure<Method>) -> Failure,
         _ body: (JSONRPCConnection) async -> Value,
     ) async -> Value {
-        let connection: JSONRPCConnection = JSONRPCConnection(
-            writer: execution.standardInputWriter,
-            decoder: decoder,
-            timeout: timeout,
-            failure: failure,
-        )
+        let connection: JSONRPCConnection = JSONRPCConnection(write: write, decoder: decoder, timeout: timeout, failure: failure)
         async let _: Void = {
             do {
-                for try await line: Data in execution.standardOutput.jsonLines {
+                for try await line: Data in lines {
                     await connection.receive(line, retaining: retaining, serve: serve)
                 }
                 await connection.finish(failure(.closed))
@@ -218,14 +212,11 @@ public actor JSONRPCConnection<Method: RawRepresentable & Hashable & Sendable, F
 
     private func send(_ message: some Encodable & Sendable) async throws(Failure) {
         if let terminal { throw terminal }
-        try await Result { try await writer.writeLine(message) }.mapError(transport).get()
+        try await Result { try await write(JSONEncoder().encodeLine(message)) }.mapError(transport).get()
     }
 
     private nonisolated func transport(_ error: any Error) -> Failure {
-        switch ProcessFailure(error) {
-            case .deadline(let deadline): .deadline(deadline)
-            case let process: failure(.process(process))
-        }
+        error is CancellationError ? .deadline(.cancelled) : failure(.transport(error))
     }
 
     private func finish(_ failure: Failure) {

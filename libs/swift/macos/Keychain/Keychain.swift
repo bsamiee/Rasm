@@ -1,4 +1,6 @@
+import Encoding
 public import Foundation
+public import Processes
 import Results
 import Security
 import Subprocess
@@ -84,11 +86,5 @@ public enum Keychain {
                 case .exited, .signaled: .failure(.process(.exit(output.terminationStatus)))
             }
         }
-    }
-}
-
-extension Sequence<UInt8> {
-    public var hexEncoded: String {
-        map { byte in String(byte >> 4, radix: 16) + String(byte & 0x0F, radix: 16) }.joined()
     }
 }

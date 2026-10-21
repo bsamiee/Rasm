@@ -1,6 +1,6 @@
+import Encoding
 import Files
 import Foundation
-import JSON
 import JSONRPC
 import Results
 import System
