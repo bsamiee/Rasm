@@ -16,50 +16,58 @@ fn fn_pointer_iterator_type(found: &str) {
 fn formatted_tracing_value(found: &str) {
     insta::assert_snapshot!(found, @r#"
     warning: tracing message interpolates values into text
-     --> tools/dylint/examples/formatted_tracing_value.rs:6:5
+     --> tools/dylint/examples/formatted_tracing_value.rs:8:5
       |
-    6 |     tracing::info!("loaded {} rows from {path}", rows);
+    8 |     tracing::info!("loaded {} rows from {path}", rows);
       |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
       |
       = help: record each value as its own field (`name = %value` or `name = ?value`) beside a constant message
       = note: `#[warn(formatted_tracing_value)]` on by default
 
     warning: tracing field records a value rendered to text
-      --> tools/dylint/examples/formatted_tracing_value.rs:12:27
+      --> tools/dylint/examples/formatted_tracing_value.rs:14:27
        |
-    12 |     tracing::warn!(port = format!("{port}"), "listening");
+    14 |     tracing::warn!(port = format!("{port}"), "listening");
        |                           ^^^^^^^^^^^^^^^^^
        |
        = help: record the value itself with `%value` or `?value`, the subscriber formats it
 
     warning: tracing field records a value rendered to text
-      --> tools/dylint/examples/formatted_tracing_value.rs:13:28
+      --> tools/dylint/examples/formatted_tracing_value.rs:15:28
        |
-    13 |     tracing::debug!(port = port.to_string(), "listening");
+    15 |     tracing::debug!(port = port.to_string(), "listening");
        |                            ^^^^^^^^^^^^^^^^
        |
        = help: record the value itself with `%value` or `?value`, the subscriber formats it
 
     warning: tracing field records a value rendered to text
-      --> tools/dylint/examples/formatted_tracing_value.rs:16:55
+      --> tools/dylint/examples/formatted_tracing_value.rs:18:55
        |
-    16 |     let _span = tracing::info_span!("request", port = format!("{port}"));
+    18 |     let _span = tracing::info_span!("request", port = format!("{port}"));
        |                                                       ^^^^^^^^^^^^^^^^^
        |
        = help: record the value itself with `%value` or `?value`, the subscriber formats it
 
     warning: tracing field records a value rendered to text
-      --> tools/dylint/examples/formatted_tracing_value.rs:20:19
+      --> tools/dylint/examples/formatted_tracing_value.rs:19:65
        |
-    20 |     let message = format!("handled {count} rows");
+    19 |     tracing::info_span!("request", port = Empty).record("port", port.to_string());
+       |                                                                 ^^^^^^^^^^^^^^^^
+       |
+       = help: record the value itself with `%value` or `?value`, the subscriber formats it
+
+    warning: tracing field records a value rendered to text
+      --> tools/dylint/examples/formatted_tracing_value.rs:23:19
+       |
+    23 |     let message = format!("handled {count} rows");
        |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
        = help: record the value itself with `%value` or `?value`, the subscriber formats it
 
     warning: tracing field records a value rendered to text
-      --> tools/dylint/examples/formatted_tracing_value.rs:22:31
+      --> tools/dylint/examples/formatted_tracing_value.rs:25:31
        |
-    22 |     tracing::info!(summary = %format_args!("handled {count}"), "done");
+    25 |     tracing::info!(summary = %format_args!("handled {count}"), "done");
        |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
        = help: record the value itself with `%value` or `?value`, the subscriber formats it

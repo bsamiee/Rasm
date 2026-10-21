@@ -547,6 +547,8 @@ public static class Queues {
         select Option<Relaunch>.None;
 
     // --- [REGISTRATION]
+    public static Action<ILoggingBuilder> Logging { get; } = static logging => logging.AddConsole(static options => options.LogToStandardErrorThreshold = LogLevel.Error);
+
     public static IO<QueueContext> Acquire(
         OutputPath record,
         IO<QueueSettings> settings,

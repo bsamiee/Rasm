@@ -24,6 +24,10 @@
         <PackageReference Include="Kiwi" />
     </ItemGroup>
 
+    <ItemGroup Label="Application Hosting">
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    </ItemGroup>
+
     <ItemGroup Label="Workspace Packages">
         <ProjectReference Include="../../graphics/Rasm.Imaging/Rasm.Imaging.csproj" />
         <ProjectReference Include="../Rasm.Rhino/Rasm.Rhino.csproj" />

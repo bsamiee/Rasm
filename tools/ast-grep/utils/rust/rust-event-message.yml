@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: rust-event-message
+language: rust
+rule:
+    kind: 'string_literal, raw_string_literal'
+    follows: {stopBy: {not: {kind: 'line_comment, block_comment'}}, regex: '^[(,]$'}
+    not: {precedes: {regex: '^=$'}}

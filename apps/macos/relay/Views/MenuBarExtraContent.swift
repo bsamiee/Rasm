@@ -137,7 +137,7 @@ struct MenuBarExtraContent: View {
                 try await NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: NSWorkspace.OpenConfiguration())
             }
             if case .failure(let error) = reopened {
-                Logger(category: "Activation").error("Bringing Relay to front: \(String(describing: error), privacy: .public)")
+                Logger(category: "Activation").error("Bringing Relay to front: \(error, privacy: .public)")
             }
         }
     }
@@ -191,7 +191,7 @@ private struct AccountCard: View {
         }
         .buttonStyle(.accessoryBar)
         .foregroundStyle(model.isSelected ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.secondary))
-        .disabled(!model.canSelect)
+        .disabled(!model.isSelected && !model.canSelect)
         .overlay {
             if model.running?.kind == .selecting { ProgressView().controlSize(.mini) }
         }

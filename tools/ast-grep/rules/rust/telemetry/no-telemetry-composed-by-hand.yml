@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-telemetry-composed-by-hand
+language: rust
+severity: error
+ignores: ['libs/rust/telemetry/**']
+utils:
+    subscriber-install:
+        any:
+            - kind: scoped_identifier
+              regex: '^(::)?(tracing(::(subscriber|dispatcher))?::(set_global_default|set_default|with_default)|(tracing_subscriber::)?fmt::(init|try_init))$'
+            - all:
+                - regex: '^(set_global_default|set_default|with_default)$'
+                - matches: {rust-imported-name: {source: {regex: '\btracing\b'}, name: {regex: '^(set_global_default|set_default|with_default)$'}}}
+            - kind: field_expression
+              all:
+                - has: {field: field, regex: '^(init|try_init)$'}
+                - has: {field: value, regex: '(?s)\b(tracing_subscriber|registry\(\)|Registry::default\(\)|(Fmt)?Subscriber::builder\(\)|SubscriberBuilder|fmt\(\))'}
+    global-install:
+        any:
+            - kind: scoped_identifier
+              regex: '(^|::)global::set_(tracer_provider|meter_provider|logger_provider|text_map_propagator)$'
+            - all:
+                - regex: '^set_(tracer_provider|meter_provider|logger_provider|text_map_propagator)$'
+                - matches: {rust-imported-name: {source: {regex: '\bglobal\b'}, name: {regex: '^set_(tracer_provider|meter_provider|logger_provider|text_map_propagator)$'}}}
+    panic-hook:
+        any:
+            - kind: scoped_identifier
+              regex: '(^|::)panic::(set_hook|update_hook)$'
+            - all:
+                - regex: '^(set_hook|update_hook)$'
+                - matches: {rust-imported-name: {source: {regex: '\bpanic\b'}, name: {regex: '^(set_hook|update_hook)$'}}}
+rule:
+    kind: 'identifier, scoped_identifier, field_expression'
+    pattern: $SITE
+    any:
+        - matches: subscriber-install
+        - matches: global-install
+        - matches: panic-hook
+    not: {matches: rust-test-scope}
+    inside: {kind: call_expression, field: function}
+message: '`$SITE` composes telemetry outside `rasm-telemetry`'
+note: 'Run the process entry under `rasm_telemetry::Telemetry::run`, which installs the subscriber, exporters, propagator, and panic hook and flushes them when the work returns'

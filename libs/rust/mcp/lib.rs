@@ -2,11 +2,10 @@
 
 use core::{error::Error, future::ready, mem::discriminant, net::SocketAddr, pin::pin, str::Utf8Error};
 use std::{
-    backtrace::Backtrace,
     borrow::Cow,
     collections::BTreeMap,
     error::Report,
-    io, panic, process,
+    io, process,
     sync::{Arc, LazyLock, OnceLock, Weak, nonpoison::Mutex},
 };
 
@@ -15,11 +14,9 @@ use clap::{Args, FromArgMatches as _, Parser};
 use futures::{FutureExt as _, Stream, StreamExt as _, TryFutureExt as _, TryStreamExt as _, future, stream};
 use jsonschema::ValidationError;
 use nonempty_collections::NEVec;
-use opentelemetry::{KeyValue, global, metrics::Histogram, propagation::Extractor, trace::TracerProvider as _};
-use opentelemetry_appender_tracing::layer::OpenTelemetryTracingBridge;
-use opentelemetry_otlp::{ExporterBuildError, LogExporter, MetricExporter, SpanExporter};
-use opentelemetry_sdk::{error::OTelSdkError, logs::SdkLoggerProvider, metrics::SdkMeterProvider, propagation::TraceContextPropagator, trace::SdkTracerProvider};
-use opentelemetry_semantic_conventions::attribute::{ERROR_TYPE, EXCEPTION_MESSAGE, EXCEPTION_STACKTRACE, JSONRPC_REQUEST_ID, RPC_RESPONSE_STATUS_CODE, SERVICE_NAME, SERVICE_VERSION};
+use opentelemetry::{InstrumentationScope, KeyValue, global, metrics::Histogram, propagation::Extractor};
+use opentelemetry_semantic_conventions::attribute::{ERROR_TYPE, EXCEPTION_MESSAGE, JSONRPC_REQUEST_ID, RPC_RESPONSE_STATUS_CODE};
+use rasm_telemetry::{Telemetry, options};
 use rmcp::{
     ErrorData, RoleServer, ServerHandler, ServiceError,
     model::{
@@ -55,7 +52,7 @@ use tokio_util::{
 };
 use tracing::{Instrument as _, field::Empty};
 use tracing_opentelemetry::{OpenTelemetrySpanExt as _, SetParentError};
-use tracing_subscriber::{EnvFilter, Layer as _, fmt::time::SystemTime, layer::SubscriberExt as _, util::SubscriberInitExt as _};
+use tracing_subscriber::{EnvFilter, layer::Identity};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -99,10 +96,8 @@ struct Options {
     listen: SocketAddr,
     #[arg(long = "allowed-host", env = "MCP_ALLOWED_HOSTS", value_name = "AUTHORITY", value_delimiter = ',', help = "Host authority to answer beside loopback names and bound address")]
     hosts: Vec<Authority>,
-    #[arg(long, env = EnvFilter::DEFAULT_ENV, value_parser = str::parse::<EnvFilter>, default_value = "info,rmcp=warn,rmcp::service=error,opentelemetry=warn", help = "Tracing filter directives")]
-    log: EnvFilter,
-    #[arg(long, env = "MCP_OTLP", help = "Export traces, metrics, and logs over OTLP/HTTP to endpoints OTEL_EXPORTER_OTLP_* variables name")]
-    otlp: bool,
+    #[command(flatten)]
+    telemetry: options::Options,
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -144,10 +139,6 @@ impl From<Unserved> for ErrorData {
 
 #[derive(Debug, thiserror::Error)]
 enum Failed<X> {
-    #[error("cannot build OTLP exporters")]
-    Export(#[source] ExporterBuildError),
-    #[error("cannot flush telemetry")]
-    Flush(#[source] OTelSdkError),
     #[error("cannot {operation}")]
     Io { operation: Operation, source: io::Error },
     #[error("endpoint failed")]
@@ -244,7 +235,11 @@ where E: Endpoint
         }
         static DURATION: LazyLock<Histogram<f64>> = LazyLock::new(|| {
             const BOUNDARIES: [f64; 14] = [0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0, 60.0, 120.0, 300.0];
-            global::meter(env!("CARGO_PKG_NAME")).f64_histogram("mcp.server.operation.duration").with_unit("s").with_boundaries(BOUNDARIES.to_vec()).build()
+            global::meter_with_scope(InstrumentationScope::builder(env!("CARGO_PKG_NAME")).with_version(env!("CARGO_PKG_VERSION")).build())
+                .f64_histogram("mcp.server.operation.duration")
+                .with_unit("s")
+                .with_boundaries(BOUNDARIES.to_vec())
+                .build()
         });
         let _held = self.host.requests.token();
         let (method, version) = (request.method().to_owned(), context.protocol_version());
@@ -410,45 +405,14 @@ where
     let matches = command.get_matches_mut();
     let (options, args) = Options::from_arg_matches(&matches).and_then(|options| P::from_arg_matches(&matches).map(|args| (options, args))).unwrap_or_else(|error| error.exit());
     let identity = command.get_about().into_iter().fold(Implementation::new(command.get_name(), version), |identity, about| identity.with_description(about.to_string()));
-    let mut json = json_subscriber::JsonLayer::stderr();
-    json.with_timer("timestamp", SystemTime).with_level("level").with_target("target").with_top_level_flattened_span_list().with_flattened_event().with_opentelemetry_ids(true);
-    json.add_static_field(SERVICE_NAME, identity.name.clone().into());
-    json.add_static_field(SERVICE_VERSION, identity.version.clone().into());
-    let exporters = options
-        .otlp
-        .then(|| {
-            let resource = opentelemetry_sdk::Resource::builder().with_service_name(identity.name.clone()).with_attribute(KeyValue::new(SERVICE_VERSION, identity.version.clone())).build();
-            let (traces, logs, metrics) = (SpanExporter::builder().with_http().build(), LogExporter::builder().with_http().build(), MetricExporter::builder().with_http().build());
-            validated::Validated::from(traces.map_err(Failed::Export))
-                .map3(logs.map_err(Failed::Export).into(), metrics.map_err(Failed::Export).into(), |traces, logs, metrics| {
-                    (
-                        SdkTracerProvider::builder().with_resource(resource.clone()).with_batch_exporter(traces).build(),
-                        SdkLoggerProvider::builder().with_resource(resource.clone()).with_batch_exporter(logs).build(),
-                        SdkMeterProvider::builder().with_resource(resource).with_periodic_exporter(metrics).build(),
-                    )
-                })
-                .ok()
-        })
-        .transpose();
-    tracing_subscriber::registry()
-        .with(options.log.clone())
-        .with(json)
-        .with(exporters.as_ref().ok().and_then(Option::as_ref).map(|(traces, logs, metrics)| {
-            global::set_meter_provider(metrics.clone());
-            global::set_text_map_propagator(TraceContextPropagator::new());
-            tracing_opentelemetry::layer().with_tracer(traces.tracer(identity.name.clone())).and_then(OpenTelemetryTracingBridge::new(logs))
-        }))
-        .init();
-    panic::set_hook(Box::new(|info| tracing::error!({ EXCEPTION_MESSAGE } = %info, { EXCEPTION_STACKTRACE } = %Backtrace::force_capture(), "panicked")));
-    let reported = |errors: &NEVec<Failed<E::Error>>| errors.iter().for_each(|error| tracing::error!({ EXCEPTION_MESSAGE } = %Report::new(error), "server failed"));
-    let Some(exporters) = exporters.inspect_err(reported).ok() else { return process::ExitCode::FAILURE };
+    let Options { listen, hosts, telemetry } = options;
     let listening = async move {
         let signals = cfg_select! {
             unix => [SignalKind::interrupt(), SignalKind::terminate(), SignalKind::hangup()].map(|kind| signal(kind).map(SignalStream::new)),
             windows => [windows::ctrl_c().map(CtrlCStream::new)],
         };
         let mut signals = signals.into_iter().try_collect::<stream::SelectAll<_>>().map_err(|source| Failed::Io { operation: Operation::Signal, source })?;
-        let socket = net::TcpListener::bind(options.listen).await.map_err(|source| Failed::Io { operation: Operation::Bind(options.listen), source })?;
+        let socket = net::TcpListener::bind(listen).await.map_err(|source| Failed::Io { operation: Operation::Bind(listen), source })?;
         let address = socket.local_addr().map_err(|source| Failed::Io { operation: Operation::Address, source })?;
         let notifier = Notifier(broadcast::Sender::new(DEFAULT_SUBSCRIPTION_CHANNEL_CAPACITY));
         let future::Either::Left((started, _)) = future::select(pin!(build(args, identity, notifier.clone())), signals.next()).await else { return Ok(()) };
@@ -457,7 +421,7 @@ where
         let host = Arc::new(Host { endpoint, notifier, stopping: CancellationToken::new(), requests: TaskTracker::new(), watches: TaskTracker::new(), leases: Mutex::default() });
         let manager = Arc::new(LocalSessionManager::default());
         let mut config = StreamableHttpServerConfig::default().with_json_response(true).enforce_origin_validation();
-        config.allowed_hosts.extend(options.hosts.iter().map(Authority::to_string).chain(Some(address.ip()).filter(|ip| !ip.is_unspecified()).map(|ip| ip.to_string())));
+        config.allowed_hosts.extend(hosts.iter().map(Authority::to_string).chain(Some(address.ip()).filter(|ip| !ip.is_unspecified()).map(|ip| ip.to_string())));
         let factory = Arc::clone(&host);
         let service = StreamableHttpService::new(move || Ok(Session { host: Arc::clone(&factory), subscribed: watch::Sender::default(), relay: OnceLock::new() }), Arc::clone(&manager), config);
         let mut http = pin!(future::maybe_done(axum::serve(socket, axum::Router::new().route_service("/", service)).with_graceful_shutdown(host.stopping.clone().cancelled_owned()).into_future()));
@@ -477,22 +441,12 @@ where
         let served = http.as_mut().take_output().unwrap_or(Ok(())).map_err(|source| Failed::Io { operation: Operation::Serve, source });
         validated::Validated::from(ended).map2(served.into(), |(), ()| ()).ok()
     };
-    let hosted = runtime::Runtime::new()
-        .map_err(|source| Failed::Io { operation: Operation::Runtime, source }.into())
-        .and_then(|runtime| {
-            let hosted = runtime.block_on(listening);
-            runtime.shutdown_background();
-            hosted
-        })
-        .inspect_err(reported);
-    let flushed = exporters
-        .into_iter()
-        .flat_map(|(traces, logs, metrics)| [traces.shutdown(), logs.shutdown(), metrics.shutdown()])
-        .map(|flush| flush.map_err(Failed::Flush))
-        .collect::<validated::Validated<(), _>>()
-        .ok()
-        .inspect_err(reported);
-    hosted.and(flushed).map_or(process::ExitCode::FAILURE, |()| process::ExitCode::SUCCESS)
+    Telemetry::run(telemetry, &command, [], EnvFilter::new("info,rmcp=warn,rmcp::service=error"), io::stderr, Identity::new(), |_| {
+        let runtime = runtime::Runtime::new().map_err(|source| Failed::Io { operation: Operation::Runtime, source })?;
+        let hosted = runtime.block_on(listening);
+        runtime.shutdown_background();
+        hosted
+    })
 }
 
 pub mod server;

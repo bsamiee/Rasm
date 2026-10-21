@@ -99,14 +99,21 @@ public enum FileWatch {
         }
 
         func start(_ file: URL) {
-            let paths: Set<String> = [file.path(percentEncoded: false), file.resolvingSymlinksInPath().path(percentEncoded: false)]
             var context: FSEventStreamContext = unsafe FSEventStreamContext(version: 0, info: Unmanaged.passUnretained(self).toOpaque(), retain: nil, release: nil, copyDescription: nil)
             let flags: Int = kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagWatchRoot | kFSEventStreamCreateFlagNoDefer
             func started(_ stream: FSEventStreamRef) -> Bool {
                 unsafe FSEventStreamSetDispatchQueue(stream, queue)
                 return unsafe FSEventStreamStart(stream)
             }
-            unsafe stream = FSEventStreamCreate(nil, changed, &context, Array(paths) as CFArray, FSEventStreamEventId(kFSEventStreamEventIdSinceNow), 0, FSEventStreamCreateFlags(flags))
+            unsafe stream = FSEventStreamCreate(
+                nil,
+                changed,
+                &context,
+                [file.path(percentEncoded: false)] as CFArray,
+                FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
+                0,
+                FSEventStreamCreateFlags(flags),
+            )
             guard let created: FSEventStreamRef = unsafe stream, unsafe started(created) else {
                 stop()
                 continuation.yield(.failure(.unstarted(file)))

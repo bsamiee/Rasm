@@ -33,10 +33,12 @@ public sealed class LanguageExtCodeFix() : RasmCodeFix(
 
     // --- [ROUND_TRIPS]
     private static void Unwrap(DocumentEditor editor, SyntaxNode site, Diagnostic diagnostic, CancellationToken cancellation) {
-        foreach (SyntaxNode hop in diagnostic.AdditionalLocations.Select(location => Site(editor.OriginalRoot, location)))
-            editor.ReplaceNode(hop, static (current, _) => current is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax access }
-                ? SyntaxFactory.ParenthesizedExpression(Unwrapped(access.Expression).WithoutTrivia()).WithTriviaFrom(current).WithAdditionalAnnotations(Simplifier.Annotation, Formatter.Annotation)
-                : current);
+        foreach ((SyntaxNode hop, bool body) in diagnostic.AdditionalLocations.Select(location => Site(editor.OriginalRoot, location)).Select(static node => (node, node.Parent is LambdaExpressionSyntax)))
+            editor.ReplaceNode(hop, (current, _) => current switch {
+                InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax access } when body => Unwrapped(access.Expression).WithoutTrivia().WithTriviaFrom(current).WithAdditionalAnnotations(Formatter.Annotation),
+                InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax access } => SyntaxFactory.ParenthesizedExpression(Unwrapped(access.Expression).WithoutTrivia()).WithTriviaFrom(current).WithAdditionalAnnotations(Simplifier.Annotation, Formatter.Annotation),
+                _ => current,
+            });
     }
 
     // --- [SPREADS]

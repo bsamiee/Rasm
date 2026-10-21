@@ -310,7 +310,7 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
                     for result in results:
                         match result:
                             case Result(tag="ok", ok=issued):
-                                self.identity.reports.logger.info(issued)
+                                self.identity.logger.info("Queue sent", issued=issued)
                             case Result(error=refused):
                                 self.identity.reports.hold(BlenderRenderingFault.lifted(refused))
                     return store(PlanFile.SENT.beside(path), record).map_error(BlenderRenderingFault.lifted).map(lambda _: record)

@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-telemetry-sink-outside-runner
+language: tsx
+severity: error
+utils:
+    runner:
+        any:
+            - matches: {effect-module-member: {module: {regex: '\b(NodeRuntime|BunRuntime|BrowserRuntime)$'}, member: {regex: '^runMain$'}}}
+            - matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(runPromise|runPromiseExit|runSync|runSyncExit|runFork|runCallback)$'}}}
+            - matches: {effect-module-member: {module: {regex: '\bManagedRuntime$'}, member: {regex: '^make$'}}}
+            - matches: {effect-module-member: {module: {regex: '\bLayer$'}, member: {regex: '^launch$'}}}
+            - matches: {effect-module-member: {module: {regex: '\bHttpRouter$'}, member: {regex: '^(serve|toWebHandler)$'}}}
+            - matches: {effect-module-member: {module: {regex: '\bit$'}, member: {regex: '^(effect|live|scoped|scopedLive|layer)$'}}}
+rule:
+    kind: member_expression
+    pattern: $SINK
+    any:
+        - matches: {effect-module-member: {module: {regex: '\bLogger$'}, member: {regex: '^(layer|make|map|batched|toFile|CurrentLoggers|LogToStderr|defaultLogger|tracerLogger|format\w+|console\w+|with\w+)$'}}}
+        - matches: {effect-module-member: {module: {regex: '\b(Otlp|OtlpLogger|OtlpTracer|OtlpMetrics|OtelLogger|NodeSdk|WebSdk)$'}, member: {regex: '^(layer\w*|make)$'}}}
+        - matches: {effect-module-member: {module: {regex: '\bTracer$'}, member: {regex: '^make$'}}}
+        - matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(withLogger|withTracer)$'}}}
+    not: {inside: {kind: program, stopBy: end, has: {stopBy: end, matches: runner}}}
+message: '`$SINK` builds a telemetry sink in a module that runs no program'
+note: 'Log through `Effect.log*` with `Effect.annotateLogs` and leave loggers, tracers, and exporters to the module calling a runner'

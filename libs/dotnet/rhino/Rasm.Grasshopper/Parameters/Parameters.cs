@@ -18,7 +18,7 @@ public sealed record ParameterFace(ParameterText Text, string Code, Option<(stri
 
 public sealed record ParameterRow(ParameterFace Face, Func<IPlugInSink, IO<IParameter>> Create) {
     // --- [DECLARE]
-    public Func<IParameter, IPlugInSink, IO<Unit>> Attach { get; init; } = static (_, _) => unitIO;
+    public Seq<Func<IParameter, IPlugInSink, IO<Unit>>> Attach { get; init; }
     public Seq<(Type Type, Func<DefinedGrasshopperPlugin, IO<Unit>> Register)> DataTypes { get; internal init; }
 
     public static ParameterRow Of(ParameterFace face, Func<Nomen, IParameter> construct) =>
@@ -38,7 +38,7 @@ public sealed record ParameterRow(ParameterFace Face, Func<IPlugInSink, IO<IPara
     // --- [REALIZE]
     public IO<IParameter> Input(ModularInputAdder inputs, IPlugInSink sink) =>
         from parameter in Create(sink)
-        from attached in Attach(parameter, sink)
+        from attached in Attach.TraverseM(attach => attach(parameter, sink)).As()
         from _ in IO.lift(() => Face.Modularity.Match(
             Some: optional =>
                 (optional.Shown ? (Action<IParameter, string, Color, Requirement?>)inputs.Add : inputs.AddHidden)(
@@ -48,7 +48,7 @@ public sealed record ParameterRow(ParameterFace Face, Func<IPlugInSink, IO<IPara
 
     public IO<IParameter> Output(ModularOutputAdder outputs, IPlugInSink sink) =>
         from parameter in Create(sink)
-        from attached in Attach(parameter, sink)
+        from attached in Attach.TraverseM(attach => attach(parameter, sink)).As()
         from _ in IO.lift(() => Face.Modularity.Match(
             Some: optional =>
                 (optional.Shown ? (Action<IParameter, string, Color>)outputs.Add : outputs.AddHidden)(
@@ -61,11 +61,10 @@ public sealed record ParameterRow(ParameterFace Face, Func<IPlugInSink, IO<IPara
 
     internal ParameterRow Presented(IGlyph glyph, int master, SpecialColour accent) =>
         this with {
-            Attach = (parameter, sink) =>
-                from attached in Attach(parameter, sink)
+            Attach = Attach.Add((parameter, sink) =>
                 from icon in CanvasIcons.Accented(sink, glyph, master, accent)
                 from presented in IO.lift(() => parameter.ModifyIcon(icon, overrideExtrinsicIcon: false))
-                select unit,
+                select unit),
         };
 
     internal static Parameter<TData> Construct<TData>(Nomen nomen, Access access, Requirement requirement) {

@@ -41,6 +41,34 @@ utils:
               all:
                 - has: {kind: return_statement, nthChild: {position: 1, ofRule: {not: {kind: comment}}}, has: {matches: completed-task}}
                 - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+    unit-result:
+        any:
+            - matches: completed-task
+            - kind: identifier, member_access_expression
+              matches: {csharp-type-name: {name: {regex: '^unit(IO|Eff)?$'}}}
+            - matches: {csharp-owner-member: {type: {regex: '^Unit$'}, member: {regex: '^Default$'}}}
+            - kind: invocation_expression
+              all:
+                - has:
+                    field: function
+                    any:
+                        - matches: {csharp-owner-member: {type: {regex: '^IO$'}, member: {regex: '^pure$'}}}
+                        - matches: {csharp-owner-member: {type: {regex: '^Eff$'}, member: {regex: '^(Pure|Success)$'}}}
+                        - matches: {csharp-type-name: {name: {regex: '^(Pure|SuccessEff)$'}}}
+                - has: {field: arguments, has: {kind: argument, has: {matches: unit-result}}, not: {has: {kind: argument, nthChild: 2}}}
+    unit-body:
+        any:
+            - has: {field: body, matches: unit-result}
+            - has:
+                kind: block
+                all:
+                    - has: {kind: return_statement, nthChild: {position: 1, ofRule: {not: {kind: comment}}}, has: {matches: unit-result}}
+                    - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+    member-value:
+        any:
+            - inside: {kind: property_declaration, field: value}
+            - inside: {kind: assignment_expression, field: right, inside: {kind: initializer_expression}}
+            - inside: {kind: with_initializer}
 rule:
     any:
         - kind: lambda_expression, anonymous_method_expression
@@ -48,6 +76,11 @@ rule:
           all:
             - has: {matches: empty-block}
             - not: {matches: case-arm}
+        - kind: lambda_expression, anonymous_method_expression
+          pattern: $PLACEHOLDER
+          all:
+            - matches: unit-body
+            - matches: member-value
         - kind: method_declaration
           all:
             - has: {field: name, regex: '^Dispose$', pattern: $PLACEHOLDER}
@@ -57,4 +90,4 @@ rule:
             - has: {field: name, regex: '^DisposeAsync$', pattern: $PLACEHOLDER}
             - has: {field: body, matches: completed-body}
 message: '`$PLACEHOLDER` stands in for an absent callback or resource'
-note: 'Hold absence as `Option<Action>` or `Option<IDisposable>` and acquire in `use` or `Bracket`, except in no-op match arms and smart enum items'
+note: 'Hold absence as `Option<Action>` or `Option<IDisposable>`, a member hook as a `Seq` of rows its consumer runs, and acquire in `use` or `Bracket`, except in no-op match arms and smart enum items'

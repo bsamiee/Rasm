@@ -428,12 +428,9 @@ public static class Dispatch {
         };
 
     public static IO<Unit> FarmJob(QueueContext context, RhinoDoc doc, IO<Unit> close) =>
-        (from outcome in DisposalOps.Within(static () => unit, _ => Farmed(context, doc), _ => close.OnUiThread()).Try().Run().As().Uninterruptible()
-         from exited in IO.lift(() => Environment.Exit(outcome.Match(Succ: static _ => 0, Fail: static error => {
-             Console.Error.WriteLine(error);
-             return Queues.Stopping(error) ? 2 : 1;
-         }))).OnUiThread()
-         select exited).Fork().Map(unit);
+        (from code in Farmed(context, doc).Map(static _ => 0).Catch(error => IO.lift(() => context.Sink.Report(error, typeof(Dispatch), nameof(FarmJob))).Map(_ => Queues.Stopping(error) ? 2 : 1)).As()
+         from exited in close.OnUiThread().Finally(IO.lift(() => Environment.Exit(code)).OnUiThread())
+         select exited).Uninterruptible().Fork().Map(unit);
 
     private static IO<Unit> Farmed(QueueContext context, RhinoDoc doc) =>
         from path in IO.lift(() => Exchange.QualifiedPath(Path.ChangeExtension(doc.Path, PackageFile.Job.Extension))).OnUiThread()

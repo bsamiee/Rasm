@@ -34,59 +34,6 @@ type Hit = Capture &
 
 const WORD = /^(?!\d*[<>]|&>)./su;
 const STACK = /^(?:-|[+-]\d+)$/u;
-const VALUE = 'word, string, raw_string, concatenation, simple_expansion, expansion, command_substitution, number';
-const OWNER = {
-    owner: { any: [{ inside: { kind: 'command', pattern: '$BODY' } }, { inside: { kind: 'heredoc_redirect', inside: { kind: 'redirected_statement', matches: 'statement' } } }, { inside: { kind: 'redirected_statement', matches: 'statement' } }] },
-    statement: { has: { field: 'body', matches: 'last' } },
-    last: {
-        any: [
-            { kind: 'command', pattern: '$BODY' },
-            { kind: 'list, pipeline, negated_command', has: { matches: 'last', nthChild: { position: 1, reverse: true } } },
-        ],
-    },
-};
-const SCOPE = {
-    scope: { kind: 'program, subshell, command_substitution, process_substitution, pipeline' },
-    scoped: { any: [{ inside: { stopBy: { matches: 'scope' }, kind: 'program' } }, { inside: { stopBy: { matches: 'scope' }, matches: 'scope', not: { kind: 'program' }, pattern: '$SCOPE' } }] },
-};
-const SCAN = [
-    'scan',
-    '--stdin',
-    '--config',
-    '/dev/null',
-    '--json=compact',
-    '--inline-rules',
-    [
-        { id: 'command', utils: SCOPE, rule: { kind: 'command', any: [{ pattern: '$CMD $$$ARGS' }, { pattern: '$CMD' }], matches: 'scoped' } },
-        { id: 'operand', utils: OWNER, rule: { kind: VALUE, follows: { kind: VALUE }, inside: { kind: 'file_redirect', matches: 'owner' } } },
-        { id: 'heredoc', utils: OWNER, rule: { kind: 'heredoc_body', inside: { kind: 'heredoc_redirect', matches: 'owner' } } },
-        { id: 'herestring', utils: OWNER, rule: { kind: VALUE, inside: { kind: 'herestring_redirect', matches: 'owner' } } },
-        {
-            id: 'fed',
-            utils: {
-                input: { any: [{ kind: 'heredoc_redirect' }, { kind: 'herestring_redirect' }, { kind: 'file_redirect', regex: '^0?<' }] },
-                tail: { any: [{ inside: { kind: 'redirected_statement', field: 'body', has: { matches: 'input' } } }, { nthChild: { position: 1, reverse: true }, inside: { kind: 'list, pipeline, negated_command', matches: 'tail' } }] },
-                stage: { any: [{ matches: 'tail' }, { inside: { kind: 'pipeline' }, not: { nthChild: 1 } }, { inside: { kind: 'pipeline', inside: { kind: 'heredoc_redirect' } } }] },
-            },
-            rule: { kind: 'command', any: [{ has: { matches: 'input' } }, { matches: 'stage' }, { inside: { stopBy: 'end', not: { kind: 'list, pipeline, negated_command' }, matches: 'stage' } }] },
-        },
-        {
-            id: 'unbounded',
-            rule: {
-                inside: { kind: 'command' },
-                any: [
-                    { kind: 'simple_expansion, expansion, command_substitution, process_substitution, arithmetic_expansion' },
-                    { kind: 'string, concatenation', has: { stopBy: 'end', kind: 'simple_expansion, expansion, command_substitution, arithmetic_expansion' } },
-                    { kind: 'word', regex: String.raw`[*?\[{]` },
-                    { kind: 'concatenation', has: { kind: 'word', regex: String.raw`[*?\[{]` } },
-                    { kind: 'word, string, raw_string', regex: String.raw`^["']?(?:~[^/"']*|\.{1,2}|\*+|\.\*)?(?:/+(?:\.{1,2}|\*+|\.\*)?)*["']?$` },
-                ],
-            },
-        },
-    ]
-        .map((rule) => JSON.stringify({ language: 'bash', ...rule }))
-        .join('\n---\n'),
-] as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -161,7 +108,60 @@ const parse = async (system: System, command: string): Promise<Result<Script>> =
                 }));
             },
         );
-    return bind(await exited(['mise', 'which', 'ast-grep'], ''), (path) => scripted([path.trim(), ...SCAN], command, { cwd: placed(system.cwd, none, none), fed: false, nested: false }));
+    const value = 'word, string, raw_string, concatenation, simple_expansion, expansion, command_substitution, number';
+    const owner = {
+        owner: { any: [{ inside: { kind: 'command', pattern: '$BODY' } }, { inside: { kind: 'heredoc_redirect', inside: { kind: 'redirected_statement', matches: 'statement' } } }, { inside: { kind: 'redirected_statement', matches: 'statement' } }] },
+        statement: { has: { field: 'body', matches: 'last' } },
+        last: {
+            any: [
+                { kind: 'command', pattern: '$BODY' },
+                { kind: 'list, pipeline, negated_command', has: { matches: 'last', nthChild: { position: 1, reverse: true } } },
+            ],
+        },
+    };
+    const scope = {
+        scope: { kind: 'program, subshell, command_substitution, process_substitution, pipeline' },
+        scoped: { any: [{ inside: { stopBy: { matches: 'scope' }, kind: 'program' } }, { inside: { stopBy: { matches: 'scope' }, matches: 'scope', not: { kind: 'program' }, pattern: '$SCOPE' } }] },
+    };
+    const scanner = [
+        'scan',
+        '--stdin',
+        '--config',
+        '/dev/null',
+        '--json=compact',
+        '--inline-rules',
+        [
+            { id: 'command', utils: scope, rule: { kind: 'command', any: [{ pattern: '$CMD $$$ARGS' }, { pattern: '$CMD' }], matches: 'scoped' } },
+            { id: 'operand', utils: owner, rule: { kind: value, follows: { kind: value }, inside: { kind: 'file_redirect', matches: 'owner' } } },
+            { id: 'heredoc', utils: owner, rule: { kind: 'heredoc_body', inside: { kind: 'heredoc_redirect', matches: 'owner' } } },
+            { id: 'herestring', utils: owner, rule: { kind: value, inside: { kind: 'herestring_redirect', matches: 'owner' } } },
+            {
+                id: 'fed',
+                utils: {
+                    input: { any: [{ kind: 'heredoc_redirect' }, { kind: 'herestring_redirect' }, { kind: 'file_redirect', regex: '^0?<' }] },
+                    tail: { any: [{ inside: { kind: 'redirected_statement', field: 'body', has: { matches: 'input' } } }, { nthChild: { position: 1, reverse: true }, inside: { kind: 'list, pipeline, negated_command', matches: 'tail' } }] },
+                    stage: { any: [{ matches: 'tail' }, { inside: { kind: 'pipeline' }, not: { nthChild: 1 } }, { inside: { kind: 'pipeline', inside: { kind: 'heredoc_redirect' } } }] },
+                },
+                rule: { kind: 'command', any: [{ has: { matches: 'input' } }, { matches: 'stage' }, { inside: { stopBy: 'end', not: { kind: 'list, pipeline, negated_command' }, matches: 'stage' } }] },
+            },
+            {
+                id: 'unbounded',
+                rule: {
+                    inside: { kind: 'command' },
+                    any: [
+                        { kind: 'simple_expansion, expansion, command_substitution, process_substitution, arithmetic_expansion' },
+                        { kind: 'string, concatenation', has: { stopBy: 'end', kind: 'simple_expansion, expansion, command_substitution, arithmetic_expansion' } },
+                        { kind: 'word', regex: String.raw`[*?\[{]` },
+                        { kind: 'concatenation', has: { kind: 'word', regex: String.raw`[*?\[{]` } },
+                        { kind: 'word, string, raw_string', regex: String.raw`^["']?(?:~[^/"']*|\.{1,2}|\*+|\.\*)?(?:/+(?:\.{1,2}|\*+|\.\*)?)*["']?$` },
+                    ],
+                },
+            },
+        ]
+            .map((rule) => JSON.stringify({ language: 'bash', ...rule }))
+            .join('\n---\n'),
+    ] as const;
+    return bind(await exited(['mise', 'which', 'ast-grep'], ''), (path) => scripted([path.trim(), ...scanner], command, { cwd: placed(system.cwd, none, none), fed: false, nested: false }));
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

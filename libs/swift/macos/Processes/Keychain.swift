@@ -46,9 +46,8 @@ public enum Keychain {
         func quoted(_ value: String) -> String {
             "\"" + value.replacing("\\", with: "\\\\").replacing("\"", with: "\\\"") + "\""
         }
-        let interactiveLineLimit: Int = 4095
-        let line: String = "add-generic-password -U -a \(quoted(account)) -s \(quoted(service)) -X \(data.hexEncoded)"
-        return line.utf8.count > interactiveLineLimit ? .failure(.itemTooLarge) : await security(["-i"], within: timeout, input: .string(line + "\n")).map { _ in () }
+        let line: String = "add-generic-password -U -a \(quoted(account)) -s \(quoted(service)) -X \(data.hexEncoded)\n"
+        return line.utf8.count >= 4096 ? .failure(.itemTooLarge) : await security(["-i"], within: timeout, input: .string(line)).map { _ in () }
     }
 
     public static func deleteGenericPassword(service: String, account: String, within timeout: Duration) async -> Result<Void, KeychainFailure> {
@@ -60,7 +59,7 @@ public enum Keychain {
         within timeout: Duration,
         input: some InputProtocol = .none,
     ) async -> Result<ExecutionResult<Void, DiscardedOutput, StringOutput<UTF8>>?, KeychainFailure> {
-        func exitStatus(of status: OSStatus) -> Int32 { Int32(UInt8(truncatingIfNeeded: status)) }
+        func exitStatus(of status: OSStatus) -> Int32 { status & 0x00FF_FFFF }
         return await withTimeout(timeout) {
             await Result {
                 try await Subprocess.run(

@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-log-configuration-outside-composition-root
+language: python
+severity: error
+files:
+    - libs/python/**
+    - apps/blender/**
+rule:
+    kind: call
+    pattern: $CALL
+    has:
+        field: function
+        any:
+            - matches: {python-member-use: {module: {regex: '^structlog$'}, name: {regex: '^(configure|configure_once|reset_defaults)$'}}}
+            - matches: {python-member-use: {module: {regex: '^structlog\.stdlib$'}, name: {regex: '^recreate_defaults$'}}}
+            - kind: attribute
+              not: {matches: python-shadowed-name}
+              all:
+                - has: {field: attribute, regex: '^recreate_defaults$'}
+                - has: {field: object, matches: {python-submodule: {parent: {regex: '^structlog$'}, child: {regex: '^stdlib$'}}}}
+message: '`$CALL` configures process-wide logging outside the process composition root'
+note: 'Configure structlog once at the process composition root and log through `structlog.get_logger(__name__)`'

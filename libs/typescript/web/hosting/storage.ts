@@ -1,5 +1,5 @@
 import { DeleteObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { Cause, Clock, Context, Effect, flow, Layer, Option, Stream } from 'effect';
+import { Cause, Clock, Context, Effect, Layer, Option, Stream } from 'effect';
 import { HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { HttpApiError } from 'effect/http-api';
 import type { ObjectStore } from 'partial-content';
@@ -18,7 +18,7 @@ const createUpload = Effect.fn('createUpload')(function* (object: { readonly key
     const [{ uploads }, created] = yield* Effect.all([Storage, Clock.currentTimeMillis]);
     const { uploadToken } = yield* Effect.acquireRelease(
         Effect.tryPromise(() => uploads.createUpload({ key: object.key, length: object.size, now: created })),
-        (upload) => Effect.tryPromise(() => uploads.abortUpload(upload.uploadToken)).pipe(Effect.catch(Effect.logError)),
+        (upload) => Effect.tryPromise(() => uploads.abortUpload(upload.uploadToken)).pipe(Effect.ignore({ log: 'Error', message: 'upload abort failed' })),
     );
     return {
         uploadToken,
@@ -43,9 +43,13 @@ const releaseObject = Effect.fn('releaseObject')(function* (key: string, uploadT
     yield* remove(key);
 });
 const serveObject = Effect.fn('serveObject')(function* (object: { readonly key: string; readonly mime: string }) {
-    const [{ objects }, request] = yield* Effect.all([Storage, Effect.flatMap(HttpServerRequest.HttpServerRequest, HttpServerRequest.toWeb)]);
-    const onError = flow(Effect.logError, Effect.runSyncWith(yield* Effect.context()));
-    return HttpServerResponse.fromWeb(yield* Effect.promise(() => serve(objects, { disposition: 'inline', securityHeaders: () => ({ 'X-Content-Type-Options': 'nosniff' }), onError })(request, object)));
+    const [{ objects }, request, context] = yield* Effect.all([Storage, Effect.flatMap(HttpServerRequest.HttpServerRequest, HttpServerRequest.toWeb), Effect.context<never>()]);
+    const served = serve(objects, {
+        disposition: 'inline',
+        securityHeaders: () => ({ 'X-Content-Type-Options': 'nosniff' }),
+        onError: (error, { operation, key }) => Effect.logError('object serve failed', Cause.die(error)).pipe(Effect.annotateLogs({ operation, key }), Effect.runSyncWith(context)),
+    });
+    return HttpServerResponse.fromWeb(yield* Effect.promise(() => served(request, object)));
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

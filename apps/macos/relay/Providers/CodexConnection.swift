@@ -137,7 +137,7 @@ actor CodexConnection {
     // --- [TRANSPORT]
     func read() async {
         do {
-            for try await text: String in execution.standardOutput.strings() {
+            for try await text: String in execution.standardOutput.strings(separatedBy: .unicodeScalarSequence(["\n"]), bufferingPolicy: .unbounded) {
                 let line: Data = Data(text.utf8)
                 let decoded: Result<CodexProtocol.Message<CodexProtocol.Skip>, any Error> = Result { try Self.decoder.decode(CodexProtocol.Message<CodexProtocol.Skip>.self, from: line) }
                 switch decoded.map({ message in (message.id, message.method.value, message.error) }) {

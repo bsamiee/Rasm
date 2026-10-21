@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-rendered-log-error
+language: swiftlang
+severity: error
+utils:
+    rendering:
+        any:
+            - matches: swift-error-text
+            - kind: call_expression
+              all:
+                - has: {nthChild: 1, regex: '^String$'}
+                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: name, regex: '^(describing|reflecting)$'}}}}
+rule:
+    matches: swift-log-interpolation
+    has:
+        field: value
+        pattern: $RENDER
+        any:
+            - matches: rendering
+            - kind: 'line_string_literal, multi_line_string_literal, raw_string_literal'
+            - kind: simple_identifier
+              inside:
+                stopBy: end
+                follows:
+                    stopBy: end
+                    kind: property_declaration
+                    all:
+                        - has: {field: name, has: {field: bound_identifier, pattern: $RENDER}}
+                        - has: {field: value, matches: rendering}
+message: '`$RENDER` enters a log message as text rendered from a value'
+note: 'Interpolate the value itself with `privacy:`, `OSLogInterpolation` takes an `Error`, an `NSObject`, a metatype, or a `CustomStringConvertible` as it is'

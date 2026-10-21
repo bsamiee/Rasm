@@ -42,6 +42,7 @@ internal sealed class Analysis : CSharpCodeFixTest<EmptyDiagnosticAnalyzer, Empt
         TestState.AdditionalReferences.Add(typeof(UnionAttribute).Assembly);
         TestState.AdditionalReferences.Add(typeof(Rhino.RhinoDoc).Assembly);
         TestState.AdditionalReferences.Add(typeof(Eto.Forms.Application).Assembly);
+        TestState.AdditionalReferences.Add(typeof(ILogger).Assembly);
         TestState.AnalyzerConfigFiles.Add(("/.editorconfig", EditorConfig));
         ExpectedDiagnostics.AddRange(expected);
         CodeActionValidationMode = CodeActionValidationMode.Full;

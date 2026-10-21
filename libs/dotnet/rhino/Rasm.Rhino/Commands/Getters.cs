@@ -83,7 +83,7 @@ public abstract partial record PointHandler {
 public record GetterRequest<TGetter, T>(string Prompt, CallbackSite Site) where TGetter : GetBaseClass {
     public Accepts<T> Accept { get; init; } = new();
     public Seq<OptionSpec<T>> Options { get; init; }
-    public Func<TGetter, IO<Unit>> Configure { get; init; } = static _ => IO.pure(unit);
+    public Seq<Func<TGetter, IO<Unit>>> Configure { get; init; }
 }
 
 public sealed record PointRequest<T>(string Prompt, CallbackSite Site) : GetterRequest<GetPoint, T>(Prompt, Site) {
@@ -157,7 +157,7 @@ public static class Getters {
                  let accepted = Accepted(getter, request, doc)
                  let routes = own(getter) + accepted.Map(static route => (route.Result, route.Then))
                  from enabled in accepted.TraverseM(static route => route.Enable).As()
-                 from configured in request.Configure(getter)
+                 from configured in request.Configure.TraverseM(configure => configure(getter)).As()
                  from result in CommandOptions.Using(
                      getter, request.Site.Sink, request.Options,
                      chosen => Routed(routes.Add((GetResult.Option, chosen)), get(getter), request.Site.Member))

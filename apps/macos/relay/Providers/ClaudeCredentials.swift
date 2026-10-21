@@ -49,7 +49,8 @@ nonisolated struct ClaudeOAuthToken: Sendable {
     }
 
     static func make(_ document: JSONDocument<Attributes>) throws(ClaudeFailure) -> Self? {
-        guard let token: String = document.known.accessToken, !token.isEmpty, document.known.refreshToken?.isEmpty != true else { return nil }
+        guard let token: String = document.known.accessToken else { throw .invalidCredentials(nil) }
+        guard !token.isEmpty, document.known.refreshToken?.isEmpty != true else { return nil }
         guard let scopes: [String] = document.known.scopes, !scopes.contains(where: \.isEmpty) else { throw .invalidCredentials(nil) }
         return Self(document: document, accessToken: token, scopes: scopes)
     }
@@ -208,6 +209,11 @@ nonisolated struct ClaudeCredentialStore: Sendable {
             case (.some(let token), .some(let account)):
                 .credential(ClaudeCredential(token: token, account: account, identity: try account.known.identity(plan: token.document.known.subscriptionType)))
         }
+    }
+
+    func write(_ credential: ClaudeCredential, over item: JSONDocument<ClaudeCredentialItem>?) async throws(ClaudeFailure) {
+        try await writeOAuth(credential.token.document, over: item)
+        try await writeAccount(credential.account)
     }
 
     func readItem() async throws(ClaudeFailure) -> JSONDocument<ClaudeCredentialItem>? {

@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-log-subsystem-by-hand
+language: swiftlang
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - has: {nthChild: 1, pattern: $TYPE, regex: '^(os\.)?(Logger|OSLog|OSSignposter)(\.init)?$'}
+        - has:
+            kind: call_suffix
+            has:
+                kind: value_arguments
+                any:
+                    - not: {has: {kind: value_argument}}
+                    - has: {kind: value_argument, has: {field: name, regex: '^subsystem$'}}
+message: '`$TYPE` takes a subsystem the site spells or the default'
+note: 'Construct through `Logger(category:)`, which derives the subsystem from the hosting bundle once'

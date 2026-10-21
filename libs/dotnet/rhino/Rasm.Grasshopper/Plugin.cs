@@ -19,6 +19,7 @@ public sealed record GrasshopperPluginDefinition {
     public Option<(IGlyph Glyph, int Master)> Mark { get; init; }
     public Seq<Func<DefinedGrasshopperPlugin, IO<Unit>>> DataTypes { get; init; }
     public required TimeProvider Clock { get; init; }
+    public Seq<Action<ILoggingBuilder>> Logging { get; init; }
     public Seq<Func<DefinedGrasshopperPlugin, Action<IDisposable>, IO<Unit>>> Acquisitions { get; init; }
 }
 
@@ -40,7 +41,7 @@ public abstract class DefinedGrasshopperPlugin : Plugin, IPlugInLifetime {
     protected DefinedGrasshopperPlugin(GrasshopperPluginDefinition definition) {
         this.definition = definition;
         SettingsFile = SettingsFile.InDefaultFolder(Path.GetFileNameWithoutExtension(Location));
-        Session = new(IO.lift(() => Refused.Unless(SettingsFile.TrySaveSettingsToFile(), nameof(SettingsFile.TrySaveSettingsToFile))));
+        Session = new(IO.lift(() => Refused.Unless(SettingsFile.TrySaveSettingsToFile(), nameof(SettingsFile.TrySaveSettingsToFile))), definition.Logging);
     }
 
     public SettingsFile SettingsFile { get; }

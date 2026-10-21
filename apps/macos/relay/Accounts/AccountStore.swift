@@ -38,6 +38,7 @@ final class AccountStore {
     private(set) var codexPrecondition: CodexFailure?
     private var storageIssue: AccountStorageFailure?
     private var providerIssues: [Provider: ProviderError] = [:]
+    private var pendingSwitchIssue: ProviderError?
     private var isStopping: Bool = false
     private var occupiedStores: Set<CredentialStore> = []
 
@@ -63,13 +64,11 @@ final class AccountStore {
     func issue(at now: Date) -> String? {
         let messages: [String] =
             [storageIssue?.localizedDescription].compactMap(\.self)
-            + Provider.allCases.compactMap { provider in providerIssues[provider].map { error in UsagePresentation.issue(error, at: now) } }
+            + ([pendingSwitchIssue] + Provider.allCases.map { provider in providerIssues[provider] }).compactMap { error in error.map { error in UsagePresentation.issue(error, at: now) } }
         return messages.isEmpty ? nil : messages.joined(separator: "\n")
     }
 
     var canAddAccount: Bool { storageState == .available && !isStopping && authentication == nil }
-
-    private var records: [Account] { accounts.map(\.account) }
 
     private func model(_ id: UUID) -> AccountModel? {
         accounts.first { model in model.account.id == id }
@@ -131,6 +130,7 @@ final class AccountStore {
                 }
                 group.addTask(name: "Claude refresh lock") { await observeRefreshLock() }
                 group.addTask(name: "Codex selection") { await observe(file: self.codex.liveAuthFile, provider: .openAI) }
+                group.addTask(name: "Codex configuration") { await observe(file: self.codex.liveHome.appending(path: "config.toml"), provider: .openAI) }
                 group.addTask(name: "Codex rate limits") { await observeCodexUpdates() }
                 group.addTask(name: "Refresh schedule") { await schedule() }
             }
@@ -151,13 +151,13 @@ final class AccountStore {
                 switch claude.pendingSwitch() {
                     case .success(.some(let pending)):
                         await withStores(
-                            Set([pending.incoming, pending.outgoing].compactMap(\.self).map(CredentialStore.privateAccount)),
+                            Set(pending.copies.map(CredentialStore.privateAccount)),
                             owning: live,
                         ) { _ in
-                            if case .failure(let error) = await claude.completePendingSwitch(pending) { providerIssues[.claude] = error }
+                            if case .failure(let error) = await claude.completePendingSwitch(pending) { pendingSwitchIssue = error }
                         }
                     case .success(.none): break
-                    case .failure(let error): providerIssues[.claude] = error
+                    case .failure(let error): pendingSwitchIssue = error
                 }
             }
             guard !accounts.isEmpty else { return }
@@ -166,7 +166,7 @@ final class AccountStore {
             switch locations.orphanAccountDirectories(excluding: Set(accounts.map(\.account.id) + [authentication?.id].compactMap(\.self))) {
                 case .success(let found): orphans = found
                 case .failure(let error):
-                    logger.error("Accounts directory listing: \(String(describing: error), privacy: .public)")
+                    logger.error("Accounts directory listing: \(error, privacy: .public)")
                     orphans = []
             }
             await withDiscardingTaskGroup { group in
@@ -174,7 +174,7 @@ final class AccountStore {
                     group.addTask(name: "\(provider.name) orphan deletion") { [client = client(for: provider), logger] in
                         if case .failure(let error) = await client.deletePrivateStore(id: id) {
                             logger.error(
-                                "\(provider.name, privacy: .public) orphan \(id.uuidString, privacy: .public) deletion: \(String(describing: error.failure), privacy: .public)"
+                                "\(provider.name, privacy: .public) orphan \(id.uuidString, privacy: .public) deletion: \(error.failure, privacy: .public)"
                             )
                         }
                     }
@@ -199,7 +199,7 @@ final class AccountStore {
                 }
             } catch {
                 logger.error(
-                    "Watch on \(file.path(percentEncoded: false), privacy: .private): \(String(describing: error), privacy: .public)"
+                    "Watch on \(file.path(percentEncoded: false), privacy: .private): \(error, privacy: .public)"
                 )
             }
         }
@@ -231,7 +231,7 @@ final class AccountStore {
                 }
             } catch {
                 logger.error(
-                    "Watch on \(lock.path(percentEncoded: false), privacy: .private): \(String(describing: error), privacy: .public)"
+                    "Watch on \(lock.path(percentEncoded: false), privacy: .private): \(error, privacy: .public)"
                 )
             }
         }
@@ -284,13 +284,14 @@ final class AccountStore {
         authenticationTask?.cancel()
         refreshPause?.cancel()
         for model: AccountModel in accounts { model.running?.task.cancel() }
-        _ = await withTimeout(.seconds(5)) { @MainActor [self] in
+        let stopped: Result<Void, ProcessFailure> = await withTimeout(.seconds(5)) { @MainActor [self] in
             await root?.value
             await authenticationTask?.value
             for model: AccountModel in accounts { await model.running?.task.value }
             await codex.shutdown()
-            return Result<Void, ProcessFailure>.success(())
+            return .success(())
         }
+        if case .failure(let error) = stopped { logger.error("Stopping account work: \(error, privacy: .public)") }
         await save()
     }
 
@@ -309,7 +310,7 @@ final class AccountStore {
             case .failure(let error):
                 storageState = .unavailable
                 storageIssue = error
-                logger.error("accounts.json load: \(String(describing: error), privacy: .public)")
+                logger.error("accounts.json load: \(error, privacy: .public)")
         }
     }
 
@@ -363,9 +364,9 @@ final class AccountStore {
 
     private func readSelection(_ provider: Provider, owning: Set<CredentialStore> = []) async {
         await withStores([.live(provider)], owning: owning) { live in
-            let outgoing: UUID? = provider == .claude ? await claude.selectionDestination(known: records) : nil
-            await withStores(Set([outgoing.map(CredentialStore.privateAccount)].compactMap(\.self)), owning: live) { stores in
-                switch await client(for: provider).currentSelection(known: records) {
+            let selected: Account? = accounts.first { model in model.account.provider == provider && model.isSelected }?.account
+            await withStores(Set([selected.map { account in CredentialStore.privateAccount(account.id) }].compactMap(\.self)), owning: live) { stores in
+                switch await client(for: provider).currentSelection(selected: selected) {
                     case .success(let identity):
                         await withStores(
                             Set(
@@ -378,7 +379,10 @@ final class AccountStore {
                         ) { _ in
                             if let identity { register(identity) } else { apply(selected: nil, provider: provider) }
                         }
-                    case .failure(let error): report(error, provider: provider)
+                    case .failure(let error) where error.failure.isCancellation: break
+                    case .failure(let error):
+                        providerIssues[provider] = error
+                        logger.error("\(provider.name, privacy: .public) selection read failed: \(error, privacy: .public)")
                 }
             }
         }
@@ -629,12 +633,10 @@ final class AccountStore {
 
     private func deletePrivateStore(_ id: UUID, provider: Provider, owning: Set<CredentialStore>) async {
         await withStores([.privateAccount(id)], owning: owning) { _ in
-            let result: Result<Void, ProviderError> = await client(for: provider).deletePrivateStore(id: id)
-            removeAccountDirectory(id)
-            switch result {
-                case .success: providerIssues[provider] = nil
-                case .failure(let error): report(error, provider: provider)
+            if case .failure(let error) = await client(for: provider).deletePrivateStore(id: id) {
+                logger.error("\(provider.name, privacy: .public) private store \(id.uuidString, privacy: .public) deletion: \(error, privacy: .public)")
             }
+            removeAccountDirectory(id)
         }
     }
 
@@ -713,7 +715,7 @@ final class AccountStore {
     private func record(_ error: ProviderError, for model: AccountModel, owning: Set<CredentialStore>) async {
         guard !error.failure.isCancellation else { return }
         logger.error(
-            "\(model.running?.kind.description ?? "Account operation", privacy: .public) failed for \(model.account.id.uuidString, privacy: .public) \(model.account.identity.email, privacy: .private): \(String(describing: error), privacy: .public)"
+            "\(Task.name ?? "Account operation", privacy: .public) failed for \(model.account.id.uuidString, privacy: .public) \(model.account.identity.email, privacy: .private): \(error, privacy: .public)"
         )
         model.issue = error
         if let retryAfter: Date = error.failure.retryAfter {
@@ -725,12 +727,6 @@ final class AccountStore {
         model.authentication = .signInRequired
         saves.continuation.yield()
         if owning.contains(.live(model.account.provider)) { await readSelection(model.account.provider, owning: owning) }
-    }
-
-    private func report(_ error: ProviderError, provider: Provider) {
-        guard !error.failure.isCancellation else { return }
-        providerIssues[provider] = error
-        logger.error("\(provider.name, privacy: .public) provider operation failed: \(String(describing: error), privacy: .public)")
     }
 
     // --- [PERSISTENCE]
@@ -748,13 +744,13 @@ final class AccountStore {
             case .success: storageIssue = nil
             case .failure(let error):
                 storageIssue = error
-                logger.error("accounts.json save: \(String(describing: error), privacy: .public)")
+                logger.error("accounts.json save: \(error, privacy: .public)")
         }
     }
 
     private func removeAccountDirectory(_ id: UUID) {
         if case .failure(let error) = ifPresent({ try FileManager.default.removeItem(at: locations.accountDirectory(id)) }) {
-            logger.error("Account directory \(id.uuidString, privacy: .public) removal: \(String(describing: error), privacy: .public)")
+            logger.error("Account directory \(id.uuidString, privacy: .public) removal: \(error, privacy: .public)")
         }
     }
 }

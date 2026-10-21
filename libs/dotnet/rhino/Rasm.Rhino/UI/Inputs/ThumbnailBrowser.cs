@@ -585,7 +585,7 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
         select unit;
 
     private IO<Unit> Reported(IO<Unit> work) =>
-        work | @catch(static error => error != Errors.Cancelled, error => IO.lift(() => Sink.Report(error, typeof(ThumbnailBrowser<TItem, TKey>), nameof(Reconcile))));
+        work | @catch(static error => !ErrorOps.Cancellation(error), error => IO.lift(() => Sink.Report(error, typeof(ThumbnailBrowser<TItem, TKey>), nameof(Reconcile))));
 
     private static int Revealed(Rectangle shown, RectangleF cell) =>
         cell.Top < shown.Top ? (int)MathF.Floor(cell.Top)

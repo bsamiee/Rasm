@@ -285,7 +285,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
             from forked in DisposalOps.Fork(
                 IO.liftVAsync(environment => new ValueTask<Unit>(ready.Task.WaitAsync(environment.Token)))
                     .Bind(_ => Answered(plan)).Catch(
-                        static error => error != Errors.Cancelled,
+                        static error => !ErrorOps.Cancellation(error),
                         error => IO.lift(() => Sink.Report(error, typeof(ScopeView), nameof(ScopePlan.Read)))), acquired)
             select ready,
             (ready, lease) => {

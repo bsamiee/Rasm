@@ -2,7 +2,7 @@ import Foundation
 public import System
 public import os
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
 extension Logger {
     public init(category: String) {
@@ -10,10 +10,15 @@ extension Logger {
     }
 }
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
 public func disclaimResponsibility() throws(Errno) {
     func check(_ status: Int32) throws(Errno) { if status != 0 { throw Errno(rawValue: status) } }
     guard responsiblePID(getpid()) != getpid() else { return }
-    guard let executable: String = Bundle.main.executablePath else { throw Errno.noSuchFileOrDirectory }
+    var size: UInt32 = 0
+    _ = unsafe _NSGetExecutablePath(nil, &size)
+    var executable: [CChar] = Array(repeating: 0, count: Int(size))
+    try check(unsafe _NSGetExecutablePath(&executable, &size))
     var attributes: posix_spawnattr_t?
     try check(unsafe posix_spawnattr_init(&attributes))
     defer { _ = unsafe posix_spawnattr_destroy(&attributes) }

@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-field-in-log-message
+language: tsx
+severity: error
+rule:
+    kind: object, array
+    pattern: $FIELDS
+    inside:
+        kind: arguments
+        inside:
+            kind: call_expression
+            has: {field: function, pattern: $LOG, matches: {effect-module-member: {module: {regex: '\bEffect$'}, member: {regex: '^(log|logTrace|logDebug|logInfo|logWarning|logError|logFatal)$'}}}}
+message: '`$LOG` carries structured data in its message'
+note: 'Attach fields through `Effect.annotateLogs(<effect>, <fields>)`, a message holds text and a `Cause` alone'
+labels: {FIELDS: {style: primary}}

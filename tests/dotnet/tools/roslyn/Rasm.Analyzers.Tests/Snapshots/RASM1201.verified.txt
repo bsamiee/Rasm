@@ -1,0 +1,3 @@
+#0 `LoggerMessage.Define` defines a log message by hand
+#1 `LoggerMessage.Define` defines a log message by hand
+#2 `LoggerMessage.Define` defines a log message by hand

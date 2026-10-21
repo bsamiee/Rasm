@@ -9,7 +9,7 @@ export default defineConfig({
         compatibilityDate: '2026-10-01',
         entrypoint: './worker/index.ts',
         assets: { runWorkerFirst: ['/', '/api/*'] },
-        observability: { enabled: true },
+        observability: { enabled: true, traces: { enabled: true } },
         env: {
             ASSETS: bindings.assets(),
             DB: bindings.d1(),

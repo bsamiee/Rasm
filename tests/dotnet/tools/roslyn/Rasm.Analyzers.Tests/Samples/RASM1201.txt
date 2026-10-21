@@ -1,0 +1,20 @@
+using System;
+using Microsoft.Extensions.Logging;
+
+internal static class Logs {
+    private static readonly Action<ILogger, string, Exception?> Started = LoggerMessage.{|#0:Define<string>(LogLevel.Information, new EventId(1, nameof(Started)), "{Name} started")|};
+
+    private static readonly Func<ILogger, string, IDisposable?> Scoped = LoggerMessage.DefineScope<string>("{Name}");
+
+    private static readonly Func<int, Action<ILogger, int, Exception?>> Counted = static id => LoggerMessage.{|#1:Define<int>(LogLevel.Information, new EventId(id, nameof(Counted)), "{Count} counted")|};
+
+    internal static void Finish(ILogger logger) {
+        Finished()(logger, null);
+        static Action<ILogger, Exception?> Finished() => LoggerMessage.{|#2:Define(LogLevel.Information, new EventId(4, nameof(Finished)), "finished")|};
+    }
+}
+
+[System.CodeDom.Compiler.GeneratedCode("Microsoft.Extensions.Logging.Generators", "10.0.0")]
+internal static class Generated {
+    private static readonly Action<ILogger, string, Exception?> Stopped = LoggerMessage.Define<string>(LogLevel.Information, new EventId(2, nameof(Stopped)), "{Name} stopped");
+}

@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-unmarked-log-interpolation
+language: swiftlang
+severity: error
+rule:
+    pattern: $VALUE
+    matches: swift-log-interpolation
+    not:
+        precedes:
+            stopBy: {any: [{kind: 'line_str_text, multi_line_str_text'}, {kind: interpolated_expression, not: {has: {kind: value_argument_label}}}]}
+            kind: interpolated_expression
+            all:
+                - has: {field: name, regex: '^privacy$'}
+                - has: {field: value, regex: '^((os\.)?OSLogPrivacy)?\.(public|private|sensitive)\b'}
+message: '`$VALUE` enters a log message with no `privacy:` mark or `.auto`'
+note: 'Mark each interpolation `privacy: .public`, `.private`, or `.sensitive`, the system redacts an unmarked or `.auto` string or object'

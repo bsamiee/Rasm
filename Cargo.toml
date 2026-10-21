@@ -260,15 +260,17 @@ pprof                              = { version = "0.15.0", features = ["flamegra
 pyroscope                          = { version = "2.1.2", features = ["backend-pprof-rs"] }             # Continuous profiles pushed to Pyroscope
 sysinfo                            = "0.39.6"                                                           # Process and host resource readings
 tokio-metrics                      = "0.5.2"                                                            # Runtime and task metrics on stable tokio
+log                                = "0.4.34"                                                           # Logger registration failure `LogTracer::init` returns
 tracing                            = "0.1.44"                                                           # Spans and events emitted at service boundaries
+tracing-log                        = "0.2.0"                                                            # `log` records forwarded into tracing at every level so the reloadable filter decides each
 opentelemetry-http                 = "0.33.1"                                                           # W3C trace context injected into and extracted from HTTP headers
 opentelemetry_sdk                  = "0.33.1"                                                           # Tracer, meter, and logger providers with processors and samplers
 tracing-subscriber                 = { version = "0.3.23", features = ["env-filter"] }                  # Subscriber registry and directive filters under the JSON layer
 json-subscriber                    = { version = "0.3.1", features = ["tracing-opentelemetry-0-34"] }   # JSON lines with flattened span fields, static service fields, and the request trace and span ids
-opentelemetry-appender-tracing     = "0.33.1"                                                           # Tracing events exported as log records
-opentelemetry-otlp                 = { version = "0.33.1", features = ["reqwest-rustls"] }              # OTLP export over HTTP and rustls HTTPS
+opentelemetry-appender-tracing     = { version = "0.33.1", features = ["experimental_span_attributes"] } # Tracing events exported as log records carrying their enclosing span fields
+opentelemetry-otlp                 = { version = "0.33.1", features = ["reqwest-rustls", "gzip-http"] }  # OTLP over HTTP/protobuf and rustls HTTPS, gzip bodies when OTEL_EXPORTER_OTLP_COMPRESSION names gzip
 opentelemetry-proto                = "0.33.1"                                                           # OTLP messages decoded from the OTLP JSON encoding
-opentelemetry-resource-detectors   = "0.13.0"                                                           # Host, OS, and process resource attributes
+opentelemetry-resource-detectors   = "0.13.0"                                                           # Host, OS, process, container, and service instance resource attributes
 tracing-appender                   = "0.2.5"                                                            # Rolling and non-blocking file writers
 tracing-opentelemetry              = "0.34.0"                                                           # Tracing spans exported as OpenTelemetry spans and metrics
 
@@ -571,7 +573,8 @@ proptest-state-machine = "0.9.0"                                                
 testcontainers-modules = { version = "0.15.0", default-features = false, features = ["aws-lc-rs", "localstack", "minio", "kafka", "nats", "rabbitmq", "mosquitto", "hashicorp_vault", "postgres", "redis"] } # Prebuilt service definitions that integration tests start, default `ring` adds ring beside aws-lc-rs
 
 # --- [MEMBERS]
-rasm-mcp = { path = "libs/rust/mcp", version = "1.0.0" } # MCP server foundation over Streamable HTTP every Rasm MCP product and the bridge serve through
+rasm-mcp       = { path = "libs/rust/mcp", version = "1.0.0" }       # MCP server foundation over Streamable HTTP every Rasm MCP product and the bridge serve through
+rasm-telemetry = { path = "libs/rust/telemetry", version = "1.0.0" } # Subscriber, per-signal OTLP exporters, resource, and panic hook every Rasm executable runs its entry under
 
 # --- [LINTS] ----------------------------------------------------------------------------
 

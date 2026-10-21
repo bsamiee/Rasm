@@ -59,9 +59,10 @@ public static class Callbacks {
         effect.Iter(run => Run(run, site));
 
     public static void Started<T>(IO<T> effect, CallbackSite site) =>
-        Pending.Add(Threading.Factory.RunAsync(() => effect.Map(unit)
-            .IfFail(error => IO.lift(() => site.Sink.Report(error, site.Owner, site.Member)))
-            .RunAsync(CancellationToken.None).AsTask()));
+        Started(effect.Map(unit).IfFail(error => IO.lift(() => site.Sink.Report(error, site.Owner, site.Member))));
+
+    internal static void Started(IO<Unit> effect) =>
+        Pending.Add(Threading.Factory.RunAsync(() => effect.RunAsync(CancellationToken.None).AsTask()));
 
     public static EventHandler<TArgs> Handler<TArgs>(Func<TArgs, IO<Unit>> deliver, CallbackSite site) =>
         (_, args) => Started(IO.pure(args).Bind(deliver), site);

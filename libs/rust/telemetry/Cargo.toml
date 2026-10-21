@@ -1,0 +1,51 @@
+# --- [PACKAGE] --------------------------------------------------------------------------
+
+[package]
+name                 = "rasm-telemetry"
+version.workspace    = true
+categories           = ["development-tools::debugging"]
+edition.workspace    = true
+keywords             = ["tracing", "opentelemetry", "otlp", "logging"]
+license.workspace    = true
+repository.workspace = true
+description          = "Process telemetry: JSON log lines on a writer, OTLP export of traces, metrics, and logs per signal, propagators, and the panic hook"
+
+# --- [TARGETS] --------------------------------------------------------------------------
+
+# --- [LIB]
+[lib]
+path    = "lib.rs"
+test    = false
+doctest = false
+bench   = false
+
+# --- [TEST]
+[[test]]
+name = "run"
+path = "../../../tests/rust/libs/telemetry/run.rs"
+
+# --- [LINTS] ----------------------------------------------------------------------------
+
+[lints]
+workspace = true
+
+# --- [DEPENDENCIES] ---------------------------------------------------------------------
+
+[dependencies]
+nonempty-collections               = { workspace = true }
+thiserror                          = { workspace = true }
+validated                          = { workspace = true }
+derive_more                        = { workspace = true }
+opentelemetry                      = { workspace = true }
+opentelemetry-semantic-conventions = { workspace = true }
+log                                = { workspace = true }
+tracing                            = { workspace = true }
+tracing-log                        = { workspace = true }
+opentelemetry_sdk                  = { workspace = true }
+tracing-subscriber                 = { workspace = true }
+json-subscriber                    = { workspace = true }
+opentelemetry-appender-tracing     = { workspace = true }
+opentelemetry-otlp                 = { workspace = true }
+opentelemetry-resource-detectors   = { workspace = true }
+tracing-opentelemetry              = { workspace = true }
+clap                               = { workspace = true }

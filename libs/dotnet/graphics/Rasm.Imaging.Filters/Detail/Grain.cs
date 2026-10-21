@@ -44,13 +44,13 @@ public sealed record FilmGrain(
         double highlightScale = width > 0d ? width : double.Max(start, span);
         (double X, double Y, double Z) luminance = context.Working.Luminance;
         return Try.lift(() => {
-            Fin<(Action<Span<Vector4>, long, long> Draw, Func<Mat, Fin<Unit>> Shape)> draws = state.Scan.Match(
-                Some: scan => context.Derivations.Derived((scan, state.ScanSpan, context.Extent), Scores).Map(tile => (Tiled(tile, field), (Func<Mat, Fin<Unit>>)(static _ => unit))),
-                None: () => ((row, column, line) => { for (int x = 0; x < row.Length; x++) row[x] = CoordinateHash.Normals(column + x, line, field); }, header => Normalized(header, sigma)));
+            Fin<(Action<Span<Vector4>, long, long> Draw, Option<Func<Mat, Fin<Unit>>> Shape)> draws = state.Scan.Match(
+                Some: scan => context.Derivations.Derived((scan, state.ScanSpan, context.Extent), Scores).Map(tile => (Tiled(tile, field), Option<Func<Mat, Fin<Unit>>>.None)),
+                None: () => ((row, column, line) => { for (int x = 0; x < row.Length; x++) row[x] = CoordinateHash.Normals(column + x, line, field); }, Some((Mat header) => Normalized(header, sigma))));
             return from noise in draws
                    let plane = new PixelFrame(frame.Origin, frame.Size, frame.Extent)
                    from drawn in new PixelPass.Pointwise(noise.Draw).Run(plane, new Progress<int>())
-                   from normalized in plane.Filter(noise.Shape)
+                   from normalized in noise.Shape.Traverse(plane.Filter).As()
                    from applied in new PixelPass.Pointwise((row, _, line) => {
                        ReadOnlySpan<Vector4> draws = plane.Row(line);
                        for (int x = 0; x < row.Length; x++) {

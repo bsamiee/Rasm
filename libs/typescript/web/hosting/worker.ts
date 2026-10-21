@@ -1,5 +1,5 @@
-import { Effect, Function, Match, Option, Schema } from 'effect';
-import { Headers, HttpServerRequest } from 'effect/http';
+import { Context, Effect, Function, Layer, Logger, Match, Option, Schema } from 'effect';
+import { Headers, HttpRouter, HttpServerRequest } from 'effect/http';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { contract } from './sites.ts';
 
@@ -16,8 +16,8 @@ const Identity = Schema.Struct({ sub: Schema.String, email: Schema.String });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const worker = <Env extends object>(handler: (env: Env) => (request: Request) => Promise<Response>) => {
-    const serve = Function.memoize(handler);
+const worker = <Env extends object, A, E>(routes: (env: Env) => Layer.Layer<A, E, HttpRouter.HttpRouter | HttpRouter.Request<'Error', unknown> | HttpRouter.Request<'GlobalError', unknown> | HttpRouter.Request<'Requires', A> | HttpRouter.Request<'GlobalRequires', A>>) => {
+    const serve = Function.memoize((env: Env) => HttpRouter.toWebHandler(Layer.provideMerge(routes(env), Logger.layer([Logger.withLeveledConsole(Logger.formatStructured)])), { disableLogger: true }).handler);
     const keys = Function.memoize(({ team }: Access) => createRemoteJWKSet(new URL('/cdn-cgi/access/certs', team)));
     const admit = Effect.fn('admit')(function* (request: Request, access: Access) {
         const identity = yield* Effect.fromNullishOr(HttpServerRequest.fromWeb(request).cookies.CF_Authorization).pipe(
@@ -33,7 +33,7 @@ const worker = <Env extends object>(handler: (env: Env) => (request: Request) =>
             const { ACCESS: access } = env;
             const url = new URL(request.url);
             const target = new URL(url.searchParams.get(contract.returnTo) ?? '/', url.origin);
-            const forward = (admitted: Request) => Effect.promise(() => serve(env)(admitted));
+            const forward = (admitted: Request) => Effect.promise(() => serve(env)(admitted, Context.empty()));
             const response = yield* access === undefined
                 ? forward(request)
                 : Match.value(url.pathname).pipe(

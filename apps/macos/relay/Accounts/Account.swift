@@ -83,7 +83,7 @@ nonisolated extension ProviderFailure {
 }
 
 nonisolated protocol ProviderClient: Actor {
-    func currentSelection(known: [Account]) async -> Result<AccountIdentity?, ProviderError>
+    func currentSelection(selected: Account?) async -> Result<AccountIdentity?, ProviderError>
     func holdsCredential(for account: Account) async -> Result<Bool, ProviderError>
     func select(_ account: Account, outgoing: Account?) async -> Result<AccountIdentity, ProviderError>
     func signIn(_ target: SignInTarget, codes: AsyncStream<String>) async -> Result<AccountIdentity, ProviderError>

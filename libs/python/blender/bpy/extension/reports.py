@@ -3,13 +3,13 @@
 from collections.abc import Callable, Generator
 from contextlib import contextmanager, ExitStack
 import functools
-import logging
 from threading import RLock
 from typing import Self, TYPE_CHECKING
 
 import bpy
 from expression import identity, Nothing, Ok, Option
 import msgspec
+from structlog.typing import FilteringBoundLogger
 
 from blender.bpy.faults import (
     BlenderAbsentFault,
@@ -75,11 +75,11 @@ class Reports:
 
     # --- [LIFECYCLE]
 
-    def __init__(self, logger: logging.Logger) -> None:
+    def __init__(self, logger: FilteringBoundLogger) -> None:
         """Initializes empty reports and pending writes.
 
         Args:
-            logger: Extension logger receiving every held report entry.
+            logger: Extension logger receiving every held report entry with its native report type.
         """
         self.logger = logger
         self.held: dict[tuple[rna_enums.WmReportItems, str], None] = {}
@@ -115,8 +115,8 @@ class Reports:
         with self.lock:
             fresh = tuple(entry for entry in dict.fromkeys(rendered(faults)) if entry not in self.held)
             self.held.update(dict.fromkeys(fresh))
-        for _, text in fresh:
-            self.logger.error(text)
+        for kind, text in fresh:
+            self.logger.error(text, report=kind)
         if fresh:
             self.redraw()
 

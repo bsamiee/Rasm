@@ -48,10 +48,7 @@ extension NSRunningApplication {
             let chosen: Result<(SCContentFilter, [SCWindow]), ScreenshotFailure> =
                 switch window {
                     case .some(let id):
-                        owned.first { window in window.windowID == id }.map { window in
-                            _ = CGWindowListCopyWindowInfo(.optionIncludingWindow, window.windowID)
-                            return .success((SCContentFilter(desktopIndependentWindow: window), [window]))
-                        } ?? .failure(.absent(id))
+                        owned.first { window in window.windowID == id }.map { window in .success((SCContentFilter(desktopIndependentWindow: window), [window])) } ?? .failure(.absent(id))
                     case .none:
                         content.displays.filter { display in covered(display) > 0 }.max { left, right in covered(left) < covered(right) }.map { display in
                             let shown: [SCWindow] = owned.filter { window in display.frame.intersects(window.frame) }

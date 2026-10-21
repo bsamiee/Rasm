@@ -1,4 +1,6 @@
 using System.Globalization;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Rhino;
 using Rhino.PlugIns;
 using Rhino.Runtime;
@@ -11,6 +13,30 @@ public interface IPlugInSink {
     public void Report(Error error, Type owner, string member);
 
     public static IPlugInSink Of(object constructed) => constructed as IPlugInSink ?? (IPlugInSink)PlugIn.Find(constructed.GetType().Assembly);
+}
+
+// --- [SERVICES] ------------------------------------------------------------------------
+[ProviderAlias("CommandWindow")]
+public sealed class CommandWindowLoggerProvider : ILoggerProvider {
+    public ILogger CreateLogger(string categoryName) => new CommandWindowLogger(categoryName);
+
+    public void Dispose() => Callbacks.Settled(Callbacks.Drained, CancellationToken.None).IfFail(static fault => HostUtils.ExceptionReport(nameof(CommandWindowLoggerProvider), fault.ToException()));
+}
+
+internal sealed class CommandWindowLogger(string category) : ILogger {
+    public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+    public bool IsEnabled(LogLevel logLevel) => logLevel is not LogLevel.None;
+
+    public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter) {
+        if (!IsEnabled(logLevel)) return;
+        Callbacks.Started(
+            (from written in IO.lift(() => RhinoApp.WriteLine($"{category}: {formatter(state, exception)}"))
+             from reported in IO.lift(() => Optional(exception).Iter(held => HostUtils.ExceptionReport(category, held)))
+             select unit)
+            .Catch(fault => IO.lift(() => HostUtils.ExceptionReport(category, fault.ToException()))).As()
+            .OnUiThread());
+    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -26,16 +52,31 @@ public static class RowText {
     }
 }
 
-public static class ErrorOps {
+public static partial class ErrorOps {
     public static string Localize(Error error) => string.Join(Environment.NewLine, Causes(error).Map(static cause => cause.Message));
 
-    public static IO<Unit> Report(Error error, Type owner, string member) =>
-        (from causes in IO.lift(() => Causes(error))
-         from _ in IO.lift(() => causes.Iter(cause => RhinoApp.WriteLine($"{owner.Name}.{member}: {cause.Message}")))
-         from __ in IO.lift(() => causes.Choose(static cause => cause.Exception).Iter(exception => HostUtils.ExceptionReport($"{owner.FullName}.{member}", exception)))
-         select unit)
-        .Catch(fault => IO.lift(() => HostUtils.ExceptionReport($"{owner.FullName}.{member}", fault.ToException()))).As();
+    public static bool Cancellation(Error error) => error.Count is 1 && error.Is(Errors.Cancelled);
+
+    public static void Log(ILogger logger, Error error, string member) {
+        if (Cancellation(error)) Cancelled(logger, member);
+        else if (logger.IsEnabled(LogLevel.Error)) Failed(logger, member, Localize(error), Causes(error).Choose(static cause => cause.Exception) switch { [] => null, [var single] => single, var many => new AggregateException(many) });
+    }
+
+    [LoggerMessage(Level = LogLevel.Error, Message = "{Member} failed: {Message}", SkipEnabledCheck = true)]
+    private static partial void Failed(ILogger logger, string member, string message, Exception? exception);
+
+    [LoggerMessage(Level = LogLevel.Debug, Message = "{Member} cancelled")]
+    private static partial void Cancelled(ILogger logger, string member);
 
     private static Seq<Error> Causes(Error error) =>
         error.FoldM(static leaf => leaf.Cons(leaf.Inner.ToSeq().Bind(Causes))).As();
+}
+
+public static class CommandWindowLogging {
+    extension(ILoggingBuilder builder) {
+        public ILoggingBuilder AddCommandWindow() {
+            builder.Services.TryAddEnumerable(ServiceDescriptor.Singleton<ILoggerProvider, CommandWindowLoggerProvider>());
+            return builder;
+        }
+    }
 }

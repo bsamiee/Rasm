@@ -254,6 +254,10 @@ dotnet_diagnostic.RMG089.severity = error                                     # 
 dotnet_diagnostic.RMG090.severity = error                                     # Nullable source type to non-nullable target type
 dotnet_diagnostic.RMG096.severity = error                                     # Hidden by default: ignored member without a Justification
 
+# --- [LOGGING_ANALYZERS] ----------------------------------------------------------------
+dotnet_diagnostic.SYSLIB1006.severity = error                                 # Info by default: one event id per [LoggerMessage] method in a class
+dotnet_diagnostic.SYSLIB1027.severity = error                                 # Info by default: no field shadowing a primary-constructor ILogger
+
 # --- [MESSAGEPACK_ANALYZERS] ------------------------------------------------------------
 dotnet_diagnostic.MsgPack001.severity = error                                 # Disabled by default: explicit options, defaults read a mutable static
 dotnet_diagnostic.MsgPack002.severity = error                                 # Disabled by default: constant serializer options over a mutable static

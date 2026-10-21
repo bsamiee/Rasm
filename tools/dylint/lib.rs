@@ -19,7 +19,7 @@ use clippy_utils::{
     fn_def_id, get_expr_use_site, get_parent_expr, is_from_proc_macro,
     macros::macro_backtrace,
     paths::{PathNS, lookup_path_str},
-    peel_blocks,
+    peel_blocks, peel_hir_expr_refs,
     res::{MaybeDef as _, MaybeResPath as _},
     sym,
     ty::{implements_trait, is_copy},
@@ -99,6 +99,46 @@ impl Access<'_> {
 enum Upcast {
     Supertrait(DefId),
     Any,
+}
+
+// --- [SERVICES] ------------------------------------------------------------------------
+
+struct Recorded {
+    value: Option<DefId>,
+    record: Option<DefId>,
+    wrappers: FxHashSet<DefId>,
+}
+
+impl Recorded {
+    fn new(tcx: TyCtxt<'_>) -> Self {
+        Self {
+            value: path(tcx, PathNS::Type, "tracing_core::field::Value"),
+            record: path(tcx, PathNS::Value, "tracing::span::Span::record"),
+            wrappers: paths(tcx, PathNS::Value, &["tracing_core::field::display", "tracing_core::field::debug"]),
+        }
+    }
+
+    fn field<'tcx>(&self, cx: &LateContext<'tcx>, expr: &'tcx Expr<'tcx>) -> Option<(&'tcx Expr<'tcx>, Span)> {
+        let typeck = cx.typeck_results();
+        let recorded = match expr.kind {
+            ExprKind::Cast(recorded, _)
+                if let ty::Ref(_, object, _) = typeck.expr_ty(expr).kind()
+                    && let ty::Dynamic(predicates, ..) = object.kind()
+                    && predicates.principal_def_id().is_some_and(|principal| Some(principal) == self.value) =>
+                Some(recorded),
+            ExprKind::MethodCall(_, _, [_, recorded], _) if typeck.type_dependent_def_id(expr.hir_id).is_some_and(|method| Some(method) == self.record) => Some(recorded),
+            _ => None,
+        }?;
+        let call = expr.span.source_callsite();
+        (!call.from_expansion() && !macro_backtrace(expr.span).any(|call| matches!(call.kind, MacroKind::Attr | MacroKind::Derive))).then(|| {
+            let value = peel_hir_expr_refs(recorded).0;
+            let shown = match value.kind {
+                ExprKind::Call(_, [shown]) if fn_def_id(cx, value).is_some_and(|wrapper| self.wrappers.contains(&wrapper)) => peel_hir_expr_refs(shown).0,
+                _ => value,
+            };
+            (shown, call)
+        })
+    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -470,6 +510,7 @@ lints! {
     errors::decode_without_path,
     errors::discarded_error,
     errors::discarded_error_source,
+    errors::error_field_without_sources,
     errors::foreign_error_return,
     errors::independent_question_marks,
     errors::io_error_without_context,

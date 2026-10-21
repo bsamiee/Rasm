@@ -29,7 +29,7 @@ Rasm/
 │   ├── nx/                   # Nx plugin inferring a project from each project file
 │   ├── refurb/               # Python checks reading mypy types Ruff lacks
 │   ├── roslyn/               # C# analyzers, code fixes, and BannedSymbols*.txt bans
-│   └── watch-apps/           # Executable streaming app windows, dialogs, menus, and lifecycle as JSON lines
+│   └── watch-apps/           # Executable streaming app window interactions and lifecycle
 ├── plugins/                  # Agent harness marketplace
 ├── mise.toml                 # Tool binaries, process environment, and local daemons
 ├── global.json               # .NET SDK versions

@@ -69,16 +69,16 @@ public static class ViewCaptures {
                 row,
                 view: static (target, view) => new ViewCaptureSettings(target.View, view.Media, view.Dpi),
                 page: static (target, page) => Conversions.Cast<RhinoPageView>(target.View).Map(pageView => new ViewCaptureSettings(pageView, page.Dpi))),
-            settings => Configured(row, settings, request), retain);
+            Some((ViewCaptureSettings settings) => Configured(row, settings, request)), retain);
 
     public static IO<ViewCaptureSettings> Preview(ViewCaptureSettings basis, Size pixels, Action<IDisposable> retain) =>
-        Valid(() => Refused.UnlessFound(basis.CreatePreviewSettings(pixels), nameof(ViewCaptureSettings.CreatePreviewSettings)), static _ => IO.pure(unit), retain);
+        Valid(() => Refused.UnlessFound(basis.CreatePreviewSettings(pixels), nameof(ViewCaptureSettings.CreatePreviewSettings)), None, retain);
 
-    private static IO<ViewCaptureSettings> Valid(Func<Fin<ViewCaptureSettings>> create, Func<ViewCaptureSettings, IO<Unit>> configure, Action<IDisposable> retain) =>
+    private static IO<ViewCaptureSettings> Valid(Func<Fin<ViewCaptureSettings>> create, Option<Func<ViewCaptureSettings, IO<Unit>>> configure, Action<IDisposable> retain) =>
         Copies.Owned(create,
             answer =>
                 from settings in IO.lift(answer)
-                from configured in configure(settings)
+                from configured in configure.Traverse(step => step(settings)).As()
                 from valid in IO.lift(() => Refused.Unless(settings.IsValid, settings, nameof(settings)))
                 select valid,
             static answer => IO.lift(() => { _ = answer.IfSucc(static settings => settings.Dispose()); }), retain);

@@ -1,6 +1,6 @@
 import { unavailable } from '@rasm/hosting/http.ts';
 import { createUpload, releaseObject, serveObject } from '@rasm/hosting/storage.ts';
-import { Array, Crypto, Effect, Match, Option, Schema, Stream } from 'effect';
+import { Array, Cause, Crypto, Effect, Match, Option, Schema, Stream } from 'effect';
 import { HttpRouter, type Multipart } from 'effect/http';
 import { HttpApiBuilder, HttpApiError } from 'effect/http-api';
 import { Api } from '../model/api.ts';
@@ -27,7 +27,7 @@ const releaseObjects = Effect.fnUntraced(function* (release: Release) {
     const [released, failures] = yield* Effect.partition(objects, ({ key, uploadId }) => Effect.as(releaseObject(key, uploadId), key), { concurrency: 'unbounded' });
     yield* Array.match(released, { onEmpty: () => Effect.void, onNonEmpty: (keys) => finishRelease(release.assetId, keys) });
     if (Array.isReadonlyArrayNonEmpty(failures)) {
-        yield* Effect.logError(...failures);
+        yield* Effect.logError('object release failed', ...failures.map(Cause.fail));
         return yield* HttpApiError.ServiceUnavailable.make();
     }
 });
@@ -43,7 +43,7 @@ const advance = Match.type<{ readonly current: Upload; readonly part: Multipart.
                     attemptId,
                     files.map(({ key }) => key),
                 ),
-                () => releaseObjects(Release.Abandon({ assetId: asset.id, attemptId })).pipe(Effect.catchTag(['ServiceUnavailable', 'Conflict'], Effect.logError)),
+                () => releaseObjects(Release.Abandon({ assetId: asset.id, attemptId })).pipe(Effect.ignore({ log: 'Error', message: 'abandoned upload release failed' })),
             );
             return { stage: Option.isSome(existing) ? 'stored' : 'files', asset, attemptId, files } satisfies Upload;
         }),

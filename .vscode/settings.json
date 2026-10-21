@@ -3,15 +3,16 @@
     "explorer.compactFolders": false,
     "files.exclude": {
         ".cargo/rustc-source": true,
-        "**/node_modules": true,
+        ".swiftpm": true,
         "**/.artifacts": true,
         "**/.cache": true,
         "**/.cloudflare": true,
-        "**/dist": true,
         "**/.pixi": true,
         "**/.venv": true,
-        "**/xcuserdata": true,
-        "**/__pycache__": true
+        "**/__pycache__": true,
+        "**/dist": true,
+        "**/node_modules": true,
+        "**/xcuserdata": true
     },
 
     // --- [FILE_WATCHING] ---------------------------------------------------------------
@@ -31,15 +32,15 @@
     // --- [FILE_NESTING] ----------------------------------------------------------------
     "explorer.fileNesting.enabled": true,
     "explorer.fileNesting.patterns": {
-        "CLAUDE.md": ".mcp.json, AGENTS.md",
-        "README.md": "LICENSE",
-        "Directory.Build.props": "Directory.Build.targets, Directory.Packages.props, Directory.Build.rsp, global.json, NuGet.config, Workspace.slnx",
         ".gitignore": ".gitattributes",
-        "pyproject.toml": "uv.lock, pixi.lock",
         "Cargo.toml": "rust-toolchain.toml, rustfmt.toml, clippy.toml, Cargo.lock",
-        "Package.swift": "Package.resolved, Xcode.xcconfig",
+        "CLAUDE.md": ".mcp.json, AGENTS.md",
+        "Directory.Build.props": "Directory.Build.targets, Directory.Packages.props, Directory.Build.rsp, global.json, NuGet.config, Workspace.slnx",
         "nx.json": ".editorconfig, .periphery.yml, .swift-format, .swiftlint.yml, .yamlfmt.yaml, .yamllint.yaml, mise.toml, pmd.xml, sgconfig.yml",
-        "package.json": "biome.json, pnpm-workspace.yaml, pnpm-lock.yaml, tsconfig.base.json, tsconfig.json, vite.config.ts, vitest.config.ts"
+        "package.json": "biome.json, pnpm-workspace.yaml, pnpm-lock.yaml, tsconfig.base.json, tsconfig.json, vite.config.ts, vitest.config.ts",
+        "Package.swift": "Package.resolved, Xcode.xcconfig",
+        "pyproject.toml": "uv.lock, pixi.lock",
+        "README.md": "LICENSE"
     },
 
     // --- [PYTHON] ----------------------------------------------------------------------
@@ -64,7 +65,7 @@
     "dotnet.backgroundAnalysis.compilerDiagnosticsScope": "fullSolution",
 
     // --- [RUST] ------------------------------------------------------------------------
-    "rust-analyzer.cargo.extraEnv": { "CARGO_BUILD_TARGET_DIR": "${workspaceFolder}/.artifacts/rust/rust-analyzer", "CARGO_BUILD_BUILD_DIR": "${workspaceFolder}/.cache/rust/rust-analyzer" },
+    "rust-analyzer.cargo.extraEnv": { "CARGO_BUILD_BUILD_DIR": "${workspaceFolder}/.cache/rust/rust-analyzer", "CARGO_BUILD_TARGET_DIR": "${workspaceFolder}/.artifacts/rust/rust-analyzer" },
     "rust-analyzer.check.overrideCommand": [ "sh", "-c", "cargo clippy --locked --workspace --lib --bins --tests --keep-going --message-format=json-diagnostic-rendered-ansi; cargo dylint --all --workspace -- --locked --lib --bins --tests --message-format=json-diagnostic-rendered-ansi" ],
     "rust-analyzer.rustc.source": ".cargo/rustc-source/Cargo.toml",
 
@@ -73,8 +74,8 @@
     "swift.buildPath": "${workspaceFolder}/.cache/swiftpm/vscode",
 
     // --- [JAVA] ------------------------------------------------------------------------
-    "java.configuration.runtimes": [ { "name": "JavaSE-27", "path": "${JAVA_HOME}", "default": true } ],
-    "java.import.exclusions": [ "**/node_modules/**", "**/.metadata/**", "**/archetype-resources/**", "**/META-INF/maven/**", "**/.cache/**" ],
+    "java.configuration.runtimes": [ { "default": true, "name": "JavaSE-27", "path": "${JAVA_HOME}" } ],
+    "java.import.exclusions": [ "**/.cache/**", "**/.metadata/**", "**/archetype-resources/**", "**/META-INF/maven/**", "**/node_modules/**" ],
     "java.import.maven.enabled": false,
     "java.import.gradle.enabled": false,
     "java.project.sourcePaths": [ ".claude/skills/use-ghidra/scripts" ],

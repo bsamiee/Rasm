@@ -2,7 +2,6 @@
 
 from enum import Enum
 import importlib.resources
-import logging
 from pathlib import Path
 from typing import Annotated, Self
 from uuid import NAMESPACE_URL, uuid5
@@ -11,6 +10,8 @@ import bpy
 from expression import Error, Ok
 from expression.extra.result import catch
 import msgspec
+import structlog
+from structlog.typing import FilteringBoundLogger
 
 from blender.bpy.extension.reports import Reports
 from blender.bpy.faults import BlenderReadFault, BlenderRegisterFault, BlenderResult
@@ -62,11 +63,12 @@ class Manifest(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Identity(msgspec.Struct, frozen=True, kw_only=True):
-    """Extension package, manifest, writable folder, and callback reports."""
+    """Extension package, manifest, writable folder, bound logger, and callback reports."""
 
     package: str
     manifest: Manifest
     folder: Path
+    logger: FilteringBoundLogger
     reports: Reports
 
     # --- [NAMING]
@@ -103,18 +105,13 @@ class Identity(msgspec.Struct, frozen=True, kw_only=True):
         Returns:
             Ok(identity), or a read fault holding the manifest path and its file or decode error.
         """
-        manifest = importlib.resources.files(package) / "blender_manifest.toml"
+        path = importlib.resources.files(package) / "blender_manifest.toml"
         try:
-            return Ok(
-                cls(
-                    package=package,
-                    manifest=msgspec.toml.decode(manifest.read_bytes(), type=Manifest),
-                    folder=Path(bpy.utils.extension_path_user(package)),
-                    reports=Reports(logging.getLogger(package)),
-                )
-            )
+            manifest = msgspec.toml.decode(path.read_bytes(), type=Manifest)
         except (OSError, msgspec.DecodeError) as error:
-            return Error((BlenderReadFault(request=manifest, error=error),))
+            return Error((BlenderReadFault(request=path, error=error),))
+        logger = structlog.get_logger(package, extension=manifest.id)
+        return Ok(cls(package=package, manifest=manifest, folder=Path(bpy.utils.extension_path_user(package)), logger=logger, reports=Reports(logger)))
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

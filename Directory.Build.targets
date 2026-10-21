@@ -16,6 +16,7 @@
         <Using Include="NodaTime;NodaTime.Extensions" Condition="'@(PackageReference->WithMetadataValue('Identity', 'NodaTime'))' != ''" />
         <Using Include="NodaTime.Duration" Alias="Duration" Condition="'@(PackageReference->WithMetadataValue('Identity', 'NodaTime'))' != ''" />
         <Using Include="UnitsNet.Length" Alias="Length" Condition="'@(PackageReference->WithMetadataValue('Identity', 'UnitsNet'))' != ''" />
+        <Using Include="Microsoft.Extensions.Logging" Condition="'@(PackageReference->WithMetadataValue('Identity', 'Microsoft.Extensions.Logging'))' != '' or '@(PackageReference->WithMetadataValue('Identity', 'Microsoft.Extensions.Logging.Abstractions'))' != ''" />
         <Using Include="Xunit" Condition="'@(PackageReference->WithMetadataValue('Identity', 'xunit.v3.mtp-v2'))' != '' or '@(PackageReference->WithMetadataValue('Identity', 'xunit.v3.assert'))' != ''" />
         <Using Include="CsCheck" Condition="'@(PackageReference->WithMetadataValue('Identity', 'CsCheck'))' != ''" />
         <Using Include="Grasshopper2.Types.Numeric;Grasshopper2.UI" Condition="'@(PackageReference->WithMetadataValue('Identity', 'Grasshopper2'))' != ''" />
@@ -42,6 +43,13 @@
         <Using Include="Rhino.Geometry.Interval" Alias="Interval" />
         <EmbeddedResource Include="**/*.svg" LogicalName="%(Filename)%(Extension)" WithCulture="false" />
     </ItemGroup>
+
+    <Target Name="ExcludeRhinoHostAssemblies" AfterTargets="ResolvePackageAssets" Condition="'$(RhinoHost)' != ''">
+        <ItemGroup>
+            <_RhinoHostPackage Include="@(PackageVersion->WithMetadataValue('HostSupplied', 'true'))" NuGetPackageId="%(PackageVersion.Identity)" />
+            <RuntimeCopyLocalItems Remove="@(_RhinoHostPackage)" MatchOnMetadata="NuGetPackageId" />
+        </ItemGroup>
+    </Target>
 
     <PropertyGroup Label="Rhino Windows Host" Condition="'$(RhinoHost)' != '' and '$(TargetPlatformIdentifier)' == 'Windows'">
         <DefaultItemExcludes>$(DefaultItemExcludes);**/Mac/**</DefaultItemExcludes>

@@ -6,7 +6,7 @@ import { type Catalog, names } from './table.ts';
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const tenant = <A, E, R>(id: string, effect: Effect.Effect<A, E, R>) => SqlClient.SqlClient.use((sql) => sql.withTransaction(Effect.andThen(sql`SELECT set_config('app.tenant', ${id}, true)`, effect)));
-const settled = (catalog: Catalog, runtime: Option.Option<string>) => Effect.tap(reconcile(catalog, runtime), (undeclared) => (Object.values(undeclared).some((objects) => objects.length > 0) ? Effect.logInfo('undeclared', undeclared) : Effect.void));
+const settled = (catalog: Catalog, runtime: Option.Option<string>) => Effect.tap(reconcile(catalog, runtime), (undeclared) => (Object.values(undeclared).some((objects) => objects.length > 0) ? Effect.annotateLogs(Effect.logInfo('undeclared database objects'), undeclared) : Effect.void));
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

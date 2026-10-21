@@ -1,5 +1,7 @@
 use core::hint::black_box;
 
+use tracing::field::Empty;
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 fn loaded(rows: usize, path: &str) {
@@ -14,6 +16,7 @@ fn listening(port: u16, owned: &String) {
     tracing::debug!(%owned, "named");
     tracing::debug!(name = owned.to_string(), "named");
     let _span = tracing::info_span!("request", port = format!("{port}"));
+    tracing::info_span!("request", port = Empty).record("port", port.to_string());
 }
 
 fn preformatted(count: u32) {

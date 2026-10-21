@@ -32,11 +32,11 @@ final class AccountModel {
 
     var isBusy: Bool { running != nil }
     var isConnected: Bool { authentication == .connected }
-    var canSelect: Bool { isConnected && !isBusy && !isSelected }
+    var acceptsOperation: Bool { running.map { running in running.kind == .refreshing } ?? true }
+    var canSelect: Bool { isConnected && acceptsOperation && !isSelected }
 
     func canStartSession(at now: Date) -> Bool {
-        isConnected && usage.isCurrent && (running?.kind == nil || running?.kind == .refreshing)
-            && usage.usage?.availability(at: now) == .ready
+        isConnected && usage.isCurrent && acceptsOperation && usage.usage?.availability(at: now) == .ready
     }
 
     var usageReadAfter: Date? {
@@ -49,14 +49,11 @@ final class AccountModel {
     }
 
     func run(_ operation: AccountOperation, _ work: @escaping @MainActor () async -> Void) {
-        let previous: Task<Void, Never>?
-        switch (running?.kind, operation) {
-            case (.none, _): previous = nil
-            case (.refreshing, .starting): previous = running?.task
-            case (.some(let blocking), _):
-                blockingOperation = blocking
-                return
+        guard acceptsOperation else {
+            blockingOperation = running?.kind
+            return
         }
+        let previous: Task<Void, Never>? = running?.task
         let token: UUID = UUID()
         running = RunningOperation(
             token: token,

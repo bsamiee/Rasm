@@ -3,9 +3,8 @@ id: no-indistinct-log-message
 language: swiftlang
 severity: error
 utils:
-    log-call:
-        kind: call_expression
-        has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, regex: '^\.(trace|debug|info|notice|log|warning|error|critical|fault)$'}}
+    log-message:
+        matches: swift-log-call
         any:
             - pattern: $_L.$_V($MSG)
             - pattern: '$_L.log(level: $_E, $MSG)'
@@ -17,12 +16,12 @@ utils:
                 not: {regex: '(?i)^[^a-z]*((trace|debug|info|notice|warning|error|critical|fault|failed|failure|exception)s?\b[^a-z]*)*$'}
     earlier-site:
         any:
-            - matches: log-call
-            - has: {stopBy: end, matches: log-call}
+            - matches: log-message
+            - has: {stopBy: end, matches: log-message}
 rule:
     kind: call_expression
     all:
-        - matches: log-call
+        - matches: log-message
         - has: {nthChild: 1, pattern: $LOGGER}
         - any:
             - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: value, matches: nameless-literal}}}}

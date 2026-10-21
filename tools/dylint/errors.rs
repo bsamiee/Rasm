@@ -98,6 +98,7 @@ pub(crate) mod debug_main_error;
 pub(crate) mod decode_without_path;
 pub(crate) mod discarded_error;
 pub(crate) mod discarded_error_source;
+pub(crate) mod error_field_without_sources;
 pub(crate) mod foreign_error_return;
 pub(crate) mod independent_question_marks;
 pub(crate) mod io_error_without_context;

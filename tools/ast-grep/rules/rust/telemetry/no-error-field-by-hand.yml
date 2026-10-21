@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-error-field-by-hand
+language: rust
+severity: error
+utils:
+    error-name:
+        kind: identifier
+        matches: rust-log-field-start
+        pattern: $NAME
+        regex: '^(error|err|e|cause|exception)$'
+    report-value:
+        matches: rust-log-field-start
+        pattern: $NAME
+        not: {regex: '^\{\s*(\w+::)*EXCEPTION_MESSAGE\s*\}$'}
+        precedes: {regex: '^=$', precedes: {stopBy: {regex: '^,$'}, kind: identifier, regex: '^Report$', precedes: {regex: '^::$', precedes: {kind: identifier, regex: '^new$'}}}}
+    error-field:
+        any:
+            - matches: error-name
+            - matches: report-value
+    instrument-option:
+        kind: identifier
+        pattern: $NAME
+        inside: {kind: token_tree, follows: {regex: '^(::)?(tracing::)?instrument$'}, inside: {kind: attribute, stopBy: end}}
+        any:
+            - regex: '^err$'
+            - regex: '^ret$'
+              not: {inside: {kind: token_tree, has: {kind: identifier, regex: '^err$'}}}
+              inside: {kind: attribute_item, stopBy: end, precedes: {stopBy: {not: {kind: 'attribute_item, line_comment, block_comment'}}, kind: function_item, has: {field: return_type, regex: '\bResult\b'}}}
+rule:
+    any:
+        - matches: rust-log-macro
+          has: {kind: token_tree, has: {stopBy: end, matches: error-field}}
+        - kind: attribute_item
+          has:
+            kind: attribute
+            any:
+                - has: {stopBy: end, matches: instrument-option}
+                - has: {stopBy: end, matches: rust-instrument-fields, has: {matches: error-field}}
+message: '`$NAME` names an error field by hand'
+note: 'Record the error as `{ EXCEPTION_MESSAGE } = %Report::new(error)` with the `opentelemetry_semantic_conventions::attribute` constant'

@@ -668,7 +668,7 @@ public sealed record Glitch(
         Vector4 draw = NoiseFunctions.White(Vector4.Zero, CoordinateHash.Branch(field, 3u));
         CoordinateMap blocks = new CoordinateMap.Analytic(Displacement(state, extent, field, draw.X), Sampling.Nearest, (state.Wrap, state.Wrap));
         Fin<Unit> moved = (state.Split != ShortSideOffset.Neutral, state.Moves) switch {
-            (true, _) => Splits(state, extent, draw.Y, blocks)(frame, progress),
+            (true, _) => Splits(state, extent, draw.Y, blocks, frame, progress),
             (false, true) => blocks.Apply(frame, progress),
             (false, false) => unit,
         };
@@ -695,17 +695,17 @@ public sealed record Glitch(
         };
     }
 
-    private static Func<PixelFrame, IProgress<int>, Fin<Unit>> Splits(Glitch state, PixelExtent extent, float draw, CoordinateMap blocks) {
+    private static Fin<Unit> Splits(Glitch state, PixelExtent extent, float draw, CoordinateMap blocks, PixelFrame frame, IProgress<int> progress) {
         ERational jitter = ERational.FromSingle(state.SplitJitter);
         ERational reach = ERational.FromSingle(state.Split).Multiply(extent.ShortSide)
             .Multiply(ERational.One.Subtract(jitter).Add(jitter.Multiply(ERational.FromSingle(draw).Multiply(2).Subtract(1))));
         (double X, double Y) = double.SinCos(state.SplitDirection) switch { var (sin, cos) => (cos, -sin) };
         ERational slide = ERational.FromSingle(state.Slide);
-        return reach.IsZero ? state.Moves ? blocks.Apply : static (_, _) => unit : CoordinateMap.Integrated(
+        return reach.IsZero ? state.Moves ? blocks.Apply(frame, progress) : unit : CoordinateMap.Integrated(
             new GaussLegendreRule(0d, 1d, 1 << 6),
             tau => Subframe(reach.Multiply(ERational.One.Subtract(slide).Add(slide.Multiply(ERational.FromDouble(tau)))), Vector4.UnitX),
             tau => Subframe(reach.Negate().Multiply(ERational.One.Subtract(slide).Add(slide.Multiply(ERational.FromDouble(tau)))), Vector4.UnitZ),
-            _ => Subframe(ERational.Zero, new Vector4(0f, 1f, 0f, 1f)));
+            _ => Subframe(ERational.Zero, new Vector4(0f, 1f, 0f, 1f)))(frame, progress);
 
         (CoordinateMap Map, Vector4 Gains) Subframe(ERational shift, Vector4 gains) {
             (ERational X, ERational Y) offset = (shift.Multiply(ERational.FromDouble(X)), shift.Multiply(ERational.FromDouble(Y)));

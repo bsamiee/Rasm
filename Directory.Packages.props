@@ -663,6 +663,7 @@
         <PackageVersion Include="Microsoft.Extensions.Configuration.Json"                 Version="11.0.0-rc.2.26504.105" />             <!-- Configuration provider reading JSON files -->
         <PackageVersion Include="Microsoft.Extensions.Configuration.UserSecrets"          Version="11.0.0-rc.2.26504.105" />             <!-- Development-time secret storage configuration provider -->
         <PackageVersion Include="Microsoft.Extensions.DependencyInjection"                Version="11.0.0-rc.2.26504.105" />             <!-- Dependency injection container with scopes and open generics -->
+        <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions"   Version="11.0.0-rc.2.26504.105" />             <!-- Dependency injection abstractions for service registration and resolution -->
         <PackageVersion Include="Microsoft.Extensions.Diagnostics"                        Version="11.0.0-rc.2.26504.105" />             <!-- Metrics infrastructure with listener registration and enrichment -->
         <PackageVersion Include="Microsoft.Extensions.Diagnostics.HealthChecks"           Version="11.0.0-rc.2.26504.105" />             <!-- Health check execution and publishing framework -->
         <PackageVersion Include="Microsoft.Extensions.Diagnostics.ResourceMonitoring"     Version="10.11.0" />                           <!-- CPU and memory utilization monitoring for containers and hosts -->
@@ -671,7 +672,9 @@
         <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices"            Version="11.0.0-rc.2.26504.105" />             <!-- Windows service lifetime integration for hosted applications -->
         <PackageVersion Include="Microsoft.Extensions.Http.Diagnostics"                   Version="10.11.0" />                           <!-- HTTP client request logging and latency telemetry -->
         <PackageVersion Include="Microsoft.Extensions.Http.Resilience"                    Version="10.11.0" />                           <!-- Resilience handlers for HTTP clients with retry and circuit breaking -->
+        <PackageVersion Include="Microsoft.Extensions.Logging"                            Version="11.0.0-rc.2.26504.105" />             <!-- Logging facade with provider registration and filtering -->
         <PackageVersion Include="Microsoft.Extensions.Logging.Abstractions"               Version="11.0.0-rc.2.26504.105" />             <!-- Logging abstractions with source-generated log methods -->
+        <PackageVersion Include="Microsoft.Extensions.Logging.Console"                    Version="11.0.0-rc.2.26504.105" />             <!-- Console logger provider with plain, JSON, and systemd formatters -->
         <PackageVersion Include="Microsoft.Extensions.ObjectPool"                         Version="11.0.0-rc.2.26504.105" />             <!-- Object pooling primitives and policies -->
         <PackageVersion Include="Microsoft.Extensions.Options"                            Version="11.0.0-rc.2.26504.105" />             <!-- Options pattern with validation and change monitoring -->
         <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions"    Version="11.0.0-rc.2.26504.105" />             <!-- Options binding from configuration sections -->
@@ -842,11 +845,9 @@
         <PackageVersion Include="Microsoft.Data.Analysis"                                 Version="0.24.0-preview.26513.4" />            <!-- DataFrame structures for tabular data exploration -->
         <PackageVersion Include="Microsoft.Extensions.Caching.Memory"                     Version="11.0.0-rc.2.26504.105" />             <!-- In-memory cache with expiration and eviction policies -->
         <PackageVersion Include="Microsoft.Extensions.Configuration.Abstractions"         Version="11.0.0-rc.2.26504.105" />             <!-- Configuration abstractions for providers and binding -->
-        <PackageVersion Include="Microsoft.Extensions.DependencyInjection.Abstractions"   Version="11.0.0-rc.2.26504.105" />             <!-- Dependency injection abstractions for service registration and resolution -->
         <PackageVersion Include="Microsoft.Extensions.Diagnostics.ExceptionSummarization" Version="10.11.0" />                           <!-- Exception summary extraction for low-cardinality telemetry -->
         <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions"               Version="11.0.0-rc.2.26504.105" />             <!-- Host builder, hosted service, and application lifetime abstractions -->
         <PackageVersion Include="Microsoft.Extensions.Http"                               Version="11.0.0-rc.2.26504.105" />             <!-- HttpClient factory with named clients and handler pipelines -->
-        <PackageVersion Include="Microsoft.Extensions.Logging"                            Version="11.0.0-rc.2.26504.105" />             <!-- Logging facade with provider registration and filtering -->
         <PackageVersion Include="Microsoft.Extensions.Primitives"                         Version="11.0.0-rc.2.26504.105" />             <!-- Change tokens and string segment primitives -->
         <PackageVersion Include="Microsoft.IdentityModel.Protocols"                       Version="8.23.0" />                            <!-- Protocol base types for OpenID Connect and WS-Federation -->
         <PackageVersion Include="Microsoft.ML.CpuMath"                                    Version="6.0.0-preview.26513.4" />             <!-- Vectorized CPU math kernels for machine learning workloads -->
@@ -933,5 +934,19 @@
         <PackageVersion Include="Xbim.Ifc"                                                Version="6.1.605" />                           <!-- Semantic loading, validation, and saving of IFC building models -->
         <PackageVersion Include="Xbim.Ifc4"                                               Version="6.1.605" />                           <!-- IFC4 schema implementation including addenda and alignment schemas -->
         <PackageVersion Include="Xbim.IO.Table"                                           Version="6.0.172" />                           <!-- Spreadsheet serialization of EXPRESS schema model data -->
+    </ItemGroup>
+
+    <ItemGroup Label="Rhino Host" Condition="'$(RhinoHost)' != ''">
+        <PackageVersion Update="Microsoft.Extensions.Configuration"                       Version="10.0.13" />                           <!-- 11.0 requires the 11.0 host assemblies -->
+        <PackageVersion Update="Microsoft.Extensions.Configuration.Abstractions"          Version="10.0.13" />                           <!-- 11.0 requires the 11.0 host assemblies -->
+        <PackageVersion Update="Microsoft.Extensions.Configuration.Binder"                Version="10.0.13" />                           <!-- 11.0 requires the 11.0 host assemblies -->
+        <PackageVersion Update="Microsoft.Extensions.DependencyInjection"                 Version="10.0.13" HostSupplied="true" />       <!-- Rhino 9 loads 10.0.0.0 into the default load context -->
+        <PackageVersion Update="Microsoft.Extensions.DependencyInjection.Abstractions"    Version="10.0.13" HostSupplied="true" />       <!-- Rhino 9 loads 10.0.0.0 into the default load context -->
+        <PackageVersion Update="Microsoft.Extensions.Logging"                             Version="10.0.13" HostSupplied="true" />       <!-- Rhino 9 loads 10.0.0.0 into the default load context -->
+        <PackageVersion Update="Microsoft.Extensions.Logging.Abstractions"                Version="10.0.13" HostSupplied="true" />       <!-- Rhino 9 loads 10.0.0.0 into the default load context -->
+        <PackageVersion Update="Microsoft.Extensions.Logging.Console"                     Version="10.0.13" />                           <!-- 11.0 requires the 11.0 host assemblies -->
+        <PackageVersion Update="Microsoft.Extensions.Options"                             Version="10.0.13" HostSupplied="true" />       <!-- Rhino 9 loads 10.0.0.0 into the default load context -->
+        <PackageVersion Update="Microsoft.Extensions.Options.ConfigurationExtensions"     Version="10.0.13" />                           <!-- 11.0 requires the 11.0 host assemblies -->
+        <PackageVersion Update="Microsoft.Extensions.Primitives"                          Version="10.0.13" HostSupplied="true" />       <!-- Rhino 9 loads 10.0.0.0 into the default load context -->
     </ItemGroup>
 </Project>

@@ -19,6 +19,7 @@ public sealed record PlugInDefinition {
     public Seq<PlugInSetting> Settings { get; init; }
     public Func<ISettingReader, IO<HistoryLimits>> History { get; init; } = static _ => IO.pure(HistoryLimits.Default);
     public required TimeProvider Clock { get; init; }
+    public Seq<Action<ILoggingBuilder>> Logging { get; init; }
     public Seq<Func<IPlugInSink, Command>> Commands { get; init; }
     public Seq<View> Views { get; init; }
     public Seq<Func<IPlugInViews, Action<IDisposable>, IO<Unit>>> Acquisitions { get; init; }

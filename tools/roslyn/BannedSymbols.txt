@@ -130,3 +130,9 @@ M:Foundation.NSObject.InvokeOnMainThread(System.Action);Marshals one call to the
 M:Foundation.NSObject.InvokeOnMainThread(ObjCRuntime.Selector,Foundation.NSObject);Marshals one call to the UI thread, compose UI-thread calls into one IO run through OnUiThread()
 M:Foundation.NSObject.BeginInvokeOnMainThread(System.Action);Marshals one call to the UI thread, compose UI-thread calls into one IO run through OnUiThread()
 M:Foundation.NSObject.BeginInvokeOnMainThread(ObjCRuntime.Selector,Foundation.NSObject);Marshals one call to the UI thread, compose UI-thread calls into one IO run through OnUiThread()
+T:System.Diagnostics.Debug;Log through an ILogger the composition root creates, a type that excludes the state replaces an assertion
+T:System.Diagnostics.Trace;Log through an ILogger the composition root creates
+M:System.Diagnostics.Debugger.Log(System.Int32,System.String,System.String);Log through an ILogger the composition root creates
+T:System.Diagnostics.TraceSource;Log through an ILogger the composition root creates
+M:Microsoft.Extensions.Logging.ILoggerFactory.CreateLogger(System.String);Derive the category from a type, CreateLogger(Type) or CreateLogger<T>() name it
+M:Microsoft.Extensions.Logging.LoggerFactory.CreateLogger(System.String);Derive the category from a type, CreateLogger(Type) or CreateLogger<T>() name it

@@ -21,6 +21,7 @@ dependencies = [
     "psdtags",           # Photoshop layer records for layered documents
     "scikit-image",      # Structural similarity over image comparison planes
     "scipy",             # Colour algebra, vector quadrature, FFT sizing, and zoom transforms
+    "structlog",         # Structured logging through typed bound loggers carrying each extension's context
     "tenacity",          # Batch target retries over configured domain retry policies
     "tifffile",          # Linear Raw DNG and TIFF containers for layered documents
     "typing-extensions", # Runtime TypeForm schemas on interpreters whose `typing` lacks `TypeForm`
@@ -85,7 +86,6 @@ workspace = [
     "pyroscope-otel",                                                             # Continuous-profiling span links beside OTLP exporters
     "regex",                                                                      # Emoji and pictograph property classes `re` lacks
     "ruamel-yaml",                                                                # Round-trip YAML with comments and layout kept
-    "structlog",                                                                  # Structured logging with processors and typed events
     "tblib",                                                                      # Cross-process traceback fidelity for worker exceptions
     "tomlkit",                                                                    # Round-trip TOML with comments and layout kept
     "wasmtime",                                                                   # In-process WASM guest sandbox for sandboxed workers
@@ -372,7 +372,6 @@ dev       = [
     "pytest-socket",                                                              # Socket blocking, a required pytest plugin
     "pytest-timeout",                                                             # Per-test timeout, a required pytest plugin
     "pytest-xdist",                                                               # Parallel test workers, a required pytest plugin
-    "structlog",                                                                  # Log capture in test runtime plugin
     "trio",                                                                       # AnyIO Trio backend with autojumping clock for test doubles
 
     # --- [SCRIPTS]
@@ -562,15 +561,14 @@ pydoclint                 = { ignore-one-line-docstrings = true }
 pylint                    = { allow-magic-value-types = ["str", "bytes", "int"], allow-dunder-method-names = ["__array__"], max-args = 8 }
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**"                                                = ["assert"]
-"{libs/python/blender,apps/blender}/**"                   = [
-    "boolean-positional-value-in-call",                                                               # bpy, gpu, and RNA writes take booleans as values (`path_resolve(path, False)`, `gpu.state.scissor_test_set(True)`, `written(owner, "value", True)`), as do `Ok(True)` and `default_value(False)`
-    "import-private-name",                                                                            # Blender supplies `_bpy_internal` and `_blendfile_header`, and Windows `_winapi`, with no public module
-    "no-self-use",                                                                                    # Structural `Row`, `Part`, and `Effect` protocol methods read no `self`, and `@override` rejects a method with no base class
+"tests/**"                                      = ["assert"]
+"{libs/python/blender,apps/blender}/**"         = [
+    "boolean-positional-value-in-call",                                                     # bpy, gpu, and RNA writes take booleans as values (`path_resolve(path, False)`, `gpu.state.scissor_test_set(True)`, `written(owner, "value", True)`), as do `Ok(True)` and `default_value(False)`
+    "import-private-name",                                                                  # Blender supplies `_bpy_internal` and `_blendfile_header`, and Windows `_winapi`, with no public module
+    "no-self-use",                                                                          # Structural `Row`, `Part`, and `Effect` protocol methods read no `self`, and `@override` rejects a method with no base class
 ]
-"apps/blender/**"                                         = ["non-empty-init-module"]                 # Extension `__init__.py` composes the `register` and `unregister` entry points Blender imports
-"libs/python/blender/bpy/extension/{identity,reports}.py" = ["banned-api"]                            # Extensions bundle `[project]` dependencies alone, with no structlog, `Reports` writes to the extension package's `logging` logger
-"libs/python/blender/bpy/ui/layout/sections.py"           = ["boolean-type-hint-positional-argument"] # `Enum` unpacks each `Verb` member tuple into `__init__` positionally
+"apps/blender/**"                               = ["non-empty-init-module"]                 # Extension `__init__.py` composes the `register` and `unregister` entry points Blender imports
+"libs/python/blender/bpy/ui/layout/sections.py" = ["boolean-type-hint-positional-argument"] # `Enum` unpacks each `Verb` member tuple into `__init__` positionally
 
 [tool.ruff.lint.flake8-tidy-imports]
 require-lazy = [
@@ -614,21 +612,32 @@ require-lazy = [
 "json.encoder.JSONEncoder".msg     = "Use msgspec.json.encode"
 "json.load".msg                    = "Use msgspec.json.decode with type="
 "json.loads".msg                   = "Use msgspec.json.decode with type="
-"logging.Logger".msg               = "Type the logger as Reports in Blender code, structlog.typing.FilteringBoundLogger elsewhere"
-"logging.LoggerAdapter".msg        = "Log through Reports in Blender code, structlog.get_logger(__name__).bind elsewhere"
-"logging.RootLogger".msg           = "Type the logger as Reports in Blender code, structlog.typing.FilteringBoundLogger elsewhere"
-"logging.critical".msg             = "Log through Reports in Blender code, structlog.get_logger(__name__) elsewhere"
-"logging.debug".msg                = "Log through Reports in Blender code, structlog.get_logger(__name__) elsewhere"
-"logging.error".msg                = "Log through Reports in Blender code, structlog.get_logger(__name__) elsewhere"
-"logging.exception".msg            = "Log through Reports in Blender code, structlog.get_logger(__name__) elsewhere"
-"logging.fatal".msg                = "Log through Reports in Blender code, structlog.get_logger(__name__) elsewhere"
-"logging.getLogger".msg            = "Log through Reports in Blender code, structlog.get_logger(__name__) elsewhere"
-"logging.getLoggerClass".msg       = "Type the logger as Reports in Blender code, structlog.typing.FilteringBoundLogger elsewhere"
-"logging.info".msg                 = "Log through Reports in Blender code, structlog.get_logger(__name__) elsewhere"
-"logging.log".msg                  = "Log through Reports in Blender code, structlog.get_logger(__name__) elsewhere"
-"logging.root".msg                 = "Log through Reports in Blender code, structlog.get_logger(__name__) elsewhere"
-"logging.warn".msg                 = "Log through Reports in Blender code, structlog.get_logger(__name__) elsewhere"
-"logging.warning".msg              = "Log through Reports in Blender code, structlog.get_logger(__name__) elsewhere"
+"logging.Logger".msg               = "Type the logger as structlog.typing.FilteringBoundLogger"
+"logging.LoggerAdapter".msg        = "Bind context with structlog.get_logger(__name__).bind"
+"logging.RootLogger".msg           = "Type the logger as structlog.typing.FilteringBoundLogger"
+"logging.addLevelName".msg         = "Configure stdlib routing once at the process composition root with structlog.stdlib.recreate_defaults"
+"logging.basicConfig".msg          = "Configure stdlib routing once at the process composition root with structlog.stdlib.recreate_defaults"
+"logging.captureWarnings".msg      = "Configure stdlib routing once at the process composition root with structlog.stdlib.recreate_defaults"
+"logging.config".msg               = "Configure stdlib routing once at the process composition root with structlog.stdlib.recreate_defaults"
+"logging.critical".msg             = "Log through structlog.get_logger(__name__)"
+"logging.debug".msg                = "Log through structlog.get_logger(__name__)"
+"logging.disable".msg              = "Configure stdlib routing once at the process composition root with structlog.stdlib.recreate_defaults"
+"logging.error".msg                = "Log through structlog.get_logger(__name__)"
+"logging.exception".msg            = "Log through structlog.get_logger(__name__)"
+"logging.fatal".msg                = "Log through structlog.get_logger(__name__)"
+"logging.getLogRecordFactory".msg  = "Configure stdlib routing once at the process composition root with structlog.stdlib.recreate_defaults"
+"logging.getLogger".msg            = "Log through structlog.get_logger(__name__)"
+"logging.getLoggerClass".msg       = "Configure stdlib routing once at the process composition root with structlog.stdlib.recreate_defaults"
+"logging.info".msg                 = "Log through structlog.get_logger(__name__)"
+"logging.lastResort".msg           = "Configure stdlib routing once at the process composition root with structlog.stdlib.recreate_defaults"
+"logging.log".msg                  = "Log through structlog.get_logger(__name__)"
+"logging.raiseExceptions".msg      = "Configure stdlib routing once at the process composition root with structlog.stdlib.recreate_defaults"
+"logging.root".msg                 = "Log through structlog.get_logger(__name__)"
+"logging.setLogRecordFactory".msg  = "Configure stdlib routing once at the process composition root with structlog.stdlib.recreate_defaults"
+"logging.setLoggerClass".msg       = "Configure stdlib routing once at the process composition root with structlog.stdlib.recreate_defaults"
+"logging.shutdown".msg             = "Delete the call, logging registers its shutdown with atexit"
+"logging.warn".msg                 = "Log through structlog.get_logger(__name__)"
+"logging.warning".msg              = "Log through structlog.get_logger(__name__)"
 "nt.environ".msg                   = "Validate os.environ once at the boundary with a frozen settings model"
 "ntpath.expandvars".msg            = "Read a typed settings field validated once from the mapping the boundary passes"
 "operator.attrgetter".msg          = "Use a lambda, typeshed types the getter's result as Any"

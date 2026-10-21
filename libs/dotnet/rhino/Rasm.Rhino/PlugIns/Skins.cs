@@ -2,6 +2,7 @@ using System.Reflection;
 using Eto.Drawing;
 using Eto.Forms;
 using Rasm.Rhino.Document.Files;
+using Rasm.Rhino.Events;
 using Rasm.Rhino.UI;
 using Rasm.Rhino.UI.Styling;
 using Rhino;
@@ -14,7 +15,7 @@ using Rhino.UI.Controls;
 namespace Rasm.Rhino.PlugIns;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
-public abstract partial class DefinedSkin : Skin, IPlugInSink {
+public abstract partial class DefinedSkin(Seq<Action<ILoggingBuilder>> logging) : Skin, IPlugInLifetime {
     // --- [STATE]
     [Union]
     private abstract partial record SkinLoad {
@@ -38,6 +39,7 @@ public abstract partial class DefinedSkin : Skin, IPlugInSink {
         public sealed record Ready : SkinLoad;
     }
 
+    public PlugInSession Session { get; } = new(unitIO, logging);
     private readonly Atom<SkinLoad> load = Atom<SkinLoad>(new SkinLoad.Starting());
     private readonly Ref<Option<(Form Window, Label Status, ProgressBar Bar, IDisposable Lease)>> splash = Ref<Option<(Form Window, Label Status, ProgressBar Bar, IDisposable Lease)>>(None);
 
@@ -56,7 +58,10 @@ public abstract partial class DefinedSkin : Skin, IPlugInSink {
 
     // --- [LOAD]
     protected sealed override void OnBeginLoadAtStartPlugIns(int expectedCount) =>
-        Callbacks.Run(Advanced(current => expectedCount > 0 ? new SkinLoad.Loading(expectedCount, Seq<string>()) : current), CallbackSite.Of(this));
+        Callbacks.Run(
+            Session.Open(this, [static (owner, retain) => EventKind.RhinoAppClosing.Inline(_ => owner.Session.Close, owner, retain)])
+                .Bind(_ => Advanced(current => expectedCount > 0 ? new SkinLoad.Loading(expectedCount, Seq<string>()) : current)),
+            CallbackSite.Of(this));
 
     protected sealed override void OnBeginLoadPlugIn(string description) =>
         Callbacks.Run(Advanced(current => current.Begin(description)).Bind(static next => IO.lift(() => next.Percent.Iter(SetBootSplashProgress))), CallbackSite.Of(this));
@@ -162,8 +167,7 @@ public abstract partial class DefinedSkin : Skin, IPlugInSink {
         select document;
 
     // --- [SINK]
-    public void Report(Error error, Type owner, string member) =>
-        _ = ErrorOps.Report(error, owner, member).RunSafe();
+    public void Report(Error error, Type owner, string member) => Session.Report(error, owner, member);
 
     // --- [LAYOUT]
     private static void Refresh(SkinLoad state, Label status, ProgressBar bar) {

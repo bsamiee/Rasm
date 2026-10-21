@@ -11,26 +11,27 @@ utils:
             field: function
             kind: member_expression
             all:
-                - has: {field: property, regex: '^(tapError|tapErrorTag|catch|catchTag|catchTags|catchIf|catchFilter|catchReason|catchReasons)$'}
+                - has: {field: property, regex: '^(tapError|tapErrorTag|catch|catchEager|catchTag|catchTags|catchIf|catchFilter|catchReason|catchReasons|matchEffect)$'}
                 - has: {field: object, matches: {effect-module: {name: {regex: '\b(Effect|Stream|Channel|Layer)$'}}}}
+    handler-argument:
+        any:
+            - inside: {kind: arguments, inside: {matches: failure-handler}}
+            - inside: {kind: pair, field: value, not: {has: {field: key, regex: '^onSuccess$'}}, inside: {kind: object, inside: {kind: arguments, inside: {matches: failure-handler}}}}
     failure-callback:
         kind: arrow_function, function_expression
         all:
+            - matches: handler-argument
             - any:
                 - has: {field: parameter, kind: identifier, pattern: $ERROR}
                 - has: {field: parameters, has: {nthChild: 1, kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $ERROR}}}
-            - any:
-                - inside: {kind: arguments, inside: {matches: failure-handler}}
-                - inside: {kind: pair, field: value, inside: {kind: object, inside: {kind: arguments, inside: {matches: failure-handler}}}}
 rule:
-    pattern: $LOG
     any:
-        - matches: log-member
-          inside: {kind: arguments, inside: {matches: failure-handler, has: {field: function, has: {field: property, regex: '^tapError$'}}}}
+        - pattern: $LOG
+          all: [{matches: log-member}, {matches: handler-argument}]
         - kind: call_expression
           all:
-            - has: {field: function, matches: log-member}
+            - has: {field: function, pattern: $LOG, matches: log-member}
+            - inside: {matches: failure-callback, stopBy: end}
             - has: {field: arguments, has: {kind: identifier, pattern: $ERROR}}
-            - inside: {matches: failure-callback, stopBy: {matches: typescript-function-boundary}}
 message: '`$LOG` logs the failure as a message value'
-note: 'Pass the failure as a log cause through `tapCause(Effect.logError)` of the same module or `Effect.logError(<text>, Cause.fail(<error>))`'
+note: 'Pass the failure as a cause through `tapCause(Effect.logError)` of the same module, `Effect.logError(<text>, Cause.fail(<error>))`, or `Effect.ignore({ log: <level>, message: <text> })` where the failure is swallowed'

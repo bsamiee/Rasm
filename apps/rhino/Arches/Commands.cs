@@ -46,7 +46,7 @@ internal static class ArchPrompts {
             }, pick => Anchor(pick.Pick, start.Choice, start.BothSides)),
             ending: static (at, end) => Getters.Point(at.Doc, new PointRequest<StageStep<ArchStage, Seq<Guid>>>("Second end point", at.Site) {
                 Accept = at.Accept,
-                Configure = getter => IO.lift(() => getter.SetBasePoint(end.Start, showDistanceInStatusBar: true)),
+                Configure = [getter => IO.lift(() => getter.SetBasePoint(end.Start, showDistanceInStatusBar: true))],
                 Options = Seq(Toggle("BothSides", LabelPair.NoYes, end.BothSides, value => end with { BothSides = value }))
                     + (end.Choice is ArchChoice.Raised ? [] : Seq(Toggle("Flip", LabelPair.NoYes, end.Flip, value => end with { Flip = value })))
                     + (end.Choice is ArchChoice.Foiled or ArchChoice.Counted ? Seq(Toggle("Shape", new LabelPair("Rounded", "Pointed"), end.Pointed, value => end with { Pointed = value })) : []),
@@ -65,10 +65,10 @@ internal static class ArchPrompts {
                 Accept = at.Accept with {
                     Number = new NumberEntry<StageStep<ArchStage, Seq<Guid>>>.Plain(Zero: true, number => Next(ArchForm.Raised.Of(rise.Kind, number / rise.Span.Baseline.Length).Map(form => rise with { Form = Some(form) }))),
                 },
-                Configure = getter => IO.lift(() => {
+                Configure = [getter => IO.lift(() => {
                     getter.SetBasePoint(rise.Span.Midpoint, showDistanceInStatusBar: true);
                     return Refused.Unless(getter.Constrain(new Line(rise.Span.Midpoint, rise.Span.Frame.YAxis)), nameof(GetPoint.Constrain));
-                }),
+                })],
                 Handlers = Seq<PointHandler>(new PointHandler.DynamicDraw(args => ArchFeedback.Draw(args.Display, rise.Span, Raised(rise, args.CurrentPoint, at.Tolerances), at.Tolerances))),
             }, pick => Finish(at.Doc, rise.Span, Raised(rise, pick.Pick.Point, at.Tolerances), at.Tolerances)),
             counting: static (at, count) => Getters.Point(at.Doc, new PointRequest<StageStep<ArchStage, Seq<Guid>>>("Foil count", at.Site) {
@@ -76,7 +76,7 @@ internal static class ArchPrompts {
                     Nothing = (Some(((int)count.Form.Count).ToString(RowText.Culture)), Finish(at.Doc, count.Span, count.Form, at.Tolerances)),
                     Number = new NumberEntry<StageStep<ArchStage, Seq<Guid>>>.Plain(Zero: false, number => Next(Count(number).Map(value => count with { Form = count.Form with { Count = value } }))),
                 },
-                Configure = getter => IO.lift(() => getter.SetBasePoint(count.Span.Baseline.From, showDistanceInStatusBar: true)),
+                Configure = [getter => IO.lift(() => getter.SetBasePoint(count.Span.Baseline.From, showDistanceInStatusBar: true))],
                 Handlers = Seq<PointHandler>(new PointHandler.DynamicDraw(args => ArchFeedback.Draw(args.Display, count.Span, count.Form, at.Tolerances))),
             }, _ => Finish(at.Doc, count.Span, count.Form, at.Tolerances)));
 

@@ -833,6 +833,59 @@ fn discarded_error_source(found: &str) {
     "#);
 }
 
+fn error_field_without_sources(found: &str) {
+    insta::assert_snapshot!(found, @r#"
+    warning: tracing field records `Unread` without its sources
+      --> tools/dylint/examples/error_field_without_sources.rs:22:124
+       |
+    22 | fn displayed(text: &str) -> Result<u16, Unread> { parsed(text).inspect_err(|error| tracing::warn!({ EXCEPTION_MESSAGE } = %error, "p...
+       |                                                                                                                            ^^^^^
+       |
+       = help: record `Report::new(error)` under `%` or `field::display`, its text names the error and each source
+       = note: `#[warn(error_field_without_sources)]` on by default
+
+    warning: tracing field records `Unread` without its sources
+      --> tools/dylint/examples/error_field_without_sources.rs:24:123
+       |
+    24 | fn debugged(text: &str) -> Result<u16, Unread> { parsed(text).inspect_err(|error| tracing::warn!({ EXCEPTION_MESSAGE } = ?error, "po...
+       |                                                                                                                           ^^^^^
+       |
+       = help: record `Report::new(error)` under `%` or `field::display`, its text names the error and each source
+
+    warning: tracing field records `dyn std::error::Error` without its sources
+      --> tools/dylint/examples/error_field_without_sources.rs:26:120
+       |
+    26 | ...r(|error| tracing::warn!({ EXCEPTION_MESSAGE } = error as &(dyn Error + 'static), "port unread")) }
+       |                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: record `Report::new(error)` under `%` or `field::display`, its text names the error and each source
+
+    warning: tracing field records `std::num::ParseIntError` without its sources
+      --> tools/dylint/examples/error_field_without_sources.rs:28:122
+       |
+    28 | ...spect_err(|error| tracing::warn!({ EXCEPTION_MESSAGE } = %error.source, "port unread")) }
+       |                                                              ^^^^^^^^^^^^
+       |
+       = help: record `Report::new(error)` under `%` or `field::display`, its text names the error and each source
+
+    warning: tracing field records `Unread` without its sources
+      --> tools/dylint/examples/error_field_without_sources.rs:30:140
+       |
+    30 | ...or| drop(tracing::info_span!("port", { EXCEPTION_MESSAGE } = %error))) }
+       |                                                                  ^^^^^
+       |
+       = help: record `Report::new(error)` under `%` or `field::display`, its text names the error and each source
+
+    warning: tracing field records `Unread` without its sources
+      --> tools/dylint/examples/error_field_without_sources.rs:34:102
+       |
+    34 |         tracing::info_span!("port", { EXCEPTION_MESSAGE } = Empty).record(EXCEPTION_MESSAGE, display(error));
+       |                                                                                                      ^^^^^
+       |
+       = help: record `Report::new(error)` under `%` or `field::display`, its text names the error and each source
+    "#);
+}
+
 fn foreign_error_return(found: &str) {
     insta::assert_snapshot!(found, @"
     warning: exported `load` returns `std::io::Error` from another crate
@@ -2022,6 +2075,7 @@ snapshots!(
     decode_without_path,
     discarded_error,
     discarded_error_source,
+    error_field_without_sources,
     foreign_error_return,
     independent_question_marks,
     io_error_without_context,

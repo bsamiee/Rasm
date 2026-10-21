@@ -10,6 +10,7 @@ import System
 private struct CodexServer {
     let connection: CodexConnection
     let task: Task<Void, Never>
+    let identity: AccountIdentity?
 }
 
 actor CodexClient: ProviderClient {
@@ -38,7 +39,7 @@ actor CodexClient: ProviderClient {
     }
 
     // --- [SELECTION]
-    func currentSelection(known _: [Account]) -> Result<AccountIdentity?, ProviderError> {
+    func currentSelection(selected _: Account?) -> Result<AccountIdentity?, ProviderError> {
         Result { () throws(CodexFailure) in try CodexAuthFile.read(at: liveAuthFile)?.identity }.mapError(ProviderError.init(failure:))
     }
 
@@ -215,10 +216,11 @@ actor CodexClient: ProviderClient {
     }
 
     private func connection(for home: URL) async throws(CodexFailure) -> CodexConnection {
-        if let server: CodexServer = servers[home], !(await server.connection.isFinished) {
+        let identity: AccountIdentity? = try CodexAuthFile.read(at: home.appending(path: CodexAuthFile.name))?.identity
+        if let server: CodexServer = servers[home], server.identity == identity, !(await server.connection.isFinished) {
             return server.connection
         }
-        servers.removeValue(forKey: home)
+        await stopServer(home)
         let workingDirectory: URL = paths.workingDirectory
         let excludedEnvironmentVariables: Set<Environment.Key> = ["OPENAI_API_KEY", "OPENAI_BASE_URL", "OPENAI_ORG_ID", "OPENAI_PROJECT_ID"]
         let executable: URL = try await CodexDesktop.serverExecutable()
@@ -263,7 +265,7 @@ actor CodexClient: ProviderClient {
             ready.stream.makeAsyncIterator()
         switch await iterator.next() ?? .failure(.connectionClosed) {
             case .success(let connection):
-                servers[home] = CodexServer(connection: connection, task: task)
+                servers[home] = CodexServer(connection: connection, task: task, identity: identity)
                 return connection
             case .failure(let error):
                 task.cancel()

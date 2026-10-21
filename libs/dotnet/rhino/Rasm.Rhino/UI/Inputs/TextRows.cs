@@ -239,7 +239,7 @@ public static class TextRows {
                     from document in scope.DocumentIO
                     from picked in HostDialogs.ShowSelectFolderDialog(document, title, Conversions.Present(current))
                     select Some(picked),
-            }).Catch(static error => error.Count is 1 && error.Is(Errors.Cancelled), static _ => IO.pure(Option<string>.None)),
+            }).Catch(ErrorOps.Cancellation, static _ => IO.pure(Option<string>.None)),
         };
 
     private static IO<(IO<Option<TState>> Read, TState Value)> Watched<TState>(ReadoutSource<TState> source, RowScope scope, Action<IDisposable> retain)

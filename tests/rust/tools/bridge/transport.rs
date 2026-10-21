@@ -9,14 +9,19 @@ use opentelemetry::{
     KeyValue, Value,
     trace::{SpanId, TraceId},
 };
+use opentelemetry_otlp::OTEL_EXPORTER_OTLP_ENDPOINT;
 use opentelemetry_proto::tonic::{
     Attributes,
     common::v1::AnyValue,
     logs::v1::ResourceLogs,
     metrics::v1::{ResourceMetrics, metric::Data},
+    resource::v1::Resource,
     trace::v1::{ResourceSpans, span::SpanKind},
 };
-use opentelemetry_semantic_conventions::attribute::SERVICE_NAME;
+use opentelemetry_semantic_conventions::{
+    SCHEMA_URL,
+    attribute::{PROCESS_PID, SERVICE_INSTANCE_ID, SERVICE_NAME},
+};
 use process_wrap::tokio::ChildWrapper as _;
 use reqwest::StatusCode;
 use rmcp::{
@@ -60,11 +65,32 @@ enum Operation {
     Telemetry,
 }
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const SERVICE: &str = "bridged";
+const INSTANCE: &str = "transport";
+
 // --- [MODELS] --------------------------------------------------------------------------
 
 #[derive(Deserialize)]
 struct Event {
     listen: Option<SocketAddr>,
+    #[serde(rename = "service.name")]
+    service: String,
+    #[serde(rename = "service.instance.id")]
+    instance: String,
+}
+
+#[derive(Deserialize)]
+struct Correlated {
+    #[serde(rename = "openTelemetry")]
+    context: Option<Context>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Context {
+    trace_id: String,
 }
 
 #[derive(Default, Deserialize)]
@@ -109,14 +135,15 @@ where T: DeserializeOwned {
     serde_path_to_error::deserialize(&mut serde_json::Deserializer::from_str(line)).map_err(|source| Failure::Decode { line: line.to_owned(), source })
 }
 
-async fn exchange(endpoint: Option<&str>, params: PaginatedRequestParams) -> Result<(), NEVec<Failure>> {
+async fn exchange(endpoint: Option<&str>, params: PaginatedRequestParams) -> Result<(Event, String), NEVec<Failure>> {
     let io = |operation| move |source| Failure::Io { operation, source };
     let (writer, reader) = pipe::pipe().map_err(io(Operation::Pipe))?;
     let mut child = Command::new(env!("CARGO_BIN_EXE_rasm-mcp-bridge"))
-        .args(["--listen", "127.0.0.1:0"])
-        .args(endpoint.map(|_| "--otlp"))
+        .args(["--listen", "127.0.0.1:0", "--log", "info"])
+        .args(endpoint.into_iter().flat_map(|_| ["--traces-exporter=otlp", "--metrics-exporter=otlp", "--logs-exporter=otlp"]))
         .args(["--", "ast-grep-server"])
-        .envs(endpoint.map(|endpoint| ("OTEL_EXPORTER_OTLP_ENDPOINT", endpoint)))
+        .envs(endpoint.into_iter().flat_map(|endpoint| [(OTEL_EXPORTER_OTLP_ENDPOINT, endpoint), ("OTEL_SERVICE_NAME", SERVICE)]))
+        .envs(endpoint.map(|_| ("OTEL_RESOURCE_ATTRIBUTES", format!("{SERVICE_NAME}=attributed,{SERVICE_INSTANCE_ID}={INSTANCE}"))))
         .stderr(writer.into_blocking_fd().map_err(io(Operation::Pipe))?)
         .kill_on_drop(true)
         .spawn()
@@ -125,14 +152,14 @@ async fn exchange(endpoint: Option<&str>, params: PaginatedRequestParams) -> Res
     let listening = lines
         .by_ref()
         .try_filter_map(|line| {
-            ready(decode(&line).map(|Event { listen }| {
+            ready(decode::<Event>(&line).map(|event| {
                 log.push(line);
-                listen
+                event.listen.map(|address| (address, event))
             }))
         })
         .try_next()
         .await?;
-    let Some(address) = listening else { return Err(Failure::Unready { log: log.join("\n") }.into()) };
+    let Some((address, event)) = listening else { return Err(Failure::Unready { log: log.join("\n") }.into()) };
     let session = async {
         let client = ().serve(StreamableHttpClientTransport::from_uri(format!("http://{address}"))).await.map_err(Box::new)?;
         let listed = client.list_tools(Some(params)).await;
@@ -147,13 +174,17 @@ async fn exchange(endpoint: Option<&str>, params: PaginatedRequestParams) -> Res
     let (tools, status, log) = Validated::from(rest).map4(signalled.into(), listed.into(), status.into(), |rest, (), tools, status| (tools, status, [log, rest].concat().join("\n"))).ok()?;
     assert!(status.success(), "bridge exited {status}\n{log}");
     assert!(!tools.tools.is_empty(), "bridge listed no tools\n{log}");
-    Ok(())
+    Ok((event, log))
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 #[tokio::test]
-async fn tools_list_and_graceful_shutdown() -> Result<(), NEVec<Failure>> { exchange(None, PaginatedRequestParams::default()).await }
+async fn tools_list_and_graceful_shutdown() -> Result<(), NEVec<Failure>> {
+    let (event, log) = exchange(None, PaginatedRequestParams::default()).await?;
+    assert_eq!(event.service, env!("CARGO_PKG_NAME"), "bridge resource named another service\n{log}");
+    Ok(())
+}
 
 #[tokio::test]
 #[ignore = "requires the OTLP Collector container"]
@@ -183,7 +214,10 @@ async fn otlp_export_flushes_on_shutdown() -> Result<(), NEVec<Failure>> {
     .map_err(Failure::from)?;
     let (trace, parent, mut params) = (TraceId::from_bytes([0x11; 16]), SpanId::from_bytes([0x22; 8]), PaginatedRequestParams::default());
     params.set_traceparent(&format!("00-{trace}-{parent}-01"));
-    exchange(Some(&endpoint), params).await?;
+    let (event, log) = exchange(Some(&endpoint), params).await?;
+    assert_eq!([event.service.as_str(), event.instance.as_str()], [SERVICE, INSTANCE], "bridge resource ignored OTEL_SERVICE_NAME or OTEL_RESOURCE_ATTRIBUTES\n{log}");
+    let correlated = log.lines().map(decode::<Correlated>).collect::<Validated<Vec<_>, _>>().ok()?;
+    assert!(correlated.iter().any(|line| line.context.as_ref().is_some_and(|context| TraceId::from_hex(&context.trace_id) == Ok(trace))), "no log line carries trace {trace}\n{log}");
     collector.stop().await.map_err(Failure::from)?;
     let (code, output, copied) = future::join3(collector.exit_code(), collector.stderr_to_vec(), collector.copy_file_from(file, Vec::new())).await;
     collector.rm().await.map_err(Failure::from)?;
@@ -192,20 +226,33 @@ async fn otlp_export_flushes_on_shutdown() -> Result<(), NEVec<Failure>> {
     let (code, output, exported) = Validated::from(code.map_err(Failure::from))
         .map3(output.map_err(Failure::from).into(), exported, |code, output, exported: Vec<Exported>| (code, String::from_utf8_lossy_owned(output), exported))
         .ok()?;
-    let (Attributes(method), Attributes(service)) = (Attributes::from([KeyValue::new("mcp.method.name", "tools/list")]), Attributes::from([KeyValue::new(SERVICE_NAME, env!("CARGO_PKG_NAME"))]));
+    let (Attributes(method), Attributes(service)) =
+        (Attributes::from([KeyValue::new("mcp.method.name", "tools/list")]), Attributes::from([KeyValue::new(SERVICE_NAME, SERVICE), KeyValue::new(SERVICE_INSTANCE_ID, INSTANCE)]));
+    let served = |resource: Option<&Resource>, schema: &str| {
+        schema == SCHEMA_URL
+            && resource.is_some_and(|described| service.iter().all(|attribute| described.attributes.contains(attribute)) && described.attributes.iter().any(|attribute| attribute.key == PROCESS_PID))
+    };
     assert_eq!(code, Some(0), "collector exited {code:?}\n{output}");
     assert!(
-        exported.iter().flat_map(|line| &line.spans).flat_map(|resource| &resource.scope_spans).flat_map(|scope| &scope.spans).any(|span| span.trace_id == trace.to_bytes()
-            && span.parent_span_id == parent.to_bytes()
-            && span.kind() == SpanKind::Server
-            && method.iter().all(|attribute| span.attributes.contains(attribute))),
-        "no server span for tools/list joined trace {trace} under {parent}\n{output}"
+        exported
+            .iter()
+            .flat_map(|line| &line.spans)
+            .filter(|resource| served(resource.resource.as_ref(), &resource.schema_url))
+            .flat_map(|resource| &resource.scope_spans)
+            .flat_map(|scope| &scope.spans)
+            .any(|span| span.trace_id == trace.to_bytes()
+                && span.parent_span_id == parent.to_bytes()
+                && span.kind() == SpanKind::Server
+                && method.iter().all(|attribute| span.attributes.contains(attribute))),
+        "no server span for tools/list joined trace {trace} under {parent} on the bridge resource\n{output}"
     );
     assert!(
         exported
             .iter()
             .flat_map(|line| &line.metrics)
+            .filter(|resource| served(resource.resource.as_ref(), &resource.schema_url))
             .flat_map(|resource| &resource.scope_metrics)
+            .filter(|scope| scope.scope.as_ref().is_some_and(|instrumented| instrumented.version == env!("CARGO_PKG_VERSION")))
             .flat_map(|scope| &scope.metrics)
             .filter(|recorded| recorded.name == "mcp.server.operation.duration")
             .flat_map(|recorded| match &recorded.data {
@@ -215,15 +262,17 @@ async fn otlp_export_flushes_on_shutdown() -> Result<(), NEVec<Failure>> {
             .any(|point| point.count > 0 && method.iter().all(|attribute| point.attributes.contains(attribute))),
         "no tools/list operation duration recorded\n{output}"
     );
+    let records = exported
+        .iter()
+        .flat_map(|line| &line.logs)
+        .filter(|resource| served(resource.resource.as_ref(), &resource.schema_url))
+        .flat_map(|resource| &resource.scope_logs)
+        .flat_map(|scope| &scope.log_records)
+        .collect::<Vec<_>>();
+    assert!(records.iter().any(|record| record.body == Some(AnyValue::from(Value::from("shutting down")))), "no shutdown log exported\n{output}");
     assert!(
-        exported
-            .iter()
-            .flat_map(|line| &line.logs)
-            .filter(|resource| resource.resource.as_ref().is_some_and(|described| service.iter().all(|attribute| described.attributes.contains(attribute))))
-            .flat_map(|resource| &resource.scope_logs)
-            .flat_map(|scope| &scope.log_records)
-            .any(|record| record.body == Some(AnyValue::from(Value::from("shutting down")))),
-        "no shutdown log exported\n{output}"
+        records.iter().any(|record| record.body == Some(AnyValue::from(Value::from("request completed"))) && method.iter().all(|attribute| record.attributes.contains(attribute))),
+        "request log carries no request span fields\n{output}"
     );
     Ok(())
 }

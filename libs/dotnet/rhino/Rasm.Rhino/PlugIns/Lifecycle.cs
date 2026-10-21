@@ -1,5 +1,4 @@
 using Rasm.Rhino.Commands;
-using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.PlugIns.Licenses;
@@ -38,11 +37,15 @@ internal interface IDefinedPlugIn : IPlugInViews, IPlugInLifetime {
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
-public sealed class PlugInSession(IO<Unit> flush) {
+public sealed class PlugInSession(IO<Unit> flush, Seq<Action<ILoggingBuilder>> logging) {
     // --- [STATE]
+    private static readonly Action<ILoggingBuilder> Host = static builder => builder.AddCommandWindow();
+    private static readonly ILoggerFactory Window = LoggerFactory.Create(Host);
+
+    private readonly ILoggerFactory loggers = LoggerFactory.Create(builder => (Host + logging).Iter(row => row(builder)));
     private readonly Ref<Option<Held>> state = Ref(Option<Held>.None);
 
-    private sealed record Held(Func<(Error Error, Type Owner, string Member), IO<Unit>> Post, Seq<IDisposable> Releases, HashMap<object, object> Slots);
+    private sealed record Held(Seq<IDisposable> Releases, HashMap<object, object> Slots);
 
     public static Fin<PlugInSession> Of(IPlugInSink sink) => sink is IPlugInLifetime lifetime ? lifetime.Session : new NotFound("plug-in session", $"{sink}");
 
@@ -53,12 +56,7 @@ public sealed class PlugInSession(IO<Unit> flush) {
         DisposalOps.OnFailure(Opened(owner, rows, lease => Changed(open => open with { Releases = open.Releases.Add(lease) }).ThrowIfFail()), Released);
 
     private IO<Unit> Opened<TOwner>(TOwner owner, Seq<Func<TOwner, Action<IDisposable>, IO<Unit>>> rows, Action<IDisposable> retain) =>
-        from opened in atomicIO(() => state.Swap(static _ => Some(new Held(static report => ErrorOps.Report(report.Error, report.Owner, report.Member), [], []))))
-        from post in Subscriptions.Queued(
-            Buffer<(Error Error, Type Owner, string Member)>.Unbounded,
-            static report => ErrorOps.Report(report.Error, report.Owner, report.Member).OnUiThread(),
-            static fault => ErrorOps.Report(fault, typeof(ErrorOps), nameof(ErrorOps.Report)).OnUiThread(), retain)
-        from published in IO.lift(() => Changed(open => open with { Post = post }))
+        from opened in atomicIO(() => state.Swap(static held => held || Some(new Held([], []))))
         from acquired in rows.TraverseM(row => row(owner, retain)).As()
         select unit;
 
@@ -69,13 +67,15 @@ public sealed class PlugInSession(IO<Unit> flush) {
 
     // --- [REPORT]
     public void Report(Error error, Type owner, string member) =>
-        _ = state.Value.Match(
-                Some: held => held.Post((error, owner, member)),
-                None: () => ErrorOps.Report(error, owner, member))
-            .RunSafe();
+        Try.lift(fun(() => ErrorOps.Log(Try.lift(() => loggers.CreateLogger(owner)).Run().IfFail(_ => Window.CreateLogger(owner)), error, member)))
+            .Run()
+            .IfFail(fault => HostUtils.ExceptionReport($"{owner.FullName}.{member}", (error + fault).ToException()));
 
     // --- [CLOSE]
-    public IO<Unit> Close => Callbacks.Each(Seq(Callbacks.Drained, Released, flush)).Map(unit).Uninterruptible();
+    public IO<Unit> Close =>
+        (from settled in Callbacks.Each(Seq(Callbacks.Drained, Released, flush)).Map(unit).Catch(error => IO.lift(() => Report(error, typeof(PlugInSession), nameof(Close)))).As()
+         from disposed in IO.lift(loggers.Dispose)
+         select unit).Uninterruptible();
 
     private IO<Unit> Released =>
         (from taken in atomicIO(() => {
@@ -100,7 +100,7 @@ internal sealed class PlugInLifetime(PlugInDefinition definition, Seq<View> kind
 
     public PlugInDefinition Definition => definition;
 
-    public PlugInSession Session { get; } = new(IO.lift(PlugIn.FlushSettingsSavedQueue));
+    public PlugInSession Session { get; } = new(IO.lift(PlugIn.FlushSettingsSavedQueue), definition.Logging);
 
     public ViewCatalog Views => views.Value;
 
@@ -120,7 +120,7 @@ internal sealed class PlugInLifetime(PlugInDefinition definition, Seq<View> kind
         Callbacks.Answer(
             Loading(plugIn)
                 .Map(static _ => (LoadReturnCode.Success, ""))
-                .Catch(static error => error.Count is 1 && error.Is(Errors.Cancelled), static _ => IO.pure((LoadReturnCode.ErrorNoDialog, "")))
+                .Catch(ErrorOps.Cancellation, static _ => IO.pure((LoadReturnCode.ErrorNoDialog, "")))
                 .Catch(error => IO.lift(() => site.Sink.Report(error, site.Owner, site.Member)).Map(_ => (LoadReturnCode.ErrorShowDialog, ErrorOps.Localize(error))))
                 .As(),
             static () => (LoadReturnCode.ErrorShowDialog, ""),

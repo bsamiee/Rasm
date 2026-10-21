@@ -47,7 +47,7 @@ public sealed record ComponentRow<TSelf>(
     public Option<Func<TSelf, Fin<IAttributes>>> Attributes { get; init; }
 
     // --- [ATTACHMENT]
-    public Func<TSelf, Action<IDisposable>, IO<Unit>> Attached { get; init; } = static (_, _) => IO.pure(unit);
+    public Seq<Func<TSelf, Action<IDisposable>, IO<Unit>>> Attached { get; init; }
 
     // --- [DECLARE]
     public static ComponentRow<TSelf> Of<TRecord>(
@@ -97,9 +97,9 @@ public abstract class DefinedComponent<TSelf> : ModularComponent, IPinCushion wh
         DocumentChanged += AttachmentChanged;
         CallbackSite site = DefinedGrasshopperPlugin.Site(this);
         Callbacks.Run(Callbacks.Each(
-            TSelf.Row.Inputs.Map((row, index) => (Row: row, Parameter: Parameters.Input(index)))
-                .Concat(TSelf.Row.Outputs.Map((row, index) => (Row: row, Parameter: Parameters.Output(index))))
-                .Map(placed => placed.Row.Attach(placed.Parameter, site.Sink))), site);
+            from placed in TSelf.Row.Inputs.Map((row, index) => (Row: row, Parameter: Parameters.Input(index))).Concat(TSelf.Row.Outputs.Map((row, index) => (Row: row, Parameter: Parameters.Output(index))))
+            from attach in placed.Row.Attach
+            select attach(placed.Parameter, site.Sink)), site);
     }
 
     public IEnumerable<Guid> SupportedPins => TSelf.Row.SupportedPins;
@@ -130,7 +130,7 @@ public abstract class DefinedComponent<TSelf> : ModularComponent, IPinCushion wh
         Callbacks.Started(Callbacks.Each(Seq(
             Detached,
             when(Document is not null, DisposalOps.Acquire(
-                retain => TSelf.Row.Attached((TSelf)this, retain).Map(retain),
+                retain => TSelf.Row.Attached.TraverseM(attached => attached((TSelf)this, retain)).As().Map(retain),
                 (retain, lease) => atomic(() => attachment.Value = Some((retain, lease)))).Map(static _ => unit)).As())), DefinedGrasshopperPlugin.Site(this));
 
     private IO<Unit> Detached => atomicIO(() => {

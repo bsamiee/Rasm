@@ -9,6 +9,10 @@
         <PackageReference Include="RhinoCommon" />
     </ItemGroup>
 
+    <ItemGroup Label="Application Hosting">
+        <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    </ItemGroup>
+
     <ItemGroup Label="Testing">
         <PackageReference Include="coverlet.MTP" />
         <PackageReference Include="CsCheck" />
