@@ -281,37 +281,133 @@ fn cloned_command_matches(found: &str) {
 fn environment_override(found: &str) {
     insta::assert_snapshot!(found, @r#"
     warning: `with_timeout` overrides `OTEL_EXPORTER_OTLP_TIMEOUT`, which `opentelemetry_otlp` reads
-     --> tools/dylint/examples/environment_override.rs:8:126
-      |
-    8 | ...1/traces").with_protocol(Protocol::HttpBinary).with_timeout(Duration::from_secs(5)).build()
-      |                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-      |
-      = help: delete the call and set `OTEL_EXPORTER_OTLP_TIMEOUT` in the process environment
-      = note: `#[warn(environment_override)]` on by default
+      --> tools/dylint/examples/environment_override.rs:14:126
+       |
+    14 | .../traces").with_protocol(Protocol::HttpBinary).with_timeout(Duration::from_secs(5)).build()
+       |                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: delete the call and set `OTEL_EXPORTER_OTLP_TIMEOUT` in the process environment
+       = note: `#[warn(environment_override)]` on by default
 
     warning: `with_protocol` overrides `OTEL_EXPORTER_OTLP_PROTOCOL`, which `opentelemetry_otlp` reads
-     --> tools/dylint/examples/environment_override.rs:8:90
-      |
-    8 |     SpanExporter::builder().with_http().with_endpoint("http://127.0.0.1:4318/v1/traces").with_protocol(Protocol::HttpBinary).with_tim...
-      |                                                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-      |
-      = help: delete the call and set `OTEL_EXPORTER_OTLP_PROTOCOL` in the process environment
-
-    warning: `with_endpoint` overrides `OTEL_EXPORTER_OTLP_ENDPOINT`, which `opentelemetry_otlp` reads
-     --> tools/dylint/examples/environment_override.rs:8:41
-      |
-    8 |     SpanExporter::builder().with_http().with_endpoint("http://127.0.0.1:4318/v1/traces").with_protocol(Protocol::HttpBinary).with_tim...
-      |                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-      |
-      = help: delete the call and set `OTEL_EXPORTER_OTLP_ENDPOINT` in the process environment
-
-    warning: `with_endpoint` overrides `OTEL_EXPORTER_OTLP_ENDPOINT`, which `opentelemetry_otlp` reads
-      --> tools/dylint/examples/environment_override.rs:11:61
+      --> tools/dylint/examples/environment_override.rs:14:90
        |
-    11 | ...> { opentelemetry_otlp::WithExportConfig::with_endpoint(LogExporter::builder().with_http(), "http://127.0.0.1:4318/v1/logs").buil...
+    14 |     SpanExporter::builder().with_http().with_endpoint("http://127.0.0.1:4318/v1/traces").with_protocol(Protocol::HttpBinary).with_ti...
+       |                                                                                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: delete the call and set `OTEL_EXPORTER_OTLP_PROTOCOL` in the process environment
+
+    warning: `with_endpoint` overrides `OTEL_EXPORTER_OTLP_ENDPOINT`, which `opentelemetry_otlp` reads
+      --> tools/dylint/examples/environment_override.rs:14:41
+       |
+    14 |     SpanExporter::builder().with_http().with_endpoint("http://127.0.0.1:4318/v1/traces").with_protocol(Protocol::HttpBinary).with_ti...
+       |                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: delete the call and set `OTEL_EXPORTER_OTLP_ENDPOINT` in the process environment
+
+    warning: `with_endpoint` overrides `OTEL_EXPORTER_OTLP_ENDPOINT`, which `opentelemetry_otlp` reads
+      --> tools/dylint/examples/environment_override.rs:17:61
+       |
+    17 | ...> { opentelemetry_otlp::WithExportConfig::with_endpoint(LogExporter::builder().with_http(), "http://127.0.0.1:4318/v1/logs").buil...
        |        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
        |
        = help: delete the call and set `OTEL_EXPORTER_OTLP_ENDPOINT` in the process environment
+
+    warning: `with_temporality` overrides `OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE`, which `opentelemetry_otlp` reads
+      --> tools/dylint/examples/environment_override.rs:19:89
+       |
+    19 | fn temporal() -> Result<MetricExporter, ExporterBuildError> { MetricExporter::builder().with_temporality(Temporality::Delta).build() }
+       |                                                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: delete the call and set `OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE` in the process environment
+
+    warning: `with_span_limits` overrides `OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT`, `OTEL_SPAN_EVENT_COUNT_LIMIT`, `OTEL_SPAN_LINK_COUNT_LIMIT`, which `opentelemetry_sdk` reads
+      --> tools/dylint/examples/environment_override.rs:21:127
+       |
+    21 | ...pler::AlwaysOn).with_max_events_per_span(16).with_span_limits(SpanLimits::default()).build() }
+       |                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: delete the call and set `OTEL_SPAN_ATTRIBUTE_COUNT_LIMIT`, `OTEL_SPAN_EVENT_COUNT_LIMIT`, `OTEL_SPAN_LINK_COUNT_LIMIT` in the process environment
+
+    warning: `with_max_events_per_span` overrides `OTEL_SPAN_EVENT_COUNT_LIMIT`, which `opentelemetry_sdk` reads
+      --> tools/dylint/examples/environment_override.rs:21:98
+       |
+    21 | fn sampled() -> SdkTracerProvider { SdkTracerProvider::builder().with_sampler(Sampler::AlwaysOn).with_max_events_per_span(16).with_s...
+       |                                                                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: delete the call and set `OTEL_SPAN_EVENT_COUNT_LIMIT` in the process environment
+
+    warning: `with_sampler` overrides `OTEL_TRACES_SAMPLER`, `OTEL_TRACES_SAMPLER_ARG`, which `opentelemetry_sdk` reads
+      --> tools/dylint/examples/environment_override.rs:21:66
+       |
+    21 | fn sampled() -> SdkTracerProvider { SdkTracerProvider::builder().with_sampler(Sampler::AlwaysOn).with_max_events_per_span(16).with_s...
+       |                                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: delete the call and set `OTEL_TRACES_SAMPLER`, `OTEL_TRACES_SAMPLER_ARG` in the process environment
+
+    warning: `with_scheduled_delay` overrides `OTEL_BSP_SCHEDULE_DELAY`, which `opentelemetry_sdk` reads
+      --> tools/dylint/examples/environment_override.rs:24:68
+       |
+    24 |     (trace::BatchConfigBuilder::default().with_max_queue_size(512).with_scheduled_delay(Duration::from_secs(1)).build(), logs::Batch...
+       |                                                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: delete the call and set `OTEL_BSP_SCHEDULE_DELAY` in the process environment
+
+    warning: `with_max_queue_size` overrides `OTEL_BSP_MAX_QUEUE_SIZE`, which `opentelemetry_sdk` reads
+      --> tools/dylint/examples/environment_override.rs:24:43
+       |
+    24 |     (trace::BatchConfigBuilder::default().with_max_queue_size(512).with_scheduled_delay(Duration::from_secs(1)).build(), logs::Batch...
+       |                                           ^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: delete the call and set `OTEL_BSP_MAX_QUEUE_SIZE` in the process environment
+
+    warning: `with_max_export_batch_size` overrides `OTEL_BLRP_MAX_EXPORT_BATCH_SIZE`, which `opentelemetry_sdk` reads
+      --> tools/dylint/examples/environment_override.rs:24:158
+       |
+    24 | ...1)).build(), logs::BatchConfigBuilder::default().with_max_export_batch_size(64).build())
+       |                                                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: delete the call and set `OTEL_BLRP_MAX_EXPORT_BATCH_SIZE` in the process environment
+
+    warning: `with_interval` overrides `OTEL_METRIC_EXPORT_INTERVAL`, which `opentelemetry_sdk` reads
+      --> tools/dylint/examples/environment_override.rs:27:109
+       |
+    27 | ...Exporter> { PeriodicReader::builder(exporter).with_interval(Duration::from_secs(5)).build() }
+       |                                                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: delete the call and set `OTEL_METRIC_EXPORT_INTERVAL` in the process environment
+
+    warning: `with_detector` overrides `OTEL_RESOURCE_ATTRIBUTES`, which `opentelemetry_sdk` reads
+      --> tools/dylint/examples/environment_override.rs:29:49
+       |
+    29 | fn detected() -> Resource { Resource::builder().with_detector(Box::new(TelemetryResourceDetector)).build() }
+       |                                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: start from `Resource::builder_empty()` and merge `EnvResourceDetector` after every other detector
+
+    warning: `with_detectors` overrides `OTEL_RESOURCE_ATTRIBUTES`, which `opentelemetry_sdk` reads
+      --> tools/dylint/examples/environment_override.rs:33:12
+       |
+    33 |     seeded.with_detectors(&[Box::new(TelemetryResourceDetector)]).build()
+       |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: start from `Resource::builder_empty()` and merge `EnvResourceDetector` after every other detector
+
+    warning: `with_detector` overrides `OTEL_RESOURCE_ATTRIBUTES`, which `opentelemetry_sdk` reads
+      --> tools/dylint/examples/environment_override.rs:36:108
+       |
+    36 | ...(Box::new(EnvResourceDetector::new())).with_detector(Box::new(TelemetryResourceDetector)).build() }
+       |                                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: start from `Resource::builder_empty()` and merge `EnvResourceDetector` after every other detector
+
+    warning: `with_detectors` overrides `OTEL_RESOURCE_ATTRIBUTES`, which `opentelemetry_sdk` reads
+      --> tools/dylint/examples/environment_override.rs:38:55
+       |
+    38 | ...::builder_empty().with_detectors(&[Box::new(EnvResourceDetector::new()), Box::new(TelemetryResourceDetector)]).build() }
+       |                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+       |
+       = help: start from `Resource::builder_empty()` and merge `EnvResourceDetector` after every other detector
     "#);
 }
 

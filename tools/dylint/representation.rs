@@ -92,6 +92,7 @@ pub(crate) mod needless_reference_field;
 pub(crate) mod needless_struct;
 pub(crate) mod option_field_pairs;
 pub(crate) mod primitive_domain_binding;
+pub(crate) mod restated_constant;
 pub(crate) mod sentinel_default;
 pub(crate) mod single_impl_trait;
 pub(crate) mod stringified_uuid;

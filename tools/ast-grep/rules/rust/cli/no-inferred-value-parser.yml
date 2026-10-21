@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-inferred-value-parser
+language: rust
+severity: error
+utils:
+    final:
+        not: {precedes: {stopBy: {regex: '^,$'}, regex: '^\.$'}}
+    applied:
+        not: {precedes: {stopBy: {regex: '^,$'}, kind: token_tree, not: {regex: '^\(\s*\w*\s*\)$'}}}
+    inferred:
+        kind: identifier
+        all:
+            - any:
+                - regex: '^parse$'
+                  follows: {regex: '^::$', follows: {kind: primitive_type, regex: '^str$'}}
+                - regex: '^parse$'
+                  follows: {regex: '^\.$', follows: {kind: identifier, follows: {regex: '^\|$'}}}
+                  matches: applied
+                - regex: '^from_str$'
+                  follows: {regex: '^::$', any: [{follows: {kind: identifier, regex: '^[A-Z]'}}, {follows: {kind: primitive_type}}, {follows: {regex: '^>$'}}]}
+                  matches: applied
+                - regex: '^value_parser$'
+                  precedes: {regex: '^!$'}
+                - regex: '^(string|os_string|path_buf|bool)$'
+                  follows: {regex: '^::$', follows: {kind: identifier, regex: '^ValueParser$'}}
+                - regex: '^new$'
+                  follows: {regex: '^::$', follows: {stopBy: {regex: '^[,=]$'}, kind: identifier, regex: '^(String|OsString|PathBuf|Bool|Enum)ValueParser$'}}
+            - matches: final
+rule:
+    kind: identifier
+    regex: '^value_parser$'
+    pattern: $KEY
+    all:
+        - precedes: {regex: '^=$', precedes: {stopBy: {regex: '^,$'}, matches: inferred}}
+        - inside: {kind: token_tree, inside: {kind: attribute, field: arguments, has: {nthChild: 1, kind: identifier, regex: '^(arg|clap)$'}}}
+        - not: {matches: rust-test-scope}
+message: '`$KEY` restates the parser clap infers from the field type'
+note: 'Delete the key, the derive passes `value_parser!(<field type>)`, which picks the `ValueParserFactory`, `ValueEnum`, `From` string, or `FromStr` parser in that order'

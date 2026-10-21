@@ -135,7 +135,7 @@ where T: DeserializeOwned {
     serde_path_to_error::deserialize(&mut serde_json::Deserializer::from_str(line)).map_err(|source| Failure::Decode { line: line.to_owned(), source })
 }
 
-async fn exchange(endpoint: Option<&str>, params: PaginatedRequestParams) -> Result<(Event, String), NEVec<Failure>> {
+async fn exchange(endpoint: Option<&str>, params: PaginatedRequestParams) -> Result<(Event, String, Option<u32>), NEVec<Failure>> {
     let io = |operation| move |source| Failure::Io { operation, source };
     let (writer, reader) = pipe::pipe().map_err(io(Operation::Pipe))?;
     let mut child = Command::new(env!("CARGO_BIN_EXE_rasm-mcp-bridge"))
@@ -148,7 +148,7 @@ async fn exchange(endpoint: Option<&str>, params: PaginatedRequestParams) -> Res
         .kill_on_drop(true)
         .spawn()
         .map_err(io(Operation::Spawn))?;
-    let (mut lines, mut log) = (LinesStream::new(BufReader::new(reader).lines()).map_err(io(Operation::Log)), Vec::new());
+    let (mut lines, mut log, pid) = (LinesStream::new(BufReader::new(reader).lines()).map_err(io(Operation::Log)), Vec::new(), child.id());
     let listening = lines
         .by_ref()
         .try_filter_map(|line| {
@@ -174,14 +174,14 @@ async fn exchange(endpoint: Option<&str>, params: PaginatedRequestParams) -> Res
     let (tools, status, log) = Validated::from(rest).map4(signalled.into(), listed.into(), status.into(), |rest, (), tools, status| (tools, status, [log, rest].concat().join("\n"))).ok()?;
     assert!(status.success(), "bridge exited {status}\n{log}");
     assert!(!tools.tools.is_empty(), "bridge listed no tools\n{log}");
-    Ok((event, log))
+    Ok((event, log, pid))
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 #[tokio::test]
 async fn tools_list_and_graceful_shutdown() -> Result<(), NEVec<Failure>> {
-    let (event, log) = exchange(None, PaginatedRequestParams::default()).await?;
+    let (event, log, _) = exchange(None, PaginatedRequestParams::default()).await?;
     assert_eq!(event.service, env!("CARGO_PKG_NAME"), "bridge resource named another service\n{log}");
     Ok(())
 }
@@ -214,7 +214,7 @@ async fn otlp_export_flushes_on_shutdown() -> Result<(), NEVec<Failure>> {
     .map_err(Failure::from)?;
     let (trace, parent, mut params) = (TraceId::from_bytes([0x11; 16]), SpanId::from_bytes([0x22; 8]), PaginatedRequestParams::default());
     params.set_traceparent(&format!("00-{trace}-{parent}-01"));
-    let (event, log) = exchange(Some(&endpoint), params).await?;
+    let (event, log, pid) = exchange(Some(&endpoint), params).await?;
     assert_eq!([event.service.as_str(), event.instance.as_str()], [SERVICE, INSTANCE], "bridge resource ignored OTEL_SERVICE_NAME or OTEL_RESOURCE_ATTRIBUTES\n{log}");
     let correlated = log.lines().map(decode::<Correlated>).collect::<Validated<Vec<_>, _>>().ok()?;
     assert!(correlated.iter().any(|line| line.context.as_ref().is_some_and(|context| TraceId::from_hex(&context.trace_id) == Ok(trace))), "no log line carries trace {trace}\n{log}");
@@ -226,11 +226,12 @@ async fn otlp_export_flushes_on_shutdown() -> Result<(), NEVec<Failure>> {
     let (code, output, exported) = Validated::from(code.map_err(Failure::from))
         .map3(output.map_err(Failure::from).into(), exported, |code, output, exported: Vec<Exported>| (code, String::from_utf8_lossy_owned(output), exported))
         .ok()?;
-    let (Attributes(method), Attributes(service)) =
-        (Attributes::from([KeyValue::new("mcp.method.name", "tools/list")]), Attributes::from([KeyValue::new(SERVICE_NAME, SERVICE), KeyValue::new(SERVICE_INSTANCE_ID, INSTANCE)]));
+    let (Attributes(method), service) = (
+        Attributes::from([KeyValue::new("mcp.method.name", "tools/list")]),
+        pid.map(|pid| Attributes::from([KeyValue::new(SERVICE_NAME, SERVICE), KeyValue::new(SERVICE_INSTANCE_ID, INSTANCE), KeyValue::new(PROCESS_PID, i64::from(pid))])),
+    );
     let served = |resource: Option<&Resource>, schema: &str| {
-        schema == SCHEMA_URL
-            && resource.is_some_and(|described| service.iter().all(|attribute| described.attributes.contains(attribute)) && described.attributes.iter().any(|attribute| attribute.key == PROCESS_PID))
+        schema == SCHEMA_URL && resource.zip(service.as_ref()).is_some_and(|(described, Attributes(service))| service.iter().all(|attribute| described.attributes.contains(attribute)))
     };
     assert_eq!(code, Some(0), "collector exited {code:?}\n{output}");
     assert!(

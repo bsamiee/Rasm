@@ -24,7 +24,7 @@ impl<'tcx> LateLintPass<'tcx> for Pass {
             && is_error(cx, held)
             && let span = walk_span_to_context(value.span, call.ctxt()).unwrap_or(call)
         {
-            span_lint_hir_and_then(cx, ERROR_FIELD_WITHOUT_SOURCES, expr.hir_id, span, format!("tracing field records `{}` without its sources", held.peel_refs()), |diag| {
+            span_lint_hir_and_then(cx, ERROR_FIELD_WITHOUT_SOURCES, expr.hir_id, span, format!("tracing field records error `{}` outside `Report`", held.peel_refs()), |diag| {
                 diag.help("record `Report::new(error)` under `%` or `field::display`, its text names the error and each source");
             });
         }

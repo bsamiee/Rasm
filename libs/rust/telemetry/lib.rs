@@ -40,7 +40,7 @@ use tracing::{
 use tracing_log::LogTracer;
 use tracing_subscriber::{
     EnvFilter, Layer, Registry,
-    filter::LevelFilter,
+    filter::{LevelFilter, ParseError},
     fmt::{MakeWriter, time::SystemTime},
     layer::{Layered, SubscriberExt as _},
     registry::LookupSpan,
@@ -64,6 +64,8 @@ pub enum Signal {
 
 #[derive(Debug, thiserror::Error)]
 enum Failed {
+    #[error("cannot parse the program's filter directives")]
+    Filter(#[source] ParseError),
     #[error("cannot build OTLP {signal} exporter")]
     Build { signal: Signal, source: ExporterBuildError },
     #[error("cannot install tracing subscriber, one is installed")]
@@ -94,7 +96,7 @@ impl Telemetry {
         options: Options,
         command: &Command,
         attributes: impl IntoIterator<Item = KeyValue>,
-        defaults: EnvFilter,
+        defaults: &str,
         writer: W,
         layer: L,
         work: impl FnOnce(&Self) -> Result<T, NEVec<E>>,
@@ -144,36 +146,47 @@ impl Telemetry {
             .with_service_name(command.get_name().to_owned())
             .with_attributes(command.get_version().map(|version| KeyValue::new(SERVICE_VERSION, version.to_owned())))
             .with_detector(Box::new(ServiceInstanceIdResourceDetector))
-            .with_detectors(if [options.traces_exporter, options.metrics_exporter, options.logs_exporter].contains(&Exporter::Otlp) { &detectors } else { &[] })
+            .with_detectors(
+                if [options.traces_exporter, options.metrics_exporter, options.logs_exporter].into_iter().any(|exporter| match exporter {
+                    Exporter::None => false,
+                    Exporter::Otlp => true,
+                }) {
+                    &detectors
+                } else {
+                    &[]
+                },
+            )
             .with_detector(Box::new(EnvResourceDetector::new()))
             .with_attributes(attributes)
             .with_attributes(options.service_name.map(|name| KeyValue::new(SERVICE_NAME, name)))
             .build();
-        let exporters = subscriber::with_default(tracing_subscriber::registry().with(json(writer.clone(), &resource)).with(LevelFilter::WARN), || {
-            built(Signal::Traces, options.traces_exporter, || SpanExporter::builder().build())
-                .map3(
+        let prepared = subscriber::with_default(tracing_subscriber::registry().with(json(writer.clone(), &resource)).with(LevelFilter::WARN), || {
+            Validated::from(EnvFilter::try_new(defaults).map_err(Failed::Filter))
+                .map4(
+                    built(Signal::Traces, options.traces_exporter, || SpanExporter::builder().build()),
                     built(Signal::Metrics, options.metrics_exporter, || MetricExporter::builder().build()),
                     built(Signal::Logs, options.logs_exporter, || LogExporter::builder().build()),
-                    |span_exporter, metric_exporter, log_exporter| (span_exporter, metric_exporter, log_exporter),
+                    |filter, span_exporter, metric_exporter, log_exporter| (filter, span_exporter, metric_exporter, log_exporter),
                 )
                 .ok()
                 .inspect_err(reported)
         });
-        let Ok((span_exporter, metric_exporter, log_exporter)) = exporters else { return ExitCode::FAILURE };
+        let Ok((filter, span_exporter, metric_exporter, log_exporter)) = prepared else { return ExitCode::FAILURE };
         let traces = span_exporter.into_iter().fold(SdkTracerProvider::builder().with_resource(resource.clone()), TracerProviderBuilder::with_batch_exporter).build();
         let metrics = metric_exporter.into_iter().fold(SdkMeterProvider::builder().with_resource(resource.clone()), MeterProviderBuilder::with_periodic_exporter).build();
         let logs = log_exporter.into_iter().fold(SdkLoggerProvider::builder().with_resource(resource.clone()), LoggerProviderBuilder::with_batch_exporter).build();
-        let scope = InstrumentationScope::builder(env!("CARGO_PKG_NAME")).with_version(env!("CARGO_PKG_VERSION")).with_schema_url(SCHEMA_URL).build();
-        let (filter, handle) = reload::Layer::new(options.log.into_iter().fold(defaults, EnvFilter::add_directive));
+        let scope = InstrumentationScope::builder(env!("CARGO_PKG_NAME")).with_version(env!("CARGO_PKG_VERSION")).build();
+        let (filter, handle) = reload::Layer::new(options.log.into_iter().fold(filter, EnvFilter::add_directive));
         let dispatched = tracing_subscriber::registry()
             .with(filter)
             .with(layer)
             .with(json(writer, &resource))
             .with(tracing_opentelemetry::layer().with_tracer(traces.tracer_with_scope(scope)))
             .with(OpenTelemetryTracingBridge::builder(&logs).with_tracing_span_attributes(TracingSpanAttributes::all()).build());
-        let installed = Validated::from(subscriber::set_global_default(dispatched).map_err(|SetGlobalDefaultError { .. }| Failed::Dispatch))
-            .map2(LogTracer::init().map_err(|SetLoggerError { .. }| Failed::Forward).into(), |(), ()| ())
-            .ok()
+        let installed = subscriber::set_global_default(dispatched)
+            .map_err(|SetGlobalDefaultError { .. }| Failed::Dispatch)
+            .and_then(|()| LogTracer::init().map_err(|SetLoggerError { .. }| Failed::Forward))
+            .map_err(NEVec::new)
             .inspect_err(reported);
         let telemetry = Self { filter: handle, traces, metrics, logs };
         let ran = installed.ok().map(|()| {
@@ -192,12 +205,14 @@ impl Telemetry {
                     })
                     .collect(),
             ));
-            let hooked = telemetry.clone();
+            let (previous, hooked) = (panic::take_hook(), telemetry.clone());
             panic::set_hook(Box::new(move |info| {
                 tracing::error!({ EXCEPTION_MESSAGE } = %info, { EXCEPTION_STACKTRACE } = %Backtrace::force_capture(), "panicked");
                 hooked.force_flush().unwrap_or_else(|errors| reported(&errors));
             }));
-            work(&telemetry).inspect_err(reported)
+            let worked = work(&telemetry).inspect_err(reported);
+            panic::set_hook(previous);
+            worked
         });
         let stopped = flushed([(Signal::Traces, telemetry.traces.shutdown()), (Signal::Metrics, telemetry.metrics.shutdown()), (Signal::Logs, telemetry.logs.shutdown())]).inspect_err(reported);
         match (ran, stopped) {

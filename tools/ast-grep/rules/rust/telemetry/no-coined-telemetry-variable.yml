@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-coined-telemetry-variable
+language: rust
+severity: error
+rule:
+    kind: 'string_literal, raw_string_literal'
+    pattern: $NAME
+    all:
+        - regex: '^r?#*"([A-Z0-9]+_)*(OTLP|OTEL|OPENTELEMETRY|TELEMETRY)(_[A-Z0-9]+)*"#*$'
+        - not: {regex: '^r?#*"OTEL_'}
+        - follows: {regex: '^=$', follows: {regex: '^env$'}}
+        - inside: {kind: token_tree, stopBy: {kind: attribute}, inside: {kind: attribute}}
+        - not: {matches: rust-test-scope}
+message: '`$NAME` coins a telemetry variable outside the `OTEL_` names OpenTelemetry specifies'
+note: 'Read the setting from the `OTEL_*` variable the OpenTelemetry environment specification names (`OTEL_TRACES_EXPORTER`, `OTEL_EXPORTER_OTLP_ENDPOINT`), or flatten `rasm_telemetry::options::Options`, which reads it'

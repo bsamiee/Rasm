@@ -776,6 +776,60 @@ fn redundant_option_flag(found: &str) {
     ");
 }
 
+fn restated_constant(found: &str) {
+    insta::assert_snapshot!(found, @r#"
+    warning: `"OTEL_EXPORTER_OTLP_ENDPOINT"` spells `opentelemetry_otlp::OTEL_EXPORTER_OTLP_ENDPOINT`
+     --> tools/dylint/examples/restated_constant.rs:9:24
+      |
+    9 | const ENDPOINT: &str = "OTEL_EXPORTER_OTLP_ENDPOINT";
+      |                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: name the constant its crate declares for the string: `opentelemetry_otlp::OTEL_EXPORTER_OTLP_ENDPOINT`
+      |
+      = note: `#[warn(restated_constant)]` on by default
+    applicability MaybeIncorrect: name the constant its crate declares for the string
+
+    warning: `"service.name"` spells `opentelemetry_semantic_conventions::attribute::SERVICE_NAME`
+      --> tools/dylint/examples/restated_constant.rs:21:55
+       |
+    21 | fn spelled() -> [(&'static str, &'static str); 2] { [("service.name", "bridge"), ("http.server.request.duration", "1.5")] }
+       |                                                       ^^^^^^^^^^^^^^ help: name the constant its crate declares for the string: `opentelemetry_semantic_conventions::attribute::SERVICE_NAME`
+    applicability MaybeIncorrect: name the constant its crate declares for the string
+
+    warning: `"http.server.request.duration"` spells `opentelemetry_semantic_conventions::metric::HTTP_SERVER_REQUEST_DURATION`
+      --> tools/dylint/examples/restated_constant.rs:21:83
+       |
+    21 | fn spelled() -> [(&'static str, &'static str); 2] { [("service.name", "bridge"), ("http.server.request.duration", "1.5")] }
+       |                                                                                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ help: name the constant its crate declares for the string: `opentelemetry_semantic_conventions::metric::HTTP_SERVER_REQUEST_DURATION`
+    applicability MaybeIncorrect: name the constant its crate declares for the string
+
+    warning: `"code.file.path"` spells `opentelemetry_semantic_conventions::attribute::CODE_FILE_PATH`
+      --> tools/dylint/examples/restated_constant.rs:23:47
+       |
+    23 | fn located(key: &str) -> bool { matches!(key, "code.file.path") }
+       |                                               ^^^^^^^^^^^^^^^^ help: name the constant its crate declares for the string: `opentelemetry_semantic_conventions::attribute::CODE_FILE_PATH`
+    applicability MaybeIncorrect: name the constant its crate declares for the string
+
+    warning: `"service.namespace"` spells `opentelemetry_semantic_conventions::attribute::SERVICE_NAMESPACE`
+      --> tools/dylint/examples/restated_constant.rs:27:9
+       |
+    25 | macro_rules! namespaced {
+    26 |     () => {
+    27 |         "service.namespace"
+       |         ^^^^^^^^^^^^^^^^^^^
+    ...
+    31 | fn expanded() -> &'static str { namespaced!() }
+       |                                 ------------- in this macro invocation
+       |
+    help: name the constant its crate declares for the string
+      --> tools/dylint/examples/restated_constant.rs:27:9
+       |
+    27 |         "service.namespace"
+       |         ^^^^^^^^^^^^^^^^^^^
+    ...
+    31 | fn expanded() -> &'static str { namespaced!() }
+       |                                 ------------- in this macro invocation
+    "#);
+}
+
 fn sentinel_default(found: &str) {
     insta::assert_snapshot!(found, @r#"
     warning: `unwrap_or` turns `None` into a `u32` default that a later test reads as absence
@@ -1394,6 +1448,7 @@ snapshots!(
     option_fields_as_result,
     primitive_domain_binding,
     redundant_option_flag,
+    restated_constant,
     sentinel_default,
     single_impl_trait,
     stringified_uuid,

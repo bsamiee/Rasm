@@ -1888,6 +1888,7 @@ dependencies = [
  "nonempty-collections",
  "opentelemetry-otlp",
  "opentelemetry-semantic-conventions",
+ "opentelemetry_sdk",
  "rasm-mcp",
  "rmcp",
  "serde",

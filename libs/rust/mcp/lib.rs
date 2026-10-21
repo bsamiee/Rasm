@@ -52,7 +52,7 @@ use tokio_util::{
 };
 use tracing::{Instrument as _, field::Empty};
 use tracing_opentelemetry::{OpenTelemetrySpanExt as _, SetParentError};
-use tracing_subscriber::{EnvFilter, layer::Identity};
+use tracing_subscriber::layer::Identity;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -94,8 +94,8 @@ pub const PROTOCOL_VERSIONS: &[ProtocolVersion] = &[ProtocolVersion::V_2025_06_1
 struct Options {
     #[arg(long, env = "MCP_LISTEN", help = "Socket address of the Streamable HTTP endpoint")]
     listen: SocketAddr,
-    #[arg(long = "allowed-host", env = "MCP_ALLOWED_HOSTS", value_name = "AUTHORITY", value_delimiter = ',', help = "Host authority to answer beside loopback names and bound address")]
-    hosts: Vec<Authority>,
+    #[arg(long, env = "MCP_ALLOWED_HOSTS", value_name = "AUTHORITY", value_delimiter = ',', help = "Host authority to answer beside loopback names and bound address")]
+    allowed_host: Vec<Authority>,
     #[command(flatten)]
     telemetry: options::Options,
 }
@@ -405,7 +405,7 @@ where
     let matches = command.get_matches_mut();
     let (options, args) = Options::from_arg_matches(&matches).and_then(|options| P::from_arg_matches(&matches).map(|args| (options, args))).unwrap_or_else(|error| error.exit());
     let identity = command.get_about().into_iter().fold(Implementation::new(command.get_name(), version), |identity, about| identity.with_description(about.to_string()));
-    let Options { listen, hosts, telemetry } = options;
+    let Options { listen, allowed_host, telemetry } = options;
     let listening = async move {
         let signals = cfg_select! {
             unix => [SignalKind::interrupt(), SignalKind::terminate(), SignalKind::hangup()].map(|kind| signal(kind).map(SignalStream::new)),
@@ -421,7 +421,7 @@ where
         let host = Arc::new(Host { endpoint, notifier, stopping: CancellationToken::new(), requests: TaskTracker::new(), watches: TaskTracker::new(), leases: Mutex::default() });
         let manager = Arc::new(LocalSessionManager::default());
         let mut config = StreamableHttpServerConfig::default().with_json_response(true).enforce_origin_validation();
-        config.allowed_hosts.extend(hosts.iter().map(Authority::to_string).chain(Some(address.ip()).filter(|ip| !ip.is_unspecified()).map(|ip| ip.to_string())));
+        config.allowed_hosts.extend(allowed_host.iter().map(Authority::to_string).chain(Some(address.ip()).filter(|ip| !ip.is_unspecified()).map(|ip| ip.to_string())));
         let factory = Arc::clone(&host);
         let service = StreamableHttpService::new(move || Ok(Session { host: Arc::clone(&factory), subscribed: watch::Sender::default(), relay: OnceLock::new() }), Arc::clone(&manager), config);
         let mut http = pin!(future::maybe_done(axum::serve(socket, axum::Router::new().route_service("/", service)).with_graceful_shutdown(host.stopping.clone().cancelled_owned()).into_future()));
@@ -441,7 +441,7 @@ where
         let served = http.as_mut().take_output().unwrap_or(Ok(())).map_err(|source| Failed::Io { operation: Operation::Serve, source });
         validated::Validated::from(ended).map2(served.into(), |(), ()| ()).ok()
     };
-    Telemetry::run(telemetry, &command, [], EnvFilter::new("info,rmcp=warn,rmcp::service=error"), io::stderr, Identity::new(), |_| {
+    Telemetry::run(telemetry, &command, [], "info,rmcp=warn,rmcp::service=error", io::stderr, Identity::new(), |_| {
         let runtime = runtime::Runtime::new().map_err(|source| Failed::Io { operation: Operation::Runtime, source })?;
         let hosted = runtime.block_on(listening);
         runtime.shutdown_background();

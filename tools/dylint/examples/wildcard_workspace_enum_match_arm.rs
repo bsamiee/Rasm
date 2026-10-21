@@ -1,4 +1,5 @@
 use core::{cmp::Ordering, hint::black_box};
+use std::collections::VecDeque;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -173,6 +174,37 @@ macro_rules! classified {
 
 const fn expanded(signal: Signal) -> u8 { classified!(signal) }
 
+fn listed(left: Signal, right: Signal) -> u8 { if [left, right].contains(&Signal::Stop) { 0 } else { 1 } }
+
+fn either(left: Signal, right: Signal) -> u8 { if left == Signal::Stop || right == Signal::Pause { 0 } else { 1 } }
+
+const fn chained(signal: Signal, ready: bool) -> u8 {
+    if let Signal::Start = signal
+        && ready
+    {
+        0
+    } else {
+        1
+    }
+}
+
+fn queued(signals: &VecDeque<Signal>) -> u8 { if signals.contains(&Signal::Resume) { 0 } else { 1 } }
+
+fn held(codes: &[u8]) -> u8 { if codes.contains(&3) { 0 } else { 1 } }
+
+fn ordered(orders: &[Ordering]) -> u8 { if orders.contains(&Ordering::Less) { 0 } else { 1 } }
+
+fn swept(signals: &[Signal]) -> u8 {
+    if signals.iter().any(|signal| match signal {
+        Signal::Stop => true,
+        Signal::Start | Signal::Pause | Signal::Resume => false,
+    }) {
+        0
+    } else {
+        1
+    }
+}
+
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 fn main() {
@@ -191,6 +223,7 @@ fn main() {
         [if_let(Signal::Stop), if_let_alone(Signal::Stop), compared(Signal::Stop), tested_branch(Signal::Stop)],
         (let_else(Signal::Stop), let_else_set(Signal::Start), tested(Signal::Stop), tested_set(Signal::Pause), looped(Signal::Pause), stopped(Signal::Stop), paused(Signal::Pause)),
         [nested(None), paired(Signal::Stop, Signal::Start), paired_count(Signal::Stop, 2), outcome(Ok(Signal::Stop)), expanded(Signal::Stop)],
+        (listed, either, chained, queued, held, ordered, swept),
     ));
 }
 

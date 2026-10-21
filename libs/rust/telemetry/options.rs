@@ -3,7 +3,7 @@ use tracing_subscriber::{EnvFilter, filter::Directive};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, ValueEnum)]
+#[derive(Clone, Copy, Debug, Default, ValueEnum)]
 pub(crate) enum Exporter {
     #[default]
     None,
@@ -12,8 +12,8 @@ pub(crate) enum Exporter {
 }
 
 #[derive(Clone, Copy, Debug, ValueEnum)]
+#[value(rename_all = "lower")]
 pub(crate) enum Propagator {
-    #[value(name = "tracecontext")]
     TraceContext,
     Baggage,
     None,

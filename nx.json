@@ -73,16 +73,8 @@
         "install": [
             {
                 "filter": { "projects": [ "tag:build:xcode" ] },
-                "executor": "nx:run-commands",
-                "options": {
-                    "commands": [
-                        "rm -rf \"$NX_WORKSPACE_ROOT/.artifacts/{projectRoot}/install\"",
-                        "xcodebuild -project \"$NX_WORKSPACE_ROOT/{projectRoot}/{projectName}.xcodeproj\" -scheme {projectName} -configuration Release -destination platform=macOS -derivedDataPath \"$NX_WORKSPACE_ROOT/$XCODE_DERIVED_DATA_PATH/release\" -clonedSourcePackagesDirPath \"$NX_WORKSPACE_ROOT/$XCODE_DERIVED_DATA_PATH/SourcePackages\" -disableAutomaticPackageResolution install \"DSTROOT=$NX_WORKSPACE_ROOT/.artifacts/{projectRoot}/install\" ARCHS=arm64 LM_SKIP_METADATA_EXTRACTION=YES",
-                        "rm -rf \"/Applications/{projectName}.app\"",
-                        "ditto \"$NX_WORKSPACE_ROOT/.artifacts/{projectRoot}/install\" /"
-                    ],
-                    "parallel": false
-                },
+                "command": "xcodebuild -project {projectName}.xcodeproj -scheme {projectName} -configuration Release -destination platform=macOS -derivedDataPath \"$NX_WORKSPACE_ROOT/$XCODE_DERIVED_DATA_PATH/release\" -clonedSourcePackagesDirPath \"$NX_WORKSPACE_ROOT/$XCODE_DERIVED_DATA_PATH/SourcePackages\" -disableAutomaticPackageResolution install DSTROOT=/Applications INSTALL_PATH=/ ARCHS=arm64 LM_SKIP_METADATA_EXTRACTION=YES",
+                "options": { "cwd": "{projectRoot}" },
                 "parallelism": false
             },
             {

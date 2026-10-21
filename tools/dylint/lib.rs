@@ -561,6 +561,7 @@ lints! {
     representation::needless_struct,
     representation::option_field_pairs,
     representation::primitive_domain_binding,
+    representation::restated_constant,
     representation::sentinel_default,
     representation::single_impl_trait,
     representation::stringified_uuid,
