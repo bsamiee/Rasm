@@ -12,7 +12,6 @@ import { contract } from '@rasm/hosting/sites.ts';
 import { environment } from '@rasm/hosting/vite.ts';
 import { Array, type Cause, Config, Effect, FileSystem, Function, Match, Path, Record, Redacted, Result, Schema } from 'effect';
 import { resolveConfig } from 'vite';
-import { stringify } from 'yaml';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -145,11 +144,7 @@ const targets = {
                 });
                 const provider = new Provider(`${name}-store`, { minioServer: interpolate`${address.host}:${address.port}`, minioUser: user, minioPassword: key, minioRegion: region }, { dependsOn: [server] });
                 const buckets = Record.filterMap(env, (binding, variable) => (binding.type === 'r2' ? Result.succeed(new S3Bucket(named(variable), { bucket: binding.name ?? named(variable), forceDestroy: !protect }, { provider, protect }).bucket) : Result.failVoid));
-                const policy = new IamPolicy(
-                    name,
-                    { name, policy: jsonStringify({ Version: '2012-10-17', Statement: [{ Effect: 'Allow', Action: ['s3:*'], Resource: Object.values(buckets).flatMap((bucket) => [interpolate`arn:aws:s3:::${bucket}`, interpolate`arn:aws:s3:::${bucket}/*`]) }] }) },
-                    { provider },
-                );
+                const policy = new IamPolicy(name, { name, policy: jsonStringify({ Version: '2012-10-17', Statement: [{ Effect: 'Allow', Action: ['s3:*'], Resource: Object.values(buckets).flatMap((bucket) => [interpolate`arn:aws:s3:::${bucket}`, interpolate`arn:aws:s3:::${bucket}/*`]) }] }) }, { provider });
                 const account = new IamUser(name, { name, secret: password(`${name}-store-user`).result }, { provider });
                 return { ...buckets, AWS_ENDPOINT_URL_S3: interpolate`http://${server.name}:9000`, AWS_REGION: region, AWS_ACCESS_KEY_ID: new IamUserPolicyAttachment(name, { userName: account.name, policyName: policy.name }, { provider }).userName, AWS_SECRET_ACCESS_KEY: account.secret };
             }),
@@ -196,60 +191,80 @@ const targets = {
         );
         const owner = password(`${name}-owner`);
         const identity = container(`${name}-identity`, pull(`${name}-identity`, 'authelia/authelia:latest'), {
-            uploads: [
-                {
-                    file: '/config/configuration.yml',
-                    content: output({
-                        server: { address: 'tcp://:9091/' },
-                        authentication_backend: { password_reset: { disable: true }, file: { path: '/config/users.yml' } },
-                        access_control: {
-                            default_policy: 'bypass',
-                            rules: [
-                                { domain: sites, resources: [`^${contract.paths.signin}([?].*)?$`], policy: 'one_factor' },
-                                { domain: sites, methods: ['POST', 'PUT', 'PATCH', 'DELETE'], policy: 'one_factor' },
-                            ],
-                        },
-                        session: { secret: password(`${name}-identity-session`).result, cookies: sites.map((site) => ({ domain: site, authelia_url: `https://auth.${site}`, default_redirection_url: `https://${site}/` })) },
-                        storage: { encryption_key: password(`${name}-identity-storage`).result, local: { path: '/var/lib/authelia/db.sqlite3' } },
-                        notifier: { filesystem: { filename: '/var/lib/authelia/notification.txt' } },
-                        ntp: { disable_startup_check: true },
-                    }).apply(stringify),
+            uploads: Record.toEntries({
+                '/config/configuration.yml': {
+                    authentication_backend: { password_reset: { disable: true }, file: { path: '/config/users.yml' } },
+                    access_control: {
+                        default_policy: 'bypass',
+                        rules: [
+                            { domain: sites, resources: [`^${contract.paths.signin}([?].*)?$`], policy: 'one_factor' },
+                            { domain: sites, methods: ['POST', 'PUT', 'PATCH', 'DELETE'], policy: 'one_factor' },
+                        ],
+                    },
+                    session: { secret: password(`${name}-identity-session`).result, cookies: sites.map((site) => ({ domain: site, authelia_url: `https://auth.${site}`, default_redirection_url: `https://${site}/` })) },
+                    storage: { encryption_key: password(`${name}-identity-storage`).result, local: { path: '/var/lib/authelia/db.sqlite3' } },
+                    notifier: { filesystem: { filename: '/var/lib/authelia/notification.txt' } },
+                    ntp: { disable_startup_check: true },
                 },
-                { file: '/config/users.yml', content: output({ users: { owner: { displayname: 'Owner', email, password: owner.bcryptHash } } }).apply(stringify) },
-            ],
+                '/config/users.yml': { users: { owner: { displayname: 'Owner', email, password: owner.bcryptHash } } },
+            }).map(([file, document]) => ({ file, content: jsonStringify(document) })),
             volumes: [volume(`${name}-identity`, '/var/lib/authelia')],
             wait: true,
         });
         const authority = interpolate`${identity.name}:9091`;
+        const authenticate = {
+            handler: 'reverse_proxy',
+            upstreams: [{ dial: authority }],
+            rewrite: { method: 'GET', uri: '/api/authz/forward-auth' },
+            headers: { request: { set: { 'X-Forwarded-Method': ['{http.request.method}'], 'X-Forwarded-Uri': ['{http.request.uri}'] } } },
+            handle_response: [
+                {
+                    match: { status_code: [2] },
+                    routes: [
+                        { handle: [{ handler: 'headers', request: { delete: Object.values(contract.headers) } }] },
+                        ...Record.toEntries({ 'Remote-User': contract.headers.id, 'Remote-Email': contract.headers.email }).map(([answer, header]) => ({
+                            match: [{ not: [{ vars: { [`{http.reverse_proxy.header.${answer}}`]: [''] } }] }],
+                            handle: [{ handler: 'headers', request: { set: { [header]: [`{http.reverse_proxy.header.${answer}}`] } } }],
+                        })),
+                    ],
+                },
+            ],
+        };
         const proxy = container(`${name}-proxy`, pull(`${name}-proxy`, 'caddy:latest'), {
+            command: ['caddy', 'run', '--config', '/etc/caddy/caddy.json'],
             uploads: [
                 {
-                    file: '/etc/caddy/Caddyfile',
-                    content: interpolate`{
-                        admin off
-                    }
-                    ${sites.map((site) => `auth.${site}`).join(', ')} {
-                        reverse_proxy ${authority}
-                    }
-                    ${sites.join(', ')} {
-                        route {
-                            map {query.${contract.returnTo}} {target} {
-                                ~^(/.*)$ $1
-                                default /
-                            }
-                            forward_auth ${authority} {
-                                uri /api/authz/forward-auth
-                                copy_headers Remote-User>${contract.headers.id} Remote-Email>${contract.headers.email}
-                            }
-                            redir ${contract.paths.signin} https://{host}{target} 302
-                            redir ${contract.paths.signout} https://auth.{host}/logout?rd=https://{host}{target} 302
-                            reverse_proxy ${app.name}:${port}
-                        }
-                    }`,
+                    file: '/etc/caddy/caddy.json',
+                    content: output({
+                        admin: { disabled: true },
+                        apps: {
+                            http: {
+                                servers: {
+                                    [name]: {
+                                        listen: [':443'],
+                                        routes: [
+                                            { handle: [{ handler: 'map', source: `{http.request.uri.query.${contract.returnTo}}`, destinations: ['{target}'], mappings: [{ input_regexp: '^(/.*)$', outputs: ['$1'] }], defaults: ['/'] }] },
+                                            ...sites.flatMap((site) => [
+                                                { match: [{ host: [`auth.${site}`] }], handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: authority }] }] },
+                                                { match: [{ host: [site] }], handle: [authenticate] },
+                                                { match: [{ host: [site], path: [contract.paths.signin] }], handle: [{ handler: 'static_response', status_code: 302, headers: { Location: [`https://${site}{target}`] } }] },
+                                                { match: [{ host: [site], path: [contract.paths.signout] }], handle: [{ handler: 'static_response', status_code: 302, headers: { Location: [`https://auth.${site}/logout?rd=https://${site}{target}`] } }] },
+                                                { match: [{ host: [site] }], handle: [{ handler: 'reverse_proxy', upstreams: [{ dial: interpolate`${app.name}:${port}` }] }] },
+                                            ]),
+                                        ],
+                                    },
+                                },
+                            },
+                        },
+                    }).apply(JSON.stringify),
                 },
             ],
             volumes: [volume(`${name}-proxy`, '/data')],
-            ports: ([[80, 'tcp'], [443, 'tcp'], [443, 'udp']] as const).map(([port, protocol]) => ({ internal: port, external: port, protocol })),
+            ports: [
+                { internal: 80, external: 80 },
+                { internal: 443, external: 443 },
+                { internal: 443, external: 443, protocol: 'udp' },
+            ],
         });
         return { urls: sites.map((site) => `https://${site}`), proxy: proxy.name, ownerPassword: owner.result };
     }),
@@ -262,7 +277,13 @@ const hosting = Effect.fn('hosting')(function* (directory: string, target: keyof
     const { config, configPath } = build.workers.default;
     const bindings = yield* fs.readFileString(configPath).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(Bindings))));
     const name = disposable ? `${config.name}-disposable` : config.name;
-    const hostnames = Array.filterMap(bindings.domains, Match.type<(typeof bindings.domains)[number]>().pipe(Match.when(Match.string, (hostname) => hostname), Match.when({ production: true }, ({ hostname }) => hostname), Match.result));
+    const hostnames = bindings.domains.flatMap((domain) =>
+        Match.value(domain).pipe(
+            Match.when(Match.string, (hostname) => [hostname]),
+            Match.when({ production: true }, ({ hostname }) => [hostname]),
+            Match.orElse(() => []),
+        ),
+    );
     return { projectName: 'rasm-hosting', stackName: `${name}.${target}`, program: () => Effect.runPromiseWith(context)<Record<string, unknown>, Config.ConfigError | Cause.NoSuchElementError | Cause.UnknownError>(targets[target](build, bindings, { name, hostnames, protect: !disposable })) };
 });
 
