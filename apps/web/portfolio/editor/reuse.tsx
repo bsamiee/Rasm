@@ -42,7 +42,7 @@ const ReuseFile = ({ assets, entryId, sourceId, onSource, onAdd }: { assets: typ
                 </button>
             </div>
             {pages.length > 0 ? (
-                <div className="media-h-40 grid grid-cols-sheets gap-3">
+                <div className="media-h-40 grid-cols-sheets grid gap-3">
                     <div className="actions col-span-full">
                         <button className="button button-ghost" onClick={() => setSelected(pages.map((_, index) => index))} type="button">
                             All sheets
@@ -52,12 +52,12 @@ const ReuseFile = ({ assets, entryId, sourceId, onSource, onAdd }: { assets: typ
                         </button>
                     </div>
                     {pages.map((placement, index) => (
-                        <div className="min-w-0 bg-background p-3" key={placement.page.number}>
+                        <div className="bg-background min-w-0 p-3" key={placement.page.number}>
                             <MediaFigure active={true} placement={placement} presentation="thumbnail" priority={false} renderMedia={true} />
                             <Checkbox isSelected={selected.includes(index)} onChange={(checked) => setSelected(checked ? [...selected, index] : selected.filter((value) => value !== index))}>
-                                <span className="wrap-anywhere min-w-0 text-sm">
+                                <span className="min-w-0 text-sm wrap-anywhere">
                                     {sheetLabel(placement.page, pages.length)}
-                                    {selected.includes(index) && <span className="block text-muted text-xs">Order {selected.indexOf(index) + 1}</span>}
+                                    {selected.includes(index) && <span className="text-muted block text-xs">Order {selected.indexOf(index) + 1}</span>}
                                 </span>
                             </Checkbox>
                         </div>

@@ -16,7 +16,7 @@ const ZoomControls = ({ zoomOut, fit, zoomIn, href, children }: { zoomOut: () =>
             </Button>
         </Toolbar>
         {children}
-        <a className="-order-1 ml-auto min-h-11 gap-1 text-caption text-link" href={href} rel="noreferrer" target="_blank">
+        <a className="text-caption text-link -order-1 ml-auto min-h-11 gap-1" href={href} rel="noreferrer" target="_blank">
             Original
             <ArrowUpRight className="size-4" />
         </a>

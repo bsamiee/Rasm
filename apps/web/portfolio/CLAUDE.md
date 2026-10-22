@@ -107,7 +107,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - Worker binding types are the global `Env` that `cf workers types` generates from `cloudflare.config.ts`
 - Worker `fetch` supplies bindings to memoized handler construction inside request context
 - `worker/app.ts` composes routes both entries serve, with D1 and `r2` storage in `worker/index.ts`, SQLite and `s3` storage in `worker/node.ts`
-- `nx run rasm:hosting -- apps/web/portfolio <cloudflare|docker> <operation>` deploys the same build to a Cloudflare account or a Docker host
+- `nx run architectural-portfolio:hosting -- <cloudflare|docker> <operation>` deploys the same build to a Cloudflare account or a Docker host
 - Sites, Cloudflare Access through `@rasm/hosting/worker.ts`, or Docker proxy send user id and email as `@rasm/hosting/sites.ts` `contract` headers
 - Requests without a user id are signed-out visitors
 - First sign-in with an email equal to `OWNER_EMAIL` ignoring case enrolls its user id, later owner checks compare user ids alone

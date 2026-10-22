@@ -30,7 +30,7 @@ const CompositionEditor = ({ assets, entry, item }: { assets: typeof AssetCollec
                     { legend: 'Alignment', options: Composition.fields.align.literals.map((align) => ({ value: align, checked: item.align === align, next: { ...item, align } })) },
                 ].map(({ legend, options }) => (
                     <fieldset className="min-w-0" key={legend}>
-                        <legend className="mb-2 text-muted text-xs">{legend}</legend>
+                        <legend className="text-muted mb-2 text-xs">{legend}</legend>
                         <div className="flex flex-wrap gap-1">
                             {options.map(({ value, checked, next }) => (
                                 <label className="cursor-pointer" key={value}>
@@ -77,8 +77,8 @@ const Compositions = ({ assets, entry, selected, onSelect, onUpload, onLibrary }
     return (
         <>
             <div className="actions">
-                <h3 className="mr-auto text-xl tracking-tight max-editor:w-full">
-                    Sequence <span className="ml-2.5 text-muted text-sm">{quantity(entry.compositions.length, { one: 'composition', other: 'compositions' })}</span>
+                <h3 className="max-editor:w-full mr-auto text-xl tracking-tight">
+                    Sequence <span className="text-muted ml-2.5 text-sm">{quantity(entry.compositions.length, { one: 'composition', other: 'compositions' })}</span>
                 </h3>
                 <button className="button button-outline" onClick={onUpload} type="button">
                     Add files
@@ -90,8 +90,8 @@ const Compositions = ({ assets, entry, selected, onSelect, onUpload, onLibrary }
                     {choosing ? 'Close' : 'Choose'}
                 </button>
             </div>
-            <div className="grid min-w-0 editor:grid-cols-sequence gap-6">
-                <div className="editor:editor-scroll min-w-0 max-editor:not-data-open:hidden" data-open={choosing || undefined}>
+            <div className="editor:grid-cols-sequence grid min-w-0 gap-6">
+                <div className="editor:editor-scroll max-editor:not-data-open:hidden min-w-0" data-open={choosing || undefined}>
                     <ReorderableList
                         actions={(keys) => (
                             <ConfirmDialog
@@ -111,7 +111,7 @@ const Compositions = ({ assets, entry, selected, onSelect, onUpload, onLibrary }
                         {(candidate) => (
                             <Button
                                 aria-pressed={item?.id === candidate.id}
-                                className="wrap-anywhere block w-full min-w-0 py-2 text-left text-sm aria-pressed:text-accent-text aria-pressed:underline aria-pressed:underline-offset-4"
+                                className="aria-pressed:text-accent-text block w-full min-w-0 py-2 text-left text-sm wrap-anywhere aria-pressed:underline aria-pressed:underline-offset-4"
                                 onPress={() => {
                                     onSelect(candidate.id);
                                     setChoosing(false);

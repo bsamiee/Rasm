@@ -12,8 +12,8 @@ import { draft, hero, updateEntry } from './services.ts';
 const PlacementFields = ({ value, assets, onChange, entryId }: { value: typeof Placement.Type; assets: typeof AssetCollection.Type; onChange: (value: typeof Placement.Type) => void; entryId?: string }) => {
     const setDraft = useAtomSet(draft);
     return (
-        <div className="flex flex-col gap-3.25 border-line border-t pt-4.5">
-            <span className="wrap-anywhere text-caption">{value.asset.name}</span>
+        <div className="border-line flex flex-col gap-3.25 border-t pt-4.5">
+            <span className="text-caption wrap-anywhere">{value.asset.name}</span>
             <Field label="Caption" onChange={(caption) => onChange({ ...value, caption })} value={value.caption} />
             {Match.value(value).pipe(
                 Match.discriminatorsExhaustive('kind')({

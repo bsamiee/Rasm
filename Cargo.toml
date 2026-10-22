@@ -22,12 +22,12 @@ libraries = [{ path = "tools/dylint" }]
 # --- [ASYNC]
 futures          = "0.3.34"                                                                                                                      # Future joins and stream combinators with ordered results
 pin-project-lite = "0.2.17"                                                                                                                      # Pinned fields of hand-written futures and tower response types without unsafe
-tokio            = { version = "1.53.3", features = ["rt-multi-thread", "macros", "signal", "process", "net", "sync", "io-util", "time", "fs"] } # Async runtime every service, client, and store driver runs on
+tokio            = { version = "1.54.1", features = ["rt-multi-thread", "macros", "signal", "process", "net", "sync", "io-util", "time", "fs"] } # Async runtime every service, client, and store driver runs on
 tokio-util       = { version = "0.7.20", features = ["rt"] }                                                                                     # Cancellation tokens, task trackers, and drop guards that scope service lifetimes
 tokio-stream     = { version = "0.1.19", features = ["sync", "signal", "io-util", "rt", "net", "fs"] }                                           # Stream adapters over tokio channels, watches, intervals, line readers, join sets, listeners, and directory reads
 
 # --- [CONCURRENCY]
-arc-swap = "1.9.2"                                           # Read-mostly snapshots replaced whole while readers keep their copy
+arc-swap = "1.9.3"                                           # Read-mostly snapshots replaced whole while readers keep their copy
 deadpool = { version = "0.13.1", features = ["rt_tokio_1"] } # Async pools of reusable connections and handles
 papaya   = "0.2.5"                                           # Concurrent maps with lock-free reads across await points
 rayon    = "1.12.0"                                          # Data parallelism over independent CPU-bound work
@@ -42,10 +42,10 @@ rustix          = { version = "1.1.5", features = ["fs", "process"] } # Typed PO
 sd-notify       = "0.5.0"                                             # Readiness and watchdog signals to systemd
 velopack        = "1.2.161"                                           # Product installation and in-place updates
 windows-service = "0.8.1"                                             # Windows service installation and control events
-wasmtime        = "50.0.0-rc.1"                                       # In-process WebAssembly sandbox around untrusted guest code
+wasmtime        = "50.0.0"                                            # In-process WebAssembly sandbox around untrusted guest code
 
 # --- [ERRORS]
-annotate-snippets    = "0.12.16"                                   # Grammar errors rendered over source spans
+annotate-snippets    = "0.12.17"                                   # Grammar errors rendered over source spans
 anyhow               = "1.0.104"                                   # Erased error sources `untyped_error` lint examples wrap
 nonempty-collections = { version = "1.4.0", features = ["serde"] } # Non-empty vectors, sets, and maps that hold accumulated errors
 thiserror            = "2.0.21"                                    # Error enums that consumers match by variant
@@ -75,7 +75,7 @@ smallvec              = { version = "2.0.0-beta.3", features = ["std", "serde"] 
 tdigests              = "1.0.1"                                                   # Mergeable quantile estimates over streams
 
 # --- [CRDT]
-loro = "1.16.2" # Loro documents with text, list, map, and tree history
+loro = "1.17.0" # Loro documents with text, list, map, and tree history
 yrs  = "0.28.0" # Yjs documents with state vectors and update exchange
 
 # --- [SERIALIZATION]
@@ -86,10 +86,10 @@ serde               = { version = "1.0.229", features = ["derive"] }            
 serde-saphyr        = "2.0.0"                                                                        # YAML codec without unsafe libyaml
 toml                = "1.1.8"                                                                        # Typed TOML decode and encode
 toml_edit           = { version = "0.25.17", features = ["serde"] }                                  # TOML edits that keep comments and layout
-yaml-edit           = "0.3.2"                                                                        # YAML edits that keep comments and layout
+yaml-edit           = "0.3.4"                                                                        # YAML edits that keep comments and layout
 bytes               = { version = "1.12.1", features = ["serde"] }                                   # Shared immutable byte buffers
-cbor4ii             = { version = "1.2.3", features = ["serde1", "use_std"] }                        # CBOR codec
-plist               = "1.10.1"                                                                       # XML and binary property lists
+cbor4ii             = { version = "1.2.4", features = ["serde1", "use_std"] }                        # CBOR codec
+plist               = "1.10.3"                                                                       # XML and binary property lists
 rmp-serde           = "1.3.1"                                                                        # MessagePack codec
 serde_json          = { version = "1.0.154", features = ["raw_value", "float_roundtrip"] }           # JSON codec with values and raw passthrough
 serde_path_to_error = "0.1.20"                                                                       # Boundary decode errors that name failing field path
@@ -100,7 +100,7 @@ serde_with          = { version = "3.24.0", features = ["base64", "hex", "jiff_0
 json-patch          = "4.2.0"                                                                        # JSON Patch apply and diff over JSON values
 
 # --- [SCHEMA]
-jsonschema = { version = "0.59.0", default-features = false, features = ["resolve-file", "idna"] }                             # JSON Schema validation, sync `validator_for` panics inside tokio fetching a remote `$ref` through default `resolve-http` and `tls-aws-lc-rs`
+jsonschema = { version = "0.60.0", default-features = false, features = ["resolve-file", "idna"] }                             # JSON Schema validation, sync `validator_for` panics inside tokio fetching a remote `$ref` through default `resolve-http` and `tls-aws-lc-rs`
 schemars   = { version = "1.2.3", features = ["jiff02", "uuid1", "indexmap2", "url2", "semver1", "bytes1", "preserve_order"] } # JSON Schema derived from record types in field declaration order
 
 # --- [NEWTYPES]
@@ -110,7 +110,7 @@ ordered-float   = { version = "5.5.0", features = ["serde"] }                   
 
 # --- [TIME]
 jiff   = { version = "0.2.38", features = ["serde"] }                         # Instants, zoned date-times, spans, and zone database
-croner = { version = "4.0.1", default-features = false, features = ["jiff"] } # Cron expressions evaluated against passed-in instants, default `chrono` adds chrono beside jiff
+croner = { version = "4.0.2", default-features = false, features = ["jiff"] } # Cron expressions evaluated against passed-in instants, default `chrono` adds chrono beside jiff
 
 # --- [IDENTIFIERS]
 semver       = { version = "1.0.28", features = ["serde"] }             # Semantic version and requirement parsing
@@ -129,7 +129,7 @@ encoding_rs   = "0.8.42"                                                  # Lega
 frizbee       = "0.13.0"                                                  # Typo-tolerant ranking of completion candidates
 heck          = "0.5.0"                                                   # Identifier case conversion matching strum `serialize_all` styles
 hypher        = "0.1.8"                                                   # Language-aware hyphenation
-icu           = { version = "2.3.1", features = ["compiled_data"] }       # Segmentation, collation, properties, and plural rules from Unicode data
+icu           = { version = "2.4.0", features = ["compiled_data"] }       # Segmentation, collation, properties, and plural rules from Unicode data
 ropey         = { version = "2.0.0-beta.1", features = ["metric_utf16"] } # Editable text buffers with UTF-16 position conversion
 strsim        = "0.11.1"                                                  # Edit-distance and similarity metrics
 unicode-bidi  = "0.3.18"                                                  # Bidirectional reordering before shaping
@@ -138,7 +138,7 @@ unicode-width = "0.2.2"                                                   # Disp
 # --- [PARSING]
 chumsky            = { version = "0.13.0", features = ["pratt"] }                                  # Parser combinators that recover and collect every error
 ec4rs              = "2.0.0-rc.1"                                                                  # EditorConfig properties resolved per path
-oxc                = { version = "0.154.0", features = ["ast_visit", "semantic", "codegen"] }      # JavaScript and TypeScript parsing, analysis, and printing
+oxc                = { version = "0.155.0", features = ["ast_visit", "semantic", "codegen"] }      # JavaScript and TypeScript parsing, analysis, and printing
 regex              = "1.13.1"                                                                      # Unicode patterns with linear-time matching
 sqlparser          = { version = "0.63.0", features = ["visitor"] }                                # SQL text parsed into dialect ASTs
 syntect            = { version = "5.3.0", default-features = false, features = ["default-fancy"] } # Syntax definitions looked up by name, alias, and extension, default `regex-onig` builds Oniguruma C beside `regex-fancy`
@@ -152,13 +152,13 @@ ast-grep-language  = "0.51.0"                                                   
 
 # --- [MARKUP]
 ammonia      = "4.2.4"                                                                               # Allow-list sanitization of untrusted HTML
-comrak       = { version = "0.56.0", default-features = false, features = ["cli", "syntect-fancy"] } # CommonMark and GFM parsed into AST, default `syntect-onig` builds Oniguruma C beside `regex-fancy`
+comrak       = { version = "0.57.0", default-features = false, features = ["cli", "syntect-fancy"] } # CommonMark and GFM parsed into AST, default `syntect-onig` builds Oniguruma C beside `regex-fancy`
 htmd         = "0.5.6"                                                                               # HTML converted to Markdown
 lightningcss = { version = "1.0.0-alpha.72", features = ["visitor", "into_owned"] }                  # CSS parsing, transformation, and minification
-minijinja    = { version = "3.0.1", features = ["serde", "json", "loop_controls", "urlencode"] }     # Jinja templates rendering reports and generated documents
+minijinja    = { version = "3.0.2", features = ["serde", "json", "loop_controls", "urlencode"] }     # Jinja templates rendering reports and generated documents
 quick-xml    = { version = "0.42.0", features = ["serialize", "encoding"] }                          # Streaming XML read and write with serde mapping
 roxmltree    = "0.21.1"                                                                              # Read-only XML trees with source positions that locate validation errors
-scraper      = "0.27.0"                                                                              # HTML parsing with CSS selectors
+scraper      = "0.29.0"                                                                              # HTML parsing with CSS selectors
 xot          = "0.31.2"                                                                              # Mutable XML trees with namespaces and parent access
 
 # --- [FILES]
@@ -180,12 +180,12 @@ brotli            = "9.0.0"                                                     
 bzip2             = "0.6.1"                                                                                                                                              # bzip2 streams
 flate2            = { version = "1.1.10", default-features = false, features = ["zlib-rs", "runtime_detection"] }                                                        # Deflate, zlib, and gzip streams, default `rust_backend` compiles miniz_oxide beside zlib-rs
 lz4_flex          = "0.14.0"                                                                                                                                             # LZ4 block and frame codecs
-lzma-rust2        = "0.22.0"                                                                                                                                             # XZ, LZMA, and LZIP streams
+lzma-rust2        = "0.23.0"                                                                                                                                             # XZ, LZMA, and LZIP streams
 snap              = "1.1.2"                                                                                                                                              # Snappy frames
 tar               = "0.4.46"                                                                                                                                             # Tar archives
 zstd              = { version = "0.14.3", features = ["zstdmt"] }                                                                                                        # Zstandard frames with dictionaries
 qbsdiff           = "1.4.4"                                                                                                                                              # Binary deltas between file versions
-sevenz-rust2      = { version = "0.24.0", features = ["zstd"] }                                                                                                          # 7z archives
+sevenz-rust2      = { version = "0.24.1", features = ["zstd"] }                                                                                                          # 7z archives
 zip               = { version = "9.0.5", default-features = false, features = ["aes-crypto", "bzip2", "deflate64", "deflate", "lzma", "ppmd", "zstd", "xz", "jiff-02"] } # ZIP archives with ZIP64 and AES, default `time` adds time beside jiff
 
 # --- [CRYPTOGRAPHY]
@@ -207,12 +207,12 @@ webauthn-rs   = { version = "0.6.1-dev", features = ["conditional-ui", "resident
 webbrowser    = "1.2.4"                                                                                        # Authorization URLs opened in user's browser
 
 # --- [SECRETS]
-aws-config                      = { version = "1.12.0", features = ["behavior-version-latest"] }                                                                # AWS credential and region resolution
-aws-sdk-kms                     = { version = "1.123.0", default-features = false, features = ["default-https-client", "rt-tokio", "behavior-version-latest"] } # AWS KMS keys, default `rustls` adds hyper 0.14 client on ring
+aws-config                      = { version = "1.13.0", features = ["behavior-version-latest"] }                                                                # AWS credential and region resolution
+aws-sdk-kms                     = { version = "1.125.0", default-features = false, features = ["default-https-client", "rt-tokio", "behavior-version-latest"] } # AWS KMS keys, default `rustls` adds hyper 0.14 client on ring
 azure_identity                  = { version = "1.0.0", features = ["tokio"] }                                                                                   # Microsoft Entra ID credential chain
 azure_security_keyvault_keys    = "1.0.1"                                                                                                                       # Azure Key Vault keys and cryptographic operations
 azure_security_keyvault_secrets = "1.0.1"                                                                                                                       # Azure Key Vault secrets
-google-cloud-kms-v1             = "1.15.0"                                                                                                                      # Google Cloud KMS keys
+google-cloud-kms-v1             = "1.16.0"                                                                                                                      # Google Cloud KMS keys
 google-cloud-secretmanager-v1   = "1.14.0"                                                                                                                      # Google Cloud Secret Manager secrets
 keyring                         = "4.2.0"                                                                                                                       # OS keychain storage of OAuth tokens
 secrecy                         = { version = "0.10.3", features = ["serde"] }                                                                                  # Secrets redacted from Debug output and zeroized on drop
@@ -241,7 +241,7 @@ reqwest-tracing    = "0.7.1"                                                    
 # --- [RPC]
 async-lsp           = { version = "0.2.4", features = ["tokio"] }                                                                                                                            # Language Server Protocol clients and servers as tower services
 buffa               = { version = "0.9.2", features = ["json"] }                                                                                                                             # Protobuf messages with editions, views, and canonical JSON
-rmcp                = { version = "3.5.1", features = ["client", "elicitation", "transport-child-process", "transport-streamable-http-client-reqwest", "transport-streamable-http-server"] } # MCP servers over Streamable HTTP and clients of child-process and Streamable HTTP servers
+rmcp                = { version = "3.6.0", features = ["client", "elicitation", "transport-child-process", "transport-streamable-http-client-reqwest", "transport-streamable-http-server"] } # MCP servers over Streamable HTTP and clients of child-process and Streamable HTTP servers
 buffa-types         = { version = "0.9.2", features = ["json", "jiff"] }                                                                                                                     # Protobuf well-known types with JSON mapping and jiff conversion
 connectrpc          = { version = "0.9.1", features = ["server", "client-tls", "axum"] }                                                                                                     # Connect, gRPC, and gRPC-Web services and clients
 protovalidate-buffa = { version = "0.7.2", features = ["json"] }                                                                                                                             # Protovalidate rules compiled into message validation
@@ -257,7 +257,7 @@ suppaftp     = { version = "12.2.1", features = ["tokio-rustls-aws-lc-rs"] }    
 opentelemetry                      = "0.33.1"                                                            # Trace, metric, and log API
 opentelemetry-semantic-conventions = { version = "0.33.1", features = ["semconv_experimental"] }         # Semantic-convention attribute names
 pprof                              = { version = "0.15.0", features = ["flamegraph", "frame-pointer"] }  # In-process CPU profiles and flamegraphs
-pyroscope                          = { version = "2.1.2", features = ["backend-pprof-rs"] }              # Continuous profiles pushed to Pyroscope
+pyroscope                          = { version = "2.1.4", features = ["backend-pprof-rs"] }              # Continuous profiles pushed to Pyroscope
 sysinfo                            = "0.39.6"                                                            # Process and host resource readings
 tokio-metrics                      = "0.5.2"                                                             # Runtime and task metrics on stable tokio
 log                                = "0.4.34"                                                            # Logger registration failure `LogTracer::init` returns
@@ -296,14 +296,14 @@ ratatui-textarea     = "0.9.3"                                                  
 tui-popup            = "0.7.7"                                                             # Popups and dialogs
 tui-scrollview       = "0.6.8"                                                             # Scrollable viewports
 tui-tree-widget      = "0.24.1"                                                            # Collapsible tree views
-ratatui-image        = "12.0.0-rc.2"                                                       # Raster previews in terminal
+ratatui-image        = "12.0.0-rc.3"                                                       # Raster previews in terminal
 throbber-widgets-tui = "0.11.1"                                                            # Activity indicators of pending effects
 tui-logger           = { version = "0.18.3", features = ["crossterm", "tracing-support"] } # Log pane fed by tracing events
 
 # --- [DATABASES]
 clickhouse       = { version = "0.15.3", features = ["rustls-tls-aws-lc", "rustls-tls-native-roots", "inserter", "uuid"] }                                                                          # Typed row inserts and selects over ClickHouse
 duckdb           = { version = "1.10506.1", features = ["json", "parquet", "appender-arrow"] }                                                                                                      # In-process analytics over Parquet, CSV, JSON, and attached databases
-falkordb         = { version = "0.10.4", features = ["tokio-rustls"] }                                                                                                                              # FalkorDB graph queries
+falkordb         = { version = "0.10.5", features = ["tokio-rustls"] }                                                                                                                              # FalkorDB graph queries
 fjall            = "3.1.12"                                                                                                                                                                         # Embedded LSM key-value store holding write-heavy state
 influxdb3-client = "0.3.0"                                                                                                                                                                          # InfluxDB 3 writes and queries
 kurrentdb        = "1.2.0"                                                                                                                                                                          # KurrentDB event streams and subscriptions
@@ -328,18 +328,18 @@ meilisearch-sdk = { version = "0.33.0", default-features = false, features = ["j
 opensearch      = { version = "2.4.0", default-features = false, features = ["rustls-tls"] }         # OpenSearch indexes and search, default `native-tls` links platform TLS beside rustls
 qdrant-client   = "1.19.0"                                                                           # Qdrant vector search
 tantivy         = { version = "0.27.0", features = ["zstd-compression"] }                            # Embedded full-text index
-usearch         = "2.26.4"                                                                           # HNSW vector indexes
+usearch         = "2.26.5"                                                                           # HNSW vector indexes
 
 # --- [MESSAGING]
 cloudevents-sdk           = { version = "0.9.0", features = ["axum", "http-binding"] }                                                                                                                                                                    # CloudEvents envelopes with HTTP bindings
-lapin                     = "4.12.2"                                                                                                                                                                                                                      # AMQP 0-9-1 client
+lapin                     = "4.12.3"                                                                                                                                                                                                                      # AMQP 0-9-1 client
 lettre                    = { version = "0.11.23", default-features = false, features = ["builder", "smtp-transport", "pool", "hostname", "tokio1-rustls", "aws-lc-rs", "rustls-platform-verifier"] }                                                     # Mail messages over pooled SMTP, default `native-tls` links platform TLS beside rustls
 nkeys                     = "0.4.5"                                                                                                                                                                                                                       # NATS key pairs that sign and verify credentials
 pulsar                    = { version = "6.9.1", default-features = false, features = ["tokio-rustls-runtime", "compression"] }                                                                                                                           # Pulsar producers, consumers, and readers, defaults add async-std runtime and native-tls, `auth-oauth2` adds reqwest 0.12 on ring through default openidconnect
 rdkafka                   = { version = "0.39.0", features = ["cmake-build", "zstd"] }                                                                                                                                                                    # Kafka producers, consumers, and admin
 redis                     = { version = "1.7.1", features = ["tokio-rustls-comp", "connection-manager", "cluster-async", "json"] }                                                                                                                        # Redis and Valkey commands, pub/sub, streams, and cluster
 rumqttc-next              = { version = "0.34.0", features = ["tracing"] }                                                                                                                                                                                # MQTT 5 client
-schema_registry_converter = { version = "5.1.0", default-features = false, features = ["futures", "avro", "json", "proto_raw", "rustls_tls"] }                                                                                                            # Schema Registry serdes over Avro, JSON Schema, and Protobuf, default `native_tls` links platform TLS beside rustls
+schema_registry_converter = { version = "6.0.0", default-features = false, features = ["futures", "avro", "json", "proto_raw", "rustls_tls"] }                                                                                                            # Schema Registry serdes over Avro, JSON Schema, and Protobuf, default `native_tls` links platform TLS beside rustls
 temporalio-client         = { version = "1.1.0", default-features = false, features = ["envconfig", "tls-aws-lc"] }                                                                                                                                       # Workflow starts, signals, queries, and results, default `tls-ring` adds ring beside aws-lc-rs
 zeromq                    = "0.6.0"                                                                                                                                                                                                                       # ZeroMQ sockets
 async-nats                = { version = "0.50.0", default-features = false, features = ["aws-lc-rs", "crypto", "jetstream", "kv", "nkeys", "nuid", "object-store", "server_2_10", "server_2_11", "server_2_12", "server_2_14", "service", "websockets"] } # NATS core, JetStream, key-value, object store, and services, default `ring` adds ring beside aws-lc-rs
@@ -394,7 +394,7 @@ statrs       = "0.19.1"                                               # Distribu
 # --- [SOLVERS]
 argmin-math = { version = "0.5.1", features = ["faer_latest"] }                                  # Linear algebra backend of argmin solvers
 clarabel    = "0.11.1"                                                                           # Conic interior-point solves
-diffsol     = "0.17.1"                                                                           # ODE and DAE solvers with sensitivities
+diffsol     = "0.18.0"                                                                           # ODE and DAE solvers with sensitivities
 fmi         = "0.8.0"                                                                            # FMU co-simulation and model exchange
 kasuari     = "0.4.13"                                                                           # Cassowary constraint solving of layouts
 nlopt       = "0.8.1"                                                                            # Constrained local and global optimization
@@ -413,17 +413,17 @@ cavalier_contours = "0.9.0"                                         # Polyline o
 fidget            = "0.5.1"                                         # Implicit surfaces evaluated, meshed, and rendered
 jagua-rs          = { version = "1.1.0", features = ["spp"] }       # Collision detection inside 2D irregular nesting
 kiddo             = "6.3.0"                                         # k-d tree nearest-neighbor queries
-manifold-rust     = "0.16.0"                                        # Manifold mesh booleans
+manifold-rust     = "0.18.0"                                        # Manifold mesh booleans
 meshopt           = "0.7.0"                                         # Mesh simplification, vertex cache optimization, and compression
 spade             = "2.15.1"                                        # Constrained Delaunay triangulation and Voronoi duals
 urdf-rs           = "0.10.0"                                        # URDF robot descriptions
-curvo             = "0.3.2"                                         # NURBS curves and surfaces
+curvo             = "0.3.3"                                         # NURBS curves and surfaces
 k                 = "0.32.0"                                        # Forward and inverse kinematics of serial chains
 parry3d-f64       = { version = "0.31.1", features = ["parallel"] } # 3D distances, intersections, ray casts, and contacts over f64 shapes
 rapier3d-f64      = { version = "0.36.1", features = ["parallel"] } # Rigid-body dynamics
 
 # --- [INTERCHANGE]
-acadrust      = "0.6.4"                                                    # DWG and DXF drawings
+acadrust      = "0.6.6"                                                    # DWG and DXF drawings
 e57           = "0.11.13"                                                  # E57 point clouds
 gltf          = { version = "1.4.1", features = ["extensions", "extras"] } # glTF and GLB
 ifc-lite-core = "20.4.0"                                                   # IFC building models
@@ -436,11 +436,11 @@ tobj          = "4.0.5"                                                    # Wav
 
 # --- [GEOSPATIAL]
 geoarrow-schema   = "0.9.0"                                                                                                                                              # GeoArrow extension types
-grib              = { version = "0.19.1", default-features = false, features = ["jpeg2000-unpack-with-hayro", "png-unpack-with-png-crate", "ccsds-unpack-with-libaec"] } # GRIB2 fields, default `jpeg2000-unpack-with-openjpeg` builds OpenJPEG C beside hayro
+grib              = { version = "0.20.1", default-features = false, features = ["jpeg2000-unpack-with-hayro", "png-unpack-with-png-crate", "ccsds-unpack-with-libaec"] } # GRIB2 fields, default `jpeg2000-unpack-with-openjpeg` builds OpenJPEG C beside hayro
 osmpbf            = "0.3.8"                                                                                                                                              # OpenStreetMap PBF extracts
 pmtiles           = { version = "0.25.0", features = ["brotli", "http-async", "moka", "object-store", "reqwest-rustls", "tilejson", "write", "zstd"] }                   # PMTiles archives read from memory maps, HTTPS, and object stores, and written
 rstar             = "0.13.0"                                                                                                                                             # R*-tree envelope and nearest queries
-solar-positioning = "0.7.1"                                                                                                                                              # Solar positions
+solar-positioning = "0.7.2"                                                                                                                                              # Solar positions
 tzf-rs            = "2.1.3"                                                                                                                                              # Time zones from coordinates
 geo-types         = { version = "0.7.20", features = ["serde"] }                                                                                                         # Geometry primitives shared by georust crates
 geoarrow-array    = "0.9.0"                                                                                                                                              # GeoArrow geometry arrays
@@ -449,7 +449,7 @@ geo               = { version = "0.33.1", features = ["use-serde"] }            
 geohash           = "0.13.2"                                                                                                                                             # Geohash cells
 geojson           = "1.0.0"                                                                                                                                              # GeoJSON
 geoparquet        = { version = "0.9.0", features = ["async"] }                                                                                                          # GeoParquet
-kml               = "0.14.0"                                                                                                                                             # KML and KMZ
+kml               = "0.15.0"                                                                                                                                             # KML and KMZ
 proj              = { version = "0.31.0", features = ["bundled_proj"] }                                                                                                  # CRS transforms with PROJ database
 shapefile         = { version = "0.9.0", features = ["geo-types"] }                                                                                                      # Shapefiles
 geoarrow-expr-geo = "0.9.0"                                                                                                                                              # georust operations on GeoArrow arrays
@@ -486,8 +486,8 @@ image-compare     = "0.5.0"                                       # Structural s
 fontdb      = "0.24.0"                                    # System and file font discovery
 harfrust    = "0.14.0"                                    # Text shaping
 parley      = "0.12.0"                                    # Rich text layout with bidi, line breaking, and fallback
-skrifa      = "0.48.0"                                    # Font metrics, outlines, axes, and charmaps
-write-fonts = { version = "0.54.1", features = ["read"] } # Font table compilation
+skrifa      = "0.49.0"                                    # Font metrics, outlines, axes, and charmaps
+write-fonts = { version = "0.55.0", features = ["read"] } # Font table compilation
 subsetter   = "0.2.6"                                     # Font subsetting with variable instancing
 
 # --- [GRAPHICS]
@@ -506,23 +506,23 @@ mermaid-rs-renderer = "0.3.1"  # Mermaid diagrams rendered without browser
 plotly              = "0.14.1" # Plotly chart documents
 
 # --- [DOCUMENTS]
-calamine         = { version = "0.36.1", features = ["dates"] }                                     # XLSX, XLSB, XLS, and ODS reading
+calamine         = { version = "0.37.0", features = ["dates"] }                                     # XLSX, XLSB, XLS, and ODS reading
 chromiumoxide    = "0.9.1"                                                                          # HTML printed to PDF through Chromium
 docx-rs          = "0.4.22"                                                                         # DOCX reading and writing
 hayro            = "0.8.0"                                                                          # PDF rasterization
-ironcalc         = "0.9.0"                                                                          # Spreadsheet formula evaluation
+ironcalc         = "0.9.1"                                                                          # Spreadsheet formula evaluation
 krilla           = { version = "0.8.2", features = ["rayon"] }                                      # PDF creation with subsetting, tagging, and PDF/A and PDF/UA export
-lopdf            = { version = "0.45.0", default-features = false, features = ["jiff", "rayon"] }   # PDF structure edits, merges, and splits, default `chrono-clock` adds chrono beside jiff
+lopdf            = { version = "0.46.0", default-features = false, features = ["jiff", "rayon"] }   # PDF structure edits, merges, and splits, default `chrono-clock` adds chrono beside jiff
 office-crypto    = "0.4.0"                                                                          # Encrypted Office documents decrypted
 pdf_oxide        = { version = "0.3.78", features = ["parallel"] }                                  # PDF text, structure, and form extraction
-rust_xlsxwriter  = { version = "0.100.0", features = ["constant_memory", "jiff", "serde", "zlib"] } # Streaming XLSX writing with formats, tables, and charts
+rust_xlsxwriter  = { version = "0.101.0", features = ["constant_memory", "jiff", "serde", "zlib"] } # Streaming XLSX writing with formats, tables, and charts
 spreadsheet-ods  = "1.0.4"                                                                          # ODS spreadsheets
 typst            = "0.15.1"                                                                         # Typst typesetting
 umya-spreadsheet = "3.1.1"                                                                          # XLSX read-modify-write with styles
 typst-pdf        = "0.15.1"                                                                         # Typst documents exported to PDF
 
 # --- [MEDIA]
-c2pa        = { version = "0.91.3", default-features = false, features = ["rust_native_crypto", "file_io"] } # C2PA content credentials read, signed, and verified, default `openssl` builds vendored OpenSSL beside rust_native_crypto and `default_http` adds reqwest 0.12 and ureq on ring beside aws-lc-rs
+c2pa        = { version = "0.91.4", default-features = false, features = ["rust_native_crypto", "file_io"] } # C2PA content credentials read, signed, and verified, default `openssl` builds vendored OpenSSL beside rust_native_crypto and `default_http` adds reqwest 0.12 and ureq on ring beside aws-lc-rs
 cpal        = "0.18.2"                                                                                       # Audio device input and output
 ffmpeg-next = "9.0.0"                                                                                        # Video and audio mux, demux, and encode
 libmpv2     = "6.0.0"                                                                                        # Media playback through mpv
@@ -535,19 +535,19 @@ subtitler   = "2.9.0"                                                           
 symphonia   = { version = "0.6.1", features = ["mp3", "aac", "isomp4"] }                                     # Audio decoding
 
 # --- [MACHINE_LEARNING]
-genai       = "0.7.0-rc.8"                                                                                                                                                                      # Model completions across Anthropic, OpenAI, and OpenRouter
+genai       = "0.7.0"                                                                                                                                                                           # Model completions across Anthropic, OpenAI, and OpenRouter
 linfa       = "0.8.1"                                                                                                                                                                           # Clustering, linear models, and decision trees
-ort         = { version = "2.0.0-rc.14", default-features = false, features = ["std", "ndarray", "tracing", "download-binaries", "copy-dylibs", "tls-rustls-no-provider", "api-31", "coreml"] } # ONNX Runtime inference, default `tls-native` links platform TLS beside rustls
+ort         = { version = "2.0.0-rc.15", default-features = false, features = ["std", "ndarray", "tracing", "download-binaries", "copy-dylibs", "tls-rustls-no-provider", "api-31", "coreml"] } # ONNX Runtime inference, default `tls-native` links platform TLS beside rustls
 safetensors = "0.8.0"                                                                                                                                                                           # Safetensors weights
 tiktoken-rs = "0.12.1"                                                                                                                                                                          # tiktoken vocabularies
-tokenizers  = "1.0.0-rc.2"                                                                                                                                                                      # BPE, WordPiece, Unigram, and SentencePiece tokenizers
+tokenizers  = "1.0.0-rc.3"                                                                                                                                                                      # BPE, WordPiece, Unigram, and SentencePiece tokenizers
 whisper-rs  = { version = "0.16.0", features = ["metal"] }                                                                                                                                      # Speech recognition
 candle-core = { version = "0.11.0", features = ["metal"] }                                                                                                                                      # Tensor computation on CPU and Metal
 mistralrs   = { version = "0.8.1", features = ["metal"] }                                                                                                                                       # Local LLM inference with sampling and KV caching
 
 # --- [BUILD]
 cargo_metadata = "0.23.1"                                            # Cargo workspace, dependency graph, and compiler message reads
-tame-index     = { version = "0.26.3", features = ["sparse"] }       # Crate versions and feature tables read from crates.io sparse index
+tame-index     = { version = "0.27.0", features = ["sparse"] }       # Crate versions and feature tables read from crates.io sparse index
 quote          = "1.0.47"                                            # Rust token generation
 syn            = { version = "3.0.9", features = ["full", "visit"] } # Rust syntax trees that code generation builds
 prettyplease   = "0.3.0"                                             # Generated Rust syntax formatted as checked-in source
@@ -563,7 +563,7 @@ criterion              = { version = "0.8.2", features = ["async_tokio"] }      
 insta                  = "1.49.0"                                                                                                                                                                            # Inline and file snapshot assertions
 proptest               = { version = "1.12.0", features = ["attr-macro"] }                                                                                                                                   # Property tests with shrinking and persisted failures
 proptest-derive        = "0.9.0"                                                                                                                                                                             # Strategies derived from record types
-rstest                 = "0.27.0"                                                                                                                                                                            # Fixtures, parameterized cases, and per-test timeouts
+rstest                 = "0.28.0"                                                                                                                                                                            # Fixtures, parameterized cases, and per-test timeouts
 similar-asserts        = "2.0.0"                                                                                                                                                                             # Diffed assertion failures over large values
 testcontainers         = { version = "0.28.0", default-features = false, features = ["aws-lc-rs", "http_wait_plain", "watchdog"] }                                                                           # Disposable service containers with HTTP readiness waits and removal on termination signals, default `ring` adds ring beside aws-lc-rs
 tracing-test           = "0.2.6"                                                                                                                                                                             # Captured spans and events asserted in tests

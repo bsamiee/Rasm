@@ -15,20 +15,20 @@ catalog:
     effect: 4.0.5
     '@effect/platform-node': 4.0.5
     '@effect/platform-bun': 4.0.5
-    '@effect/platform-browser': 4.0.5
+    '@effect/platform-browser': 4.0.6
     '@effect/opentelemetry': 4.0.5
     # --- [SERIALIZATION_MESSAGING]
     jsesc: 3.1.0 # JavaScript literals for native Acrobat scripts
     '@types/jsesc': 3.0.3 # Types for native-script literal serialization
-    '@solana/codecs': 8.5.0 # Bidirectional binary format declarations for Adobe palette exchange
+    '@solana/codecs': 8.5.1-canary-20261022083205 # Bidirectional binary format declarations for Adobe palette exchange
     hash-wasm: 4.12.0
     '@bufbuild/protobuf': 2.16.0
     '@bufbuild/protovalidate': 1.3.0
     '@connectrpc/connect': 2.2.0
     '@connectrpc/connect-web': 2.2.0
     '@msgpack/msgpack': 3.1.3
-    vscode-languageserver-protocol: 3.18.4 # Typed LSP requests and stdio connection for the argus MCP server
-    vscode-languageserver-textdocument: 1.0.15
+    vscode-languageserver-protocol: 3.18.5 # Typed LSP requests and stdio connection for the argus MCP server
+    vscode-languageserver-textdocument: 1.0.16
     rfc6902: 5.3.0
     fast-xml-parser: 5.11.2
     '@xmldom/xmldom': 0.9.12 # Namespace-preserving XMP document updates
@@ -44,7 +44,7 @@ catalog:
     '@electric-sql/d2ts': 0.1.8
     '@opentelemetry/semantic-conventions': 1.43.0
     # --- [SECURITY_IDENTITY]
-    jose: 6.2.12
+    jose: 6.2.13
     openid-client: 6.8.8
     '@simplewebauthn/browser': 14.0.0
     '@simplewebauthn/server': 14.0.3
@@ -55,26 +55,26 @@ catalog:
     '@oslojs/encoding': 1.1.0
     '@dopplerhq/node-sdk': 1.3.0
     # --- [DATA_STORAGE]
-    '@effect/sql-pg': 4.0.5
-    '@effect/sql-sqlite-node': 4.0.5
-    '@effect/sql-sqlite-bun': 4.0.5
-    '@effect/sql-sqlite-wasm': 4.0.5
+    '@effect/sql-pg': 4.0.6
+    '@effect/sql-sqlite-node': 4.0.6
+    '@effect/sql-sqlite-bun': 4.0.6
+    '@effect/sql-sqlite-wasm': 4.0.6
     '@effect/sql-libsql': 4.0.5
-    '@effect/sql-d1': 4.0.5
+    '@effect/sql-d1': 4.0.6
     '@effect/sql-mysql2': 4.0.5
-    '@effect/sql-mssql': 4.0.5
+    '@effect/sql-mssql': 4.0.6
     '@effect/sql-clickhouse': 4.0.5
-    '@effect/sql-pglite': 4.0.5
-    '@effect/sql-sqlite-do': 4.0.5
-    '@electric-sql/pglite': 0.5.10
-    '@electric-sql/pglite-tools': 0.4.10
-    '@duckdb/node-api': 1.5.6-r.1
+    '@effect/sql-pglite': 4.0.6
+    '@effect/sql-sqlite-do': 4.0.6
+    '@electric-sql/pglite': 0.5.11
+    '@electric-sql/pglite-tools': 0.4.11
+    '@duckdb/node-api': 2.0.0-r.1
     '@duckdb/duckdb-wasm': "1.33.1-dev65.0"
     '@qualithm/arrow-flight-client': 0.2.2
     parquet-wasm: 0.9.0
-    '@aws-sdk/client-s3': 3.1152.0
-    '@aws-sdk/s3-request-presigner': 3.1152.0
-    '@aws-sdk/lib-storage': 3.1152.0
+    '@aws-sdk/client-s3': 3.1155.0
+    '@aws-sdk/s3-request-presigner': 3.1155.0
+    '@aws-sdk/lib-storage': 3.1155.0
     '@tus/server': 2.4.6
     '@tus/s3-store': 2.0.8
     sharp: 0.35.5
@@ -88,7 +88,7 @@ catalog:
     webdav: 5.11.0
     basic-ftp: 6.2.3
     partial-content: 4.0.0
-    chokidar: 5.0.0
+    chokidar: 6.0.0
     '@parcel/watcher': 2.6.0
     # --- [SERVICES_OBSERVABILITY]
     '@nats-io/nats-core': "3.4.1-0"
@@ -98,7 +98,7 @@ catalog:
     '@nats-io/obj': "3.4.1-0"
     '@connectrpc/connect-node': 2.2.0
     chevrotain: 13.2.0
-    nodemailer: 10.1.2
+    nodemailer: 10.2.0
     '@types/nodemailer': 8.0.2
     validator: 13.15.35
     '@types/validator': 13.15.10
@@ -107,47 +107,47 @@ catalog:
     jszip: 3.10.2
     papaparse: 5.7.0
     '@types/papaparse': 5.5.2
-    '@effect/ai-anthropic': 4.0.5
-    '@effect/ai-openai': 4.0.5
-    '@effect/ai-openrouter': 4.0.5
-    '@effect/ai-openai-compat': 4.0.5
+    '@effect/ai-anthropic': 4.0.6
+    '@effect/ai-openai': 4.0.6
+    '@effect/ai-openrouter': 4.0.6
+    '@effect/ai-openai-compat': 4.0.6
     '@modelcontextprotocol/ext-apps': 2.0.3 # MCP application protocol and browser client
     '@panzoom/panzoom': 4.6.2 # Native pointer and gesture transforms for snapshot presentation
     '@openfeature/server-sdk': 1.23.0
-    '@opentelemetry/api': 1.10.0-rc.0
-    '@opentelemetry/context-async-hooks': 3.0.0-rc.0
-    '@opentelemetry/context-zone': 3.0.0-rc.0
-    '@opentelemetry/core': 3.0.0-rc.0
-    '@opentelemetry/otlp-exporter-base': 0.300.0-rc.0
-    '@opentelemetry/resources': 3.0.0-rc.0
-    '@opentelemetry/resource-detector-aws': 2.23.0
-    '@opentelemetry/resource-detector-container': 0.8.14
-    '@opentelemetry/resource-detector-gcp': 0.58.0
-    '@opentelemetry/opentelemetry-browser-detector': 0.300.0-rc.0
-    '@opentelemetry/sdk-logs': 3.0.0-rc.0
-    '@opentelemetry/sdk-metrics': 3.0.0-rc.0
-    '@opentelemetry/host-metrics': 0.39.0
+    '@opentelemetry/api': 1.10.0
+    '@opentelemetry/context-async-hooks': 3.0.0
+    '@opentelemetry/context-zone': 3.0.0
+    '@opentelemetry/core': 3.0.0
+    '@opentelemetry/otlp-exporter-base': 0.300.0
+    '@opentelemetry/resources': 3.0.0
+    '@opentelemetry/resource-detector-aws': 3.0.0
+    '@opentelemetry/resource-detector-container': 0.9.0
+    '@opentelemetry/resource-detector-gcp': 0.59.0
+    '@opentelemetry/opentelemetry-browser-detector': 0.300.0
+    '@opentelemetry/sdk-logs': 3.0.0
+    '@opentelemetry/sdk-metrics': 3.0.0
+    '@opentelemetry/host-metrics': 0.40.0
     '@opentelemetry/sdk-trace-base': 3.0.0-development.0
     '@opentelemetry/sdk-trace-node': 2.12.0
     '@opentelemetry/sdk-trace-web': 3.0.0-development.0
-    '@opentelemetry/baggage-span-processor': 0.5.0
-    '@opentelemetry/exporter-metrics-otlp-http': 0.300.0-rc.0
-    '@opentelemetry/exporter-metrics-otlp-proto': 0.300.0-rc.0
-    '@opentelemetry/exporter-trace-otlp-http': 0.300.0-rc.0
-    '@opentelemetry/exporter-trace-otlp-proto': 0.300.0-rc.0
+    '@opentelemetry/baggage-span-processor': 0.6.0
+    '@opentelemetry/exporter-metrics-otlp-http': 0.300.0
+    '@opentelemetry/exporter-metrics-otlp-proto': 0.300.0
+    '@opentelemetry/exporter-trace-otlp-http': 0.300.0
+    '@opentelemetry/exporter-trace-otlp-proto': 0.300.0
     '@opentelemetry/api-logs': 0.300.0-development.0
-    '@opentelemetry/exporter-logs-otlp-http': 0.300.0-rc.0
-    '@opentelemetry/exporter-logs-otlp-proto': 0.300.0-rc.0
-    '@opentelemetry/instrumentation': 0.300.0-rc.0
-    '@opentelemetry/instrumentation-http': 0.300.0-rc.0
-    '@opentelemetry/instrumentation-pg': 0.76.0
-    '@opentelemetry/instrumentation-undici': 0.33.0
-    '@opentelemetry/instrumentation-runtime-node': 0.36.1
-    '@opentelemetry/instrumentation-fetch': 0.300.0-rc.0
-    '@opentelemetry/instrumentation-document-load': 0.68.0
-    '@opentelemetry/instrumentation-user-interaction': 0.67.0
-    '@opentelemetry/instrumentation-xml-http-request': 0.300.0-rc.0
-    '@pyroscope/nodejs': 0.6.5
+    '@opentelemetry/exporter-logs-otlp-http': 0.300.0
+    '@opentelemetry/exporter-logs-otlp-proto': 0.300.0
+    '@opentelemetry/instrumentation': 0.300.0
+    '@opentelemetry/instrumentation-http': 0.300.0
+    '@opentelemetry/instrumentation-pg': 0.77.0
+    '@opentelemetry/instrumentation-undici': 0.34.0
+    '@opentelemetry/instrumentation-runtime-node': 0.37.0
+    '@opentelemetry/instrumentation-fetch': 0.300.0
+    '@opentelemetry/instrumentation-document-load': 0.69.0
+    '@opentelemetry/instrumentation-user-interaction': 0.68.0
+    '@opentelemetry/instrumentation-xml-http-request': 0.300.0
+    '@pyroscope/nodejs': 0.7.0
     idb-keyval: 6.3.0
     nuqs: 2.10.2
     workbox-build: 7.4.1
@@ -177,13 +177,13 @@ catalog:
     react-compiler-runtime: 1.0.0
     react-error-boundary: 6.1.6
     scheduler: 0.28.0
-    '@effect/atom-react': 4.0.5
+    '@effect/atom-react': 4.0.6
     '@floating-ui/react': 0.27.20
     '@tanstack/react-table': 9.3.1
     '@tanstack/react-virtual': 3.14.21
     '@tanstack/store': 0.11.2
     '@use-gesture/react': 10.3.1
-    lucide-react: 1.59.0
+    lucide-react: 1.61.0
     class-variance-authority: 0.7.1
     clsx: 2.1.1
     tailwindcss: 4.3.3
@@ -194,7 +194,7 @@ catalog:
     colorjs.io: 0.7.1
     isomorphic-dompurify: 4.6.0
     tus-js-client: 5.0.0-pre3
-    react-resizable-panels: 4.14.5
+    react-resizable-panels: 4.14.8
     '@xyflow/react': 13.0.0-next.0
     elkjs: 0.12.0
     prosemirror-model: 1.25.12
@@ -209,7 +209,7 @@ catalog:
     prosemirror-gapcursor: 1.4.1
     prosemirror-dropcursor: 1.8.4
     prosemirror-collab: 1.3.1
-    motion: 14.3.0
+    motion: 14.6.0
     d3: 7.9.0
     uplot: 1.6.32
     '@observablehq/plot': 0.6.17
@@ -227,7 +227,7 @@ catalog:
     three: 0.186.1
     '@types/three': 0.186.0
     three-mesh-bvh: 0.9.16
-    maplibre-gl: 6.14.0
+    maplibre-gl: 6.15.0
     '@deck.gl/core': 9.4.0
     '@deck.gl/geo-layers': 9.4.0
     '@deck.gl/layers': 9.4.0
@@ -259,75 +259,75 @@ catalog:
     '@exodus/bytes': 1.16.0 # WHATWG TextEncoder and TextDecoder for hosts without them
     acorn: 8.19.0 # JavaScript parser to ESTree syntax trees
     acorn-walk: 8.3.5 # ESTree syntax tree walker
-    amaro: 1.2.1 # Node's TypeScript syntax stripping
+    amaro: 1.2.2 # Node's TypeScript syntax stripping
     astring: 1.9.0 # JavaScript source text from ESTree syntax trees
     image-size: 2.0.4 # Image width and height read from encoded bytes
     # --- [INFRASTRUCTURE]
-    '@pulumi/pulumi': "3.271.0-alpha.x7b4b596"
-    '@pulumi/kubernetes': "4.35.0-alpha.1792255684"
+    '@pulumi/pulumi': "3.272.0-alpha.x3b3c825"
+    '@pulumi/kubernetes': "4.35.0-alpha.1792650132"
     '@pulumi/aws': "7.52.0-alpha.1792217185"
-    '@pulumi/awsx': "3.12.0-alpha.1792255973"
-    '@pulumi/gcp': "10.2.0-alpha.1792252791"
-    '@pulumi/cloudflare': "6.23.0-alpha.1792131621"
-    '@pulumi/postgresql': "3.19.0-alpha.1792131821"
-    '@pulumi/tls': "5.7.0-alpha.1792132919"
-    '@pulumi/random': "4.22.0-alpha.1792132249"
-    '@pulumi/command': "1.3.0-alpha.1792202397"
-    '@pulumi/docker': "5.3.0-alpha.1792129964"
-    '@pulumi/docker-build': "0.1.0-alpha.1792258216"
+    '@pulumi/awsx': "3.12.0-alpha.1792648628"
+    '@pulumi/gcp': "10.3.0-alpha.1792649487"
+    '@pulumi/cloudflare': "6.24.0-alpha.1792649795"
+    '@pulumi/postgresql': "3.19.0-alpha.1792650309"
+    '@pulumi/tls': "5.7.0-alpha.1792651467"
+    '@pulumi/random': "4.22.0-alpha.1792650729"
+    '@pulumi/command': "1.3.0-alpha.1792647281"
+    '@pulumi/docker': "5.3.0-alpha.1792648153"
+    '@pulumi/docker-build': "0.1.0-alpha.1792647954"
     '@pulumi/minio': "1.0.0-alpha.1789107308"
     '@pulumi/policy': "1.22.0-alpha.1787747072"
     '@pulumiverse/doppler': 0.9.0
-    '@pulumiverse/grafana': 2.43.0
+    '@pulumiverse/grafana': 2.44.0
     '@grafana/grafana-foundation-sdk': 0.0.21
-    '@pulumi/eks': "4.4.0"
-    '@pulumi/cloudinit': "1.7.0-alpha.1792128683"
-    '@pulumi/github': "6.16.0-alpha.1792130016"
+    '@pulumi/eks': "4.5.0-alpha.1792478347"
+    '@pulumi/cloudinit': "1.7.0-alpha.1792647110"
+    '@pulumi/github': "6.16.0-alpha.1792648425"
     '@pulumi/synced-folder': 0.12.4
     '@pulumi/esc-sdk': 0.14.0
-    '@pulumi/pulumiservice': "1.5.0-alpha.1792254230"
+    '@pulumi/pulumiservice': "1.6.0-alpha.1792613334"
     '@pulumiverse/acme': "0.18.1"
     # --- [TESTING]
-    vitest: 5.0.5
-    '@effect/vitest': 4.0.5
+    vitest: 5.1.0-beta.1
+    '@effect/vitest': 4.0.6
     fast-check: 4.10.2
-    '@vitest/coverage-v8': 5.0.5
-    '@vitest/browser': 5.0.5
-    '@vitest/browser-playwright': 5.0.5
+    '@vitest/coverage-v8': 5.1.0-beta.1
+    '@vitest/browser': 5.1.0-beta.1
+    '@vitest/browser-playwright': 5.1.0-beta.1
     vitest-browser-react: 2.3.0
     '@stryker-mutator/core': 10.0.0
     '@stryker-mutator/vitest-runner': 10.0.0
-    '@playwright/test': 1.65.0-alpha-2026-10-17
-    playwright: 1.65.0-alpha-2026-10-17
+    '@playwright/test': 1.65.0-alpha-2026-10-22
+    playwright: 1.65.0-alpha-2026-10-22
     '@axe-core/playwright': 4.14.1-55245d5.0.sha-55245d5
     storybook: 11.0.0-alpha.6
     '@storybook/react-vite': 11.0.0-alpha.6
     '@storybook/addon-vitest': 11.0.0-alpha.6
     '@storybook/addon-a11y': 11.0.0-alpha.6
     '@storybook/addon-docs': 11.0.0-alpha.6
-    '@cloudflare/vitest-plugin': 1.4.4
+    '@cloudflare/vitest-plugin': 1.4.6
     testcontainers: 12.2.1
     '@testcontainers/postgresql': 12.2.1
     # --- [TOOLING]
-    '@cloudflare/vite-plugin': 2.0.0-beta.v.1
-    '@cloudflare/workers-types': 5.20261018.1
+    '@cloudflare/vite-plugin': 2.0.0-beta.v.3
+    '@cloudflare/workers-types': 5.20261022.1
     '@openai/sites-vite-plugin': 0.2.0
     '@cloudflare/build-output-utils': 0.9.3 # Build Output tree reader for hosting programs
-    cf: 1.0.0-beta.18 # `cloudflare.config.ts` definitions and local resource commands against Vite plugin state
-    '@effect/tsgo': 0.53.4 # Effect diagnostics in the patched `tsc` typecheck and language server
-    typescript: 7.1.0-dev.20261016.1 # Newest build `@effect/tsgo` patches, every `effect-tsgo` subcommand fails on another build
+    cf: 1.0.0-beta.20 # `cloudflare.config.ts` definitions and local resource commands against Vite plugin state
+    '@effect/tsgo': 0.56.0 # Effect diagnostics in the patched `tsc` typecheck and language server
+    typescript: 7.1.0-dev.20261020.3 # Newest build `@effect/tsgo` patches, every `effect-tsgo` subcommand fails on another build
     '@effect/docgen': 4.0.5
     '@effect/openapi-generator': 4.0.5
-    nx: 24.0.0-canary.20261016-5ef7804
-    '@nx/devkit': 24.0.0-canary.20261016-5ef7804
-    '@nx/dotnet': 24.0.0-canary.20261016-5ef7804
-    '@nx/playwright': 24.0.0-canary.20261016-5ef7804
-    '@nx/vitest': 24.0.0-canary.20261016-5ef7804
+    nx: 24.0.0
+    '@nx/devkit': 24.0.0
+    '@nx/dotnet': 24.0.0
+    '@nx/playwright': 24.0.0
+    '@nx/vitest': 24.0.0
     '@ast-grep/napi': 0.51.0 # Structural search and rewrite over syntax trees from Node
     '@ast-grep/lang-python': 0.0.6 # Python grammar `@ast-grep/napi` registers as a dynamic language
     smol-toml: 1.9.1 # Nx parser for `pyproject.toml` and `blender_manifest.toml`
     minimatch: 10.2.6
-    '@biomejs/biome': 2.5.15
+    '@biomejs/biome': 2.6.2
     '@tree-sitter-grammars/tree-sitter-xml': 0.7.0
     tree-sitter-sqlite3: 0.1.0
     tree-sitter-swift: github:alex-pinkus/tree-sitter-swift#0.7.4-with-generated-files # Newest release tag holding the generated parser, npm stops at 0.7.1 and the plain tag omits `src/parser.c`
@@ -336,9 +336,9 @@ catalog:
     tslib: 2.8.1
     '@types/node': 26.6.5
     vite-plugin-static-copy: 4.1.1
-    vite: 8.3.4
+    vite: 8.3.5
     '@vitejs/plugin-react': 6.1.2
-    oxc-transform-react: 0.154.0
+    oxc-transform-react: 0.155.0
     '@tailwindcss/vite': 4.3.3
     '@rolldown/plugin-babel': 0.2.4
     rollup-plugin-visualizer: 7.1.1
@@ -353,7 +353,7 @@ catalog:
     vite-plugin-svgr: 5.2.0
     vite-plugin-webfont-dl: 3.13.1
     '@octokit/rest': 22.0.1
-    '@modelcontextprotocol/inspector': 2.11.0 # Stdio MCP client CLI with per-method exit codes that gate an MCP server target
+    '@modelcontextprotocol/inspector': 2.12.0 # Stdio MCP client CLI with per-method exit codes that gate an MCP server target
     npm-check-updates: 23.1.1
     verkit: 0.5.0 # Cargo and pnpm lock version order the upgrade downgrade check reads
     '@renovatebot/pep440': 5.0.1 # uv lock version order the upgrade downgrade check reads

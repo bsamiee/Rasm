@@ -41,7 +41,7 @@ const EntryList = ({ entries, selected, onSelect, onRemove }: { entries: readonl
         >
             {(item) => (
                 <div className="flex items-center justify-between gap-4.5 pb-2.5 max-sm:items-start max-sm:gap-2">
-                    <Button aria-pressed={selected === item.id} className="wrap-anywhere min-w-0 flex-1 text-left text-lg aria-pressed:text-accent-text aria-pressed:underline aria-pressed:underline-offset-5" onPress={() => onSelect(item)}>
+                    <Button aria-pressed={selected === item.id} className="aria-pressed:text-accent-text min-w-0 flex-1 text-left text-lg wrap-anywhere aria-pressed:underline aria-pressed:underline-offset-5" onPress={() => onSelect(item)}>
                         {entryTitle(item)}
                         <span className="meta-line no-underline">{quantity(item.compositions.length, { one: 'composition', other: 'compositions' })}</span>
                     </Button>
@@ -76,7 +76,7 @@ const EntryFields = ({ entry, titleId }: { entry: typeof Entry.Type; titleId: st
                 </div>
                 {entry.cover && (
                     <div className="flex flex-wrap items-center justify-between gap-2.5">
-                        <span className="eyebrow wrap-anywhere min-w-0">Cover · {entry.cover.asset.name}</span>
+                        <span className="eyebrow min-w-0 wrap-anywhere">Cover · {entry.cover.asset.name}</span>
                         <button className="button button-ghost" onClick={() => setDraft(AsyncResult.map(updateEntry(entry.id, Struct.omit(['cover']))))} type="button">
                             Clear thumbnail
                         </button>

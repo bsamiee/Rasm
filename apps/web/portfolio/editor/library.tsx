@@ -37,16 +37,16 @@ const Library = ({
     const used = (work: typeof Portfolio.Type) => new Set(placements(work).flatMap((placement) => [placement.asset.id, ...(placement.kind === 'video' && placement.poster !== undefined ? [placement.poster.id] : [])]));
     const summary = (asset: typeof Asset.Type) => [byteSize.format(asset.size), ...(Schema.is(PdfAsset)(asset) ? [quantity(asset.pages.length, { one: 'sheet', other: 'sheets' })] : [])];
     return (
-        <section className="min-w-0 border-line border-t pt-5">
+        <section className="border-line min-w-0 border-t pt-5">
             <div className="mb-4 flex items-center justify-between gap-3">
                 <h3 className="text-xl tracking-tight">Library</h3>
                 <span className="text-muted text-xs">{quantity(Object.keys(assets).length, { one: 'file', other: 'files' })}</span>
             </div>
-            <div className="grid min-w-0 editor:grid-cols-2 gap-6">
-                <GridList aria-label="Source files" className="grid grid-cols-2 content-start gap-3 max-editor:data-chosen:hidden" data-chosen={Option.isSome(selected) || undefined} dependencies={[sourceId]} id={`${ids}library`} items={Object.values(assets)} selectionMode="none">
+            <div className="editor:grid-cols-2 grid min-w-0 gap-6">
+                <GridList aria-label="Source files" className="max-editor:data-chosen:hidden grid grid-cols-2 content-start gap-3" data-chosen={Option.isSome(selected) || undefined} dependencies={[sourceId]} id={`${ids}library`} items={Object.values(assets)} selectionMode="none">
                     {(asset) => (
                         <GridListItem
-                            className="min-w-0 cursor-pointer border border-line p-3 outline-none focus-visible:outline-2 focus-visible:outline-accent-text data-current:border-accent-text"
+                            className="border-line focus-visible:outline-accent-text data-current:border-accent-text min-w-0 cursor-pointer border p-3 outline-none focus-visible:outline-2"
                             data-current={Option.contains(sourceId, asset.id) || undefined}
                             id={asset.id}
                             onAction={() => {
@@ -55,14 +55,14 @@ const Library = ({
                             }}
                             textValue={asset.name}
                         >
-                            <div className="media-h-30 pointer-events-none grid aspect-4/3 place-items-center bg-surface">
+                            <div className="media-h-30 bg-surface pointer-events-none grid aspect-4/3 place-items-center">
                                 {Match.value(asset).pipe(
-                                    Match.when({ mime: Match.is(...PdfAsset.fields.mime.literals) }, () => <FileText className="size-6 text-muted" />),
-                                    Match.when({ mime: Match.is(...VideoAsset.fields.mime.literals) }, () => <Film className="size-6 text-muted" />),
+                                    Match.when({ mime: Match.is(...PdfAsset.fields.mime.literals) }, () => <FileText className="text-muted size-6" />),
+                                    Match.when({ mime: Match.is(...VideoAsset.fields.mime.literals) }, () => <Film className="text-muted size-6" />),
                                     Match.orElse((image) => <MediaFigure active={false} placement={Array.headNonEmpty(placementsFor(image))} presentation="thumbnail" priority={false} renderMedia={true} />),
                                 )}
                             </div>
-                            <span className="wrap-anywhere mt-3 block text-sm">{asset.name}</span>
+                            <span className="mt-3 block text-sm wrap-anywhere">{asset.name}</span>
                             <span className="meta-line">{summary(asset).join(' · ')}</span>
                         </GridListItem>
                     )}
@@ -72,7 +72,7 @@ const Library = ({
                     onSome: (asset) => {
                         const uses = [...(used(portfolio).has(asset.id) ? ['your draft'] : []), ...(used(published).has(asset.id) ? ['published work'] : [])];
                         return (
-                            <div className="flex min-w-0 flex-col gap-4 editor:border-line editor:border-l editor:pl-6">
+                            <div className="editor:border-line editor:border-l editor:pl-6 flex min-w-0 flex-col gap-4">
                                 <button
                                     className="button button-ghost self-start"
                                     onClick={() => {
@@ -83,10 +83,10 @@ const Library = ({
                                 >
                                     Back to files
                                 </button>
-                                <h4 className="wrap-anywhere text-lg tracking-tight outline-none" id={`${ids}source`} tabIndex={-1}>
+                                <h4 className="text-lg tracking-tight wrap-anywhere outline-none" id={`${ids}source`} tabIndex={-1}>
                                     {asset.name}
                                 </h4>
-                                <div className="media-h-70 grid place-items-center bg-surface p-3">
+                                <div className="media-h-70 bg-surface grid place-items-center p-3">
                                     <MediaFigure active={true} placement={Array.headNonEmpty(placementsFor(asset))} presentation="expandable" priority={false} renderMedia={true} />
                                 </div>
                                 <div className="actions">

@@ -41,14 +41,14 @@ const SheetViewer = ({ document, placement, layoutId }: { document: PDFDocumentP
                     zoomIn={() => viewer.pdf.increaseScale()}
                     zoomOut={() => viewer.pdf.decreaseScale()}
                 >
-                    <div className="flex w-fit min-w-0 max-w-full items-center">
+                    <div className="flex w-fit max-w-full min-w-0 items-center">
                         <span className="sr-only" role="status">
                             {sheetLabel(current, document.numPages)}
                         </span>
                         <Button aria-label="Previous sheet" className="button button-ghost min-w-11 px-2" isDisabled={current.number === 1} onPress={() => viewer.pdf.previousPage()}>
                             <ChevronLeft className="size-4" />
                         </Button>
-                        <select aria-label="Sheet" className="min-h-11 min-w-0 max-w-48 bg-transparent px-1 font-mono text-xs tabular-nums" onChange={(event) => viewer.pdf.linkService.goToPage(event.currentTarget.selectedIndex + 1)} value={current.number}>
+                        <select aria-label="Sheet" className="min-h-11 max-w-48 min-w-0 bg-transparent px-1 font-mono text-xs tabular-nums" onChange={(event) => viewer.pdf.linkService.goToPage(event.currentTarget.selectedIndex + 1)} value={current.number}>
                             {pages.map(({ label, number }) => (
                                 <option key={number} value={number}>
                                     {[`${numeral(number)} / ${numeral(document.numPages)}`, label].filter(Boolean).join(' · ')}
@@ -77,7 +77,7 @@ const SheetViewer = ({ document, placement, layoutId }: { document: PDFDocumentP
                         <div className="flex flex-wrap items-center gap-2 pb-1">
                             <SearchField
                                 aria-label="Find in document"
-                                className="flex min-w-0 flex-1 basis-40 items-center border border-control-line"
+                                className="border-control-line flex min-w-0 flex-1 basis-40 items-center border"
                                 onChange={(text) => {
                                     setQuery(text);
                                     viewer.find(text, 'first');
@@ -96,7 +96,7 @@ const SheetViewer = ({ document, placement, layoutId }: { document: PDFDocumentP
                             <Button aria-label="Next match" className="button button-ghost min-w-11 px-3" isDisabled={viewer.matches.total === 0} onPress={() => viewer.find(query, 'next')}>
                                 <ChevronRight className="size-4" />
                             </Button>
-                            <span className="basis-full text-muted text-xs" role="status">
+                            <span className="text-muted basis-full text-xs" role="status">
                                 {query === '' ? 'Search drawing numbers or text.' : `${viewer.matches.current} of ${viewer.matches.total} matches`}
                             </span>
                         </div>

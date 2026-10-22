@@ -29,7 +29,14 @@ const served = Effect.fnUntraced(function* (executable: string) {
         return { installation, pid: yield* Unmatched.single(`running instance of ${installation.name}`, Option.map(pid, String))(rows.filter(runs(installation)).map(Struct.get('pid')), (each) => [String(each)]) };
     });
     const among = (hosts: Predicate.Predicate<Installation>) => (given: Option.Option<string>) =>
-        Effect.zipWith(automation.installed, SubscriptionRef.get(automation.instances), (installed, rows) => installed.filter((row) => hosts(row) && (Option.isSome(given) || rows.some((instance) => runs(row)(instance) && instance.activationPolicy === 'regular'))));
+        Effect.zipWith(
+            automation.installed,
+            Effect.map(
+                SubscriptionRef.get(automation.instances),
+                Array.filter((row) => row.activationPolicy === 'regular'),
+            ),
+            (installed, docked) => installed.filter((row) => hosts(row) && (Option.isSome(given) || docked.some(runs(row)))),
+        );
     const lookup = (hosts: Predicate.Predicate<Installation>) => (given: Option.Option<string>) => Effect.flatMap(among(hosts)(given), (rows) => Unmatched.single(Option.match(given, { onSome: () => 'installed Adobe application', onNone: () => 'running Adobe application in the Dock' }), given)(rows, named));
     const dictionaries = Effect.zipWith(automation.installed, extended, (rows, hosts) => rows.filter((row) => row.scriptable && !hosts(row)));
     const described = (given: string) => Effect.flatMap(dictionaries, (rows) => Unmatched.single('installed Adobe application its dictionary describes', Option.some(given))(rows, named));

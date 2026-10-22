@@ -7,7 +7,7 @@
 
     <ItemGroup Label="Analyzers">
         <GlobalPackageReference Include="ErrorProne.NET.CoreAnalyzers"                    Version="0.9.0-beta.4" />                      <!-- Roslyn analyzers for correctness and performance defects -->
-        <GlobalPackageReference Include="Meziantou.Analyzer"                              Version="3.0.305" />                           <!-- Roslyn analyzers enforcing C# design, usage, security, and performance rules -->
+        <GlobalPackageReference Include="Meziantou.Analyzer"                              Version="3.0.316" />                           <!-- Roslyn analyzers enforcing C# design, usage, security, and performance rules -->
         <GlobalPackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers"       Version="5.6.0" />                             <!-- Roslyn analyzer rejecting symbols the BannedSymbols files list -->
         <GlobalPackageReference Include="Microsoft.VisualStudio.Threading.Analyzers"      Version="18.12.1" />                           <!-- Roslyn analyzers flagging async deadlocks and threading hazards -->
         <GlobalPackageReference Include="Roslynator.Analyzers"                            Version="5.0.1" />                             <!-- C# code quality analyzers, refactorings, and code fixes -->
@@ -19,12 +19,16 @@
         <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.Workspaces"                Version="5.9.0" />                             <!-- C# workspace layer for code analysis and refactoring -->
     </ItemGroup>
 
+    <ItemGroup Label="Versioning">
+        <PackageVersion Include="MinVer"                                                  Version="8.1.0-alpha.1" />                     <!-- Product version from the nearest prefixed git tag and the commit height above it -->
+    </ItemGroup>
+
     <ItemGroup Label="Rhino">
-        <PackageVersion Include="Grasshopper"                                             Version="9.0.26286.6303-beta" />               <!-- Grasshopper 1 reference assemblies Grasshopper and GH_IO for plugin compilation -->
-        <PackageVersion Include="Grasshopper2"                                            Version="9.0.26286.6303-beta" />               <!-- Grasshopper 2 reference assemblies Grasshopper2 and GrasshopperIO for plugin compilation -->
+        <PackageVersion Include="Grasshopper"                                             Version="9.0.26293.12303-beta" />              <!-- Grasshopper 1 reference assemblies Grasshopper and GH_IO for plugin compilation -->
+        <PackageVersion Include="Grasshopper2"                                            Version="9.0.26293.12303-beta" />              <!-- Grasshopper 2 reference assemblies Grasshopper2 and GrasshopperIO for plugin compilation -->
         <PackageVersion Include="Microsoft.Win32.SystemEvents"                            Version="11.0.0-rc.2.26504.105" />
         <PackageVersion Include="Rhino3dm"                                                Version="8.35.0" />                            <!-- openNURBS geometry access for reading and writing 3dm files -->
-        <PackageVersion Include="RhinoCommon"                                             Version="9.0.26286.6303-beta" />               <!-- Rhino plugin SDK assemblies RhinoCommon, Rhino.UI, and Eto with Windows Forms targeting on every platform -->
+        <PackageVersion Include="RhinoCommon"                                             Version="9.0.26293.12303-beta" />              <!-- Rhino plugin SDK assemblies RhinoCommon, Rhino.UI, and Eto with Windows Forms targeting on every platform -->
         <PackageVersion Include="System.Drawing.Common"                                   Version="11.0.0-rc.2.26504.105" />             <!-- GDI+ based drawing, imaging, and text rendering API -->
     </ItemGroup>
 
@@ -44,11 +48,11 @@
         <PackageVersion Include="NodaTime.Serialization.SystemTextJson"                   Version="1.4.0" />                             <!-- JSON converters for instants, durations, zones, and calendar dates -->
         <PackageVersion Include="Riok.Mapperly"                                           Version="5.0.0-next.11" />                     <!-- Source-generated object mapper with compile-time diagnostics -->
         <PackageVersion Include="System.IO.Hashing"                                       Version="11.0.0-rc.2.26504.105" />             <!-- Non-cryptographic hash algorithms including CRC and xxHash -->
-        <PackageVersion Include="Thinktecture.Runtime.Extensions"                         Version="10.5.1" />                            <!-- Source-generated smart enums, value objects, and discriminated unions -->
-        <PackageVersion Include="Thinktecture.Runtime.Extensions.EntityFrameworkCore10"   Version="10.5.1" />                            <!-- Value converters for smart enums and value objects -->
-        <PackageVersion Include="Thinktecture.Runtime.Extensions.Json"                    Version="10.5.1" />                            <!-- JSON serialization for smart enums and value objects -->
-        <PackageVersion Include="Thinktecture.Runtime.Extensions.MessagePack"             Version="10.5.1" />                            <!-- Formatter resolvers for smart enums and value objects -->
-        <PackageVersion Include="Thinktecture.Runtime.Extensions.Serilog"                 Version="10.5.1" />                            <!-- Log event destructuring for smart enums, value objects, and unions -->
+        <PackageVersion Include="Thinktecture.Runtime.Extensions"                         Version="10.6.0" />                            <!-- Source-generated smart enums, value objects, and discriminated unions -->
+        <PackageVersion Include="Thinktecture.Runtime.Extensions.EntityFrameworkCore10"   Version="10.6.0" />                            <!-- Value converters for smart enums and value objects -->
+        <PackageVersion Include="Thinktecture.Runtime.Extensions.Json"                    Version="10.6.0" />                            <!-- JSON serialization for smart enums and value objects -->
+        <PackageVersion Include="Thinktecture.Runtime.Extensions.MessagePack"             Version="10.6.0" />                            <!-- Formatter resolvers for smart enums and value objects -->
+        <PackageVersion Include="Thinktecture.Runtime.Extensions.Serilog"                 Version="10.6.0" />                            <!-- Log event destructuring for smart enums, value objects, and unions -->
         <PackageVersion Include="UUIDNext"                                                Version="4.2.4" />
     </ItemGroup>
 
@@ -62,7 +66,7 @@
     <ItemGroup Label="Mathematics">
         <PackageVersion Include="AngouriMath"                                             Version="2.5.0" />                             <!-- Symbolic algebra: simplification, calculus, equation solving, LaTeX output -->
         <PackageVersion Include="CSparse"                                                 Version="4.4.1" />                             <!-- Sparse LU, Cholesky, and QR factorization for real and complex systems -->
-        <PackageVersion Include="HyperJet"                                                Version="0.3.0" />                             <!-- Automatic differentiation computing gradients and Hessians with SIMD acceleration -->
+        <PackageVersion Include="HyperJet"                                                Version="0.4.0" />                             <!-- Automatic differentiation computing gradients and Hessians with SIMD acceleration -->
         <PackageVersion Include="MatFlat"                                                 Version="0.8.3" />                             <!-- BLAS and LAPACK style routines in managed code: LU, Cholesky, QR, SVD, eigen -->
         <PackageVersion Include="MathNet.Numerics"                                        Version="6.0.0-beta2" />                       <!-- Numerical methods: linear algebra, statistics, interpolation, special functions -->
         <PackageVersion Include="MathNet.Numerics.Data.Matlab"                            Version="6.0.0-beta2" />                       <!-- MAT-file reading and writing for matrices -->
@@ -94,7 +98,7 @@
         <PackageVersion Include="KTrie"                                                   Version="3.0.1" />                             <!-- Trie and trie dictionary with prefix, pattern, and longest-prefix lookup -->
         <PackageVersion Include="Levenshtypo"                                             Version="1.8.0" />                             <!-- Levenshtein automata over a trie for typo-tolerant dictionary lookup -->
         <PackageVersion Include="LoroCs"                                                  Version="1.16.2" />                            <!-- CRDT collaborative document and data structure bindings -->
-        <PackageVersion Include="Meziantou.Framework.BloomFilters"                        Version="2.0.9" />                             <!-- Bloom and counting Bloom filters with xxHash and CRC hashing -->
+        <PackageVersion Include="Meziantou.Framework.BloomFilters"                        Version="2.0.10" />                            <!-- Bloom and counting Bloom filters with xxHash and CRC hashing -->
         <PackageVersion Include="OmniCollections.Probabilistic"                           Version="3.0.0" />                             <!-- Count-min sketch, HyperLogLog, and t-digest quantile estimators -->
         <PackageVersion Include="QuikGraph"                                               Version="2.5.0" />                             <!-- Graph data structures and algorithms: traversal, shortest paths, flows -->
         <PackageVersion Include="QuikGraph.Graphviz"                                      Version="2.5.0" />                             <!-- DOT serialization for graph structures -->
@@ -136,7 +140,7 @@
         <PackageVersion Include="Delaunator"                                              Version="1.0.11" />                            <!-- Delaunay triangulation of 2D points -->
         <PackageVersion Include="Evergine.Bindings.MeshOptimizer"                         Version="2026.10.1.20" />                      <!-- Bindings for vertex cache optimization, simplification, and mesh compression -->
         <PackageVersion Include="GeometRi"                                                Version="1.5.0.8" />                           <!-- 3D geometry primitives with transformations, distances, and intersections -->
-        <PackageVersion Include="ManifoldRust"                                            Version="0.5.2" />                             <!-- Mesh boolean kernel bindings over the Rust port -->
+        <PackageVersion Include="ManifoldRust"                                            Version="0.5.3" />                             <!-- Mesh boolean kernel bindings over the Rust port -->
         <PackageVersion Include="MeshLib"                                                 Version="3.1.4.554" />                         <!-- 3D mesh processing: booleans, repair, offsetting, simplification, triangulation -->
         <PackageVersion Include="MIConvexHull"                                            Version="1.1.19.1019" />                       <!-- Convex hull, Delaunay triangulation, and Voronoi computation in arbitrary dimensions -->
         <PackageVersion Include="PicoGK"                                                  Version="2.3.0" />                             <!-- Voxel-based geometry kernel for computational engineering -->
@@ -206,8 +210,8 @@
         <PackageVersion Include="OgcApi.Net.MbTiles"                                      Version="3.0.1" />                             <!-- MBTiles vector tile provider for the OGC API server -->
         <PackageVersion Include="OgcApi.Net.PostGis"                                      Version="3.0.1" />                             <!-- PostGIS feature provider for the OGC API server -->
         <PackageVersion Include="OgcApi.Net.SpatiaLite"                                   Version="3.0.1" />                             <!-- SpatiaLite feature provider for the OGC API server -->
-        <PackageVersion Include="OsmSharp"                                                Version="7.0.0-pre027" />                      <!-- OpenStreetMap data reading, writing, and filtering across PBF and XML -->
-        <PackageVersion Include="OsmSharp.Geo"                                            Version="7.0.0-pre027" />                      <!-- OpenStreetMap feature conversion into OGC geometries -->
+        <PackageVersion Include="OsmSharp"                                                Version="7.0.0-pre028" />                      <!-- OpenStreetMap data reading, writing, and filtering across PBF and XML -->
+        <PackageVersion Include="OsmSharp.Geo"                                            Version="7.0.0-pre028" />                      <!-- OpenStreetMap feature conversion into OGC geometries -->
         <PackageVersion Include="OsmSharp.IO.API"                                         Version="1.1.0" />                             <!-- OpenStreetMap API client for reading and editing map data with OAuth2 -->
         <PackageVersion Include="pocketken.H3"                                            Version="4.5.0.1" />                           <!-- Hexagonal hierarchical geospatial indexing with polygon fill -->
         <PackageVersion Include="ProjNET"                                                 Version="2.1.0" />                             <!-- Coordinate transformations between geodetic and projected reference systems -->
@@ -232,7 +236,7 @@
         <PackageVersion Include="MTConnect.NET-SHDR"                                      Version="7.0.0.2-prerelease" />                <!-- SHDR adapter protocol implementation -->
         <PackageVersion Include="MTConnect.NET-XML"                                       Version="7.0.0.2-prerelease" />                <!-- XML document format for protocol data -->
         <PackageVersion Include="Robots"                                                  Version="2.4.4" />                             <!-- Robot program creation and simulation for ABB, KUKA, UR, and other controllers -->
-        <PackageVersion Include="UNesting"                                                Version="0.28.0" />                            <!-- 2D polygon nesting and 3D bin packing engine bindings -->
+        <PackageVersion Include="UNesting"                                                Version="0.28.1" />                            <!-- 2D polygon nesting and 3D bin packing engine bindings -->
         <PackageVersion Include="UVtools.Core"                                            Version="7.1.0" />                             <!-- MSLA resin print file analysis, repair, and conversion -->
     </ItemGroup>
 
@@ -291,13 +295,13 @@
     </ItemGroup>
 
     <ItemGroup Label="AI">
-        <PackageVersion Include="Anthropic"                                               Version="12.58.0" />                           <!-- Client for the Claude Messages API -->
+        <PackageVersion Include="Anthropic"                                               Version="13.1.0" />                            <!-- Client for the Claude Messages API -->
         <PackageVersion Include="Microsoft.Extensions.AI"                                 Version="10.11.0" />                           <!-- Telemetry, caching, and tool-invocation middleware for AI chat clients -->
         <PackageVersion Include="Microsoft.Extensions.AI.Abstractions"                    Version="10.11.0" />                           <!-- Abstractions for chat, embeddings, and AI content -->
         <PackageVersion Include="Microsoft.Extensions.AI.OpenAI"                          Version="10.11.0" />                           <!-- OpenAI and Azure OpenAI implementation of the AI abstractions -->
-        <PackageVersion Include="ModelContextProtocol"                                    Version="2.2.0" />                             <!-- MCP SDK with hosting and dependency injection -->
-        <PackageVersion Include="ModelContextProtocol.AspNetCore"                         Version="2.2.0" />                             <!-- HTTP server transport for MCP -->
-        <PackageVersion Include="ModelContextProtocol.Core"                               Version="2.2.0" />                             <!-- Low-level MCP client and server primitives -->
+        <PackageVersion Include="ModelContextProtocol"                                    Version="2.3.0" />                             <!-- MCP SDK with hosting and dependency injection -->
+        <PackageVersion Include="ModelContextProtocol.AspNetCore"                         Version="2.3.0" />                             <!-- HTTP server transport for MCP -->
+        <PackageVersion Include="ModelContextProtocol.Core"                               Version="2.3.0" />                             <!-- Low-level MCP client and server primitives -->
         <PackageVersion Include="OpenAI"                                                  Version="2.14.0" />                            <!-- Client for the OpenAI chat, responses, embeddings, images, and audio APIs -->
     </ItemGroup>
 
@@ -341,8 +345,8 @@
 
     <ItemGroup Label="Documents">
         <PackageVersion Include="AngleSharp"                                              Version="1.8.5" />                             <!-- HTML5 parsing with DOM and CSS selector querying -->
-        <PackageVersion Include="AngleSharp.Css"                                          Version="1.1.3" />                             <!-- CSS object model and styling computation -->
-        <PackageVersion Include="Clippit"                                                 Version="3.9.1" />                             <!-- OpenXML document assembly, splitting, and merging -->
+        <PackageVersion Include="AngleSharp.Css"                                          Version="1.2.0" />                             <!-- CSS object model and styling computation -->
+        <PackageVersion Include="Clippit"                                                 Version="3.9.2" />                             <!-- OpenXML document assembly, splitting, and merging -->
         <PackageVersion Include="ClosedXML"                                               Version="0.105.1" />                           <!-- Excel workbook reading, writing, and formula calculation -->
         <PackageVersion Include="DocumentFormat.OpenXml"                                  Version="3.5.1" />                             <!-- Office Open XML document manipulation SDK -->
         <PackageVersion Include="DocxTemplater"                                           Version="3.0.0-beta.2" />                      <!-- Word document generation from templates with placeholders and collections -->
@@ -350,23 +354,23 @@
         <PackageVersion Include="DocxTemplater.Markdown"                                  Version="3.0.0-beta.2" />                      <!-- Markdown rendering for Word document templates -->
         <PackageVersion Include="EPPlus"                                                  Version="9.0.0-preview" />                     <!-- Excel workbook engine with formulas, charts, and pivot tables -->
         <PackageVersion Include="Fluid.Core"                                              Version="3.0.0-beta.8" />                      <!-- Liquid template parsing and rendering -->
-        <PackageVersion Include="HtmlSanitizer"                                           Version="10.0.1075-beta" />                    <!-- Allowlist filtering of untrusted HTML fragments and documents -->
+        <PackageVersion Include="HtmlSanitizer"                                           Version="10.0.1102-beta" />                    <!-- Allowlist filtering of untrusted HTML fragments and documents -->
         <PackageVersion Include="HtmlToOpenXml.dll"                                       Version="3.5.0" />                             <!-- HTML to Word document conversion -->
         <PackageVersion Include="itext"                                                   Version="9.8.0" />                             <!-- PDF creation, manipulation, and digital signing engine -->
         <PackageVersion Include="itext.bouncy-castle-adapter"                             Version="9.8.0" />                             <!-- Cryptography provider adapter for PDF signing and encryption -->
         <PackageVersion Include="itext.commons"                                           Version="9.8.0" />                             <!-- Shared infrastructure for the PDF toolchain -->
         <PackageVersion Include="itext.pdfhtml"                                           Version="6.3.4" />                             <!-- HTML and CSS to PDF conversion -->
-        <PackageVersion Include="Markdig"                                                 Version="1.4.1" />                             <!-- CommonMark Markdown parser with extension pipeline -->
+        <PackageVersion Include="Markdig"                                                 Version="1.4.2" />                             <!-- CommonMark Markdown parser with extension pipeline -->
         <PackageVersion Include="MiniExcel"                                               Version="2.0.0-preview.5" />                   <!-- Streaming Excel and CSV reading, writing, and templating -->
         <PackageVersion Include="OfficeIMO.Core"                                          Version="3.5.1" />                             <!-- Shared OpenXML infrastructure for Office document libraries -->
         <PackageVersion Include="OfficeIMO.Word"                                          Version="3.5.1" />                             <!-- Word document creation and editing with fluent API -->
-        <PackageVersion Include="PdfPig"                                                  Version="0.1.17-alpha-202610180035-9c18f" />   <!-- PDF content extraction and document creation -->
+        <PackageVersion Include="PdfPig"                                                  Version="0.1.17-alpha-202610200037-ad829" />   <!-- PDF content extraction and document creation -->
         <PackageVersion Include="PDFsharp"                                                Version="7.0.0-preview-2" />                   <!-- PDF document creation and drawing API -->
         <PackageVersion Include="PDFsharp-MigraDoc"                                       Version="7.0.0-preview-2" />                   <!-- Document object model rendering to PDF and RTF -->
         <PackageVersion Include="PDFtoImage"                                              Version="6.0.0-preview" />                     <!-- PDF page rendering to raster images via PDFium -->
-        <PackageVersion Include="PuppeteerSharp"                                          Version="25.14.0" />                           <!-- Headless Chromium automation over the DevTools protocol -->
-        <PackageVersion Include="ReverseMarkdown"                                         Version="6.2.1" />                             <!-- HTML to Markdown text conversion -->
-        <PackageVersion Include="ShapeCrawler"                                            Version="0.81.0" />                            <!-- PowerPoint presentation reading, creation, and editing -->
+        <PackageVersion Include="PuppeteerSharp"                                          Version="25.15.0" />                           <!-- Headless Chromium automation over the DevTools protocol -->
+        <PackageVersion Include="ReverseMarkdown"                                         Version="6.3.0" />                             <!-- HTML to Markdown text conversion -->
+        <PackageVersion Include="ShapeCrawler"                                            Version="0.82.0" />                            <!-- PowerPoint presentation reading, creation, and editing -->
     </ItemGroup>
 
     <ItemGroup Label="Media">
@@ -423,7 +427,7 @@
         <PackageVersion Include="DotPulsar"                                               Version="5.3.4" />                             <!-- Apache Pulsar client for producers, consumers, and readers -->
         <PackageVersion Include="NATS.Client.OpenTelemetry"                               Version="3.3.1" />                             <!-- Trace context propagation through message headers -->
         <PackageVersion Include="NATS.Net"                                                Version="3.3.1" />                             <!-- Client with JetStream, key-value, and object store -->
-        <PackageVersion Include="NetMQ"                                                   Version="4.0.4.4" />                           <!-- ZeroMQ messaging sockets implemented in managed code -->
+        <PackageVersion Include="NetMQ"                                                   Version="4.0.4.5" />                           <!-- ZeroMQ messaging sockets implemented in managed code -->
         <PackageVersion Include="RabbitMQ.Client"                                         Version="7.2.2" />                             <!-- Broker client implementing AMQP 0-9-1 -->
     </ItemGroup>
 
@@ -446,7 +450,7 @@
         <PackageVersion Include="Grpc.StatusProto"                                        Version="2.84.0" />                            <!-- gRPC error details through google.rpc.Status -->
         <PackageVersion Include="Grpc.Tools"                                              Version="2.85.0-pre1" />                       <!-- protoc compiler and gRPC plugin MSBuild integration -->
         <PackageVersion Include="JsonSchema.Net"                                          Version="9.4.1" />                             <!-- JSON Schema evaluation and validation -->
-        <PackageVersion Include="MessagePack"                                             Version="3.1.12" />                            <!-- Binary serialization with LZ4 compression and source generation -->
+        <PackageVersion Include="MessagePack"                                             Version="4.0.0-preview.1" />                   <!-- Binary serialization with LZ4 compression and source generation -->
         <PackageVersion Include="MessagePackAnalyzer"                                     Version="3.1.12" />                            <!-- Roslyn analyzers for serializable type annotations -->
         <PackageVersion Include="System.Formats.Cbor"                                     Version="11.0.0-rc.2.26504.105" />             <!-- CBOR data reading and writing primitives -->
         <PackageVersion Include="YamlDotNet"                                              Version="18.1.0" />                            <!-- YAML parsing, serialization, and object mapping -->
@@ -473,15 +477,15 @@
         <PackageVersion Include="PureHDF.SourceGenerator"                                 Version="3.0.0-beta.1" />                      <!-- Compile-time typed group and dataset accessors generated from an HDF5 file -->
         <PackageVersion Include="PureHDF.VFD.AmazonS3"                                    Version="3.0.0-beta.1" />                      <!-- Amazon S3 virtual file driver for HDF5 reading -->
         <PackageVersion Include="PureHDF.VOL.Hsds"                                        Version="3.0.0-beta.1" />                      <!-- HSDS virtual object layer for HDF5 access over REST -->
-        <PackageVersion Include="SharpCompress"                                           Version="0.50.5" />                            <!-- Archive reading and writing across zip, tar, 7z, rar, gzip, bzip2, xz, and zstd -->
+        <PackageVersion Include="SharpCompress"                                           Version="0.50.7" />                            <!-- Archive reading and writing across zip, tar, 7z, rar, gzip, bzip2, xz, and zstd -->
         <PackageVersion Include="SwatRecords.NetCDF"                                      Version="1.0.2" />                             <!-- NetCDF classic and NetCDF-4 reading and writing in managed code -->
-        <PackageVersion Include="ZarrNET"                                                 Version="0.7.0" />                             <!-- Zarr v2 and v3 chunked arrays over local, HTTP, and S3 stores -->
+        <PackageVersion Include="ZarrNET"                                                 Version="0.8.0" />                             <!-- Zarr v2 and v3 chunked arrays over local, HTTP, and S3 stores -->
     </ItemGroup>
 
     <ItemGroup Label="Data Storage">
-        <PackageVersion Include="AWSSDK.Extensions.NETCore.Setup"                         Version="4.0.102.4" />                         <!-- Client registration through configuration and dependency injection -->
-        <PackageVersion Include="AWSSDK.KeyManagementService"                             Version="4.0.100.18" />                        <!-- Key management client for encryption key operations -->
-        <PackageVersion Include="AWSSDK.S3"                                               Version="4.0.104.4" />                         <!-- Object storage client with multipart transfers -->
+        <PackageVersion Include="AWSSDK.Extensions.NETCore.Setup"                         Version="4.0.102.6" />                         <!-- Client registration through configuration and dependency injection -->
+        <PackageVersion Include="AWSSDK.KeyManagementService"                             Version="4.0.100.20" />                        <!-- Key management client for encryption key operations -->
+        <PackageVersion Include="AWSSDK.S3"                                               Version="4.0.104.6" />                         <!-- Object storage client with multipart transfers -->
         <PackageVersion Include="Azure.Identity"                                          Version="1.21.0" />                            <!-- Microsoft Entra ID credential providers for service authentication -->
         <PackageVersion Include="Azure.Security.KeyVault.Keys"                            Version="4.11.0-beta.5" />                     <!-- Key vault client for key management and cryptographic operations -->
         <PackageVersion Include="Azure.Storage.Blobs"                                     Version="12.30.1" />                           <!-- Client for blob storage containers, uploads, downloads, and leases -->
@@ -494,11 +498,11 @@
         <PackageVersion Include="EFCore.CheckConstraints"                                 Version="10.0.0" />                            <!-- Enum, validation attribute, and discriminator check constraints generated for entity models -->
         <PackageVersion Include="EFCore.NamingConventions"                                Version="10.0.1" />                            <!-- Snake case and related naming conventions for entity models -->
         <PackageVersion Include="Elastic.Clients.Elasticsearch"                           Version="9.5.3" />                             <!-- Search cluster client with typed queries, aggregations, and bulk indexing -->
-        <PackageVersion Include="FlowtideDotNet.Substrait"                                Version="0.16.0-alpha15" />                    <!-- Cross-engine query plan model with SQL conversion and serialization -->
+        <PackageVersion Include="FlowtideDotNet.Substrait"                                Version="0.16.0-alpha16" />                    <!-- Cross-engine query plan model with SQL conversion and serialization -->
         <PackageVersion Include="Google.Cloud.Kms.V1"                                     Version="3.27.0" />                            <!-- Cloud key management client for encryption keys -->
         <PackageVersion Include="Google.Cloud.Storage.V1"                                 Version="5.0.0" />                             <!-- Cloud object storage client -->
         <PackageVersion Include="Gremlin.Net"                                             Version="4.0.0-beta.3" />                      <!-- Gremlin traversal language client for TinkerPop-enabled graph servers -->
-        <PackageVersion Include="InfluxDB3.Client"                                        Version="1.11.0-dev.7543" />                   <!-- Line protocol writes and Arrow Flight SQL queries for time series data -->
+        <PackageVersion Include="InfluxDB3.Client"                                        Version="1.11.0-dev.7600" />                   <!-- Line protocol writes and Arrow Flight SQL queries for time series data -->
         <PackageVersion Include="Joveler.Compression.XZ"                                  Version="5.0.2" />                             <!-- Native xz stream compression and decompression with CRC32 and CRC64 -->
         <PackageVersion Include="Joveler.Compression.ZLib"                                Version="6.0.1" />                             <!-- zlib-ng backed deflate, gzip, and zlib streams with parallel compression -->
         <PackageVersion Include="K4os.Compression.LZ4"                                    Version="1.3.8" />                             <!-- LZ4 block compression in managed code -->
@@ -513,8 +517,8 @@
         <PackageVersion Include="Lucene.Net.Facet"                                        Version="4.8.0-beta00018" />                   <!-- Faceted search and drill-down over indexed documents -->
         <PackageVersion Include="Lucene.Net.QueryParser"                                  Version="4.8.0-beta00018" />                   <!-- Query syntax parsers for the index engine -->
         <PackageVersion Include="Lucene.Net.Spatial"                                      Version="4.8.0-beta00018" />                   <!-- Geospatial indexing and shape queries for the index engine -->
-        <PackageVersion Include="Marten"                                                  Version="9.50.3" />                            <!-- PostgreSQL document database and event store library -->
-        <PackageVersion Include="Marten.NodaTime"                                         Version="9.50.3" />                            <!-- Date and time type handling for PostgreSQL document storage -->
+        <PackageVersion Include="Marten"                                                  Version="9.51.0" />                            <!-- PostgreSQL document database and event store library -->
+        <PackageVersion Include="Marten.NodaTime"                                         Version="9.51.0" />                            <!-- Date and time type handling for PostgreSQL document storage -->
         <PackageVersion Include="Meilisearch"                                             Version="0.20.0" />                            <!-- Typo-tolerant search engine client with faceting and vector hybrid search -->
         <PackageVersion Include="Microsoft.Data.SqlClient"                                Version="7.1.1" />                             <!-- SQL Server and Azure SQL driver with TDS, bulk copy, and Always Encrypted -->
         <PackageVersion Include="Microsoft.Data.Sqlite"                                   Version="11.0.0-rc.2.26504.105" />             <!-- Managed database driver for SQLite -->
@@ -526,7 +530,7 @@
         <PackageVersion Include="MongoDB.Analyzer"                                        Version="2.0.0" />                             <!-- Roslyn analyzer previewing LINQ and builder query translations to MQL -->
         <PackageVersion Include="MongoDB.Driver"                                          Version="3.12.0" />                            <!-- Document database client with aggregation pipelines, change streams, and GridFS -->
         <PackageVersion Include="MySqlConnector"                                          Version="2.6.2" />                             <!-- Asynchronous MySQL and MariaDB driver with connection pooling -->
-        <PackageVersion Include="Neo4j.Driver"                                            Version="6.3.0" />                             <!-- Bolt protocol driver executing Cypher against Neo4j-compatible graph servers -->
+        <PackageVersion Include="Neo4j.Driver"                                            Version="6.4.0" />                             <!-- Bolt protocol driver executing Cypher against Neo4j-compatible graph servers -->
         <PackageVersion Include="net-questdb-client"                                      Version="4.0.0" />                             <!-- Columnar time series ingestion over line protocol with HTTP and TCP senders -->
         <PackageVersion Include="NFalkorDB"                                               Version="1.2.0" />                             <!-- Cypher graph commands, indexes, and constraints over the Redis multiplexer -->
         <PackageVersion Include="Npgsql"                                                  Version="10.0.3" />                            <!-- PostgreSQL database driver with binary protocol and connection pooling -->
@@ -539,12 +543,12 @@
         <PackageVersion Include="Npgsql.OpenTelemetry"                                    Version="10.0.3" />                            <!-- OpenTelemetry tracing and metrics for PostgreSQL commands -->
         <PackageVersion Include="NRedisStack"                                             Version="1.8.0" />                             <!-- Redis Stack client covering search, JSON, time series, and probabilistic modules -->
         <PackageVersion Include="OpenSearch.Client"                                       Version="2.2.0" />                             <!-- Search cluster client for the Apache-licensed Elasticsearch fork -->
-        <PackageVersion Include="ParquetSharp"                                            Version="25.0.1" />                            <!-- Apache Parquet reading and writing over Arrow C++ native bindings -->
+        <PackageVersion Include="ParquetSharp"                                            Version="25.0.1.1" />                          <!-- Apache Parquet reading and writing over Arrow C++ native bindings -->
         <PackageVersion Include="ParquetSharp.Dataset"                                    Version="0.4.0" />                             <!-- Partitioned multi-file Parquet dataset reading as Arrow record batches -->
         <PackageVersion Include="Pgvector"                                                Version="0.3.2" />                             <!-- Vector similarity types for PostgreSQL -->
         <PackageVersion Include="Pgvector.EntityFrameworkCore"                            Version="0.3.0" />                             <!-- Vector similarity search mapping for EF Core with PostgreSQL -->
         <PackageVersion Include="Qdrant.Client"                                           Version="1.19.0" />                            <!-- gRPC client for the vector database -->
-        <PackageVersion Include="rocksdb"                                                 Version="11.8.1.6589" />                       <!-- Embedded LSM-tree key-value store bindings -->
+        <PackageVersion Include="rocksdb"                                                 Version="11.8.1.7098" />                       <!-- Embedded LSM-tree key-value store bindings -->
         <PackageVersion Include="ScyllaDBCSharpDriver"                                    Version="3.22.0.5" />                          <!-- Shard-aware CQL driver for Cassandra-compatible clusters -->
         <PackageVersion Include="ScyllaDBCSharpDriver.OpenTelemetry"                      Version="3.22.0.5" />                          <!-- OpenTelemetry tracing instrumentation for CQL driver sessions -->
         <PackageVersion Include="Snowflake.Data"                                          Version="6.4.0" />                             <!-- ADO.NET connector for the cloud data warehouse with Arrow result sets -->
@@ -555,13 +559,13 @@
         <PackageVersion Include="Trino.Core"                                              Version="1.1.0" />                             <!-- Session, statement, and result streaming client for distributed SQL engines -->
         <PackageVersion Include="Trino.Core.Auth"                                         Version="1.1.0" />                             <!-- JWT, OAuth client credentials, and Azure credential providers -->
         <PackageVersion Include="VaultSharp"                                              Version="2.0.4.1-beta2" />                     <!-- Secrets, transit encryption, PKI, and auth method client for Vault servers -->
-        <PackageVersion Include="Weasel.EntityFrameworkCore"                              Version="9.45.1" />                            <!-- DbContext model mapping into Weasel tables for live delta apply -->
-        <PackageVersion Include="Weasel.MySql"                                            Version="9.45.1" />                            <!-- MySQL schema object model with live delta detection and direct apply -->
-        <PackageVersion Include="Weasel.Postgresql"                                       Version="9.45.1" />                            <!-- PostgreSQL schema object model with live delta detection and direct apply -->
-        <PackageVersion Include="Weasel.Sqlite"                                           Version="9.45.1" />                            <!-- SQLite schema object model with live delta detection and direct apply -->
-        <PackageVersion Include="Weasel.SqlServer"                                        Version="9.45.1" />                            <!-- SQL Server schema object model with live delta detection and direct apply -->
+        <PackageVersion Include="Weasel.EntityFrameworkCore"                              Version="9.46.0" />                            <!-- DbContext model mapping into Weasel tables for live delta apply -->
+        <PackageVersion Include="Weasel.MySql"                                            Version="9.46.0" />                            <!-- MySQL schema object model with live delta detection and direct apply -->
+        <PackageVersion Include="Weasel.Postgresql"                                       Version="9.46.0" />                            <!-- PostgreSQL schema object model with live delta detection and direct apply -->
+        <PackageVersion Include="Weasel.Sqlite"                                           Version="9.46.0" />                            <!-- SQLite schema object model with live delta detection and direct apply -->
+        <PackageVersion Include="Weasel.SqlServer"                                        Version="9.46.0" />                            <!-- SQL Server schema object model with live delta detection and direct apply -->
         <PackageVersion Include="Weaviate.Client"                                         Version="1.2.0" />                             <!-- Vector database client with collections, hybrid search, and generative modules -->
-        <PackageVersion Include="ZoneTree"                                                Version="2.0.1" />                             <!-- Persistent log-structured merge-tree key-value store in managed code with transactions -->
+        <PackageVersion Include="ZoneTree"                                                Version="2.0.2" />                             <!-- Persistent log-structured merge-tree key-value store in managed code with transactions -->
         <PackageVersion Include="ZstdNet"                                                 Version="1.5.7" />                             <!-- Native Zstandard compression with dictionary training and advanced parameters -->
         <PackageVersion Include="ZstdSharp.Port"                                          Version="0.8.8" />                             <!-- Zstandard compression and decompression ported to managed code -->
     </ItemGroup>
@@ -599,7 +603,7 @@
         <PackageVersion Include="JeremyAnsel.Media.WavefrontObj"                          Version="3.0.82" />                            <!-- Wavefront OBJ and MTL file reading and writing -->
         <PackageVersion Include="MeshIO"                                                  Version="2.2.6-beta" />                        <!-- Managed FBX and STL reading and writing with mesh, camera, and material editing -->
         <PackageVersion Include="Openize.Drako"                                           Version="26.2.0" />                            <!-- Managed port of Draco mesh compression and decompression -->
-        <PackageVersion Include="Prowl.Clay"                                              Version="3.8.1" />                             <!-- Managed 3D model importing for glTF, OBJ, and FBX with post-processing -->
+        <PackageVersion Include="Prowl.Clay"                                              Version="3.8.8" />                             <!-- Managed 3D model importing for glTF, OBJ, and FBX with post-processing -->
         <PackageVersion Include="SharpGLTF.Core"                                          Version="1.0.7" />                             <!-- glTF document object model reading and writing -->
         <PackageVersion Include="SharpGLTF.Ext.3DTiles"                                   Version="1.0.7" />                             <!-- Cesium 3D Tiles extensions for glTF documents -->
         <PackageVersion Include="SharpGLTF.Ext.Agi"                                       Version="1.0.7" />                             <!-- AGI articulation and metadata extensions for glTF documents -->
@@ -614,29 +618,28 @@
         <PackageVersion Include="Microsoft.Diagnostics.Runtime"                           Version="4.2.751201" />                        <!-- Inspection API over live process memory and crash dumps -->
         <PackageVersion Include="Microsoft.Diagnostics.Tracing.TraceEvent"                Version="4.0.0" />                             <!-- ETW and EventPipe trace collection and parsing -->
         <PackageVersion Include="Microsoft.Extensions.DependencyModel"                    Version="11.0.0-rc.2.26504.105" />             <!-- Runtime dependency graph reading from deps.json files -->
-        <PackageVersion Include="System.Reflection.MetadataLoadContext"                   Version="11.0.0-rc.2.26504.105" />             <!-- Type inspection of assemblies loaded as metadata alone -->
     </ItemGroup>
 
     <ItemGroup Label="Observability">
-        <PackageVersion Include="OpenTelemetry"                                           Version="1.20.0" />                            <!-- Telemetry SDK implementing traces, metrics, and logs collection -->
-        <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol"            Version="1.20.0" />                            <!-- OTLP exporter sending telemetry over gRPC or HTTP -->
-        <PackageVersion Include="OpenTelemetry.Extensions"                                Version="1.20.0-beta.1" />                     <!-- Auxiliary processors, samplers, and enrichment for telemetry pipelines -->
-        <PackageVersion Include="OpenTelemetry.Extensions.Hosting"                        Version="1.20.0" />                            <!-- Generic host registration for tracer and meter providers -->
-        <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore"                Version="1.20.0" />                            <!-- Incoming web request tracing and metrics for server applications -->
-        <PackageVersion Include="OpenTelemetry.Instrumentation.AWS"                       Version="1.20.0" />                            <!-- AWS SDK call tracing instrumentation -->
-        <PackageVersion Include="OpenTelemetry.Instrumentation.ConfluentKafka"            Version="0.3.0-alpha.3" />                     <!-- Kafka producer and consumer tracing instrumentation -->
-        <PackageVersion Include="OpenTelemetry.Instrumentation.EntityFrameworkCore"       Version="1.20.0-beta.1" />                     <!-- EF Core database command tracing instrumentation -->
-        <PackageVersion Include="OpenTelemetry.Instrumentation.GrpcNetClient"             Version="1.20.0-beta.1" />                     <!-- gRPC client call tracing instrumentation -->
-        <PackageVersion Include="OpenTelemetry.Instrumentation.Http"                      Version="1.20.0" />                            <!-- Outgoing HTTP request tracing and metrics -->
-        <PackageVersion Include="OpenTelemetry.Instrumentation.Process"                   Version="1.20.0-rc.1" />                       <!-- Process CPU, memory, and thread metrics -->
-        <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime"                   Version="1.20.0" />                            <!-- GC, JIT, and thread pool runtime metrics -->
-        <PackageVersion Include="OpenTelemetry.Instrumentation.StackExchangeRedis"        Version="1.20.0-beta.1" />                     <!-- Redis command tracing and connection instrumentation -->
-        <PackageVersion Include="OpenTelemetry.PersistentStorage.FileSystem"              Version="1.1.2" />                             <!-- File-backed buffering for telemetry export retry -->
-        <PackageVersion Include="OpenTelemetry.Resources.Container"                       Version="1.20.0-beta.1" />                     <!-- Resource detector reporting container identity -->
-        <PackageVersion Include="OpenTelemetry.Resources.Host"                            Version="1.20.0-beta.1" />                     <!-- Resource detector reporting host name and identifier -->
-        <PackageVersion Include="OpenTelemetry.Resources.OperatingSystem"                 Version="1.20.0-beta.1" />                     <!-- Resource detector reporting operating system attributes -->
-        <PackageVersion Include="OpenTelemetry.Resources.Process"                         Version="1.20.0-rc.1" />                       <!-- Resource detector reporting process identity attributes -->
-        <PackageVersion Include="OpenTelemetry.Resources.ProcessRuntime"                  Version="1.20.0-beta.1" />                     <!-- Resource detector reporting runtime name and version -->
+        <PackageVersion Include="OpenTelemetry"                                           Version="1.20.1" />                            <!-- Telemetry SDK implementing traces, metrics, and logs collection -->
+        <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol"            Version="1.20.1" />                            <!-- OTLP exporter sending telemetry over gRPC or HTTP -->
+        <PackageVersion Include="OpenTelemetry.Extensions"                                Version="1.20.1-beta.1" />                     <!-- Auxiliary processors, samplers, and enrichment for telemetry pipelines -->
+        <PackageVersion Include="OpenTelemetry.Extensions.Hosting"                        Version="1.20.1" />                            <!-- Generic host registration for tracer and meter providers -->
+        <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore"                Version="1.20.1" />                            <!-- Incoming web request tracing and metrics for server applications -->
+        <PackageVersion Include="OpenTelemetry.Instrumentation.AWS"                       Version="1.20.1" />                            <!-- AWS SDK call tracing instrumentation -->
+        <PackageVersion Include="OpenTelemetry.Instrumentation.ConfluentKafka"            Version="0.3.0-alpha.4" />                     <!-- Kafka producer and consumer tracing instrumentation -->
+        <PackageVersion Include="OpenTelemetry.Instrumentation.EntityFrameworkCore"       Version="1.20.1-beta.1" />                     <!-- EF Core database command tracing instrumentation -->
+        <PackageVersion Include="OpenTelemetry.Instrumentation.GrpcNetClient"             Version="1.20.1-beta.1" />                     <!-- gRPC client call tracing instrumentation -->
+        <PackageVersion Include="OpenTelemetry.Instrumentation.Http"                      Version="1.20.1" />                            <!-- Outgoing HTTP request tracing and metrics -->
+        <PackageVersion Include="OpenTelemetry.Instrumentation.Process"                   Version="1.20.1-rc.1" />                       <!-- Process CPU, memory, and thread metrics -->
+        <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime"                   Version="1.20.1" />                            <!-- GC, JIT, and thread pool runtime metrics -->
+        <PackageVersion Include="OpenTelemetry.Instrumentation.StackExchangeRedis"        Version="1.20.1-beta.1" />                     <!-- Redis command tracing and connection instrumentation -->
+        <PackageVersion Include="OpenTelemetry.PersistentStorage.FileSystem"              Version="1.1.3" />                             <!-- File-backed buffering for telemetry export retry -->
+        <PackageVersion Include="OpenTelemetry.Resources.Container"                       Version="1.20.1-beta.1" />                     <!-- Resource detector reporting container identity -->
+        <PackageVersion Include="OpenTelemetry.Resources.Host"                            Version="1.20.1-beta.1" />                     <!-- Resource detector reporting host name and identifier -->
+        <PackageVersion Include="OpenTelemetry.Resources.OperatingSystem"                 Version="1.20.1-beta.1" />                     <!-- Resource detector reporting operating system attributes -->
+        <PackageVersion Include="OpenTelemetry.Resources.Process"                         Version="1.20.1-rc.1" />                       <!-- Resource detector reporting process identity attributes -->
+        <PackageVersion Include="OpenTelemetry.Resources.ProcessRuntime"                  Version="1.20.1-beta.1" />                     <!-- Resource detector reporting runtime name and version -->
         <PackageVersion Include="Pyroscope"                                               Version="1.5.1" />                             <!-- Continuous CPU and allocation profiling agent with no native profiler on macOS -->
         <PackageVersion Include="Pyroscope.OpenTelemetry"                                 Version="0.5.1" />                             <!-- Span processor linking traces to continuous profiling data -->
         <PackageVersion Include="Serilog"                                                 Version="4.4.1-dev-02447" />                   <!-- Structured logging framework with sinks and enrichers -->
@@ -750,7 +753,7 @@
         <PackageVersion Include="Mapsui.Avalonia12"                                       Version="5.2.0-beta.1" />                      <!-- Interactive map control with tile and vector layers -->
         <PackageVersion Include="Mapsui.Nts"                                              Version="5.2.0-beta.1" />                      <!-- NetTopologySuite geometry conversion and feature provider for maps -->
         <PackageVersion Include="MessageFormat"                                           Version="8.0.0" />                             <!-- ICU MessageFormat parsing with pluralization and gender selection -->
-        <PackageVersion Include="Meziantou.Framework.SingleInstance"                      Version="3.1.1" />                             <!-- Single instance application enforcement with argument forwarding -->
+        <PackageVersion Include="Meziantou.Framework.SingleInstance"                      Version="3.1.2" />                             <!-- Single instance application enforcement with argument forwarding -->
         <PackageVersion Include="MonoMod.RuntimeDetour"                                   Version="25.4.0-prerelease.1" />               <!-- Runtime method detouring and hooking framework -->
         <PackageVersion Include="Nodify.Avalonia"                                         Version="2.0.0" />                             <!-- Node graph editor control with connections and virtualization -->
         <PackageVersion Include="PanAndZoom"                                              Version="12.1.1" />                            <!-- Content control with pointer-driven zooming and panning -->
@@ -766,7 +769,7 @@
         <PackageVersion Include="Semi.Avalonia.ColorPicker"                               Version="12.1.0.1" />                          <!-- Semi Design theme for the color picker control -->
         <PackageVersion Include="Semi.Avalonia.Dock"                                      Version="12.0.0.2" />                          <!-- Semi Design theme for docking layout controls -->
         <PackageVersion Include="Semi.Avalonia.ProDataGrid"                               Version="12.0.0.1" />                          <!-- Semi Design theme for the data grid control -->
-        <PackageVersion Include="SharpHook"                                               Version="8.0.0" />                             <!-- Global keyboard and mouse hooks with input simulation -->
+        <PackageVersion Include="SharpHook"                                               Version="8.0.1" />                             <!-- Global keyboard and mouse hooks with input simulation -->
         <PackageVersion Include="SkiaSharp"                                               Version="4.156.0-preview.1.26512.10" />        <!-- 2D graphics engine bindings -->
         <PackageVersion Include="SkiaSharp.HarfBuzz"                                      Version="4.156.0-preview.1.26512.10" />        <!-- Shaped text drawing combining rendering with text shaping -->
         <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies"             Version="4.156.0-preview.1.26512.10" />        <!-- Linux native binaries with no system library dependencies -->
@@ -806,10 +809,10 @@
         <PackageVersion Include="Ara3D.SDK"                                               Version="1.4.2" />                             <!-- Meta-package bundling 3D geometry, file format, and modeling APIs -->
         <PackageVersion Include="AsyncIO"                                                 Version="0.1.69" />                            <!-- Portable sockets exposing IO completion port semantics -->
         <PackageVersion Include="Avalonia.Themes.Simple"                                  Version="12.1.4" />                            <!-- Control styles for the Simple theme -->
-        <PackageVersion Include="AWSSDK.Core"                                             Version="4.0.102.11" />                        <!-- Core runtime shared by every service client -->
-        <PackageVersion Include="bblanchon.PDFium.Linux"                                  Version="157.0.8100" />                        <!-- PDF rendering engine native binaries for Linux, the version PDFtoImage requires -->
-        <PackageVersion Include="bblanchon.PDFium.macOS"                                  Version="157.0.8100" />                        <!-- PDF rendering engine native binaries for macOS, the version PDFtoImage requires -->
-        <PackageVersion Include="bblanchon.PDFium.Win32"                                  Version="157.0.8100" />                        <!-- PDF rendering engine native binaries for Windows, the version PDFtoImage requires -->
+        <PackageVersion Include="AWSSDK.Core"                                             Version="4.0.102.13" />                        <!-- Core runtime shared by every service client -->
+        <PackageVersion Include="bblanchon.PDFium.Linux"                                  Version="158.0.8111" />                        <!-- PDF rendering engine native binaries for Linux, the version PDFtoImage requires -->
+        <PackageVersion Include="bblanchon.PDFium.macOS"                                  Version="158.0.8111" />                        <!-- PDF rendering engine native binaries for macOS, the version PDFtoImage requires -->
+        <PackageVersion Include="bblanchon.PDFium.Win32"                                  Version="158.0.8111" />                        <!-- PDF rendering engine native binaries for Windows, the version PDFtoImage requires -->
         <PackageVersion Include="BouncyCastle.Cryptography"                               Version="2.7.0" />                             <!-- Ciphers, signatures, certificates, and TLS in managed code -->
         <PackageVersion Include="BruTile"                                                 Version="6.0.0" />                             <!-- Map tile fetching for TMS, WMTS, and WMS-C services -->
         <PackageVersion Include="Celly"                                                   Version="1.2.0" />                             <!-- Common Expression Language parser, type checker, and evaluator -->
@@ -832,10 +835,10 @@
         <PackageVersion Include="Mapsui"                                                  Version="5.2.0-beta.1" />                      <!-- Interactive map rendering and layering for .NET UI frameworks -->
         <PackageVersion Include="Mapsui.Rendering.Skia"                                   Version="5.2.0-beta.1" />                      <!-- Skia-based renderer for map layers and styles -->
         <PackageVersion Include="Mapsui.Tiling"                                           Version="5.2.0-beta.1" />                      <!-- Tile layers and predefined tile sources for maps -->
-        <PackageVersion Include="Marten.Newtonsoft"                                       Version="9.50.3" />                            <!-- Json.NET serializer integration for the document database -->
+        <PackageVersion Include="Marten.Newtonsoft"                                       Version="9.51.0" />                            <!-- Json.NET serializer integration for the document database -->
         <PackageVersion Include="MathNet.Numerics.FSharp"                                 Version="6.0.0-beta2" />                       <!-- F# numerics bindings aligned with MathNet.Numerics for OPTANO.Modeling -->
         <PackageVersion Include="MathNet.Symbolics"                                       Version="0.25.0" />                            <!-- Symbolic algebra over F# expressions, required by OPTANO.Modeling -->
-        <PackageVersion Include="MicroCom.Runtime"                                        Version="0.11.6" />                            <!-- Runtime for IDL-generated cross-platform COM interop -->
+        <PackageVersion Include="MicroCom.Runtime"                                        Version="0.11.7" />                            <!-- Runtime for IDL-generated cross-platform COM interop -->
         <PackageVersion Include="Microsoft.Bcl.Memory"                                    Version="11.0.0-rc.2.26504.105" />             <!-- Base64Url, Index, and Range types for .NET Framework and .NET Standard targets -->
         <PackageVersion Include="Microsoft.Build.Framework"                               Version="18.11.0" />                           <!-- MSBuild task, logger, and event interfaces -->
         <PackageVersion Include="Microsoft.CodeAnalysis.Common"                           Version="5.9.0" />                             <!-- Roslyn compiler platform shared syntax and semantic APIs -->
@@ -881,14 +884,14 @@
         <PackageVersion Include="NodaTime.Serialization.JsonNet"                          Version="3.3.0" />                             <!-- Json.NET converters for instants, durations, zones, and calendar dates -->
         <PackageVersion Include="OneOf"                                                   Version="3.0.271" />                           <!-- Discriminated union types with exhaustive match semantics -->
         <PackageVersion Include="OpenIddict.Abstractions"                                 Version="8.0.0-preview.4.26456.66" />          <!-- OAuth 2.0 and OpenID Connect primitives and abstractions -->
-        <PackageVersion Include="Parlot"                                                  Version="1.5.12" />                            <!-- Parser combinators with compiled parsers -->
+        <PackageVersion Include="Parlot"                                                  Version="2.0.0" />                             <!-- Parser combinators with compiled parsers -->
         <PackageVersion Include="Parquet.Net"                                             Version="6.1.1-pre.1" />                       <!-- Apache Parquet columnar file reading and writing in managed code -->
         <PackageVersion Include="Portable.System.DateTimeOnly"                            Version="9.0.2" />                             <!-- DateOnly and TimeOnly types for frameworks before .NET 6 -->
         <PackageVersion Include="ProDataGrid.FormulaEngine"                               Version="12.1.0.6" />                          <!-- Excel-compatible formula parsing, evaluation, and recalculation -->
         <PackageVersion Include="ProDataGrid.FormulaEngine.Excel"                         Version="12.1.0.6" />                          <!-- Excel worksheet function implementations for formula evaluation -->
-        <PackageVersion Include="protobuf-net"                                            Version="3.4.30" />                            <!-- Protocol Buffers serialization with code-first contracts -->
-        <PackageVersion Include="protobuf-net.Core"                                       Version="3.4.30" />                            <!-- Protocol Buffers serializer core attributes and runtime -->
-        <PackageVersion Include="protobuf-net.Reflection"                                 Version="3.4.30" />                            <!-- proto2 and proto3 schema parsing and descriptor tooling -->
+        <PackageVersion Include="protobuf-net"                                            Version="3.4.40" />                            <!-- Protocol Buffers serialization with code-first contracts -->
+        <PackageVersion Include="protobuf-net.Core"                                       Version="3.4.40" />                            <!-- Protocol Buffers serializer core attributes and runtime -->
+        <PackageVersion Include="protobuf-net.Reflection"                                 Version="3.4.40" />                            <!-- proto2 and proto3 schema parsing and descriptor tooling -->
         <PackageVersion Include="ReactiveUI.Core"                                         Version="26.0.1" />                            <!-- Type-agnostic MVVM framework core built on reactive programming -->
         <PackageVersion Include="ReactiveUI.Disposables"                                  Version="9.0.0" />                             <!-- Disposable lifetime composition primitives for reactive applications -->
         <PackageVersion Include="ReactiveUI.Primitives"                                   Version="9.0.0" />                             <!-- Standalone reactive primitives for observable composition and scheduling -->
@@ -923,13 +926,13 @@
         <PackageVersion Include="System.Management"                                       Version="11.0.0-rc.2.26504.105" />             <!-- WMI access to Windows management information and events -->
         <PackageVersion Include="System.Security.Cryptography.ProtectedData"              Version="11.0.0-rc.2.26504.105" />             <!-- Windows DPAPI data protection encryption -->
         <PackageVersion Include="System.Security.Cryptography.Xml"                        Version="11.0.0-rc.2.26504.105" />             <!-- XML digital signature and encryption standards implementation -->
-        <PackageVersion Include="System.ServiceModel.Primitives"                          Version="10.0.652802" />                       <!-- WCF client channel, contract, and binding primitives -->
+        <PackageVersion Include="System.ServiceModel.Primitives"                          Version="10.1.0" />                            <!-- WCF client channel, contract, and binding primitives -->
         <PackageVersion Include="System.Threading.RateLimiting"                           Version="11.0.0-rc.2.26504.105" />             <!-- Rate limiting primitives including fixed window and token bucket -->
         <PackageVersion Include="System.ValueTuple"                                       Version="4.6.2" />                             <!-- Value tuple types for frameworks without them -->
         <PackageVersion Include="Tmds.DBus.Protocol"                                      Version="0.95.1" />                            <!-- Low-level D-Bus protocol implementation with NativeAOT compatibility -->
         <PackageVersion Include="Topten.RichTextKit"                                      Version="0.6.170" />                           <!-- Rich text layout, measurement, and rendering for Skia -->
         <PackageVersion Include="Uncodium.Eigensystems"                                   Version="1.1.2" />                             <!-- Eigenvalue and eigenvector computation for 3x3 matrices -->
-        <PackageVersion Include="Uncodium.SimpleStore"                                    Version="3.0.30" />                            <!-- Key-value store for blob data -->
+        <PackageVersion Include="Uncodium.SimpleStore"                                    Version="3.0.31" />                            <!-- Key-value store for blob data -->
         <PackageVersion Include="Xbim.Common"                                             Version="6.1.605" />                           <!-- Common behaviors, interfaces, and metadata for BIM model handling -->
         <PackageVersion Include="Xbim.Ifc"                                                Version="6.1.605" />                           <!-- Semantic loading, validation, and saving of IFC building models -->
         <PackageVersion Include="Xbim.Ifc4"                                               Version="6.1.605" />                           <!-- IFC4 schema implementation including addenda and alignment schemas -->
@@ -937,16 +940,16 @@
     </ItemGroup>
 
     <ItemGroup Label="Rhino Host" Condition="'$(RhinoHost)' != ''">
-        <PackageVersion Update="Microsoft.Extensions.Configuration"                       Version="10.0.13" />                           <!-- 11.0 requires the 11.0 host assemblies -->
-        <PackageVersion Update="Microsoft.Extensions.Configuration.Abstractions"          Version="10.0.13" />                           <!-- 11.0 requires the 11.0 host assemblies -->
-        <PackageVersion Update="Microsoft.Extensions.Configuration.Binder"                Version="10.0.13" />                           <!-- 11.0 requires the 11.0 host assemblies -->
-        <PackageVersion Update="Microsoft.Extensions.DependencyInjection"                 Version="10.0.13" HostSupplied="true" />       <!-- Rhino 9 loads 10.0.0.0 into the default load context -->
-        <PackageVersion Update="Microsoft.Extensions.DependencyInjection.Abstractions"    Version="10.0.13" HostSupplied="true" />       <!-- Rhino 9 loads 10.0.0.0 into the default load context -->
-        <PackageVersion Update="Microsoft.Extensions.Logging"                             Version="10.0.13" HostSupplied="true" />       <!-- Rhino 9 loads 10.0.0.0 into the default load context -->
-        <PackageVersion Update="Microsoft.Extensions.Logging.Abstractions"                Version="10.0.13" HostSupplied="true" />       <!-- Rhino 9 loads 10.0.0.0 into the default load context -->
-        <PackageVersion Update="Microsoft.Extensions.Logging.Console"                     Version="10.0.13" />                           <!-- 11.0 requires the 11.0 host assemblies -->
-        <PackageVersion Update="Microsoft.Extensions.Options"                             Version="10.0.13" HostSupplied="true" />       <!-- Rhino 9 loads 10.0.0.0 into the default load context -->
-        <PackageVersion Update="Microsoft.Extensions.Options.ConfigurationExtensions"     Version="10.0.13" />                           <!-- 11.0 requires the 11.0 host assemblies -->
-        <PackageVersion Update="Microsoft.Extensions.Primitives"                          Version="10.0.13" HostSupplied="true" />       <!-- Rhino 9 loads 10.0.0.0 into the default load context -->
+        <PackageVersion Update="Microsoft.Extensions.Configuration"                       Version="[10.0.13]" />                         <!-- 11.0 requires the 11.0 host assemblies -->
+        <PackageVersion Update="Microsoft.Extensions.Configuration.Abstractions"          Version="[10.0.13]" />                         <!-- 11.0 requires the 11.0 host assemblies -->
+        <PackageVersion Update="Microsoft.Extensions.Configuration.Binder"                Version="[10.0.13]" />                         <!-- 11.0 requires the 11.0 host assemblies -->
+        <PackageVersion Update="Microsoft.Extensions.DependencyInjection"                 Version="[10.0.13]" HostSupplied="true" />     <!-- Rhino 9 loads 10.0.0.0 into the default load context -->
+        <PackageVersion Update="Microsoft.Extensions.DependencyInjection.Abstractions"    Version="[10.0.13]" HostSupplied="true" />     <!-- Rhino 9 loads 10.0.0.0 into the default load context -->
+        <PackageVersion Update="Microsoft.Extensions.Logging"                             Version="[10.0.13]" HostSupplied="true" />     <!-- Rhino 9 loads 10.0.0.0 into the default load context -->
+        <PackageVersion Update="Microsoft.Extensions.Logging.Abstractions"                Version="[10.0.13]" HostSupplied="true" />     <!-- Rhino 9 loads 10.0.0.0 into the default load context -->
+        <PackageVersion Update="Microsoft.Extensions.Logging.Console"                     Version="[10.0.13]" />                         <!-- 11.0 requires the 11.0 host assemblies -->
+        <PackageVersion Update="Microsoft.Extensions.Options"                             Version="[10.0.13]" HostSupplied="true" />     <!-- Rhino 9 loads 10.0.0.0 into the default load context -->
+        <PackageVersion Update="Microsoft.Extensions.Options.ConfigurationExtensions"     Version="[10.0.13]" />                         <!-- 11.0 requires the 11.0 host assemblies -->
+        <PackageVersion Update="Microsoft.Extensions.Primitives"                          Version="[10.0.13]" HostSupplied="true" />     <!-- Rhino 9 loads 10.0.0.0 into the default load context -->
     </ItemGroup>
 </Project>

@@ -8,7 +8,7 @@ import { fragment, type useNavigation } from './navigation.ts';
 
 const ProjectIndex = ({ portfolio, navigation }: { portfolio: typeof Portfolio.Type; navigation: ReturnType<typeof useNavigation> }) => (
     <nav aria-label="Work index" className="project-index">
-        <a className="eyebrow min-h-11 self-start pb-5.75 text-muted hover:text-accent-text" href="#work">
+        <a className="eyebrow text-muted hover:text-accent-text min-h-11 self-start pb-5.75" href="#work">
             Index
         </a>
         <div className="index-list">
@@ -33,7 +33,7 @@ const ProjectIndex = ({ portfolio, navigation }: { portfolio: typeof Portfolio.T
                             }}
                             ref={navigation.active === entry.id ? (node: HTMLAnchorElement | null) => node?.scrollIntoView({ block: 'nearest', behavior: 'instant' }) : undefined}
                         >
-                            <span className="font-mono text-accent-text tabular-nums">[{numeral(index + 1)}]</span>
+                            <span className="text-accent-text font-mono tabular-nums">[{numeral(index + 1)}]</span>
                             <span className="wrap-anywhere underline-offset-4 group-hover:underline group-aria-current:underline">{entryTitle(entry)}</span>
                         </a>
                     )),
@@ -46,7 +46,7 @@ const StickyBar = ({ portfolio, navigation, children, ref }: { portfolio: typeof
         {children}
         {portfolio.entries.length > 0 && (
             <nav aria-label="Work index" className="hidden max-md:block">
-                <label className="flex items-center justify-between gap-4 border-line border-b bg-background px-(--page-gutter) py-2">
+                <label className="border-line bg-background flex items-center justify-between gap-4 border-b px-(--page-gutter) py-2">
                     <span className="eyebrow">Index</span>
                     <select
                         className="control min-w-0 flex-1 truncate border-0 shadow-none"

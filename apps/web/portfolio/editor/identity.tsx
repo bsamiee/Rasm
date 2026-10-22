@@ -19,7 +19,7 @@ const Identity = ({ assets, portfolio, emailId, onChooseHero }: { assets: typeof
             <Field label="Display name" onChange={(name) => update({ name })} placeholder="Your name or studio" value={portfolio.name} />
             <Field label="Introduction" multiline={true} onChange={(introduction) => update({ introduction })} placeholder="Optional short introduction" value={portfolio.introduction} />
             <Field description="Enter a complete email address, or leave this blank." id={emailId} label="Public contact email" onChange={(email) => update({ email })} placeholder="Optional" type="email" value={portfolio.email} />
-            <h3 className="mt-2 text-heading tracking-display">Hero placement</h3>
+            <h3 className="text-heading tracking-display mt-2">Hero placement</h3>
             {portfolio.hero === undefined ? (
                 <div className="actions">
                     <p className="hint">Choose an existing file or add a new hero. No extra copy is created.</p>

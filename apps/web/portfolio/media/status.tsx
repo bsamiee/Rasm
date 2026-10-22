@@ -3,7 +3,7 @@ import { Button } from 'react-aria-components';
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const MediaLoading = () => (
-    <span className="pointer-events-none absolute inset-0 grid place-items-center text-muted text-xs" role="status">
+    <span className="text-muted pointer-events-none absolute inset-0 grid place-items-center text-xs" role="status">
         Loading…
     </span>
 );

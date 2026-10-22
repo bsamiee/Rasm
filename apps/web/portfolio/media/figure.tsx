@@ -16,14 +16,14 @@ import { MediaFailure, MediaLoading } from './status.tsx';
 const AnimatedDialog = motion.create(Dialog);
 const ZoomViewer = lazy(() => import('./viewer.tsx').then((module) => ({ default: module.ZoomViewer })));
 const ExpandedViewer = ({ placement, layoutId, description }: { placement: Exclude<typeof Placement.Type, { kind: 'video' }>; layoutId: string; description: ReactNode }) => (
-    <ModalOverlay className="fixed inset-0 z-50 bg-foreground/70 motion-safe:entering:animate-fade motion-safe:exiting:animate-fade-out" isDismissable={true}>
+    <ModalOverlay className="bg-foreground/70 motion-safe:entering:animate-fade motion-safe:exiting:animate-fade-out fixed inset-0 z-50" isDismissable={true}>
         <Modal>
             <AnimatedDialog className="viewer-dialog" layoutRoot={true}>
-                <div className="flex shrink-0 items-start justify-between gap-4 landscape-short:contents">
+                <div className="landscape-short:contents flex shrink-0 items-start justify-between gap-4">
                     <Heading className="viewer-heading" slot="title">
                         {placement.kind === 'pdf' ? placement.asset.name : placementTitle(placement)}
                     </Heading>
-                    <Button aria-label="Close viewer" className="grid min-h-11 min-w-11 shrink-0 place-items-center landscape-short:col-start-2 landscape-short:row-start-1" slot="close">
+                    <Button aria-label="Close viewer" className="landscape-short:col-start-2 landscape-short:row-start-1 grid min-h-11 min-w-11 shrink-0 place-items-center" slot="close">
                         <X className="size-6" />
                     </Button>
                 </div>
@@ -57,12 +57,12 @@ const MediaFigure = ({ placement, active, priority, presentation, renderMedia }:
         <CustomProperties properties={{ '--media-ratio': mediaRatio(placement), ...(placement.kind === 'image' && placement.framing.mode === 'cover' && { '--media-focus': `${placement.framing.x}% ${placement.framing.y}%` }) }}>
             {(scope) => (
                 <figure aria-hidden={presentation === 'thumbnail'} className="media-figure" ref={figure} {...scope}>
-                    <motion.div {...(viewer && { layoutId })} className="relative flex aspect-(--media-ratio) w-full items-center justify-center overflow-hidden bg-surface">
+                    <motion.div {...(viewer && { layoutId })} className="bg-surface relative flex aspect-(--media-ratio) w-full items-center justify-center overflow-hidden">
                         {renderMedia && <Media active={active} key={placement.asset.id} placement={placement} presentation={presentation} priority={priority} viewport={figure} />}
                     </motion.div>
                     {presentation !== 'thumbnail' && (
                         <>
-                            <figcaption className="wrap-anywhere grid grid-cols-trailing items-start gap-x-3 pt-2 text-muted text-sm leading-body empty:hidden">
+                            <figcaption className="grid-cols-trailing text-muted leading-body grid items-start gap-x-3 pt-2 text-sm wrap-anywhere empty:hidden">
                                 {Boolean(placement.caption) && <span className="col-start-1 block min-w-0 whitespace-pre-line">{placement.caption}</span>}
                                 {placement.kind === 'pdf' && (
                                     <span className="col-start-1 flex min-w-0 flex-wrap items-baseline gap-x-4 gap-y-1">
@@ -79,7 +79,7 @@ const MediaFigure = ({ placement, active, priority, presentation, renderMedia }:
                                 )}
                                 {viewer && (
                                     <DialogTrigger isOpen={isOpen} onOpenChange={setOpen}>
-                                        <Button aria-label={`Expand ${placementTitle(viewer)}`} className="col-start-2 row-start-1 grid size-11 place-items-center text-foreground hover:text-accent-text">
+                                        <Button aria-label={`Expand ${placementTitle(viewer)}`} className="text-foreground hover:text-accent-text col-start-2 row-start-1 grid size-11 place-items-center">
                                             <Expand className="size-4.5" />
                                         </Button>
                                         <ExpandedViewer description={viewer.kind === 'image' && description} layoutId={layoutId} placement={viewer} />

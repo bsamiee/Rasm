@@ -73,7 +73,7 @@ const Chapter = ({ entry, index, navigation }: { entry: typeof Entry.Type; index
     return (
         <section aria-labelledby={headingId} className="chapter" id={entry.id} ref={chapter}>
             <div className="chapter-heading">
-                <div className="eyebrow col-start-1 row-start-1 flex min-w-0 flex-col gap-2 text-muted">
+                <div className="eyebrow text-muted col-start-1 row-start-1 flex min-w-0 flex-col gap-2">
                     <span className="inline-flex items-baseline gap-3">
                         <span className="text-accent-text">[{numeral(index + 1)}]</span>
                         {String.capitalize(entry.kind)}
@@ -84,7 +84,7 @@ const Chapter = ({ entry, index, navigation }: { entry: typeof Entry.Type; index
                     {title}
                 </h3>
                 {entry.cover !== undefined && (
-                    <div className="media-h-45 col-start-2 row-span-2 row-start-1 @max-3xl:hidden w-45 self-end">
+                    <div className="media-h-45 col-start-2 row-span-2 row-start-1 w-45 self-end @max-3xl:hidden">
                         <MediaFigure active={false} placement={entry.cover} presentation="thumbnail" priority={false} renderMedia={true} />
                     </div>
                 )}
@@ -92,25 +92,25 @@ const Chapter = ({ entry, index, navigation }: { entry: typeof Entry.Type; index
             </div>
             {entry.compositions.length > 0 ? (
                 <section aria-label={`${title} compositions`} aria-roledescription="carousel" className="@container touch-pan-y touch-pinch-zoom">
-                    <div className={carousel ? 'grid grid-cols-trailing-pair items-center gap-x-3 gap-y-2' : ''}>
+                    <div className={carousel ? 'grid-cols-trailing-pair grid items-center gap-x-3 gap-y-2' : ''}>
                         {carousel && (
                             <>
                                 <DialogTrigger isOpen={isOpen} onOpenChange={setOpen}>
-                                    <Button className="col-start-1 row-start-1 inline-flex min-h-11 items-center gap-2 justify-self-start text-xs hover:text-accent-text">
+                                    <Button className="hover:text-accent-text col-start-1 row-start-1 inline-flex min-h-11 items-center gap-2 justify-self-start text-xs">
                                         <Grid2x2 aria-hidden="true" className="size-4" />
                                         Overview
                                     </Button>
-                                    <ModalOverlay className="fixed inset-0 z-40 flex items-center justify-center bg-foreground/35 p-4" isDismissable={true}>
-                                        <Modal className="flex max-h-viewport-inset w-full max-w-5xl flex-col border border-line bg-background p-5 shadow-xl max-sm:p-3">
+                                    <ModalOverlay className="bg-foreground/35 fixed inset-0 z-40 flex items-center justify-center p-4" isDismissable={true}>
+                                        <Modal className="max-h-viewport-inset border-line bg-background flex w-full max-w-5xl flex-col border p-5 shadow-xl max-sm:p-3">
                                             <Dialog className="flex min-h-0 flex-col outline-none">
                                                 <div className="mb-5 flex shrink-0 items-start justify-between gap-4">
                                                     <div className="min-w-0">
                                                         <Heading className="eyebrow text-muted" slot="title">
                                                             Contact sheet
                                                         </Heading>
-                                                        <p className="wrap-anywhere mt-2 text-xl leading-tight">{title}</p>
+                                                        <p className="mt-2 text-xl leading-tight wrap-anywhere">{title}</p>
                                                     </div>
-                                                    <Button aria-label="Close overview" className="grid size-11 shrink-0 place-items-center hover:text-accent-text" slot="close">
+                                                    <Button aria-label="Close overview" className="hover:text-accent-text grid size-11 shrink-0 place-items-center" slot="close">
                                                         <X aria-hidden="true" className="size-5" />
                                                     </Button>
                                                 </div>
@@ -118,7 +118,7 @@ const Chapter = ({ entry, index, navigation }: { entry: typeof Entry.Type; index
                                                     <GridList aria-label={`Views in ${title}`} className="max-h-overview min-h-0 overflow-auto overscroll-contain outline-none" layout="grid">
                                                         {entry.compositions.map((composition, slide) => (
                                                             <GridListItem
-                                                                className="cursor-pointer border border-transparent p-2 outline-none hover:bg-surface focus-visible:outline-2 focus-visible:outline-accent-text focus-visible:-outline-offset-2 has-aria-current:border-accent-text"
+                                                                className="hover:bg-surface focus-visible:outline-accent-text has-aria-current:border-accent-text cursor-pointer border border-transparent p-2 outline-none focus-visible:outline-2 focus-visible:-outline-offset-2"
                                                                 id={slide}
                                                                 key={composition.id}
                                                                 onAction={() => {
@@ -130,7 +130,7 @@ const Chapter = ({ entry, index, navigation }: { entry: typeof Entry.Type; index
                                                                 <CompositionGrid active={false} composition={composition} presentation="thumbnail" renderMedia={true} />
                                                                 <div aria-current={slide === selectedSnap} className="mt-3 flex flex-col gap-1 text-sm leading-snug underline-offset-4 aria-current:underline">
                                                                     <span className="eyebrow text-muted">View {numeral(slide + 1)}</span>
-                                                                    <span className="wrap-anywhere line-clamp-3 min-w-0">{compositionLabel(composition)}</span>
+                                                                    <span className="line-clamp-3 min-w-0 wrap-anywhere">{compositionLabel(composition)}</span>
                                                                 </div>
                                                             </GridListItem>
                                                         ))}
@@ -140,10 +140,10 @@ const Chapter = ({ entry, index, navigation }: { entry: typeof Entry.Type; index
                                         </Modal>
                                     </ModalOverlay>
                                 </DialogTrigger>
-                                <button aria-disabled={!api.canGoToPrev()} aria-label="Previous view" className="button button-ghost col-start-2 row-start-1 size-11 p-0 not-aria-disabled:hover:text-accent-text aria-disabled:text-control-line" onClick={() => api.goToPrev()} onKeyDown={navigate} type="button">
+                                <button aria-disabled={!api.canGoToPrev()} aria-label="Previous view" className="button button-ghost not-aria-disabled:hover:text-accent-text aria-disabled:text-control-line col-start-2 row-start-1 size-11 p-0" onClick={() => api.goToPrev()} onKeyDown={navigate} type="button">
                                     <ArrowLeft aria-hidden="true" className="size-5" />
                                 </button>
-                                <button aria-disabled={!api.canGoToNext()} aria-label="Next view" className="button button-ghost col-start-3 row-start-1 size-11 p-0 not-aria-disabled:hover:text-accent-text aria-disabled:text-control-line" onClick={() => api.goToNext()} onKeyDown={navigate} type="button">
+                                <button aria-disabled={!api.canGoToNext()} aria-label="Next view" className="button button-ghost not-aria-disabled:hover:text-accent-text aria-disabled:text-control-line col-start-3 row-start-1 size-11 p-0" onClick={() => api.goToNext()} onKeyDown={navigate} type="button">
                                     <ArrowRight aria-hidden="true" className="size-5" />
                                 </button>
                                 <span aria-atomic="true" aria-live="polite" className="sr-only">
@@ -169,10 +169,10 @@ const Chapter = ({ entry, index, navigation }: { entry: typeof Entry.Type; index
                 </div>
             )}
             {details.length > 0 && (
-                <dl className="mt-10 flex gap-12 text-sm leading-prose max-sm:flex-wrap max-sm:gap-6">
+                <dl className="leading-prose mt-10 flex gap-12 text-sm max-sm:flex-wrap max-sm:gap-6">
                     {details.map(({ label, value }) => (
-                        <div className="wrap-anywhere min-w-0" key={label}>
-                            <dt className="text-muted text-xs uppercase tracking-label">{label}</dt>
+                        <div className="min-w-0 wrap-anywhere" key={label}>
+                            <dt className="text-muted tracking-label text-xs uppercase">{label}</dt>
                             <dd className="whitespace-pre-line">{value}</dd>
                         </div>
                     ))}

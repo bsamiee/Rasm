@@ -64,7 +64,7 @@ const Uploads = ({ assets, entries, onChoose }: { assets: typeof AssetCollection
             )}
             {selectedFile !== undefined && (
                 <div className="min-w-0">
-                    <p className="hint wrap-anywhere mb-2">{selectedFile.name}</p>
+                    <p className="hint mb-2 wrap-anywhere">{selectedFile.name}</p>
                     {selectedFile.progress.uploadStarted === null && selectedFile.meta.prepared === undefined && !Object.values(batches).some((batch) => batch.fileIDs.includes(selectedFile.id)) ? (
                         <SelectField
                             label="File destination"
@@ -87,7 +87,7 @@ const Uploads = ({ assets, entries, onChoose }: { assets: typeof AssetCollection
                     <Dashboard disableInformer={true} doneButtonHandler={() => uploader.removeFiles(files.map(Struct.get('id')))} height="100%" proudlyDisplayPoweredByUppy={false} uppy={uploader} width="100%" />
                 </div>
                 {notices.map(({ message, details }) => (
-                    <p className="hint wrap-anywhere mt-3" key={`${message}${details}`} role="alert">
+                    <p className="hint mt-3 wrap-anywhere" key={`${message}${details}`} role="alert">
                         {[message, details].filter(Boolean).join(' ')}
                     </p>
                 ))}
@@ -123,7 +123,7 @@ const Uploads = ({ assets, entries, onChoose }: { assets: typeof AssetCollection
                 {AsyncResult.builder(discarded)
                     .onError(({ upload, error }) => (
                         <div className="mt-3">
-                            <p className="hint wrap-anywhere mb-2">{upload.name}</p>
+                            <p className="hint mb-2 wrap-anywhere">{upload.name}</p>
                             <RequestAlert conflict="This upload changed in another request. Refresh the list before trying again." error={error} />
                         </div>
                     ))
@@ -141,10 +141,10 @@ const Uploads = ({ assets, entries, onChoose }: { assets: typeof AssetCollection
                         ) : (
                             <>
                                 <p className="hint mt-3">Files interrupted before completion stay private. If this tab no longer has the file, discard its incomplete upload and add the original again.</p>
-                                <ul className="mt-3 divide-y divide-line">
+                                <ul className="divide-line mt-3 divide-y">
                                     {value.map((upload) => (
                                         <li className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-3" key={upload.id}>
-                                            <span className="wrap-anywhere min-w-0 flex-1 text-sm">{upload.name}</span>
+                                            <span className="min-w-0 flex-1 text-sm wrap-anywhere">{upload.name}</span>
                                             <ConfirmDialog description={`${upload.name}: ${actions[upload.status].description}`} disabled={discarded.waiting || queuedUploads.has(upload.id)} label={actions[upload.status].label} onConfirm={() => discard(upload)} />
                                             {queuedUploads.has(upload.id) && <p className="hint w-full">Retry or remove this file in the upload queue before discarding its stored data.</p>}
                                         </li>

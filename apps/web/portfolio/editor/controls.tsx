@@ -39,7 +39,7 @@ const SelectField = <T extends Choice>({ label, value, options, onChange }: { la
     >
         <Label>{label}</Label>
         <Button className="control flex items-center justify-between gap-2 text-left">
-            <SelectValue className="min-w-0 truncate placeholder-shown:text-muted" />
+            <SelectValue className="placeholder-shown:text-muted min-w-0 truncate" />
             <ChevronDown className="size-4 shrink-0" />
         </Button>
         <Popover className="editor-popover">
@@ -59,14 +59,14 @@ const SliderField = ({ label, value, onChange }: { label: string; value: number;
             <Label>{label}</Label>
             <SliderOutput />
         </div>
-        <SliderTrack className="relative h-11 w-full before:absolute before:top-1/2 before:h-0.5 before:w-full before:-translate-y-1/2 before:bg-control-line">
-            <SliderThumb className="top-1/2 size-4 rounded-full bg-accent-text dragging:bg-accent" />
+        <SliderTrack className="before:bg-control-line relative h-11 w-full before:absolute before:top-1/2 before:h-0.5 before:w-full before:-translate-y-1/2">
+            <SliderThumb className="bg-accent-text dragging:bg-accent top-1/2 size-4 rounded-full" />
         </SliderTrack>
     </Slider>
 );
 const MenuButton = <T extends Choice>({ label, options, onAction, children }: { label: string; options: readonly T[]; onAction: (choice: T) => void; children: ReactNode }) => (
     <MenuTrigger>
-        <Button className="button button-outline wrap-anywhere min-w-0 max-w-full whitespace-normal text-left" isDisabled={options.length === 0}>
+        <Button className="button button-outline max-w-full min-w-0 text-left wrap-anywhere whitespace-normal" isDisabled={options.length === 0}>
             {children}
         </Button>
         <Popover className="editor-popover">
@@ -85,8 +85,8 @@ const ConfirmDialog = ({ label, description, onConfirm, disabled }: { label: str
         <Button className="button button-ghost" isDisabled={disabled}>
             {label}
         </Button>
-        <ModalOverlay className="fixed inset-0 z-60 flex items-center justify-center bg-foreground/55 p-4">
-            <Modal className="max-h-full w-full max-w-120 overflow-auto bg-background">
+        <ModalOverlay className="bg-foreground/55 fixed inset-0 z-60 flex items-center justify-center p-4">
+            <Modal className="bg-background max-h-full w-full max-w-120 overflow-auto">
                 <Dialog className="p-7 outline-none" role="alertdialog">
                     <Heading className="text-heading tracking-display" slot="title">
                         {label}?
@@ -108,7 +108,7 @@ const ConfirmDialog = ({ label, description, onConfirm, disabled }: { label: str
     </DialogTrigger>
 );
 const RequestAlert = <E extends RequestFailure>({ error, conflict, onField }: { error: E; conflict?: string; onField?: (path: readonly PropertyKey[]) => void } & ([Extract<E, { readonly _tag: 'Conflict' }>] extends [never] ? unknown : { conflict: string })) => (
-    <div className="border-accent-text border-l-3 bg-surface p-4 text-sm" role="alert">
+    <div className="border-accent-text bg-surface border-l-3 p-4 text-sm" role="alert">
         {Match.type<RequestFailure>().pipe(
             Match.tag('SchemaError', ({ issue }) => (
                 <>
@@ -122,7 +122,7 @@ const RequestAlert = <E extends RequestFailure>({ error, conflict, onField }: { 
                                     {onField === undefined ? (
                                         message
                                     ) : (
-                                        <button className="block text-left text-accent-text underline" onClick={() => onField(path)} type="button">
+                                        <button className="text-accent-text block text-left underline" onClick={() => onField(path)} type="button">
                                             {text}
                                         </button>
                                     )}

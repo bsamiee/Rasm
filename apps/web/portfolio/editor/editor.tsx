@@ -20,15 +20,15 @@ import { destination, pendingUploads } from './uploader.ts';
 
 const Uploads = lazy(() => import('./uploads.tsx').then((module) => ({ default: module.Uploads })));
 const EditorDialog = ({ description, busy, children }: { description?: string; busy: boolean; children?: ReactNode }) => (
-    <ModalOverlay className="fixed inset-0 z-50 bg-foreground/55" isDismissable={!busy} isKeyboardDismissDisabled={busy}>
+    <ModalOverlay className="bg-foreground/55 fixed inset-0 z-50" isDismissable={!busy} isKeyboardDismissDisabled={busy}>
         <Modal>
-            <Dialog className="fixed top-0 right-0 h-(--visual-viewport-height) w-full max-w-250 overflow-y-auto bg-background shadow-panel outline-none">
+            <Dialog className="bg-background shadow-panel fixed top-0 right-0 h-(--visual-viewport-height) w-full max-w-250 overflow-y-auto outline-none">
                 <div className="relative px-9 pt-5 pr-18 pb-2 max-sm:px-5 max-sm:pr-15">
                     <Heading className="text-heading tracking-display max-sm:text-2xl" slot="title">
                         Portfolio editor<span className="text-accent">.</span>
                     </Heading>
                     {description === undefined ? null : (
-                        <Text className="mt-2 text-muted text-sm" elementType="p" slot="description">
+                        <Text className="text-muted mt-2 text-sm" elementType="p" slot="description">
                             {description}
                         </Text>
                     )}
@@ -107,7 +107,7 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
     );
     return (
         <EditorDialog busy={busy}>
-            <div className="flex flex-wrap items-center gap-2 border-line border-b px-9 pb-4 max-sm:px-5">
+            <div className="border-line flex flex-wrap items-center gap-2 border-b px-9 pb-4 max-sm:px-5">
                 <button className="button button-ghost" disabled={busy} form={`${ids}form`} ref={save} type="submit">
                     Save draft
                 </button>
@@ -117,7 +117,7 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                 <button aria-describedby={pending.length > 0 ? `${ids}uploads` : undefined} className="button" disabled={busy || pending.length > 0} form={`${ids}form`} ref={publish} type="submit">
                     Publish
                 </button>
-                <p className="min-h-4.5 w-full text-caption text-muted" role="status">
+                <p className="text-caption text-muted min-h-4.5 w-full" role="status">
                     {status}
                 </p>
                 {AsyncResult.builder(operation)
@@ -137,7 +137,7 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                     .onError((error) => <RequestAlert conflict="This file is still used by saved or published work. Remove its placements, save, and publish before deleting." error={error} />)
                     .orNull()}
                 {pending.length > 0 && (
-                    <p className="w-full text-caption text-muted" id={`${ids}uploads`}>
+                    <p className="text-caption text-muted w-full" id={`${ids}uploads`}>
                         {quantity(pending.length, { one: 'file needs', other: 'files need' })} attention. Finish, retry, or remove queued files before publishing or reloading.{' '}
                         <button className="quiet-link" onClick={() => show('files')} type="button">
                             View uploads
@@ -145,9 +145,9 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                     </p>
                 )}
             </div>
-            <fieldset className="m-0 border-0 px-9 pt-3 pb-15 max-sm:px-5 max-sm:pb-safe" disabled={busy}>
+            <fieldset className="max-sm:pb-safe m-0 border-0 px-9 pt-3 pb-15 max-sm:px-5" disabled={busy}>
                 <Tabs isDisabled={busy} onSelectionChange={setTab} selectedKey={tab}>
-                    <TabList aria-label="Portfolio editing" className="mb-6 flex gap-1.5 border-line border-b max-sm:w-full max-sm:flex-wrap">
+                    <TabList aria-label="Portfolio editing" className="border-line mb-6 flex gap-1.5 border-b max-sm:w-full max-sm:flex-wrap">
                         <Tab className="editor-tab" id={`${ids}entries`}>
                             Projects and studies
                         </Tab>
@@ -163,7 +163,7 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                             Match.when({ workspace: 'sources', current: Match.defined }, ({ current: entry }) => (
                                 <>
                                     <div className="flex flex-wrap items-center justify-between gap-3">
-                                        <h3 className="wrap-anywhere text-xl tracking-tight outline-none" id={`${ids}source`} tabIndex={-1}>
+                                        <h3 className="text-xl tracking-tight wrap-anywhere outline-none" id={`${ids}source`} tabIndex={-1}>
                                             Add to {entryTitle(entry)}
                                         </h3>
                                         <button className="button button-ghost" onClick={() => openEntry(entry.id)} type="button">
@@ -186,8 +186,8 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                             )),
                             Match.when({ workspace: 'entry', current: Match.defined }, ({ current: entry }) => (
                                 <div className="flex flex-col gap-5" key={entry.id}>
-                                    <div className="flex flex-wrap items-center justify-between gap-3 border-line border-b pb-3">
-                                        <h3 className="wrap-anywhere min-w-0 flex-1 text-xl tracking-tight outline-none" id={`${ids}entry`} tabIndex={-1}>
+                                    <div className="border-line flex flex-wrap items-center justify-between gap-3 border-b pb-3">
+                                        <h3 className="min-w-0 flex-1 text-xl tracking-tight wrap-anywhere outline-none" id={`${ids}entry`} tabIndex={-1}>
                                             {entryTitle(entry)}
                                         </h3>
                                         <button className="button button-ghost" onClick={() => setWorkspace('projects')} type="button">

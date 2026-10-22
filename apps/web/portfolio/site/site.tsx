@@ -24,8 +24,8 @@ const Account = ({ session, open, mounted, opener, onOpenChange, children }: { s
             {mounted && (
                 <ErrorBoundary
                     fallback={
-                        <ModalOverlay className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/55 p-5" isDismissable={true}>
-                            <Modal className="w-full max-w-lg bg-background p-9">
+                        <ModalOverlay className="bg-foreground/55 fixed inset-0 z-50 flex items-center justify-center p-5" isDismissable={true}>
+                            <Modal className="bg-background w-full max-w-lg p-9">
                                 <Dialog className="flex flex-col gap-5">
                                     <Heading className="text-2xl tracking-tight" slot="title">
                                         The editor could not open
@@ -80,13 +80,13 @@ const Site = ({ initial, session }: { initial: typeof PortfolioData.Type; sessio
     }, [requested]);
     return (
         <MotionConfig reducedMotion="user">
-            <a className="fixed -top-25 left-5 z-100 bg-background p-3.75 focus:top-2.5" href="#work">
+            <a className="bg-background fixed -top-25 left-5 z-100 p-3.75 focus:top-2.5" href="#work">
                 Skip to work
             </a>
             <header className="site-header">
                 <a className="site-name" href="#top">
                     {portfolio.name || 'Portfolio'}
-                    <Plus className="size-9 shrink-0 stroke-2 text-accent" nonScalingStroke={true} />
+                    <Plus className="text-accent size-9 shrink-0 stroke-2" nonScalingStroke={true} />
                 </a>
                 <Account mounted={editor !== 'unopened' || open} onOpenChange={(next) => setEditor(next ? 'open' : 'closed')} open={open} opener={opener} session={session}>
                     <Editor
@@ -102,7 +102,7 @@ const Site = ({ initial, session }: { initial: typeof PortfolioData.Type; sessio
             <ProjectIndex navigation={navigation} portfolio={portfolio} />
             <StickyBar navigation={navigation} portfolio={portfolio} ref={sticky}>
                 {preview && (
-                    <div className="flex items-center gap-3.75 bg-foreground px-6 py-2 text-background text-caption max-sm:flex-wrap max-sm:gap-1 max-sm:px-4">
+                    <div className="bg-foreground text-background text-caption flex items-center gap-3.75 px-6 py-2 max-sm:flex-wrap max-sm:gap-1 max-sm:px-4">
                         <span className="max-sm:w-full">Private preview · snapshot</span>
                         <button
                             className="button button-outline ml-auto max-sm:ml-0"
@@ -143,8 +143,8 @@ const Site = ({ initial, session }: { initial: typeof PortfolioData.Type; sessio
                         </div>
                         {portfolio.hero === undefined ? (
                             <div className="hero-placeholder">
-                                <span className="eyebrow absolute top-5 left-5.5 text-muted max-sm:top-4 max-sm:left-4">Hero placement</span>
-                                <Plus className="size-11 stroke-1 text-cross" nonScalingStroke={true} />
+                                <span className="eyebrow text-muted absolute top-5 left-5.5 max-sm:top-4 max-sm:left-4">Hero placement</span>
+                                <Plus className="text-cross size-11 stroke-1" nonScalingStroke={true} />
                             </div>
                         ) : (
                             <div className="media-h-hero flex min-w-0 justify-center">
@@ -168,7 +168,7 @@ const Site = ({ initial, session }: { initial: typeof PortfolioData.Type; sessio
                     </section>
                 </main>
                 <footer className="site-footer">
-                    <span className="wrap-anywhere min-w-0 empty:hidden max-sm:w-full">{portfolio.name}</span>
+                    <span className="min-w-0 wrap-anywhere empty:hidden max-sm:w-full">{portfolio.name}</span>
                     {Boolean(portfolio.email) && (
                         <a className="plain-link" href={`mailto:${portfolio.email}`}>
                             Contact
