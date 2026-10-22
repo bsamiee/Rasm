@@ -32,18 +32,16 @@ runs:
           with:
             path: ${{ steps.pnpm.outputs.store }}
             key: pnpm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
-        - uses: actions/cache@v6
-          if: runner.os == 'macOS'
-          with:
-            path: ~/Library/Caches/org.swift.swiftpm
-            key: swiftpm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('**/Package.resolved') }}
         - uses: Swatinem/rust-cache@v2.9.2
+          if: runner.os == 'Linux'
           with:
             workspaces: . -> .cache/rust/build
         - id: dylint
+          if: runner.os == 'Linux'
           run: printf 'version=%s\n' "$(cargo dylint --version)" >> "$GITHUB_OUTPUT"
           shell: bash
         - uses: actions/cache@v6
+          if: runner.os == 'Linux'
           with:
             path: ~/.dylint_drivers
             key: dylint-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('rust-toolchain.toml') }}-${{ steps.dylint.outputs.version }}

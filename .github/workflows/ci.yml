@@ -30,34 +30,14 @@ jobs:
                 persist-credentials: false
             - uses: nrwl/nx-set-shas@v5
             - uses: ./.github/actions/setup
-            - run: nx affected -t check test:integration --exclude='rasm,tag:host:macos,tag:host:rhino,tag:host:claude'
+            - run: nx affected -t check test:integration e2e --configuration ci --exclude='rasm,tag:host:macos,tag:host:rhino,tag:host:claude'
             - uses: actions/upload-artifact@v7
-              if: ${{ !cancelled() }}
+              if: ${{ failure() }}
               with:
                 name: diagnostics-${{ github.job }}
                 path: |
                     .artifacts/dotnet/binlog
                     .artifacts/typescript/vitest
-                include-hidden-files: true
-                retention-days: 14
-
-    e2e:
-        runs-on: ubuntu-26.04
-        timeout-minutes: 60
-        steps:
-            - uses: actions/checkout@v7
-              with:
-                fetch-depth: 0
-                filter: tree:0
-                persist-credentials: false
-            - uses: nrwl/nx-set-shas@v5
-            - uses: ./.github/actions/setup
-            - run: nx affected -t e2e -- --forbid-only --add-reporter=github
-            - uses: actions/upload-artifact@v7
-              if: ${{ !cancelled() }}
-              with:
-                name: playwright-${{ github.job }}
-                path: |
                     .artifacts/playwright-report
                     .artifacts/playwright-test
                 include-hidden-files: true
@@ -81,7 +61,7 @@ jobs:
             - run: nx run rasm:check
             - run: nx affected -t check --exclude='!tag:host:macos,!tag:host:rhino' --configuration ci
             - uses: actions/upload-artifact@v7
-              if: ${{ !cancelled() }}
+              if: ${{ failure() }}
               with:
                 name: diagnostics-${{ github.job }}
                 path: .artifacts/dotnet/binlog

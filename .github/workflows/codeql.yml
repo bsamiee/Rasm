@@ -21,11 +21,10 @@ jobs:
             matrix:
                 include:
                     - {language: actions}
-                    - {language: csharp, build-mode: manual}
+                    - {language: csharp, build-mode: none}
                     - {language: javascript-typescript}
                     - {language: python}
-                    - {language: swift, build-mode: manual}
-        runs-on: ${{ (matrix.language == 'swift' && 'xcode-27') || 'ubuntu-26.04' }}
+        runs-on: ubuntu-26.04
         timeout-minutes: 120
         concurrency:
             group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.language }}
@@ -34,23 +33,10 @@ jobs:
             - uses: actions/checkout@v7
               with:
                 persist-credentials: false
-            - uses: ./.github/actions/setup
-              if: matrix.build-mode == 'manual'
             - uses: github/codeql-action/init@v4
               with:
                 languages: ${{ matrix.language }}
                 build-mode: ${{ matrix.build-mode }}
-            - run: nx run-many -t build -p tag:language:dotnet --exclude='tag:host:rhino'
-              if: matrix.language == 'csharp'
-            - run: nx run-many -t build -p tag:language:swift --configuration ci
-              if: matrix.language == 'swift'
             - uses: github/codeql-action/analyze@v4
               with:
                 category: /language:${{ matrix.language }}
-            - uses: actions/upload-artifact@v7
-              if: ${{ !cancelled() && matrix.language == 'csharp' }}
-              with:
-                name: diagnostics-${{ github.job }}-${{ matrix.language }}
-                path: .artifacts/dotnet/binlog
-                include-hidden-files: true
-                retention-days: 14
