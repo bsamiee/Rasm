@@ -1,4 +1,6 @@
+import CasePaths
 import Foundation
+import HTTPTypes
 import Keychain
 import Lockfiles
 import Processes
@@ -11,8 +13,6 @@ nonisolated enum ClaudeEndpoint: String, Sendable {
     case profile = "https://api.anthropic.com/api/oauth/profile"
     case usage = "https://api.anthropic.com/api/oauth/usage"
     case token = "https://platform.claude.com/v1/oauth/token"
-
-    var timeout: TimeInterval { self == .token ? 30 : 15 }
 
     static let decoder: JSONDecoder = {
         let decoder: JSONDecoder = JSONDecoder()
@@ -35,6 +35,7 @@ nonisolated struct ClaudeAPIError: Decodable, Sendable {
 }
 
 nonisolated struct ClaudeErrorBody: Decodable, Sendable {
+    @CasePathable
     enum Field: Decodable, Sendable {
         case code(String)
         case detail(ClaudeAPIError)
@@ -61,6 +62,7 @@ nonisolated struct ClaudeErrorBody: Decodable, Sendable {
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
+@CasePathable
 nonisolated enum ClaudeFailure: DeadlineFailure, ProviderFailure, LockFailure {
     case executableMissing
     case signInRequired
@@ -72,7 +74,7 @@ nonisolated enum ClaudeFailure: DeadlineFailure, ProviderFailure, LockFailure {
     case invalidIdentity(AggregateError<IdentityError>)
     case invalidResponse(ClaudeEndpoint, any Error?)
     case invalidQuota(AggregateError<QuotaFailure>)
-    case http(ClaudeEndpoint, status: Int, error: ClaudeAPIError?)
+    case http(ClaudeEndpoint, status: HTTPResponse.Status, error: ClaudeAPIError?)
     case rateLimited(ClaudeEndpoint, until: Date)
     case transport(any Error)
     case accountChanged
@@ -105,28 +107,13 @@ nonisolated enum ClaudeFailure: DeadlineFailure, ProviderFailure, LockFailure {
         }
     }
 
-    var isUnauthorized: Bool {
-        if case .http(_, 401, _) = cause { true } else { false }
-    }
+    var requiresSignIn: Bool { cause.is(\.signInRequired) }
 
-    var requiresSignIn: Bool {
-        if case .signInRequired = cause { true } else { false }
-    }
+    var isAccountMismatch: Bool { cause.is(\.accountChanged) }
 
-    var isAccountMismatch: Bool {
-        if case .accountChanged = cause { true } else { false }
-    }
+    var isCancellation: Bool { [cause[case: \.deadline], cause[case: \.keychain.process.deadline]].contains(.cancelled) }
 
-    var isCancellation: Bool {
-        switch cause {
-            case .deadline(.cancelled), .keychain(.process(.deadline(.cancelled))): true
-            default: false
-        }
-    }
-
-    var retryAfter: Date? {
-        if case .rateLimited(_, let until) = cause { until } else { nil }
-    }
+    var retryAfter: Date? { cause[case: \.rateLimited]?.until }
 
     var errorDescription: String? {
         switch self {
@@ -159,7 +146,7 @@ nonisolated enum ClaudeFailure: DeadlineFailure, ProviderFailure, LockFailure {
 nonisolated extension ClaudeFailure {
     static func rejection(
         by endpoint: ClaudeEndpoint,
-        status: Int,
+        status: HTTPResponse.Status,
         body: Data,
         retryAfter header: String?,
         at now: Date,
@@ -167,17 +154,15 @@ nonisolated extension ClaudeFailure {
         let decoded: ClaudeErrorBody? = try? ClaudeEndpoint.decoder.decode(ClaudeErrorBody.self, from: body)
         let code: String? = decoded?.error?.code
         let onHold: Bool = [decoded?.errorDescription, code].contains("account_on_hold")
-        let detail: ClaudeAPIError? = if case .detail(let detail)? = decoded?.error { detail } else { nil }
-        let rejected: ClaudeFailure = .http(endpoint, status: status, error: detail)
-        let retryDelay: TimeInterval =
-            header.flatMap { value in UInt(value).map(TimeInterval.init) ?? (try? Date(value, strategy: .http))?.timeIntervalSince(now) }
-            .flatMap { seconds in seconds > 0 ? min(seconds, 86_400) : nil } ?? 300
+        let rejected: ClaudeFailure = .http(endpoint, status: status, error: decoded?.error?[case: \.detail])
+        let requested: TimeInterval? = header.flatMap { value -> TimeInterval? in UInt(value).map(TimeInterval.init) ?? (try? Date(value, strategy: .http))?.timeIntervalSince(now) }
+        let retryDelay: TimeInterval = requested.flatMap { seconds in seconds > 0 ? min(seconds, 86_400) : nil } ?? 300
         return switch endpoint {
-            case _ where status == 429: .rateLimited(endpoint, until: now.addingTimeInterval(retryDelay))
-            case .token where onHold && [400, 401, 403].contains(status):
+            case _ where status == .tooManyRequests: .rateLimited(endpoint, until: now.addingTimeInterval(retryDelay))
+            case .token where onHold && [.badRequest, .unauthorized, .forbidden].contains(status):
                 URL(string: decoded?.errorUri ?? "https://claude.ai/restricted")
                     .map(Self.accountOnHold) ?? rejected
-            case .token where code == "invalid_grant" && [400, 401].contains(status): .signInRequired
+            case .token where code == "invalid_grant" && [.badRequest, .unauthorized].contains(status): .signInRequired
             case .profile, .usage, .token: rejected
         }
     }

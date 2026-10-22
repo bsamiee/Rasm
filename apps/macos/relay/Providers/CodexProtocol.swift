@@ -261,8 +261,9 @@ nonisolated enum CodexProtocol {
         guard let effort: String = ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"].first(where: supported.contains) else {
             throw .invalidResponse(.modelList)
         }
+        let enabled: [String] = try await pages(.experimentalFeatureList, of: ExperimentalFeature.self).filter(\.enabled).map { feature in "features.\(feature.name)" }
         let disabled: [String] =
-            try await pages(.experimentalFeatureList, of: ExperimentalFeature.self).filter(\.enabled).map { feature in "features.\(feature.name)" } + [
+            enabled + [
                 "orchestrator.skills.enabled", "skills.include_instructions", "token_budget.use_history_notes_extension",
                 "tools.experimental_request_user_input.enabled", "tools.update_plan.enabled",
             ]

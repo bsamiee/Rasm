@@ -1,3 +1,4 @@
+import CasePathsCore
 import ServiceManagement
 import SwiftUI
 
@@ -183,7 +184,7 @@ private struct AccountSettings: View {
                     Spacer()
                     if let operation: AccountOperation = model.running?.kind {
                         ProgressView().controlSize(.small)
-                        Text(operation.description)
+                        Text(operation.name.description)
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -211,13 +212,13 @@ private struct GeneralSettings: View {
                 Toggle(
                     "Open at login",
                     isOn: Binding(
-                        get: { if case .success(let status) = store.loginItem { [.enabled, .requiresApproval].contains(status) } else { false } },
+                        get: { [.enabled, .requiresApproval].contains(store.loginItem[case: \.success]) },
                         set: { enabled in
                             if enabled { store.registerLoginItem() } else { Task(name: "Unregister login item") { await store.unregisterLoginItem() } }
                         },
                     ),
                 )
-                if case .success(.requiresApproval) = store.loginItem {
+                if store.loginItem[case: \.success] == .requiresApproval {
                     Button("Open Login Items") { SMAppService.openSystemSettingsLoginItems() }
                 }
             } footer: {
@@ -255,8 +256,8 @@ private struct SignInSheet: View {
                             .keyboardShortcut(.defaultAction)
                             .frame(maxWidth: .infinity, alignment: .trailing)
                     case .pending, .completing, .cancelling:
-                        let accepting: Bool = if case .pending = pending.phase { true } else { false }
-                        let cancelling: Bool = if case .cancelling = pending.phase { true } else { false }
+                        let accepting: Bool = pending.phase.is(\.pending)
+                        let cancelling: Bool = pending.phase.is(\.cancelling)
                         HStack(spacing: 8) {
                             ProgressView().controlSize(.small)
                             TimelineView(.everyMinute) { context in

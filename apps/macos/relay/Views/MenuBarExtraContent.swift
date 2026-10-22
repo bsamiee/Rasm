@@ -1,6 +1,8 @@
 import AppKit
+import CasePathsCore
 import CurrentProcess
 import Processes
+import Sparkle
 import SwiftUI
 import os
 
@@ -44,10 +46,12 @@ struct AccountMenuItems: View {
 
 struct MenuBarExtraContent: View {
     let store: Result<AccountStore, LoginShellFailure>?
+    let updater: SPUUpdater
 
     @Environment(\.openWindow) private var openWindow: OpenWindowAction
     @Environment(\.dismiss) private var dismiss: DismissAction
     @State private var accountToRemove: AccountModel?
+    @State private var canCheckForUpdates: Bool = false
 
     var body: some View {
         VStack(spacing: 8) {
@@ -64,6 +68,8 @@ struct MenuBarExtraContent: View {
                 Menu {
                     Button("Settings", action: showSettings)
                         .keyboardShortcut(",", modifiers: .command)
+                    Button("Check for Updates…", action: updater.checkForUpdates)
+                        .disabled(!canCheckForUpdates)
                     Divider()
                     Button("Quit Relay") { NSApplication.shared.terminate(nil) }
                         .keyboardShortcut("q", modifiers: .command)
@@ -80,6 +86,7 @@ struct MenuBarExtraContent: View {
         .padding(.vertical, 16)
         .frame(width: 384)
         .background { PanelToolTips() }
+        .onReceive(updater.publisher(for: \.canCheckForUpdates)) { canCheck in canCheckForUpdates = canCheck }
     }
 
     private func accounts(at now: Date) -> some View {
@@ -132,7 +139,7 @@ struct MenuBarExtraContent: View {
                 try await NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: NSWorkspace.OpenConfiguration())
             }
             if case .failure(let error) = reopened {
-                Logger(category: "Activation").error("Bringing Relay to front: \(error, privacy: .public)")
+                Logger(for: Self.self).error("Bringing Relay to front failed: \(error, privacy: .public)")
             }
         }
     }
@@ -188,7 +195,7 @@ private struct AccountCard: View {
         .buttonStyle(.accessoryBar)
         .foregroundStyle(model.isSelected ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.secondary))
         .disabled(!model.isSelected && !model.canSelect)
-        .overlay {
+        .overlay(alignment: .center) {
             if model.running?.kind == .selecting { ProgressView().controlSize(.mini) }
         }
         .accessibilityLabel(model.account.provider.name)
@@ -199,7 +206,7 @@ private struct AccountCard: View {
     @ViewBuilder
     private var gauges: some View {
         let usage: AccountUsage? = model.usage.usage
-        let isCurrent: Bool = model.usage.isCurrent
+        let isCurrent: Bool = model.usage.is(\.current)
         let session: QuotaWindow? = usage?.session
         let hasSession: Bool = usage == nil || session != nil
         let isStarting: Bool = model.running?.kind == .starting
@@ -250,7 +257,7 @@ private struct AccountCard: View {
     private var note: String? {
         switch (model.issue, model.running?.kind, model.authentication) {
             case (.some(let issue), _, _): issue.description(at: now)
-            case (.none, .signingOut, _), (.none, .removing, _): model.running?.kind.description
+            case (.none, .signingOut, _), (.none, .removing, _): model.running?.kind.name.description
             case (.none, _, .signInRequired): "Sign in required"
             case (.none, _, .connected):
                 model.usage.usage?.availability(at: now).blockedLine(at: now) ?? model.usage.usage?.signInLine(at: now)

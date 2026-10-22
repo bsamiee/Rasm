@@ -1,3 +1,4 @@
+import CasePathsCore
 import Foundation
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -19,7 +20,7 @@ nonisolated extension Date {
             case ..<60: "<1m"
             case let remaining where remaining < 86_400:
                 Duration.seconds(remaining).formatted(Duration.UnitsFormatStyle(allowedUnits: [.hours, .minutes], width: .narrow))
-            case ..<(6 * 86_400): formatted(.dateTime.weekday(.abbreviated).hour().minute())
+            case ..<TimeInterval(6 * 86_400): formatted(.dateTime.weekday(.abbreviated).hour().minute())
             default: formatted(.monthDay)
         }
     }
@@ -47,7 +48,7 @@ extension QuotaWindow {
 
 extension Availability {
     func blockedLine(at now: Date) -> String? {
-        if case .blocked(let until) = self { [blockedText, until?.resetText(at: now)].compactMap(\.self).joined(separator: separator) } else { nil }
+        self[case: \.blocked].map { until in [blockedText, until?.resetText(at: now)].compactMap(\.self).joined(separator: separator) }
     }
 }
 
@@ -67,7 +68,7 @@ extension UsageState {
                 case .ready, .none: awaitingUpdate
                 case .noSessionWindow: nil
             }
-        guard !isCurrent || availability != .ready else { return nil }
+        guard !`is`(\.current) || availability != .ready else { return nil }
         let parts: [String] = [usage?.session?.used.percentage, state].compactMap(\.self)
         return parts.isEmpty ? nil : parts.joined(separator: separator)
     }

@@ -1,7 +1,9 @@
+import CasePaths
 import DeveloperToolsSupport
 import Foundation
 import Processes
 import Results
+import os
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -49,7 +51,7 @@ enum AccountOperation: Equatable, Sendable {
     case signingOut
     case removing
 
-    var description: String {
+    var name: StaticString {
         switch self {
             case .refreshing: "Refreshing usage"
             case .selecting: "Switching account"
@@ -60,7 +62,14 @@ enum AccountOperation: Equatable, Sendable {
         }
     }
 
-    var refusalDescription: String { "\(description), try again when it finishes" }
+    var level: OSLogType {
+        switch self {
+            case .refreshing: .debug
+            case .selecting, .starting, .signingIn, .signingOut, .removing: .default
+        }
+    }
+
+    var refusalDescription: String { "\(name), try again when it finishes" }
 }
 
 enum RefreshTrigger: Equatable, Sendable {
@@ -160,6 +169,7 @@ enum AuthenticationRefusal: Sendable {
     case failure(ProviderError)
 }
 
+@CasePathable
 enum AuthenticationPhase: Sendable {
     case pending
     case completing

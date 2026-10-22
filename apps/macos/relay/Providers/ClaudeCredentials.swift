@@ -1,3 +1,4 @@
+import CasePaths
 import CryptoKit
 import Encoding
 import Files
@@ -83,12 +84,15 @@ nonisolated struct ClaudeTokenResponse: Decodable, Sendable {
     let organization: Organization?
 
     func oauth(replacing token: ClaudeOAuthToken, posted: String, at now: Date) throws(ClaudeFailure) -> ClaudeOAuthToken {
+        let requestedScopes: [Substring]? = scope?.split(separator: " ")
+        let scopes: [String] = requestedScopes?.map(String.init) ?? token.scopes
+        let refreshTokenExpiresAt: Double? = refreshTokenExpiresIn.map { interval in Self.milliseconds(now.addingTimeInterval(interval)) } ?? token.document.known.refreshTokenExpiresAt
         let attributes: ClaudeOAuthToken.Attributes = ClaudeOAuthToken.Attributes(
             accessToken: accessToken,
             refreshToken: refreshToken ?? posted,
-            scopes: scope?.split(separator: " ").map(String.init) ?? token.scopes,
+            scopes: scopes,
             expiresAt: Self.milliseconds(now.addingTimeInterval(expiresIn)),
-            refreshTokenExpiresAt: refreshTokenExpiresIn.map { interval in Self.milliseconds(now.addingTimeInterval(interval)) } ?? token.document.known.refreshTokenExpiresAt,
+            refreshTokenExpiresAt: refreshTokenExpiresAt,
             subscriptionType: token.document.known.subscriptionType,
             rateLimitTier: token.document.known.rateLimitTier,
             clientId: token.document.known.clientId,
@@ -154,14 +158,11 @@ nonisolated struct ClaudeCredential: Sendable {
     let identity: AccountIdentity
 }
 
+@CasePathable
 nonisolated enum ClaudeStoreContent: Sendable {
     case signedOut
     case unidentified(ClaudeOAuthToken)
     case credential(ClaudeCredential)
-
-    var credential: ClaudeCredential? {
-        if case .credential(let credential) = self { credential } else { nil }
-    }
 
     var token: ClaudeOAuthToken? {
         switch self {
@@ -261,7 +262,7 @@ nonisolated struct ClaudeCredentialStore: Sendable {
                 let document: FileWrapper = FileWrapper(
                     regularFileWithContents: try JSONEncoder().encode(JSONDocument(fields: fields, known: ClaudeAccountFile(oauthAccount: account, hasCompletedOnboarding: true)))
                 )
-                document.fileAttributes = [FileAttributeKey.posixPermissions.rawValue: Int((mode ?? .ownerReadWrite).rawValue)]
+                document.fileAttributes[FileAttributeKey.posixPermissions.rawValue] = Int((mode ?? .ownerReadWrite).rawValue)
                 try document.write(to: file, options: .atomic, originalContentsURL: nil)
             }
             .mapError(ClaudeFailure.filesystem)

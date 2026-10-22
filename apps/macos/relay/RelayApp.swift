@@ -1,8 +1,11 @@
 import AppKit
+import CurrentProcess
 import Observation
 import Processes
 import Results
+import Sparkle
 import SwiftUI
+import os
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -12,10 +15,16 @@ struct RelayApp: App {
 
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate: AppDelegate
     @SwiftUI.Environment(\.openWindow) private var openWindow: OpenWindowAction
+    private let userDriverDelegate: UserDriverDelegate = UserDriverDelegate()
+    private let updater: SPUStandardUpdaterController
+
+    init() {
+        updater = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: nil, userDriverDelegate: userDriverDelegate)
+    }
 
     var body: some Scene {
         MenuBarExtra {
-            MenuBarExtraContent(store: delegate.store)
+            MenuBarExtraContent(store: delegate.store, updater: updater.updater)
         } label: {
             Image(.relaySymbol)
                 .accessibilityLabel("Relay")
@@ -42,17 +51,23 @@ struct RelayApp: App {
 }
 
 @Observable
-private final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate {
     private(set) var store: Result<AccountStore, LoginShellFailure>?
     @ObservationIgnored private var launch: Task<Void, Never>?
 
     func applicationDidFinishLaunching(_: Notification) {
+        let logger: Logger = Logger(for: AppDelegate.self)
         launch = Task(name: "Launch Relay") { [self] in
             switch await LoginShell.environment(within: .seconds(5)).map(AccountStore.init(environment:)) {
-                case .failure(.run(.deadline(.cancelled))): return
+                case .failure(.run(.deadline(.cancelled))): logger.info("Launch canceled by quit before the login shell environment arrived")
                 case let launched:
                     store = launched
-                    if case .success(let started) = launched { started.start() }
+                    switch launched {
+                        case .success(let started):
+                            logger.notice("Launched from the login shell environment, starting account work")
+                            started.start()
+                        case .failure(let error): logger.error("Launch stopped, reading the login shell environment failed: \(error, privacy: .public)")
+                    }
             }
         }
     }
@@ -65,5 +80,19 @@ private final class AppDelegate: NSObject, NSApplicationDelegate {
             sender.reply(toApplicationShouldTerminate: true)
         }
         return .terminateLater
+    }
+}
+
+final class UserDriverDelegate: NSObject, SPUStandardUserDriverDelegate {
+    var supportsGentleScheduledUpdateReminders: Bool { true }
+
+    func standardUserDriverWillHandleShowingUpdate(_: Bool, forUpdate _: SUAppcastItem, state: SPUUserUpdateState) {
+        NSApplication.shared.setActivationPolicy(.regular)
+        if !state.userInitiated { NSApplication.shared.dockTile.badgeLabel = "1" }
+    }
+
+    func standardUserDriverWillFinishUpdateSession() {
+        NSApplication.shared.dockTile.badgeLabel = nil
+        NSApplication.shared.setActivationPolicy(.accessory)
     }
 }

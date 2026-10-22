@@ -1,3 +1,4 @@
+import CasePaths
 import Foundation
 import JSONRPC
 import Processes
@@ -5,6 +6,7 @@ import Results
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
+@CasePathable
 nonisolated enum CodexFailure: DeadlineFailure, ProviderFailure {
     case applicationUnavailable
     case process(ProcessFailure)
@@ -34,13 +36,9 @@ nonisolated enum CodexFailure: DeadlineFailure, ProviderFailure {
         }
     }
 
-    var isAccountMismatch: Bool {
-        if case .identityChanged = self { true } else { false }
-    }
+    var isAccountMismatch: Bool { self[case: \.identityChanged] != nil }
 
-    var isCancellation: Bool {
-        if case .deadline(.cancelled) = self { true } else { false }
-    }
+    var isCancellation: Bool { self[case: \.deadline] == .cancelled }
 
     var retryAfter: Date? { nil }
 

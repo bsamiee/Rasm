@@ -1,3 +1,4 @@
+import CasePaths
 import Foundation
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -40,6 +41,7 @@ nonisolated struct QuotaWindow: Equatable, Sendable {
     var blocks: Bool { used.isExhausted || rejected }
 }
 
+@CasePathable
 nonisolated enum Availability: Equatable, Sendable {
     case blocked(until: Date?)
     case running(until: Date)
@@ -76,6 +78,7 @@ nonisolated struct AccountUsage: Equatable, Sendable {
     }
 }
 
+@CasePathable
 enum UsageState: Sendable {
     case unavailable
     case current(AccountUsage)
@@ -86,10 +89,6 @@ enum UsageState: Sendable {
             case .unavailable: nil
             case .current(let usage), .stale(let usage): usage
         }
-    }
-
-    var isCurrent: Bool {
-        if case .current = self { true } else { false }
     }
 }
 

@@ -16,9 +16,27 @@
       "path": "../../..",
     }, {
       "kind": "remote",
+      "repository": "https://github.com/sparkle-project/Sparkle",
+      "version": {
+        "up-to-next-major-version": "2.10.0",
+      },
+    }, {
+      "kind": "remote",
       "repository": "https://github.com/apple/swift-async-algorithms",
       "version": {
         "up-to-next-major-version": "1.1.7",
+      },
+    }, {
+      "kind": "remote",
+      "repository": "https://github.com/pointfreeco/swift-case-paths",
+      "version": {
+        "up-to-next-major-version": "1.10.0",
+      },
+    }, {
+      "kind": "remote",
+      "repository": "https://github.com/apple/swift-http-types",
+      "version": {
+        "up-to-next-major-version": "1.8.0",
       },
     }, {
       "kind": "remote",
@@ -42,6 +60,7 @@
           "exclusions": [
             "AGENTS.md",
             "CLAUDE.md",
+            "Info.plist",
             "buildServer.json",
           ],
         },
@@ -50,14 +69,14 @@
       "kind": "group",
       "name": "Products",
       "children": [
-        { "path": "<PRODUCTS>/Relay.app", "id": "4A817EDECF31418AABA61701", "type": "wrapper.application", "index": false },
+        { "path": "<PRODUCTS>/Relay.app", "id": "DF48A6EC3089FB4E003F171A", "type": "wrapper.application", "index": false },
       ],
     },
   ],
   "targets": [
     {
       "name": "Relay",
-      "id": "4A817EDECF31418AABA61709",
+      "id": "DF48A6EB3089FB4E003F171A",
       "product": "Products/Relay.app",
       "product-type": "application",
       "build-phases": [
@@ -99,8 +118,28 @@
           "product-name": "Results",
           "build-phase": { "build-phase": "frameworks" },
         }, {
+          "package": "Sparkle",
+          "product-name": "Sparkle",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
           "package": "swift-async-algorithms",
           "product-name": "AsyncAlgorithms",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "swift-case-paths",
+          "product-name": "CasePaths",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "swift-case-paths",
+          "product-name": "CasePathsCore",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "swift-http-types",
+          "product-name": "HTTPTypes",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "swift-http-types",
+          "product-name": "HTTPTypesFoundation",
           "build-phase": { "build-phase": "frameworks" },
         }, {
           "package": "swift-subprocess",
@@ -110,11 +149,13 @@
       ],
       "build-settings": {
         "ASSETCATALOG_COMPILER_APPICON_NAME": "AppIcon",
-        "CURRENT_PROJECT_VERSION": "1",
+        "GENERATE_INFOPLIST_FILE": "YES",
+        "INFOPLIST_FILE": "Info.plist",
         "INFOPLIST_KEY_LSApplicationCategoryType": "public.app-category.utilities",
         "INFOPLIST_KEY_LSUIElement": "YES",
-        "MARKETING_VERSION": "1.0.0",
+        "LD_RUNPATH_SEARCH_PATHS": "@executable_path/../Frameworks",
         "PRODUCT_BUNDLE_IDENTIFIER": "app.rasm.relay",
+        "PRODUCT_NAME": "$(TARGET_NAME)",
         "SWIFT_DEFAULT_ACTOR_ISOLATION": "MainActor",
       },
     },

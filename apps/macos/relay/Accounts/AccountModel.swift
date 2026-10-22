@@ -1,3 +1,4 @@
+import CasePathsCore
 import Foundation
 import Observation
 
@@ -36,7 +37,7 @@ final class AccountModel {
     var canSelect: Bool { isConnected && acceptsOperation && !isSelected }
 
     func canStartSession(at now: Date) -> Bool {
-        isConnected && usage.isCurrent && acceptsOperation && usage.usage?.availability(at: now) == .ready
+        isConnected && usage.is(\.current) && acceptsOperation && usage.usage?.availability(at: now) == .ready
     }
 
     var usageReadAfter: Date? {
@@ -58,7 +59,7 @@ final class AccountModel {
         running = RunningOperation(
             token: token,
             kind: operation,
-            task: Task(name: operation.description) { [self] in
+            task: Task(name: operation.name.description) { [self] in
                 await withTaskCancellationHandler {
                     await previous?.value
                 } onCancel: {

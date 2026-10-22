@@ -1,4 +1,5 @@
 import AppKit
+import CurrentProcess
 import Files
 import Foundation
 import JSONRPC
@@ -6,6 +7,7 @@ import Processes
 import Results
 import Subprocess
 import System
+import os
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -31,6 +33,7 @@ actor CodexClient: ProviderClient {
     private let paths: FileLocations
     private let environment: [Environment.Key: String]
     private let updatesContinuation: AsyncStream<URL>.Continuation
+    private let logger: Logger = Logger(for: CodexClient.self)
     private var servers: [URL: CodexServer] = [:]
 
     init(paths: FileLocations, environment: [Environment.Key: String]) {
@@ -84,7 +87,7 @@ actor CodexClient: ProviderClient {
         func installFile(_ data: Data, to destination: URL) throws(CodexFailure) {
             try Result {
                 let file: FileWrapper = FileWrapper(regularFileWithContents: data)
-                file.fileAttributes = [FileAttributeKey.posixPermissions.rawValue: 0o600]
+                file.fileAttributes[FileAttributeKey.posixPermissions.rawValue] = 0o600
                 try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
                 try file.write(to: destination, options: .atomic, originalContentsURL: nil)
             }
@@ -106,6 +109,7 @@ actor CodexClient: ProviderClient {
                 guard live?.identity.map({ identity in outgoing?.identity.isSameAccount(as: identity) == true }) ?? (outgoing == nil) else { throw .identityChanged }
                 if let outgoing, let live { try installFile(live.data, to: CodexAuthFile.file(in: paths.codexHome(outgoing.id))) }
                 try installFile(saved.data, to: liveAuthFile)
+                logger.notice("Installed the auth file of account \(account.id, privacy: .public) in the live CODEX_HOME, parked outgoing \(outgoing != nil && live != nil, privacy: .public)")
             }
             try remove(CodexAuthFile.file(in: incoming))
             return identity
@@ -135,6 +139,7 @@ actor CodexClient: ProviderClient {
                     )
                     guard started.authUrl.scheme == "https", started.authUrl.host(percentEncoded: false) != nil else { throw .invalidResponse(.accountLoginStart) }
                     guard NSWorkspace.shared.open(started.authUrl) else { throw .signInPageUnopened }
+                    self.logger.info("Opened the OpenAI sign-in page for \(home.path(percentEncoded: false), privacy: .private)")
                     let completed: CodexProtocol.LoginCompleted = try await connection.notification(.accountLoginCompleted, returning: CodexProtocol.LoginCompleted.self) {
                         completed in completed.loginId == started.loginId
                     }
@@ -235,9 +240,12 @@ actor CodexClient: ProviderClient {
                 continuation: AsyncStream<Result<JSONRPCConnection<CodexProtocol.Method, CodexFailure>, CodexFailure>>.Continuation
             ) = AsyncStream.makeStream()
         let updates: AsyncStream<URL>.Continuation = updatesContinuation
-        let task: Task<Void, Never> = Task(name: "codex app-server \(home.lastPathComponent)") {
+        let task: Task<Void, Never> = Task(name: "codex app-server \(home.lastPathComponent)") { [logger] in
             do {
-                _ = try await Subprocess.run(invocation, input: .inputWriter, output: .sequence, error: .discarded) { execution in
+                let status: TerminationStatus = try await Subprocess.run(invocation, input: .inputWriter, output: .sequence, error: .discarded) { execution in
+                    logger.info(
+                        "Started codex app-server \(manifest.version, privacy: .public) as process \(execution.processIdentifier, privacy: .public) for \(home.path(percentEncoded: false), privacy: .private)"
+                    )
                     await JSONRPCConnection<CodexProtocol.Method, CodexFailure>.run(
                         reading: execution.standardOutput.jsonLines,
                         writing: { line in _ = try await execution.standardInputWriter.write(line) },
@@ -261,6 +269,11 @@ actor CodexClient: ProviderClient {
                         }
                     }
                 }
+                .terminationStatus
+                logger.log(
+                    level: Task.isCancelled ? .info : .default,
+                    "codex app-server for \(home.path(percentEncoded: false), privacy: .private) ended with \(status, privacy: .public), stopped by Relay \(Task.isCancelled, privacy: .public)",
+                )
             } catch {
                 ready.continuation.yield(.failure(CodexFailure(process: error)))
                 ready.continuation.finish()
@@ -279,6 +292,7 @@ actor CodexClient: ProviderClient {
 
     private func stopServer(_ home: URL) async {
         guard let server: CodexServer = servers.removeValue(forKey: home) else { return }
+        logger.info("Stopping codex app-server for \(home.path(percentEncoded: false), privacy: .private)")
         server.task.cancel()
         await server.task.value
     }

@@ -1,4 +1,6 @@
 import AsyncAlgorithms
+import CasePaths
+import CurrentProcess
 import Darwin
 import Encoding
 import Foundation
@@ -6,6 +8,7 @@ import Processes
 import Results
 import Subprocess
 import System
+import os
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -103,6 +106,7 @@ private nonisolated struct ClaudeMessage: Decodable, Sendable {
     let response: ClaudeControlResponse?
 }
 
+@CasePathable
 private nonisolated enum ClaudeSessionPhase: Sendable {
     case requesting(ClaudeControlRequest)
     case greeting
@@ -113,6 +117,7 @@ private nonisolated enum ClaudeSessionPhase: Sendable {
 
 nonisolated enum ClaudeSession {
     static func run(_ invocation: Configuration, token: ClaudeOAuthToken) async throws(ClaudeFailure) -> Date? {
+        let logger: Logger = Logger(for: Self.self)
         let pipe: (readEnd: FileDescriptor, writeEnd: FileDescriptor) = try Result { () throws(Errno) in try FileDescriptor.pipe(options: .closeOnExec) }
             .mapError(ClaudeFailure.filesystem)
             .get()
@@ -164,6 +169,7 @@ nonisolated enum ClaudeSession {
                                         .first(where: { item in item.value == "haiku" || item.resolvedModel?.hasPrefix("claude-haiku-") == true })?
                                         .resolvedModel
                                 else { throw .modelUnavailable }
+                                logger.info("Greeting selects model \(model, privacy: .public)")
                                 return try await request(.setModel(model))
                             case .setModel:
                                 try await send(ClaudeUserMessage(sessionID: sessionID, message: ClaudeUserMessage.Message(content: "hi")))
@@ -178,9 +184,13 @@ nonisolated enum ClaudeSession {
                 var reset: Date?
                 for try await line: Data in execution.standardOutput.jsonLines.mapError(ClaudeFailure.init(process:)) {
                     let message: ClaudeMessage = try Result { try ClaudeEndpoint.decoder.decode(ClaudeMessage.self, from: line) }.mapError { _ in ClaudeFailure.protocolFailure }.get()
-                    if message.type == .rateLimitEvent, let seconds: Double = message.rateLimitInfo?.sessionResetSeconds { reset = Date(timeIntervalSince1970: seconds) }
+                    if message.type == .rateLimitEvent, let seconds: Double = message.rateLimitInfo?.sessionResetSeconds {
+                        let reported: Date = Date(timeIntervalSince1970: seconds)
+                        reset = reported
+                        logger.debug("Greeting rate limit event reports the session reset at \(reported, privacy: .public)")
+                    }
                     phase = try await advance(phase, message)
-                    if case .finished = phase { return reset }
+                    if phase.is(\.finished) { return reset }
                 }
                 throw Task.isCancelled ? .deadline(.cancelled) : .protocolFailure
             }
