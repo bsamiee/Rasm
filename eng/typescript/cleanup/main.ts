@@ -251,18 +251,7 @@ const cleanup = Effect.fn('cleanup')(function* (self: number, darwin: boolean) {
               )
             : Effect.succeed([entry]);
     };
-    const clearing = accumulate((yield* Effect.forEach(candidates, visit, { concurrency: 'unbounded' })).flat(), (target) =>
-        Console.log(`remove ${target}`).pipe(
-            Effect.andThen(
-                Effect.acquireUseRelease(
-                    fs.makeTempDirectory({ directory: path.dirname(target), prefix: `.${path.basename(target)}.` }),
-                    (detached) => fs.rename(target, path.join(detached, path.basename(target))),
-                    (detached) => fs.remove(detached, { recursive: true }),
-                ),
-            ),
-            Effect.catchReason('PlatformError', 'NotFound', () => Effect.void),
-        ),
-    );
+    const clearing = accumulate((yield* Effect.forEach(candidates, visit, { concurrency: 'unbounded' })).flat(), (target) => Console.log(`remove ${target}`).pipe(Effect.andThen(fs.remove(target, { recursive: true, force: true }))));
     return yield* accumulate(
         [
             Array.match(Array.dedupe(stopped), {
