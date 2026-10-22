@@ -6,7 +6,7 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 
 - Root Ruff `target-version` and ty `python-version` follow the Python version resolved by mise
 - Host folders whose code a host runs or imports state its interpreter floor once in a nested `requires-python`
-- Host `pyproject.toml` files hold `name`, `version`, the floor, `[tool.uv] managed = false`, and Ruff `extend`, and create no Nx project
+- Host `pyproject.toml` files hold `name`, `dynamic = ["version"]`, the floor, `[tool.uv] managed = false`, and Ruff `extend`, and create no Nx project
 - `managed = false` makes `uv sync` refuse a host folder and `uv run` there use the root environment
 - Host runtime compatibility covers code a host executes or imports, shared libraries included, wheel membership alone imposes none
 - Use newest syntax, APIs, and typing supported by each execution runtime
@@ -80,6 +80,9 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 - Extension assembly copies first-party wheel packages in as submodules with relative imports and bundles every other distribution as a wheel
 - Host interpreter's markers and wheel tags govern `pip wheel` compatibility of wheels an extension bundles
 - Fitout omits Blender-provided distributions from locked export
+- `blender_manifest.toml` holds no `version`, `pack` writes the one MinVer computes from `blender-<id>-v<version>` tags into the staged manifest
+- `install` runs `install-file --repo user_default --enable` in a running GUI on the same user profile, else `install-file` in a background process
+- `install` adds a preference row the native handler left absent, a failed enable included, and saves preferences for the next startup's wheel sync
 
 ## [08]-[TYPING]
 

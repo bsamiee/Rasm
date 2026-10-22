@@ -157,7 +157,6 @@ Searches find code using a member:
 Use `manage-repo` for extension projects and their `pack` and `install` targets.
 
 Repository `user_default` holds extensions installed from a file, remote repositories the rest:
-- `nx run <id>:install` runs `install-file --repo user_default --enable` inside a running GUI session, else through `--command extension`
 - `install-file` over an installed extension replaces its folder and modules whatever the archive version
 - `"$BLENDER_PATH" --command extension remove user_default.<id>` uninstalls with no GUI running
 - `install-file` exits 0 on install and on a platform or version refusal, and 1 on a failed `--enable`

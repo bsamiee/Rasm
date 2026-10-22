@@ -10,7 +10,7 @@ Rules for adding the next project, tool, plugin, or harness row, current state a
 [REFERENCES]:
 - [01]-[NX](references/nx.md): Plugin inference, target defaults, run-commands, dependencies, inputs, affected selection
 - [02]-[TOOLING](references/tooling.md): Tool rows, backends, releases, version files, install paths, environment, daemons, TOML files
-- [03]-[TYPESCRIPT](references/typescript.md): Catalog, compiler projects, execution, Vite and Workers, Storybook, Biome
+- [03]-[TYPESCRIPT](references/typescript.md): Catalog, compiler projects, execution, Vite and Workers, Storybook, Biome, UXP packaging
 - [04]-[PYTHON](references/python.md): Dependency groups, lock, workspace members, interpreter, checkers
 - [05]-[DOTNET](references/dotnet.md): Central row and SDK upgrades, file-based apps, library groups, BuildCheck, Roslyn analyzers
 - [06]-[SWIFT](references/swift.md): Package, SwiftPM, project files, settings, compiler, locks, swift-format, SwiftLint, Periphery, language server

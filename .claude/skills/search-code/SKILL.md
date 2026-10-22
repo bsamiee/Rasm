@@ -25,12 +25,20 @@ Installed version of a direct or transitive package and the package that depends
 - TypeScript: version per dependent, transitive packages sit under `node_modules/.pnpm/<pkg>@<version>*/node_modules/<pkg>`, scope `/` spelled `+`
 - Python: version with every direct dependent from `uv.lock`, an extra or group in parentheses
 - Rust: version with every direct dependent from `Cargo.lock`
+- Swift: resolved tree of root `Package.swift` under the Nx SwiftPM scratch path
 
 ```bash
 dotnet nuget why <project>.csproj <id>
 pnpm why <pkg> --depth 1
 uv tree --frozen --invert --package <pkg> --depth 1
 cargo tree --invert <crate> --depth 1
+SWIFTPM_BUILD_DIR=.cache/swiftpm/build swift package show-dependencies --format json
+```
+
+Swift interface of a Clang SDK module (`ApplicationServices`, `CoreFoundation`) at the selected Xcode's SDK:
+
+```bash
+xcrun swift-synthesize-interface -module-name <Module> -sdk "$(xcrun --show-sdk-path)" -target "arm64-apple-macos$(xcrun --show-sdk-version)" -include-submodules | rg -n '<Member>'
 ```
 
 .NET types declaring a member as `.xml` doc ids, ` ``N ` follows a generic method name, no decompile:

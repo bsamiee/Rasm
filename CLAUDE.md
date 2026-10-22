@@ -54,7 +54,7 @@
 ## [02]-[IMPLEMENTATION_STANDARDS]
 
 [TOTALITY]:
-- ALWAYS define error types in the package that raises them, errors differing only in source, field, or message become one error carrying those as data
+- ALWAYS define error types in the package raising them, errors differing only in source, field, or message become one error holding those as data
 - ALWAYS make invalid states unrepresentable at construction, every consumer receives a validated value without re-validating it
 - ALWAYS reserve exceptions for defects, expected failures use the result type, a catch covers one throwing call and keeps the caught error as cause
 
@@ -79,11 +79,6 @@
 - ALWAYS declare a fact the API hides once at its owner, every other use derives it
 - ALWAYS reach members through typed handles instead of member-name strings
 - ALWAYS derive a label, undo name, or progress text from the operation and its target, a caller-written description is a defect
-
-[LIBRARIES]: Libraries are foundations for current and future apps of their domain
-- ALWAYS place product code no single product decides in its host or domain library at first use, an app holds its product's decisions alone
-- ALWAYS derive a product's name, identity, and configuration in a library from arguments or its host, an app importing another app is a defect
-- ALWAYS take a choice that differs between apps as a value an app supplies or replaces, a choice the domain or host fixes stays closed
 
 [PRODUCTS]: Products are the artifacts their host installs or serves to a person holding no checkout
 - ALWAYS give a product the identity its host reads from an installed one (identifier, version, signature)

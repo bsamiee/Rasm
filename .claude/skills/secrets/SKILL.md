@@ -28,11 +28,11 @@ Doppler reads each option from a flag, then a `DOPPLER_*` environment variable:
 
 ## [02]-[INFRA_PREFIXES]
 
-Repository programs read owner-issued values from shared project `agent-runtime` config `dev` in workplace `Parametric_Arsenal`, each through its root target's `doppler run` prefix:
+Repository programs read owner-issued values from shared project `agent-runtime` config `dev` in workplace `Parametric_Arsenal`, each through its target's `doppler run` prefix:
 - `rasm:infra` names `GITHUB_TOKEN` with `--only-secrets`, a missing name fails the run
-- `rasm:hosting` names `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, and `OWNER_EMAIL` with `--no-exit-on-missing-only-secrets`, a missing name stays unset and the program's typed `Config` read names it when a target needs it
+- `<project>:hosting` names `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, and `OWNER_EMAIL` with `--no-exit-on-missing-only-secrets`, a missing name stays unset and the program's typed `Config` read names it when a target needs it
 - Variables the prefix leaves unset pass through from the calling environment, a local run sets one on the command
-- Hosting secrets join through `doppler secrets set <NAME> --project agent-runtime --config dev` and a name in the `rasm:hosting` prefix
+- Hosting secrets join through `doppler secrets set <NAME> --project agent-runtime --config dev` and a name in the `hosting` target prefix
 - Values a program generates (store keys, owner passwords) stay Pulumi stack secrets, `pulumi stack output <name> --show-secrets` reads them
 - Pulumi reads its backend credential from the `pulumi login` saved under `PULUMI_HOME`
 - Doppler adds `DOPPLER_PROJECT`, `DOPPLER_CONFIG`, and `DOPPLER_ENVIRONMENT` to every config

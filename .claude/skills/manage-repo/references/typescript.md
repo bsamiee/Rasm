@@ -78,3 +78,12 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - Overrides turn off rules where a host requires the form (a loader's default export, CSF stories beside components, `cf-worker` namespace imports)
 - `organizeImports` runs by default, every other source action is a row
 - `files.ignoreUnknown` silences unknown file types in a directory walk, `files.includes` negations name tracked files of a type Biome processes
+
+## [06]-[HOST_PACKAGING]
+
+UXP plug-ins package as one `.ccx` zip per host with `manifest.json` at its root:
+- `UnifiedPluginInstallerAgent --install <file>.ccx` installs into the release hosts Adobe's installer serves
+- Beta hosts load a plug-in folder through a `UXP/PluginsInfo/v1/<host.app>.json` row, its `path` reading `$localPlugins/External/<folder>`
+- Hosts load native addon binaries with a Developer ID signature and notarization alone
+- Marketplace review refuses plug-ins launching an external application
+- Marketplace and independent copies of a plug-in take separate plug-in IDs

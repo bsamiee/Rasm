@@ -199,7 +199,11 @@ Comments state intent or constraint code cannot show, in one line and statement 
 - Doc comment summaries are one sentence that states what the member returns or does without restating its name, remarks keep one fact per sentence
 - Use `Skill(python-document)` for a doc comment's tags, sections, period, and presence, `/dotnet-document` and `/typescript-document` hold the C# and TypeScript forms
 - Messages (log, error, exception, diagnostic) state what happened, its cause when known, then the action, each in one sentence with no period
-- Commit subjects are imperative, commit and pull request bodies state past facts
+- Commit subjects open `<type>(<project>): ` with an imperative subject, `!` before the colon marks a breaking change
+- Commit and pull request bodies state past facts
+- Commit types state the release a change carries: `feat` new behavior, `fix` repaired behavior, `refactor` and `perf` reworked behavior
+- Commits changing no product's behavior take `build`, `ci`, `docs`, `test`, `style`, or `chore`
+- Commit scopes name the one project carrying the change in its Nx name, a change across projects takes no scope
 - Comments naming a wrong result a call can return are guards, the call takes the parameter or form returning the right result, or the line goes
 
 ## [06]-[PROCESS]

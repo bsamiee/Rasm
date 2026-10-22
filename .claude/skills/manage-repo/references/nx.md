@@ -75,3 +75,18 @@ Use JSON discovery from workspace root:
 - `affected` with a base and no head diffs against `HEAD` and adds uncommitted and untracked files
 - Files belong to the nearest containing project root, a plugin file `nx.json` names to every project
 - `affected` runs each selected target's command unchanged, a root target over its whole file set
+
+## [06]-[RELEASE]
+
+Products version by Conventional Commits into tags alone, `nx.json` `release` and `eng/typescript/release` hold the whole flow:
+- Release groups map one product `output:*` tag to a group named for the host, tags read `{releaseGroupName}-{projectName}-v{version}`
+- MinVer tag prefixes spell the group name, target options interpolate no `{releaseGroupName}`
+- Commits count toward a product when they touch its files or a module it links
+- `tools/nx/release.ts` reads and writes no manifest, `releaseVersion` resolves versions from tags and `releaseChangelog` tags and creates releases
+- `pack` stamps the version MinVer reads from the product's tags, an untagged commit packs the next patch prerelease with height
+- `pack` caches where every input it reads hashes, Blender's through a runtime input over `HEAD` and its group's tags
+- Xcode and Rhino `pack` read host state no input hashes and run uncached
+- `publish` uploads `pack` output to the release `--tag` names, then pushes it to the host's channel
+- Products whose channel has no publish API hold no `publish`, `rasm:release` tags and releases them alone
+- Feed channels (`output:appcast`, `output:extension`) take a rolling `<project>-updates` release from `infra/`
+- First releases start from an unsigned lightweight `<group>-<project>-v0.0.0` tag and `rasm:release -- --specifier <version>`, the tag then goes

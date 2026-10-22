@@ -82,14 +82,14 @@ Bundles keep one form:
 
 Typings declare a host module under its `require` name, under an `adobe:` scheme, or as a type with no module:
 
-| [INDEX] | [MODULES]                 | [PACKAGE]                    | [DECLARES]                                                        |
-| :-----: | :------------------------ | :--------------------------- | :---------------------------------------------------------------- |
-|  [01]   | `uxp`, `fs`, `os`, `path` | `@adobe-uxp-types/uxp`       | `uxp` by name, each module under `adobe:` from `with-protocol`    |
-|  [02]   | `photoshop`               | `@adobe-uxp-types/photoshop` | `photoshop` by name, `adobe:photoshop` from `with-protocol`       |
-|  [03]   | `photoshop`               | `@types/photoshop`           | Adobe's declarations, `photoshop` and `photoshop/dom/*` by name   |
-|  [04]   | `indesign`                | `indesign-uxp-types`         | `indesign` by name, `adobe:indesign` from `flat` through `paths`  |
-|  [05]   | `premierepro`             | `@adobe/premierepro`         | Type `premierepro` of the module object, no module                |
-|  [06]   | Illustrator ExtendScript  | `types-for-adobe`            | Global classes per host folder, no module                         |
+| [INDEX] | [MODULES]                 | [PACKAGE]                    | [DECLARES]                                                       |
+| :-----: | :------------------------ | :--------------------------- | :--------------------------------------------------------------- |
+|  [01]   | `uxp`, `fs`, `os`, `path` | `@adobe-uxp-types/uxp`       | `uxp` by name, each module under `adobe:` from `with-protocol`   |
+|  [02]   | `photoshop`               | `@adobe-uxp-types/photoshop` | `photoshop` by name, `adobe:photoshop` from `with-protocol`      |
+|  [03]   | `photoshop`               | `@types/photoshop`           | Adobe's declarations, `photoshop` and `photoshop/dom/*` by name  |
+|  [04]   | `indesign`                | `indesign-uxp-types`         | `indesign` by name, `adobe:indesign` from `flat` through `paths` |
+|  [05]   | `premierepro`             | `@adobe/premierepro`         | Type `premierepro` of the module object, no module               |
+|  [06]   | Illustrator ExtendScript  | `types-for-adobe`            | Global classes per host folder, no module                        |
 
 - Imports name host modules under `adobe:`, a prefix that separates `fs`, `os`, and `path` from Node's and that bundles strip to the `require` name
 - `types` lists `node` beside each `with-protocol` entry, and `node` types `require`, `process`, and `adobe:fs` members
@@ -269,12 +269,14 @@ One manifest serves one host application: `host.app` takes `ID`, `PS`, `premiere
 |  [02]   | `localFileSystem: "fullAccess"`   | Access outside plug-in storage          | Defaults to plug-in storage      |
 |  [03]   | `allowCodeGenerationFromStrings`  | `eval`, `new Function`, inline handlers | InDesign v5 runs `new Function`  |
 |  [04]   | `featureFlags.unhandledRejection` | `unhandledrejection` events             | Rejection logged, no caller told |
+|  [05]   | `launchProcess`                   | `shell.openPath`, `shell.openExternal`  | Both calls throw a denial        |
 
 - `plugin-temp:` reads and writes the folder `getTemporaryFolder()` returns under every permission level, and `plugin:` is read-only
 - Storage providers hold no `unlinkSync`, and a temporary file's native storage entry deletes it through `delete()`
 - Storage entries preserve native `url` schemes for file reads and expose `nativePath` for host-native writes
 - `domains` entries name a host with a top-level domain or `localhost`, and an IP literal entry is discarded
-
-Packaged plug-ins are `.ccx` zips, one per host, with `manifest.json` at their root. `UnifiedPluginInstallerAgent --install <file>.ccx` installs into the release hosts Adobe's installer serves, and a Beta host loads a plug-in folder through a row in `UXP/PluginsInfo/v1/<host.app>.json`:
-- Row `path` reads `$localPlugins/External/<folder>`, a folder under `UXP/Plugins/External`
+- `shell.openPath` and `shell.openExternal` open a path or URL behind a consent dialog, with no arguments or process output
 - Plug-in data sits under `UXP/PluginsStorage/<product>/<major>/External/<pluginId>/PluginData`
+- Native addons (`.uxpaddon`, manifest 6 `addon` with `enableAddon`) load in Photoshop and Premiere alone
+
+Use `manage-repo` for packaging and installing plug-ins.
