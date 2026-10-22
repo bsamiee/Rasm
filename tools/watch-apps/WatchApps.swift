@@ -157,7 +157,7 @@ struct Launch: AsyncParsableCommand {
                             configuration.arguments = arguments
                             configuration.environment = environment
                             return try await NSWorkspace.shared.launchApplication(
-                                at: Installation.single(of: id, among: installations).get().url,
+                                Installation.single(of: id, among: installations).get(),
                                 opening: documents,
                                 configuration: configuration,
                             )

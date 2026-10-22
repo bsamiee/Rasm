@@ -32,7 +32,8 @@ ${CLAUDE_SKILL_DIR}/../../../.cache/swiftpm/build/debug/watch-apps launch <app> 
 - `--arguments` and `--environment` set the new instance's command-line arguments and environment, one value per flag, launchd's environment fills the rest
 - Apps can activate and unhide themselves once launched or once a press answers a dialog they show while launching
 - Apps with an argument that stops their activation take the argument through `--arguments`
-- `--hides` launches a new instance hidden, a running one stays as it is
+- `--hides` launches a new instance hidden, a running one stays as it is, an `LSUIElement` menu bar app refuses it
+- AppleScript `path to application` launches a stopped app hidden, a hidden menu bar app shows no panel until it relaunches
 - Bundle ids installed at more than one path print a `fail` line naming each path
 - Output and error streams of the app are its own, `launch` captures neither
 

@@ -96,7 +96,7 @@ enum Request: Decodable {
                 case .status(let pid):
                     return try await .value(InstanceState(Adobe.running(pid).get().instance.status(walking: walked)))
                 case .launch(let url):
-                    return try await .value(["pid": NSWorkspace.shared.launchApplication(at: Adobe.installation(at: url).get().url).get().processIdentifier])
+                    return try await .value(["pid": NSWorkspace.shared.launchApplication(Adobe.installation(at: url).get()).get().processIdentifier])
                 case .perform(let pid, let actions):
                     let instance: NSRunningApplication = try Adobe.running(pid).get().instance
                     for action: ElementAction in actions { try await instance.perform(action).get() }

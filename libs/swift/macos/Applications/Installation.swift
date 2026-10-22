@@ -6,16 +6,27 @@ import UniformTypeIdentifiers
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+private struct InfoFlag: Decodable {
+    let value: Bool
+
+    init(from decoder: any Decoder) throws {
+        let container: any SingleValueDecodingContainer = try decoder.singleValueContainer()
+        value = try (try? container.decode(Bool.self)) ?? NSString(string: container.decode(String.self)).boolValue
+    }
+}
+
 private struct BundleInfo: Decodable {
     private enum CodingKeys: String, CodingKey {
         case identifier = "CFBundleIdentifier"
         case version = "CFBundleShortVersionString"
         case scriptingDefinitionFile = "OSAScriptingDefinition"
+        case agent = "LSUIElement"
     }
 
     let identifier: String?
     let version: String?
     let scriptingDefinitionFile: String?
+    let agent: InfoFlag?
 }
 
 public struct Installation: Encodable, Hashable, Sendable {
@@ -25,6 +36,7 @@ public struct Installation: Encodable, Hashable, Sendable {
     public let version: String?
     public let scriptable: Bool
     public let scriptingDefinitionFile: String?
+    public let agent: Bool
 
     public static func at(_ url: URL) -> Result<Self, DiscoveryFailure> {
         let bundle: URL = url.resolvingSymlinksInPath()
@@ -44,6 +56,7 @@ public struct Installation: Encodable, Hashable, Sendable {
                 version: info?.version,
                 scriptable: values.applicationIsScriptable == true,
                 scriptingDefinitionFile: info?.scriptingDefinitionFile,
+                agent: info?.agent?.value == true,
             )
         }
     }

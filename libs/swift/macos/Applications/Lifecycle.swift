@@ -48,12 +48,14 @@ public enum InstanceState: Encodable, Sendable {
 
 @CasePathable
 public enum LaunchFailure: CustomNSError, LocalizedError {
+    case hiddenAgent(URL)
     case open(any Error)
     case terminated
     case cancelled
 
     public var errorDescription: String? {
         switch self {
+            case .hiddenAgent(let url): "\(url.path(percentEncoded: false)) runs as an LSUIElement agent, a hidden instance shows no window and offers no way to unhide"
             case .open(let error): "Launch Services could not open application: \(error.localizedDescription)"
             case .terminated: "Application exited before it finished launching"
             case .cancelled: "Application launch was canceled"
@@ -69,10 +71,11 @@ public enum LaunchFailure: CustomNSError, LocalizedError {
 
 extension NSWorkspace {
     public func launchApplication(
-        at url: URL,
+        _ installation: Installation,
         opening documents: [URL] = [],
         configuration: sending OpenConfiguration = OpenConfiguration(),
     ) async -> Result<NSRunningApplication, LaunchFailure> {
+        let url: URL = installation.url
         configuration.activates = false
         configuration.addsToRecentItems = false
         configuration.promptsUserIfNeeded = false
@@ -87,6 +90,7 @@ extension NSWorkspace {
                 transactionID: AETransactionID(kAnyTransactionID),
             ) : nil
         return await Result { () async throws(LaunchFailure) in
+            guard !(installation.agent && configuration.hides) else { throw .hiddenAgent(url) }
             let instance: NSRunningApplication = try await Result { try await open(documents, withApplicationAt: url, configuration: configuration) }.mapError(LaunchFailure.open).get()
             try await instance.finishedLaunching().get()
             return instance
