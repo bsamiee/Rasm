@@ -14,24 +14,44 @@
     {
       "kind": "local",
       "path": "../../../..",
+    }, {
+      "kind": "remote",
+      "repository": "https://github.com/sparkle-project/Sparkle",
+      "version": {
+        "up-to-next-major-version": "2.10.0",
+      },
     },
   ],
   "files": [
     { "path": "<PROJECT>/../../../../Xcode.xcconfig" },
-    { "kind": "folder", "path": ".", "target-membership": [ "Atelier" ], "membership-exceptions": [ { "target": "Atelier", "exclusions": [ "buildServer.json" ] } ] },
-    { "kind": "folder", "path": "<PROJECT>/../../../../.artifacts/apps/creative-cloud/indesign/galley", "target-membership": [ "Atelier" ] },
     {
+      "kind": "folder",
+      "path": ".",
+      "target-membership": [
+        "Atelier",
+      ],
+      "membership-exceptions": [
+        {
+          "target": "Atelier",
+          "exclusions": [
+            "Info.plist",
+            "buildServer.json",
+          ],
+        },
+      ],
+    }, {
       "kind": "group",
       "name": "Products",
       "children": [
-        { "path": "<PRODUCTS>/Atelier.app", "id": "917C099D5AE4414EA80932BF", "type": "wrapper.application", "index": false },
+        { "path": "<PRODUCTS>/Atelier.app", "id": "DF819D1F3089FBAF00B8A072", "type": "wrapper.application", "index": false },
       ],
     },
+    { "kind": "folder", "path": "../../../../.artifacts/apps/creative-cloud/indesign/galley", "target-membership": [ "Atelier" ] },
   ],
   "targets": [
     {
       "name": "Atelier",
-      "id": "9DD1FABB5D4B42719173E08B",
+      "id": "DF819D1E3089FBAF00B8A072",
       "product": "Products/Atelier.app",
       "product-type": "application",
       "build-phases": [
@@ -64,16 +84,22 @@
           "package": "..",
           "product-name": "Fonts",
           "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "Sparkle",
+          "product-name": "Sparkle",
+          "build-phase": { "build-phase": "frameworks" },
         },
       ],
       "build-settings": {
         "AUTOMATION_APPLE_EVENTS": "YES",
-        "CURRENT_PROJECT_VERSION": "1",
+        "GENERATE_INFOPLIST_FILE": "YES",
+        "INFOPLIST_FILE": "Info.plist",
         "INFOPLIST_KEY_LSApplicationCategoryType": "public.app-category.utilities",
         "INFOPLIST_KEY_LSBackgroundOnly": "YES",
         "INFOPLIST_KEY_NSAppleEventsUsageDescription": "Atelier runs scripting commands in Adobe apps when an MCP client requests them.",
-        "MARKETING_VERSION": "1.0.0",
+        "LD_RUNPATH_SEARCH_PATHS": "@executable_path/../Frameworks",
         "PRODUCT_BUNDLE_IDENTIFIER": "app.rasm.atelier",
+        "PRODUCT_NAME": "$(TARGET_NAME)",
       },
     },
   ],

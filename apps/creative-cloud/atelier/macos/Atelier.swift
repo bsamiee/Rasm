@@ -7,6 +7,7 @@ import CurrentProcess
 import EffectRPC
 import Fonts
 import Foundation
+import Sparkle
 import UniformTypeIdentifiers
 import os
 
@@ -174,10 +175,17 @@ enum Atelier {
         do {
             try disclaimResponsibility()
             AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
+            let updaterDelegate: UpdaterDelegate = UpdaterDelegate()
+            let updater: SPUStandardUpdaterController = SPUStandardUpdaterController(startingUpdater: true, updaterDelegate: updaterDelegate, userDriverDelegate: nil)
+            defer { extendLifetime((updater, updaterDelegate)) }
             try await EffectRPC.serve(reading: .standardInput, writing: .standardOutput) { (request: Request) in await request.perform(definitions: definitions) }
         } catch {
-            Logger(category: "Atelier").fault("Stopped reading requests: \(error, privacy: .public)")
+            Logger(for: Self.self).fault("Stopped reading requests: \(error, privacy: .public)")
             exit(EXIT_FAILURE)
         }
     }
+}
+
+final class UpdaterDelegate: NSObject, SPUUpdaterDelegate {
+    func updater(_: SPUUpdater, willInstallUpdateOnQuit _: SUAppcastItem, immediateInstallationBlock _: () -> Void) -> Bool { true }
 }
