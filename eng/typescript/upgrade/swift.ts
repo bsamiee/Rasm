@@ -3,8 +3,8 @@ import { layer } from '@effect/platform-node/NodeServices';
 import { readJsonFile } from '@nx/devkit';
 import { Array, Effect, flow, Option, Path, Record, Schema, String } from 'effect';
 import { normalizeFull } from 'verkit';
-import { stdout } from '../process.ts';
-import { Capture, newest, scan, splice } from './bounds.ts';
+import { stdout } from '#/eng/typescript/process';
+import { Capture, newest, scan, splice } from '#/eng/typescript/upgrade/bounds';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

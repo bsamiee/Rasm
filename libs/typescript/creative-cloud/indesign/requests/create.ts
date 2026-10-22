@@ -1,11 +1,11 @@
-import { Unmatched } from '@rasm/search/unmatched.ts';
+import { Unmatched } from '@rasm/search';
 import { Array, Cache, Cause, Effect, Option, Record, Schema, Struct } from 'effect';
-import { decoder } from '../dom/decoding.ts';
-import { active, resolveObject } from '../dom/location.ts';
-import { Model } from '../dom/model.ts';
-import { leaf, Reference, Specifier } from '../dom/reference.ts';
-import { Mutation } from '../dom/transactions.ts';
-import { Change } from './change.ts';
+import { decoder } from '#/dom/decoding';
+import { active, resolveObject } from '#/dom/location';
+import { Model } from '#/dom/model';
+import { leaf, Reference, Specifier } from '#/dom/reference';
+import { Mutation } from '#/dom/transactions';
+import { Change } from '#/requests/change';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

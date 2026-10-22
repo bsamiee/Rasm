@@ -1,6 +1,6 @@
 import type { InDesignDOMObject } from 'adobe:indesign';
 import { Cause, Effect, flow, Option, Random, Schema } from 'effect';
-import { Model } from './model.ts';
+import { Model } from '#/dom/model';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

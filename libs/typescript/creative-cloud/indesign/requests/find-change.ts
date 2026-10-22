@@ -1,12 +1,12 @@
 import type { Document, InDesignDOMObject, PageItem, Text } from 'adobe:indesign';
-import { Unmatched } from '@rasm/search/unmatched.ts';
+import { Unmatched } from '@rasm/search';
 import { Array, Cause, Effect, flow, Number, Option, Predicate, Record, Schema, String, Struct } from 'effect';
-import { read } from '../dom/encoding.ts';
-import { active, owner, resolve } from '../dom/location.ts';
-import { Model } from '../dom/model.ts';
-import { Specifier } from '../dom/reference.ts';
-import { Mutation, preserve } from '../dom/transactions.ts';
-import { Change } from './change.ts';
+import { read } from '#/dom/encoding';
+import { active, owner, resolve } from '#/dom/location';
+import { Model } from '#/dom/model';
+import { Specifier } from '#/dom/reference';
+import { Mutation, preserve } from '#/dom/transactions';
+import { Change } from '#/requests/change';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

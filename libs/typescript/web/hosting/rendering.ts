@@ -14,7 +14,7 @@ interface Shell<S extends Schema.Codec<unknown, unknown>> {
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class StaticAssets extends Context.Service<StaticAssets, { readonly fetch: (request: Request) => Promise<Response> }>()('@rasm/hosting/rendering/server/StaticAssets') {}
+class StaticAssets extends Context.Service<StaticAssets, { readonly fetch: (request: Request) => Promise<Response> }>()('@rasm/hosting/rendering/StaticAssets') {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

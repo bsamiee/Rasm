@@ -1,5 +1,5 @@
 import { Array, Effect, flow, Option, Predicate, Schema } from 'effect';
-import { ranked } from './ranked.ts';
+import { ranked } from '#/ranked';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

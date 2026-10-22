@@ -1,6 +1,6 @@
 import { Array, Equal, Option, Record, type Schema } from 'effect';
-import { type Column, type ColumnOptions, column, conditions, type Field, type Fields, type Where } from './column.ts';
-import { identifier, literal, quote, transforms } from './lexical.ts';
+import { type Column, type ColumnOptions, column, conditions, type Field, type Fields, type Where } from '#/column';
+import { identifier, literal, quote, transforms } from '#/lexical';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

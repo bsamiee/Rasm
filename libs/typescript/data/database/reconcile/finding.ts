@@ -1,6 +1,6 @@
 import { Array, Effect, Equal, Option, Record, Schema } from 'effect';
 import type { SqlClient } from 'effect/sql';
-import type { Catalog } from '../definition.ts';
+import type { Catalog } from '#/definition';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

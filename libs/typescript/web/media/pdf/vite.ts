@@ -2,7 +2,7 @@ import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { normalizePath } from 'vite';
 import { viteStaticCopy } from 'vite-plugin-static-copy';
-import { assets } from './assets.ts';
+import { assets } from '#/pdf/assets';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

@@ -2,10 +2,8 @@ import { reset } from 'cloudflare:test';
 import { env } from 'cloudflare:workers';
 import { D1Client } from '@effect/sql-d1';
 import { assert, beforeEach, it } from '@effect/vitest';
-import { store } from '@rasm/database/store.ts';
-import { catalog } from 'architectural-portfolio/server/store/catalog.ts';
-import { readDocument } from 'architectural-portfolio/server/store/documents.ts';
-import { ownerUserId, registerOwner } from 'architectural-portfolio/server/store/owner.ts';
+import { store } from '@rasm/database';
+import { catalog, ownerUserId, readDocument, registerOwner } from '@rasm/portfolio/server';
 import { Effect, Layer, Option } from 'effect';
 import { SqlClient } from 'effect/sql';
 

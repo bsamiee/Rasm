@@ -2,14 +2,14 @@ import { Match } from 'effect';
 import { useInView } from 'motion/react';
 import { lazy, type RefObject, Suspense, useEffect, useRef, useState } from 'react';
 import { ErrorBoundary } from 'react-error-boundary';
-import { type ImageAsset, mediaUrl } from '../model/asset.ts';
-import { type Placement, placementDimensions } from '../model/placement.ts';
-import { placementAlt } from './labels.ts';
-import { MediaFailure, MediaLoading } from './status.tsx';
+import { placementAlt } from '#/media/labels';
+import { MediaFailure, MediaLoading } from '#/media/status';
+import { type ImageAsset, mediaUrl } from '#/model/asset';
+import { type Placement, placementDimensions } from '#/model/placement';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const PdfSheet = lazy(() => import('./pdf-sheet.tsx').then((module) => ({ default: module.PdfSheet })));
+const PdfSheet = lazy(() => import('#/media/pdf-sheet').then((module) => ({ default: module.PdfSheet })));
 const MediaElement = ({ placement, active, priority, presentation, layoutId, viewport }: { placement: typeof Placement.Type; active: boolean; priority: boolean; presentation: 'expandable' | 'expanded' | 'full' | 'preview' | 'thumbnail'; layoutId?: string; viewport?: RefObject<HTMLElement | null> }) => {
     const video = useRef<HTMLVideoElement>(null);
     const nearby = useInView(viewport ?? video, { margin: '200px' });

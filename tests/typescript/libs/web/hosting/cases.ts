@@ -1,5 +1,5 @@
 import { assert, type Vitest } from '@effect/vitest';
-import { createUpload, deleteObject, ObjectStorage, serveObject } from '@rasm/hosting/storage.ts';
+import { createUpload, deleteObject, ObjectStorage, serveObject } from '@rasm/hosting';
 import { Cause, Deferred, Effect, Function, type Layer, Option, Stream } from 'effect';
 import { HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { checkObjectStore, checkResumableWriteStore } from 'partial-content/conformance';

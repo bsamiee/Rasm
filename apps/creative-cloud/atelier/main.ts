@@ -1,14 +1,14 @@
-import { Automation } from '@rasm/automation/automation.ts';
-import { main } from '@rasm/mcp/main.ts';
+import { Automation } from '@rasm/automation';
+import { main } from '@rasm/mcp';
 import { Array, Config, Effect, flow, identity, Layer, Sink, Stream, Struct, SubscriptionRef } from 'effect';
-import { applications, launch, screenshot } from './features/applications.ts';
-import { faces, font } from './features/fonts.ts';
-import { indesign } from './features/indesign.ts';
-import { command, dictionaries, executeScript } from './features/scripting.ts';
-import { InDesignScript } from './indesign-script.ts';
-import manifest from './package.json' with { type: 'json' };
-import { routes } from './routes.ts';
-import { status } from './status.ts';
+import { applications, launch, screenshot } from '#/features/applications';
+import { faces, font } from '#/features/fonts';
+import { indesign } from '#/features/indesign';
+import { command, dictionaries, executeScript } from '#/features/scripting';
+import { InDesignScript } from '#/indesign-script';
+import manifest from '#/package.json' with { type: 'json' };
+import { routes } from '#/routes';
+import { status } from '#/status';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

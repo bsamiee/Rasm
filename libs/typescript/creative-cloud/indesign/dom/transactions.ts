@@ -1,5 +1,5 @@
 import { Array, Cause, Deferred, Effect, Record, Schema, Struct } from 'effect';
-import { Model } from './model.ts';
+import { Model } from '#/dom/model';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

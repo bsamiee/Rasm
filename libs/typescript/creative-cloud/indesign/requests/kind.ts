@@ -1,7 +1,7 @@
-import { Unmatched } from '@rasm/search/unmatched.ts';
+import { Unmatched } from '@rasm/search';
 import { Array, Cache, Effect, Option, Predicate, Record, Schema, Struct } from 'effect';
-import { bare, Field, Member, Method } from '../dom/dictionary.ts';
-import { Model } from '../dom/model.ts';
+import { bare, Field, Member, Method } from '#/dom/dictionary';
+import { Model } from '#/dom/model';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

@@ -1,10 +1,10 @@
 import type { Font } from 'adobe:indesign';
 import { Array, Cause, Effect, flow, Option, Predicate, Schema, Struct } from 'effect';
-import { read } from './dom/encoding.ts';
-import { active } from './dom/location.ts';
-import { Model } from './dom/model.ts';
-import { Reference, Specifier } from './dom/reference.ts';
-import { FindChange } from './requests/find-change.ts';
+import { read } from '#/dom/encoding';
+import { active } from '#/dom/location';
+import { Model } from '#/dom/model';
+import { Reference, Specifier } from '#/dom/reference';
+import { FindChange } from '#/requests/find-change';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

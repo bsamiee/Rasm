@@ -1,11 +1,11 @@
 import { Array, Effect, Equal, Option, Record, Schema } from 'effect';
 import type { SqlClient } from 'effect/sql';
-import { type Catalog, ftsTable, referentialActions } from '../definition.ts';
-import { identifier, quote } from '../lexical.ts';
-import { ddl } from './ddl.ts';
-import { catalogDdl, diff } from './diff.ts';
-import { Finding, unsupported } from './finding.ts';
-import { latestRevision } from './ledger.ts';
+import { type Catalog, ftsTable, referentialActions } from '#/definition';
+import { identifier, quote } from '#/lexical';
+import { ddl } from '#/reconcile/ddl';
+import { catalogDdl, diff } from '#/reconcile/diff';
+import { Finding, unsupported } from '#/reconcile/finding';
+import { latestRevision } from '#/reconcile/ledger';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

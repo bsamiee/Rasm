@@ -1,10 +1,10 @@
 import { parse } from 'acorn';
 import { full } from 'acorn-walk';
 import { Array, Cause, Effect, flow, Option, Predicate, Schema } from 'effect';
-import { read } from '../dom/encoding.ts';
-import { resolve } from '../dom/location.ts';
-import { Model } from '../dom/model.ts';
-import { Mutation } from '../dom/transactions.ts';
+import { read } from '#/dom/encoding';
+import { resolve } from '#/dom/location';
+import { Model } from '#/dom/model';
+import { Mutation } from '#/dom/transactions';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

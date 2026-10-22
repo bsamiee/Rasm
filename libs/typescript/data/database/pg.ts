@@ -1,6 +1,6 @@
 import { PgClient, PgTypes } from '@effect/sql-pg';
 import { DateTime, Function, flow, Redacted, Result, Schema } from 'effect';
-import { transforms } from './lexical.ts';
+import { transforms } from '#/lexical';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

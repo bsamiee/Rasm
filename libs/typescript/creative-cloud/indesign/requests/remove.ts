@@ -1,9 +1,9 @@
-import { Unmatched } from '@rasm/search/unmatched.ts';
+import { Unmatched } from '@rasm/search';
 import { Cache, Cause, Effect, Option, Predicate, Record } from 'effect';
-import { resolveObject } from '../dom/location.ts';
-import { Model } from '../dom/model.ts';
-import { leaf, Reference, Specifier } from '../dom/reference.ts';
-import { Mutation } from '../dom/transactions.ts';
+import { resolveObject } from '#/dom/location';
+import { Model } from '#/dom/model';
+import { leaf, Reference, Specifier } from '#/dom/reference';
+import { Mutation } from '#/dom/transactions';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

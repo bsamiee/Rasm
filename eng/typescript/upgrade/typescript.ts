@@ -4,8 +4,8 @@ import { Effect, FileSystem, Layer, Option, Record, Schema } from 'effect';
 import { FetchHttpClient, HttpClient, HttpClientResponse } from 'effect/http';
 import { findMaxSatisfying, isValid } from 'verkit';
 import { parse } from 'yaml';
-import { stdout } from '../process.ts';
-import { Capture, newest, scan, splice } from './bounds.ts';
+import { stdout } from '#/eng/typescript/process';
+import { Capture, newest, scan, splice } from '#/eng/typescript/upgrade/bounds';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

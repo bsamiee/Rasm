@@ -1,11 +1,11 @@
 import type { Document } from 'adobe:indesign';
 import { Array, Effect, flow, Option, Predicate, Record, Schema, Struct } from 'effect';
-import { read } from '../dom/encoding.ts';
-import { file } from '../dom/files.ts';
-import type { Model } from '../dom/model.ts';
-import { Reference, Specifier } from '../dom/reference.ts';
-import { ParagraphAttributes } from '../styles/paragraph-attributes.ts';
-import { LayerView } from './layer-view.ts';
+import { LayerView } from '#/documents/layer-view';
+import { read } from '#/dom/encoding';
+import { file } from '#/dom/files';
+import type { Model } from '#/dom/model';
+import { Reference, Specifier } from '#/dom/reference';
+import { ParagraphAttributes } from '#/styles/paragraph-attributes';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

@@ -1,10 +1,10 @@
-import { Source } from '@rasm/typography/source.ts';
-import { Uxp } from '@rasm/uxp/runtime.ts';
+import { Source } from '@rasm/typography';
+import { Uxp } from '@rasm/uxp';
 import { Cause, Effect, Option, Schema } from 'effect';
-import { fontByName } from '../dom/decoding.ts';
-import { temporary } from '../dom/files.ts';
-import { Model } from '../dom/model.ts';
-import { FontView } from '../font-view.ts';
+import { fontByName } from '#/dom/decoding';
+import { temporary } from '#/dom/files';
+import { Model } from '#/dom/model';
+import { FontView } from '#/font-view';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

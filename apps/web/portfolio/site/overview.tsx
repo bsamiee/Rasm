@@ -1,11 +1,11 @@
 import { useAtom } from '@effect/atom-react';
-import { dialogOpen } from '@rasm/ui/dialogs.ts';
+import { dialogOpen } from '@rasm/ui';
 import { Grid2x2, X } from 'lucide-react';
 import { useId } from 'react';
 import { Button, Dialog, DialogTrigger, GridLayout, GridList, GridListItem, Heading, Modal, ModalOverlay, Size, Virtualizer } from 'react-aria-components';
-import { CompositionGrid } from '../media/composition-grid.tsx';
-import { compositionLabel, numeral } from '../media/labels.ts';
-import type { Composition } from '../model/placement.ts';
+import { CompositionGrid } from '#/media/composition-grid';
+import { compositionLabel, numeral } from '#/media/labels';
+import type { Composition } from '#/model/placement';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

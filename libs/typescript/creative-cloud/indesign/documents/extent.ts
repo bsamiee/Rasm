@@ -1,6 +1,6 @@
 import type { Page, PageItem } from 'adobe:indesign';
 import { Array, Cause, Effect, Number, Schema, Struct } from 'effect';
-import { Model } from '../dom/model.ts';
+import { Model } from '#/dom/model';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

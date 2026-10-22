@@ -226,7 +226,7 @@ Export reads app-wide preferences another script left, fails with no throw under
 
 ```ts
 import type { Page } from 'adobe:indesign';
-import { temporary } from '@rasm/indesign/dom/files.ts';
+import { temporary } from '#/dom/files';
 
 const rendered = Effect.fn('rendered')(function* (page: Page, pixels: number) {
     const [{ app, ExportFormat, PNGExportRangeEnum }, { fs }] = yield* Effect.all([Model, Uxp]);
@@ -314,7 +314,7 @@ Searches and changes run in one sequence:
 
 ```ts
 import type { Font } from 'adobe:indesign';
-import { temporary } from '@rasm/indesign/dom/files.ts';
+import { temporary } from '#/dom/files';
 
 const source = Effect.fn('source')(function* (face: Font, characters: string) {
     const [{ FontStatus }, { fs }] = yield* Effect.all([Model, Uxp]);

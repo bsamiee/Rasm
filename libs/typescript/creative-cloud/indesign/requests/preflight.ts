@@ -1,9 +1,9 @@
 import type { Document, PreflightProcess } from 'adobe:indesign';
-import { Unmatched } from '@rasm/search/unmatched.ts';
+import { Unmatched } from '@rasm/search';
 import { Array, Cause, Effect, flow, Option, Predicate, Record, Result, Schema, String } from 'effect';
-import { resolve } from '../dom/location.ts';
-import { Model } from '../dom/model.ts';
-import { Reference, Specifier } from '../dom/reference.ts';
+import { resolve } from '#/dom/location';
+import { Model } from '#/dom/model';
+import { Reference, Specifier } from '#/dom/reference';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

@@ -1,17 +1,12 @@
-import { Execute, Kind, Terms } from '@rasm/automation/apple-events.ts';
-import { type Installation, Perform } from '@rasm/automation/applications.ts';
-import { Automation } from '@rasm/automation/automation.ts';
-import { ExecuteScript } from '@rasm/indesign/requests/execute-script.ts';
-import { Attachment } from '@rasm/mcp/content.ts';
-import { registerResourceTemplate } from '@rasm/mcp/resources.ts';
-import { Instructions } from '@rasm/mcp/server.ts';
-import { registerRoutedTool } from '@rasm/mcp/tools.ts';
+import { Automation, Execute, type Installation, Kind, Perform, Terms } from '@rasm/automation';
+import { ExecuteScript } from '@rasm/indesign';
+import { Attachment, Instructions, registerResourceTemplate, registerRoutedTool } from '@rasm/mcp';
 import { transformSync } from 'amaro';
 import { Array, Context, Effect, Function, Match, Option, Predicate, Schema, SchemaAST, Struct, SubscriptionRef } from 'effect';
 import { McpSchema, Tool } from 'effect/ai';
-import { InDesignScript } from '../indesign-script.ts';
-import { instance, lookup, type routes } from '../routes.ts';
-import type { status } from '../status.ts';
+import { InDesignScript } from '#/indesign-script';
+import { instance, lookup, type routes } from '#/routes';
+import type { status } from '#/status';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

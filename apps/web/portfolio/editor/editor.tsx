@@ -1,26 +1,26 @@
 import { useAtom, useAtomRefresh, useAtomSet, useAtomSubscribe, useAtomValue } from '@effect/atom-react';
-import { focus } from '@rasm/ui/focus.ts';
+import { focus } from '@rasm/ui';
 import { Array, Effect, Match, Option } from 'effect';
 import { AsyncResult, type Atom } from 'effect/reactivity';
 import { ArrowLeft, X } from 'lucide-react';
 import { lazy, type ReactNode, Suspense, useEffect, useId, useRef, useState } from 'react';
 import { Button, Dialog, Heading, type Key, Modal, ModalOverlay, Tab, TabList, TabPanel, Tabs, Text } from 'react-aria-components';
-import { entryTitle, quantity } from '../media/labels.ts';
-import { Entry, type Portfolio, type PortfolioData } from '../model/portfolio.ts';
-import { Compositions } from './compositions.tsx';
-import { ConfirmDialog } from './confirm-dialog.tsx';
-import { EntryFields, EntryList } from './entries.tsx';
-import { Identity } from './identity.tsx';
-import { Library } from './library.tsx';
-import { RequestAlert } from './request-alert.tsx';
-import { ReuseFile } from './reuse-file.tsx';
-import { deleteRequest, draft, identifier, portfolio, reloadRequest, saveRequest } from './state.ts';
-import { UploadRecovery } from './upload-recovery.tsx';
-import { destination, pendingUploads } from './uploader.ts';
+import { Compositions } from '#/editor/compositions';
+import { ConfirmDialog } from '#/editor/confirm-dialog';
+import { EntryFields, EntryList } from '#/editor/entries';
+import { Identity } from '#/editor/identity';
+import { Library } from '#/editor/library';
+import { RequestAlert } from '#/editor/request-alert';
+import { ReuseFile } from '#/editor/reuse-file';
+import { deleteRequest, draft, identifier, portfolio, reloadRequest, saveRequest } from '#/editor/state';
+import { UploadRecovery } from '#/editor/upload-recovery';
+import { destination, pendingUploads } from '#/editor/uploader';
+import { entryTitle, quantity } from '#/media/labels';
+import { Entry, type Portfolio, type PortfolioData } from '#/model/portfolio';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const Uploads = lazy(() => import('./uploads.tsx').then((module) => ({ default: module.Uploads })));
+const Uploads = lazy(() => import('#/editor/uploads').then((module) => ({ default: module.Uploads })));
 const EditorDialog = ({ description, busy, children }: { description?: string; busy: boolean; children?: ReactNode }) => (
     <ModalOverlay className="bg-foreground/55 fixed inset-0 z-50" isDismissable={!busy} isKeyboardDismissDisabled={busy}>
         <Modal>

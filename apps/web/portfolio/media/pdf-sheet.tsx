@@ -1,7 +1,5 @@
 import { useAtomRefresh, useAtomValue } from '@effect/atom-react';
-import { pdfDocument } from '@rasm/media/pdf/document.ts';
-import { usePdfPage } from '@rasm/media/pdf/page.ts';
-import { usePdfViewer } from '@rasm/media/pdf/viewer.ts';
+import { pdfDocument, usePdfPage, usePdfViewer } from '@rasm/media/pdf';
 import { AsyncResult } from 'effect/reactivity';
 import { ChevronLeft, ChevronRight, RotateCw } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -9,11 +7,11 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { LinkTarget, ScrollMode, SpreadMode } from 'pdfjs-dist/web/pdf_viewer.mjs';
 import { useState } from 'react';
 import { Button, Input, SearchField, ToggleButton, Toolbar } from 'react-aria-components';
-import { mediaUrl, sheets } from '../model/asset.ts';
-import type { Placement } from '../model/placement.ts';
-import { numeral, sheetLabel } from './labels.ts';
-import { MediaFailure, MediaLoading } from './status.tsx';
-import { ZoomControls } from './zoom-controls.tsx';
+import { numeral, sheetLabel } from '#/media/labels';
+import { MediaFailure, MediaLoading } from '#/media/status';
+import { ZoomControls } from '#/media/zoom-controls';
+import { mediaUrl, sheets } from '#/model/asset';
+import type { Placement } from '#/model/placement';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

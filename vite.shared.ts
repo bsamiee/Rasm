@@ -1,15 +1,16 @@
 import { createRequire } from 'node:module';
 import { join, relative } from 'node:path';
 import { cloudflare } from '@cloudflare/vite-plugin';
-import { Manifest } from '@rasm/uxp/manifest.ts';
+import { Manifest } from '@rasm/uxp/manifest';
 import compiler from '@vitejs/plugin-react';
 import { Array, Config, Effect, Record, Schema, String } from 'effect';
-import { defaultClientConditions, defaultServerConditions, type PluginOption, type Rollup, type UserConfig, type UserConfigFnObject } from 'vite';
+import { defaultClientConditions, defaultServerConditions, type PluginOption, type Rolldown, type UserConfig, type UserConfigFnObject } from 'vite';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _ROOT = import.meta.dirname;
 const _HOSTED = /^adobe:/u;
+const _EXPERIMENTAL = { lazyBarrel: true };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -17,7 +18,7 @@ const react = (): PluginOption => compiler({ compiler: { panicThreshold: 'all_er
 const worker =
     (directory: string, plugins: PluginOption, hosting: PluginOption): UserConfigFnObject =>
     ({ mode }) => ({
-        build: { target: 'esnext' },
+        build: { target: 'esnext', rolldownOptions: { experimental: _EXPERIMENTAL } },
         plugins: [
             plugins,
             Effect.runSync(Effect.map(Effect.all([Config.withDefault(Config.Boolean('STORYBOOK'), false), Config.withDefault(Config.Boolean('VITEST'), false)]), Array.some(Boolean)))
@@ -37,6 +38,7 @@ const bundled = (directory: string, main: string, asset: { readonly fileName: st
             rolldownOptions: {
                 input: { main },
                 platform: 'neutral',
+                experimental: _EXPERIMENTAL,
                 transform: {
                     inject: Record.fromIterableWith(
                         Array.filter(Object.keys(load(encoding)), (name) => name in globalThis),
@@ -50,7 +52,7 @@ const bundled = (directory: string, main: string, asset: { readonly fileName: st
         plugins: [
             {
                 name: 'entry',
-                generateBundle(this: Rollup.PluginContext): void {
+                generateBundle(this: Rolldown.PluginContext): void {
                     this.emitFile({ type: 'asset', ...asset });
                 },
             },

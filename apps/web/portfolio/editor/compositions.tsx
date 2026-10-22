@@ -1,18 +1,17 @@
 import { useAtomSet } from '@effect/atom-react';
-import { MenuButton } from '@rasm/ui/menu-button.tsx';
-import { ReorderableList } from '@rasm/ui/reorderable-list.tsx';
+import { MenuButton, ReorderableList } from '@rasm/ui';
 import { Array, Effect, String, Struct } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { useState } from 'react';
 import { Button } from 'react-aria-components';
-import { CompositionGrid } from '../media/composition-grid.tsx';
-import { compositionLabel, entryTitle, placementTitle, quantity } from '../media/labels.ts';
-import type { AssetCollection } from '../model/asset.ts';
-import { Composition } from '../model/placement.ts';
-import type { Entry } from '../model/portfolio.ts';
-import { ConfirmDialog } from './confirm-dialog.tsx';
-import { PlacementFields } from './placement-fields.tsx';
-import { draft, identifier, updateEntry } from './state.ts';
+import { ConfirmDialog } from '#/editor/confirm-dialog';
+import { PlacementFields } from '#/editor/placement-fields';
+import { draft, identifier, updateEntry } from '#/editor/state';
+import { CompositionGrid } from '#/media/composition-grid';
+import { compositionLabel, entryTitle, placementTitle, quantity } from '#/media/labels';
+import type { AssetCollection } from '#/model/asset';
+import { Composition } from '#/model/placement';
+import type { Entry } from '#/model/portfolio';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

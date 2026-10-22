@@ -1,21 +1,21 @@
 import { useAtomValue } from '@effect/atom-react';
-import { sessionPath } from '@rasm/hosting/authentication/sites.ts';
-import { openDialogs } from '@rasm/ui/dialogs.ts';
+import { sessionPath } from '@rasm/hosting/client';
+import { openDialogs } from '@rasm/ui';
 import { ArrowDown, ArrowUp, Plus } from 'lucide-react';
 import { MotionConfig } from 'motion/react';
 import { lazy, type ReactNode, type RefObject, Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Button, Dialog, DialogTrigger, Heading, Modal, ModalOverlay } from 'react-aria-components';
 import { ErrorBoundary } from 'react-error-boundary';
-import { MediaFigure } from '../media/media-figure.tsx';
-import type { PortfolioData } from '../model/portfolio.ts';
-import type { Session } from '../model/shell.ts';
-import { Chapter } from './chapter.tsx';
-import { useNavigation } from './navigation.ts';
-import { StickyBar, WorkIndex } from './work-index.tsx';
+import { MediaFigure } from '#/media/media-figure';
+import type { PortfolioData } from '#/model/portfolio';
+import type { Session } from '#/model/shell';
+import { Chapter } from '#/site/chapter';
+import { useNavigation } from '#/site/navigation';
+import { StickyBar, WorkIndex } from '#/site/work-index';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const Editor = lazy(() => import('../editor/editor.tsx').then((module) => ({ default: module.Editor })));
+const Editor = lazy(() => import('#/editor/editor').then((module) => ({ default: module.Editor })));
 const Account = ({ session, open, mounted, opener, onOpenChange, children }: { session: typeof Session.Type; open: boolean; mounted: boolean; opener: RefObject<HTMLButtonElement | null>; onOpenChange: (open: boolean) => void; children: ReactNode }) =>
     session.kind === 'owner' ? (
         <DialogTrigger isOpen={open} onOpenChange={onOpenChange}>

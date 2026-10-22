@@ -5,7 +5,7 @@ import { Array, Console, Effect, Option, Schema, String } from 'effect';
 import { Command, Flag } from 'effect/cli';
 import nx from 'nx/package.json' with { type: 'json' };
 import { releaseChangelog, releaseVersion } from 'nx/release';
-import { stdout } from '../process.ts';
+import { stdout } from '#/eng/typescript/process';
 
 // --- [ERRORS] --------------------------------------------------------------------------
 

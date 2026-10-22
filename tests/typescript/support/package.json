@@ -3,8 +3,13 @@
     "private": true,
     "description": "Reusable test support: Storybook addons that fail stories on axe violations, and Playwright suite settings with one app instance per worker",
     "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
     "exports": {
-        "./*": "./*"
+        "./playwright": "./playwright/index.ts",
+        "./preset": "./preset.ts",
+        "./preview": "./preview.ts"
     },
     "dependencies": {
         "@playwright/test": "catalog:",

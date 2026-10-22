@@ -4,9 +4,9 @@ import { NodeHttpServer } from '@effect/platform-node';
 import { Config, Effect, Layer, Logger, Record } from 'effect';
 import { FetchHttpClient, HttpEffect, HttpRouter, HttpStaticServer } from 'effect/http';
 import { Otlp, OtlpSerialization } from 'effect/observability';
-import type { WorkerConfig } from '../cloudflare/worker-config.ts';
-import { StaticAssets } from '../rendering/server.ts';
-import { output } from './vite.ts';
+import { output } from '#/node/vite';
+import { StaticAssets } from '#/rendering';
+import type { WorkerConfig } from '#/worker-config';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

@@ -1,12 +1,11 @@
 import { BrowserCrypto } from '@effect/platform-browser';
 import { D1Client } from '@effect/sql-d1';
-import { store } from '@rasm/database/store.ts';
-import { worker } from '@rasm/hosting/cloudflare/worker.ts';
-import { StaticAssets } from '@rasm/hosting/rendering/server.ts';
-import { r2 } from '@rasm/hosting/storage.ts';
+import { store } from '@rasm/database';
+import { r2, StaticAssets } from '@rasm/hosting';
+import { worker } from '@rasm/hosting/cloudflare';
 import { Layer } from 'effect';
-import { app } from './app.ts';
-import { catalog } from './store/catalog.ts';
+import { app } from '#/server/app';
+import { catalog } from '#/server/store/catalog';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

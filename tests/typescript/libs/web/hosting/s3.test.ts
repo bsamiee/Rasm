@@ -1,10 +1,10 @@
 import { CreateBucketCommand, S3Client } from '@aws-sdk/client-s3';
 import { layer } from '@effect/vitest';
-import { s3 } from '@rasm/hosting/storage.ts';
+import { s3 } from '@rasm/hosting';
 import { Context, Effect, Layer, Random } from 'effect';
 import { GenericContainer, PullPolicy, type StartedTestContainer, Wait } from 'testcontainers';
 import { vi } from 'vitest';
-import { cases } from './cases.ts';
+import { cases } from '#/tests/typescript/libs/web/hosting/cases';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 

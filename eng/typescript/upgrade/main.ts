@@ -5,7 +5,7 @@ import { Array, Cause, Effect, Exit, FileSystem, flow, Option, Order, Path, Reco
 import { parse as parseToml } from 'smol-toml';
 import { compare, isValid } from 'verkit';
 import { parse as parseYaml } from 'yaml';
-import { stdout } from '../process.ts';
+import { stdout } from '#/eng/typescript/process';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

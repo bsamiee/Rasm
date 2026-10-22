@@ -1,11 +1,11 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect as base, type Page } from '@playwright/test';
-import { sessionPath } from '@rasm/hosting/authentication/sites.ts';
-import { app } from '@rasm/test-support/app.ts';
+import { sessionPath } from '@rasm/hosting/authentication';
+import { app } from '@rasm/test-support/playwright';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const test = app('architectural-portfolio').extend<{ readonly owner: Page }>({
+const test = app('@rasm/portfolio').extend<{ readonly owner: Page }>({
     page: async ({ page }, use) => {
         await page.goto('/');
         await use(page);

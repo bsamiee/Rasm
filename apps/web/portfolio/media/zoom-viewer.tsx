@@ -1,10 +1,10 @@
 import { motion, useReducedMotion } from 'motion/react';
 import { Button } from 'react-aria-components';
 import { TransformComponent, TransformWrapper } from 'react-zoom-pan-pinch';
-import { mediaUrl } from '../model/asset.ts';
-import type { Placement } from '../model/placement.ts';
-import { MediaElement } from './media-element.tsx';
-import { ZoomControls } from './zoom-controls.tsx';
+import { MediaElement } from '#/media/media-element';
+import { ZoomControls } from '#/media/zoom-controls';
+import { mediaUrl } from '#/model/asset';
+import type { Placement } from '#/model/placement';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

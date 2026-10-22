@@ -1,12 +1,12 @@
 import type { InDesignDOMObject, ParagraphStyle } from 'adobe:indesign';
 import { Array, Cause, Effect, flow, Iterable, Option, Predicate, Schema } from 'effect';
-import { byName } from '../dom/decoding.ts';
-import { read } from '../dom/encoding.ts';
-import { ancestors } from '../dom/location.ts';
-import { Model } from '../dom/model.ts';
-import { Reference } from '../dom/reference.ts';
-import { overrides } from './overrides.ts';
-import { ParagraphAttributes } from './paragraph-attributes.ts';
+import { byName } from '#/dom/decoding';
+import { read } from '#/dom/encoding';
+import { ancestors } from '#/dom/location';
+import { Model } from '#/dom/model';
+import { Reference } from '#/dom/reference';
+import { overrides } from '#/styles/overrides';
+import { ParagraphAttributes } from '#/styles/paragraph-attributes';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

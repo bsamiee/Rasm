@@ -1,11 +1,10 @@
 import { bindings, defineConfig, defineWorker } from 'cf/config';
-import manifest from './package.json' with { type: 'json' };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 export default defineConfig({
     worker: defineWorker(({ mode }) => ({
-        name: manifest.name,
+        name: 'portfolio',
         compatibilityDate: '2026-10-01',
         entrypoint: './server/worker.ts',
         assets: { runWorkerFirst: ['/', '/api/*'] },

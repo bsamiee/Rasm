@@ -1,7 +1,7 @@
 import { Effect, Schema } from 'effect';
 import type { ReactNode } from 'react';
 import { hydrateRoot } from 'react-dom/client';
-import type { Shell } from './server.ts';
+import type { Shell } from '#/rendering';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

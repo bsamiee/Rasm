@@ -1,7 +1,6 @@
 import indesign from 'adobe:indesign';
-import { Contract, handlers } from '@rasm/indesign/contract.ts';
-import { Model } from '@rasm/indesign/dom/model.ts';
-import { script } from '@rasm/uxp/entrypoints.ts';
+import { Contract, handlers, Model } from '@rasm/indesign';
+import { script } from '@rasm/uxp/entrypoints';
 import { Layer } from 'effect';
 import { RpcServer } from 'effect/rpc';
 

@@ -1,6 +1,6 @@
 import { Array, Option, Predicate, Record, Schema, Struct } from 'effect';
 import { type Font, MetricsTag } from 'harfbuzzjs';
-import type { Tables } from './tables.ts';
+import type { Tables } from '#/tables';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

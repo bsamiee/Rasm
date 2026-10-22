@@ -1,5 +1,5 @@
 import { Array, Effect, Match, Schema, SchemaGetter, SchemaIssue } from 'effect';
-import { type Asset, Assets, Id, ImageAsset, PdfAsset, Sheet, sheets, VideoAsset } from './asset.ts';
+import { type Asset, Assets, Id, ImageAsset, PdfAsset, Sheet, sheets, VideoAsset } from '#/model/asset';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

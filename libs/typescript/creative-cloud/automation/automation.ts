@@ -1,10 +1,10 @@
-import { Unmatched } from '@rasm/search/unmatched.ts';
+import { Unmatched } from '@rasm/search';
 import { Cause, Context, Duration, Effect, identity, Layer, Option, Schedule, Schema, Sink, Stream, SubscriptionRef } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/process';
 import { RpcClient, RpcClientError, type RpcMessage, RpcSerialization } from 'effect/rpc';
 import { Socket } from 'effect/socket';
-import type { Execute } from './apple-events.ts';
-import { Contract } from './contract.ts';
+import type { Execute } from '#/apple-events';
+import { Contract } from '#/contract';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 

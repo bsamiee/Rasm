@@ -3,8 +3,8 @@ import { Atom } from 'effect/reactivity';
 import { GlobalWorkerOptions, getDocument, InvalidPDFException, PasswordException } from 'pdfjs-dist';
 import workerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import type { DocumentInitParameters } from 'pdfjs-dist/types/src/display/api.d.ts';
-import { InspectError } from '../inspection.ts';
-import { assets } from './assets.ts';
+import { InspectError } from '#/inspection';
+import { assets } from '#/pdf/assets';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

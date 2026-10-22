@@ -1,8 +1,8 @@
 import { Effect, Layer, Option, Schema } from 'effect';
 import { SqlClient } from 'effect/sql';
-import type { Catalog } from './definition.ts';
-import { transforms } from './lexical.ts';
-import { apply } from './reconcile/apply.ts';
+import type { Catalog } from '#/definition';
+import { transforms } from '#/lexical';
+import { apply } from '#/reconcile/apply';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

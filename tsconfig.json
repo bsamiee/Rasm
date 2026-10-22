@@ -1,20 +1,6 @@
 {
     "extends": "./tsconfig.base.json",
     "compilerOptions": { "types": [ "node" ] },
-    "include": [
-        "*.config.ts",
-        ".codex/hooks/*.ts",
-        "tools/nx/*.ts",
-        "infra/*.ts",
-        "eng/typescript/**/*.ts",
-        "apps/**/vite.config.ts",
-        "apps/**/vitest.config.ts",
-        "apps/**/uxp.config.ts",
-        "apps/**/script.config.ts",
-        "libs/typescript/*/*/vitest.config.ts",
-        "apps/**/.storybook/main.ts",
-        "libs/typescript/*/*/.storybook/main.ts",
-        "tests/typescript/playwright.config.ts"
-    ],
-    "exclude": []
+    "include": [ ".codex/hooks/*.ts", "eng/typescript/**/*.ts", "infra/*.ts", "tools/nx/*.ts", "**/*.config.ts", "**/.storybook/main.ts" ],
+    "exclude": [ "docs" ]
 }

@@ -1,6 +1,6 @@
-import type { Shell } from '@rasm/hosting/rendering/server.ts';
+import type { Shell } from '@rasm/hosting';
 import { Schema } from 'effect';
-import { PortfolioData } from './portfolio.ts';
+import { PortfolioData } from '#/model/portfolio';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

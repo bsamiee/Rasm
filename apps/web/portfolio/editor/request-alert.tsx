@@ -1,6 +1,6 @@
 import { Match, SchemaIssue } from 'effect';
 import type { Atom } from 'effect/reactivity';
-import type { deleteRequest, draft, saveRequest } from './state.ts';
+import type { deleteRequest, draft, saveRequest } from '#/editor/state';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

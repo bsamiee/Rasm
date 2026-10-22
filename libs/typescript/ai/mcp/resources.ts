@@ -1,6 +1,6 @@
 import { Array, Cause, type Context, Effect, Equal, Function, flow, HashMap, Option, Predicate, Schema, Stream, SubscriptionRef, Tuple } from 'effect';
 import { McpSchema, McpServer } from 'effect/ai';
-import { orInternalError } from './server.ts';
+import { orInternalError } from '#/server';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

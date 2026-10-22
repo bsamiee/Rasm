@@ -1,12 +1,12 @@
 import { DatabaseSync } from 'node:sqlite';
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
-import { Manifest } from '@rasm/uxp/manifest.ts';
+import { Manifest } from '@rasm/uxp/manifest';
 import { ge } from '@renovatebot/pep440';
 import { Array, Cause, Config, Effect, FileSystem, Filter, Path, Schema, String, Struct } from 'effect';
 import { Argument, Command } from 'effect/cli';
 import { XMLParser } from 'fast-xml-parser';
-import { stdout } from '../process.ts';
+import { stdout } from '#/eng/typescript/process';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

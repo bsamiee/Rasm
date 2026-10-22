@@ -29,7 +29,7 @@ const mediaTypes = Asset.members.flatMap((member) => member.fields.mime.literals
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Assets extends Context.Service<Assets, typeof AssetCollection.Type>()('architectural-portfolio/model/asset/Assets') {}
+class Assets extends Context.Service<Assets, typeof AssetCollection.Type>()('@rasm/portfolio/model/asset/Assets') {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

@@ -2,9 +2,18 @@
     "name": "@rasm/hosting",
     "private": true,
     "description": "Foundation for web apps served from an edge Worker or a Node server: server-rendered pages with schema-encoded hydration data, one signed-in user header contract served by OpenAI Sites, Cloudflare Access, or an authenticating proxy, R2 or S3 object storage, the Worker config schema every hosting target maps, and HTTP API boundaries",
+    "sideEffects": false,
     "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
     "exports": {
-        "./*": "./*"
+        ".": "./index.ts",
+        "./authentication": "./authentication/index.ts",
+        "./client": "./client/index.ts",
+        "./cloudflare": "./cloudflare/worker.ts",
+        "./node": "./node/index.ts",
+        "./worker-config": "./worker-config.ts"
     },
     "dependencies": {
         "@aws-sdk/client-s3": "catalog:",
@@ -30,8 +39,16 @@
     },
     "nx": {
         "targets": {
-            "test": { "options": { "args": [ "--project=!s3" ] } },
-            "test:integration": { "options": { "args": [ "--project=s3" ] } }
+            "test": {
+                "options": {
+                    "args": [ "--project=!s3" ]
+                }
+            },
+            "test:integration": {
+                "options": {
+                    "args": [ "--project=s3" ]
+                }
+            }
         }
     }
 }

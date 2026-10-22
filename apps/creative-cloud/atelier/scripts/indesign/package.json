@@ -3,6 +3,10 @@
     "private": true,
     "description": "UXP script Atelier runs in InDesign through do script, serving the InDesign contract one request per run",
     "type": "module",
+    "imports": {
+        "#/*": "./*.ts",
+        "#/package.json": "./package.json"
+    },
     "main": "main.ts",
     "dependencies": {
         "@rasm/indesign": "workspace:*",

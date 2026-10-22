@@ -1,6 +1,6 @@
 import { Array, Effect, Schema } from 'effect';
 import { type SqlClient, SqlSchema } from 'effect/sql';
-import { table } from '../table.ts';
+import { table } from '#/table';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

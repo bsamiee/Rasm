@@ -1,10 +1,10 @@
 import { D1Client } from '@effect/sql-d1';
 import { Cause, Effect, Option, Struct } from 'effect';
 import { SqlClient } from 'effect/sql';
-import type { Catalog } from '../definition.ts';
-import { refuse } from './finding.ts';
-import { Pg } from './pg.ts';
-import { Sqlite } from './sqlite.ts';
+import type { Catalog } from '#/definition';
+import { refuse } from '#/reconcile/finding';
+import { Pg } from '#/reconcile/pg';
+import { Sqlite } from '#/reconcile/sqlite';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

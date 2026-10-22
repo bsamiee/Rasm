@@ -1,11 +1,11 @@
 import { Layer } from 'effect';
 import { HttpServer } from 'effect/http';
 import { HttpApiBuilder } from 'effect/http-api';
-import { Api } from '../model/api.ts';
-import { content } from './content.ts';
-import { download, media } from './media.ts';
-import { page } from './page.ts';
-import { owner } from './session.ts';
+import { Api } from '#/model/api';
+import { content } from '#/server/content';
+import { download, media } from '#/server/media';
+import { page } from '#/server/page';
+import { owner } from '#/server/session';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

@@ -2,9 +2,13 @@
     "name": "@rasm/ui",
     "private": true,
     "description": "Foundation for web app interfaces over React Aria: labeled text fields, selects, sliders, and menu buttons, reorderable lists, checkboxes, page-wide dialog state, focus after render, and CSS custom properties from hoisted rules",
+    "sideEffects": false,
     "type": "module",
+    "imports": {
+        "#/*": "./*.tsx"
+    },
     "exports": {
-        "./*": "./*"
+        ".": "./index.ts"
     },
     "dependencies": {
         "effect": "catalog:",

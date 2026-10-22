@@ -48,7 +48,7 @@ Rasm/
 ├── tsconfig.base.json        # Compiler options every TypeScript project extends
 ├── tsconfig.json             # Root TypeScript project over files outside every package
 ├── vitest.config.ts          # Test and coverage options every project config imports
-├── vite.config.ts            # Bundling options every project config imports
+├── vite.shared.ts            # Bundling options every project config imports
 ├── biome.json                # TypeScript and JSON formatting and lint
 ├── pmd.xml                   # Java lint rules
 ├── sgconfig.yml              # ast-grep rule directories and language parsing
@@ -146,10 +146,10 @@ Products reach a person through separate levels:
 |  [17]   | Python runtime                 | Mise Python row, uv's `.venv`, host `pyproject.toml` requirements                                    |
 |  [18]   | Native libraries for sdists    | Pixi environments in `pyproject.toml`, exact builds in `pixi.lock`                                   |
 |  [19]   | Container runtime              | Mise clients, `[daemons]` `docker` row for Colima on macOS, Docker Engine on Linux                   |
-|  [20]   | Shared Vite configuration      | `vite.config.ts`                                                                                     |
+|  [20]   | Shared Vite configuration      | `vite.shared.ts`                                                                                     |
 |  [21]   | Shared Vitest configuration    | `vitest.config.ts`, browser settings and the story project every package derives                     |
-|  [22]   | Shared Storybook addons        | `@rasm/test-support` `preset.ts` and `preview.ts` modules                                            |
-|  [23]   | Shared Playwright settings     | `@rasm/test-support` `playwright.ts` module                                                          |
+|  [22]   | Shared Storybook addons        | `@rasm/test-support/preset` and `@rasm/test-support/preview` entries                                 |
+|  [23]   | Shared Playwright settings     | `@rasm/test-support/playwright` entry                                                                |
 |  [24]   | Test MCP suites                | `tests/typescript/playwright.config.ts`                                                              |
 |  [25]   | Agent browser options          | `.playwright/cli.config.json`                                                                        |
 |  [26]   | GitHub Action version          | Published tag on each `uses:` row under `.github/`                                                   |

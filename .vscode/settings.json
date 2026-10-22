@@ -37,7 +37,7 @@
         "CLAUDE.md": ".mcp.json, AGENTS.md",
         "Directory.Build.props": "Directory.Build.rsp, Directory.Build.targets, Directory.Packages.props, global.json, NuGet.config, Workspace.slnx",
         "nx.json": ".editorconfig, .yamlfmt.yaml, .yamllint.yaml, mise.toml, pmd.xml, sgconfig.yml",
-        "package.json": "biome.json, pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig.base.json, tsconfig.json, vite.config.ts, vitest.config.ts",
+        "package.json": "biome.json, pnpm-lock.yaml, pnpm-workspace.yaml, tsconfig.base.json, tsconfig.json, vite.shared.ts, vitest.config.ts",
         "Package.swift": ".periphery.yml, .swift-format, .swiftlint.yml, Package.resolved, Xcode.xcconfig",
         "pyproject.toml": "pixi.lock, uv.lock",
         "README.md": "LICENSE"

@@ -1,12 +1,8 @@
-import { Contract } from '@rasm/indesign/contract.ts';
-import { Render } from '@rasm/indesign/requests/render.ts';
-import { Image } from '@rasm/mcp/content.ts';
-import { Registration, registerRpcGroup } from '@rasm/mcp/rpc.ts';
-import { Instructions } from '@rasm/mcp/server.ts';
-import { READ_ONLY } from '@rasm/mcp/tools.ts';
+import { Contract, Render } from '@rasm/indesign';
+import { Image, Instructions, READ_ONLY, Registration, registerRpcGroup } from '@rasm/mcp';
 import { Array, Context, Effect, Match, Schema, Struct } from 'effect';
-import { InDesignScript } from '../indesign-script.ts';
-import type { routes } from '../routes.ts';
+import { InDesignScript } from '#/indesign-script';
+import type { routes } from '#/routes';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

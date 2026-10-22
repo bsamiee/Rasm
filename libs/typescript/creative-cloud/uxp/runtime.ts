@@ -1,5 +1,5 @@
 import { Context } from 'effect';
-import type { Manifest } from './manifest.ts';
+import type { Manifest } from '#/manifest';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 

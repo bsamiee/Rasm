@@ -3,8 +3,8 @@ import { type EngineEvent, type InlineProgramArgs, LocalWorkspace } from '@pulum
 import { version } from '@pulumi/pulumi/version.js';
 import { type Cause, Config, Console, Effect, FileSystem, Match, Path, Queue, Record, Stream } from 'effect';
 import { Argument, Command, Flag } from 'effect/cli';
-import { hosting, targets } from './hosting.ts';
-import { program, stack } from './repository.ts';
+import { hosting, targets } from '#/infra/hosting';
+import { program, stack } from '#/infra/repository';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

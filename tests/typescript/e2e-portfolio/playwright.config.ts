@@ -1,4 +1,4 @@
-import { config } from '@rasm/test-support/playwright.ts';
+import { config } from '@rasm/test-support/playwright';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

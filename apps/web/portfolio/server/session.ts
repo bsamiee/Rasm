@@ -1,11 +1,11 @@
-import { user } from '@rasm/hosting/authentication/sites.ts';
+import { user } from '@rasm/hosting/authentication';
 import { Effect, Layer, Option } from 'effect';
 import { HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { HttpApiError } from 'effect/http-api';
 import { SqlClient } from 'effect/sql';
-import { Owner } from '../model/api.ts';
-import type { Session } from '../model/shell.ts';
-import { ownerUserId, registerOwner } from './store/owner.ts';
+import { Owner } from '#/model/api';
+import type { Session } from '#/model/shell';
+import { ownerUserId, registerOwner } from '#/server/store/owner';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

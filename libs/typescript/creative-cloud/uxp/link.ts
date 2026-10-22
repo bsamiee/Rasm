@@ -3,7 +3,7 @@ import { UrlParams } from 'effect/http';
 import { NetAddress } from 'effect/net';
 import { type Rpc, type RpcGroup, type RpcSerialization, RpcServer } from 'effect/rpc';
 import { Socket, SocketServer } from 'effect/socket';
-import { Plugin } from './runtime.ts';
+import { Plugin } from '#/runtime';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

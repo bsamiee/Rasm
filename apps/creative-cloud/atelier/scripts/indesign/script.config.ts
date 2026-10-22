@@ -1,5 +1,5 @@
-import { script } from '../../../../../vite.config.ts';
-import npm from './package.json' with { type: 'json' };
+import npm from '#/package.json' with { type: 'json' };
+import { script } from '../../../../../vite.shared.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

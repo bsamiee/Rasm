@@ -1,11 +1,18 @@
 {
-    "name": "architectural-portfolio",
+    "name": "@rasm/portfolio",
     "private": true,
     "description": "Architectural portfolio publishing projects and studies as one server-rendered page, with owner-only editor",
     "type": "module",
+    "imports": {
+        "#/*": "./*.tsx",
+        "#/*.css": "./*.css",
+        "#/model/*": "./model/*.ts",
+        "#/server/*": "./server/*.ts",
+        "#/*.config": "./*.config.ts"
+    },
     "exports": {
         "./package.json": "./package.json",
-        "./server/*": "./server/*"
+        "./server": "./server/index.ts"
     },
     "dependencies": {
         "@effect/atom-react": "catalog:",

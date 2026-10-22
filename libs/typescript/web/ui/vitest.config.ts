@@ -1,4 +1,4 @@
-import { react } from '../../../../vite.config.ts';
+import { react } from '../../../../vite.shared.ts';
 import { createVitestConfig } from '../../../../vitest.config.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

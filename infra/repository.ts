@@ -3,7 +3,7 @@ import { readCachedProjectGraph } from '@nx/devkit';
 import { findMatchingProjects, readNxJsonFromDisk } from '@nx/devkit/internal';
 import { ActionsRepositoryPermissions, IssueLabel, type IssueLabelArgs, Release, Repository, RepositoryDependabotSecurityUpdates, RepositoryRuleset, RepositoryVulnerabilityAlerts, WorkflowRepositoryPermissions } from '@pulumi/github';
 import { Effect, Path, Record } from 'effect';
-import { stdout } from '../eng/typescript/process.ts';
+import { stdout } from '#/eng/typescript/process';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

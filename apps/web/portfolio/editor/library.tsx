@@ -1,18 +1,17 @@
 import { useAtomSet } from '@effect/atom-react';
-import { focus } from '@rasm/ui/focus.ts';
-import { MenuButton } from '@rasm/ui/menu-button.tsx';
+import { focus, MenuButton } from '@rasm/ui';
 import { Array, Match, Optic, Option, Record, Schema } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { FileText, Film } from 'lucide-react';
 import { useId } from 'react';
 import { GridList, GridListItem } from 'react-aria-components';
-import { byteSize, conjunction, entryTitle, quantity } from '../media/labels.ts';
-import { MediaFigure } from '../media/media-figure.tsx';
-import { type Asset, type AssetCollection, PdfAsset, VideoAsset } from '../model/asset.ts';
-import { placementsFor } from '../model/placement.ts';
-import { assetIds, type Portfolio } from '../model/portfolio.ts';
-import { ConfirmDialog } from './confirm-dialog.tsx';
-import { deleteRequest, draft, hero } from './state.ts';
+import { ConfirmDialog } from '#/editor/confirm-dialog';
+import { deleteRequest, draft, hero } from '#/editor/state';
+import { byteSize, conjunction, entryTitle, quantity } from '#/media/labels';
+import { MediaFigure } from '#/media/media-figure';
+import { type Asset, type AssetCollection, PdfAsset, VideoAsset } from '#/model/asset';
+import { placementsFor } from '#/model/placement';
+import { assetIds, type Portfolio } from '#/model/portfolio';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

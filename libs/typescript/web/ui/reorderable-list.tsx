@@ -2,7 +2,7 @@ import { Array, Filter } from 'effect';
 import { GripVertical } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { Button, GridList, GridListItem, type GridListProps, type ItemDropTarget, type Key, Menu, MenuItem, MenuTrigger, Popover, type Selection, useDragAndDrop } from 'react-aria-components';
-import { Checkbox } from './checkbox.tsx';
+import { Checkbox } from '#/checkbox';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

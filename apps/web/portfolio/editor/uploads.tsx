@@ -1,16 +1,15 @@
 import { useAtom, useAtomValue } from '@effect/atom-react';
-import { MenuButton } from '@rasm/ui/menu-button.tsx';
-import { SelectField } from '@rasm/ui/select-field.tsx';
+import { MenuButton, SelectField } from '@rasm/ui';
 import { useUppyState } from '@uppy/react';
 import Dashboard from '@uppy/react/dashboard';
 import { Schema, String, Struct } from 'effect';
 import { useState } from 'react';
 import '@uppy/core/css/style.min.css';
 import '@uppy/dashboard/css/style.min.css';
-import { byteSize, disjunction, entryTitle } from '../media/labels.ts';
-import { type AssetCollection, mediaTypes, PdfAsset, uploadLimit } from '../model/asset.ts';
-import type { Entry } from '../model/portfolio.ts';
-import { type Destination, destination, pendingUploads, queue, uppy } from './uploader.ts';
+import { type Destination, destination, pendingUploads, queue, uppy } from '#/editor/uploader';
+import { byteSize, disjunction, entryTitle } from '#/media/labels';
+import { type AssetCollection, mediaTypes, PdfAsset, uploadLimit } from '#/model/asset';
+import type { Entry } from '#/model/portfolio';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

@@ -1,7 +1,7 @@
 import type { Entry } from 'adobe:uxp';
 import { Cause, Effect, flow, identity, Match, Option, Predicate, type Record, Result, Schema } from 'effect';
-import { Model } from './model.ts';
-import { Reference } from './reference.ts';
+import { Model } from '#/dom/model';
+import { Reference } from '#/dom/reference';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

@@ -1,14 +1,11 @@
 import { useAtomSet } from '@effect/atom-react';
-import { Field } from '@rasm/ui/field.tsx';
-import { MenuButton } from '@rasm/ui/menu-button.tsx';
-import { SelectField } from '@rasm/ui/select-field.tsx';
-import { SliderField } from '@rasm/ui/slider-field.tsx';
+import { Field, MenuButton, SelectField, SliderField } from '@rasm/ui';
 import { Match, Optic, Record, Schema, Struct } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
-import { descriptionLabel, sheetLabel } from '../media/labels.ts';
-import { type AssetCollection, ImageAsset, sheets } from '../model/asset.ts';
-import { type Placement, percentBounds } from '../model/placement.ts';
-import { draft, hero, updateEntry } from './state.ts';
+import { draft, hero, updateEntry } from '#/editor/state';
+import { descriptionLabel, sheetLabel } from '#/media/labels';
+import { type AssetCollection, ImageAsset, sheets } from '#/model/asset';
+import { type Placement, percentBounds } from '#/model/placement';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

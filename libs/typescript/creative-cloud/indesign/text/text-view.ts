@@ -1,10 +1,10 @@
 import type { Text, TextFrame } from 'adobe:indesign';
 import { Cause, Effect, flow, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
-import { read } from '../dom/encoding.ts';
-import { Model } from '../dom/model.ts';
-import { Reference } from '../dom/reference.ts';
-import { overrides } from '../styles/overrides.ts';
-import { ParagraphAttributes } from '../styles/paragraph-attributes.ts';
+import { read } from '#/dom/encoding';
+import { Model } from '#/dom/model';
+import { Reference } from '#/dom/reference';
+import { overrides } from '#/styles/overrides';
+import { ParagraphAttributes } from '#/styles/paragraph-attributes';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

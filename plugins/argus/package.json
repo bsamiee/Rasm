@@ -1,8 +1,13 @@
 {
-    "name": "argus",
+    "name": "@rasm/argus",
     "private": true,
     "description": "Language servers of .lsp.json, native in Claude Code and loopback MCP tools in Codex",
     "type": "module",
+    "imports": {
+        "#/*": "./*.ts",
+        "#/.codex-plugin/plugin.json": "./.codex-plugin/plugin.json",
+        "#/.lsp.json": "./.lsp.json"
+    },
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@parcel/watcher": "catalog:",

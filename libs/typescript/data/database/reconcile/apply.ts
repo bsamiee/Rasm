@@ -1,10 +1,10 @@
 import { Array, Effect, Option, Schema, Struct } from 'effect';
 import { SqlClient } from 'effect/sql';
-import type { Catalog } from '../definition.ts';
-import { atomic } from '../transaction.ts';
-import { ledger } from './ledger.ts';
-import { converge } from './plan.ts';
-import type { Sqlite } from './sqlite.ts';
+import type { Catalog } from '#/definition';
+import { ledger } from '#/reconcile/ledger';
+import { converge } from '#/reconcile/plan';
+import type { Sqlite } from '#/reconcile/sqlite';
+import { atomic } from '#/transaction';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

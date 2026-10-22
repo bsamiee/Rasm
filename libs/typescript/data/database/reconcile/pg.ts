@@ -1,10 +1,10 @@
 import { Array, Effect, Equal, Function, Option, Schema, Struct } from 'effect';
 import type { SqlClient } from 'effect/sql';
-import type { Catalog, Relation } from '../definition.ts';
-import { identifier, literal, quote } from '../lexical.ts';
-import { ddl } from './ddl.ts';
-import { catalogDdl, diff } from './diff.ts';
-import { latestRevision } from './ledger.ts';
+import type { Catalog, Relation } from '#/definition';
+import { identifier, literal, quote } from '#/lexical';
+import { ddl } from '#/reconcile/ddl';
+import { catalogDdl, diff } from '#/reconcile/diff';
+import { latestRevision } from '#/reconcile/ledger';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

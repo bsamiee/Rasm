@@ -4,6 +4,10 @@
     "private": true,
     "description": "Drives installed Adobe applications through their scripting dictionaries and a UXP script it runs in InDesign",
     "type": "module",
+    "imports": {
+        "#/*": "./*.ts",
+        "#/package.json": "./package.json"
+    },
     "dependencies": {
         "@rasm/automation": "workspace:*",
         "@rasm/indesign": "workspace:*",

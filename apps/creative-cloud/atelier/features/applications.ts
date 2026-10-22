@@ -1,12 +1,9 @@
-import { Installation, Pid, Screenshot } from '@rasm/automation/applications.ts';
-import { Automation } from '@rasm/automation/automation.ts';
-import { Image } from '@rasm/mcp/content.ts';
-import { registerResource } from '@rasm/mcp/resources.ts';
-import { READ_ONLY, registerRoutedTool } from '@rasm/mcp/tools.ts';
+import { Automation, Installation, Pid, Screenshot } from '@rasm/automation';
+import { Image, READ_ONLY, registerResource, registerRoutedTool } from '@rasm/mcp';
 import { Context, Effect, Function, Schema, SubscriptionRef } from 'effect';
 import { Tool } from 'effect/ai';
-import type { routes } from '../routes.ts';
-import type { status } from '../status.ts';
+import type { routes } from '#/routes';
+import type { status } from '#/status';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

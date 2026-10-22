@@ -1,10 +1,10 @@
 import { Array, Effect, Option, pipe, Schema, Struct } from 'effect';
-import { DocumentView } from './documents/document-view.ts';
-import { read } from './dom/encoding.ts';
-import { active } from './dom/location.ts';
-import { Model } from './dom/model.ts';
-import { Reference, Specifier } from './dom/reference.ts';
-import { TextView } from './text/text-view.ts';
+import { DocumentView } from '#/documents/document-view';
+import { read } from '#/dom/encoding';
+import { active } from '#/dom/location';
+import { Model } from '#/dom/model';
+import { Reference, Specifier } from '#/dom/reference';
+import { TextView } from '#/text/text-view';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

@@ -3,12 +3,10 @@ import { env } from 'cloudflare:workers';
 import { BrowserCrypto } from '@effect/platform-browser';
 import { D1Client } from '@effect/sql-d1';
 import { assert, beforeEach, it } from '@effect/vitest';
-import { store } from '@rasm/database/store.ts';
-import { contract } from '@rasm/hosting/authentication/sites.ts';
-import { StaticAssets } from '@rasm/hosting/rendering/server.ts';
-import { r2 } from '@rasm/hosting/storage.ts';
-import { app } from 'architectural-portfolio/server/app.ts';
-import { catalog } from 'architectural-portfolio/server/store/catalog.ts';
+import { store } from '@rasm/database';
+import { r2, StaticAssets } from '@rasm/hosting';
+import { contract } from '@rasm/hosting/authentication';
+import { app, catalog } from '@rasm/portfolio/server';
 import { Effect, Layer, Schema } from 'effect';
 import { HttpRouter } from 'effect/http';
 

@@ -1,8 +1,8 @@
 import { Array, Function, Match, Option, Struct } from 'effect';
-import { type Column, dataTypes } from '../column.ts';
-import { document, ftsTable, type Relation, referentialActions } from '../definition.ts';
-import { identifier, literal, quote } from '../lexical.ts';
-import { tenantSetting } from '../transaction.ts';
+import { type Column, dataTypes } from '#/column';
+import { document, ftsTable, type Relation, referentialActions } from '#/definition';
+import { identifier, literal, quote } from '#/lexical';
+import { tenantSetting } from '#/transaction';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

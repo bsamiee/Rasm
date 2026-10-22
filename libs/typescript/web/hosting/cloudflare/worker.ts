@@ -1,6 +1,6 @@
 import { Context, Effect, Function, Layer, Logger } from 'effect';
 import { HttpRouter } from 'effect/http';
-import { type Access, accessBinding, authenticate } from '../authentication/access.ts';
+import { type Access, accessBinding, authenticate } from '#/authentication/access';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

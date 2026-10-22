@@ -1,5 +1,5 @@
 import { type RefObject, useEffect, useEffectEvent, useRef, useState, useSyncExternalStore } from 'react';
-import type { Entry, Portfolio } from '../model/portfolio.ts';
+import type { Entry, Portfolio } from '#/model/portfolio';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

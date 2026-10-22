@@ -1,7 +1,7 @@
 import type { InDesignDOMObject } from 'adobe:indesign';
 import { Cache, Effect, Record, Result, type Schema } from 'effect';
-import { encoder } from '../dom/encoding.ts';
-import { Model } from '../dom/model.ts';
+import { encoder } from '#/dom/encoding';
+import { Model } from '#/dom/model';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

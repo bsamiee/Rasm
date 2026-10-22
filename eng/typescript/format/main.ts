@@ -2,7 +2,7 @@ import { layer } from '@effect/platform-node/NodeServices';
 import { type ExecutorContext, runExecutor, type Target } from '@nx/devkit';
 import { Array, Cause, Effect, Exit, FileSystem, flow, Option, Path, Schema, Stream, String } from 'effect';
 import { quote } from 'shell-quote';
-import { stdout } from '../process.ts';
+import { stdout } from '#/eng/typescript/process';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

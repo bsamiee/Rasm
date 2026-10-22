@@ -3,12 +3,12 @@ import useEmblaCarousel from 'embla-carousel-react';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { useInView, useReducedMotion } from 'motion/react';
 import { type KeyboardEvent, useEffect, useEffectEvent, useId, useRef, useSyncExternalStore } from 'react';
-import { CompositionGrid } from '../media/composition-grid.tsx';
-import { entryTitle } from '../media/labels.ts';
-import { MediaFigure } from '../media/media-figure.tsx';
-import type { Entry } from '../model/portfolio.ts';
-import type { useNavigation } from './navigation.ts';
-import { Overview } from './overview.tsx';
+import { CompositionGrid } from '#/media/composition-grid';
+import { entryTitle } from '#/media/labels';
+import { MediaFigure } from '#/media/media-figure';
+import type { Entry } from '#/model/portfolio';
+import type { useNavigation } from '#/site/navigation';
+import { Overview } from '#/site/overview';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

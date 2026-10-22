@@ -2,12 +2,12 @@ import { BrowserCrypto } from '@effect/platform-browser';
 import { Array, Crypto, Effect, Optic, Record, Schema, Struct } from 'effect';
 import { FetchHttpClient } from 'effect/http';
 import { AsyncResult, Atom, AtomHttpApi } from 'effect/reactivity';
-import { Api, type PendingUpload } from '../model/api.ts';
-import { type Entry, Portfolio } from '../model/portfolio.ts';
+import { Api, type PendingUpload } from '#/model/api';
+import { type Entry, Portfolio } from '#/model/portfolio';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class PortfolioClient extends AtomHttpApi.Service<PortfolioClient>()('architectural-portfolio/editor/state/PortfolioClient', { api: Api, httpClient: FetchHttpClient.layer }) {}
+class PortfolioClient extends AtomHttpApi.Service<PortfolioClient>()('@rasm/portfolio/editor/state/PortfolioClient', { api: Api, httpClient: FetchHttpClient.layer }) {}
 const load = PortfolioClient.use((api) => api.content.draft({})).pipe(Effect.map(({ body, headers }) => ({ ...body, saved: body.portfolio, revision: headers['draft-etag'] })));
 const draftRequest = PortfolioClient.runtime.atom(load);
 const pendingRequest = PortfolioClient.runtime.atom(PortfolioClient.use((api) => api.media.pending({})));

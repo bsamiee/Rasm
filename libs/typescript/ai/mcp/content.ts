@@ -1,6 +1,6 @@
 import { Effect, Option, Schema, SchemaGetter } from 'effect';
 import { McpSchema } from 'effect/ai';
-import { ContentBlocks } from './server.ts';
+import { ContentBlocks } from '#/server';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

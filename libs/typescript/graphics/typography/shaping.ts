@@ -1,7 +1,7 @@
 import { Array, Option, Record, Schema, Struct } from 'effect';
 import { Buffer, ClusterLevel, Direction, Feature, otTagToLanguage, otTagToScript, shape } from 'harfbuzzjs';
-import type { Face } from './face.ts';
-import { Settings, Tag } from './tags.ts';
+import type { Face } from '#/face';
+import { Settings, Tag } from '#/tags';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

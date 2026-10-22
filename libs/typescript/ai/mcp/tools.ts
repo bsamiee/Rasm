@@ -1,7 +1,7 @@
 import { Array, Cause, Context, Effect, Exit, Function, flow, Option, pipe, Record, Schema, SchemaGetter, Sink, Stream, Struct, Tuple } from 'effect';
 import { McpSchema, McpServer, Tool, Toolkit } from 'effect/ai';
-import type { Dependency } from './resources.ts';
-import { ContentBlocks, orInternalError, Respond } from './server.ts';
+import type { Dependency } from '#/resources';
+import { ContentBlocks, orInternalError, Respond } from '#/server';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

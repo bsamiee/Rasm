@@ -4,8 +4,11 @@
     "description": "Streamable HTTP MCP servers from Effect tools, resources, and RPC groups, with telemetry, completion ranking, content blocks, resource values that refuse or report on a tool call, and a record of cancelled calls that change state",
     "sideEffects": false,
     "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
     "exports": {
-        "./*": "./*"
+        ".": "./index.ts"
     },
     "dependencies": {
         "@effect/platform-node": "catalog:",

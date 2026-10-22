@@ -1,7 +1,7 @@
 import { hash } from 'node:crypto';
 import { Array, Effect, Number, Option, Order, Record, Schema, SchemaGetter } from 'effect';
 import { Variation } from 'harfbuzzjs';
-import { Settings, Tag } from './tags.ts';
+import { Settings, Tag } from '#/tags';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

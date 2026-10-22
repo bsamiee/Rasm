@@ -1,6 +1,5 @@
-import type { Installation } from '@rasm/automation/applications.ts';
-import { Automation } from '@rasm/automation/automation.ts';
-import { Contract } from '@rasm/indesign/contract.ts';
+import { Automation, type Installation } from '@rasm/automation';
+import { Contract } from '@rasm/indesign';
 import { Context, Effect, Path } from 'effect';
 import { RpcClient } from 'effect/rpc';
 

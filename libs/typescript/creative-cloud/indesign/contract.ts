@@ -1,21 +1,21 @@
-import { Unmatched } from '@rasm/search/unmatched.ts';
+import { Unmatched } from '@rasm/search';
 import { Effect, Layer, Schema } from 'effect';
 import { Rpc, RpcGroup, RpcMiddleware } from 'effect/rpc';
-import { Model } from './dom/model.ts';
-import { Reference } from './dom/reference.ts';
-import { Mutation, preserve } from './dom/transactions.ts';
-import { Change } from './requests/change.ts';
-import { Create } from './requests/create.ts';
-import { ExecuteScript } from './requests/execute-script.ts';
-import { FindChange } from './requests/find-change.ts';
-import { Font } from './requests/font.ts';
-import { Inspect } from './requests/inspect.ts';
-import { Invoke } from './requests/invoke.ts';
-import { Kind } from './requests/kind.ts';
-import { Menu } from './requests/menu.ts';
-import { Preflight } from './requests/preflight.ts';
-import { Remove } from './requests/remove.ts';
-import { Render } from './requests/render.ts';
+import { Model } from '#/dom/model';
+import { Reference } from '#/dom/reference';
+import { Mutation, preserve } from '#/dom/transactions';
+import { Change } from '#/requests/change';
+import { Create } from '#/requests/create';
+import { ExecuteScript } from '#/requests/execute-script';
+import { FindChange } from '#/requests/find-change';
+import { Font } from '#/requests/font';
+import { Inspect } from '#/requests/inspect';
+import { Invoke } from '#/requests/invoke';
+import { Kind } from '#/requests/kind';
+import { Menu } from '#/requests/menu';
+import { Preflight } from '#/requests/preflight';
+import { Remove } from '#/requests/remove';
+import { Render } from '#/requests/render';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 

@@ -1,13 +1,13 @@
-import { files, preprocess } from '@rasm/media/uploads.ts';
+import { files, preprocess } from '@rasm/media';
 import Uppy, { type Body, type Meta } from '@uppy/core';
 import XHRUpload from '@uppy/xhr-upload';
 import { Array, Cause, Effect, Equivalence, Function, Match, Optic, Record, Schema, Struct } from 'effect';
 import { HttpApiClient } from 'effect/http-api';
 import { AsyncResult, Atom } from 'effect/reactivity';
-import { Api } from '../model/api.ts';
-import { Asset, mediaTypes, PdfAsset, uploadLimit } from '../model/asset.ts';
-import { Composition, placementsFor } from '../model/placement.ts';
-import { assets, draft, hero, identifier, pendingRequest, updateEntry } from './state.ts';
+import { assets, draft, hero, identifier, pendingRequest, updateEntry } from '#/editor/state';
+import { Api } from '#/model/api';
+import { Asset, mediaTypes, PdfAsset, uploadLimit } from '#/model/asset';
+import { Composition, placementsFor } from '#/model/placement';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -37,7 +37,7 @@ const uppy = Atom.make((get) => {
     preprocess(
         uploader,
         Effect.fnUntraced(function* ({ meta: { destination: target }, name, type }, data) {
-            const { inspectFile } = yield* Effect.tryPromise({ try: () => import('./inspect-file.ts'), catch: (cause) => new Cause.UnknownError(cause, 'The file reader could not load, so the file was not added. Retry it.') });
+            const { inspectFile } = yield* Effect.tryPromise({ try: () => import('#/editor/inspect-file'), catch: (cause) => new Cause.UnknownError(cause, 'The file reader could not load, so the file was not added. Retry it.') });
             const { asset, renditions } = yield* inspectFile({ data, id: yield* identifier, name, mime: type });
             const compositions = yield* Effect.forEach(
                 target.kind === 'entry' && !Schema.is(PdfAsset)(asset) ? placementsFor(asset) : [],

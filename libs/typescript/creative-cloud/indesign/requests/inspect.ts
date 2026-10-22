@@ -1,25 +1,25 @@
 import type { InDesignDOMObject } from 'adobe:indesign';
-import { Unmatched } from '@rasm/search/unmatched.ts';
-import type { Uxp } from '@rasm/uxp/runtime.ts';
+import { Unmatched } from '@rasm/search';
+import type { Uxp } from '@rasm/uxp';
 import { Array, Cache, Cause, Effect, flow, Option, pipe, Record, Result, Schema, Struct } from 'effect';
-import { ApplicationView } from '../application-view.ts';
-import { DocumentView } from '../documents/document-view.ts';
-import { LayerView } from '../documents/layer-view.ts';
-import { PageView } from '../documents/page-view.ts';
-import { SpreadView } from '../documents/spread-view.ts';
-import { bare, Field, unavailable } from '../dom/dictionary.ts';
-import { read } from '../dom/encoding.ts';
-import { file } from '../dom/files.ts';
-import { resolve } from '../dom/location.ts';
-import { Model } from '../dom/model.ts';
-import { Reference, Specifier } from '../dom/reference.ts';
-import { FontView } from '../font-view.ts';
-import { LinkView } from '../link-view.ts';
-import { StyleView } from '../styles/style-view.ts';
-import { SwatchView } from '../swatch-view.ts';
-import { StoryView } from '../text/story-view.ts';
-import { TextView } from '../text/text-view.ts';
-import { PreflightProcessView } from './preflight.ts';
+import { ApplicationView } from '#/application-view';
+import { DocumentView } from '#/documents/document-view';
+import { LayerView } from '#/documents/layer-view';
+import { PageView } from '#/documents/page-view';
+import { SpreadView } from '#/documents/spread-view';
+import { bare, Field, unavailable } from '#/dom/dictionary';
+import { read } from '#/dom/encoding';
+import { file } from '#/dom/files';
+import { resolve } from '#/dom/location';
+import { Model } from '#/dom/model';
+import { Reference, Specifier } from '#/dom/reference';
+import { FontView } from '#/font-view';
+import { LinkView } from '#/link-view';
+import { PreflightProcessView } from '#/requests/preflight';
+import { StyleView } from '#/styles/style-view';
+import { SwatchView } from '#/swatch-view';
+import { StoryView } from '#/text/story-view';
+import { TextView } from '#/text/text-view';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

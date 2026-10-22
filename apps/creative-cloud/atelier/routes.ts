@@ -1,11 +1,10 @@
-import { Exited, type Installation, Pid, type RunningInstance } from '@rasm/automation/applications.ts';
-import { Automation } from '@rasm/automation/automation.ts';
-import { Instructions } from '@rasm/mcp/server.ts';
-import { Unmatched } from '@rasm/search/unmatched.ts';
+import { Automation, Exited, type Installation, Pid, type RunningInstance } from '@rasm/automation';
+import { Instructions } from '@rasm/mcp';
+import { Unmatched } from '@rasm/search';
 import { Array, Context, Effect, Function, Option, type Predicate, Schema, Struct, SubscriptionRef } from 'effect';
 import { Tool } from 'effect/ai';
-import { InDesignScript } from './indesign-script.ts';
-import type { status } from './status.ts';
+import { InDesignScript } from '#/indesign-script';
+import type { status } from '#/status';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

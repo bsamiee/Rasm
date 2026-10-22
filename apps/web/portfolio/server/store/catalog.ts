@@ -1,9 +1,7 @@
-import type { Catalog } from '@rasm/database/definition.ts';
-import { literal } from '@rasm/database/lexical.ts';
-import { table } from '@rasm/database/table.ts';
+import { type Catalog, literal, table } from '@rasm/database';
 import { Option, Schema } from 'effect';
 import type { SqlClient, Statement } from 'effect/sql';
-import { StoredPortfolio } from '../../model/portfolio.ts';
+import { StoredPortfolio } from '#/model/portfolio';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

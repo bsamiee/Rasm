@@ -1,10 +1,10 @@
 import { Array, Effect, Option, Record, Schema } from 'effect';
 import { Hex } from 'effect/encoding';
 import { SqlClient, type Statement } from 'effect/sql';
-import { type Column, dataTypes, type Field, type Fields } from './column.ts';
-import { definition, document, ftsTable, type Present, type TableOptions } from './definition.ts';
-import { literal, quote } from './lexical.ts';
-import { atomic } from './transaction.ts';
+import { type Column, dataTypes, type Field, type Fields } from '#/column';
+import { definition, document, ftsTable, type Present, type TableOptions } from '#/definition';
+import { literal, quote } from '#/lexical';
+import { atomic } from '#/transaction';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

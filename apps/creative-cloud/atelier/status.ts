@@ -1,6 +1,5 @@
-import { Exited, Launching, Pid, Responding, Running, State } from '@rasm/automation/applications.ts';
-import { Automation } from '@rasm/automation/automation.ts';
-import { registerResourceTemplate } from '@rasm/mcp/resources.ts';
+import { Automation, Exited, Launching, Pid, Responding, Running, State } from '@rasm/automation';
+import { registerResourceTemplate } from '@rasm/mcp';
 import { Array, Effect, Schema, SchemaAST, Struct, SubscriptionRef } from 'effect';
 import { McpSchema } from 'effect/ai';
 

@@ -1,4 +1,4 @@
-import { expect, test } from './fixtures.ts';
+import { expect, test } from '#/fixtures';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

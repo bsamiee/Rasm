@@ -1,6 +1,6 @@
 import { RegistryProvider } from '@effect/atom-react';
 import type { ComponentProps } from 'react';
-import { Site } from './site.tsx';
+import { Site } from '#/site/site';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

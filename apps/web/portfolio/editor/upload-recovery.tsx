@@ -1,10 +1,10 @@
 import { useAtom, useAtomRefresh, useAtomValue } from '@effect/atom-react';
 import { AsyncResult } from 'effect/reactivity';
-import type { PendingUpload } from '../model/api.ts';
-import { ConfirmDialog } from './confirm-dialog.tsx';
-import { RequestAlert } from './request-alert.tsx';
-import { discardRequest, pendingRequest } from './state.ts';
-import { queue } from './uploader.ts';
+import { ConfirmDialog } from '#/editor/confirm-dialog';
+import { RequestAlert } from '#/editor/request-alert';
+import { discardRequest, pendingRequest } from '#/editor/state';
+import { queue } from '#/editor/uploader';
+import type { PendingUpload } from '#/model/api';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

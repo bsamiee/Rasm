@@ -1,9 +1,9 @@
-import { Unmatched } from '@rasm/search/unmatched.ts';
+import { Unmatched } from '@rasm/search';
 import { Schema } from 'effect';
 import { Rpc, RpcGroup } from 'effect/rpc';
-import { AppleEventValue, Execute, Kind, Terms } from './apple-events.ts';
-import { Installation, Perform, Pid, RunningInstance, Screenshot, State } from './applications.ts';
-import { AvailableFace, FaceName } from './fonts.ts';
+import { AppleEventValue, Execute, Kind, Terms } from '#/apple-events';
+import { Installation, Perform, Pid, RunningInstance, Screenshot, State } from '#/applications';
+import { AvailableFace, FaceName } from '#/fonts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

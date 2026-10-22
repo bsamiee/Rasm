@@ -2,9 +2,9 @@ import { Array, Context, Data, Effect, flow, Match, Option, Record, Schema, Sche
 import { McpSchema, McpServer, Tool } from 'effect/ai';
 import { UrlParams } from 'effect/http';
 import type { Rpc, RpcGroup } from 'effect/rpc';
-import { type DependencyOptions, resourceValues } from './resources.ts';
-import { orInternalError } from './server.ts';
-import { type Route, registerRoutedTool } from './tools.ts';
+import { type DependencyOptions, resourceValues } from '#/resources';
+import { orInternalError } from '#/server';
+import { type Route, registerRoutedTool } from '#/tools';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

@@ -7,10 +7,9 @@ import { IamPolicy, IamUser, IamUserPolicyAttachment, Provider, S3Bucket } from 
 import { Extension, Grant, Provider as PostgresProvider, Schema as PostgresSchema, type ProviderArgs, Role, type RoleArgs } from '@pulumi/postgresql';
 import { type CustomResourceOptions, type Input, interpolate, jsonStringify, secret } from '@pulumi/pulumi';
 import { RandomInteger, RandomPassword } from '@pulumi/random';
-import { type Access, accessBinding } from '@rasm/hosting/authentication/access.ts';
-import { contract } from '@rasm/hosting/authentication/sites.ts';
-import { migratorVariable, WorkerConfig } from '@rasm/hosting/cloudflare/worker-config.ts';
-import { output } from '@rasm/hosting/node/vite.ts';
+import { type Access, accessBinding, contract } from '@rasm/hosting/authentication';
+import { output } from '@rasm/hosting/node';
+import { migratorVariable, WorkerConfig } from '@rasm/hosting/worker-config';
 import { Array, type Cause, Config, Effect, FileSystem, Function, Match, Path, Record, Redacted, Result, Schema } from 'effect';
 import { resolveConfig } from 'vite';
 

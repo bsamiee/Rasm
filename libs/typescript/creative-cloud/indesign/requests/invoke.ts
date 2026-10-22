@@ -1,8 +1,8 @@
-import { Unmatched } from '@rasm/search/unmatched.ts';
+import { Unmatched } from '@rasm/search';
 import { Cause, Effect, Option, Schema } from 'effect';
-import { Model } from '../dom/model.ts';
-import { Mutation } from '../dom/transactions.ts';
-import { Menu } from './menu.ts';
+import { Model } from '#/dom/model';
+import { Mutation } from '#/dom/transactions';
+import { Menu } from '#/requests/menu';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

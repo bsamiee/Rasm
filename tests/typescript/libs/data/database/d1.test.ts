@@ -3,7 +3,7 @@ import { env } from 'cloudflare:workers';
 import { D1Client } from '@effect/sql-d1';
 import { beforeEach, it } from '@effect/vitest';
 import { Effect } from 'effect';
-import { cases } from './cases.ts';
+import { cases } from '#/tests/typescript/libs/data/database/cases';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

@@ -4,6 +4,7 @@
         "allowImportingTsExtensions": true,
         "erasableSyntaxOnly": true,
         "exactOptionalPropertyTypes": true,
+        "jsx": "react-jsx",
         "lib": [ "es2025", "es2026.array", "es2026.collection", "es2026.error", "es2026.iterator", "es2026.json", "es2026.typedarrays", "esnext.date", "esnext.disposable", "esnext.intl", "esnext.sharedmemory", "esnext.temporal" ],
         "module": "preserve",
         "noEmit": true,
@@ -59,5 +60,5 @@
         "skipLibCheck": true,
         "verbatimModuleSyntax": true
     },
-    "exclude": [ "${configDir}/vite.config.ts", "${configDir}/vitest.config.ts", "${configDir}/uxp.config.ts", "${configDir}/script.config.ts" ]
+    "exclude": [ "${configDir}/*.config.ts" ]
 }

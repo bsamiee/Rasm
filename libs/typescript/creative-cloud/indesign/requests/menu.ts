@@ -1,7 +1,7 @@
-import { Unmatched } from '@rasm/search/unmatched.ts';
+import { Unmatched } from '@rasm/search';
 import { Array, Effect, Schema } from 'effect';
-import { read } from '../dom/encoding.ts';
-import { Model } from '../dom/model.ts';
+import { read } from '#/dom/encoding';
+import { Model } from '#/dom/model';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

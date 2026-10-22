@@ -1,13 +1,13 @@
 import type { InDesignDOMObject } from 'adobe:indesign';
-import { Unmatched } from '@rasm/search/unmatched.ts';
+import { Unmatched } from '@rasm/search';
 import { Array, Cache, Cause, Effect, flow, Option, Predicate, Record, Schema, Struct } from 'effect';
-import { decoder } from '../dom/decoding.ts';
-import { unavailable } from '../dom/dictionary.ts';
-import { record } from '../dom/encoding.ts';
-import { resolveObject } from '../dom/location.ts';
-import { Model } from '../dom/model.ts';
-import { leaf, Reference, Specifier } from '../dom/reference.ts';
-import { Mutation } from '../dom/transactions.ts';
+import { decoder } from '#/dom/decoding';
+import { unavailable } from '#/dom/dictionary';
+import { record } from '#/dom/encoding';
+import { resolveObject } from '#/dom/location';
+import { Model } from '#/dom/model';
+import { leaf, Reference, Specifier } from '#/dom/reference';
+import { Mutation } from '#/dom/transactions';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

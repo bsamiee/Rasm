@@ -1,16 +1,11 @@
-import { Automation } from '@rasm/automation/automation.ts';
-import { AvailableFace, FaceName } from '@rasm/automation/fonts.ts';
-import { FontView } from '@rasm/indesign/font-view.ts';
-import { registerResource } from '@rasm/mcp/resources.ts';
-import { READ_ONLY, registerRoutedTool } from '@rasm/mcp/tools.ts';
-import { Face } from '@rasm/typography/face.ts';
-import { Instance } from '@rasm/typography/instance.ts';
-import { Run, Shaped } from '@rasm/typography/shaping.ts';
-import type { Source } from '@rasm/typography/source.ts';
+import { Automation, AvailableFace, FaceName } from '@rasm/automation';
+import { FontView } from '@rasm/indesign';
+import { READ_ONLY, registerResource, registerRoutedTool } from '@rasm/mcp';
+import { Face, Instance, Run, Shaped, type Source } from '@rasm/typography';
 import { Effect, FileSystem, Option, Path, Schema, SchemaAST, Stream } from 'effect';
 import { Tool } from 'effect/ai';
-import { InDesignScript } from '../indesign-script.ts';
-import type { routes } from '../routes.ts';
+import { InDesignScript } from '#/indesign-script';
+import type { routes } from '#/routes';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

@@ -5,7 +5,7 @@ import { cacheDir, getOutputsForTargetAndConfiguration, readCachedProjectGraph, 
 import { Array, Cause, Config, Console, Effect, Exit, Fiber, FileSystem, flow, identity, Option, Path, type PlatformError, Predicate, Result, Schedule, Schema, String, Struct, Tuple } from 'effect';
 import { parse as parsePlist } from 'plist';
 import { parse as parseYaml } from 'yaml';
-import { stdout } from '../process.ts';
+import { stdout } from '#/eng/typescript/process';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

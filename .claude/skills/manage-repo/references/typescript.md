@@ -21,7 +21,8 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 ## [02]-[COMPILER]
 
 - `${configDir}` in a base configuration's path fields resolves to the extending file's directory
-- Packages declare `"./*": "./*"` `exports`, and importers spell each subpath with its file extension as relative imports do
+- Packages declare one `exports` entry per runtime their modules load in, an `index.ts` barrel of named re-exports or one module, and importers name the entry
+- Modules reach their own package through `imports` `"#/*"`, with extensionless specifiers, mapped to the extension of the modules each folder holds (`"#/server/*": "./server/*.ts"` beside `"#/*": "./*.tsx"`)
 - `tsc` compiles sibling source under the importer's options, the importer listing each typings package, `paths` row, and JavaScript depth it needs
 - `maxNodeModuleJsDepth` counts a linked sibling package as one level, its untyped JavaScript dependencies take the sibling's depth plus one
 - `types` defaults to `[]`, a project lists each typings package declaring a global or module its files read (`node` for a `node:` module)
@@ -30,7 +31,7 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - `lib` names declarations the host runtime has (Node's in `tsconfig.base.json`, a UXP host's level, `esnext` with `dom` in a browser)
 - `esnext` parts of a Node or UXP `lib` enter once the host runtime defines their members
 - Host platform library `tsconfig.json` states host `lib` and `types`, projects for the host extend it
-- `tsconfig.base.json` excludes project Vite, Vitest, and UXP configs, root `tsconfig.json` compiles them, `.storybook/main.ts`, and test MCP config
+- `tsconfig.base.json` excludes project `*.config.ts` files, root `tsconfig.json` compiles them and `.storybook/main.ts`
 - Project programs name their story files by extension (`.storybook/*.stories.ts` or `.storybook/*.stories.tsx`) beside `**/*`, which skips dot directories, and reach `.storybook/preview` through story imports
 - `tsconfig.base.json` `$schema` names installed `typescript` schema, Schema Store's copy lists an older `lib` set
 - `tsconfig.base.json` plugin entry holds every rule severity, project entries merge over it (`diagnostics: false` where a host loads no `effect`)
@@ -47,7 +48,7 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 
 [VITE]:
 - Browser projects run in current browsers alone, `worker` builds at `esnext` over Vite's `baseline-widely-available` default
-- Root `vite.config.ts` `react` holds React Compiler options for apps, Vitest projects, and Storybook
+- Root `vite.shared.ts` `react` holds React Compiler options for apps, Vitest projects, and Storybook
 - App `vite.config.ts` is its one Vite config, Storybook finds it by default lookup and `createVitestConfig` merges it through `loadConfigFromFile`
 - Web builds keep project-local `dist`, where `sites()` copies `.openai/hosting.json` with no relocation setting
 - Vite caches stay in each project's `node_modules/.vite`, `isInNodeModules(importer)` warns on dynamic imports of a dependency optimized elsewhere
@@ -62,8 +63,8 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - Project `tsconfig.json` `types` names `./.cloudflare/types` in place of `@cloudflare/workers-types`
 
 [STORYBOOK]:
-- `.storybook/main.ts` states `framework` and `stories`, which no preset supplies, and lists `@rasm/test-support/preset.ts` resolving its addons
-- Storybook reads `addons` and literal `tags` from `.storybook/preview` source, which passes `@rasm/test-support/preview.ts` `addons` to `definePreview`
+- `.storybook/main.ts` states `framework` and `stories`, which no preset supplies, and lists `@rasm/test-support/preset` resolving its addons
+- Storybook reads `addons` and literal `tags` from `.storybook/preview` source, which passes `@rasm/test-support/preview` `addons` to `definePreview`
 - Library `viteFinal` adds `react()`, Storybook finds no `vite.config.ts` in a library
 - Root `package.json` lists no `@storybook/react-vite`, its `typescript` peer would take root TypeScript 7 over `docgen` catalog's TypeScript 6
 - Storybook caches stay under each project's `node_modules/.cache/storybook`, a `CACHE_DIR` row would merge every project's cache into one directory

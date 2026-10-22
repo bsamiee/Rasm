@@ -1,12 +1,23 @@
 {
-    "name": "function-hooks",
+    "name": "@rasm/function-hooks",
     "private": true,
     "description": "Shared command policies for Claude Code and Codex",
     "type": "module",
+    "exports": {
+        ".": "./index.ts"
+    },
     "nx": {
         "tags": [ "host:claude" ],
         "targets": {
-            "typecheck:tsc": { "inputs": [ "...", { "fileset": "{projectRoot}/.claude-plugin/types/**/*.d.ts", "includeIgnored": true } ] }
+            "typecheck:tsc": {
+                "inputs": [
+                    "...",
+                    {
+                        "fileset": "{projectRoot}/.claude-plugin/types/**/*.d.ts",
+                        "includeIgnored": true
+                    }
+                ]
+            }
         }
     }
 }

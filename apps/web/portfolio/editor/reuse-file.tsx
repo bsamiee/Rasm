@@ -1,14 +1,13 @@
 import { useAtomSet } from '@effect/atom-react';
-import { Checkbox } from '@rasm/ui/checkbox.tsx';
-import { MenuButton } from '@rasm/ui/menu-button.tsx';
+import { Checkbox, MenuButton } from '@rasm/ui';
 import { Array, Effect, Option, Record, Struct } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { useState } from 'react';
-import { quantity, sheetLabel } from '../media/labels.ts';
-import { MediaFigure } from '../media/media-figure.tsx';
-import type { AssetCollection } from '../model/asset.ts';
-import { Composition, placementsFor } from '../model/placement.ts';
-import { draft, identifier, updateEntry } from './state.ts';
+import { draft, identifier, updateEntry } from '#/editor/state';
+import { quantity, sheetLabel } from '#/media/labels';
+import { MediaFigure } from '#/media/media-figure';
+import type { AssetCollection } from '#/model/asset';
+import { Composition, placementsFor } from '#/model/placement';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

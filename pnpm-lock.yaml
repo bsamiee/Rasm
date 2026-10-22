@@ -1461,9 +1461,18 @@ importers:
       '@rasm/database':
         specifier: workspace:*
         version: link:libs/typescript/data/database
+      '@rasm/function-hooks':
+        specifier: workspace:*
+        version: link:plugins/function-hooks
       '@rasm/hosting':
         specifier: workspace:*
         version: link:libs/typescript/web/hosting
+      '@rasm/portfolio':
+        specifier: workspace:*
+        version: link:apps/web/portfolio
+      '@rasm/test-support':
+        specifier: workspace:*
+        version: link:tests/typescript/support
       '@rasm/ui':
         specifier: workspace:*
         version: link:libs/typescript/web/ui
@@ -1620,9 +1629,6 @@ importers:
       apache-arrow:
         specifier: 'catalog:'
         version: 21.2.0
-      architectural-portfolio:
-        specifier: workspace:*
-        version: link:apps/web/portfolio
       astring:
         specifier: 'catalog:'
         version: 1.9.0
@@ -2457,12 +2463,12 @@ importers:
       '@rasm/hosting':
         specifier: workspace:*
         version: link:../../../libs/typescript/web/hosting
+      '@rasm/portfolio':
+        specifier: workspace:*
+        version: link:../../../apps/web/portfolio
       '@rasm/test-support':
         specifier: workspace:*
         version: link:../support
-      architectural-portfolio:
-        specifier: workspace:*
-        version: link:../../../apps/web/portfolio
     devDependencies:
       '@types/node':
         specifier: 'catalog:'

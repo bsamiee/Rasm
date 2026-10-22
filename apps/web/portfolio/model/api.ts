@@ -1,7 +1,7 @@
 import { Schema, SchemaTransformation } from 'effect';
 import { HttpApi, HttpApiEndpoint, HttpApiError, HttpApiGroup, HttpApiMiddleware, HttpApiSchema } from 'effect/http-api';
-import { Id, uploadLimit } from './asset.ts';
-import { PortfolioData, StoredPortfolio } from './portfolio.ts';
+import { Id, uploadLimit } from '#/model/asset';
+import { PortfolioData, StoredPortfolio } from '#/model/portfolio';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -14,7 +14,7 @@ class PreconditionFailed extends Schema.TaggedError<PreconditionFailed, { readon
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Owner extends HttpApiMiddleware.Service<Owner>()('architectural-portfolio/model/api/Owner', { error: [HttpApiError.ForbiddenNoContent, HttpApiError.ServiceUnavailableNoContent] }) {}
+class Owner extends HttpApiMiddleware.Service<Owner>()('@rasm/portfolio/model/api/Owner', { error: [HttpApiError.ForbiddenNoContent, HttpApiError.ServiceUnavailableNoContent] }) {}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

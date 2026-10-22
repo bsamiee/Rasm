@@ -1,9 +1,9 @@
 import { Array, Effect, Equal, Function, Option, Order, Record, Result } from 'effect';
-import type { Catalog } from '../definition.ts';
-import { identifier, quote, transforms } from '../lexical.ts';
-import { ddl } from './ddl.ts';
-import { Finding, ReconcileError } from './finding.ts';
-import { type Entry, ledger } from './ledger.ts';
+import type { Catalog } from '#/definition';
+import { identifier, quote, transforms } from '#/lexical';
+import { ddl } from '#/reconcile/ddl';
+import { Finding, ReconcileError } from '#/reconcile/finding';
+import { type Entry, ledger } from '#/reconcile/ledger';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

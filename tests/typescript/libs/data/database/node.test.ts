@@ -4,10 +4,10 @@ import { SqliteClient } from '@effect/sql-sqlite-node';
 import { describe, inject, it, layer } from '@effect/vitest';
 import { pg_trgm } from '@electric-sql/pglite/contrib/pg_trgm';
 import { unaccent } from '@electric-sql/pglite/contrib/unaccent';
-import type { transforms } from '@rasm/database/lexical.ts';
-import { parsers } from '@rasm/database/pg.ts';
+import type { transforms } from '@rasm/database';
+import { parsers } from '@rasm/database/pg';
 import { Effect, FileSystem, Layer, Path } from 'effect';
-import { cases } from './cases.ts';
+import { cases } from '#/tests/typescript/libs/data/database/cases';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

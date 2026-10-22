@@ -1,6 +1,6 @@
 import type { ParagraphStyle } from 'adobe:indesign';
 import { Array, Record, Schema, Struct } from 'effect';
-import { Reference } from '../dom/reference.ts';
+import { Reference } from '#/dom/reference';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

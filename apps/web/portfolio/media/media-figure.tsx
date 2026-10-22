@@ -1,21 +1,20 @@
 import { useAtom } from '@effect/atom-react';
-import { CustomProperties } from '@rasm/ui/custom-properties.tsx';
-import { dialogOpen } from '@rasm/ui/dialogs.ts';
+import { CustomProperties, dialogOpen } from '@rasm/ui';
 import { Expand, X } from 'lucide-react';
 import { motion } from 'motion/react';
 import { type ComponentProps, lazy, type ReactNode, Suspense, useId, useRef } from 'react';
 import { Button, Dialog, DialogTrigger, Heading, Modal, ModalOverlay, Text } from 'react-aria-components';
 import { ErrorBoundary } from 'react-error-boundary';
-import { mediaUrl } from '../model/asset.ts';
-import { type Placement, placementRatio } from '../model/placement.ts';
-import { descriptionLabel, numeral, placementTitle } from './labels.ts';
-import { MediaElement } from './media-element.tsx';
-import { MediaFailure, MediaLoading } from './status.tsx';
+import { descriptionLabel, numeral, placementTitle } from '#/media/labels';
+import { MediaElement } from '#/media/media-element';
+import { MediaFailure, MediaLoading } from '#/media/status';
+import { mediaUrl } from '#/model/asset';
+import { type Placement, placementRatio } from '#/model/placement';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const AnimatedDialog = motion.create(Dialog);
-const ZoomViewer = lazy(() => import('./zoom-viewer.tsx').then((module) => ({ default: module.ZoomViewer })));
+const ZoomViewer = lazy(() => import('#/media/zoom-viewer').then((module) => ({ default: module.ZoomViewer })));
 const ExpandedViewer = ({ placement, layoutId, description }: { placement: Exclude<typeof Placement.Type, { kind: 'video' }>; layoutId: string; description: ReactNode }) => (
     <ModalOverlay className="bg-foreground/70 motion-safe:entering:animate-fade motion-safe:exiting:animate-fade-out fixed inset-0 z-50" isDismissable={true}>
         <Modal>

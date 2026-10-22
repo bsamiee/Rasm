@@ -1,9 +1,9 @@
-import { Unmatched } from '@rasm/search/unmatched.ts';
+import { Unmatched } from '@rasm/search';
 import { Array, Cache, type Cause, Effect, flow, Match, Option, Predicate, pipe, Record, Schema, Struct } from 'effect';
-import { declared, type Member } from './dictionary.ts';
-import { record } from './encoding.ts';
-import { active, owner, resolve } from './location.ts';
-import { Model } from './model.ts';
+import { declared, type Member } from '#/dom/dictionary';
+import { record } from '#/dom/encoding';
+import { active, owner, resolve } from '#/dom/location';
+import { Model } from '#/dom/model';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

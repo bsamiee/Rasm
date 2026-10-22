@@ -1,10 +1,10 @@
 import type { MasterSpread, Spread } from 'adobe:indesign';
 import { Effect, flow, Option, Predicate, Schema, Struct } from 'effect';
-import { read } from '../dom/encoding.ts';
-import type { Model } from '../dom/model.ts';
-import { Reference } from '../dom/reference.ts';
-import { Extent } from './extent.ts';
-import { PageView } from './page-view.ts';
+import { Extent } from '#/documents/extent';
+import { PageView } from '#/documents/page-view';
+import { read } from '#/dom/encoding';
+import type { Model } from '#/dom/model';
+import { Reference } from '#/dom/reference';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

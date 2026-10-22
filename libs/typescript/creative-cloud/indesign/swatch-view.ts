@@ -1,8 +1,8 @@
 import type { Gradient, MixedInk, MixedInkGroup, PlainColor, PlainSwatch, Tint } from 'adobe:indesign';
 import { Array, Effect, flow, Match, Option, Schema, Struct } from 'effect';
-import { read } from './dom/encoding.ts';
-import type { Model } from './dom/model.ts';
-import { Reference } from './dom/reference.ts';
+import { read } from '#/dom/encoding';
+import type { Model } from '#/dom/model';
+import { Reference } from '#/dom/reference';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

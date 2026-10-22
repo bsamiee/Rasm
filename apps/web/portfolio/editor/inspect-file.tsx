@@ -1,6 +1,6 @@
-import { imageRenditions, videoDimensions } from '@rasm/media/inspection.ts';
+import { imageRenditions, videoDimensions } from '@rasm/media';
 import { Cause, Effect, Match, Schema, Struct } from 'effect';
-import { Asset, ImageAsset, PdfAsset, VideoAsset } from '../model/asset.ts';
+import { Asset, ImageAsset, PdfAsset, VideoAsset } from '#/model/asset';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -8,7 +8,7 @@ const inspectFile = Effect.fn('inspectFile')(
     function* ({ data, id, name, mime }: { readonly data: Blob; readonly id: string; readonly name: string; readonly mime: string }) {
         const { renditions, ...metadata } = yield* Match.value(mime).pipe(
             Match.when(Match.is(...PdfAsset.fields.mime.literals), () =>
-                Effect.tryPromise(() => import('@rasm/media/pdf/document.ts')).pipe(
+                Effect.tryPromise(() => import('@rasm/media/pdf')).pipe(
                     Effect.flatMap(({ inspectPdf }) => inspectPdf(data)),
                     Effect.map((measured) => ({ ...measured, renditions: [] })),
                 ),

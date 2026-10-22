@@ -2,9 +2,14 @@
     "name": "@rasm/database",
     "private": true,
     "description": "Relational stores for apps on D1, SQLite, and PostgreSQL: Effect Schema tables reconciled against the live database, and atomic statement groups",
+    "sideEffects": false,
     "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
     "exports": {
-        "./*": "./*"
+        ".": "./index.ts",
+        "./pg": "./pg.ts"
     },
     "dependencies": {
         "@effect/sql-d1": "catalog:",
@@ -26,12 +31,29 @@
     },
     "nx": {
         "targets": {
-            "test": { "options": { "args": [ "--project=!postgres" ] }, "outputs": [ "...", "{workspaceRoot}/.artifacts/sql/postgres" ] },
-            "test:integration": { "options": { "args": [ "--project=postgres" ] } },
+            "test": {
+                "options": {
+                    "args": [ "--project=!postgres" ]
+                },
+                "outputs": [ "...", "{workspaceRoot}/.artifacts/sql/postgres" ]
+            },
+            "test:integration": {
+                "options": {
+                    "args": [ "--project=postgres" ]
+                }
+            },
             "lint:squawk": {
                 "command": "squawk --config .config/squawk.toml '.artifacts/sql/postgres/*.sql'",
                 "dependsOn": [ "test" ],
-                "inputs": [ "{workspaceRoot}/.config/squawk.toml", { "dependentTasksOutputFiles": "**/*.sql" }, { "runtime": "squawk --version" } ]
+                "inputs": [
+                    "{workspaceRoot}/.config/squawk.toml",
+                    {
+                        "dependentTasksOutputFiles": "**/*.sql"
+                    },
+                    {
+                        "runtime": "squawk --version"
+                    }
+                ]
             }
         }
     }

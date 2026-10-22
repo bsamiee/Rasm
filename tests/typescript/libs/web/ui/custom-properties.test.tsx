@@ -1,4 +1,4 @@
-import { CustomProperties } from '@rasm/ui/custom-properties.tsx';
+import { CustomProperties } from '@rasm/ui';
 import { expect, it } from 'vitest';
 import { render } from 'vitest-browser-react';
 

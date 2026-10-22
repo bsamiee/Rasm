@@ -1,14 +1,14 @@
 import { Buffer } from 'node:buffer';
-import { Unmatched } from '@rasm/search/unmatched.ts';
+import { Unmatched } from '@rasm/search';
 import { Array, Cause, Effect, Equal, flow, Match, Number, Option, Order, Predicate, pipe, Record, Schema, SchemaGetter, Struct } from 'effect';
 import { create } from 'fontkit';
 import { AxisFlags, Blob, Font, Face as HarfBuzzFace, Variation } from 'harfbuzzjs';
-import { Color } from './color.ts';
-import { coordinate, GeneratedName, type Instance, InstanceRecords, instanceName } from './instance.ts';
-import { Layout } from './layout.ts';
-import { Metrics } from './metrics.ts';
-import type { Source } from './source.ts';
-import { Tables } from './tables.ts';
+import { Color } from '#/color';
+import { coordinate, GeneratedName, type Instance, InstanceRecords, instanceName } from '#/instance';
+import { Layout } from '#/layout';
+import { Metrics } from '#/metrics';
+import type { Source } from '#/source';
+import { Tables } from '#/tables';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

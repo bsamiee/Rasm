@@ -1,7 +1,7 @@
 import { Effect } from 'effect';
 import { HttpApiBuilder, HttpApiSchema } from 'effect/http-api';
-import { Api } from '../model/api.ts';
-import { readDocument, writeDocument } from './store/documents.ts';
+import { Api } from '#/model/api';
+import { readDocument, writeDocument } from '#/server/store/documents';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

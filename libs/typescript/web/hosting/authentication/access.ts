@@ -1,7 +1,7 @@
 import { Effect, Function, Match, Option, Schema } from 'effect';
 import { Headers, HttpServerRequest } from 'effect/http';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
-import { contract } from './sites.ts';
+import { contract } from '#/authentication/sites';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

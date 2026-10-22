@@ -1,6 +1,6 @@
 import { Array, Effect, FileSystem, Option, Order, Record, Schema } from 'effect';
 import { compare } from 'verkit';
-import { stdout } from '../process.ts';
+import { stdout } from '#/eng/typescript/process';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

@@ -4,9 +4,8 @@ import { PassThrough } from 'node:stream';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { NodeStream } from '@effect/platform-node';
 import { type Event, getEventsSince, subscribe, writeSnapshot } from '@parcel/watcher';
-import { main } from '@rasm/mcp/main.ts';
-import { READ_ONLY, registerTool } from '@rasm/mcp/tools.ts';
-import { Unmatched } from '@rasm/search/unmatched.ts';
+import { main, READ_ONLY, registerTool } from '@rasm/mcp';
+import { Unmatched } from '@rasm/search';
 import { Array, type Cause, Config, Deferred, Duration, Effect, Equal, Fiber, FileSystem, Function, flow, HashMap, HashSet, Layer, Match, Option, Order, Predicate, Queue, RcMap, Record, Schema, SchemaTransformation, Scope, Stream, Struct, SubscriptionRef } from 'effect';
 import { Tool } from 'effect/ai';
 import { ChildProcess } from 'effect/process';
@@ -59,8 +58,8 @@ import {
     WatchKind,
     WorkDoneProgressCreateRequest,
 } from 'vscode-languageserver-protocol/node';
-import plugin from './.codex-plugin/plugin.json' with { type: 'json' };
-import lsp from './.lsp.json' with { type: 'json' };
+import plugin from '#/.codex-plugin/plugin.json' with { type: 'json' };
+import lsp from '#/.lsp.json' with { type: 'json' };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

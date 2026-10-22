@@ -1,7 +1,7 @@
 import { globSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { defineConfig } from '@playwright/test';
-import { config } from './support/playwright.ts';
+import { config } from '@rasm/test-support/playwright';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

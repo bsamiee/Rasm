@@ -1,9 +1,9 @@
 import { layer } from '@effect/vitest';
-import { direct } from '@rasm/database/pg.ts';
+import { direct } from '@rasm/database/pg';
 import { PostgreSqlContainer } from '@testcontainers/postgresql';
 import { type Cause, Context, Effect, Layer, Redacted } from 'effect';
 import { PullPolicy } from 'testcontainers';
-import { cases } from './cases.ts';
+import { cases } from '#/tests/typescript/libs/data/database/cases';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 

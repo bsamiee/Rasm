@@ -1,11 +1,10 @@
-import { unavailable } from '@rasm/hosting/http.ts';
-import { renderPage } from '@rasm/hosting/rendering/server.ts';
+import { renderPage, unavailable } from '@rasm/hosting';
 import { Effect, Option, String } from 'effect';
 import { HttpRouter, HttpServerResponse } from 'effect/http';
-import { shell } from '../model/shell.ts';
-import { renderSite } from '../site/render-site.tsx';
-import { session } from './session.ts';
-import { readDocument } from './store/documents.ts';
+import { shell } from '#/model/shell';
+import { session } from '#/server/session';
+import { readDocument } from '#/server/store/documents';
+import { renderSite } from '#/site/render-site';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

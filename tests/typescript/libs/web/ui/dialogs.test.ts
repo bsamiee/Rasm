@@ -1,4 +1,4 @@
-import { dialogOpen, openDialogs } from '@rasm/ui/dialogs.ts';
+import { dialogOpen, openDialogs } from '@rasm/ui';
 import { AtomRegistry } from 'effect/reactivity';
 import { expect, it } from 'vitest';
 

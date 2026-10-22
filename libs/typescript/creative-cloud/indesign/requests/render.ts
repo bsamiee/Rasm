@@ -1,14 +1,14 @@
 import type { Page, PageItem, Spread } from 'adobe:indesign';
-import { Unmatched } from '@rasm/search/unmatched.ts';
-import { Uxp } from '@rasm/uxp/runtime.ts';
+import { Unmatched } from '@rasm/search';
+import { Uxp } from '@rasm/uxp';
 import { Cause, Effect, Match, Option, Schema, Struct } from 'effect';
 import { imageSize } from 'image-size';
-import { Extent } from '../documents/extent.ts';
-import { temporary } from '../dom/files.ts';
-import { resolve } from '../dom/location.ts';
-import { Model } from '../dom/model.ts';
-import { Specifier } from '../dom/reference.ts';
-import { preserve } from '../dom/transactions.ts';
+import { Extent } from '#/documents/extent';
+import { temporary } from '#/dom/files';
+import { resolve } from '#/dom/location';
+import { Model } from '#/dom/model';
+import { Specifier } from '#/dom/reference';
+import { preserve } from '#/dom/transactions';
 
 // --- [MODELS] --------------------------------------------------------------------------
 

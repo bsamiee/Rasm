@@ -1,12 +1,11 @@
-import { unavailable } from '@rasm/hosting/http.ts';
-import { createUpload, deleteObject, serveObject } from '@rasm/hosting/storage.ts';
+import { createUpload, deleteObject, serveObject, unavailable } from '@rasm/hosting';
 import { Array, Cause, Crypto, Effect, Match, Option, Schema, Stream } from 'effect';
 import { HttpRouter, type Multipart } from 'effect/http';
 import { HttpApiBuilder, HttpApiError } from 'effect/http-api';
-import { Api } from '../model/api.ts';
-import { Asset, Id, mediaPath } from '../model/asset.ts';
-import { authorize } from './session.ts';
-import { attachUpload, beginUpload, completeUpload, finishRelease, Release, readAsset, readPendingUploads, releaseUploads } from './store/assets.ts';
+import { Api } from '#/model/api';
+import { Asset, Id, mediaPath } from '#/model/asset';
+import { authorize } from '#/server/session';
+import { attachUpload, beginUpload, completeUpload, finishRelease, Release, readAsset, readPendingUploads, releaseUploads } from '#/server/store/assets';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

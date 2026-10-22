@@ -7,7 +7,7 @@ import { Array, Cause, Effect, FileSystem, Filter, Layer, ManagedRuntime, Option
 import { XMLParser } from 'fast-xml-parser';
 import { parse as parseToml } from 'smol-toml';
 import { parse as parseYaml } from 'yaml';
-import { stdout } from '../../eng/typescript/process.ts';
+import { stdout } from '#/eng/typescript/process';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

@@ -3,12 +3,15 @@
     "private": true,
     "description": "Playwright journeys over the served portfolio, one app instance with its own stores per worker",
     "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
     "dependencies": {
         "@axe-core/playwright": "catalog:",
         "@playwright/test": "catalog:",
         "@rasm/hosting": "workspace:*",
-        "@rasm/test-support": "workspace:*",
-        "architectural-portfolio": "workspace:*"
+        "@rasm/portfolio": "workspace:*",
+        "@rasm/test-support": "workspace:*"
     },
     "devDependencies": {
         "@types/node": "catalog:"

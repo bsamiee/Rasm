@@ -1,5 +1,5 @@
-import { sessionPath } from '@rasm/hosting/authentication/sites.ts';
-import { expect, test } from './fixtures.ts';
+import { sessionPath } from '@rasm/hosting/authentication';
+import { expect, test } from '#/fixtures';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

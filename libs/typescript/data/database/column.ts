@@ -1,5 +1,5 @@
 import { Array, Equal, Filter, Function, flow, Match, Option, Schema, SchemaAST, SchemaRepresentation, SchemaTransformation, Struct } from 'effect';
-import { transforms } from './lexical.ts';
+import { transforms } from '#/lexical';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

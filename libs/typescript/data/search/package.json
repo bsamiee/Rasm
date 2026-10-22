@@ -4,8 +4,11 @@
     "description": "Typed failed lookups and fuzzy ranking of named candidates",
     "sideEffects": false,
     "type": "module",
+    "imports": {
+        "#/*": "./*.ts"
+    },
     "exports": {
-        "./*": "./*"
+        ".": "./index.ts"
     },
     "dependencies": {
         "@leeoniya/ufuzzy": "catalog:",

@@ -1,8 +1,8 @@
-import { CustomProperties } from '@rasm/ui/custom-properties.tsx';
+import { CustomProperties } from '@rasm/ui';
 import { Number } from 'effect';
 import type { ComponentProps } from 'react';
-import { type Composition, placementRatio } from '../model/placement.ts';
-import { MediaFigure } from './media-figure.tsx';
+import { MediaFigure } from '#/media/media-figure';
+import { type Composition, placementRatio } from '#/model/placement';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

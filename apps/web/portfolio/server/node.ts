@@ -1,13 +1,13 @@
 import { BrowserCrypto } from '@effect/platform-browser';
 import { NodeRuntime } from '@effect/platform-node';
 import { SqliteClient } from '@effect/sql-sqlite-node';
-import { store } from '@rasm/database/store.ts';
-import { server } from '@rasm/hosting/node/server.ts';
-import { s3 } from '@rasm/hosting/storage.ts';
+import { store } from '@rasm/database';
+import { s3 } from '@rasm/hosting';
+import { server } from '@rasm/hosting/node';
 import { Layer } from 'effect';
-import config from '../cloudflare.config.ts';
-import { app } from './app.ts';
-import { catalog } from './store/catalog.ts';
+import config from '#/cloudflare.config';
+import { app } from '#/server/app';
+import { catalog } from '#/server/store/catalog';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

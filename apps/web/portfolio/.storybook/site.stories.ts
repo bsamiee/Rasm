@@ -1,7 +1,7 @@
-import { Entry, Portfolio } from '../model/portfolio.ts';
-import { renderSite } from '../site/render-site.tsx';
-import { Site } from '../site/site.tsx';
-import preview from './preview.ts';
+import preview from '#/.storybook/preview';
+import { Entry, Portfolio } from '#/model/portfolio';
+import { renderSite } from '#/site/render-site';
+import { Site } from '#/site/site';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

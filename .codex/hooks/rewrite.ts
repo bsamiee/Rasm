@@ -1,10 +1,9 @@
 import { homedir } from 'node:os';
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
+import { commandDecision, none, type System, some, unrun } from '@rasm/function-hooks';
 import { Cause, Console, Effect, FileSystem, Match, Path, Schema, Stdio, Stream } from 'effect';
 import { ChildProcess } from 'effect/process';
-import manifest from '../../package.json' with { type: 'json' };
-import { none, some } from '../../plugins/function-hooks/composition.ts';
-import { commandDecision, type System, unrun } from '../../plugins/function-hooks/policies/policies.ts';
+import manifest from '#/package.json' with { type: 'json' };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

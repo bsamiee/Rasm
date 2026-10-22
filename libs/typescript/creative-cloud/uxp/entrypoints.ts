@@ -2,8 +2,8 @@ import fs from 'adobe:fs';
 import uxp, { entrypoints } from 'adobe:uxp';
 import { Cause, Clock, Console, Duration, Effect, flow, Layer, ManagedRuntime, Option, Predicate, Record, Schema, Sink, Stdio, Stream } from 'effect';
 import { RpcMessage, RpcSerialization, RpcServer } from 'effect/rpc';
-import { Manifest } from './manifest.ts';
-import { Plugin, Uxp } from './runtime.ts';
+import { Manifest } from '#/manifest';
+import { Plugin, Uxp } from '#/runtime';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

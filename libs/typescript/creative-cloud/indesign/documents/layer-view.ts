@@ -1,8 +1,8 @@
 import type { Layer } from 'adobe:indesign';
 import { flow, Option, Schema, Struct } from 'effect';
-import { read } from '../dom/encoding.ts';
-import type { Model } from '../dom/model.ts';
-import { Reference } from '../dom/reference.ts';
+import { read } from '#/dom/encoding';
+import type { Model } from '#/dom/model';
+import { Reference } from '#/dom/reference';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
