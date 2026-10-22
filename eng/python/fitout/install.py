@@ -1,7 +1,6 @@
 """Installs an extension archive through Blender's native handler and records it enabled, in the GUI session holding the same user profile, else a background process."""
 
 import os
-from pathlib import Path
 import sys
 from typing import Annotated
 from zipfile import ZipFile
@@ -18,11 +17,7 @@ import msgspec
 import psutil
 from pydantic import ValidationError
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-_REPOSITORY = "user_default"
-
-# --- [MODELS] ---------------------------------------------------------------------------
+# --- [MODELS]---------------------------------------------------------------------------
 
 
 class _Manifest(msgspec.Struct, frozen=True):
@@ -56,17 +51,6 @@ type InstallError = OSError | msgspec.ValidationError | ExceptionGroup[OSError |
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _reconciled(archive: Path, *flags: str) -> str:
-    """Return Blender Python installing the archive and keeping its extension's preference row, so each startup syncs its wheels before any extension imports them."""
-    with ZipFile(archive) as bundle:
-        module = f"bl_ext.{_REPOSITORY}.{msgspec.toml.decode(bundle.read('blender_manifest.toml'), type=_Manifest).id}"
-    arguments = ["install-file", "--repo", _REPOSITORY, *flags, str(archive)]
-    return (
-        f"import bpy\nfrom bl_pkg.bl_extension_cli import cli_extension_handler\nresult = {{'returncode': cli_extension_handler({arguments!r})}}\n"
-        f"if (addons := bpy.context.preferences.addons).get({module!r}) is None:\n    addons.new().module = {module!r}\n    bpy.ops.wm.save_userpref()\n"
-    )
-
-
 async def install(
     directory: ResolvedExistingDirectory, /, *, endpoint: Annotated[str, Parameter(env_var="BLENDER_MCP_URL")], blender: Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")]
 ) -> Result[int, InstallError]:
@@ -85,6 +69,17 @@ async def install(
         response-decoding, or remote execution error. Native output is forwarded.
     """
     (archive,) = directory.glob("*.zip")
+
+    def reconciled(*flags: str) -> str:
+        repository = "user_default"
+        with ZipFile(archive) as bundle:
+            module = f"bl_ext.{repository}.{msgspec.toml.decode(bundle.read('blender_manifest.toml'), type=_Manifest).id}"
+        arguments = ["install-file", "--repo", repository, *flags, str(archive)]
+        return (
+            f"import bpy\nfrom bl_pkg.bl_extension_cli import cli_extension_handler\nresult = {{'returncode': cli_extension_handler({arguments!r})}}\n"
+            f"if (addons := bpy.context.preferences.addons).get({module!r}) is None:\n    addons.new().module = {module!r}\n    bpy.ops.wm.save_userpref()\n"
+        )
+
     profile = {name: value for name, value in os.environ.items() if name.startswith("BLENDER_USER_")}
     pids = await anyio.to_thread.run_sync(
         lambda: [
@@ -101,7 +96,7 @@ async def install(
     if not pids:
         try:
             process = await anyio.run_process(
-                (blender, "--background", "--python-exit-code", "1", "--python-expr", f"{_reconciled(archive)}import sys\nsys.exit(result['returncode'])\n"), stdout=None, stderr=None, check=False
+                (blender, "--background", "--python-exit-code", "1", "--python-expr", f"{reconciled()}import sys\nsys.exit(result['returncode'])\n"), stdout=None, stderr=None, check=False
             )
         except OSError as error:
             return Error(error)
@@ -115,7 +110,7 @@ async def install(
         sys.stderr.write(response.stderr)
         return Error(response) if isinstance(response, RemoteFailure) else Ok(response.result.returncode)
 
-    code = f"import os\nif os.getpid() not in {pids!r}:\n    raise RuntimeError('The connected Blender is not a selected running process')\n{_reconciled(archive, '--enable')}"
+    code = f"import os\nif os.getpid() not in {pids!r}:\n    raise RuntimeError('The connected Blender is not a selected running process')\n{reconciled('--enable')}"
     try:
         async with Client(endpoint) as client:
             called = await client.call_tool("execute_blender_code", {"code": code})

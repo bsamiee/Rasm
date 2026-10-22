@@ -1,3 +1,4 @@
+import { Effect } from 'effect';
 import { VersionActions } from 'nx/release';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -6,23 +7,23 @@ class TagVersionActions extends VersionActions {
     override readonly validManifestFilenames = null;
 
     override readCurrentVersionFromSourceManifest() {
-        return Promise.resolve(null);
+        return Effect.runPromise(Effect.succeed(null));
     }
 
     override readCurrentVersionFromRegistry() {
-        return Promise.resolve(null);
+        return Effect.runPromise(Effect.succeed(null));
     }
 
     override readCurrentVersionOfDependency() {
-        return Promise.resolve({ currentVersion: null, dependencyCollection: null });
+        return Effect.runPromise(Effect.succeed({ currentVersion: null, dependencyCollection: null }));
     }
 
     override updateProjectVersion() {
-        return Promise.resolve([]);
+        return Effect.runPromise(Effect.succeed([]));
     }
 
     override updateProjectDependencies() {
-        return Promise.resolve([]);
+        return Effect.runPromise(Effect.succeed([]));
     }
 }
 

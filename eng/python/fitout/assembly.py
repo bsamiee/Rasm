@@ -72,7 +72,7 @@ def _requirements(root: _Root, lock: Path, *exported: str) -> Result[Path, subpr
 
 def pack(
     source: ResolvedExistingDirectory, directory: ResolvedPath, /, *, version: str, blender: Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")]
-) -> Result[int, subprocess.CalledProcessError | ExceptionGroup[subprocess.CalledProcessError]]:
+) -> Result[int, OSError | subprocess.CalledProcessError | ExceptionGroup[subprocess.CalledProcessError]]:
     """Build a Blender extension holding the first-party packages as submodules and every other distribution as a wheel, one archive per platform Blender names.
 
     Args:
@@ -82,7 +82,7 @@ def pack(
         blender: Blender executable, supplied by BLENDER_PATH.
 
     Returns:
-        Zero once built, or the failed child processes, every icon render's together.
+        Zero once built, or the failed child processes, every icon render's together, or the failed archive placement.
     """
     root = msgspec.toml.decode(Path("pyproject.toml").read_bytes(), type=_Root)
     icons = source / "icons"
@@ -123,18 +123,21 @@ def pack(
         for master in (icons / "tools").glob("*.svg"):
             (previews / master.relative_to(icons)).with_suffix(".dat").write_bytes(encoded(master))
         failures = [*_ran("resvg", "--width", "256", "--height", "256", master, previews / f"{master.stem}.png").swap().to_option().to_list() for master in icons.glob("*.svg")]
-        rendered: Result[None, subprocess.CalledProcessError | ExceptionGroup[subprocess.CalledProcessError]] = (
+        rendered: Result[None, OSError | subprocess.CalledProcessError | ExceptionGroup[subprocess.CalledProcessError]] = (
             Error(ExceptionGroup("Icon previews failed to render", failures)) if failures else Ok(None)
         )
         lock = Path(folder, "requirements.txt")
         built = Path(folder, "archives")
         built.mkdir()
 
-        def placed() -> None:
-            if directory.exists():
-                shutil.rmtree(directory)
-            directory.parent.mkdir(parents=True, exist_ok=True)
-            shutil.move(built, directory)
+        def placed() -> Result[None, OSError]:
+            return (
+                catch(lambda: shutil.rmtree(directory), exception=OSError)()
+                .or_else_with(lambda error: Ok(None) if isinstance(error, FileNotFoundError) else Error(error))
+                .bind(lambda _: catch(lambda: directory.parent.mkdir(parents=True, exist_ok=True), exception=OSError)())
+                .bind(lambda _: catch(lambda: shutil.move(built, directory), exception=OSError)())
+                .map(lambda _: None)
+            )
 
         return (
             rendered
@@ -146,7 +149,7 @@ def pack(
                 )
             )
             .bind(lambda _: _ran(blender, "--factory-startup", "--command", "extension", "build", "--source-dir", stage, "--output-dir", built, "--split-platforms"))
-            .map(lambda _: placed())
+            .bind(lambda _: placed())
             .map(lambda _: 0)
         )
 
