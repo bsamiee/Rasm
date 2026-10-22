@@ -1984,6 +1984,9 @@ importers:
       '@rasm/uxp':
         specifier: workspace:*
         version: link:../../../../libs/typescript/creative-cloud/uxp
+      effect:
+        specifier: 'catalog:'
+        version: 4.0.5
     devDependencies:
       '@adobe-uxp-types/uxp':
         specifier: 'catalog:'
@@ -1991,6 +1994,9 @@ importers:
       '@types/node':
         specifier: 'catalog:'
         version: 26.6.5
+      indesign-uxp-types:
+        specifier: 'catalog:'
+        version: 1.0.0(@adobe/cc-ext-uxp-types@7.3.1)
 
   apps/web/portfolio:
     dependencies:
@@ -2153,9 +2159,6 @@ importers:
 
   libs/typescript/creative-cloud/indesign:
     dependencies:
-      '@rasm/automation':
-        specifier: workspace:*
-        version: link:../automation
       '@rasm/search':
         specifier: workspace:*
         version: link:../../data/search

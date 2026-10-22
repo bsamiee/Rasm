@@ -1,7 +1,6 @@
 import type { Document, InDesignDOMObject, PageItem, Text } from 'adobe:indesign';
 import { Unmatched } from '@rasm/search';
-import { Uxp } from '@rasm/uxp/runtime';
-import { Array, Cause, Effect, flow, Number, Option, Predicate, pipe, Record, Schema, String, Struct } from 'effect';
+import { Array, Cause, Effect, flow, Number, Option, Predicate, Record, Schema, String, Struct } from 'effect';
 import { Model } from './model.ts';
 import { write } from './mutations.ts';
 import { active, owner, read, resolve, Specifier } from './references.ts';
@@ -9,20 +8,13 @@ import { Mutation, preserve } from './transactions.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Mode = Schema.Literals(['Text', 'Grep', 'Glyph', 'Object', 'Color']);
-const Replacement = Schema.TaggedUnion({
-    Fields: { values: Schema.JsonObject.annotate({ description: "Fields of the mode's change preferences" }) },
-    Query: {},
-}).annotate({ description: "Fields applies the given change preferences to every match; Query applies the loaded query's changes; absent, the call only finds" });
 class FindChange extends Mutation.extend<FindChange>('FindChange')(
     {
-        mode: Mode,
+        mode: Schema.Literals(['Text', 'Grep', 'Glyph', 'Object', 'Color']),
         find: Schema.OptionFromOptionalKey(Schema.JsonObject.annotate({ description: "Fields of the mode's find preferences: the pattern and the format criteria" })),
-        change: Schema.OptionFromOptionalKey(Replacement),
+        change: Schema.OptionFromOptionalKey(Schema.JsonObject.annotate({ description: "Fields of the mode's change preferences applied to every match; absent, the call only finds" })),
         options: Schema.OptionFromOptionalKey(Schema.JsonObject.annotate({ description: "Fields of the mode's find/change options" })),
         scope: Schema.OptionFromOptionalKey(Specifier.annotate({ description: 'Specifier of the document, story, text, or page item to search; the active document when absent' })),
-        query: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Saved query loaded before find, change, and options apply' })),
-        save: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Name to save the query under once the call succeeds' })),
     },
     {
         description:
@@ -37,7 +29,7 @@ class FindChange extends Mutation.extend<FindChange>('FindChange')(
     });
 
     override get label(): string {
-        return `${Option.isSome(this.change) ? 'Change' : 'Find'} ${this.mode}${Option.match(this.query, { onNone: () => '', onSome: (name) => ` query ${name}` })}`;
+        return `${Option.isSome(this.change) ? 'Change' : 'Find'} ${this.mode}`;
     }
 
     run() {
@@ -48,15 +40,14 @@ class FindChange extends Mutation.extend<FindChange>('FindChange')(
     }
 
     search(located: unknown) {
-        const { mode, find: sought, change: replacing, options, scope, query, save } = this;
+        const { mode, find: sought, change: replacing, options, scope } = this;
         return Effect.gen(function* () {
             const { app, Enumerator, NothingEnum, SearchModes, owning, text, item } = yield* Model;
             const [find, change] = [`find${mode}`, `change${mode}`] as const;
             const owners = { find: `${find}Preferences`, change: `${change}Preferences`, options: `findChange${mode}Options` } as const;
             const search = SearchModes[`${String.toLowerCase(mode)}search` as const];
             const held = `find-change-${yield* Effect.fiberId}`;
-            const refused = (name: string) => (cause: unknown) => new Cause.UnknownError(cause, `query ${name}`);
-            yield* Effect.acquireRelease(Effect.try({ try: () => app.saveFindChangeQuery(held, search), catch: refused(held) }), () =>
+            yield* Effect.acquireRelease(Effect.try({ try: () => app.saveFindChangeQuery(held, search), catch: (cause) => new Cause.UnknownError(cause, `${mode} preferences held as query ${held}`) }), () =>
                 Effect.sync(() => {
                     app.loadFindChangeQuery(held, search);
                     app.deleteFindChangeQuery(held, search);
@@ -71,12 +62,11 @@ class FindChange extends Mutation.extend<FindChange>('FindChange')(
                     Effect.fromOption(() => Unmatched.make({ subject: `${mode} search target`, query: scope, candidates: [] })),
                 ),
             );
-            yield* Effect.transposeOption(Option.map(query, (name) => Effect.try({ try: () => app.loadFindChangeQuery(name, search), catch: refused(name) })));
             yield* Effect.forEach(
                 [
                     [owners.find, sought],
                     [owners.options, options],
-                    [owners.change, Option.flatMap(replacing, Replacement.match({ Fields: ({ values }) => Option.some(values), Query: () => Option.none() }))],
+                    [owners.change, replacing],
                 ] as const,
                 ([target, fields]) => Effect.transposeOption(Option.map(fields, (values) => write(app[target], values))),
                 { discard: true },
@@ -99,60 +89,12 @@ class FindChange extends Mutation.extend<FindChange>('FindChange')(
                     });
                 }, Effect.scoped),
             );
-            yield* Effect.transposeOption(Option.map(save, (name) => Effect.try({ try: () => app.saveFindChangeQuery(name, search), catch: refused(name) })));
             const changes = Array.getSomes(found.map(({ count }) => count.changes));
             return { count: { matches: Number.sumAll(found.map(({ count }) => count.matches)), changes: Option.map(Option.liftPredicate(changes, Array.isReadonlyArrayNonEmpty), Number.sumAll) }, matches: Array.flatMap(found, Struct.get('matches')) };
         }).pipe(Effect.scoped);
     }
 }
-class Queries extends Schema.Class<Queries, { readonly brand: unique symbol }>('Queries')(
-    { name: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Saved query name, in any case; the query then includes its native XML' })) },
-    { description: "Saved Find/Change queries of every mode, factory queries in the application's locale; a name includes the native XML" },
-) {
-    static readonly Query = Schema.Struct({ name: Schema.String, mode: Mode, origin: Schema.Literals(['user', 'factory']), content: Schema.OptionFromOptionalKey(Schema.String.annotate({ description: 'Native query XML with complete patterns, formatting, effects, and options' })) });
-    static readonly Result = Schema.Array(Queries.Query);
-
-    run() {
-        const { name } = this;
-        return Effect.gen(function* () {
-            const [{ app, ScriptLanguage, folders }, { fs }] = yield* Effect.all([Model, Uxp]);
-            const { settings, presets, locale } = yield* folders;
-            const listing = `(function (root, within) {
-    var rows = [], modes = Folder(root + '/Find-Change Queries').getFiles() || [];
-    for (var at = 0; at < modes.length; at++) {
-        if (!(modes[at] instanceof Folder)) continue;
-        var files = Folder(modes[at].fsName + within).getFiles('*.xml') || [];
-        for (var each = 0; each < files.length; each++) rows.push([modes[at].displayName, files[each].displayName.replace(/\\.xml$/i, ''), files[each].fsName]);
-    }
-    return rows;
-})(arguments[0], arguments[1])`;
-            const found = yield* Effect.forEach(Queries.Query.fields.origin.literals, (origin) =>
-                Effect.map(
-                    read(Schema.Array(Schema.Tuple([Schema.String, Schema.String, Schema.String])), `${origin} queries`, () => app.doScript(listing, ScriptLanguage.JAVASCRIPT, origin === 'factory' ? [presets, `/${locale}`] : [settings, ''])),
-                    Array.map(([folder, query, path]) => ({ folder, name: query, origin, path })),
-                ),
-            );
-            const rows = Array.flatMap(found.flat(), ({ folder, ...row }) =>
-                Option.toArray(
-                    Option.map(
-                        Array.findFirst(Mode.literals, (mode) => String.toLowerCase(mode) === String.toLowerCase(folder)),
-                        (mode) => ({ ...row, mode }),
-                    ),
-                ),
-            );
-            const chosen = yield* Unmatched.matching('saved query', name)(rows, (row) => [row.name]);
-            return yield* Effect.forEach(chosen, ({ path, ...row }) =>
-                pipe(
-                    name,
-                    Option.as(Effect.try({ try: () => fs.readFileSync(`file:${path}`, { encoding: 'utf-8' }), catch: (cause) => new Cause.UnknownError(cause, path) })),
-                    Effect.transposeOption,
-                    Effect.map((content) => ({ ...row, content })),
-                ),
-            );
-        });
-    }
-}
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { FindChange, Queries };
+export { FindChange };

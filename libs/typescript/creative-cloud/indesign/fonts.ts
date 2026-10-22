@@ -43,8 +43,6 @@ class FontView extends Schema.TaggedClass<FontView, { readonly brand: unique sym
                         options: Option.some({ includeFootnotes: true, includeHiddenLayers: true, includeLockedLayersForFind: true, includeLockedStoriesForFind: true, includeMasterPages: true }),
                         change: Option.none(),
                         scope: Option.none(),
-                        query: Option.none(),
-                        save: Option.none(),
                     }).search(open),
                     ({ matches }) => [
                         ...Array.map(matches, Struct.get('specifier')),

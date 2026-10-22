@@ -106,7 +106,7 @@ Throws inside a step roll back every change in every document and record no undo
 | :-----: | :--------------------- | :-------------------------------------------------------------------- |
 |  [01]   | Read                   | DOM call, or ExtendScript source text through `doScript`              |
 |  [02]   | Write with no UXP code | ExtendScript source text under `ENTIRE_SCRIPT` around a function step |
-|  [03]   | Write running UXP code | Function `doScript` nested in an ExtendScript `$.sleep` call          |
+|  [03]   | Write from a plug-in   | Function `doScript` nested in an ExtendScript `$.sleep` call          |
 |  [04]   | Savepoint inside write | Function `doScript` nested in that transaction                        |
 |  [05]   | Rolled-back read       | ExtendScript source text around a throwing function `doScript`        |
 |  [06]   | Write from a script    | Top-level function `doScript` under `ENTIRE_SCRIPT`                   |
@@ -114,46 +114,18 @@ Throws inside a step roll back every change in every document and record no undo
 `app.doScript` returns a plain object with its scripting property keys alone, and rethrows as a new `Error` with no other field a function's throw as "<name>: <message>", a thrown string as its text, and an ExtendScript source throw as "Uncaught JavaScript exception: <message>". Value and failure leave through a `Deferred`:
 
 ```ts
-import type { Document } from 'adobe:indesign';
-
-type Handoff = Data.TaggedEnum<{ Idle: Record.ReadonlyRecord<never, never>; Held: { readonly step: Effect.Effect<void> }; Entered: Record.ReadonlyRecord<never, never> }>;
-const Handoff = Data.taggedEnum<Handoff>();
-
-const run = Effect.fn('run')(function* <A, E, R>(state: Ref.Ref<Handoff>, label: string, body: Effect.Effect<A, E, R>) {
+const commit = Effect.fn('commit')(function* <A, E, R>(label: string, body: Effect.Effect<A, E, R>) {
     const { app, SaveOptions, ScriptLanguage, UndoModes } = yield* Model;
-    yield* Effect.filterOrFail(
-        Effect.sync(() => app.modalState),
-        (modalState) => !modalState,
-        (modalState) => new Cause.UnknownError({ modalState }, label),
-    );
-    const steps = () => {
-        const every = app.documents.everyItem();
-        return Array.zipWith(every.id, every.undoHistory, (id, history) => [id, history.length] as const);
-    };
-    const [before, done, sync] = [new Map(steps()), yield* Deferred.make<A, E | Cause.UnknownError>(), Effect.runSyncWith(yield* Effect.context<R>())];
-    const refused = (cause: unknown) => new Cause.UnknownError(cause, label);
-    const step = Effect.try({ try: (): unknown => app.doScript(() => sync(Effect.andThen(Deferred.into(body, done), Deferred.await(done))), ScriptLanguage.UXPSCRIPT, [], UndoModes.ENTIRE_SCRIPT, label), catch: refused }).pipe(
+    const [opened, done, sync] = [app.documents.everyItem().id, yield* Deferred.make<A, E | Cause.UnknownError>(), Effect.runSyncWith(yield* Effect.context<R>())];
+    const closed = (id: number) => Effect.sync(() => app.documents.itemByID(id).close(SaveOptions.NO));
+    yield* Effect.try({ try: (): unknown => app.doScript(() => sync(Effect.andThen(Deferred.into(body, done), Deferred.await(done))), ScriptLanguage.UXPSCRIPT, [], UndoModes.ENTIRE_SCRIPT, label), catch: (cause) => new Cause.UnknownError(cause, label) }).pipe(
         Effect.catch((error) => Deferred.fail(done, error)),
-        Effect.asVoid,
     );
-    const value = yield* Ref.set(state, Handoff.Held({ step })).pipe(
-        Effect.andThen(Effect.try({ try: (): unknown => app.doScript('$.sleep(5)', ScriptLanguage.JAVASCRIPT), catch: refused }).pipe(Effect.repeat({ until: () => Deferred.isDone(done) }))),
-        Effect.andThen(Deferred.await(done)),
-        Effect.ensuring(Ref.set(state, Handoff.Idle())),
-        Effect.onError(() =>
-            Effect.sync(() =>
-                Array.difference(app.documents.everyItem().id, [...before.keys()]).forEach((id) => {
-                    app.documents.itemByID(id).close(SaveOptions.NO);
-                }),
-            ),
-        ),
-    );
-    const touched: readonly Document[] = steps().flatMap(([id, length]) => (before.get(id) === length ? [] : [app.documents.itemByID(id)]));
-    return { value, touched };
+    return yield* Deferred.await(done).pipe(Effect.onError(() => Effect.forEach(Array.difference(app.documents.everyItem().id, opened), closed, { discard: true })));
 });
 ```
 
-`run` holds its step in `state` and repeats `$.sleep(5)` until the step ran. The peer's `enter` call swaps `Held` for `Entered` and runs the step inside a call InDesign completes, and answers `Idle` when no step waits. `run` returns the body's value with each document whose undo history changed, or its typed failure with every change rolled back. A host refusal fails `Cause.UnknownError` with `label` as message, and an open modal state fails with `{ modalState }` as cause. `Deferred.fail` completes `done` only when `doScript` refused before the body ran, and documents a rolled-back step opened close by id difference. An async body fails `Cause.UnknownError`.
+`commit` runs from a script context, where a top-level function `doScript` completes, and returns the body's value or its typed failure with every change rolled back. A host refusal fails `Cause.UnknownError` with `label` as message, `Deferred.fail` completes `done` only when `doScript` refused before the body ran, and documents a rolled-back step opened close by id difference. A plug-in holds the same step until a call InDesign completes enters it: it repeats ExtendScript `$.sleep(5)` while a peer call runs the step inside the sleep.
 
 - Nested `doScript` calls are savepoints inside their outer step, where `document.undo()` throws
 - `document.undoHistory` lists step names newest first

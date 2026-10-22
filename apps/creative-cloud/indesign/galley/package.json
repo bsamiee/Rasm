@@ -2,15 +2,17 @@
     "name": "@rasm/galley",
     "version": "1.0.0",
     "private": true,
-    "description": "UXP script Atelier runs in InDesign through do script, serving one call of the InDesign contract per run",
+    "description": "InDesign extension serving the InDesign contract to Atelier, one request per do script run",
     "type": "module",
     "main": "main.ts",
     "dependencies": {
         "@rasm/indesign": "workspace:*",
-        "@rasm/uxp": "workspace:*"
+        "@rasm/uxp": "workspace:*",
+        "effect": "catalog:"
     },
     "devDependencies": {
         "@adobe-uxp-types/uxp": "catalog:",
-        "@types/node": "catalog:"
+        "@types/node": "catalog:",
+        "indesign-uxp-types": "catalog:"
     }
 }
