@@ -39,7 +39,21 @@ struct Captured: Encodable {
 struct Instance: Encodable {
     let pid: pid_t
     let url: URL
+    let activationPolicy: String
     let state: InstanceState
+
+    init(_ instance: NSRunningApplication, at url: URL, state: InstanceState) {
+        pid = instance.processIdentifier
+        self.url = url
+        activationPolicy =
+            switch instance.activationPolicy {
+                case .regular: "regular"
+                case .accessory: "accessory"
+                case .prohibited: "prohibited"
+                @unknown default: String(instance.activationPolicy.rawValue)
+            }
+        self.state = state
+    }
 }
 
 enum Request: Decodable {
@@ -73,7 +87,7 @@ enum Request: Decodable {
                     return await .stream(
                         NSWorkspace.shared.instanceStates(of: { instance in instance.bundleIdentifier?.hasPrefix(Adobe.identifierPrefix) == true }, walking: walked).map {
                             states -> any Encodable & Sendable in
-                            states.compactMap { instance, state in instance.bundleURL.map { url in Instance(pid: instance.processIdentifier, url: url, state: state) } }
+                            states.compactMap { instance, state in instance.bundleURL.map { url in Instance(instance, at: url, state: state) } }
                         }
                     )
                 case .applications(let file):

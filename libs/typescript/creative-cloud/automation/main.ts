@@ -26,7 +26,12 @@ const State = Schema.Union([
 ]).annotate({
     description: 'Instance state: running with open windows, sheets, and menus while responding, launching until launch finishes, or unresponsive when it answers no Accessibility request within the messaging timeout; why a status read failed; or how it exited',
 });
-const RunningInstance = Schema.Struct({ pid: Pid, url: Schema.URL.annotate({ description: 'Bundle the instance runs' }), state: State });
+const RunningInstance = Schema.Struct({
+    pid: Pid,
+    url: Schema.URL.annotate({ description: 'Bundle the instance runs' }),
+    activationPolicy: Schema.Literals(['regular', 'accessory', 'prohibited']).annotate({ description: 'NSApplication activation policy: regular for an application in the Dock, accessory for a menu bar or helper process' }),
+    state: State,
+});
 const Screenshot = Schema.Struct({ image: Schema.Uint8ArrayFromBase64, width: Schema.Int.annotate({ description: 'Image width in pixels' }), height: Schema.Int.annotate({ description: 'Image height in pixels' }) });
 const Kind = Schema.Literals(['suite', 'command', 'class', 'record-type', 'value-type', 'enumeration']).annotate({ description: 'Scripting definition element kind' });
 type AppleEventValue = null | boolean | number | string | readonly AppleEventValue[] | { readonly [term: string]: AppleEventValue };

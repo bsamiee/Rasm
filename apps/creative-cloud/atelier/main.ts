@@ -28,8 +28,9 @@ const served = Effect.fnUntraced(function* (executable: string) {
         const [installation, rows] = yield* Effect.all([found, SubscriptionRef.get(automation.instances)]);
         return { installation, pid: yield* Unmatched.single(`running instance of ${installation.name}`, Option.map(pid, String))(rows.filter(runs(installation)).map(Struct.get('pid')), (each) => [String(each)]) };
     });
-    const among = (hosts: Predicate.Predicate<Installation>) => (given: Option.Option<string>) => Effect.zipWith(automation.installed, SubscriptionRef.get(automation.instances), (installed, rows) => installed.filter((row) => hosts(row) && (Option.isSome(given) || rows.some(runs(row)))));
-    const lookup = (hosts: Predicate.Predicate<Installation>) => (given: Option.Option<string>) => Effect.flatMap(among(hosts)(given), (rows) => Unmatched.single(Option.match(given, { onSome: () => 'installed Adobe application', onNone: () => 'running Adobe application' }), given)(rows, named));
+    const among = (hosts: Predicate.Predicate<Installation>) => (given: Option.Option<string>) =>
+        Effect.zipWith(automation.installed, SubscriptionRef.get(automation.instances), (installed, rows) => installed.filter((row) => hosts(row) && (Option.isSome(given) || rows.some((instance) => runs(row)(instance) && instance.activationPolicy === 'regular'))));
+    const lookup = (hosts: Predicate.Predicate<Installation>) => (given: Option.Option<string>) => Effect.flatMap(among(hosts)(given), (rows) => Unmatched.single(Option.match(given, { onSome: () => 'installed Adobe application', onNone: () => 'running Adobe application in the Dock' }), given)(rows, named));
     const dictionaries = Effect.zipWith(automation.installed, extended, (rows, hosts) => rows.filter((row) => row.scriptable && !hosts(row)));
     const described = (given: string) => Effect.flatMap(dictionaries, (rows) => Unmatched.single('installed Adobe application its dictionary describes', Option.some(given))(rows, named));
     const repeatable = Context.make(Tool.Idempotent, true).pipe(Context.add(Tool.Destructive, false));
@@ -131,7 +132,7 @@ const served = Effect.fnUntraced(function* (executable: string) {
         const listed = (holds: Predicate.Predicate<Installation>) => Schema.Literals(Array.intersection(names, installed.filter(holds).map(Struct.get('name')))).annotate({ description: 'Installed Adobe application' });
         const route = (holds: Predicate.Predicate<Installation>) => ({
             fields: {
-                application: Schema.OptionFromOptionalKey(listed(holds).annotate({ description: 'Installed Adobe application, absent for the one running' })),
+                application: Schema.OptionFromOptionalKey(listed(holds).annotate({ description: 'Installed Adobe application, absent for the one running in the Dock' })),
                 pid: Schema.OptionFromOptionalKey(Pid.annotate({ description: 'Running instance, required when its bundle runs several' })),
             },
             resolve: ({ application: given, pid }: { readonly application: Option.Option<string>; readonly pid: Option.Option<number> }) => instance(lookup(holds)(given), pid),
