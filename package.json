@@ -455,7 +455,7 @@
             "format:yamlfmt": { "command": "fd --hidden --extension yaml --extension yml --strip-cwd-prefix --exec-batch yamlfmt", "configurations": { "files": { "command": "yamlfmt" } }, "metadata": { "extensions": [ ".yaml", ".yml" ] } },
             "format:shfmt": { "command": "fd --hidden --extension sh --exec-batch shfmt -w --", "configurations": { "files": { "command": "shfmt -w --" } }, "metadata": { "extensions": [ ".sh" ] } },
             "check": { "dependsOn": [ "lint", "typecheck" ] },
-            "upgrade": { "command": "node eng/typescript/upgrade/main.ts", "dependsOn": [ "upgrade:*", { "projects": [ "tag:language:rust" ], "target": "upgrade:cargo" }, { "projects": [ "tag:build:xcode" ], "target": "upgrade:xcode" } ] },
+            "upgrade": { "command": "node eng/typescript/upgrade/main.ts", "dependsOn": [ "upgrade:*", { "projects": [ "tag:language:rust" ], "target": "upgrade:cargo" }, { "projects": [ "tag:build:swiftpm" ], "target": "upgrade:swiftpm" }, { "projects": [ "tag:build:xcode" ], "target": "upgrade:xcode" } ] },
             "upgrade:dotnet": { "command": "dotnet run --project eng/dotnet/Rasm.Upgrade -- Directory.Packages.props" },
             "upgrade:python": { "executor": "nx:run-commands", "options": { "commands": [ "pixi update", "pixi run --locked -e hdf5 pixi run --locked -e default uv sync --upgrade" ], "parallel": false } },
             "upgrade:typescript": { "executor": "nx:run-commands", "options": { "commands": [ "ncu --workspaces --target newest --upgrade --install never --reject typescript,tree-sitter-swift", "node eng/typescript/upgrade/typescript.ts", "pnpm install" ], "parallel": false }, "parallelism": false },

@@ -20,6 +20,8 @@ SwiftPM builds modules and executables through root `Package.swift`, Xcode build
 - SwiftPM writes `.build/` in the working folder when neither is set, `--help` included
 - `SWIFTPM_BUILD_DIR` sits on Nx SwiftPM targets alone, in `mise.toml` `[env]` it moves sourcekit-lsp's build off `swiftPM.scratchPath`
 - SwiftPM locks its scratch path per process, each SwiftPM target takes `parallelism: false`
+- Executables `install` through `experimental-install` into `$XDG_CONFIG_HOME/swiftpm/bin` on mise `_.path`, which refuses an installed name until `rm` deletes it
+- Executables a terminal or harness runs hold its TCC grants, a reinstall keeps them and no bundle is needed
 
 ## [03]-[PROJECT_FILES]
 

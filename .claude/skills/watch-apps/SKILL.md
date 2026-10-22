@@ -10,20 +10,19 @@ description: "Use when starting or driving a desktop app, covering the watcher, 
 ## [01]-[SEQUENCE]
 
 Start the watcher from a terminal or harness with Accessibility access before an app's first launch or script call, and keep it until work ends:
-1. Build the watcher with `nx run watch-apps:build`, once per session and after a change to its sources
-2. Start a Monitor running `watch` with the app's bundle id or display name, matched without case or diacritics
-3. Read the start line, the state of every running instance or `{}` for none, a `fail` line names a missing grant or an unmatched name with near candidates
-4. Start the app with `launch`, which sends no activation and exits once the app finishes launching
-5. Act on each line by its state table row, on the `pid` of the instance work drives
-6. Re-arm the Monitor with the same command on its expiry notice
+1. Start a Monitor running `watch` with the app's bundle id or display name, matched without case or diacritics
+2. Read the start line, the state of every running instance or `{}` for none, a `fail` line names a missing grant or an unmatched name with near candidates
+3. Start the app with `launch`, which sends no activation and exits once the app finishes launching
+4. Act on each line by its state table row, on the `pid` of the instance work drives
+5. Re-arm the Monitor with the same command on its expiry notice
 
 ```text
-Monitor {"command": "${CLAUDE_SKILL_DIR}/../../../.cache/swiftpm/build/debug/watch-apps watch <app>",
+Monitor {"command": "watch-apps watch <app>",
          "description": "<app> dialogs and lifecycle", "timeout_ms": 1800000}
 ```
 
 ```bash
-${CLAUDE_SKILL_DIR}/../../../.cache/swiftpm/build/debug/watch-apps launch <app> [--new] [--hides] \
+watch-apps launch <app> [--new] [--hides] \
     [--document <path>]... [--arguments <argument>]... [--environment NAME=VALUE]...
 ```
 
@@ -44,9 +43,9 @@ Every command exits 1 after printing a `fail` line and 0 otherwise.
 Runs other than `watch` act once and exit:
 
 ```bash
-${CLAUDE_SKILL_DIR}/../../../.cache/swiftpm/build/debug/watch-apps read <app> [--pid <pid>]
-${CLAUDE_SKILL_DIR}/../../../.cache/swiftpm/build/debug/watch-apps perform <id> <action>
-${CLAUDE_SKILL_DIR}/../../../.cache/swiftpm/build/debug/watch-apps set <id> '<text>'
+watch-apps read <app> [--pid <pid>]
+watch-apps perform <id> <action>
+watch-apps set <id> '<text>'
 ```
 
 - `read` prints one state line holding every window, sheet, and dialog with its contents, and the menu bar with each menu under the item opening it

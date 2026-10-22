@@ -371,7 +371,7 @@ const swiftModules = Effect.fnUntraced(function* ({ swift, hosts }: Workspace) {
     );
     const platformed = platforms.map(Struct.get('name'));
     const modules = sources.map((target) => {
-        const project = swiftProject(['build:swiftpm', ...Array.intersection(Array.union(platformed, target.path.split('/')), folders).map((host) => `host:${host}`)], SWIFTPM, []);
+        const project = swiftProject(['build:swiftpm', ...Array.intersection(Array.union(platformed, target.path.split('/')), folders).map((host) => `host:${host}`)], SWIFTPM, target.type === 'executable' ? ['install', 'upgrade:swiftpm'] : []);
         const suite = Array.findFirst(suites, ({ name }) => name === `${target.name}Tests`);
         return [
             target.path,

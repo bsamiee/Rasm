@@ -130,7 +130,8 @@
             },
             { "filter": { "projects": [ "tag:output:extension" ] }, "command": "python -m eng.python.fitout install .artifacts/blender/{projectName}", "dependsOn": [ "pack" ], "parallelism": false },
             { "filter": { "projects": [ "tag:host:uxp" ] }, "command": "node eng/typescript/uxp/main.ts .artifacts/{projectRoot}", "dependsOn": [ "build" ], "parallelism": false },
-            { "filter": { "projects": [ "tag:language:rust" ] }, "command": "mise daemons restart", "dependsOn": [ "install:cargo" ] }
+            { "filter": { "projects": [ "tag:language:rust" ] }, "command": "mise daemons restart", "dependsOn": [ "install:cargo" ] },
+            { "filter": { "projects": [ "tag:build:swiftpm" ] }, "command": "rm -f \"$XDG_CONFIG_HOME/swiftpm/bin/{projectName}\" && swift package --disable-automatic-resolution experimental-install --product {projectName}", "parallelism": false }
         ],
         "publish": [
             { "parallelism": false },
@@ -154,6 +155,7 @@
         ],
         "install:cargo": { "command": "cargo install --locked --profile dist --path {projectRoot}", "parallelism": false },
         "upgrade:cargo": { "executor": "nx:run-commands", "options": { "commands": [ { "command": "cargo install --locked --profile dist --path {projectRoot}", "forwardAllArgs": false }, "mise daemons restart" ], "parallel": false }, "parallelism": false },
+        "upgrade:swiftpm": { "command": "rm -f \"$XDG_CONFIG_HOME/swiftpm/bin/{projectName}\" && swift package --disable-automatic-resolution experimental-install --product {projectName}", "dependsOn": [ { "projects": [ "rasm" ], "target": "upgrade:swift" } ], "parallelism": false },
         "serve": [ { "filter": { "projects": [ "tag:bundler:vite" ] }, "command": "vite", "options": { "cwd": "{projectRoot}" }, "continuous": true } ],
         "hosting": [
             {

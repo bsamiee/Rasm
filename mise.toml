@@ -10,7 +10,7 @@ experimental                        = true
 
 # --- [ENV] ------------------------------------------------------------------------------
 [env]
-_.path                                = "./node_modules/.bin"
+_.path                                = ["./node_modules/.bin", "{{ xdg_config_home }}/swiftpm/bin"]
 DOTNET_NOLOGO                         = "1"
 DOTNET_ROLL_FORWARD                   = "Major"
 PYTHONPYCACHEPREFIX                   = "{{config_root}}/.cache/pycache"
