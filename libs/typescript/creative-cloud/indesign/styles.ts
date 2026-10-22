@@ -12,7 +12,6 @@ type Styled = InDesignDOMObject<unknown> & { readonly name: string; readonly bas
 
 class StyleView extends Schema.TaggedClass<StyleView, { readonly brand: unique symbol }>()('Style', {
     ...Reference.fields,
-    hostOwned: Schema.Boolean.annotate({ description: 'A bracketed name marks a style InDesign owns and refuses to remove' }),
     group: Schema.Array(Schema.String).annotate({ description: 'Enclosing style group names, nearest first' }),
     basedOn: Schema.Array(Reference).annotate({ description: 'Inheritance chain, nearest first, ending before the root style' }),
     nextStyle: Schema.OptionFromOptionalKey(Reference),
@@ -28,12 +27,10 @@ class StyleView extends Schema.TaggedClass<StyleView, { readonly brand: unique s
         const container = Option.orElse(Array.findFirst(enclosing, document), () => Option.some(app));
         const base = Predicate.isString(based) ? yield* byName(style.constructorName, based, container) : based;
         const theirs = yield* Effect.try({ try: (): object => (host(base) ? base.properties : {}), catch: refused });
-        const reference = Reference.of(style);
         const own = yield* overrides(style, mine, (name) => Reflect.get(theirs, name), { ...StyleView.fields, ...Composition.fields });
         return yield* read(StyleView, style.toSpecifier(), () => ({
             _tag: 'Style',
-            ...reference,
-            hostOwned: Option.exists(reference.name, (name) => name.startsWith('[') && name.endsWith(']')),
+            ...Reference.of(style),
             group: Array.flatMap(enclosing, (above) => (named(above) && !document(above) ? [above.name] : [])),
             basedOn: Array.fromIterable(Iterable.unfold(based, (each) => (host(each) && Predicate.hasProperty(each, 'basedOn') ? Option.some([each, each.basedOn] as const) : Option.none()))),
             nextStyle: Option.liftPredicate(mine.nextStyle, host),

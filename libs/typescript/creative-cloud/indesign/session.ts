@@ -2,7 +2,7 @@ import { Unmatched } from '@rasm/search';
 import { Array, Cause, Effect, Option, pipe, Schema, Struct } from 'effect';
 import { DocumentView } from './documents.ts';
 import { Model } from './model.ts';
-import { active, documents, Reference, read, Specifier } from './references.ts';
+import { active, Reference, read, Specifier } from './references.ts';
 import { Overrides, TextView } from './text.ts';
 import { Mutation } from './transactions.ts';
 
@@ -10,29 +10,23 @@ import { Mutation } from './transactions.ts';
 
 class Session extends Schema.TaggedClass<Session, { readonly brand: unique symbol }>()('Session', {
     version: Schema.String,
-    status: Schema.TaggedUnion({
-        Modal: {},
-        Ready: {
-            tool: Schema.String,
-            panels: Schema.Array(Schema.String),
-            documents: Schema.Array(DocumentView.Row),
-            active: Schema.OptionFromOptionalKey(
-                Schema.Struct({
-                    document: Specifier,
-                    window: Specifier,
-                    selection: Schema.Array(Reference.mapFields(Struct.assign({ contents: Schema.OptionFromOptionalKey(Schema.Json), parentStory: Schema.OptionFromOptionalKey(Specifier), overrides: Schema.OptionFromOptionalKey(Overrides) }))),
-                    overset: Schema.Array(Specifier),
-                    undo: Schema.Struct({ mode: Schema.String, name: Schema.String, history: Schema.Array(Schema.String) }),
-                }),
-            ),
-        },
-    }),
+    tool: Schema.String,
+    panels: Schema.Array(Schema.String),
+    documents: Schema.Array(DocumentView.Row),
+    active: Schema.OptionFromOptionalKey(
+        Schema.Struct({
+            document: Specifier,
+            window: Specifier,
+            selection: Schema.Array(Reference.mapFields(Struct.assign({ contents: Schema.OptionFromOptionalKey(Schema.Json), parentStory: Schema.OptionFromOptionalKey(Specifier), overrides: Schema.OptionFromOptionalKey(Overrides) }))),
+            overset: Schema.Array(Specifier),
+            undo: Schema.Struct({ mode: Schema.String, name: Schema.String, history: Schema.Array(Schema.String) }),
+        }),
+    ),
 }) {
     static readonly current = Effect.gen(function* () {
         const { app } = yield* Model;
-        const modal = app.modalState;
-        const rows = yield* Effect.forEach(modal ? [] : app.documents.everyItem().getElements(), DocumentView.row);
-        const opened = Option.filter(yield* Effect.option(active), () => !modal);
+        const rows = yield* Effect.forEach(app.documents.everyItem().getElements(), DocumentView.row);
+        const opened = yield* Effect.option(active);
         const selection = yield* Effect.forEach(Option.match(opened, { onNone: Array.empty, onSome: () => app.selection }), (item) =>
             pipe(
                 Option.liftPredicate(item, (each) => 'textHasOverrides' in each),
@@ -57,21 +51,16 @@ class Session extends Schema.TaggedClass<Session, { readonly brand: unique symbo
         return yield* read(Session, 'session', () => ({
             _tag: 'Session',
             version: app.version,
-            status: modal
-                ? { _tag: 'Modal' }
-                : {
-                      _tag: 'Ready',
-                      tool: app.toolBoxTools.currentTool,
-                      panels,
-                      documents: rows,
-                      active: Option.map(opened, (document) => ({
-                          document: document.toSpecifier(),
-                          window: app.activeWindow.toSpecifier(),
-                          selection,
-                          overset: DocumentView.overset(document),
-                          undo: { mode: app.activeScriptUndoMode, name: document.undoName, history: document.undoHistory },
-                      })),
-                  },
+            tool: app.toolBoxTools.currentTool,
+            panels,
+            documents: rows,
+            active: Option.map(opened, (document) => ({
+                document: document.toSpecifier(),
+                window: app.activeWindow.toSpecifier(),
+                selection,
+                overset: DocumentView.overset(document),
+                undo: { mode: app.activeScriptUndoMode, name: document.undoName, history: document.undoHistory },
+            })),
         }));
     });
 }
@@ -91,30 +80,19 @@ class Menu extends Schema.Class<Menu, { readonly brand: unique symbol }>('Menu')
 }
 class Invoke extends Mutation.extend<Invoke>('Invoke')(
     { action: Schema.Union([Schema.Int, Schema.String]).annotate({ description: 'Menu action id or name from the menu resource' }) },
-    { description: 'Invokes one menu action as the user would, in one undo step; an action whose name ends in an ellipsis opens a dialog and is refused, its settings living on the application preference objects inspect and change read and write' },
+    {
+        description: 'Invokes one menu action under never-interact, in one undo step: a command runs as its menu item runs it, and an action whose command opens a dialog returns at once having opened no dialog and changed nothing',
+    },
 ) {
-    static readonly Result = Mutation.summarized(Menu.Action);
-
     override get label(): string {
         return `Invoke ${this.action}`;
     }
 
     run() {
         const { action } = this;
-        return this.commit(
-            Invoke.Result,
-            documents,
-            Effect.fnUntraced(function* () {
-                const { app } = yield* Model;
-                const chosen = yield* Unmatched.single('menu action', Option.some(String(action)))(yield* Menu.make({ area: Option.none() }).run(), ({ id, name, area }) => [`${id} ${name} (${area})`, String(id), name]).pipe(
-                    Effect.filterOrFail(
-                        ({ name }) => !name.endsWith('...'),
-                        ({ name }) => new Cause.IllegalArgumentError(`${name} opens a dialog; inspect and change read and write its settings on the application preference objects`),
-                    ),
-                );
-                yield* Effect.try({ try: () => app.menuActions.itemByID(chosen.id).invoke(), catch: (cause) => new Cause.UnknownError(cause, chosen.name) });
-                return chosen;
-            }),
+        return Effect.flatMap(
+            Effect.flatMap(Menu.make({ area: Option.none() }).run(), (rows) => Unmatched.single('menu action', Option.some(String(action)))(rows, ({ id, name, area }) => [`${id} ${name} (${area})`, String(id), name])),
+            (chosen) => this.commit(Model.use(({ app }) => Effect.as(Effect.try({ try: () => app.menuActions.itemByID(chosen.id).invoke(), catch: (cause) => new Cause.UnknownError(cause, chosen.name) }), chosen))),
         );
     }
 }

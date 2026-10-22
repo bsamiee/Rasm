@@ -1,5 +1,6 @@
 public import Encoding
 public import Foundation
+import OrderedCollections
 public import Results
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -46,7 +47,7 @@ public enum JSONRPCFailure<Method: RawRepresentable & Sendable>: CustomNSError, 
             case .closed: "Connection closed"
             case .invalidMessage(.some(let method), _): "Unreadable \(method.rawValue) message"
             case .invalidMessage(.none, _): "Unreadable message"
-            case .rejected(let method, let rejection): "\(method.rawValue) rejected with \(rejection.code): \(rejection.message)"
+            case .rejected(let method, let rejection): "\(method.rawValue) error \(rejection.code): \(rejection.message)"
         }
     }
 
@@ -62,13 +63,12 @@ public enum JSONRPCFailure<Method: RawRepresentable & Sendable>: CustomNSError, 
 
 public actor JSONRPCConnection<Method: RawRepresentable & Hashable & Sendable, Failure: DeadlineFailure> where Method.RawValue == String {
     // --- [STATE]
-    private struct Reply: Sendable {
+    private struct Call: Sendable {
         let method: Method
         let answer: AsyncStream<Result<Data, Failure>>.Continuation
     }
 
     private struct Listener: Sendable {
-        let id: UUID = UUID()
         let receive: @Sendable (Data) throws -> Bool
         let close: @Sendable (Failure) -> Void
     }
@@ -77,8 +77,8 @@ public actor JSONRPCConnection<Method: RawRepresentable & Hashable & Sendable, F
     private let decoder: JSONDecoder
     private let timeout: Duration
     private let failure: @Sendable (JSONRPCFailure<Method>) -> Failure
-    private var replies: [JSONValue: Reply] = [:]
-    private var listeners: [Method: [Listener]] = [:]
+    private var calls: [JSONValue: Call] = [:]
+    private var listeners: [Method: OrderedDictionary<UUID, Listener>] = [:]
     private var retained: [Method: [Data]] = [:]
     private var terminal: Failure?
 
@@ -129,8 +129,8 @@ public actor JSONRPCConnection<Method: RawRepresentable & Hashable & Sendable, F
     ) async throws(Failure) -> Value {
         let id: JSONValue = .string(UUID().uuidString)
         let (answers, answer): (AsyncStream<Result<Data, Failure>>, AsyncStream<Result<Data, Failure>>.Continuation) = AsyncStream.makeStream()
-        replies[id] = Reply(method: method, answer: answer)
-        defer { replies[id] = nil }
+        calls[id] = Call(method: method, answer: answer)
+        defer { calls[id] = nil }
         try await send(Message(id: id, method: method.rawValue, params: params))
         let line: Data = try await withTimeout(timeout) { await answers.first(where: { _ in true }) ?? .failure(.deadline(.cancelled)) }.get()
         return try Result { try decoder.decode(Answer<Value>.self, from: line).result }.mapError { error in failure(.invalidMessage(method, error)) }.get()
@@ -147,6 +147,7 @@ public actor JSONRPCConnection<Method: RawRepresentable & Hashable & Sendable, F
         matching predicate: @escaping @Sendable (Value) -> Bool,
     ) async throws(Failure) -> Value {
         let decoder: JSONDecoder = decoder
+        let id: UUID = UUID()
         let (values, value): (AsyncStream<Result<Value, Failure>>, AsyncStream<Result<Value, Failure>>.Continuation) = AsyncStream.makeStream()
         let listener: Listener = Listener(
             receive: { line in
@@ -154,10 +155,10 @@ public actor JSONRPCConnection<Method: RawRepresentable & Hashable & Sendable, F
             },
             close: { failure in value.yield(.failure(failure)) },
         )
-        defer { listeners[method]?.removeAll { other in other.id == listener.id } }
+        defer { listeners[method]?[id] = nil }
         switch Result(catching: { try retained[method]?.firstIndex(where: listener.receive) }) {
             case .success(.some(let index)): retained[method]?.remove(at: index)
-            case .success(.none): listeners[method, default: []].append(listener)
+            case .success(.none): listeners[method, default: [:]][id] = listener
             case .failure(let error): finish(failure(.invalidMessage(method, error)))
         }
         if let terminal { throw terminal }
@@ -174,7 +175,7 @@ public actor JSONRPCConnection<Method: RawRepresentable & Hashable & Sendable, F
             },
             close: { _ in value.finish() },
         )
-        if terminal == nil { listeners[method, default: []].append(listener) } else { value.finish() }
+        if terminal == nil { listeners[method, default: [:]][UUID()] = listener } else { value.finish() }
         return values
     }
 
@@ -192,16 +193,16 @@ public actor JSONRPCConnection<Method: RawRepresentable & Hashable & Sendable, F
                             }
                         if case .failure(let error) = await Result(catching: { () async throws(Failure) in try await send(reply) }) { finish(error) }
                     case (.some(let id), .none):
-                        guard let reply: Reply = replies.removeValue(forKey: id) else { return }
-                        reply.answer.yield(
-                            message.error.map { rejection in .failure(failure(.rejected(reply.method, rejection))) } ?? .success(line)
+                        guard let call: Call = calls.removeValue(forKey: id) else { return }
+                        call.answer.yield(
+                            message.error.map { rejection in .failure(failure(.rejected(call.method, rejection))) } ?? .success(line)
                         )
                     case (.none, .some(let name)):
                         guard let method: Method = Method(rawValue: name) else { return }
+                        let waiting: Int? = listeners[method]?.count
                         do {
-                            let done: [UUID] = try listeners[method, default: []].filter { listener in try listener.receive(line) }.map(\.id)
-                            listeners[method]?.removeAll { listener in done.contains(listener.id) }
-                            if done.isEmpty, retaining.contains(method) { retained[method, default: []].append(line) }
+                            try listeners[method]?.removeAll { _, listener in try listener.receive(line) }
+                            if listeners[method]?.count == waiting, retaining.contains(method) { retained[method, default: []].append(line) }
                         } catch {
                             finish(failure(.invalidMessage(method, error)))
                         }
@@ -222,13 +223,13 @@ public actor JSONRPCConnection<Method: RawRepresentable & Hashable & Sendable, F
     private func finish(_ failure: Failure) {
         guard terminal == nil else { return }
         terminal = failure
-        for reply: Reply in replies.values {
-            reply.answer.yield(.failure(failure))
+        for call: Call in calls.values {
+            call.answer.yield(.failure(failure))
         }
-        for listener: Listener in listeners.values.joined() {
+        for listener: Listener in listeners.values.flatMap(\.values) {
             listener.close(failure)
         }
-        replies.removeAll()
+        calls.removeAll()
         listeners.removeAll()
         retained.removeAll()
     }

@@ -1,4 +1,4 @@
-import { Cause, Console, Effect, flow, Layer, Schedule, Schema, SchemaGetter } from 'effect';
+import { Cause, Console, Effect, flow, Layer, type Schedule, Schema, SchemaGetter } from 'effect';
 import { UrlParams } from 'effect/http';
 import { NetAddress } from 'effect/net';
 import { type Rpc, type RpcGroup, type RpcSerialization, RpcServer } from 'effect/rpc';
@@ -20,7 +20,11 @@ const Peer = Schema.Struct({
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const linked = <Rpcs extends Rpc.Any, H, EH, RH, E, R>(group: RpcGroup.RpcGroup<Rpcs>, handlers: Layer.Layer<H, EH, RH>, { path, application, serialization }: { readonly path: string; readonly application: Effect.Effect<URL, E, R>; readonly serialization: Layer.Layer<RpcSerialization.RpcSerialization> }) =>
+const linked = <Rpcs extends Rpc.Any, H, EH, RH, E, R>(
+    group: RpcGroup.RpcGroup<Rpcs>,
+    handlers: Layer.Layer<H, EH, RH>,
+    { path, application, serialization, redial }: { readonly path: string; readonly application: Effect.Effect<URL, E, R>; readonly serialization: Layer.Layer<RpcSerialization.RpcSerialization>; readonly redial: Schedule.Schedule<unknown, Cause.Cause<unknown>> },
+) =>
     RpcServer.layer(group, { concurrency: 1 }).pipe(
         Layer.provide([handlers, RpcServer.layerProtocolSocketServer]),
         Layer.provide([
@@ -40,7 +44,7 @@ const linked = <Rpcs extends Rpc.Any, H, EH, RH, E, R>(group: RpcGroup.RpcGroup<
                                 Effect.scoped,
                                 Effect.tapCauseIf(Cause.hasDies, flow(Cause.pretty, Console.error)),
                                 Effect.sandbox,
-                                Effect.retry(Schedule.spaced('2 seconds')),
+                                Effect.retry(redial),
                                 Effect.forever,
                                 Effect.mapError((cause) => new SocketServer.SocketServerError({ reason: new SocketServer.SocketServerUnknownError({ cause }) })),
                             ),

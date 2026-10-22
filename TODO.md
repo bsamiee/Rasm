@@ -13,15 +13,14 @@ Remaining work on Creative Cloud libraries and products, for a fresh session.
 
 ## [01]-[STATE]
 
-- A mutation locates its target once; the baseline covers every document the located elements belong to; a find without a change is a read
+- Mutations locate their target once, a find without a change is a read
 - `Kind` answers the index of classes and enumerations or one declaration, published at `indesign://kinds` with name completion
 - Atelier tools: registered again whenever the installed application names change, which tools offer as choices
 - Atelier publishes InDesign `inspect`, `change`, `create`, `remove`, `find_change`, and `render` as tools
 - Atelier publishes InDesign `menu`, `preflight`, `queries`, and `kinds` as resources
-- Every tool result ends with the application's status as a resource block, the form Claude Code forwards beside structured content
-- Mutation results hold preflight of each touched document: issue count and issues introduced against the per-mutation baseline
-- The daemon's `/channel` endpoint (`atelier-channel` in `.mcp.json` and `.codex/config.toml`, protocol 2025-11-25 alone) pushes `notifications/claude/channel` status events following every running Adobe application the server serves, when observation starts and after each change, and no preflight events
-- A Claude Code session opts in with `--dangerously-load-development-channels server:atelier-channel` and receives each event as a `<channel>` turn; headless sessions and Codex receive none, and nothing else over HTTP reaches a model between calls
+- Tool calls that change state, except `command`, fail while the application shows an element requiring an answer, with its `adobe://status/{pid}` JSON
+- Results end with that status while it shows a problem, and InDesign results end with live preflight while it holds issues, as JSON keyed by URI
+- Resource values that change send `notifications/resources/updated` for their URI, which 2026-07-28 listeners alone receive
 - Effect's own resource path renders the first error message alone and turns an interrupt into an error; tools render the full cause
 
 ## [02]-[OPEN]
@@ -65,12 +64,12 @@ Each category states what its verbs and views cover and what stays shallow, then
 
 - Build swatches, colors, tints, gradients, mixed inks, color groups, and document versus application swatches
 - None, Registration, Paper, and Black carry no brackets, and `remove()` throws 90898 "This color cannot be deleted."
-- Swatch and Color hold no `removable` or `editable` property; views derive host ownership from the bracketed-name convention alone
+- Swatch, Color, and style classes hold no `removable` or `editable` property, and views state no host ownership
 - New documents hold Black and Paper alone; InDesign refuses changes to Registration and Paper, and color work adds swatches
 
 ### [05]-[SETTINGS]
 
-- `DocumentView` reads intent, facing pages, default size, ruler units and origin, preflight profile, and text defaults
+- `DocumentView` reads intent, facing pages, default size, ruler units and origin, preflight options, live preflight process, and text defaults
 - Build preference objects as typed views and writes: document, view, text, grid, transparency, and script preferences
 - Measurements stay in points under `Hold`, which sets `scriptPreferences.measurementUnit` for each call
 
@@ -81,8 +80,8 @@ Each category states what its verbs and views cover and what stays shallow, then
 
 ### [07]-[PREFLIGHT]
 
-- `Preflight` returns issues under one profile with profile names, and every mutation returns its per-document summary
-- Build profiles and rules as views, process, and report beside the per-mutation summary and the status push
+- `Preflight` reads the live process of each open document, or runs one under its profile or a named one with `waitForProcess`, in the view `inspect` gives a preflight process
+- Build profiles and rules as views, and the report beside the process view
 
 ### [08]-[STRUCTURE]
 

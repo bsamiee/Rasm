@@ -10,15 +10,15 @@ import System
 
 public enum KeychainFailure: CustomNSError, LocalizedError {
     case interactionNotAllowed
-    case itemTooLarge
+    case lineTooLong
     case unprinted
     case process(ProcessFailure)
 
     public var errorDescription: String? {
         switch self {
-            case .interactionNotAllowed: "The login keychain is locked"
-            case .itemTooLarge: "The item exceeds the line security -i reads"
-            case .unprinted: "security printed no password for the item"
+            case .interactionNotAllowed: SecCopyErrorMessageString(errSecInteractionNotAllowed, nil) as String?
+            case .lineTooLong: "Command exceeds security -i line buffer of 4096 bytes"
+            case .unprinted: "security printed no password line"
             case .process(let error): error.localizedDescription
         }
     }
@@ -49,7 +49,7 @@ public enum Keychain {
             "\"" + value.replacing("\\", with: "\\\\").replacing("\"", with: "\\\"") + "\""
         }
         let line: String = "add-generic-password -U -a \(quoted(account)) -s \(quoted(service)) -X \(data.hexEncoded)\n"
-        return line.utf8.count >= 4096 ? .failure(.itemTooLarge) : await security(["-i"], within: timeout, input: .string(line)).map { _ in () }
+        return line.utf8.count >= 4096 ? .failure(.lineTooLong) : await security(["-i"], within: timeout, input: .string(line)).map { _ in () }
     }
 
     public static func deleteGenericPassword(service: String, account: String, within timeout: Duration) async -> Result<Void, KeychainFailure> {

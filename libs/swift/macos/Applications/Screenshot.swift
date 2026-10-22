@@ -17,12 +17,12 @@ public enum ScreenshotFailure: CustomNSError, LocalizedError {
     public var errorDescription: String? {
         switch self {
             case .content(let error): "ScreenCaptureKit could not list shareable content: \(error.localizedDescription)"
-            case .noWindow: "Application has no on-screen window to capture"
-            case .absent(let id): "Window \(id) is not an on-screen window of the application"
-            case .noDisplay: "No display holds the application's windows"
+            case .noWindow: "Application has no on-screen window"
+            case .absent(let id): "Application has no on-screen window \(id)"
+            case .noDisplay: "No display shows application windows"
             case .capture(let error): "ScreenCaptureKit could not capture: \(error.localizedDescription)"
-            case .unrendered: "ScreenCaptureKit returned the capture without an SDR image"
-            case .encode(let type): "ImageIO could not encode the capture as \(type.identifier)"
+            case .unrendered: "ScreenCaptureKit returned no SDR image"
+            case .encode(let type): "ImageIO could not encode capture as \(type.identifier)"
         }
     }
 

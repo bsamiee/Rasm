@@ -1,4 +1,5 @@
 public import AppKit
+import AsyncAlgorithms
 import Files
 public import Results
 import UniformTypeIdentifiers
@@ -22,11 +23,10 @@ public struct Installation: Encodable, Hashable, Sendable {
     public let identifier: String
     public let name: String
     public let version: String?
-    public let instances: [pid_t]
     public let scriptable: Bool
     public let scriptingDefinitionFile: String?
 
-    public static func at(_ url: URL, among runningApplications: [NSRunningApplication] = NSWorkspace.shared.runningApplications) -> Result<Self, DiscoveryFailure> {
+    public static func at(_ url: URL) -> Result<Self, DiscoveryFailure> {
         let bundle: URL = url.resolvingSymlinksInPath()
         return Result { () throws(DiscoveryFailure) in
             let (info, values): (BundleInfo?, URLResourceValues) = try Result {
@@ -36,42 +36,93 @@ public struct Installation: Encodable, Hashable, Sendable {
                 )
             }
             .mapError { error in DiscoveryFailure.unreadable(bundle, error) }.get()
-            guard let identifier: String = info?.identifier else { throw .unbundled(bundle) }
+            guard let identifier: String = info?.identifier else { throw .noBundleIdentifier(bundle) }
             return Self(
                 url: bundle,
                 identifier: identifier,
                 name: FileManager.default.displayName(atPath: bundle.path(percentEncoded: false)),
                 version: info?.version,
-                instances: NSRunningApplication.instances(at: bundle, among: runningApplications).map(\.processIdentifier),
                 scriptable: values.applicationIsScriptable == true,
                 scriptingDefinitionFile: info?.scriptingDefinitionFile,
             )
         }
     }
 
+    @MainActor
+    public static func installed(named name: String, in directories: [URL] = []) async -> Result<[Self], AggregateError<DiscoveryFailure>> {
+        let listing: @MainActor (NSComparisonPredicate.Operator) async -> Result<[Self], AggregateError<DiscoveryFailure>> = { comparison in
+            await NSWorkspace.shared.applications(
+                matching: NSCompoundPredicate(
+                    orPredicateWithSubpredicates: [kMDItemCFBundleIdentifier as String, NSMetadataItemDisplayNameKey].map { key in
+                        NSComparisonPredicate(
+                            leftExpression: NSExpression(forKeyPath: key),
+                            rightExpression: NSExpression(forConstantValue: name),
+                            modifier: .direct,
+                            type: comparison,
+                            options: [.caseInsensitive, .diacriticInsensitive],
+                        )
+                    }
+                ),
+                in: directories,
+            )
+            .first { @Sendable _ in true } ?? .failure(AggregateError(first: .cancelled))
+        }
+        return switch await listing(.equalTo) {
+            case .success([]):
+                await listing(.contains).flatMap { rows in
+                    .failure(AggregateError(first: .unmatched(Unmatched(subject: "installed application", query: name, candidates: rows.map(\.identifier)))))
+                }
+            case let found: found
+        }
+    }
+
+    public static func single(of identifier: String, among installations: [Self]) -> Result<Self, Unmatched> {
+        Unmatched.single(installations.filter { installation in installation.identifier == identifier }, subject: "installation of \(identifier)", query: nil, candidates: []) { installation in
+            installation.url.path(percentEncoded: false)
+        }
+    }
+
     @concurrent
-    static func listed(_ paths: [String?], among runningApplications: [NSRunningApplication]) async -> Result<[Self], AggregateError<DiscoveryFailure>> {
-        traverse(paths) { path in (path.map { path in at(URL(filePath: path, directoryHint: .isDirectory), among: runningApplications) } ?? .failure(.unpathed)).aggregated { error in error } }
+    static func listed(_ paths: [String?]) async -> Result<[Self], AggregateError<DiscoveryFailure>> {
+        traverse(paths) { path in (path.map { path in at(URL(filePath: path, directoryHint: .isDirectory)) } ?? .failure(.noPath)).aggregated { error in error } }
+    }
+}
+
+extension NSMetadataQuery {
+    struct DidUpdateMessage: NotificationCenter.AsyncMessage {
+        typealias Subject = NSMetadataQuery
+
+        static var name: Notification.Name { .NSMetadataQueryDidUpdate }
+
+        static func makeMessage(_: Notification) -> Self? { Self() }
     }
 }
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
 public enum DiscoveryFailure: CustomNSError, LocalizedError {
-    case unpathed
-    case unbundled(URL)
+    case noPath
+    case noBundleIdentifier(URL)
     case unreadable(URL, any Error)
+    case unmatched(Unmatched)
+    case cancelled
 
     public var errorDescription: String? {
         switch self {
-            case .unpathed: "Spotlight listed an application bundle without a path"
-            case .unbundled(let url): "\(url.path(percentEncoded: false)) holds no application bundle with an identifier"
-            case .unreadable(let url, let error): "Launch Services could not read \(url.path(percentEncoded: false)): \(error.localizedDescription)"
+            case .noPath: "Spotlight result has no kMDItemPath"
+            case .noBundleIdentifier(let url): "\(url.path(percentEncoded: false)) has no CFBundleIdentifier"
+            case .unreadable(let url, let error): "\(url.path(percentEncoded: false)): \(error.localizedDescription)"
+            case .unmatched(let miss): miss.errorDescription
+            case .cancelled: "Canceled"
         }
     }
 
     public var errorUserInfo: [String: Any] {
-        if case .unreadable(_, let error) = self { [NSUnderlyingErrorKey: error] } else { [:] }
+        switch self {
+            case .unreadable(_, let error): [NSUnderlyingErrorKey: error]
+            case .unmatched(let miss): [NSUnderlyingErrorKey: miss]
+            case .noPath, .noBundleIdentifier, .cancelled: [:]
+        }
     }
 }
 
@@ -79,41 +130,31 @@ public enum DiscoveryFailure: CustomNSError, LocalizedError {
 
 extension NSWorkspace {
     @MainActor
-    public func applications(matching predicate: NSPredicate, in directories: [URL] = []) -> AsyncStream<Result<[Installation], AggregateError<DiscoveryFailure>>> {
-        let query: NSMetadataQuery = NSMetadataQuery()
-        query.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [NSPredicate(format: "%K == %@", NSMetadataItemContentTypeKey, UTType.applicationBundle.identifier), predicate])
-        query.searchScopes = directories
-        query.sortDescriptors = [NSMetadataItemDisplayNameKey, NSMetadataItemVersionKey].map { key in NSSortDescriptor(key: key, ascending: true) }
-        query.operationQueue = .main
-        let (events, sink): (AsyncStream<Void>, AsyncStream<Void>.Continuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
-        let (listings, continuation): (AsyncStream<Result<[Installation], AggregateError<DiscoveryFailure>>>, AsyncStream<Result<[Installation], AggregateError<DiscoveryFailure>>>.Continuation) =
-            AsyncStream.makeStream()
-        let observation: NSKeyValueObservation = observe(\.runningApplications) { _, _ in sink.yield() }
-        let notes: any NSObjectProtocol = NotificationCenter.default.addObserver(forName: nil, object: query, queue: nil) { _ in sink.yield() }
-        let following: Task<Void, Never> = Task { @MainActor in
-            defer {
-                query.stop()
-                observation.invalidate()
-                NotificationCenter.default.removeObserver(notes)
+    public func applications(matching predicate: NSPredicate, in directories: [URL] = []) -> some AsyncSequence<Result<[Installation], AggregateError<DiscoveryFailure>>, Never> & Sendable {
+        AsyncStream { continuation in
+            let following: Task<Void, Never> = Task { @MainActor in
+                let query: NSMetadataQuery = NSMetadataQuery()
+                query.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [NSPredicate(format: "%K == %@", NSMetadataItemContentTypeKey, UTType.applicationBundle.identifier), predicate])
+                query.searchScopes = directories
+                query.sortDescriptors = [NSMetadataItemDisplayNameKey, NSMetadataItemVersionKey].map { key in NSSortDescriptor(key: key, ascending: true) }
+                query.operationQueue = .main
+                let changes: some AsyncSequence<Void, Never> = merge(
+                    NotificationCenter.default.messages(of: query, for: .didFinishGathering).map { _ in () },
+                    NotificationCenter.default.messages(of: query, for: NSMetadataQuery.DidUpdateMessage.self).map { _ in () },
+                )
+                query.start()
+                defer { query.stop() }
+                for await _: Void in changes {
+                    query.disableUpdates()
+                    let paths: [String?] = (0..<query.resultCount).map { index in (query.result(at: index) as? NSMetadataItem)?.value(forAttribute: NSMetadataItemPathKey) as? String }
+                    query.enableUpdates()
+                    continuation.yield(await Installation.listed(paths))
+                }
                 continuation.finish()
             }
-            query.start()
-            var last: [Installation]?
-            for await _: Void in events where !query.isGathering {
-                query.disableUpdates()
-                let paths: [String?] = (0..<query.resultCount).map { index in (query.result(at: index) as? NSMetadataItem)?.value(forAttribute: NSMetadataItemPathKey) as? String }
-                query.enableUpdates()
-                let listing: Result<[Installation], AggregateError<DiscoveryFailure>> = await Installation.listed(paths, among: runningApplications)
-                switch listing {
-                    case .success(last): continue
-                    case .success(let rows): last = rows
-                    case .failure: break
-                }
-                continuation.yield(listing)
-            }
+            continuation.onTermination = { _ in following.cancel() }
         }
-        continuation.onTermination = { _ in following.cancel() }
-        return listings
+        .removeDuplicates { previous, next in if case (.success(let previous), .success(let next)) = (previous, next) { previous == next } else { false } }
     }
 }
 

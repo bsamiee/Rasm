@@ -2,7 +2,7 @@ import { parse } from 'acorn';
 import { fullAncestor } from 'acorn-walk';
 import { Array, Cause, Effect, flow, Option, Predicate, Schema } from 'effect';
 import { Model } from './model.ts';
-import { documents, resolve } from './references.ts';
+import { read, resolve } from './references.ts';
 import { Mutation } from './transactions.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -16,12 +16,12 @@ class Script extends Mutation.extend<Script>('Script')(
     {
         description: [
             'Runs native UXP JavaScript in InDesign with app, referenced native enumerations and DOM classes, and resolve(specifier) in scope.',
-            'A synchronous body shares one undo step, rolled back on a throw. Top-level await makes the body asynchronous: a rejection keeps earlier writes, and writes after the first await fall outside the undo step and the preflight summary. Group later changes in app.doScript(fn, ScriptLanguage.UXPSCRIPT, [], UndoModes.ENTIRE_SCRIPT, name).',
+            'A synchronous body shares one undo step, rolled back on a throw. Top-level await makes the body asynchronous: a rejection keeps earlier writes, and writes after the first await fall outside the undo step. Group later changes in app.doScript(fn, ScriptLanguage.UXPSCRIPT, [], UndoModes.ENTIRE_SCRIPT, name).',
             'Return values encode enumerators by name, objects as {type, specifier, name, valid}, and collections as {type, specifier, length}. Inspect class names for native fields and method signatures.',
         ].join('\n'),
     },
 ) {
-    static readonly Result = Mutation.summarized(Schema.Struct({ result: Schema.OptionFromOptionalKey(Schema.Json) }));
+    static readonly Result = Schema.Struct({ result: Schema.OptionFromOptionalKey(Schema.Json) });
 
     override get label(): string {
         return `Run script: ${Option.getOrElse(
@@ -34,7 +34,8 @@ class Script extends Mutation.extend<Script>('Script')(
         const { code } = this;
         const lines = code.split(LINE_BREAK);
         const failed = (position: Option.Option<number>) => (cause: unknown) => new Cause.UnknownError(cause, Option.getOrUndefined(Option.map(position, (at) => [`line ${at}`, ...Option.toArray(Array.get(lines, at - 1))].join(': '))));
-        const commit = this.commitSettling.bind(this);
+        const commit = this.commit.bind(this);
+        const { label } = this;
         return Effect.gen(function* () {
             const { exported } = yield* Model;
             const tree = yield* Effect.try({
@@ -66,12 +67,9 @@ class Script extends Mutation.extend<Script>('Script')(
                     Error.prepareStackTrace = prepare;
                 }
             };
-            return yield* commit(
-                Script.Result,
-                documents,
-                () => Effect.try({ try: (): unknown => Reflect.apply(compiled, undefined, Object.values(given)), catch: thrown }),
-                (value) => Effect.map(Effect.tryPromise({ try: () => Promise.resolve(value), catch: thrown }), (result) => ({ result })),
-            );
+            const value = yield* commit(Effect.try({ try: (): unknown => Reflect.apply(compiled, undefined, Object.values(given)), catch: thrown }));
+            const result = yield* Effect.tryPromise({ try: () => Promise.resolve(value), catch: thrown });
+            return yield* read(Script.Result, label, () => ({ result }));
         });
     }
 }

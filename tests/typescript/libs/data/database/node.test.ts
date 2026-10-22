@@ -3,6 +3,7 @@ import { PgliteClient } from '@effect/sql-pglite';
 import { SqliteClient } from '@effect/sql-sqlite-node';
 import { describe, inject, it, layer } from '@effect/vitest';
 import { pg_trgm } from '@electric-sql/pglite/contrib/pg_trgm';
+import { unaccent } from '@electric-sql/pglite/contrib/unaccent';
 import { parsers } from '@rasm/database/pg.ts';
 import type { names } from '@rasm/database/table.ts';
 import { Effect, FileSystem, Layer, Path } from 'effect';
@@ -40,7 +41,7 @@ layer(
 )('pglite', (methods) =>
     cases(
         methods,
-        (options: typeof names) => PgliteClient.layer({ dataDir: 'memory://', extensions: { pg_trgm }, ...options, parsers }),
+        (options: typeof names) => PgliteClient.layer({ dataDir: 'memory://', extensions: { pg_trgm, unaccent }, ...options, parsers }),
         Effect.fnUntraced(function* (title, { preamble, statements, concurrent }) {
             const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
             const text = ['BEGIN', ...preamble, ...statements, 'COMMIT', ...concurrent].map((statement) => `${statement};\n`).join('');

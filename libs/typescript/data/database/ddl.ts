@@ -1,5 +1,9 @@
-import { Array, Function, Hash, Match, Option, Struct } from 'effect';
-import { actions, type Column, document, literal, names, quote, type Relation, types } from './table.ts';
+import { Array, Function, Match, Option, Struct } from 'effect';
+import { actions, type Column, document, identifier, literal, quote, type Relation, types } from './table.ts';
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const trigram = { extension: 'pg_trgm', classes: { gin: 'gin_trgm_ops', gist: 'gist_trgm_ops' } } as const;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -9,14 +13,6 @@ const constant = ({ kind }: Column, value: string | number) =>
         Match.whenOr('integer', 'int64', 'real', 'number', 'boolean', () => `${value}`),
         Match.orElse(() => literal(`${value}`)),
     );
-const identifier = (parts: readonly string[]) => {
-    const name = parts.map(names.transformQueryNames).join('_');
-    const limit = 63;
-    const radix = 36;
-    const digest = Math.abs(Hash.string(name)).toString(radix);
-    const encoder = new TextEncoder();
-    return encoder.encode(name).length <= limit ? name : `${name.slice(0, encoder.encodeInto(name, new Uint8Array(limit - digest.length - 1)).read)}_${digest}`;
-};
 
 // --- [DIALECTS]
 const dialects = {
@@ -38,7 +34,8 @@ const dialects = {
         methods: ['btree'],
         covering: (unique: boolean, include: readonly string[]) => ({ keys: unique ? [] : include.map(quote), clause: [] }),
         suffix: (withoutRowid: boolean) => (withoutRowid ? ' STRICT, WITHOUT ROWID' : ' STRICT'),
-        search: (owner: string, columns: readonly string[], trigram: boolean) => {
+        search: (owner: string, { columns: searched, tokenizer }: Option.Option.Value<Relation['table']['search']>) => {
+            const columns = searched.map(Struct.get('name'));
             const [virtual, values] = [quote(`${owner}_fts`), columns.map(quote).join(', ')];
             const row = (prefix: string) => columns.map((name) => `${prefix}.${quote(name)}`).join(', ');
             const [inserted, deleted] = [`INSERT INTO ${virtual} ("rowid", ${values}) VALUES (NEW."rowid", ${row('NEW')});`, `INSERT INTO ${virtual} (${virtual}, "rowid", ${values}) VALUES ('delete', OLD."rowid", ${row('OLD')});`];
@@ -47,7 +44,7 @@ const dialects = {
                 indexes: [],
                 fts: Option.some({
                     name: `${owner}_fts`,
-                    sql: `CREATE VIRTUAL TABLE ${virtual} USING fts5 (${values}, content = ${literal(owner)}, content_rowid = 'rowid', tokenize = ${literal(trigram ? 'trigram' : 'unicode61 remove_diacritics 2')})`,
+                    sql: `CREATE VIRTUAL TABLE ${virtual} USING fts5 (${values}, content = ${literal(owner)}, content_rowid = 'rowid', tokenize = ${literal(tokenizer === 'trigram' ? tokenizer : 'unicode61 remove_diacritics 2')})`,
                     triggers: [trigger('insert', 'INSERT', inserted), trigger('delete', 'DELETE', deleted), trigger('update', 'UPDATE', `${deleted} ${inserted}`)],
                     rebuild: `INSERT INTO ${virtual} (${virtual}) VALUES ('rebuild')`,
                 }),
@@ -73,10 +70,18 @@ const dialects = {
         methods: ['btree', 'gin', 'gist', 'brin'],
         covering: (_: boolean, include: readonly string[]) => ({ keys: [], clause: Array.isReadonlyArrayNonEmpty(include) ? [`INCLUDE (${include.map(quote).join(', ')})`] : [] }),
         suffix: (_: boolean) => '',
-        search: (owner: string, columns: readonly string[], trigram: boolean) => {
-            const [name, body] = [identifier([owner, 'search']), document(columns)];
+        search: (owner: string, search: Option.Option.Value<Relation['table']['search']>) => {
+            const [name, body, words] = [identifier([owner, 'search']), document(search), search.tokenizer === 'trigram' ? Option.none() : Option.some(search.tokenizer)];
             return {
-                indexes: [{ name, parts: ['search'], trigram, text: (prefix: string, on: string) => `CREATE INDEX ${prefix}${quote(name)} ON ${on} USING gin (${trigram ? `(${body}) gin_trgm_ops` : `to_tsvector('simple', ${body})`})` }],
+                indexes: [
+                    {
+                        name,
+                        parts: ['search'],
+                        extensions: Option.match(words, { onNone: () => [trigram.extension], onSome: Struct.get('filters') }),
+                        configuration: Option.filter(words, ({ filters }) => Array.isReadonlyArrayNonEmpty(filters)),
+                        text: (prefix: string, on: string) => `CREATE INDEX ${prefix}${quote(name)} ON ${on} USING gin (${Option.match(words, { onNone: () => `(${body}) ${trigram.classes.gin}`, onSome: () => body })})`,
+                    },
+                ],
                 fts: Option.none(),
             };
         },
@@ -109,12 +114,14 @@ const render = (dialect: keyof typeof dialects, declared: Relation, target: (nam
     const keyed = ({ column: name, casefold }: (typeof indexes)[number]['keys'][number], method: string) => {
         const found = named(name);
         const opclass = Match.value({ method, json: Option.exists(found, ({ kind }) => kind === 'json') }).pipe(
-            Match.when({ method: 'gin', json: true }, () => 'jsonb_path_ops'),
-            Match.when({ method: 'gin' }, () => 'gin_trgm_ops'),
-            Match.when({ method: 'gist' }, () => 'gist_trgm_ops'),
+            Match.when({ method: 'gin', json: true }, () => ({ name: 'jsonb_path_ops', extensions: [] })),
+            Match.when({ method: Match.is('gin', 'gist') }, ({ method: kind }) => ({ name: trigram.classes[kind], extensions: [trigram.extension] })),
             Match.option,
         );
-        return [casefold ? style.casefold(name) : Option.match(Option.flatMap(found, projection), { onNone: () => quote(name), onSome: (expression) => style.projected(expression, name) }), ...Option.toArray(opclass)].join(' ');
+        return {
+            text: [casefold ? style.casefold(name) : Option.match(Option.flatMap(found, projection), { onNone: () => quote(name), onSome: (expression) => style.projected(expression, name) }), ...Option.toArray(opclass).map(Struct.get('name'))].join(' '),
+            extensions: Option.match(opclass, { onNone: () => [], onSome: Struct.get('extensions') }),
+        };
     };
     const definitions = entries.map((entry) => {
         const [subject, type, fallback] = [quote(entry.name), types[dialect][entry.kind], Option.map(entry.fallback, (value) => style.constant(entry, value))];
@@ -132,16 +139,16 @@ const render = (dialect: keyof typeof dialects, declared: Relation, target: (nam
     const built = indexes
         .filter(({ method }) => style.methods.includes(method))
         .map(({ keys, unique, include, where, method, parts }) => {
-            const [{ name }, covering] = [label(parts), style.covering(unique, include)];
+            const [{ name }, covering, columns] = [label(parts), style.covering(unique, include), keys.map((part) => keyed(part, method))];
             const text = (prefix: string) =>
                 [
-                    `CREATE ${unique ? 'UNIQUE ' : ''}INDEX ${prefix}${quote(name)} ON ${relation}${method === 'btree' ? '' : ` USING ${method}`} (${[...keys.map((part) => keyed(part, method)), ...covering.keys].join(', ')})`,
+                    `CREATE ${unique ? 'UNIQUE ' : ''}INDEX ${prefix}${quote(name)} ON ${relation}${method === 'btree' ? '' : ` USING ${method}`} (${[...columns.map(Struct.get('text')), ...covering.keys].join(', ')})`,
                     ...covering.clause,
                     ...(Array.isReadonlyArrayNonEmpty(where) ? [`WHERE ${where.map(predicate).join(' AND ')}`] : []),
                 ].join(' ');
-            return { name, parts, trigram: ['gin', 'gist'].includes(method) && keys.some(({ column: part }) => !Option.exists(named(part), ({ kind }) => kind === 'json')), text };
+            return { name, parts, extensions: Array.dedupe(columns.flatMap(Struct.get('extensions'))), configuration: Option.none(), text };
         });
-    const searched = Option.map(search, ({ columns, trigram }) => style.search(owner, Array.map(columns, Struct.get('name')), trigram));
+    const searched = Option.map(search, (found) => style.search(owner, found));
     return {
         relation,
         definitions,
@@ -155,4 +162,4 @@ const render = (dialect: keyof typeof dialects, declared: Relation, target: (nam
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { identifier, render };
+export { render };

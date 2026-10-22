@@ -48,7 +48,7 @@ public enum EffectRPC {
         let send: @Sendable (FromServer) -> Void = { message in
             switch message.line(encoder) {
                 case .success(let data): sink.yield(data)
-                case .failure(let error): logger.debug("Dropped a reply no line can carry: \(error, privacy: .public)")
+                case .failure(let error): logger.debug("Dropped unencodable response: \(error, privacy: .public)")
             }
         }
         @concurrent @Sendable func answer(_ id: Int, _ request: Result<Request, any Error>) async {
@@ -80,7 +80,7 @@ public enum EffectRPC {
                     case .success(.request(let id, let request)): await calls.start(id) { await answer(id, request) }
                     case .success(.interrupt(let id)): await calls.interrupt(id)
                     case .success(.ack): break
-                    case .failure(let error): logger.debug("Dropped a line no reply can match: \(error, privacy: .public)")
+                    case .failure(let error): logger.debug("Dropped undecodable message: \(error, privacy: .public)")
                 }
             }
             sink.finish()

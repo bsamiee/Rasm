@@ -79,14 +79,21 @@ class Change extends Mutation.extend<Change>('Change')(
     },
     { description: "Writes fields of one object through InDesign's own setters in one undo step, decoding each value by the field's declared type; every refused field is reported, a nested field as its path" },
 ) {
-    static readonly Result = Mutation.summarized(Reference.mapFields(Struct.assign({ written: Schema.Array(Schema.String) })));
+    static readonly Result = Reference.mapFields(Struct.assign({ written: Schema.Array(Schema.String) }));
 
     override get label(): string {
         return `Change ${Record.keys(this.values).join(', ')} of ${leaf(this.target)}`;
     }
 
     run() {
-        return this.commit(Change.Result, within(this.target), (found) => Effect.map(write(found, this.values), (written) => ({ ...Reference.of(found), written })));
+        const { values } = this;
+        return Effect.flatMap(within(this.target), (found) =>
+            this.commit(
+                Effect.gen(function* () {
+                    return { ...Reference.of(found), written: yield* write(found, values) };
+                }),
+            ),
+        );
     }
 }
 class Create extends Mutation.extend<Create>('Create')(
@@ -98,54 +105,50 @@ class Create extends Mutation.extend<Create>('Create')(
     },
     { description: "Adds a member to a collection through its native add method in one undo step and returns the new object's reference" },
 ) {
-    static readonly Result = Mutation.summarized(Schema.Struct(Reference.fields));
-
     override get label(): string {
         return `Create ${this.collection} in ${Option.match(this.owner, { onNone: () => 'the active document', onSome: leaf })}`;
     }
 
     run() {
         const { owner: given, collection: field, arguments: positional, properties } = this;
-        return this.commit(
-            Create.Result,
-            Option.match(given, { onNone: () => active, onSome: within }),
-            Effect.fnUntraced(function* (found) {
-                const model = yield* Model;
-                const { fields } = yield* Cache.get(model.rows, found.constructorName);
-                const items = yield* Effect.fromOption(Option.liftPredicate(Reflect.get(found, field), model.collection), () => Unmatched.make({ subject: `collection of ${found.toSpecifier()}`, query: Option.some(field), candidates: Record.keys(Record.filter(fields, model.plural)) }));
-                const { methods } = yield* Cache.get(model.rows, items.constructor.name);
-                const add = yield* Effect.fromOption(Record.get(methods, 'add'), () => Unmatched.make({ subject: `method of ${items.constructor.name}`, query: Option.some('add'), candidates: Record.keys(methods) }));
-                const ordered = Option.getOrElse(positional, Array.empty);
-                yield* ordered.length > add.parameters.length ? new Cause.IllegalArgumentError(`${items.constructor.name} add takes ${add.parameters.length} parameters (${Array.map(add.parameters, Struct.get('name')).join(', ')}), given ${ordered.length}`) : Effect.void;
-                const positioned = yield* Effect.forEach(Array.zip(ordered, add.parameters), ([value, parameter]) => decoded(found, Option.some(parameter))(value));
-                const made = yield* Effect.try({ try: (): unknown => Reflect.apply(items.add, items, positioned), catch: (cause) => new Cause.UnknownError(cause, `${items.everyItem().toSpecifier()} add`) }).pipe(
-                    Effect.flatMap((result) => Option.match(Array.head(Array.ensure<unknown>(result).filter(model.host)), { onNone: () => Effect.die(result), onSome: Effect.succeed })),
-                );
-                yield* Effect.transposeOption(Option.map(properties, (supplied) => write(made, supplied)));
-                return Reference.of(made);
-            }),
+        return Effect.flatMap(Option.match(given, { onNone: () => active, onSome: within }), (found) =>
+            this.commit(
+                Effect.gen(function* () {
+                    const model = yield* Model;
+                    const { fields } = yield* Cache.get(model.rows, found.constructorName);
+                    const items = yield* Effect.fromOption(Option.liftPredicate(Reflect.get(found, field), model.collection), () => Unmatched.make({ subject: `collection of ${found.toSpecifier()}`, query: Option.some(field), candidates: Record.keys(Record.filter(fields, model.plural)) }));
+                    const { methods } = yield* Cache.get(model.rows, items.constructor.name);
+                    const add = yield* Effect.fromOption(Record.get(methods, 'add'), () => Unmatched.make({ subject: `method of ${items.constructor.name}`, query: Option.some('add'), candidates: Record.keys(methods) }));
+                    const ordered = Option.getOrElse(positional, Array.empty);
+                    yield* ordered.length > add.parameters.length ? new Cause.IllegalArgumentError(`${items.constructor.name} add takes ${add.parameters.length} parameters (${Array.map(add.parameters, Struct.get('name')).join(', ')}), given ${ordered.length}`) : Effect.void;
+                    const positioned = yield* Effect.forEach(Array.zip(ordered, add.parameters), ([value, parameter]) => decoded(found, Option.some(parameter))(value));
+                    const made = yield* Effect.try({ try: (): unknown => Reflect.apply(items.add, items, positioned), catch: (cause) => new Cause.UnknownError(cause, `${items.everyItem().toSpecifier()} add`) }).pipe(
+                        Effect.flatMap((result) => Option.match(Array.head(Array.ensure<unknown>(result).filter(model.host)), { onNone: () => Effect.die(result), onSome: Effect.succeed })),
+                    );
+                    yield* Effect.transposeOption(Option.map(properties, (supplied) => write(made, supplied)));
+                    return Reference.of(made);
+                }),
+            ),
         );
     }
 }
-class Remove extends Mutation.extend<Remove>('Remove')({ target: Specifier }, { description: "Removes one object through its native remove method in one undo step; host-owned members (the None, Registration, Paper, and Black swatches, [Basic Paragraph]) answer with InDesign's refusal" }) {
-    static readonly Result = Mutation.summarized(Schema.Struct(Reference.fields));
-
+class Remove extends Mutation.extend<Remove>('Remove')({ target: Specifier }, { description: 'Removes one object through its native remove method in one undo step' }) {
     override get label(): string {
         return `Remove ${leaf(this.target)}`;
     }
 
     run() {
         const { target } = this;
-        return this.commit(
-            Remove.Result,
-            within(target),
-            Effect.fnUntraced(function* (found) {
-                const { methods } = yield* Model.use(({ rows }) => Cache.get(rows, found.constructorName));
-                const remove = yield* Effect.fromOption(Option.liftPredicate(Reflect.get(found, 'remove'), Predicate.isFunction), () => Unmatched.make({ subject: `method of ${found.constructorName}`, query: Option.some('remove'), candidates: Record.keys(methods) }));
-                const removed = Reference.of(found);
-                yield* Effect.try({ try: () => Reflect.apply(remove, found, []), catch: (cause) => new Cause.UnknownError(cause, target) });
-                return removed;
-            }),
+        return Effect.flatMap(within(target), (found) =>
+            this.commit(
+                Effect.gen(function* () {
+                    const { methods } = yield* Model.use(({ rows }) => Cache.get(rows, found.constructorName));
+                    const remove = yield* Effect.fromOption(Option.liftPredicate(Reflect.get(found, 'remove'), Predicate.isFunction), () => Unmatched.make({ subject: `method of ${found.constructorName}`, query: Option.some('remove'), candidates: Record.keys(methods) }));
+                    const removed = Reference.of(found);
+                    yield* Effect.try({ try: () => Reflect.apply(remove, found, []), catch: (cause) => new Cause.UnknownError(cause, target) });
+                    return removed;
+                }),
+            ),
         );
     }
 }

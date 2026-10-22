@@ -4,10 +4,6 @@
             "type": "http",
             "url": "http://127.0.0.1:7409/"
         },
-        "atelier-channel": {
-            "type": "http",
-            "url": "http://127.0.0.1:7409/channel"
-        },
         "roslyn-codelens": {
             "type": "http",
             "url": "http://127.0.0.1:7401/"

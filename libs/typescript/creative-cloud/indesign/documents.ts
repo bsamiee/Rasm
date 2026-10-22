@@ -37,7 +37,11 @@ class DocumentView extends Schema.TaggedClass<DocumentView, { readonly brand: un
     fonts: Schema.Array(Schema.Struct({ name: Schema.String, status: Schema.String })).annotate({ description: 'Fonts the document uses with their FontStatus' }),
     swatches: Schema.Array(Reference),
     styles: Schema.Struct(Struct.Record(['paragraph', 'character', 'object', 'table', 'cell'], Schema.Int)).annotate({ description: 'Style counts, grouped styles included' }),
-    preflight: Schema.Struct({ profile: Schema.String, enabled: Schema.Boolean }),
+    preflightOptions: Schema.Struct({
+        ...Struct.Record(['preflightOff', 'preflightIncludeObjectsOnPasteboard', 'preflightIncludeNonprintingObjects', 'preflightEmbedWorkingProfile'], Schema.Boolean),
+        ...Struct.Record(['preflightProfilePolicy', 'preflightWorkingProfile', 'preflightScope', 'preflightWhichLayers'], Schema.String),
+    }),
+    activeProcess: Schema.OptionFromOptionalKey(Reference.mapFields(Struct.assign({ appliedProfile: Schema.OptionFromOptionalKey(Reference) }))).annotate({ description: 'Live preflight process with the profile it applies, absent while live preflight is off' }),
     defaults: Composition.annotate({ description: 'Composition rules of the document text defaults: tab stops, GREP, nested, and line styles, bullets and numbering' }),
 }) {
     static readonly Row = Schema.Struct(Struct.pick(DocumentView.fields, ['type', 'specifier', 'name', 'valid', 'saved', 'modified', 'path', 'windows']));
@@ -69,7 +73,11 @@ class DocumentView extends Schema.TaggedClass<DocumentView, { readonly brand: un
                     fonts: Array.zipWith(found.fonts.everyItem().name, found.fonts.everyItem().status, (name, status) => ({ name, status })),
                     swatches: found.swatches.everyItem().getElements(),
                     styles: { paragraph: found.allParagraphStyles.length, character: found.allCharacterStyles.length, object: found.allObjectStyles.length, table: found.allTableStyles.length, cell: found.allCellStyles.length },
-                    preflight: { profile: Predicate.isString(preflight.preflightWorkingProfile) ? preflight.preflightWorkingProfile : preflight.preflightWorkingProfile.name, enabled: !preflight.preflightOff },
+                    preflightOptions: {
+                        ...Record.fromIterableWith(Struct.keys(DocumentView.fields.preflightOptions.fields), (key) => [key, Reflect.get(preflight, key)]),
+                        preflightWorkingProfile: Predicate.isString(preflight.preflightWorkingProfile) ? preflight.preflightWorkingProfile : preflight.preflightWorkingProfile.name,
+                    },
+                    activeProcess: preflight.preflightOff ? Option.none() : Option.some({ ...Reference.of(found.activeProcess), appliedProfile: Option.fromUndefinedOr(found.activeProcess.appliedProfile) }),
                     defaults: Composition.of(found.textDefaults),
                 };
             }),

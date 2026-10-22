@@ -1,6 +1,7 @@
 import Carbon.OpenScripting
 import CoreServices
 public import Foundation
+import OrderedCollections
 public import Results
 import Synchronization
 
@@ -55,11 +56,11 @@ public final class ScriptingDictionary: Encodable, Sendable {
     }
 
     struct Scope: Sendable {
-        let named: [String: [Term]]
+        let named: OrderedDictionary<String, [Term]>
         let coded: [FourCharCode: [Term]]
 
         init(_ terms: [Term]) {
-            named = Dictionary(grouping: terms, by: \.name)
+            named = OrderedDictionary(grouping: terms, by: \.name)
             coded = Dictionary(grouping: terms, by: \.code)
         }
     }
@@ -97,7 +98,7 @@ public final class ScriptingDictionary: Encodable, Sendable {
             Set(([element.attribute(forName: "type")] + element.elements(forName: "type").map { type in type.attribute(forName: "type") }).compactMap { attribute in attribute?.stringValue })
         }
         func terms(_ elements: [XMLElement]) -> [Term] {
-            Set(
+            OrderedSet(
                 elements.compactMap { element in
                     let members: [XMLElement] =
                         switch element.name.flatMap(Kind.init(rawValue:)) {
@@ -110,9 +111,9 @@ public final class ScriptingDictionary: Encodable, Sendable {
                         default: nil
                     }
                 }
-            ).sorted { left, right in (left.name, left.code) < (right.name, right.code) }
+            ).elements
         }
-        commands = try Set(
+        commands = try OrderedSet(
             elements("//\(Kind.command.rawValue)").compactMap { element in
                 switch (element.attribute(forName: "name")?.stringValue, element.attribute(forName: "code")?.stringValue.flatMap(UInt64.init(sdef:))) {
                     case (.some(let name), .some(let code)):
@@ -126,7 +127,7 @@ public final class ScriptingDictionary: Encodable, Sendable {
                     default: nil
                 }
             }
-        ).sorted { left, right in (left.name, left.code) < (right.name, right.code) }
+        ).elements
         let declared: [Kind: [Term]] = try Dictionary(
             uniqueKeysWithValues: Kind.allCases.filter { kind in kind != .command }.map { kind throws(DefinitionFailure) in (kind, terms(try elements("//\(kind.rawValue)"))) }
         )
@@ -159,7 +160,7 @@ public final class ScriptingDictionary: Encodable, Sendable {
                 .mapError(DefinitionFailure.xml)
                 .flatMap { nodes in
                     let selected: [String] = nodes.compactMap { node in (node as? XMLNode)?.xmlString }
-                    return selected.isEmpty ? .failure(.unmatched(Unmatched(subject: kind.rawValue, query: name, candidates: Set(listed).sorted()))) : .success(selected.joined())
+                    return selected.isEmpty ? .failure(.unmatched(Unmatched(subject: kind.rawValue, query: name, candidates: OrderedSet(listed).elements))) : .success(selected.joined())
                 }
         }
     }
@@ -167,10 +168,13 @@ public final class ScriptingDictionary: Encodable, Sendable {
     public func command(_ name: String, taking arguments: Set<String>) -> Result<Command, DictionaryFailure> {
         let code: UInt64? = UInt64(sdef: name)
         let matching: (Command) -> Bool = { command in command.name == name || command.code == code }
-        let scopes: [[Command]] = [Command.language, commands].map { scope in scope.filter { command in arguments.isSubset(of: command.parameters.map(\.name)) } }
+        let takes: (Command) -> Bool = { command in
+            arguments.allSatisfy { argument in command.parameters.contains { term in term.name == argument || term.code == FourCharCode(sdef: argument) } }
+        }
+        let scopes: [[Command]] = [Command.language, commands].map { scope in scope.filter(takes) }
         let found: [Command] = scopes.first { scope in scope.contains(where: matching) }?.filter(matching) ?? []
         let subject: String = arguments.isEmpty ? "command" : "command taking \(arguments.sorted().joined(separator: ", "))"
-        return Unmatched.single(found, subject: subject, query: name, candidates: Set(scopes.joined().map(\.name)).sorted(), named: \.code.sdef).mapError(DictionaryFailure.unmatched)
+        return Unmatched.single(found, subject: subject, query: name, candidates: OrderedSet(scopes.joined().map(\.name)).elements, named: \.code.sdef).mapError(DictionaryFailure.unmatched)
     }
 
     public func event(_ command: Command, arguments: [String: AppleEventValue], target: NSAppleEventDescriptor) -> Result<NSAppleEventDescriptor, AggregateError<DictionaryFailure>> {
@@ -194,15 +198,15 @@ public final class ScriptingDictionary: Encodable, Sendable {
 
     static func resolve(_ name: String, in scopes: [Scope]) -> Result<Term, AggregateError<DictionaryFailure>> {
         let named: [Term] = scopes.lazy.compactMap { scope in scope.named[name] }.first ?? []
-        let codes: [FourCharCode] = named.isEmpty ? [FourCharCode(sdef: name)].compactMap(\.self) : Set(named.map(\.code)).sorted()
-        return Unmatched.single(codes, subject: "term", query: name, candidates: Set(scopes.flatMap(\.named.keys)).sorted(), named: \.sdef)
+        let codes: [FourCharCode] = named.isEmpty ? [FourCharCode(sdef: name)].compactMap(\.self) : OrderedSet(named.map(\.code)).elements
+        return Unmatched.single(codes, subject: "term", query: name, candidates: OrderedSet(scopes.flatMap(\.named.keys)).elements, named: \.sdef)
             .map { code in Term(name: name, code: code, types: Set(named.flatMap(\.types)), members: []) }
             .mapError { miss in AggregateError(first: .unmatched(miss)) }
     }
 
     static func term(_ code: FourCharCode, in scopes: [Scope]) -> Term {
         let found: [Term] = scopes.lazy.compactMap { scope in scope.coded[code] }.first ?? []
-        let name: String? = found.map(\.name).filter { name in if case .success(let term) = resolve(name, in: scopes) { term.code == code } else { false } }.min()
+        let name: String? = found.first { term in if case .success(let resolved) = resolve(term.name, in: scopes) { resolved.code == code } else { false } }?.name
         return Term(name: name ?? code.sdef, code: code, types: Set(found.flatMap(\.types)), members: [])
     }
 
@@ -234,7 +238,7 @@ public enum DictionaryFailure: CustomNSError, LocalizedError {
     public var errorDescription: String? {
         switch self {
             case .unmatched(let miss): miss.errorDescription
-            case .unencodable(let type): "No Apple Event descriptor of type \(type.sdef) holds the value"
+            case .unencodable(let type): "Value has no descriptor of type \(type.sdef)"
             case .undated(let text, let error): "\(text) is no ISO 8601 date: \(error.localizedDescription)"
         }
     }

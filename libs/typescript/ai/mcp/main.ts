@@ -1,6 +1,6 @@
 import { createServer } from 'node:http';
 import { NodeHttpServer, NodeRuntime, NodeServices } from '@effect/platform-node';
-import { Array, Cause, Config, Context, Effect, Exit, flow, Layer, Logger, LogLevel, Option, Record, References, Runtime, Schema } from 'effect';
+import { Array, Cause, Config, Context, Effect, Exit, flow, Layer, Logger, LogLevel, Option, References, Runtime, Schema } from 'effect';
 import { McpProtocol, McpServer } from 'effect/ai';
 import { Command, Flag } from 'effect/cli';
 import { FetchHttpClient, HttpRouter, HttpServerRequest, HttpServerResponse } from 'effect/http';
@@ -40,19 +40,7 @@ const main = <E>(manifest: { readonly name: string; readonly version: string; re
                         ...manifest,
                         name,
                         get instructions() {
-                            return [
-                                ...Array.dedupe([manifest.description, ...[...server.tools, ...server.resources, ...server.resourceTemplates, ...server.prompts].flatMap(({ annotations }) => Context.get(annotations, Instructions))]),
-                                ...Record.toEntries(
-                                    Array.groupBy(
-                                        [
-                                            ...server.resources.map(({ resource }) => [resource.uri, resource.description] as const),
-                                            ...server.resourceTemplates.map(({ template }) => [template.uriTemplate, template.description] as const),
-                                            ...server.prompts.map(({ prompt }) => [`Prompt ${prompt.name}`, prompt.description] as const),
-                                        ],
-                                        ([, description]): string => (description === undefined ? '' : `: ${description}`),
-                                    ),
-                                ).map(([described, rows]) => `- ${rows.map(Array.headNonEmpty).join(', ')}${described}`),
-                            ].join('\n');
+                            return Array.dedupe([manifest.description, ...[...server.tools, ...server.resources, ...server.resourceTemplates, ...server.prompts].flatMap(({ annotations }) => Context.get(annotations, Instructions))]).join('\n');
                         },
                         path: '/',
                         allowSessionTermination: true,

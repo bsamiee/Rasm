@@ -1,7 +1,7 @@
 {
     "name": "@rasm/mcp",
     "private": true,
-    "description": "Loopback Streamable HTTP MCP servers built from Effect tools and from the RPC groups of host panels linked over WebSocket, with telemetry, progress, completion ranking, content blocks, a record of cancelled calls that change state, and a Claude Code channel endpoint pushing events into sessions",
+    "description": "Loopback Streamable HTTP MCP servers built from Effect tools and from the RPC groups of host panels linked over WebSocket, with telemetry, completion ranking, content blocks, resource values per URI that refuse a tool call or join its result while a predicate holds, and a record of cancelled calls that change state",
     "sideEffects": false,
     "type": "module",
     "exports": {

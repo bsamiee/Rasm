@@ -25,7 +25,7 @@ public enum ProcessFailure: DeadlineFailure, CustomNSError, LocalizedError {
             case .subprocess(let error): error.description
             case .io(let error): "Process I/O failed: \(error.localizedDescription)"
             case .exit(.exited(let code)): "Process exited with status \(code)"
-            case .exit(.signaled(let signal)): "Process stopped by signal \(signal)"
+            case .exit(.signaled(let signal)): "Process terminated by signal \(signal)"
             case .deadline(.timedOut(let timeout)): "Process did not finish within \(timeout.formatted(.units(width: .wide)))"
             case .deadline(.cancelled): "Canceled"
         }

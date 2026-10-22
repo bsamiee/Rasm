@@ -2,7 +2,7 @@
     "name": "@rasm/atelier",
     "version": "1.0.0",
     "private": true,
-    "description": "Drives installed Adobe applications through their scripting dictionaries and linked UXP panels",
+    "description": "Drives installed Adobe applications through their scripting dictionaries and linked UXP extensions",
     "type": "module",
     "dependencies": {
         "@rasm/automation": "workspace:*",

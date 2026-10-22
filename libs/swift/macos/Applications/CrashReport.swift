@@ -1,3 +1,4 @@
+import AsyncAlgorithms
 public import Files
 public import Foundation
 
@@ -73,12 +74,11 @@ public struct CrashReport: Codable, Hashable, Sendable {
         }
     }
 
-    public static func following() -> some AsyncSequence<[Result<Self, CrashReportFailure>], Never> {
-        FileWatch.events(of: logs.appending(path: "DiagnosticReports")).map { change -> [Result<Self, CrashReportFailure>] in
+    public static func following() -> some AsyncSequence<Result<Self, CrashReportFailure>, Never> {
+        FileWatch.events(of: logs.appending(path: "DiagnosticReports")).flatMap { change -> AsyncSyncSequence<[Result<Self, CrashReportFailure>]> in
             switch change {
-                case .success(let files):
-                    files.filter { file in file.pathExtension == "ips" }.flatMap(read)
-                case .failure(let error): [.failure(.unwatched(error))]
+                case .success(let files): files.filter { file in file.pathExtension == "ips" }.flatMap(read).async
+                case .failure(let error): [Result.failure(.unwatched(error))].async
             }
         }
     }

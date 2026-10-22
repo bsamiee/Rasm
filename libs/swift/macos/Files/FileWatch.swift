@@ -11,8 +11,8 @@ public enum FileWatchFailure: CustomNSError, LocalizedError {
 
     public var errorDescription: String? {
         switch self {
-            case .unstarted(let file): "FSEvents could not start a stream on \(file.path(percentEncoded: false))"
-            case .unreadable(let error): "Reading followed lines failed: \(error.localizedDescription)"
+            case .unstarted(let file): "FSEvents stream on \(file.path(percentEncoded: false)) failed to start"
+            case .unreadable(let error): "File handle read failed: \(error.localizedDescription)"
         }
     }
 

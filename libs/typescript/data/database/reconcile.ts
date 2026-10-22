@@ -1,8 +1,8 @@
 import { D1Client } from '@effect/sql-d1';
 import { Array, Cause, Effect, Equal, Function, Option, Order, Record, Result, Schema, Struct } from 'effect';
 import { SqlClient, SqlSchema } from 'effect/sql';
-import { identifier, render } from './ddl.ts';
-import { actions, atomic, type Catalog, literal, names, quote, type Relation, table } from './table.ts';
+import { render } from './ddl.ts';
+import { actions, atomic, type Catalog, identifier, literal, names, quote, type Relation, table } from './table.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -109,11 +109,27 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
             Effect.map(([{ catalog }]) => catalog),
         );
 }
-class PgPrelude extends Schema.Class<PgPrelude, { readonly brand: unique symbol }>('PgPrelude')({ migrator: Schema.String, extensions: Schema.Array(Schema.String) }) {
+class PgPrelude extends Schema.Class<PgPrelude, { readonly brand: unique symbol }>('PgPrelude')({
+    migrator: Schema.String,
+    extensions: Schema.Array(Schema.String),
+    configurations: Schema.fromJsonString(Schema.Array(Schema.Struct({ name: Schema.String, configuration: Schema.String, configured: Schema.Boolean, drift: Schema.Array(Schema.Struct({ tokens: Schema.NonEmptyArray(Schema.String), dictionaries: Schema.OptionFromNullOr(Schema.NonEmptyArray(Schema.String)) })) }))),
+}) {
     static readonly preamble = ["SET LOCAL lock_timeout = '5s'", "SET LOCAL transaction_timeout = '2min'"];
-    static readonly open = (sql: SqlClient.SqlClient) =>
+    static readonly open = (sql: SqlClient.SqlClient, required: readonly string[], configurations: readonly Extract<Option.Option.Value<Relation['table']['search']>['tokenizer'], object>[]) =>
         Effect.forEach(PgPrelude.preamble, (text) => sql.unsafe(text), { discard: true }).pipe(
-            Effect.andThen(sql`SELECT pg_advisory_xact_lock(hashtextextended(current_schema(), 0))::text AS lock, set_config('search_path', quote_ident(current_schema()) || ', pg_temp', true) AS search_path, current_user::text AS migrator, array(SELECT extname::text FROM pg_extension) AS extensions`),
+            Effect.andThen(
+                sql`SELECT pg_advisory_xact_lock(hashtextextended(current_schema(), 0))::text AS lock, set_config('search_path', concat_ws(', ', quote_ident(current_schema()),
+                    (SELECT string_agg(DISTINCT quote_ident(n.nspname), ', ') FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace WHERE e.extname::text = ANY(${required}::text[]) AND n.oid <> current_schema()::regnamespace), 'pg_temp'), true) AS search_path`,
+            ),
+            Effect.andThen(
+                sql`WITH maps AS (SELECT m.mapcfg, m.maptokentype, array_agg(m.mapdict::regdictionary::text ORDER BY m.mapseqno) AS dictionaries FROM pg_ts_config_map m GROUP BY m.mapcfg, m.maptokentype),
+                    declared AS (SELECT d.name, d.configuration::regconfig::oid AS base, (SELECT c.oid FROM pg_ts_config c WHERE c.cfgnamespace = current_schema()::regnamespace AND c.cfgname = d.name) AS live, array(SELECT quote_ident(f) FROM unnest(d.filters) f) AS filters FROM json_to_recordset(${JSON.stringify(configurations)}::json) d(name text, configuration text, filters text[])),
+                    tokens AS (SELECT d.name, t.tokid, t.alias, CASE WHEN b.dictionaries IS NOT NULL THEN d.filters || b.dictionaries END AS wanted, l.dictionaries AS now
+                        FROM declared d JOIN pg_ts_config c ON c.oid = d.base CROSS JOIN ts_token_type(c.cfgparser) t
+                        LEFT JOIN maps b ON (b.mapcfg, b.maptokentype) = (d.base, t.tokid) LEFT JOIN maps l ON (l.mapcfg, l.maptokentype) = (coalesce(d.live, d.base), t.tokid))
+                    SELECT current_user::text AS migrator, array(SELECT extname::text FROM pg_extension) AS extensions, array_to_json(array(SELECT json_build_object('name', d.name, 'configuration', d.base::regconfig::text, 'configured', d.live IS NOT NULL,
+                        'drift', array(SELECT json_build_object('tokens', array_agg(k.alias ORDER BY k.tokid), 'dictionaries', k.wanted) FROM tokens k WHERE k.name = d.name AND k.now IS DISTINCT FROM k.wanted GROUP BY k.wanted)) FROM declared d))::text AS configurations`,
+            ),
             Effect.flatMap(Schema.decodeUnknownEffect(Schema.Tuple([PgPrelude]))),
             Effect.map(([prelude]) => prelude),
         );
@@ -386,16 +402,27 @@ const planSqlite = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, catalo
     });
 });
 const planPg = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, catalog: Catalog, runtime: Option.Option<string>) {
-    const { migrator, extensions } = yield* PgPrelude.open(sql);
-    const stored = yield* latestRevision(sql);
     const drawings = draw('pg', catalog);
+    const indexes = drawings.flatMap(({ rendered }) => rendered.indexes);
+    const required = Array.dedupe(indexes.flatMap(Struct.get('extensions')));
+    const { migrator, extensions, configurations } = yield* PgPrelude.open(
+        sql,
+        required,
+        Array.dedupeWith(
+            indexes.flatMap(({ configuration }) => Option.toArray(configuration)),
+            (self, that) => self.name === that.name,
+        ),
+    );
+    const [existing, drifted] = [configurations.filter(Struct.get('configured')).map(Struct.get('name')), configurations.filter(({ drift }) => Array.isReadonlyArrayNonEmpty(drift)).map(Struct.get('name'))];
+    const ready = ({ extensions: needed, configuration }: (typeof indexes)[number]) => needed.every((name) => extensions.includes(name)) && Option.toArray(configuration).every(({ name }) => existing.includes(name));
+    const stored = yield* latestRevision(sql);
     const role = Option.match(runtime, { onNone: () => 'PUBLIC', onSome: quote });
     const block = (body: string) => `DO ${literal(`BEGIN ${body} END`)}`;
     yield* sql.unsafe(
         block(
             drawings
                 .map(({ declared }) => render('pg', declared, (name) => `pg_temp.${quote(name)}`, { elements: [], autoincrement: false }))
-                .flatMap((rendered) => [`${rendered.create} ON COMMIT DROP`, ...rendered.indexes.filter(({ trigram }) => !trigram || extensions.includes('pg_trgm')).map(({ text }) => text('')), ...Option.toArray(rendered.policy).map(({ text }) => text(role))])
+                .flatMap((rendered) => [`${rendered.create} ON COMMIT DROP`, ...rendered.indexes.filter(ready).map(({ text }) => text('')), ...Option.toArray(rendered.policy).map(({ text }) => text(role))])
                 .map((statement) => `${statement};`)
                 .join(' '),
         ),
@@ -504,6 +531,7 @@ const planPg = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, catalog: C
             ],
             dropped: [...plans.flatMap(({ dropped }) => dropped), ...entry.live.indexes.filter((row) => entry.retiredIndexes.includes(row.name)).map((row) => row.name)],
             built: plans.filter(({ keep, rename }) => !(keep || rename)).map(({ index }) => index.text('CONCURRENTLY IF NOT EXISTS ')),
+            reindexed: plans.filter(({ index, keep, rename }) => (keep || rename) && Option.exists(index.configuration, (configuration) => drifted.includes(configuration.name))).map(({ index }) => `REINDEX INDEX CONCURRENTLY ${quote(index.name)}`),
             validated: [...entry.live.invalid.map(relabeled), ...additions.map((row) => row.name), ...tightened.map(({ constraint }) => constraint), ...missing.map((row) => row.name), ...stale.map((link) => link.name)],
             undeclared: {
                 indexes: entry.live.indexes.filter((row) => !(entry.retiredIndexes.includes(row.name) || plans.some(({ index }) => [index.name, prior(index.parts)].includes(row.name)))).map((row) => row.name),
@@ -522,11 +550,18 @@ const planPg = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, catalog: C
     return yield* resolved.plan({
         findings: [],
         preamble: PgPrelude.preamble,
-        opening: Array.difference(drawings.some(({ rendered }) => rendered.indexes.some(({ trigram }) => trigram)) ? ['pg_trgm'] : [], extensions).map((extension) => `CREATE EXTENSION IF NOT EXISTS ${quote(extension)}`),
+        opening: [
+            ...Array.difference(required, extensions).map((extension) => `CREATE EXTENSION IF NOT EXISTS ${quote(extension)}`),
+            ...configurations.flatMap(({ name, configuration, configured, drift }) => [
+                ...(configured ? [] : [`CREATE TEXT SEARCH CONFIGURATION ${quote(name)} (COPY = ${configuration})`]),
+                ...drift.map(({ tokens, dictionaries }) => `ALTER TEXT SEARCH CONFIGURATION ${quote(name)} ${Option.match(dictionaries, { onNone: () => `DROP MAPPING IF EXISTS FOR ${tokens.join(', ')}`, onSome: (chain) => `ALTER MAPPING FOR ${tokens.join(', ')} WITH ${chain.join(', ')}` })}`),
+            ]),
+        ],
         statements: [...tables.flatMap(({ relabels }) => relabels), ...resolved.created.flatMap(creating), ...tables.flatMap((entry) => entry.statements)],
         concurrent: [
             ...tables.flatMap(({ dropped }) => dropped.map((index) => `DROP INDEX CONCURRENTLY IF EXISTS ${quote(index)}`)),
             ...tables.flatMap(({ built }) => built),
+            ...tables.flatMap(({ reindexed }) => reindexed),
             ...tables.flatMap(({ rendered, validated }) => validated.map((constraint) => `ALTER TABLE ${rendered.relation} VALIDATE CONSTRAINT ${quote(constraint)}`)),
         ],
         undeclared: { indexes: tables.flatMap(({ undeclared }) => undeclared.indexes), references: tables.flatMap(({ undeclared }) => undeclared.references) },
@@ -535,7 +570,18 @@ const planPg = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, catalog: C
 
 // --- [APPLY]
 const apply = (sql: SqlClient.SqlClient, { statements, ledger: written }: Effect.Success<ReturnType<typeof planSqlite>>) =>
-    Effect.transposeOption(Option.map(written, ({ revision, document }) => Effect.all([ledger.insert([{ revision: revision + 1, identity: document }]), ledger.remove('revision', [revision])]).pipe(Effect.map(Array.prependAll(statements.map((text) => sql.unsafe(text)))), Effect.flatMap(atomic))));
+    Effect.transposeOption(
+        Option.map(written, ({ revision, document }) =>
+            Effect.flatMap(Schema.encodeEffect(ledger)({ revision: revision + 1, identity: document }), (row) =>
+                atomic(
+                    Array.prependAll(
+                        [sql`INSERT INTO ${sql(ledger.table.name)} ${sql.insert(row)}`, sql`DELETE FROM ${sql(ledger.table.name)} WHERE ${sql('revision')} = ${revision}`],
+                        statements.map((text) => sql.unsafe(text)),
+                    ),
+                ),
+            ),
+        ),
+    );
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

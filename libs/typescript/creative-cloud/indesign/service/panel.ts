@@ -1,6 +1,6 @@
 import indesign from 'adobe:indesign';
 import { linked } from '@rasm/uxp/link';
-import { Effect, Layer, Schema } from 'effect';
+import { type Cause, Effect, Layer, type Schedule, Schema } from 'effect';
 import { Rpc } from 'effect/rpc';
 import { Model } from '../model.ts';
 import { preserve, Transactions } from '../transactions.ts';
@@ -32,16 +32,18 @@ const handlers = InDesign.toLayer({
     preflight: (payload) => payload.run(),
     queries: (payload) => payload.run(),
 }).pipe(Layer.provideMerge(hold), Layer.provide(Layer.effect(Transactions, Transactions.make)));
-const panel = linked(InDesign, handlers, {
-    path: PATH,
-    serialization: WIRE,
-    application: Model.use(({ app }) =>
-        Effect.flatMap(
-            Effect.tryPromise(() => app.fullName),
-            ({ url }) => Schema.decodeUnknownEffect(Schema.Union([Schema.URL, Schema.URLFromString]))(url),
+const panel = (redial: Schedule.Schedule<unknown, Cause.Cause<unknown>>) =>
+    linked(InDesign, handlers, {
+        path: PATH,
+        serialization: WIRE,
+        application: Model.use(({ app }) =>
+            Effect.flatMap(
+                Effect.tryPromise(() => app.fullName),
+                ({ url }) => Schema.decodeUnknownEffect(Schema.Union([Schema.URL, Schema.URLFromString]))(url),
+            ),
         ),
-    ),
-}).pipe(Layer.provide(Layer.effect(Model, Model.make(indesign))));
+        redial,
+    }).pipe(Layer.provide(Layer.effect(Model, Model.make(indesign))));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

@@ -1,6 +1,7 @@
 import CoreServices
 import Encoding
 public import Foundation
+import OrderedCollections
 public import Results
 
 // --- [TYPES] ---------------------------------------------------------------------------

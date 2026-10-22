@@ -13,7 +13,7 @@ Start the watcher from a terminal or harness with Accessibility access before an
 1. Build the watcher with `nx run watch-apps:build`, once per session and after a change to its sources
 2. Start a Monitor running `watch` with the app's bundle id or display name, matched without case or diacritics
 3. Read the start line, the state of every running instance or `{}` for none, a `fail` line names a missing grant or an unmatched name with near candidates
-4. Start the app with `launch`, which never activates it and exits once it finishes launching
+4. Start the app with `launch`, which sends no activation and exits once the app finishes launching
 5. Act on each line by its state table row, on the `pid` of the instance work drives
 6. Re-arm the Monitor with the same command on its expiry notice
 
@@ -30,7 +30,7 @@ ${CLAUDE_SKILL_DIR}/../../../.cache/swiftpm/build/debug/watch-apps launch <app> 
 - `launch` prints the instance's state line, a running instance's unless `--new` opens another
 - `--document` opens each file in the app, without one the app opens no document window
 - `--arguments` and `--environment` set the new instance's command-line arguments and environment, one value per flag, launchd's environment fills the rest
-- Apps that activate themselves at launch unless an argument says otherwise take that argument through `--arguments`
+- Apps can activate themselves once launched, an app with an argument that stops it takes that argument through `--arguments`
 - `--within` bounds the wait for the instance to finish launching, unbounded when absent
 - `--hides` launches a new instance hidden, a running one stays as it is
 - Bundle ids installed at more than one path print a `fail` line naming each path

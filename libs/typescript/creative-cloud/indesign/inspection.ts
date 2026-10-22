@@ -6,6 +6,7 @@ import { DocumentView, LayerView, PageView, SpreadView } from './documents.ts';
 import { FontView } from './fonts.ts';
 import { LinkView } from './links.ts';
 import { Field, Member, Method, Model } from './model.ts';
+import { Preflight } from './preflight.ts';
 import { Reference, read, resolve, Specifier } from './references.ts';
 import { Session } from './session.ts';
 import { StyleView } from './styles.ts';
@@ -14,7 +15,7 @@ import { StoryView, TextView } from './text.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const View = Schema.Union([DocumentView, PageView, SpreadView, LayerView, StyleView, SwatchView, LinkView, StoryView, TextView, FontView]);
+const View = Schema.Union([DocumentView, PageView, SpreadView, LayerView, StyleView, SwatchView, LinkView, StoryView, TextView, FontView, Preflight.Process]);
 const Row = Field.mapFields(Struct.omit(['unavailable']));
 const Read = Row.pipe(Schema.fieldsAssign({ value: Schema.Result(Schema.OptionFromNullOr(Schema.Json), Schema.Defect()) }));
 class Inspect extends Schema.Class<Inspect, { readonly brand: unique symbol }>('Inspect')(
@@ -24,7 +25,7 @@ class Inspect extends Schema.Class<Inspect, { readonly brand: unique symbol }>('
     },
     {
         description:
-            "Reads InDesign's native object model without changing it. No target: the session, its documents, windows, selection, overset stories, and undo history. A specifier: a typed view of documents, pages, spreads, parents, layers, links, swatches, styles, stories, frames, text, and fonts, beside its native fields on request; other objects list fields, values, valid values, writable fields, and related collections. A collection: its members. Class and enumeration declarations are the kinds resource",
+            "Reads InDesign's native object model without changing it. No target: the session, its documents, windows, selection, overset stories, and undo history. A specifier: a typed view of documents, pages, spreads, parents, layers, links, swatches, styles, stories, frames, text, fonts, and preflight processes, beside its native fields on request; other objects list fields, values, valid values, writable fields, and related collections. A collection: its members. Class and enumeration declarations are the kinds resource",
     },
 ) {
     static readonly Object = Schema.TaggedStruct('Object', {

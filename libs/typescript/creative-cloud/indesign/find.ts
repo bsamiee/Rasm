@@ -4,7 +4,6 @@ import { Uxp } from '@rasm/uxp/runtime';
 import { Array, Cause, Effect, flow, Number, Option, Predicate, pipe, Record, Schema, String, Struct } from 'effect';
 import { Model } from './model.ts';
 import { write } from './mutations.ts';
-import { Preflight } from './preflight.ts';
 import { active, owner, read, resolve, Specifier } from './references.ts';
 import { Mutation, preserve } from './transactions.ts';
 
@@ -35,7 +34,6 @@ class FindChange extends Mutation.extend<FindChange>('FindChange')(
         matches: Schema.Array(Schema.Struct({ specifier: Specifier, text: Schema.OptionFromOptionalKey(Schema.String), page: Schema.OptionFromOptionalKey(Schema.String) })).annotate({
             description: 'Native matches with their text before changes; inspect their specifiers for surrounding content. Color returns counts alone',
         }),
-        preflight: Schema.OptionFromOptionalKey(Preflight.Summary.annotate({ description: 'Absent for a find' })),
     });
 
     override get label(): string {
@@ -43,15 +41,10 @@ class FindChange extends Mutation.extend<FindChange>('FindChange')(
     }
 
     run() {
-        const located = Option.match(this.scope, { onSome: resolve, onNone: () => active });
-        return Option.match(this.change, {
-            onNone: () =>
-                located.pipe(
-                    Effect.flatMap((found: unknown) => this.search(found)),
-                    Effect.flatMap((found) => read(FindChange.Result, this.label, () => found)),
-                ),
-            onSome: () => this.commit(FindChange.Result, located, (found) => this.search(found)),
-        });
+        return Option.match(this.scope, { onSome: resolve, onNone: () => active }).pipe(
+            Effect.flatMap((found: unknown) => Option.match(this.change, { onNone: () => this.search(found), onSome: () => this.commit(this.search(found)) })),
+            Effect.flatMap((found) => read(FindChange.Result, this.label, () => found)),
+        );
     }
 
     search(located: unknown) {

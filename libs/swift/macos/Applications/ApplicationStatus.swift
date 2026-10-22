@@ -4,10 +4,12 @@ import AsyncAlgorithms
 import Encoding
 import Results
 import Synchronization
+import System
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 public enum ApplicationStatus: Equatable, Sendable {
+    case launching
     case responding([Element])
     case unresponsive
 }
@@ -19,6 +21,7 @@ extension ApplicationStatus: Encodable {
 
     public func encode(to encoder: any Encoder) throws {
         switch self {
+            case .launching: try encoder.encode(case: "launching", keyedBy: Key.self)
             case .responding(let elements): try encoder.encode(case: "responding", keyedBy: Key.self) { fields in try fields.encode(elements, forKey: .elements) }
             case .unresponsive: try encoder.encode(case: "unresponsive", keyedBy: Key.self)
         }
@@ -61,53 +64,46 @@ private final class Observation: Sendable {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension NSRunningApplication {
+    var vanished: Errno? {
+        var process: proc_bsdinfo = proc_bsdinfo()
+        return unsafe proc_pidinfo(processIdentifier, PROC_PIDTBSDINFO, 0, &process, Int32(MemoryLayout<proc_bsdinfo>.size)) <= 0 && errno == ESRCH ? Errno(rawValue: errno) : nil
+    }
+
     @concurrent
-    public func status() async -> Result<ApplicationStatus, ElementFailure> {
+    public func status(walking walked: @Sendable (Element) -> Bool) async -> Result<ApplicationStatus, ElementFailure> {
         await withTaskExecutorPreference(accessibility) {
             let application: AXUIElement = AXUIElementCreateApplication(processIdentifier)
             let read: Result<ApplicationStatus, ElementFailure> = Result { () throws(ElementFailure) in
-                try .responding(application.candidates().map { candidate throws(ElementFailure) in try candidate.described()?.element }.compactMap(\.self))
+                try .responding(application.candidates().map { candidate throws(ElementFailure) in try candidate.described(walking: walked) }.compactMap(\.self))
             }
             return switch read {
-                case .failure(.unanswered): .success(.unresponsive)
+                case .failure(.unanswered): vanished.map { error in .failure(.noProcess(error)) } ?? .success(isFinishedLaunching ? .unresponsive : .launching)
                 case .success, .failure: read
             }
         }
     }
 
-    public func statusChanges() -> Result<some AsyncSequence<Result<ApplicationStatus, ElementFailure>, Never>, ElementFailure> {
+    public func statusChanges(walking walked: @escaping @Sendable (Element) -> Bool) -> Result<some AsyncSequence<Result<ApplicationStatus, ElementFailure>, Never>, ElementFailure> {
         let (ticks, tick): (AsyncStream<Void>, AsyncStream<Void>.Continuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
+        let unresponsive: @Sendable (Result<ApplicationStatus, ElementFailure>) -> Bool = { read in if case .success(.unresponsive) = read { true } else { false } }
         return Result { () throws(ElementFailure) in
             let observation: Observation = try Observation(self, ticks: tick)
             tick.onTermination = { _ in withExtendedLifetime(observation) {} }
-            return merge(chain([true].async, ticks.map { _ in true }), AsyncTimerSequence(interval: messagingTimeout, clock: .continuous).map { _ in false })
-                .reductions(Result<ApplicationStatus, ElementFailure>?.none) { last, notified in
-                    let started: ContinuousClock.Instant = .now
-                    let read: Result<ApplicationStatus, ElementFailure> =
-                        switch (notified, last) {
-                            case (false, .success(let status)) where status != .unresponsive: await self.answers() ? .success(status) : .success(.unresponsive)
-                            case (_, _): await self.status()
-                        }
-                    return switch read {
-                        case .success(.unresponsive) where started.duration(to: .now) < messagingTimeout: last
-                        case .success, .failure: read
-                    }
+            return chain([()].async, ticks)
+                .map { _ in await self.status(walking: walked) }
+                .flatMap { read in
+                    chain(
+                        [read].async,
+                        AsyncTimerSequence(interval: messagingTimeout, clock: .continuous).map { _ in await self.status(walking: walked) }.drop(while: unresponsive).prefix(unresponsive(read) ? 1 : 0),
+                    )
                 }
-                .compactMap(\.self)
+                .prefix { read in if case .failure(.noProcess) = read { false } else { true } }
                 .removeDuplicates { last, next in
                     switch (last, next) {
                         case (.success(let last), .success(let next)): last == next
                         case (_, _): false
                     }
                 }
-        }
-    }
-
-    @concurrent
-    private func answers() async -> Bool {
-        await withTaskExecutorPreference(accessibility) {
-            var role: CFTypeRef?
-            return unsafe AXUIElementCopyAttributeValue(AXUIElementCreateApplication(processIdentifier), kAXRoleAttribute as CFString, &role) != .cannotComplete
         }
     }
 }

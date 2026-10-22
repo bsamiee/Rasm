@@ -55,7 +55,7 @@ public enum EventClause: Sendable {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 extension ScriptingDictionary.Command {
-    public func reason<Reason>(for event: NSAppleEventDescriptor, among rows: [(code: String, clause: EventClause, reason: Reason)]) -> Reason? {
-        rows.first { row in row.code == code.sdef && row.clause.matches(event) }?.reason
+    public func interference(for event: NSAppleEventDescriptor, among rows: [(code: String, clause: EventClause, reason: Interference)]) -> Interference? {
+        rows.first { row in UInt64(sdef: row.code) == code && row.clause.matches(event) }?.reason
     }
 }

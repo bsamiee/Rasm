@@ -40,6 +40,10 @@
       "package-product-members": [
         {
           "package": "..",
+          "product-name": "AdobeScripting",
+          "build-phase": { "build-phase": "frameworks" },
+        }, {
+          "package": "..",
           "product-name": "AppleEvents",
           "build-phase": { "build-phase": "frameworks" },
         }, {
