@@ -2,7 +2,6 @@
 
 schema_version      = "1.0.0"
 id                  = "darkroom"
-version             = "1.0.0"
 name                = "Darkroom"
 tagline             = "Render pipeline from image formation through output and review"
 maintainer          = "Bardia Samiee"

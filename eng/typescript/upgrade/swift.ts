@@ -1,29 +1,30 @@
 import { runMain } from '@effect/platform-node/NodeRuntime';
 import { layer } from '@effect/platform-node/NodeServices';
 import { readJsonFile } from '@nx/devkit';
-import { Array, Effect, FileSystem, flow, Option, Path, Record, Schema, String } from 'effect';
+import { Array, Effect, flow, Option, Path, Record, Schema, String } from 'effect';
 import { normalizeFull } from 'verkit';
 import { stdout } from '../process.ts';
 import { Capture, newest, scan, splice } from './bounds.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Remote = Schema.StructWithRest(Schema.Struct({ kind: Schema.Literal('remote'), repository: Schema.String, version: Schema.Struct({ 'up-to-next-major-version': Schema.String }) }), [Schema.JsonObject]);
-const Project = Schema.StructWithRest(Schema.Struct({ packages: Schema.Array(Schema.Union([Remote, Schema.JsonObject])) }), [Schema.JsonObject]);
+const Remote = Schema.Struct({ kind: Schema.Literal('remote'), repository: Schema.String, version: Schema.Struct({ 'up-to-next-major-version': Schema.String }) });
+const Member = Schema.Struct({ package: Schema.optionalKey(Schema.String), 'product-name': Schema.String, 'build-phase': Schema.Struct({ 'build-phase': Schema.Literal('frameworks') }) });
+const Project = Schema.Struct({
+    packages: Schema.Array(Schema.Union([Remote, Schema.JsonObject])),
+    targets: Schema.Array(Schema.Struct({ name: Schema.String, 'package-product-members': Schema.Array(Member).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) })),
+});
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const project = Effect.fn('project')(function* (file: string, document: typeof Project.Type, tags: Record.ReadonlyRecord<string, string>) {
-    const fs = yield* FileSystem.FileSystem;
-    const remote = Schema.is(Remote);
-    yield* fs.writeFileString(
-        file,
-        yield* Schema.encodeEffect(Schema.fromJsonString(Project))({
-            ...document,
-            packages: document.packages.map((row) => (remote(row) ? { ...row, version: { 'up-to-next-major-version': Option.getOrThrow(Record.get(tags, row.repository)) } } : row)),
-        }),
-    );
-    yield* stdout('xcrun', ['xcprojformatter', '--update', file]);
+const project = Effect.fn('project')(function* (file: string, { packages, targets }: typeof Project.Type, tags: Record.ReadonlyRecord<string, string>) {
+    const path = yield* Path.Path;
+    const links = targets.flatMap(({ name, 'package-product-members': members }) => members.map((member) => ({ target: name, product: member['product-name'], identity: member.package })));
+    const commands = packages.filter(Schema.is(Remote)).flatMap(({ repository }) => {
+        const identity = path.basename(repository, '.git');
+        return [['pkg', 'remove', identity], ['pkg', 'add', repository, '--from', Option.getOrThrow(Record.get(tags, repository))], ...links.filter((link) => link.identity === identity).map(({ target, product }) => ['pkg', 'link', product, '--package', identity, '--target', target])];
+    });
+    yield* Effect.forEach(commands, (args) => stdout('xcrun', ['xcodeproj', ...args, '--project', path.dirname(file)]), { discard: true });
 });
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

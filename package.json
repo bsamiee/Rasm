@@ -384,8 +384,11 @@
                 "executor": "nx:run-commands",
                 "options": { "commands": [ { "command": "fd --hidden --extension swift --exec-batch swiftlint lint --quiet", "forwardAllArgs": false }, "swiftlint analyze --quiet --compiler-log-path \"$SWIFTPM_BUILD_DIR/swiftc.log\"" ], "parallel": false },
                 "dependsOn": [ "typecheck:swift" ],
+                "syncGenerators": [ "./tools/nx/generators.json:deployment-target" ],
                 "inputs": [ "swiftlint", "swiftFiles", { "externalDependencies": [] }, { "dependentTasksOutputFiles": "**/swiftc.log" } ]
             },
+            "lint:nx": { "command": "nx sync:check", "inputs": [ "{workspaceRoot}/{Package.swift,Xcode.xcconfig,.swiftlint.yml}", "{workspaceRoot}/tools/nx/**/*" ] },
+            "lint:xcprojformatter": { "command": "fd --hidden --glob project.xcproj --exec sh -c 'xcrun xcprojformatter \"$0\" | diff -u \"$0\" -' {}", "inputs": [ "{workspaceRoot}/**/project.xcproj", { "runtime": "xcodebuild -version" } ] },
             "lint:google-java-format": { "command": "fd --hidden --extension java --exec-batch google-java-format --aosp --dry-run --set-exit-if-changed", "inputs": [ "javaFiles", { "externalDependencies": [] }, { "runtime": "google-java-format --version" } ] },
             "lint:pmd": {
                 "executor": "nx:run-commands",
@@ -457,8 +460,8 @@
             "upgrade:swift": { "executor": "nx:run-commands", "options": { "commands": [ "node eng/typescript/upgrade/swift.ts", "swift package update" ], "parallel": false }, "dependsOn": [ "grammar" ], "parallelism": false },
             "upgrade:actions": { "command": "actions-up --yes --style preserve --min-age 0" },
             "upgrade:docker": { "command": "mise run docker:update" },
+            "release": { "command": "doppler run --project agent-runtime --config dev --only-secrets GITHUB_TOKEN --no-fallback --attempts 1 -- node eng/typescript/release/main.ts", "parallelism": false },
             "infra": { "command": "doppler run --project agent-runtime --config dev --only-secrets GITHUB_TOKEN --no-fallback --attempts 1 -- node infra/main.ts repository", "configurations": { "preview": { "args": "preview" }, "up": { "args": "up" }, "refresh": { "args": "refresh" } }, "parallelism": false },
-            "hosting": { "command": "doppler run --project agent-runtime --config dev --only-secrets CLOUDFLARE_API_TOKEN,CLOUDFLARE_ACCOUNT_ID,OWNER_EMAIL --no-exit-on-missing-only-secrets --no-fallback --attempts 1 -- node infra/main.ts hosting", "parallelism": false },
             "docker": { "command": "mise daemons start docker" },
             "clean": { "command": "node eng/typescript/cleanup/main.ts", "parallelism": false }
         }

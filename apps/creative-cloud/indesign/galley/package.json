@@ -1,6 +1,5 @@
 {
     "name": "@rasm/galley",
-    "version": "1.0.0",
     "private": true,
     "description": "InDesign extension serving the InDesign contract to Atelier, one request per do script run",
     "type": "module",

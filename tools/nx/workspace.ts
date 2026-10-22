@@ -1,7 +1,7 @@
 import { layer as nodeSpawner } from '@effect/platform-node/NodeChildProcessSpawner';
 import { layer as nodeFileSystem } from '@effect/platform-node/NodeFileSystem';
 import { layerPosix } from '@effect/platform-node/NodePath';
-import { type CreateDependencies, type CreateDependenciesContext, type CreateNodes, createNodesFromFiles, DependencyType, type FileMap, type Optional, type ProjectConfiguration, parseJson, type RawProjectGraphDependency } from '@nx/devkit';
+import { type CreateDependencies, type CreateDependenciesContext, type CreateNodes, createNodesFromFiles, DependencyType, type FileMap, type Optional, type ProjectConfiguration, parseJson, type RawProjectGraphDependency, type Tree } from '@nx/devkit';
 import { globWithWorkspaceContext, hashWithWorkspaceContext, PluginCache, workspaceDataDirectory } from '@nx/devkit/internal';
 import { Array, Cause, Effect, FileSystem, Filter, Layer, ManagedRuntime, Option, Path, Record, Schema, SchemaGetter, SchemaIssue, Struct } from 'effect';
 import { XMLParser } from 'fast-xml-parser';
@@ -22,6 +22,10 @@ const XCODE_PROJECT = 'project.xcproj';
 const PYPROJECT = 'pyproject.toml';
 const CLOUDFLARE_CONFIG = 'cloudflare.config.ts';
 const SWIFTPM = { SWIFTPM_BUILD_DIR: '.cache/swiftpm/build' };
+const DEPLOYMENT_ROWS = {
+    'Xcode.xcconfig': [/^MACOSX_DEPLOYMENT_TARGET = .+$/mu, (version: string) => `MACOSX_DEPLOYMENT_TARGET = ${version}`],
+    '.swiftlint.yml': [/^ {4}macOS_deployment_target: .+$/mu, (version: string) => `    macOS_deployment_target: '${version}'`],
+} as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -78,19 +82,11 @@ const Metadata = Schema.fromJsonString(
         ),
     }),
 );
-const Named = Schema.Tuple([Schema.String, Schema.Unknown]);
 const SwiftPackage = Schema.fromJsonString(
     Schema.Struct({
-        targets: Schema.Array(
-            Schema.Struct({
-                name: Schema.String,
-                type: Schema.String,
-                path: Schema.String,
-                dependencies: Schema.Array(Schema.Union([Schema.Struct({ byName: Named }), Schema.Struct({ target: Named }), Schema.Struct({ product: Schema.Array(Schema.Unknown) })])),
-            }),
-        ),
+        targets: Schema.Array(Schema.Struct({ name: Schema.String, type: Schema.String, path: Schema.String, locals: Schema.Array(Schema.String).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) }).pipe(Schema.encodeKeys({ locals: 'target_dependencies' }))),
         products: Schema.Array(Schema.Struct({ name: Schema.String, targets: Schema.Array(Schema.String) })),
-        platforms: Schema.Array(Schema.Struct({ platformName: Schema.String })),
+        platforms: Schema.Array(Schema.Struct({ name: Schema.String, version: Schema.String })),
     }),
 );
 const XcodeProject = Parsed('JSON', parseJson).pipe(
@@ -144,7 +140,7 @@ const openWorkspace = Effect.fnUntraced(function* (root: string) {
             mise: Effect.cached(decode(Mise, root, 'mise.toml')),
             hosts: Effect.cached(fs.readDirectory(path.join(root, 'apps'))),
             crates: Effect.cached(readCrates(store)),
-            swift: Effect.cached(cached(SwiftPackage, store, { inputs: [SWIFT_MANIFEST], argv: ['swift', 'package', 'dump-package'], env: SWIFTPM })),
+            swift: Effect.cached(cached(SwiftPackage, store, { inputs: [SWIFT_MANIFEST], argv: ['swift', 'package', 'describe', '--type', 'json'], env: SWIFTPM })),
         })),
     };
 });
@@ -192,7 +188,7 @@ const markers = {
                 build: { outputs: outputs('build', 'debug') },
                 'build:release': { outputs: outputs('build:release', 'release'), ...(plugin ? { defaultConfiguration: 'release' } : {}) },
                 check: {},
-                ...(plugin ? { pack: {}, install: {} } : {}),
+                ...(plugin ? { pack: {}, install: {}, publish: {} } : {}),
             },
         };
     }),
@@ -237,39 +233,40 @@ const markers = {
                 check: {},
                 ...(tested ? { test: {}, ...(dylint ? {} : { coverage: {} }) } : {}),
                 ...(bins.length > 0 ? { build: {} } : {}),
-                ...(launched.length > 0 ? { install: { options: { args: launched } }, 'install:cargo': {}, 'upgrade:cargo': { dependsOn: [{ projects: ['directory:.'], target: 'upgrade:rust' }] } } : {}),
+                ...(launched.length > 0 ? { install: { options: { args: launched } }, 'install:cargo': {}, 'upgrade:cargo': { options: { args: launched }, dependsOn: [{ projects: ['directory:.'], target: 'upgrade:rust' }] } } : {}),
             },
         };
     }),
     'blender_manifest.toml': Effect.fnUntraced(function* ({ dir }, workspace) {
         const [{ moduleRoot }, { id }, targets] = yield* Effect.all([workspace.pyproject, decode(Manifest, workspace.root, workspace.file), pythonTargets(dir, workspace)], { concurrency: 'unbounded' });
-        const archive = '.artifacts/blender/{projectName}/extension.zip';
         return {
             name: id,
-            tags: ['language:python'],
+            tags: ['language:python', 'output:extension'],
             targets: {
-                pack: { command: 'python -m eng.python.fitout pack', options: { args: ['{projectRoot}', archive] }, inputs: [`{workspaceRoot}/${moduleRoot}/**/*`], outputs: [`{workspaceRoot}/${archive}`] },
-                install: { command: 'python -m eng.python.fitout install', options: { args: [archive] } },
+                pack: { inputs: [`{workspaceRoot}/${moduleRoot}/**/*`] },
+                install: {},
+                publish: {},
                 ...targets,
             },
         };
     }),
     [XCODE_PROJECT]: Effect.fnUntraced(function* ({ dir }, { file, root: workspace }) {
-        const [path, { files }] = yield* Effect.all([Path.Path, decode(XcodeProject, workspace, file)]);
+        const [path, { files, targets }] = yield* Effect.all([Path.Path, decode(XcodeProject, workspace, file)]);
         const root = path.dirname(dir);
+        const updated = targets.some(({ members }) => members.some(({ product }) => product === 'Sparkle'));
         const bundled = yield* Effect.forEach(
             files
                 .filter(Schema.is(XcodeFolder))
-                .map((folder) => path.relative('.artifacts', path.join(root, folder.path.replace('<PROJECT>', ''))))
+                .map((folder) => path.relative('.artifacts', path.join(root, folder.path)))
                 .filter((source) => !source.startsWith('..')),
             (source) => Effect.map(decode(PackageName, workspace, path.join(source, 'package.json')), ({ name }) => ({ projects: [name], target: 'build' })),
         );
-        const xcode = swiftProject(['build:xcode'], { XCODE_DERIVED_DATA_PATH: path.join('.cache/xcode', root) }, ['install', 'lint:swiftlint', 'upgrade:xcode']);
-        return { root, name: path.parse(dir).name, ...xcode, targets: Record.map(xcode.targets, (target, name) => (['build', 'build:xcode', 'install'].includes(name) ? { ...target, dependsOn: bundled } : target)) };
+        const xcode = swiftProject(['build:xcode', ...(updated ? ['output:appcast'] : [])], { XCODE_DERIVED_DATA_PATH: path.join('.cache/xcode', root) }, ['pack', 'install', 'lint:swiftlint', 'upgrade:xcode', ...(updated ? ['publish'] : [])]);
+        return { root, name: path.parse(dir).name, ...xcode, targets: Record.map(xcode.targets, (target, name) => (['build', 'pack'].includes(name) ? { ...target, dependsOn: bundled } : target)) };
     }),
     'py.typed': ({ dir }, workspace) => Effect.map(Effect.all([Path.Path, workspace.pyproject, pythonTargets(dir, workspace)]), ([path, { moduleRoot }, targets]) => ({ name: path.relative(moduleRoot, dir).replaceAll(path.sep, '.'), tags: ['language:python'], targets })),
     'tsconfig.json': ({ dir }, { root }) => Effect.map(suiteInputs('typescript', dir, root), (suite) => ({ ...suite, tags: ['language:typescript'], targets: { 'typecheck:tsc': {}, check: {} } })),
-    'vite.config.ts': ({ dir }, { configFiles }) => Effect.map(Path.Path, (path) => ({ tags: ['bundler:vite', ...(configFiles.includes(path.join(dir, CLOUDFLARE_CONFIG)) ? ['output:cloudflare'] : [])], targets: { build: {}, serve: {} } })),
+    'vite.config.ts': ({ dir }, { configFiles }) => Effect.map(Path.Path, (path) => configFiles.includes(path.join(dir, CLOUDFLARE_CONFIG))).pipe(Effect.map((hosted) => ({ tags: ['bundler:vite', ...(hosted ? ['output:cloudflare'] : [])], targets: { build: {}, serve: {}, ...(hosted ? { hosting: {} } : {}) } }))),
     'uxp.config.ts': () => Effect.succeed({ tags: ['host:uxp'], targets: { build: {}, install: {} } }),
     'script.config.ts': () => Effect.succeed({ tags: ['output:script'], targets: { build: {} } }),
     [CLOUDFLARE_CONFIG]: () => Effect.succeed({ targets: { types: {}, 'typecheck:tsc': { dependsOn: ['types'] } } }),
@@ -372,8 +369,9 @@ const swiftModules = Effect.fnUntraced(function* ({ swift, hosts }: Workspace) {
         targets,
         Filter.fromPredicate(({ type }) => type === 'test'),
     );
-    const project = swiftProject(['build:swiftpm', ...Array.intersection(platforms.map(Struct.get('platformName')), folders).map((host) => `host:${host}`)], SWIFTPM, []);
+    const platformed = platforms.map(Struct.get('name'));
     const modules = sources.map((target) => {
+        const project = swiftProject(['build:swiftpm', ...Array.intersection(Array.union(platformed, target.path.split('/')), folders).map((host) => `host:${host}`)], SWIFTPM, []);
         const suite = Array.findFirst(suites, ({ name }) => name === `${target.name}Tests`);
         return [
             target.path,
@@ -383,7 +381,7 @@ const swiftModules = Effect.fnUntraced(function* ({ swift, hosts }: Workspace) {
                 name: target.name,
                 ...Option.match(suite, {
                     onNone: () => ({}),
-                    onSome: ({ name, path }) => ({ ...suiteInput(path), targets: { ...project.targets, test: { options: { env: SWIFTPM, args: ['--filter', name] } } } }),
+                    onSome: ({ name, path }) => ({ ...suiteInput(path), targets: { ...project.targets, test: { options: { env: SWIFTPM, args: ['--filter', `'^${name}\\.'`] } } } }),
                 }),
             },
         ] as const;
@@ -413,7 +411,6 @@ const imports = (root: string, { projectFileMap }: FileMap) =>
             onNonEmpty: (files) => Effect.map(Effect.flatMap(stdout('ruff', ['analyze', 'graph', ...files], { cwd: root }), Schema.decodeEffect(ImportGraph)), (graph) => Object.entries(graph).flatMap(([file, targets]) => targets.map((target) => [file, target] as const))),
         },
     );
-const locals = ({ dependencies }: (typeof SwiftPackage.Type)['targets'][number]) => dependencies.flatMap((dependency) => [...('byName' in dependency ? [dependency.byName[0]] : []), ...('target' in dependency ? [dependency.target[0]] : [])]);
 const edges = Effect.fnUntraced(function* ({ fileMap, filesToProcess, workspaceRoot }: CreateDependenciesContext) {
     const [path, workspace] = yield* Effect.all([Path.Path, openWorkspace(workspaceRoot)]);
     const [sources, crates, { targets, products }, xcode] = yield* Effect.all(
@@ -429,7 +426,7 @@ const edges = Effect.fnUntraced(function* ({ fileMap, filesToProcess, workspaceR
         { concurrency: 'unbounded' },
     );
     const owners = Object.fromEntries(Object.entries(fileMap.projectFileMap).flatMap(([owner, files]) => files.map(({ file }) => [file, owner] as const)));
-    const modules: RawProjectGraphDependency[] = targets.filter(({ type }) => type !== 'test').flatMap((target) => locals(target).map((name) => ({ source: target.name, target: name, type: DependencyType.implicit })));
+    const modules: RawProjectGraphDependency[] = targets.filter(({ type }) => type !== 'test').flatMap((target) => target.locals.map((name) => ({ source: target.name, target: name, type: DependencyType.implicit })));
     const linked: RawProjectGraphDependency[] = xcode.flatMap(([file, names]) => Array.cartesianWith(Option.toArray(Record.get(owners, file)), products.filter(({ name }) => names.includes(name)).flatMap(Struct.get('targets')), (source, target) => ({ source, target, sourceFile: file, type: DependencyType.static })));
     return [
         ...[...sources, ...crates.flatMap(({ manifest, dependencies }) => Array.getSomes(dependencies.map((dependency) => dependency.path)).map((member) => [manifest, path.join(path.relative(workspaceRoot, member), CARGO_MANIFEST)] as const))].flatMap(([sourceFile, file]) =>
@@ -460,7 +457,22 @@ const createNodes: CreateNodes = [
         ),
 ];
 const createDependencies: CreateDependencies = (_options, context) => runtime.runPromise(rendered(edges(context)));
+const deploymentTarget = (tree: Tree) =>
+    runtime.runPromise(
+        rendered(
+            Effect.scoped(
+                Effect.gen(function* () {
+                    const { platforms } = yield* (yield* openWorkspace(tree.root)).swift;
+                    const { version } = yield* Effect.fromOption(Array.findFirst(platforms, ({ name }) => name === 'macos'));
+                    const rows = yield* Effect.forEach(Object.entries(DEPLOYMENT_ROWS), ([file, [pattern, row]]) => Effect.map(Effect.fromNullishOr(tree.read(file, 'utf-8')), (text) => ({ file, text, next: text.replace(pattern, row(version)) })));
+                    const drifted = rows.filter(({ text, next }) => next !== text);
+                    yield* Effect.forEach(drifted, ({ file, next }) => Effect.sync(() => tree.write(file, next)), { discard: true });
+                    return Array.match(drifted, { onEmpty: () => undefined, onNonEmpty: (changed) => ({ outOfSyncMessage: `${changed.map(Struct.get('file')).join(', ')} differ from the Package.swift macOS platform` }) });
+                }),
+            ),
+        ),
+    );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { createDependencies, createNodes };
+export { createDependencies, createNodes, deploymentTarget };

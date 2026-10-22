@@ -1,5 +1,5 @@
-#!/bin/sh
-set -eu
+#!/usr/bin/env bash
+set -euo pipefail
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 settings=$(find "$HOME/Library/Preferences" -maxdepth 1 -name 'Adobe Illustrator *Settings' | sort -V | tail -n 1)

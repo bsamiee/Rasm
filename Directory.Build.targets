@@ -93,6 +93,7 @@
         <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
         <GenerateDependencyFile>false</GenerateDependencyFile>
         <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+        <MinVerTagPrefix>rhino-$(MSBuildProjectName)-v</MinVerTagPrefix>
         <_PlugInIconSource>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', 'Assets', 'icon.svg'))</_PlugInIconSource>
         <_PlugInPackageIcon Condition="Exists('$(_PlugInIconSource)')">icon.png</_PlugInPackageIcon>
         <_PlugInAssetDir>$(IntermediateOutputPath)PlugInAssets/</_PlugInAssetDir>
@@ -100,7 +101,7 @@
     </PropertyGroup>
 
     <ItemGroup Label="Rhino Plug-In Files" Condition="'$(TargetExt)' == '.rhp'">
-        <PackageReference Include="System.Reflection.MetadataLoadContext" ExcludeAssets="all" PrivateAssets="all" GeneratePathProperty="true" />
+        <PackageReference Include="MinVer" PrivateAssets="all" />
         <EmbeddedResource Remove="$(_PlugInIconSource)" />
         <_PlugInDescription Include="Organization" Value="$(Authors)" />
     </ItemGroup>
@@ -124,9 +125,15 @@
         </ItemGroup>
     </Target>
 
+    <Target Name="AssignPlugInAssemblyVersion" AfterTargets="MinVer" Condition="'$(TargetExt)' == '.rhp'">
+        <PropertyGroup>
+            <AssemblyVersion>$(FileVersion)</AssemblyVersion>
+        </PropertyGroup>
+    </Target>
+
     <Target Name="AddPlugInDescriptions" AfterTargets="GetAssemblyAttributes" Condition="'$(TargetExt)' == '.rhp'">
         <ItemGroup>
-            <_PlugInDescription Include="WebSite" Value="$(PrivateRepositoryUrl)" />
+            <_PlugInDescription Include="WebSite" Value="$([System.Text.RegularExpressions.Regex]::Replace('$(PrivateRepositoryUrl)', '\.git$', ''))" />
             <AssemblyAttribute Include="@(_PlugInDescription->'Rhino.PlugIns.PlugInDescriptionAttribute')" RemoveMetadata="Value">
                 <_Parameter1>Rhino.PlugIns.DescriptionType.%(_PlugInDescription.Identity)</_Parameter1>
                 <_Parameter1_IsLiteral>true</_Parameter1_IsLiteral>
@@ -141,53 +148,35 @@
         </ItemGroup>
     </Target>
 
-    <UsingTask TaskName="FindGrasshopperPlugIns" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll" Condition="'$(TargetExt)' == '.rhp'">
-        <ParameterGroup>
-            <PlugIns ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
-            <References ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
-            <GrasshopperPlugIns ParameterType="Microsoft.Build.Framework.ITaskItem[]" Output="true" />
-        </ParameterGroup>
-        <Task>
-            <Reference Include="$(PkgSystem_Reflection_MetadataLoadContext)/lib/netstandard2.0/System.Reflection.MetadataLoadContext.dll" />
-            <Using Namespace="System.Reflection" />
-            <Code Type="Fragment" Language="cs"><![CDATA[
-                using MetadataLoadContext context = new(new PathAssemblyResolver(References.Concat(PlugIns).Select(static item => item.ItemSpec)));
-                Type grasshopper = context.LoadFromAssemblyName("Grasshopper2").GetType("Grasshopper2.Framework.Plugin", throwOnError: true);
-                Type rhino = context.LoadFromAssemblyName("RhinoCommon").GetType("Rhino.PlugIns.PlugIn", throwOnError: true);
-                GrasshopperPlugIns = PlugIns.Where(plugIn => {
-                    Type[] types = context.LoadFromAssemblyPath(plugIn.ItemSpec).GetExportedTypes();
-                    return types.Any(type => !type.IsAbstract && type.IsSubclassOf(grasshopper) && type.GetConstructor(Type.EmptyTypes) != null) && !types.Any(type => !type.IsAbstract && type.IsSubclassOf(rhino));
-                }).ToArray();
-            ]]></Code>
-        </Task>
-    </UsingTask>
-
-    <Target Name="BuildYakPackage" AfterTargets="Publish" DependsOnTargets="ResolveRhinoInstallation;ResolveAssemblyReferences" Condition="'$(TargetExt)' == '.rhp'">
+    <Target Name="BuildYakPackage" AfterTargets="Publish" DependsOnTargets="ResolveRhinoInstallation" Condition="'$(TargetExt)' == '.rhp'">
         <PropertyGroup>
             <_YakPlatform>mac</_YakPlatform>
             <_YakPlatform Condition="'$(TargetPlatformIdentifier)' == 'Windows'">win</_YakPlatform>
         </PropertyGroup>
         <ItemGroup>
-            <_YakOutput Include="$(PublishDir)manifest.yml;$(PublishDir)*.yak;$(PublishDir)*.grasshopper-only" />
+            <_YakOutput Include="$(PublishDir)manifest.yml;$(PublishDir)*.yak" />
         </ItemGroup>
         <Delete Files="@(_YakOutput)" />
-        <FindGrasshopperPlugIns PlugIns="@(ResolvedFileToPublish->WithMetadataValue('Extension', '.rhp'))" References="@(ReferencePath)" Condition="'@(ReferencePath->WithMetadataValue('NuGetPackageId', 'Grasshopper2'))' != ''">
-            <Output TaskParameter="GrasshopperPlugIns" ItemName="_GrasshopperPlugIn" />
-        </FindGrasshopperPlugIns>
-        <Touch Files="@(_GrasshopperPlugIn->'$(PublishDir)%(RelativePath).grasshopper-only')" AlwaysCreate="true" />
         <Exec Command="&quot;$(_YakExecutable)&quot; spec --input &quot;$(TargetFileName)&quot;" WorkingDirectory="$(PublishDir)" StandardOutputImportance="low" />
         <WriteLinesToFile File="$(PublishDir)manifest.yml" Lines="icon: $(_PlugInPackageIcon)" Condition="'$(_PlugInPackageIcon)' != ''" />
         <Exec Command="&quot;$(_YakExecutable)&quot; build --platform $(_YakPlatform)" WorkingDirectory="$(PublishDir)" StandardOutputImportance="low" />
     </Target>
 
-    <Target Name="InstallYakPackage" DependsOnTargets="ResolveRhinoInstallation" Condition="'$(TargetExt)' == '.rhp'">
-        <Exec Command="yq &quot;.name&quot; &quot;$(PublishDir)manifest.yml&quot;" ConsoleToMSBuild="true" StandardOutputImportance="low">
-            <Output TaskParameter="ConsoleOutput" PropertyName="_YakPackageName" />
-        </Exec>
+    <Target Name="ResolveYakPackage" DependsOnTargets="ResolveRhinoInstallation" Condition="'$(TargetExt)' == '.rhp'">
         <ItemGroup>
             <_YakPackage Include="$(PublishDir)*.yak" />
         </ItemGroup>
+    </Target>
+
+    <Target Name="InstallYakPackage" DependsOnTargets="ResolveYakPackage" Condition="'$(TargetExt)' == '.rhp'">
+        <Exec Command="yq &quot;.name&quot; &quot;$(PublishDir)manifest.yml&quot;" ConsoleToMSBuild="true" StandardOutputImportance="low">
+            <Output TaskParameter="ConsoleOutput" PropertyName="_YakPackageName" />
+        </Exec>
         <Exec Command="&quot;$(_YakExecutable)&quot; uninstall &quot;$(_YakPackageName)&quot;" StandardOutputImportance="low" />
         <Exec Command="&quot;$(_YakExecutable)&quot; install &quot;@(_YakPackage->'%(FullPath)')&quot;" StandardOutputImportance="low" />
+    </Target>
+
+    <Target Name="PushYakPackage" DependsOnTargets="ResolveYakPackage" Condition="'$(TargetExt)' == '.rhp'">
+        <Exec Command="&quot;$(_YakExecutable)&quot; push &quot;@(_YakPackage->'%(FullPath)')&quot;" StandardOutputImportance="low" />
     </Target>
 </Project>

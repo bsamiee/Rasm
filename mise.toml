@@ -19,7 +19,7 @@ HYPOTHESIS_STORAGE_DIRECTORY          = "{{config_root}}/.cache/hypothesis"
 CARGO_LLVM_COV_DENY_WARNINGS          = "1"
 RUSTUP_TOOLCHAIN                      = false
 TOMBI_CACHE_HOME                      = "{{config_root}}/.cache/tombi"
-NX_WORKSPACE_DATA_DIRECTORY           = "{{config_root}}/.cache/nx/workspace-data"
+NX_WORKSPACE_DATA_DIRECTORY           = ".cache/nx/workspace-data"
 NX_DEFAULT_OUTPUT_STYLE               = "static-failures-only"
 CLOUDFLARE_REGISTRY_PATH              = "{{config_root}}/.cache/cloudflare/registry"
 MINIFLARE_REGISTRY_PATH               = "{{ env.CLOUDFLARE_REGISTRY_PATH }}"
@@ -47,56 +47,59 @@ blender-mcp = "pypi:git+https://projects.blender.org/lab/blender_mcp.git#subdire
 
 # --- [TOOLS] ----------------------------------------------------------------------------
 [tools]
-python                       = "3.15.0"
-java                         = "latest"
-node                         = "latest"
-pnpm                         = "latest"
-uv                           = "latest"
-pixi                         = "latest"
-cargo-binstall               = "latest"
-"cargo:cargo-nextest"        = "latest"
-"cargo:cargo-llvm-cov"       = "latest"
-"cargo:cargo-edit"           = "latest"
-"cargo:cargo-dylint"         = "latest"
-cargo-insta                  = "latest"
-"cargo:cargo-modules"        = "latest"
-git-lfs                      = "latest"
-actionlint                   = "latest"
-"npm:actions-up"             = "latest"
-shellcheck                   = "latest"
-shfmt                        = "latest"
-yamlfmt                      = "latest"
-tombi                        = "latest"
-google-java-format           = "latest"
-swiftlint                    = { version = "latest", os = ["macos"] }
-periphery                    = { version = "latest", os = ["macos"] }
-"github:sbdchd/squawk"       = "latest"
-ripgrep                      = "latest"
-fd                           = "latest"
-jq                           = "latest"
-yq                           = "latest"
-doppler                      = "latest"
-pulumi                       = "latest"
-pitchfork                    = "latest"
-colima                       = { version = "latest", os = ["macos"], postinstall = 'mkdir -p "$COLIMA_HOME"' }
-lima                         = { version = "latest", os = ["macos"] }
-docker-cli                   = { version = "latest", os = ["macos", "linux"] }
-"github:docker/buildx"       = { version = "latest", bin = "docker-buildx", os = ["macos", "linux"], postinstall = 'mkdir -p "$DOCKER_CONFIG/cli-plugins" && ln -sfn "$MISE_TOOL_INSTALL_PATH/docker-buildx" "$DOCKER_CONFIG/cli-plugins/docker-buildx"' }
-ast-grep                     = "latest"
-tree-sitter                  = "latest"
-sd                           = "latest"
-difftastic                   = "latest"
-duckdb                       = "latest"
-hyperfine                    = "latest"
-resvg                        = "latest"
-imagemagick                  = "latest"
-"pypi:ast-grep/ast-grep-mcp" = "latest"
-"pypi:tavily-cli"            = "latest"
-"pypi:mcp-for-blender"       = "latest"
-blender-mcp                  = "v1"
-"github:akiselev/ghidra-cli" = "latest"
-"github:pmd/pmd"             = { version = "7.28.0", version_prefix = "pmd_releases/", asset_pattern = "pmd-dist-*-bin.zip" }
-"http:xcode-build-server"    = { version = "latest", os = ["macos"], url = "https://github.com/SolaWing/xcode-build-server/archive/refs/tags/v{{ version }}.tar.gz", version_list_url = "https://api.github.com/repos/SolaWing/xcode-build-server/releases", version_json_path = ".[].tag_name", version_order = "semver" }
+python                           = "3.15.0"
+java                             = "latest"
+node                             = "latest"
+pnpm                             = "latest"
+uv                               = "latest"
+pixi                             = "latest"
+cargo-binstall                   = "latest"
+"cargo:cargo-nextest"            = "latest"
+"cargo:cargo-llvm-cov"           = "latest"
+"cargo:cargo-edit"               = "latest"
+"cargo:cargo-dylint"             = "latest"
+cargo-insta                      = "latest"
+"cargo:cargo-modules"            = "latest"
+git-lfs                          = "latest"
+hk                               = "latest"
+actionlint                       = "latest"
+"npm:actions-up"                 = "latest"
+shellcheck                       = "latest"
+shfmt                            = "latest"
+yamlfmt                          = "latest"
+tombi                            = "latest"
+google-java-format               = "latest"
+swiftlint                        = { version = "latest", os = ["macos"] }
+periphery                        = { version = "latest", os = ["macos"] }
+"github:sparkle-project/Sparkle" = { version = "latest", os = ["macos"], asset_pattern = "Sparkle-*.tar.xz", bin_path = "bin" }
+"github:sbdchd/squawk"           = "latest"
+ripgrep                          = "latest"
+fd                               = "latest"
+jq                               = "latest"
+yq                               = "latest"
+doppler                          = "latest"
+pulumi                           = "latest"
+gh                               = "latest"
+pitchfork                        = "latest"
+colima                           = { version = "latest", os = ["macos"], postinstall = 'mkdir -p "$COLIMA_HOME"' }
+lima                             = { version = "latest", os = ["macos"] }
+docker-cli                       = { version = "latest", os = ["macos", "linux"] }
+"github:docker/buildx"           = { version = "latest", bin = "docker-buildx", os = ["macos", "linux"], postinstall = 'mkdir -p "$DOCKER_CONFIG/cli-plugins" && ln -sfn "$MISE_TOOL_INSTALL_PATH/docker-buildx" "$DOCKER_CONFIG/cli-plugins/docker-buildx"' }
+ast-grep                         = "latest"
+tree-sitter                      = "latest"
+sd                               = "latest"
+difftastic                       = "latest"
+"github:duckdb/duckdb"           = "latest"
+hyperfine                        = "latest"
+resvg                            = "latest"
+imagemagick                      = "latest"
+"pypi:ast-grep/ast-grep-mcp"     = "latest"
+"pypi:tavily-cli"                = "latest"
+"pypi:mcp-for-blender"           = "latest"
+blender-mcp                      = "v1"
+"github:akiselev/ghidra-cli"     = "latest"
+"github:pmd/pmd"                 = { version = "7.28.0", version_prefix = "pmd_releases/", asset_pattern = "pmd-dist-*-bin.zip" }
+"http:xcode-build-server"        = { version = "latest", os = ["macos"], url = "https://github.com/SolaWing/xcode-build-server/archive/refs/tags/v{{ version }}.tar.gz", version_list_url = "https://api.github.com/repos/SolaWing/xcode-build-server/releases", version_json_path = ".[].tag_name", version_order = "semver" }
 
 [tools."http:rustc-source"]
 version          = "{{ exec(command='mise config get -f ' ~ ((config_root ~ '/rust-toolchain.toml') | quote) ~ ' toolchain.channel') | trim_start(pat='nightly-') }}"
@@ -121,6 +124,10 @@ if [ "$(uname -sm)" = "Darwin arm64" ]; then
     make -C "$decompiler/src/decompile/cpp" clean
 fi
 '''
+
+# --- [HOOKS] ----------------------------------------------------------------------------
+[hooks]
+postinstall = "hk install --mise"
 
 # --- [BOOTSTRAP] ------------------------------------------------------------------------
 [bootstrap.macos.launchd.agents]

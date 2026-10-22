@@ -1,0 +1,9 @@
+{
+    "generators": {
+        "deployment-target": {
+            "factory": "./workspace.ts#deploymentTarget",
+            "schema": "./schema.json",
+            "description": "Writes the Package.swift macOS platform into Xcode.xcconfig and .swiftlint.yml"
+        }
+    }
+}
