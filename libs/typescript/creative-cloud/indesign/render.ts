@@ -25,7 +25,7 @@ class Render extends Schema.Class<Render, { readonly brand: unique symbol }>('Re
     run() {
         const { target, pixels } = this;
         return Effect.gen(function* () {
-            const [{ app, ExportFormat, PNGExportRangeEnum, PNGColorSpaceEnum, PNGQualityEnum, page, spread, item }, { fs, temporary }] = yield* Effect.all([Model, Uxp]);
+            const [{ app, ExportFormat, PNGExportRangeEnum, PNGColorSpaceEnum, PNGQualityEnum, page, spread, item, temporary }, { fs }] = yield* Effect.all([Model, Uxp]);
             const found = yield* Effect.filterOrFail(
                 resolve(target),
                 (value): value is Page | Spread | PageItem => (page(value) && spread(value.parent)) || spread(value) || item(value),
@@ -39,7 +39,7 @@ class Render extends Schema.Class<Render, { readonly brand: unique symbol }>('Re
             const { top, left, bottom, right } = yield* extent(...placed);
             const refused = (cause: unknown) => new Cause.UnknownError(cause, `export of ${target}`);
             const pointsPerInch = 72;
-            const file = yield* temporary('render.png');
+            const path = yield* temporary('render.png');
             yield* preserve(app.pngExportPreferences, {
                 pngColorSpace: PNGColorSpaceEnum.RGB,
                 pngQuality: PNGQualityEnum.MAXIMUM,
@@ -52,9 +52,9 @@ class Render extends Schema.Class<Render, { readonly brand: unique symbol }>('Re
                 exportResolution: (pixels * pointsPerInch) / Math.max(right - left, bottom - top),
                 ...options,
             });
-            yield* Effect.try({ try: () => source.exportFile(ExportFormat.PNG_FORMAT, file.nativePath), catch: refused });
+            yield* Effect.try({ try: () => source.exportFile(ExportFormat.PNG_FORMAT, path), catch: refused });
             const image = yield* Effect.filterOrFail(
-                Effect.try({ try: () => new Uint8Array(fs.readFileSync(file.url)), catch: refused }),
+                Effect.try({ try: () => new Uint8Array(fs.readFileSync(`file:${path}`)), catch: refused }),
                 (bytes) => bytes.length > 0,
                 () => new Cause.UnknownError(undefined, `export of ${target} wrote no image`),
             );

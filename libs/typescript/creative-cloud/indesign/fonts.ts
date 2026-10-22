@@ -107,11 +107,11 @@ class Font extends Schema.Class<Font, { readonly brand: unique symbol }>('Font')
     run() {
         const { name, text } = this;
         return Effect.gen(function* () {
-            const [face, { FontStatus }, { fs, temporary }] = yield* Effect.all([font(name), Model, Uxp]);
+            const [face, { FontStatus, temporary }, { fs }] = yield* Effect.all([font(name), Model, Uxp]);
             const bytes = (path: string) => Effect.try({ try: () => new Uint8Array(fs.readFileSync(path)), catch: (cause) => new Cause.UnknownError(cause, path) });
             const subset = temporary('font.otf').pipe(
-                Effect.tap((entry) => Effect.try({ try: () => face.createSubsetFont(text, entry.nativePath), catch: (cause) => new Cause.UnknownError(cause, `subset of ${face.name}`) })),
-                Effect.flatMap((entry) => bytes(entry.url)),
+                Effect.tap((path) => Effect.try({ try: () => face.createSubsetFont(text, path), catch: (cause) => new Cause.UnknownError(cause, `subset of ${face.name}`) })),
+                Effect.flatMap((path) => bytes(`file:${path}`)),
                 Effect.map((data) => Option.some({ data, postscriptName: Option.none<string>() })),
             );
             const source = face.status.equals(FontStatus.INSTALLED)

@@ -1,6 +1,6 @@
 import { Unmatched } from '@rasm/search';
-import { Effect, Schema } from 'effect';
-import { Rpc, RpcClient, RpcGroup, RpcMiddleware, RpcSerialization } from 'effect/rpc';
+import { Schema } from 'effect';
+import { Rpc, RpcGroup, RpcMiddleware } from 'effect/rpc';
 import { FindChange, Queries } from '../find.ts';
 import { Font } from '../fonts.ts';
 import { Inspect, Kind } from '../inspection.ts';
@@ -11,28 +11,9 @@ import { Render } from '../render.ts';
 import { Script } from '../scripts.ts';
 import { Invoke, Menu } from '../session.ts';
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const PATH = '/indesign';
-const WIRE = RpcSerialization.layerSchemaBinary({ fingerprintPayloads: true });
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-const Enter = Rpc.make('enter');
-
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Hold extends RpcMiddleware.Service<Hold>()('@rasm/indesign/service/contract/Hold', { error: Schema.ErrorInstance(), requiredForClient: true }) {
-    static readonly client = RpcMiddleware.layerClient(
-        Hold,
-        Effect.map(
-            RpcClient.make(RpcGroup.make(Enter), { disableTracing: true, flatten: true }),
-            (enter) =>
-                ({ next, request }) =>
-                    Effect.tap(next(request), () => Effect.forever(enter('enter', undefined))),
-        ),
-    );
-}
+class Hold extends RpcMiddleware.Service<Hold>()('@rasm/indesign/service/contract/Hold', { error: Schema.ErrorInstance() }) {}
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -50,10 +31,8 @@ const InDesign = RpcGroup.make(
     Rpc.make('invoke', { payload: Invoke, success: Menu.Action, error: Unmatched.Refusal }),
     Rpc.make('preflight', { payload: Preflight, success: Preflight.Result, error: Unmatched.Refusal }),
     Rpc.make('queries', { payload: Queries, success: Queries.Result, error: Unmatched.Refusal }),
-)
-    .middleware(Hold)
-    .add(Enter);
+).middleware(Hold);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Hold, InDesign, PATH, WIRE };
+export { Hold, InDesign };

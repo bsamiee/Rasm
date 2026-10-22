@@ -3,7 +3,6 @@ id: no-regexp-escape-by-hand
 language: tsx
 severity: error
 ignores:
-    - apps/creative-cloud/indesign/galley/**
     - libs/typescript/creative-cloud/indesign/**
     - libs/typescript/creative-cloud/uxp/**
 utils:

@@ -1,5 +1,5 @@
 import { parse } from 'acorn';
-import { fullAncestor } from 'acorn-walk';
+import { full } from 'acorn-walk';
 import { Array, Cause, Effect, flow, Option, Predicate, Schema } from 'effect';
 import { Model } from './model.ts';
 import { read, resolve } from './references.ts';
@@ -16,7 +16,7 @@ class Script extends Mutation.extend<Script>('Script')(
     {
         description: [
             'Runs native UXP JavaScript in InDesign with app, referenced native enumerations and DOM classes, and resolve(specifier) in scope.',
-            'A synchronous body shares one undo step, rolled back on a throw. Top-level await makes the body asynchronous: a rejection keeps earlier writes, and writes after the first await fall outside the undo step. Group later changes in app.doScript(fn, ScriptLanguage.UXPSCRIPT, [], UndoModes.ENTIRE_SCRIPT, name).',
+            'The body runs synchronously as one undo step, rolled back on a throw. A UXP script answers before awaited work runs, so the body holds no await, and File fields, which UXP returns as promises, read as paths through inspect.',
             'Return values encode enumerators by name, objects as {type, specifier, name, valid}, and collections as {type, specifier, length}. Inspect class names for native fields and method signatures.',
         ].join('\n'),
     },
@@ -39,23 +39,21 @@ class Script extends Mutation.extend<Script>('Script')(
         return Effect.gen(function* () {
             const { exported } = yield* Model;
             const tree = yield* Effect.try({
-                try: () => parse(code, { ecmaVersion: 2024, allowReturnOutsideFunction: true, allowAwaitOutsideFunction: true }),
+                try: () => parse(code, { ecmaVersion: 2024, allowReturnOutsideFunction: true }),
                 catch: (cause) => failed(Option.map(Schema.decodeUnknownOption(Schema.Struct({ loc: Schema.Struct({ line: Schema.Int }) }))(cause), ({ loc }) => loc.line))(cause),
             });
             const used = new Set<string>();
-            let awaiting = false;
-            fullAncestor(tree, (node, _state, ancestors) => {
+            full(tree, (node) => {
                 if (node.type === 'Identifier') {
                     used.add(node.name);
                 }
-                awaiting ||= (node.type === 'AwaitExpression' || (node.type === 'ForOfStatement' && node.await)) && !ancestors.some((above) => above.type === 'FunctionDeclaration' || above.type === 'FunctionExpression' || above.type === 'ArrowFunctionExpression');
             });
             const given = { ...Object.fromEntries(exported.filter(([name]) => used.has(name))), resolve: flow(resolve, Effect.runSyncWith(yield* Effect.context<Model>())) };
             const text = `{\n${code}\n}`;
             const header = 3;
             const compiled = yield* Effect.try({
                 // biome-ignore lint/nursery/noImpliedEval: Script compiles caller-supplied source to run in InDesign
-                try: () => new Function(...Object.keys(given), awaiting ? `return (async () => ${text})();` : text),
+                try: () => new Function(...Object.keys(given), text),
                 catch: failed(Option.none()),
             });
             const thrown = (cause: unknown) => {
@@ -67,8 +65,7 @@ class Script extends Mutation.extend<Script>('Script')(
                     Error.prepareStackTrace = prepare;
                 }
             };
-            const value = yield* commit(Effect.try({ try: (): unknown => Reflect.apply(compiled, undefined, Object.values(given)), catch: thrown }));
-            const result = yield* Effect.tryPromise({ try: () => Promise.resolve(value), catch: thrown });
+            const result = yield* commit(Effect.try({ try: (): unknown => Reflect.apply(compiled, undefined, Object.values(given)), catch: thrown }));
             return yield* read(Script.Result, label, () => ({ result }));
         });
     }

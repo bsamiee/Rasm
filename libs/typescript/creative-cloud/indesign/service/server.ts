@@ -1,10 +1,9 @@
 import indesign from 'adobe:indesign';
-import { linked } from '@rasm/uxp/link';
-import { type Cause, Effect, Layer, type Schedule, Schema } from 'effect';
-import { Rpc } from 'effect/rpc';
+import { Effect, Layer, Schema } from 'effect';
+import { RpcServer } from 'effect/rpc';
 import { Model } from '../model.ts';
-import { Mutation, preserve, Transactions } from '../transactions.ts';
-import { Hold, InDesign, PATH, WIRE } from './contract.ts';
+import { Mutation, preserve } from '../transactions.ts';
+import { Hold, InDesign } from './contract.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -15,7 +14,6 @@ const hold = Layer.effect(Hold)(
     }),
 );
 const handlers = InDesign.toLayer({
-    enter: () => Rpc.fork(Transactions.use(({ enter }) => enter)),
     inspect: (payload) => payload.run(),
     change: (payload) => payload.run(),
     create: (payload) => payload.run(),
@@ -29,20 +27,9 @@ const handlers = InDesign.toLayer({
     invoke: (payload) => payload.run(),
     preflight: (payload) => payload.run(),
     queries: (payload) => payload.run(),
-}).pipe(Layer.provideMerge(hold), Layer.provide(Layer.effect(Transactions, Transactions.make)));
-const panel = (redial: Schedule.Schedule<unknown, Cause.Cause<unknown>>) =>
-    linked(InDesign, handlers, {
-        path: PATH,
-        serialization: WIRE,
-        application: Model.use(({ app }) =>
-            Effect.flatMap(
-                Effect.tryPromise(() => app.fullName),
-                ({ url }) => Schema.decodeUnknownEffect(Schema.Union([Schema.URL, Schema.URLFromString]))(url),
-            ),
-        ),
-        redial,
-    }).pipe(Layer.provide(Layer.effect(Model, Model.make(indesign))));
+});
+const server = RpcServer.layer(InDesign).pipe(Layer.provide([handlers, hold]), Layer.provide(Layer.effect(Model, Model.make(indesign))));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { panel };
+export { server };

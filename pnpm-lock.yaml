@@ -1962,9 +1962,6 @@ importers:
       '@rasm/typography':
         specifier: workspace:*
         version: link:../../../libs/typescript/graphics/typography
-      '@rasm/uxp':
-        specifier: workspace:*
-        version: link:../../../libs/typescript/creative-cloud/uxp
       effect:
         specifier: 'catalog:'
         version: 4.0.5
@@ -1987,9 +1984,6 @@ importers:
       '@rasm/uxp':
         specifier: workspace:*
         version: link:../../../../libs/typescript/creative-cloud/uxp
-      effect:
-        specifier: 'catalog:'
-        version: 4.0.5
     devDependencies:
       '@adobe-uxp-types/uxp':
         specifier: 'catalog:'
@@ -2159,6 +2153,9 @@ importers:
 
   libs/typescript/creative-cloud/indesign:
     dependencies:
+      '@rasm/automation':
+        specifier: workspace:*
+        version: link:../automation
       '@rasm/search':
         specifier: workspace:*
         version: link:../../data/search

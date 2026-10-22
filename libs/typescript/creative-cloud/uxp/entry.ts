@@ -1,6 +1,7 @@
 import fs from 'adobe:fs';
 import uxp, { entrypoints } from 'adobe:uxp';
-import { Cause, Clock, Console, Duration, Effect, flow, Layer, ManagedRuntime, Predicate, Record, Schema } from 'effect';
+import { Cause, Clock, Console, Duration, Effect, flow, Layer, ManagedRuntime, Option, Predicate, Record, Schema, Sink, Stdio, Stream } from 'effect';
+import { RpcMessage, RpcSerialization, RpcServer } from 'effect/rpc';
 import { Manifest } from './manifest.ts';
 import { Plugin, Uxp } from './runtime.ts';
 
@@ -22,15 +23,7 @@ const hosted = Layer.merge(
             };
         }),
     ),
-    Layer.succeed(Uxp)({
-        uxp,
-        fs,
-        temporary: (name) =>
-            Effect.acquireRelease(
-                Effect.flatMap(Effect.all([Effect.fiberId, Effect.tryPromise(() => uxp.storage.localFileSystem.getTemporaryFolder())]), ([id, folder]) => Effect.tryPromise(() => folder.createFile(`${id}-${name}`, { overwrite: true }))),
-                (file) => Effect.promise(() => file.delete()),
-            ),
-    }),
+    Layer.succeed(Uxp)({ uxp, fs }),
 );
 const plugin = <R, E, F>(
     layer: Layer.Layer<R, E, Uxp | Plugin>,
@@ -49,12 +42,17 @@ const plugin = <R, E, F>(
     } satisfies Pick<Parameters<typeof entrypoints.setup>[0], 'plugin' | 'commands' | 'panels'>;
     Reflect.apply(entrypoints.setup, entrypoints, [handlers]);
 };
-const script = <A, I>(success: Schema.Codec<A, I>, work: (args: readonly string[]) => Effect.Effect<A, Error, Uxp>): void => {
+const script = <E>(server: Layer.Layer<never, E, RpcServer.Protocol | Uxp>): void => {
     const target: unknown = Reflect.get(uxp, 'script');
     Effect.gen(function* () {
-        const { args, setResult } = yield* Schema.decodeUnknownEffect(Schema.Struct({ args: Schema.Array(Schema.String), setResult: Schema.declare(Predicate.isFunction) }))(target);
-        Reflect.apply(setResult, target, [yield* Schema.encodeEffect(Schema.fromJsonString(Schema.toCodecJson(Schema.Exit(success, Schema.ErrorInstance(), Schema.Defect()))))(yield* Effect.exit(work(args)))]);
-    }).pipe(Effect.provide(hosted), Effect.runSync);
+        const [{ args, setResult }, serialization] = yield* Effect.all([Schema.decodeUnknownEffect(Schema.Struct({ args: Schema.Array(Schema.String), setResult: Schema.declare(Predicate.isFunction) }))(target), RpcSerialization.RpcSerialization]);
+        const answer = (chunk: string | Uint8Array) => Effect.sync(() => Reflect.apply(setResult, target, [Predicate.isString(chunk) ? chunk : new TextDecoder().decode(chunk)]));
+        const stdio = Stdio.make({ args: Effect.succeed(args), stdin: Stream.encodeText(Stream.fromIterable(args)), stdout: () => Sink.forEach(answer), stderr: () => Sink.forEach(Console.error) });
+        yield* Layer.launch(server).pipe(
+            Effect.provide(RpcServer.layerProtocolStdio.pipe(Layer.provide(Layer.succeed(Stdio.Stdio)(stdio)))),
+            Effect.catchCauseIf(Predicate.not(Cause.hasInterruptsOnly), (cause) => Effect.flatMap(Schema.encodeEffect(Schema.Defect())(Cause.squash(cause)), (defect) => Effect.transposeOption(Option.map(Option.fromUndefinedOr(serialization.makeUnsafe().encode(RpcMessage.ResponseDefectEncoded(defect))), answer)))),
+        );
+    }).pipe(Effect.provide([hosted, RpcSerialization.layerJson]), Effect.runSyncExit);
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

@@ -26,7 +26,7 @@ const worker =
         ],
     });
 
-const uxp = (directory: string, { main, manifest }: { readonly main: string; readonly manifest: Manifest }): UserConfig => {
+const bundled = (directory: string, main: string, asset: { readonly fileName: string; readonly source: string }): UserConfig => {
     const load = createRequire(import.meta.url);
     const encoding = load.resolve('@exodus/bytes/encoding-lite.js');
     return {
@@ -49,15 +49,18 @@ const uxp = (directory: string, { main, manifest }: { readonly main: string; rea
         environments: { ssr: { resolve: { noExternal: true, builtins: [_HOSTED], conditions: Array.intersection(defaultServerConditions, defaultClientConditions) } } },
         plugins: [
             {
-                name: 'manifest',
+                name: 'entry',
                 generateBundle(this: Rollup.PluginContext): void {
-                    this.emitFile({ type: 'asset', fileName: 'manifest.json', source: Effect.runSync(Schema.encodeEffect(Manifest.json)(manifest)) });
+                    this.emitFile({ type: 'asset', ...asset });
                 },
             },
         ],
     };
 };
 
+const uxp = (directory: string, { main, manifest }: { readonly main: string; readonly manifest: Manifest }): UserConfig => bundled(directory, main, { fileName: 'manifest.json', source: Effect.runSync(Schema.encodeEffect(Manifest.json)(manifest)) });
+const script = (directory: string, { main, extension }: { readonly main: string; readonly extension: string }): UserConfig => bundled(directory, main, { fileName: `main.${extension}`, source: "require('./main.js');\n" });
+
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { react, uxp, worker };
+export { react, script, uxp, worker };

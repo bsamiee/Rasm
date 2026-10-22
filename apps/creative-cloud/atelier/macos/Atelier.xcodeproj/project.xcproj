@@ -18,7 +18,8 @@
   ],
   "files": [
     { "path": "<PROJECT>/../../../../Xcode.xcconfig" },
-    { "kind": "folder", "path": ".", "target-membership": [ "Atelier" ] },
+    { "kind": "folder", "path": ".", "target-membership": [ "Atelier" ], "membership-exceptions": [ { "target": "Atelier", "exclusions": [ "buildServer.json" ] } ] },
+    { "kind": "folder", "path": "<PROJECT>/../../../../.artifacts/apps/creative-cloud/indesign/galley", "target-membership": [ "Atelier" ] },
     {
       "kind": "group",
       "name": "Products",
@@ -36,6 +37,7 @@
       "build-phases": [
         "compile-sources",
         "frameworks",
+        "resources",
       ],
       "package-product-members": [
         {

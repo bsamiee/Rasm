@@ -45,6 +45,9 @@ const encoder = Effect.map(
                         (entry: unknown): entry is Entry => !record(entry) && Predicate.hasProperty(entry, 'isEntry') && entry.isEntry === true,
                         (entry) => String(entry.url),
                     ),
+                    Match.when(Predicate.isPromise, () => {
+                        throw new TypeError(`${key} holds a promise, which settles after a synchronous script answers`);
+                    }),
                     Match.when(Predicate.isError, flow(Schema.encodeOption(Schema.Defect()), Option.getOrUndefined)),
                     Match.when(Predicate.isMap, Object.fromEntries),
                     Match.when(Predicate.isSet, (entries) => [...entries]),
@@ -72,7 +75,7 @@ const resolve = Effect.fn('resolve')(function* (specifier: string) {
     const located = (path: string): Option.Option<InDesignDOMObject<unknown> | readonly InDesignDOMObject<unknown>[]> => {
         const requested = kind(path);
         return Option.filter(Option.liftThrowable((): unknown => model.app.doScript('resolve(arguments[0])', model.ScriptLanguage.JAVASCRIPT, [path]))(), (found): found is InDesignDOMObject<unknown> | readonly InDesignDOMObject<unknown>[] =>
-            Array.ensure<unknown>(found).every((each) => model.host(each) && (requested === undefined || kind(each.toSpecifier()) === requested)),
+            Array.ensure<unknown>(found).every((each) => model.host(each) && each.isValid && (requested === undefined || kind(each.toSpecifier()) === requested)),
         );
     };
     const listed = (path: string): readonly InDesignDOMObject<unknown>[] => Array.flatMap(Option.toArray(located(path)), Array.ensure);

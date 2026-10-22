@@ -3,7 +3,6 @@ id: no-instanceof-error
 language: tsx
 severity: error
 ignores:
-    - apps/creative-cloud/indesign/galley/**
     - apps/web/portfolio/**
     - libs/typescript/creative-cloud/indesign/**
     - libs/typescript/creative-cloud/uxp/**

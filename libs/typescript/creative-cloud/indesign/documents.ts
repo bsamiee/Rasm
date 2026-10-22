@@ -48,9 +48,10 @@ class DocumentView extends Schema.TaggedClass<DocumentView, { readonly brand: un
     static readonly viewed = ({ document }: Model['Service']) => flow(Option.liftPredicate(document), Option.map(DocumentView.of));
     static readonly overset = ({ stories }: Document): readonly string[] => Array.flatMap(Array.zip(stories.everyItem().overflows, stories.everyItem().id), ([overflows, id]) => (overflows === true ? [stories.itemByID(id).toSpecifier()] : []));
     static readonly row = Effect.fn('DocumentView.row')(function* (document: Document) {
+        const { file } = yield* Model;
         const { saved } = document;
-        const path = yield* Effect.when(Effect.tryPromise({ try: () => document.fullName, catch: (cause) => new Cause.UnknownError(cause, `path of ${document.toSpecifier()}`) }), Effect.succeed(saved));
-        return { ...Reference.of(document), saved, modified: document.modified, path: Option.map(path, Struct.get('nativePath')), windows: Array.map(document.windows.everyItem().getElements(), (window) => window.toSpecifier()) };
+        const path = yield* Effect.when(file(document, 'fullName'), Effect.succeed(saved));
+        return { ...Reference.of(document), saved, modified: document.modified, path: Option.flatten(path), windows: Array.map(document.windows.everyItem().getElements(), (window) => window.toSpecifier()) };
     });
     static readonly of = (found: Document) =>
         Effect.flatMap(DocumentView.row(found), (row) =>

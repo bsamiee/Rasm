@@ -2,7 +2,7 @@
     "name": "@rasm/atelier",
     "version": "1.0.0",
     "private": true,
-    "description": "Drives installed Adobe applications through their scripting dictionaries and linked UXP extensions",
+    "description": "Drives installed Adobe applications through their scripting dictionaries and a UXP script it runs in InDesign",
     "type": "module",
     "dependencies": {
         "@rasm/automation": "workspace:*",
@@ -10,7 +10,6 @@
         "@rasm/mcp": "workspace:*",
         "@rasm/search": "workspace:*",
         "@rasm/typography": "workspace:*",
-        "@rasm/uxp": "workspace:*",
         "effect": "catalog:"
     },
     "devDependencies": {

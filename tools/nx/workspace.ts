@@ -96,10 +96,13 @@ const SwiftPackage = Schema.fromJsonString(
 const XcodeProject = Parsed('JSON', parseJson).pipe(
     Schema.decodeTo(
         Schema.Struct({
+            files: Schema.Array(Schema.Unknown),
             targets: Schema.Array(Schema.Struct({ members: Schema.Array(Schema.Struct({ product: Schema.String }).pipe(Schema.encodeKeys({ product: 'product-name' }))).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) }).pipe(Schema.encodeKeys({ members: 'package-product-members' }))),
         }),
     ),
 );
+const XcodeFolder = Schema.Struct({ kind: Schema.Literal('folder'), path: Schema.String });
+const PackageName = Schema.fromJsonString(Schema.Struct({ name: Schema.String }));
 const MSBuildProject = Parsed('MSBuild XML', (text) => new XMLParser({ isArray: (name) => name === 'PropertyGroup' }).parse(text)).pipe(
     Schema.decodeTo(Schema.Struct({ Project: Schema.Struct({ PropertyGroup: Schema.Array(Schema.Struct({ TargetExt: Schema.optionalKey(Schema.String) })).pipe(Schema.withDecodingDefaultKey(Effect.succeed([]))) }) })),
 );
@@ -251,15 +254,24 @@ const markers = {
             },
         };
     }),
-    [XCODE_PROJECT]: ({ dir }) =>
-        Effect.map(Path.Path, (path) => {
-            const root = path.dirname(dir);
-            return { root, name: path.parse(dir).name, ...swiftProject(['build:xcode'], { XCODE_DERIVED_DATA_PATH: path.join('.cache/xcode', root) }, ['install', 'lint:swiftlint', 'upgrade:xcode']) };
-        }),
+    [XCODE_PROJECT]: Effect.fnUntraced(function* ({ dir }, { file, root: workspace }) {
+        const [path, { files }] = yield* Effect.all([Path.Path, decode(XcodeProject, workspace, file)]);
+        const root = path.dirname(dir);
+        const bundled = yield* Effect.forEach(
+            files
+                .filter(Schema.is(XcodeFolder))
+                .map((folder) => path.relative('.artifacts', path.join(root, folder.path.replace('<PROJECT>', ''))))
+                .filter((source) => !source.startsWith('..')),
+            (source) => Effect.map(decode(PackageName, workspace, path.join(source, 'package.json')), ({ name }) => ({ projects: [name], target: 'build' })),
+        );
+        const xcode = swiftProject(['build:xcode'], { XCODE_DERIVED_DATA_PATH: path.join('.cache/xcode', root) }, ['install', 'lint:swiftlint', 'upgrade:xcode']);
+        return { root, name: path.parse(dir).name, ...xcode, targets: Record.map(xcode.targets, (target, name) => (['build', 'build:xcode', 'install'].includes(name) ? { ...target, dependsOn: bundled } : target)) };
+    }),
     'py.typed': ({ dir }, workspace) => Effect.map(Effect.all([Path.Path, workspace.pyproject, pythonTargets(dir, workspace)]), ([path, { moduleRoot }, targets]) => ({ name: path.relative(moduleRoot, dir).replaceAll(path.sep, '.'), tags: ['language:python'], targets })),
     'tsconfig.json': ({ dir }, { root }) => Effect.map(suiteInputs('typescript', dir, root), (suite) => ({ ...suite, tags: ['language:typescript'], targets: { 'typecheck:tsc': {}, check: {} } })),
     'vite.config.ts': ({ dir }, { configFiles }) => Effect.map(Path.Path, (path) => ({ tags: ['bundler:vite', ...(configFiles.includes(path.join(dir, CLOUDFLARE_CONFIG)) ? ['output:cloudflare'] : [])], targets: { build: {}, serve: {} } })),
     'uxp.config.ts': () => Effect.succeed({ tags: ['host:uxp'], targets: { build: {}, install: {} } }),
+    'script.config.ts': () => Effect.succeed({ tags: ['output:script'], targets: { build: {} } }),
     [CLOUDFLARE_CONFIG]: () => Effect.succeed({ targets: { types: {}, 'typecheck:tsc': { dependsOn: ['types'] } } }),
     '.storybook/main.ts': ({ dir }) => Effect.map(Path.Path, (path) => ({ root: path.dirname(dir), targets: { storybook: {} } })),
 } as const satisfies Record<string, (file: Path.Path.Parsed, workspace: Workspace & { readonly file: string; readonly configFiles: readonly string[] }) => Effect.Effect<Optional<ProjectConfiguration, 'root'>, unknown, ManagedRuntime.ManagedRuntime.Services<typeof runtime>>>;

@@ -10,6 +10,7 @@
         "apps/**/vite.config.ts",
         "apps/**/vitest.config.ts",
         "apps/**/uxp.config.ts",
+        "apps/**/script.config.ts",
         "libs/typescript/*/*/vitest.config.ts",
         "apps/**/.storybook/main.ts",
         "libs/typescript/*/*/.storybook/main.ts",

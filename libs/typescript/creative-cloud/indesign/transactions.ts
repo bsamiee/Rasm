@@ -1,4 +1,4 @@
-import { Array, Cause, Context, Deferred, Effect, Option, Record, Ref, Schema, Struct } from 'effect';
+import { Array, Cause, Deferred, Effect, Record, Schema, Struct } from 'effect';
 import { Model } from './model.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -8,45 +8,17 @@ abstract class Mutation extends Schema.Class<Mutation, { readonly brand: unique 
 
     commit<A, E, R>(body: Effect.Effect<A, E, R>) {
         const { label } = this;
-        return Transactions.use(({ run }) => run(label, body));
+        return Effect.gen(function* () {
+            const { app, SaveOptions, ScriptLanguage, UndoModes } = yield* Model;
+            const [opened, done, sync] = [app.documents.everyItem().id, yield* Deferred.make<A, E | Cause.UnknownError>(), Effect.runSyncWith(yield* Effect.context<R>())];
+            const closed = (id: number) => Effect.sync(() => app.documents.itemByID(id).close(SaveOptions.NO));
+            yield* Effect.try({ try: (): unknown => app.doScript(() => sync(Effect.andThen(Deferred.into(body, done), Deferred.await(done))), ScriptLanguage.UXPSCRIPT, [], UndoModes.ENTIRE_SCRIPT, label), catch: (cause) => new Cause.UnknownError(cause, label) }).pipe(
+                Effect.catch((error) => Deferred.fail(done, error)),
+            );
+            return yield* Deferred.await(done).pipe(Effect.onError(() => Effect.forEach(Array.difference(app.documents.everyItem().id, opened), closed, { discard: true })));
+        });
     }
 }
-
-// --- [SERVICES] ------------------------------------------------------------------------
-
-class Transactions extends Context.Service<Transactions>()('@rasm/indesign/transactions', {
-    make: Effect.gen(function* () {
-        const [{ app, SaveOptions, ScriptLanguage, UndoModes }, held] = yield* Effect.all([Model, Ref.make(Option.none<Effect.Effect<void>>())]);
-        const close = (opened: readonly number[]) =>
-            Effect.sync(() =>
-                Array.difference(app.documents.everyItem().id, opened).forEach((id) => {
-                    app.documents.itemByID(id).close(SaveOptions.NO);
-                }),
-            );
-        return {
-            enter: Effect.uninterruptible(
-                Effect.flatMap(
-                    Ref.getAndSet(held, Option.none()),
-                    Option.getOrElse(() => Effect.void),
-                ),
-            ),
-            run: Effect.fn('run')(function* <A, E, R>(label: string, body: Effect.Effect<A, E, R>) {
-                const [opened, done, sync] = [app.documents.everyItem().id, yield* Deferred.make<A, E | Cause.UnknownError>(), Effect.runSyncWith(yield* Effect.context<R>())];
-                const refused = (cause: unknown) => new Cause.UnknownError(cause, label);
-                const step = Effect.try({ try: (): unknown => app.doScript(() => sync(Effect.andThen(Deferred.into(body, done), Deferred.await(done))), ScriptLanguage.UXPSCRIPT, [], UndoModes.ENTIRE_SCRIPT, label), catch: refused }).pipe(
-                    Effect.catch((error) => Deferred.fail(done, error)),
-                    Effect.asVoid,
-                );
-                return yield* Ref.set(held, Option.some(step)).pipe(
-                    Effect.andThen(Effect.try({ try: (): unknown => app.doScript('$.sleep(5)', ScriptLanguage.JAVASCRIPT), catch: refused }).pipe(Effect.repeat({ until: () => Deferred.isDone(done) }))),
-                    Effect.andThen(Deferred.await(done)),
-                    Effect.ensuring(Ref.set(held, Option.none())),
-                    Effect.onError(() => close(opened)),
-                );
-            }),
-        };
-    }),
-}) {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -57,4 +29,4 @@ const preserve = <T extends object>(target: T, replacements: Partial<T>) => {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Mutation, preserve, Transactions };
+export { Mutation, preserve };

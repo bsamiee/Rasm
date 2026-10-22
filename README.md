@@ -111,7 +111,7 @@ Targets run tools with their arguments on the command, a pipeline or command lis
 - Project `vite.config.ts` infers `build` and continuous `serve`, both run from the project directory
 - Project `.storybook/main.ts` infers continuous `storybook`, `test` runs each story as a Chromium test that fails on an axe violation
 - `nx run <project>:e2e` runs a Playwright suite uncached, each worker serving its own app instance with empty stores
-- Project `uxp.config.ts` infers UXP `build` and `install` into manifest hosts, `cloudflare.config.ts` adds `.cloudflare/output` to `build` outputs
+- Project `uxp.config.ts` infers UXP `build` and `install` into manifest hosts, `script.config.ts` a UXP script `build` that each Xcode app holding its output in a folder reference builds first, `cloudflare.config.ts` adds `.cloudflare/output` to `build` outputs
 - Caches and outputs sit under root `.cache/` and `.artifacts/`, each tool moved by one setting every run reads, or its guidance file states why not
 - Tool logs sit flat in `.artifacts/logs/` as one `<producer>.log`, daemon and supervisor output sit in pitchfork's log store
 

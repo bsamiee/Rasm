@@ -67,6 +67,7 @@
             { "filter": { "projects": [ "tag:bundler:vite" ] }, "command": "vite build", "options": { "cwd": "{projectRoot}" }, "inputs": [ "...", "vite" ], "outputs": [ "{projectRoot}/dist" ] },
             { "filter": { "projects": [ "tag:output:cloudflare" ] }, "outputs": [ "...", "{projectRoot}/.cloudflare/output" ] },
             { "filter": { "projects": [ "tag:host:uxp" ] }, "command": "vite build --config uxp.config.ts", "options": { "cwd": "{projectRoot}" }, "inputs": [ "...", "vite" ], "outputs": [ "{workspaceRoot}/.artifacts/{projectRoot}" ] },
+            { "filter": { "projects": [ "tag:output:script" ] }, "command": "vite build --config script.config.ts", "options": { "cwd": "{projectRoot}" }, "inputs": [ "...", "vite" ], "outputs": [ "{workspaceRoot}/.artifacts/{projectRoot}" ] },
             { "filter": { "projects": [ "tag:host:extendscript" ] }, "command": "swc {projectRoot} -d .artifacts --out-file-extension jsx --ignore '**/node_modules/**'", "inputs": [ "...", { "externalDependencies": [ "@swc/core", "@swc/cli" ] } ], "outputs": [ "{workspaceRoot}/.artifacts/{projectRoot}" ] }
         ],
         "pack": [

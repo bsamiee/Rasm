@@ -109,6 +109,7 @@ Throws inside a step roll back every change in every document and record no undo
 |  [03]   | Write running UXP code | Function `doScript` nested in an ExtendScript `$.sleep` call          |
 |  [04]   | Savepoint inside write | Function `doScript` nested in that transaction                        |
 |  [05]   | Rolled-back read       | ExtendScript source text around a throwing function `doScript`        |
+|  [06]   | Write from a script    | Top-level function `doScript` under `ENTIRE_SCRIPT`                   |
 
 `app.doScript` returns a plain object with its scripting property keys alone, and rethrows as a new `Error` with no other field a function's throw as "<name>: <message>", a thrown string as its text, and an ExtendScript source throw as "Uncaught JavaScript exception: <message>". Value and failure leave through a `Deferred`:
 
@@ -184,6 +185,7 @@ value`;
 `based` clears overrides on `target` in a step its throw rolls back and returns `field` as styles set it.
 
 - Arguments pass primitives, dates, enumerators, DOM objects, and arrays of them at any depth, and sources resolve specifiers
+- A DOM object beside a string in one argument list arrives in every position, `[app, "fullName"]` reading as two `Application` arguments, and sources take specifier strings beside other strings
 - Collections and `everyItem()` arrive as a member array or one member, an empty one undefined, and plain objects with scripting property keys alone
 - DOM objects a rolled-back step returns lose their specifier, and sources return `toSpecifier()` read inside the step
 - ExtendScript assignment of a string to `activePage` crashes InDesign, and a `Page` object assigns
@@ -253,11 +255,11 @@ Export reads app-wide preferences another script left, fails with no throw under
 import type { Page } from 'adobe:indesign';
 
 const rendered = Effect.fn('rendered')(function* (page: Page, pixels: number) {
-    const [{ app, ExportFormat, PNGExportRangeEnum }, { fs, temporary }] = yield* Effect.all([Model, Uxp]);
+    const [{ app, ExportFormat, PNGExportRangeEnum, temporary }, { fs }] = yield* Effect.all([Model, Uxp]);
     const { top, left, bottom, right } = yield* extent(page);
     const refused = (cause: unknown) => new Cause.UnknownError(cause, `export of ${page.toSpecifier()}`);
     const pointsPerInch = 72;
-    const file = yield* temporary('render.png');
+    const path = yield* temporary('render.png');
     yield* preserve(app.pngExportPreferences, {
         pngExportRange: PNGExportRangeEnum.EXPORT_RANGE,
         pageString: `+${page.documentOffset + 1}`,
@@ -265,16 +267,16 @@ const rendered = Effect.fn('rendered')(function* (page: Page, pixels: number) {
         exportResolution: (pixels * pointsPerInch) / Math.max(right - left, bottom - top),
         useDocumentBleeds: false,
     }).pipe(Effect.mapError(refused));
-    yield* Effect.try({ try: () => page.parent.parent.exportFile(ExportFormat.PNG_FORMAT, file.nativePath), catch: refused });
+    yield* Effect.try({ try: () => page.parent.parent.exportFile(ExportFormat.PNG_FORMAT, path), catch: refused });
     return yield* Effect.filterOrFail(
-        Effect.try({ try: () => new Uint8Array(fs.readFileSync(file.url)), catch: refused }),
+        Effect.try({ try: () => new Uint8Array(fs.readFileSync(`file:${path}`)), catch: refused }),
         (image) => image.length > 0,
         () => new Cause.UnknownError(undefined, `export of ${page.toSpecifier()} wrote no image`),
     );
 }, Effect.scoped);
 ```
 
-`Uxp` holds the `fs` module and `temporary`, which creates an entry in the plug-in temporary folder that scope release deletes after its byte read. `exportFile` takes the entry's `nativePath`, and `fs` takes its `url`. Page pixel size is points times `exportResolution` (1 to 2400) over 72.
+`Model` holds `temporary`, a path in the folder ExtendScript `Folder.temp` names that scope release removes through `File(<path>).remove()`, synchronous in plug-ins and scripts alike. `exportFile` takes the path, and `fs` takes it as a `file:` URL. Page pixel size is points times `exportResolution` (1 to 2400) over 72.
 
 - Leftover `pageString` from another script makes a one-page export write nothing unless range and page are set together
 - `exportFile` on an item ignores the page range and writes nothing for a zero-area item, and `exportingSpread` true exports the whole spread
@@ -340,9 +342,9 @@ Searches and changes run in one sequence:
 import type { Font } from 'adobe:indesign';
 
 const source = Effect.fn('source')(function* (face: Font, characters: string) {
-    const [{ FontStatus }, { fs, temporary }] = yield* Effect.all([Model, Uxp]);
+    const [{ FontStatus, temporary }, { fs }] = yield* Effect.all([Model, Uxp]);
     const bytes = (path: string) => Effect.try(() => new Uint8Array(fs.readFileSync(path)));
-    const subset = Effect.flatMap(temporary('font.otf'), (entry) => Effect.andThen(Effect.try(() => face.createSubsetFont(characters, entry.nativePath)), bytes(entry.url)));
+    const subset = Effect.flatMap(temporary('font.otf'), (path) => Effect.andThen(Effect.try(() => face.createSubsetFont(characters, path)), bytes(`file:${path}`)));
     return face.status.equals(FontStatus.INSTALLED)
         ? Option.some(yield* bytes(`file:${face.location}`).pipe(Effect.catchIf(({ cause }) => Schema.is(Schema.Struct({ code: Schema.Literal(-2) }))(cause), () => subset)))
         : Option.none<Uint8Array>();
@@ -376,25 +378,35 @@ const source = Effect.fn('source')(function* (face: Font, characters: string) {
 
 ## [12]-[SCRIPTS]
 
-Scripts return through one `script.setResult` call and fire no timers, and each is one synchronous expression with one translation of its `Exit`:
+Scripts answer through one `script.setResult` call and fire no timers. A script serving an `RpcGroup` reads one encoded request from its arguments as standard input and answers the encoded response through `setResult` as standard output:
 
 ```ts
 import uxp from 'adobe:uxp';
+import { RpcMessage, RpcSerialization, RpcServer } from 'effect/rpc';
 
-const script = <A, I>(success: Schema.Codec<A, I>, work: (args: readonly string[]) => Effect.Effect<A, Error, Uxp>): void => {
+const script = <E>(server: Layer.Layer<never, E, RpcServer.Protocol | Uxp>): void => {
     const target: unknown = Reflect.get(uxp, 'script');
     Effect.gen(function* () {
-        const { args, setResult } = yield* Schema.decodeUnknownEffect(Schema.Struct({ args: Schema.Array(Schema.String), setResult: Schema.declare(Predicate.isFunction) }))(target);
-        Reflect.apply(setResult, target, [yield* Schema.encodeEffect(Schema.fromJsonString(Schema.toCodecJson(Schema.Exit(success, Schema.ErrorInstance(), Schema.Defect()))))(yield* Effect.exit(work(args)))]);
-    }).pipe(Effect.provide(hosted), Effect.runSync);
+        const [{ args, setResult }, serialization] = yield* Effect.all([Schema.decodeUnknownEffect(Schema.Struct({ args: Schema.Array(Schema.String), setResult: Schema.declare(Predicate.isFunction) }))(target), RpcSerialization.RpcSerialization]);
+        const answer = (chunk: string | Uint8Array) => Effect.sync(() => Reflect.apply(setResult, target, [Predicate.isString(chunk) ? chunk : new TextDecoder().decode(chunk)]));
+        const stdio = Stdio.make({ args: Effect.succeed(args), stdin: Stream.encodeText(Stream.fromIterable(args)), stdout: () => Sink.forEach(answer), stderr: () => Sink.forEach(Console.error) });
+        yield* Layer.launch(server).pipe(
+            Effect.provide(RpcServer.layerProtocolStdio.pipe(Layer.provide(Layer.succeed(Stdio.Stdio)(stdio)))),
+            Effect.catchCauseIf(Predicate.not(Cause.hasInterruptsOnly), (cause) => Effect.flatMap(Schema.encodeEffect(Schema.Defect())(Cause.squash(cause)), (defect) => Effect.transposeOption(Option.map(Option.fromUndefinedOr(serialization.makeUnsafe().encode(RpcMessage.ResponseDefectEncoded(defect))), answer)))),
+        );
+    }).pipe(Effect.provide([hosted, RpcSerialization.layerJson]), Effect.runSyncExit);
 };
 ```
 
-Typings omit `script` from `uxp`, and `Reflect.apply` keeps the host's `script` object as receiver. The result is the `Exit` in `Schema.Exit`'s JSON form, its value encoded by the caller's codec. `runSync` drains Effect's scheduler before the script returns, where `runPromise` yields through timers the script never fires. A `script` that fails the decode or reaches an asynchronous step throws from `runSync` and the host alerts it. Each `do script` call loads a fresh context, `language javascript` running ExtendScript and `language uxpscript` UXP, and state for a later call goes through `insertLabel`.
+`layerProtocolStdio` reads the request until `stdin` ends, writes one response to `stdout`, and interrupts the launching fiber, so `runSyncExit` returns inside the script with every forked server fiber settled. A server that fails to build answers a `Defect` message, and no failure reaches the host as a throw. Typings omit `script` from `uxp`, and `Reflect.apply` keeps the host's `script` object as receiver. Each `do script` call loads a fresh context, `language javascript` running ExtendScript and `language uxpscript` UXP, and state for a later call goes through `insertLabel`.
 
 - Runners switch to async mode for source holding `async ` before a function or `await ` before an expression, and reply empty before the body runs
-- Runner tests match `async ` and `await ` inside strings and comments
-- Bundles load through `new Function('require', readFileSync(path, { encoding: 'utf-8' }))(require)`, since large source sent as text runs nothing
+- Runner tests match `async ` and `await ` inside strings and comments, and modules the entry requires escape the test
+- An `.idjs` entry sent as a file URL and holding `require('./main.js')` runs the bundle beside it synchronously, and a 1.4 MB module requires in about 10 ms
+- `app.doScript(<source>, ScriptLanguage.UXPSCRIPT)` returns `undefined` at once for source the runner reads as asynchronous
+- Bundles load through `new Function('require', readFileSync(path, { encoding: 'utf-8' }))(require)` from text-form source, since large source sent as text runs nothing
+- `fullName`, `filePath`, and every field the dictionary types `File` return promises, and ExtendScript `resolve(<specifier>)[<field>].fsName` reads each synchronously
+- `getTemporaryFolder()` returns a promise, ExtendScript `Folder.temp.fsName` names the user temporary folder, and `File(<path>).remove()` deletes, where `require('fs').unlinkSync` throws "a.provider.unlinkSync is not a function"
 - Listeners a script registers fire after its context ended, and reading `handler` or `properties` of one crashes InDesign
 - DOM calls from a continuation after a script returned crash InDesign, and quit events served while a script runs abort it
 

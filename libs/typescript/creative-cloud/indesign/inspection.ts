@@ -103,7 +103,7 @@ class Kind extends Schema.Class<Kind, { readonly brand: unique symbol }>('Kind')
 const getters = (found: InDesignDOMObject<unknown>) => Array.flatMap(Object.entries(Object.getOwnPropertyDescriptors(Object.getPrototypeOf(found))), ([name, { get }]) => (get === undefined || name === 'properties' ? [] : [name]));
 const bare = (name: string) => Effect.orDie(Schema.decodeEffect(Field)({ name, settable: false }));
 const values = Effect.fn('values')(function* (found: InDesignDOMObject<unknown>, wanted: readonly string[]) {
-    const { rows, unavailable } = yield* Model;
+    const { rows, unavailable, file } = yield* Model;
     const { fields } = yield* Cache.get(rows, found.constructorName);
     const prototype = Object.getPrototypeOf(found);
     return yield* Effect.forEach(
@@ -111,10 +111,11 @@ const values = Effect.fn('values')(function* (found: InDesignDOMObject<unknown>,
         Effect.fnUntraced(function* (name) {
             yield* Object.getOwnPropertyDescriptor(prototype, name)?.get === undefined ? Effect.fail(Unmatched.make({ subject: `field of ${found.toSpecifier()}`, query: Option.some(name), candidates: getters(found) })) : Effect.void;
             const refused = (cause: unknown) => new Cause.UnknownError(cause, `${found.toSpecifier()} ${name}`);
-            const value = yield* Effect.result(
-                Effect.andThen(Effect.transposeOption(Option.map(unavailable(found.constructorName, name, Option.some(found), false), flow(refused, Effect.fail))), Effect.map(Effect.tryPromise({ try: (): Promise<unknown> => Promise.resolve(Reflect.get(found, name)), catch: refused }), Option.fromUndefinedOr)),
-            );
-            return { ...Struct.omit(yield* Option.match(Record.get(fields, name), { onNone: () => bare(name), onSome: Effect.succeed }), ['unavailable']), value };
+            const row = yield* Option.match(Record.get(fields, name), { onNone: () => bare(name), onSome: Effect.succeed });
+            const refusal = Effect.transposeOption(Option.map(unavailable(found.constructorName, name, Option.some(found), false), flow(refused, Effect.fail)));
+            const held = Option.contains(row.type, 'File') ? file(found, name) : Effect.map(Effect.try({ try: (): unknown => Reflect.get(found, name), catch: refused }), Option.fromUndefinedOr);
+            const value = yield* Effect.result(Effect.andThen(refusal, held));
+            return { ...Struct.omit(row, ['unavailable']), value };
         }),
     );
 });

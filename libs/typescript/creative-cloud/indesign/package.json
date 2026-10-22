@@ -1,12 +1,13 @@
 {
     "name": "@rasm/indesign",
     "private": true,
-    "description": "InDesign's object model as verbs and views: inspect, change, create, remove, script, find and change, render, fonts, preflight, and the panel protocol with its UXP side",
+    "description": "InDesign's object model as verbs and views: inspect, change, create, remove, script, find and change, render, fonts, preflight, and the contract its UXP script entry serves to Atelier's do script client",
     "type": "module",
     "exports": {
         "./*": "./*.ts"
     },
     "dependencies": {
+        "@rasm/automation": "workspace:*",
         "@rasm/search": "workspace:*",
         "@rasm/typography": "workspace:*",
         "@rasm/uxp": "workspace:*",
