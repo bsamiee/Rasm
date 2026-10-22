@@ -4,9 +4,9 @@ import { PassThrough } from 'node:stream';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { NodeStream } from '@effect/platform-node';
 import { type Event, getEventsSince, subscribe, writeSnapshot } from '@parcel/watcher';
-import { main } from '@rasm/mcp/main';
-import { READING, register } from '@rasm/mcp/server';
-import { Unmatched } from '@rasm/search';
+import { main } from '@rasm/mcp/main.ts';
+import { READ_ONLY, registerTool } from '@rasm/mcp/tools.ts';
+import { Unmatched } from '@rasm/search/unmatched.ts';
 import { Array, type Cause, Config, Deferred, Duration, Effect, Equal, Fiber, FileSystem, Function, flow, HashMap, HashSet, Layer, Match, Option, Order, Predicate, Queue, RcMap, Record, Schema, SchemaTransformation, Scope, Stream, Struct, SubscriptionRef } from 'effect';
 import { Tool } from 'effect/ai';
 import { ChildProcess } from 'effect/process';
@@ -296,7 +296,7 @@ const start = Effect.fn('start')(function* (root: string, config: typeof Server.
     };
 });
 
-const query = <const Name extends string, P extends Schema.Struct.Fields>(name: Name, description: string, parameters: Schema.Struct<P>) => Tool.make(name, { description, parameters, success: Lines }).annotateMerge(READING).annotate(Tool.OpenWorld, false);
+const query = <const Name extends string, P extends Schema.Struct.Fields>(name: Name, description: string, parameters: Schema.Struct<P>) => Tool.make(name, { description, parameters, success: Lines }).annotateMerge(READ_ONLY).annotate(Tool.OpenWorld, false);
 
 const initialize = Effect.fn('initialize')(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -349,7 +349,7 @@ const initialize = Effect.fn('initialize')(function* () {
     const severities = new Map(Object.entries(DiagnosticSeverity).map(([name, value]) => [value, name.toLowerCase()]));
     yield* Effect.all(
         [
-            register(
+            registerTool(
                 query('diagnostics', 'Language server diagnostics of a file, one `path:line:column severity source(code): message` line each with indented related locations', File),
                 Effect.fnUntraced(function* ({ file }: typeof File.Type) {
                     const { server, item } = yield* serve(file);
@@ -370,21 +370,21 @@ const initialize = Effect.fn('initialize')(function* () {
                     };
                 }, Effect.scoped),
             ),
-            register(
+            registerTool(
                 query('definition', 'Definition locations of the symbol at a line and column, one `path:line:column` line each', Position),
                 Effect.fnUntraced(function* (position: typeof Position.Type) {
                     const { server, item } = yield* serve(position.file);
                     return locations(yield* server.ask(DefinitionRequest.type, point(item, position)));
                 }, Effect.scoped),
             ),
-            register(
+            registerTool(
                 query('references', 'Reference locations of the symbol at a line and column, declaration included, one `path:line:column` line each', Position),
                 Effect.fnUntraced(function* (position: typeof Position.Type) {
                     const { server, item } = yield* serve(position.file);
                     return locations(yield* server.ask(ReferencesRequest.type, { ...point(item, position), context: { includeDeclaration: true } }));
                 }, Effect.scoped),
             ),
-            register(
+            registerTool(
                 query('hover', 'Type signature and documentation of the symbol at a line and column', Position),
                 Effect.fnUntraced(function* (position: typeof Position.Type) {
                     const { server, item } = yield* serve(position.file);

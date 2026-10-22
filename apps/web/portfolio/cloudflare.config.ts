@@ -7,7 +7,7 @@ export default defineConfig({
     worker: defineWorker(({ mode }) => ({
         name: manifest.name,
         compatibilityDate: '2026-10-01',
-        entrypoint: './worker/index.ts',
+        entrypoint: './server/worker.ts',
         assets: { runWorkerFirst: ['/', '/api/*'] },
         observability: { enabled: true, traces: { enabled: true } },
         env: {

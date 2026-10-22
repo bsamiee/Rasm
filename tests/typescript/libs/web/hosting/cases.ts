@@ -1,5 +1,5 @@
 import { assert, type Vitest } from '@effect/vitest';
-import { createUpload, releaseObject, Storage, serveObject } from '@rasm/hosting/storage.ts';
+import { createUpload, deleteObject, ObjectStorage, serveObject } from '@rasm/hosting/storage.ts';
 import { Cause, Deferred, Effect, Function, type Layer, Option, Stream } from 'effect';
 import { HttpServerRequest, HttpServerResponse } from 'effect/http';
 import { checkObjectStore, checkResumableWriteStore } from 'partial-content/conformance';
@@ -7,7 +7,7 @@ import { isUploadNotFoundError } from 'partial-content/upload';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const cases = <E, R>(it: Vitest.MethodsNonLive<R>, storage: Layer.Layer<Storage, E, R>) => {
+const cases = <E, R>(it: Vitest.MethodsNonLive<R>, storage: Layer.Layer<ObjectStorage, E, R>) => {
     const encoder = new TextEncoder();
     const [content, other] = [encoder.encode('partial content bytes'), encoder.encode('PARTIAL CONTENT BYTES')];
     const object = { key: 'media/object', size: content.length, mime: 'text/plain' };
@@ -48,7 +48,7 @@ const cases = <E, R>(it: Vitest.MethodsNonLive<R>, storage: Layer.Layer<Storage,
     );
     it.effect('aborts an interrupted upload, serves no object, and leaves no upload resource', () =>
         Effect.gen(function* () {
-            const [{ uploads }, token] = yield* Effect.all([Storage, Deferred.make<string>()]);
+            const [{ uploads }, token] = yield* Effect.all([ObjectStorage, Deferred.make<string>()]);
             const failed = yield* Effect.flip(put('media/interrupted', Stream.concat(Stream.make(content.subarray(1)), Stream.fail(new Cause.UnknownError(undefined))), (uploadToken) => Deferred.succeed(token, uploadToken)));
             const issued = yield* Deferred.await(token);
             const missing = yield* Effect.flip(Effect.tryPromise(() => uploads.getUploadState(issued)));
@@ -67,17 +67,17 @@ const cases = <E, R>(it: Vitest.MethodsNonLive<R>, storage: Layer.Layer<Storage,
             assert.oneOf((yield* read(object.key, {})).text, ['partial content bytes', 'PARTIAL CONTENT BYTES']);
         }).pipe(Effect.provide(storage)),
     );
-    it.effect('releases a stored object and its upload resource', () =>
+    it.effect('deletes a stored object and its upload resource', () =>
         Effect.gen(function* () {
             const token = yield* Deferred.make<string>();
             yield* put(object.key, Stream.make(content), (uploadToken) => Deferred.succeed(token, uploadToken));
-            yield* releaseObject(object.key, Option.some(yield* Deferred.await(token)));
+            yield* deleteObject(object.key, Option.some(yield* Deferred.await(token)));
             assert.strictEqual((yield* read(object.key, {})).status, code.missing);
         }).pipe(Effect.provide(storage)),
     );
     it.effect('meets the partial-content read and resumable write contracts', () =>
         Effect.gen(function* () {
-            const { objects, uploads } = yield* Storage;
+            const { objects, uploads } = yield* ObjectStorage;
             yield* put(object.key, Stream.make(content), ignore);
             const conformance = { key: (n: number) => `conformance/${n}` };
             const reports = yield* Effect.all([Effect.tryPromise(() => checkObjectStore(objects, { key: object.key, content })), Effect.tryPromise(() => checkResumableWriteStore(Function.constant(uploads), conformance))]);

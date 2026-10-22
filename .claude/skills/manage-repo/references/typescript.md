@@ -21,7 +21,7 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 ## [02]-[COMPILER]
 
 - `${configDir}` in a base configuration's path fields resolves to the extending file's directory
-- Packages import each other's `.ts` source through `exports` entries the pnpm link resolves
+- Packages declare `"./*": "./*"` `exports`, and importers spell each subpath with its file extension as relative imports do
 - `tsc` compiles sibling source under the importer's options, the importer listing each typings package, `paths` row, and JavaScript depth it needs
 - `maxNodeModuleJsDepth` counts a linked sibling package as one level, its untyped JavaScript dependencies take the sibling's depth plus one
 - `types` defaults to `[]`, a project lists each typings package declaring a global or module its files read (`node` for a `node:` module)
@@ -31,7 +31,7 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - `esnext` parts of a Node or UXP `lib` enter once the host runtime defines their members
 - Host platform library `tsconfig.json` states host `lib` and `types`, projects for the host extend it
 - `tsconfig.base.json` excludes project Vite, Vitest, and UXP configs, root `tsconfig.json` compiles them, `.storybook/main.ts`, and test MCP config
-- Project programs name `.storybook/*.stories.tsx` beside `**/*`, which skips dot directories, and reach `.storybook/preview` through story imports
+- Project programs name their story files by extension (`.storybook/*.stories.ts` or `.storybook/*.stories.tsx`) beside `**/*`, which skips dot directories, and reach `.storybook/preview` through story imports
 - `tsconfig.base.json` `$schema` names installed `typescript` schema, Schema Store's copy lists an older `lib` set
 - `tsconfig.base.json` plugin entry holds every rule severity, project entries merge over it (`diagnostics: false` where a host loads no `effect`)
 - Project `typecheck:tsc` hashes compiler package versions alone, root `typecheck:tsc` keeps Nx's default hash of every installed package
@@ -62,8 +62,8 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - Project `tsconfig.json` `types` names `./.cloudflare/types` in place of `@cloudflare/workers-types`
 
 [STORYBOOK]:
-- `.storybook/main.ts` states `framework` and `stories`, which no preset supplies, and lists `@rasm/test-support/preset` resolving its addons
-- Storybook reads `addons` and literal `tags` from `.storybook/preview` source, which passes `@rasm/test-support/preview` `addons` to `definePreview`
+- `.storybook/main.ts` states `framework` and `stories`, which no preset supplies, and lists `@rasm/test-support/preset.ts` resolving its addons
+- Storybook reads `addons` and literal `tags` from `.storybook/preview` source, which passes `@rasm/test-support/preview.ts` `addons` to `definePreview`
 - Library `viteFinal` adds `react()`, Storybook finds no `vite.config.ts` in a library
 - Root `package.json` lists no `@storybook/react-vite`, its `typescript` peer would take root TypeScript 7 over `docgen` catalog's TypeScript 6
 - Storybook caches stay under each project's `node_modules/.cache/storybook`, a `CACHE_DIR` row would merge every project's cache into one directory

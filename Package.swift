@@ -56,6 +56,7 @@ let modules: [Target] = [
     .target(name: "AdobeScripting", dependencies: ["AppleEvents", "Applications"], path: "libs/swift/creative-cloud/AdobeScripting"),
     .target(name: "JSONRPC", dependencies: ["Encoding", "Results", .product(name: "OrderedCollections", package: "swift-collections")], path: "libs/swift/rpc/JSONRPC"),
     .target(name: "EffectRPC", dependencies: ["CurrentProcess", "Encoding", "Results"], path: "libs/swift/rpc/EffectRPC"),
+    .target(name: "AdobeAutomation", dependencies: ["AdobeScripting", "AppleEvents", "Applications", "EffectRPC", "Fonts"], path: "libs/swift/creative-cloud/AdobeAutomation"),
 ]
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

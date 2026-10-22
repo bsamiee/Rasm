@@ -1,11 +1,11 @@
 {
     "name": "@rasm/mcp",
     "private": true,
-    "description": "Loopback Streamable HTTP MCP servers built from Effect tools and from the RPC groups of host panels linked over WebSocket, with telemetry, completion ranking, content blocks, resource values per URI that refuse a tool call or join its result while a predicate holds, and a record of cancelled calls that change state",
+    "description": "Streamable HTTP MCP servers from Effect tools, resources, and RPC groups, with telemetry, completion ranking, content blocks, resource values that refuse or report on a tool call, and a record of cancelled calls that change state",
     "sideEffects": false,
     "type": "module",
     "exports": {
-        "./*": "./*.ts"
+        "./*": "./*"
     },
     "dependencies": {
         "@effect/platform-node": "catalog:",

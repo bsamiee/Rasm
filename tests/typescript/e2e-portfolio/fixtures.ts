@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect as base, type Page } from '@playwright/test';
-import { sessionPath } from '@rasm/hosting/sites.ts';
-import { app } from '@rasm/test-support/app';
+import { sessionPath } from '@rasm/hosting/authentication/sites.ts';
+import { app } from '@rasm/test-support/app.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

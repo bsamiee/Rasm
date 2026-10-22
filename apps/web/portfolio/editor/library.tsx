@@ -1,17 +1,18 @@
 import { useAtomSet } from '@effect/atom-react';
 import { focus } from '@rasm/ui/focus.ts';
+import { MenuButton } from '@rasm/ui/menu-button.tsx';
 import { Array, Match, Optic, Option, Record, Schema } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { FileText, Film } from 'lucide-react';
 import { useId } from 'react';
 import { GridList, GridListItem } from 'react-aria-components';
-import { byteSize, entryTitle, quantity } from '../media/display.ts';
-import { MediaFigure } from '../media/figure.tsx';
+import { byteSize, conjunction, entryTitle, quantity } from '../media/labels.ts';
+import { MediaFigure } from '../media/media-figure.tsx';
 import { type Asset, type AssetCollection, PdfAsset, VideoAsset } from '../model/asset.ts';
-import { type Portfolio, placements } from '../model/document.ts';
 import { placementsFor } from '../model/placement.ts';
-import { ConfirmDialog, MenuButton } from './controls.tsx';
-import { deleteRequest, draft, hero } from './services.ts';
+import { assetIds, type Portfolio } from '../model/portfolio.ts';
+import { ConfirmDialog } from './confirm-dialog.tsx';
+import { deleteRequest, draft, hero } from './state.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -34,7 +35,6 @@ const Library = ({
     const setDraft = useAtomSet(draft);
     const remove = useAtomSet(deleteRequest);
     const selected = Option.flatMap(sourceId, (id) => Record.get(assets, id));
-    const used = (work: typeof Portfolio.Type) => new Set(placements(work).flatMap((placement) => [placement.asset.id, ...(placement.kind === 'video' && placement.poster !== undefined ? [placement.poster.id] : [])]));
     const summary = (asset: typeof Asset.Type) => [byteSize.format(asset.size), ...(Schema.is(PdfAsset)(asset) ? [quantity(asset.pages.length, { one: 'sheet', other: 'sheets' })] : [])];
     return (
         <section className="border-line min-w-0 border-t pt-5">
@@ -70,7 +70,7 @@ const Library = ({
                 {Option.match(selected, {
                     onNone: () => <p className="hint">Select a source to preview or place it.</p>,
                     onSome: (asset) => {
-                        const uses = [...(used(portfolio).has(asset.id) ? ['your draft'] : []), ...(used(published).has(asset.id) ? ['published work'] : [])];
+                        const uses = [...(assetIds(portfolio).has(asset.id) ? ['your draft'] : []), ...(assetIds(published).has(asset.id) ? ['published work'] : [])];
                         return (
                             <div className="editor:border-line editor:border-l editor:pl-6 flex min-w-0 flex-col gap-4">
                                 <button
@@ -99,7 +99,7 @@ const Library = ({
                                         Use as hero
                                     </button>
                                 </div>
-                                <p className="hint">{[...summary(asset), ...(uses.length > 0 ? [`Used in ${new Intl.ListFormat('en', { type: 'conjunction' }).format(uses)}.`] : [])].join(' · ')}</p>
+                                <p className="hint">{[...summary(asset), ...(uses.length > 0 ? [`Used in ${conjunction.format(uses)}.`] : [])].join(' · ')}</p>
                                 <details className="hint">
                                     <summary className="min-h-11 cursor-pointer content-center">Source removal</summary>
                                     {uses.length > 0 && <p>Remove this file from saved and published work before deleting.</p>}

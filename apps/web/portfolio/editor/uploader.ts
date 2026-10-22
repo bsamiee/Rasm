@@ -2,10 +2,12 @@ import { files, preprocess } from '@rasm/media/uploads.ts';
 import Uppy, { type Body, type Meta } from '@uppy/core';
 import XHRUpload from '@uppy/xhr-upload';
 import { Array, Cause, Effect, Equivalence, Function, Match, Optic, Record, Schema, Struct } from 'effect';
+import { HttpApiClient } from 'effect/http-api';
 import { AsyncResult, Atom } from 'effect/reactivity';
+import { Api } from '../model/api.ts';
 import { Asset, mediaTypes, PdfAsset, uploadLimit } from '../model/asset.ts';
-import { type Composition, createComposition, placementsFor } from '../model/placement.ts';
-import { draft, hero, identifier, updateEntry } from './services.ts';
+import { Composition, placementsFor } from '../model/placement.ts';
+import { assets, draft, hero, identifier, pendingRequest, updateEntry } from './state.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -20,7 +22,7 @@ interface UploadMeta extends Meta {
 // --- [SERVICES] ------------------------------------------------------------------------
 
 const destination = Atom.make<Destination>({ kind: 'library' }).pipe(Atom.keepAlive);
-const uploads = Atom.make((get) => {
+const uppy = Atom.make((get) => {
     const uploader: Uppy<UploadMeta, Body> = new Uppy<UploadMeta, Body>({
         restrictions: { maxFileSize: uploadLimit, allowedFileTypes: [...mediaTypes] },
         onBeforeFileAdded: (file, queued) => {
@@ -31,13 +33,18 @@ const uploads = Atom.make((get) => {
             }
             return { ...file, meta: { ...file.meta, destination: target } };
         },
-    }).use(XHRUpload, { endpoint: '/api/media', allowedMetaFields: ['asset', 'renditions'], limit: 3 });
+    }).use(XHRUpload, { endpoint: HttpApiClient.urlBuilder(Api).media.upload(), allowedMetaFields: ['asset', 'renditions'], limit: 3 });
     preprocess(
         uploader,
         Effect.fnUntraced(function* ({ meta: { destination: target }, name, type }, data) {
-            const { inspectFile } = yield* Effect.tryPromise({ try: () => import('../media/inspect.ts'), catch: (cause) => new Cause.UnknownError(cause, 'The file reader could not load, so the file was not added. Retry it.') });
+            const { inspectFile } = yield* Effect.tryPromise({ try: () => import('./inspect-file.ts'), catch: (cause) => new Cause.UnknownError(cause, 'The file reader could not load, so the file was not added. Retry it.') });
             const { asset, renditions } = yield* inspectFile({ data, id: yield* identifier, name, mime: type });
-            const compositions = yield* Effect.forEach(target.kind === 'entry' && !Schema.is(PdfAsset)(asset) ? placementsFor(asset) : [], (placement) => Effect.zipWith(identifier, Effect.succeed(placement), createComposition));
+            const compositions = yield* Effect.forEach(
+                target.kind === 'entry' && !Schema.is(PdfAsset)(asset) ? placementsFor(asset) : [],
+                Effect.fnUntraced(function* (placement) {
+                    return Composition.make({ id: yield* identifier, items: [placement] });
+                }),
+            );
             return { asset: yield* Schema.encodeEffect(Schema.fromJsonString(Asset))(asset), prepared: { asset, compositions }, renditions };
         }),
         { concurrency: 2, message: 'Reading file' },
@@ -53,7 +60,7 @@ const uploads = Atom.make((get) => {
                     .map(Struct.get('id')),
             );
             const preceding = (item: typeof Composition.Type) => !following.has(item.id);
-            const stored = Optic.id<Atom.Success<typeof draft>>().key('assets').modify(Record.set(asset.id, asset));
+            const stored = assets.modify(Record.set(asset.id, asset));
             get.registry.update(
                 draft,
                 AsyncResult.map(
@@ -69,12 +76,18 @@ const uploads = Atom.make((get) => {
             uploader.setFileMeta(file.id, { ...file.meta, renditions: [] });
         }
     });
+    uploader.on('complete', () => get.registry.refresh(pendingRequest));
+    uploader.on('file-removed', (file) => {
+        if (file.meta.prepared !== undefined && file.progress.uploadComplete !== true) {
+            get.registry.refresh(pendingRequest);
+        }
+    });
     get.addFinalizer(() => uploader.destroy());
     return uploader;
 }).pipe(Atom.keepAlive);
-const queue = files(uploads);
+const queue = files(uppy);
 const pendingUploads = Atom.make((get) => Object.values(get(queue)).flatMap((file) => (file.progress.uploadComplete === true ? [] : [file.meta.destination]))).pipe(Atom.withEquality(Equivalence.Array(Equivalence.strictEqual<Destination>())));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { type Destination, destination, pendingUploads, queue, uploads };
+export { type Destination, destination, pendingUploads, queue, uppy };

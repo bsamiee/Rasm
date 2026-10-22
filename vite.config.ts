@@ -1,7 +1,7 @@
 import { createRequire } from 'node:module';
 import { join, relative } from 'node:path';
 import { cloudflare } from '@cloudflare/vite-plugin';
-import { Manifest } from '@rasm/uxp/manifest';
+import { Manifest } from '@rasm/uxp/manifest.ts';
 import compiler from '@vitejs/plugin-react';
 import { Array, Config, Effect, Record, Schema, String } from 'effect';
 import { defaultClientConditions, defaultServerConditions, type PluginOption, type Rollup, type UserConfig, type UserConfigFnObject } from 'vite';

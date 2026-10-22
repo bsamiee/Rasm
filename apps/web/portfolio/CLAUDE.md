@@ -69,7 +69,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 
 [FIGURES]: `MediaFigure` renders every placement from its resolved asset, presentation decides loading, chrome, and expansion:
 - `Match.discriminatorsExhaustive` over placement `kind` selects each renderer
-- Labels, alt text, media URLs, and image source sets derive once in `media/display.ts`
+- Display text and alt text derive once in `media/labels.ts`, media URLs in `model/asset.ts`, and image source sets in `media/media-element.tsx`
 - Presentation, priority, and in-view proximity decide media loading and video playback
 - Image renditions fill `srcSet`, expanded views load the original
 - Renditions share their source's authorization, publication, and removal
@@ -82,7 +82,7 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 
 ## [06]-[EDITOR]
 
-[STATE]: Editor state is Effect `Atom` values over `AsyncResult`, with one writable draft atom every request atom updates:
+[STATE]: Editor state is Effect `Atom` values over `AsyncResult` in `editor/state.ts`, with one writable draft atom every request atom updates:
 - Mutations are `runtime.fn` atoms of an `AtomHttpApi.Service` runtime, their `AsyncResult` drives busy state, status, and alerts
 - Draft, mutation, and upload atoms are `Atom.keepAlive`, closing the editor keeps edits, results, and queued files
 - Draft edits are `Optic` modifications returning a new portfolio, identity against the last saved or loaded snapshot marks unsaved work
@@ -106,15 +106,15 @@ Portfolio publishes architectural projects and studies as one server-rendered pa
 - `cloudflare.config.ts` declares the Worker, its asset routing, and its bindings through `cf/config` builders
 - Worker binding types are the global `Env` that `cf workers types` generates from `cloudflare.config.ts`
 - Worker `fetch` supplies bindings to memoized handler construction inside request context
-- `worker/app.ts` composes routes both entries serve, with D1 and `r2` storage in `worker/index.ts`, SQLite and `s3` storage in `worker/node.ts`
+- `server/app.ts` composes routes both entries serve, with D1 and `r2` storage in `server/worker.ts`, SQLite and `s3` storage in `server/node.ts`
 - `nx run architectural-portfolio:hosting -- <cloudflare|docker> <operation>` deploys the same build to a Cloudflare account or a Docker host
-- Sites, Cloudflare Access through `@rasm/hosting/worker.ts`, or Docker proxy send user id and email as `@rasm/hosting/sites.ts` `contract` headers
+- Sites, Cloudflare Access through `@rasm/hosting/authentication/access.ts`, or Docker proxy send user id and email as `@rasm/hosting/authentication/sites.ts` `contract` headers
 - Requests without a user id are signed-out visitors
 - First sign-in with an email equal to `OWNER_EMAIL` ignoring case enrolls its user id, later owner checks compare user ids alone
 - Hosted configuration supplies `OWNER_EMAIL` secret, every mode other than `production` binds it to `sites()` local sign-in email
 - `sites()` copies `.openai/hosting.json` into project-local `dist` and exposes no relocation setting
 
-[STORAGE]: `worker/database.ts` declares document, asset, and owner tables as `@rasm/database` tables beside statements over them:
+[STORAGE]: `server/store/catalog.ts` declares document, asset, and owner tables as `@rasm/database` tables, with statements over them in `server/store/<aggregate>.ts`:
 - `@rasm/database` `store` builds each entry's client with snake-case identifiers and reconciles tables once per isolate or process start
 - Queries name a multi-word column through `sql('objectKey')` or a table method
 - With older and newer builds on one database, queries name every column and new required columns carry a default

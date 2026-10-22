@@ -1,0 +1,3 @@
+{
+    "extends": "../../../../../libs/typescript/creative-cloud/indesign/tsconfig.json"
+}

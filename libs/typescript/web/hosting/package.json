@@ -1,7 +1,7 @@
 {
     "name": "@rasm/hosting",
     "private": true,
-    "description": "Foundation for web apps served from an edge Worker or a Node server: server-rendered pages with schema-encoded hydration data, one signed-in user header contract served by OpenAI Sites, Cloudflare Access, or an authenticating proxy, R2 or S3 object storage, the Worker binding schema every hosting target maps, and HTTP API boundaries",
+    "description": "Foundation for web apps served from an edge Worker or a Node server: server-rendered pages with schema-encoded hydration data, one signed-in user header contract served by OpenAI Sites, Cloudflare Access, or an authenticating proxy, R2 or S3 object storage, the Worker config schema every hosting target maps, and HTTP API boundaries",
     "type": "module",
     "exports": {
         "./*": "./*"
@@ -10,7 +10,6 @@
         "@aws-sdk/client-s3": "catalog:",
         "@aws-sdk/s3-request-presigner": "catalog:",
         "@effect/platform-node": "catalog:",
-        "cf": "catalog:",
         "cheerio": "catalog:",
         "effect": "catalog:",
         "jose": "catalog:",
@@ -25,6 +24,7 @@
         "@types/node": "catalog:",
         "@types/react": "catalog:",
         "@types/react-dom": "catalog:",
+        "cf": "catalog:",
         "testcontainers": "catalog:",
         "vitest": "catalog:"
     },

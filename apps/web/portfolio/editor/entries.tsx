@@ -1,13 +1,15 @@
 import { useAtomSet, useAtomValue } from '@effect/atom-react';
-import { ReorderableList } from '@rasm/ui/reorderable.tsx';
+import { Field } from '@rasm/ui/field.tsx';
+import { ReorderableList } from '@rasm/ui/reorderable-list.tsx';
+import { SelectField } from '@rasm/ui/select-field.tsx';
 import { Array, Optic, String, Struct } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { useState } from 'react';
 import { Button, type Key } from 'react-aria-components';
-import { entryTitle, quantity } from '../media/display.ts';
-import { Entry } from '../model/document.ts';
-import { ConfirmDialog, Field, SelectField } from './controls.tsx';
-import { draft, portfolio, updateEntry } from './services.ts';
+import { entryTitle, quantity } from '../media/labels.ts';
+import { Entry } from '../model/portfolio.ts';
+import { ConfirmDialog } from './confirm-dialog.tsx';
+import { draft, portfolio, updateEntry } from './state.ts';
 import { destination, pendingUploads } from './uploader.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

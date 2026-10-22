@@ -10,12 +10,12 @@ import { serveObject as serve } from 'partial-content/web';
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
-class Storage extends Context.Service<Storage, { readonly objects: ObjectStore; readonly uploads: SweepingWriteStore; readonly remove: (key: string) => Effect.Effect<unknown, Cause.UnknownError> }>()('@rasm/hosting/storage') {}
+class ObjectStorage extends Context.Service<ObjectStorage, { readonly objects: ObjectStore; readonly uploads: SweepingWriteStore; readonly remove: (key: string) => Effect.Effect<unknown, Cause.UnknownError> }>()('@rasm/hosting/storage/ObjectStorage') {}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const createUpload = Effect.fn('createUpload')(function* (object: { readonly key: string; readonly size: number }) {
-    const [{ uploads }, created] = yield* Effect.all([Storage, Clock.currentTimeMillis]);
+    const [{ uploads }, created] = yield* Effect.all([ObjectStorage, Clock.currentTimeMillis]);
     const { uploadToken } = yield* Effect.acquireRelease(
         Effect.tryPromise(() => uploads.createUpload({ key: object.key, length: object.size, now: created })),
         (upload) => Effect.tryPromise(() => uploads.abortUpload(upload.uploadToken)).pipe(Effect.ignore({ log: 'Error', message: 'upload abort failed' })),
@@ -37,13 +37,13 @@ const createUpload = Effect.fn('createUpload')(function* (object: { readonly key
         }),
     };
 });
-const releaseObject = Effect.fn('releaseObject')(function* (key: string, uploadToken: Option.Option<string>) {
-    const { uploads, remove } = yield* Storage;
+const deleteObject = Effect.fn('deleteObject')(function* (key: string, uploadToken: Option.Option<string>) {
+    const { uploads, remove } = yield* ObjectStorage;
     yield* Option.match(uploadToken, { onNone: () => Effect.void, onSome: (token) => Effect.tryPromise(() => uploads.abortUpload(token)) });
     yield* remove(key);
 });
 const serveObject = Effect.fn('serveObject')(function* (object: { readonly key: string; readonly mime: string }) {
-    const [{ objects }, request, context] = yield* Effect.all([Storage, Effect.flatMap(HttpServerRequest.HttpServerRequest, HttpServerRequest.toWeb), Effect.context<never>()]);
+    const [{ objects }, request, context] = yield* Effect.all([ObjectStorage, Effect.flatMap(HttpServerRequest.HttpServerRequest, HttpServerRequest.toWeb), Effect.context<never>()]);
     const served = serve(objects, {
         disposition: 'inline',
         securityHeaders: () => ({ 'X-Content-Type-Options': 'nosniff' }),
@@ -54,10 +54,10 @@ const serveObject = Effect.fn('serveObject')(function* (object: { readonly key: 
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-const r2 = (bucket: R2Bucket) => Layer.succeed(Storage, { objects: r2Store({ bucket }), uploads: r2UploadStore({ bucket }), remove: (key) => Effect.tryPromise(() => bucket.delete(key)) });
+const r2 = (bucket: R2Bucket) => Layer.succeed(ObjectStorage, { objects: r2Store({ bucket }), uploads: r2UploadStore({ bucket }), remove: (key) => Effect.tryPromise(() => bucket.delete(key)) });
 const s3 = (bucket: string) =>
     Layer.effect(
-        Storage,
+        ObjectStorage,
         Effect.map(
             Effect.acquireRelease(
                 Effect.sync(() => new S3Client({ forcePathStyle: true })),
@@ -69,4 +69,4 @@ const s3 = (bucket: string) =>
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { createUpload, r2, releaseObject, Storage, s3, serveObject };
+export { createUpload, deleteObject, ObjectStorage, r2, s3, serveObject };

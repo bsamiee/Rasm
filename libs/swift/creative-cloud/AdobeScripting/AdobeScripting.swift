@@ -1,8 +1,41 @@
+public import AppKit
 public import AppleEvents
 public import Applications
 import Carbon.OpenScripting
+public import Foundation
+
+// --- [ERRORS] --------------------------------------------------------------------------
+
+public enum AdobeFailure: LocalizedError {
+    case notAdobe(URL)
+    case noProcess(pid_t)
+
+    public var errorDescription: String? {
+        switch self {
+            case .notAdobe(let url): "\(url.path(percentEncoded: false)) has no bundle identifier starting \(Adobe.identifierPrefix)"
+            case .noProcess(let pid): "No running application bundle has pid \(pid)"
+        }
+    }
+}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
+
+public enum Adobe: Sendable {
+    public static let identifierPrefix: String = "com.adobe."
+
+    public static func installation(at url: URL) -> Result<Installation, any Error> {
+        Installation.at(url)
+            .mapError { error -> any Error in error }
+            .flatMap { installation in installation.identifier.hasPrefix(identifierPrefix) ? .success(installation) : .failure(AdobeFailure.notAdobe(url)) }
+    }
+
+    public static func running(_ pid: pid_t) -> Result<(instance: NSRunningApplication, installation: Installation), any Error> {
+        switch NSRunningApplication(processIdentifier: pid).flatMap({ instance in instance.bundleURL.map { url in (instance, url) } }) {
+            case .some((let instance, let url)): installation(at: url).map { installation in (instance, installation) }
+            case .none: .failure(AdobeFailure.noProcess(pid))
+        }
+    }
+}
 
 extension Installation {
     private static let activating: KeyValuePairs<String, Set<UInt64>> = [

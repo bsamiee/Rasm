@@ -1,7 +1,12 @@
 import { assert, type Vitest } from '@effect/vitest';
-import { plan, reconcile } from '@rasm/database/reconcile.ts';
-import { store, tenant } from '@rasm/database/store.ts';
-import { atomic, Bytes, type Catalog, names, type Relation, table, Uuid } from '@rasm/database/table.ts';
+import { Bytes, Uuid } from '@rasm/database/column.ts';
+import type { Catalog, Relation } from '@rasm/database/definition.ts';
+import { transforms } from '@rasm/database/lexical.ts';
+import { apply } from '@rasm/database/reconcile/apply.ts';
+import { plan } from '@rasm/database/reconcile/plan.ts';
+import { store } from '@rasm/database/store.ts';
+import { table } from '@rasm/database/table.ts';
+import { atomic, tenant } from '@rasm/database/transaction.ts';
 import { Array, DateTime, Effect, Exit, Option, Schema, type Scope } from 'effect';
 import { SqlClient } from 'effect/sql';
 
@@ -71,20 +76,20 @@ const cases = <R, F>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<R>>
     const step = (title: string, catalog: Catalog, runtime: Option.Option<string>) =>
         Effect.andThen(
             Effect.flatMap(plan(catalog, runtime), (planned) => record(title, planned)),
-            reconcile(catalog, runtime),
+            apply(catalog, runtime),
         );
-    const define = <A, E>(title: string, body: (apply: (catalog: Catalog) => ReturnType<typeof step>, grant: (catalog: Catalog, role: string) => ReturnType<typeof step>, sql: SqlClient.SqlClient) => Effect.Effect<A, E, SqlClient.SqlClient | Scope.Scope | R>) => {
-        const [apply, grant] = [(catalog: Catalog) => step(title, catalog, Option.none()), (catalog: Catalog, role: string) => step(title, catalog, Option.some(role))];
+    const define = <A, E>(title: string, body: (applyCatalog: (catalog: Catalog) => ReturnType<typeof step>, grant: (catalog: Catalog, role: string) => ReturnType<typeof step>, sql: SqlClient.SqlClient) => Effect.Effect<A, E, SqlClient.SqlClient | Scope.Scope | R>) => {
+        const [applyCatalog, grant] = [(catalog: Catalog) => step(title, catalog, Option.none()), (catalog: Catalog, role: string) => step(title, catalog, Option.some(role))];
         return it.effect(title, () =>
             Effect.provide(
-                Effect.flatMap(SqlClient.SqlClient, (sql) => body(apply, grant, sql)),
-                client(names),
+                Effect.flatMap(SqlClient.SqlClient, (sql) => body(applyCatalog, grant, sql)),
+                client(transforms),
             ),
         );
     };
-    const seeded = Effect.fn('seeded')(function* (apply: (catalog: Catalog) => ReturnType<typeof step>) {
+    const seeded = Effect.fn('seeded')(function* (applyCatalog: (catalog: Catalog) => ReturnType<typeof step>) {
         const sql = yield* SqlClient.SqlClient;
-        yield* apply(declared(parents, children));
+        yield* applyCatalog(declared(parents, children));
         yield* atomic([
             sql`INSERT INTO parents ${sql.insert({ id: 'p', label: 'Parent', state: 'open' })}`,
             sql`INSERT INTO children ${sql.insert([
@@ -102,9 +107,9 @@ const cases = <R, F>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<R>>
             assert.deepStrictEqual(yield* sql.withoutTransforms()`SELECT parent_id FROM children`, [{ parent_id: 'p' }]);
         }).pipe(Effect.provide(store(declared(parents, children), client))),
     );
-    define('creates declared tables in an empty store, enforces references, and decodes rows', (apply, _, sql) =>
+    define('creates declared tables in an empty store, enforces references, and decodes rows', (applyCatalog, _, sql) =>
         Effect.gen(function* () {
-            yield* seeded(apply);
+            yield* seeded(applyCatalog);
             assert.deepStrictEqual(yield* children.select('parentId', ['p']), [
                 { id: 'a', parentId: 'p', rank: 1 },
                 { id: 'b', parentId: 'p', rank: 2 },
@@ -112,108 +117,108 @@ const cases = <R, F>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<R>>
             assert.isTrue((yield* Effect.flip(sql`INSERT INTO children ${sql.insert({ id: 'c', parentId: 'missing', rank: 3 })}`))._tag === 'SqlError');
         }),
     );
-    define('renames declared columns and tables and keeps every row', (apply) =>
+    define('renames declared columns and tables and keeps every row', (applyCatalog) =>
         Effect.gen(function* () {
-            yield* seeded(apply);
-            assert.deepStrictEqual(yield* apply(declared(renamed, kids)), { tables: [], columns: [], indexes: [], references: [] });
+            yield* seeded(applyCatalog);
+            assert.deepStrictEqual(yield* applyCatalog(declared(renamed, kids)), { tables: [], columns: [], indexes: [], references: [] });
             assert.deepStrictEqual(yield* rows('parents'), [{ id: 'p', title: 'Parent', state: 'open' }]);
             assert.deepStrictEqual((yield* rows('kids')).length, 2);
             assert.isTrue((yield* Effect.flip(rows('children')))._tag === 'SqlError');
         }),
     );
-    define('renames back with every row when an older catalog runs after a rename', (apply, _, sql) =>
+    define('renames back with every row when an older catalog runs after a rename', (applyCatalog, _, sql) =>
         Effect.gen(function* () {
-            yield* seeded(apply);
-            yield* apply(declared(renamed, kids));
+            yield* seeded(applyCatalog);
+            yield* applyCatalog(declared(renamed, kids));
             yield* sql`INSERT INTO parents ${sql.insert({ id: 'q', title: 'Second', state: 'closed' })}`;
-            yield* apply(declared(parents, children));
+            yield* applyCatalog(declared(parents, children));
             assert.deepStrictEqual(yield* rows('parents'), [
                 { id: 'p', label: 'Parent', state: 'open' },
                 { id: 'q', label: 'Second', state: 'closed' },
             ]);
             assert.deepStrictEqual((yield* rows('children')).length, 2);
-            yield* apply(declared(renamed, kids));
+            yield* applyCatalog(declared(renamed, kids));
             assert.deepStrictEqual(
                 (yield* rows('parents')).map(({ title }) => title),
                 ['Parent', 'Second'],
             );
         }),
     );
-    define('keeps a newer column and its data when an older catalog reconciles after it', (apply, _, sql) =>
+    define('keeps a newer column and its data when an older catalog reconciles after it', (applyCatalog, _, sql) =>
         Effect.gen(function* () {
-            yield* seeded(apply);
-            yield* apply(declared(extended, kids));
+            yield* seeded(applyCatalog);
+            yield* applyCatalog(declared(extended, kids));
             yield* sql`UPDATE parents SET ${sql.update({ extra: 'kept' })} WHERE id = 'p'`;
-            assert.deepStrictEqual(yield* apply(declared(renamed, kids)), { tables: [], columns: [{ table: 'parents', column: 'extra' }], indexes: [], references: [] });
+            assert.deepStrictEqual(yield* applyCatalog(declared(renamed, kids)), { tables: [], columns: [{ table: 'parents', column: 'extra' }], indexes: [], references: [] });
             yield* sql`INSERT INTO parents ${sql.insert({ id: 'q', title: 'Second', state: 'closed' })}`;
-            yield* apply(declared(extended, kids));
+            yield* applyCatalog(declared(extended, kids));
             assert.deepStrictEqual(yield* rows('parents'), [
                 { id: 'p', title: 'Parent', state: 'open', extra: 'kept' },
                 { id: 'q', title: 'Second', state: 'closed', extra: null },
             ]);
         }),
     );
-    define('drops a declared retired column and table and retypes a declared column with its rows', (apply) =>
+    define('drops a declared retired column and table and retypes a declared column with its rows', (applyCatalog) =>
         Effect.gen(function* () {
-            yield* seeded(apply);
-            yield* apply(declared(extended, kids));
-            yield* apply(declared(retired, retyped));
+            yield* seeded(applyCatalog);
+            yield* applyCatalog(declared(extended, kids));
+            yield* applyCatalog(declared(retired, retyped));
             assert.deepStrictEqual(yield* rows('parents'), [{ id: 'p', title: 'Parent', state: 'open' }]);
             assert.deepStrictEqual(
                 (yield* rows('kids')).map(({ rank }) => rank),
                 [1, 2],
             );
-            yield* apply({ tables: [retired], retired: ['kids'] });
+            yield* applyCatalog({ tables: [retired], retired: ['kids'] });
             assert.isTrue((yield* Effect.flip(rows('kids')))._tag === 'SqlError');
         }),
     );
-    define('keeps a re-added column that reuses a retired name when the retiring catalog runs again', (apply, _, sql) =>
+    define('keeps a re-added column that reuses a retired name when the retiring catalog runs again', (applyCatalog, _, sql) =>
         Effect.gen(function* () {
-            yield* seeded(apply);
-            yield* apply(declared(extended, kids));
+            yield* seeded(applyCatalog);
+            yield* applyCatalog(declared(extended, kids));
             yield* sql`UPDATE parents SET ${sql.update({ extra: 'old' })} WHERE id = 'p'`;
-            yield* apply(declared(revived, kids));
+            yield* applyCatalog(declared(revived, kids));
             assert.deepStrictEqual(yield* rows('parents'), [{ id: 'p', title: 'Parent', state: 'open', extra: null }]);
             yield* sql`UPDATE parents SET ${sql.update({ extra: 7 })} WHERE id = 'p'`;
-            assert.deepStrictEqual(yield* apply(declared(retired, kids)), { tables: [], columns: [{ table: 'parents', column: 'extra' }], indexes: [], references: [] });
-            assert.deepStrictEqual(yield* apply(declared(extended, kids)), { tables: [], columns: [], indexes: [], references: [] });
+            assert.deepStrictEqual(yield* applyCatalog(declared(retired, kids)), { tables: [], columns: [{ table: 'parents', column: 'extra' }], indexes: [], references: [] });
+            assert.deepStrictEqual(yield* applyCatalog(declared(extended, kids)), { tables: [], columns: [], indexes: [], references: [] });
             assert.deepStrictEqual(yield* rows('parents'), [{ id: 'p', title: 'Parent', state: 'open', extra: 7 }]);
         }),
     );
-    define('plans nothing when the store already matches its catalog', (apply) =>
+    define('plans nothing when the store already matches its catalog', (applyCatalog) =>
         Effect.gen(function* () {
             const full = declared(extended, kids, accounts, events, notes, values, blobs);
-            yield* seeded(apply);
-            yield* apply(full);
+            yield* seeded(applyCatalog);
+            yield* applyCatalog(full);
             const before = yield* shape;
             const planned = yield* Effect.all([plan(full, Option.none()), plan(declared(renamed, kids), Option.none())]);
             assert.deepStrictEqual(
                 planned.flatMap(({ statements, concurrent }) => [statements, concurrent]),
                 [[], [], [], []],
             );
-            yield* apply(full);
+            yield* applyCatalog(full);
             assert.deepStrictEqual(yield* shape, before);
         }),
     );
     define('settles concurrent reconciles of one catalog', () =>
         Effect.gen(function* () {
-            yield* Effect.all([reconcile(declared(parents, children), Option.none()), reconcile(declared(parents, children), Option.none())], { concurrency: 'unbounded' });
+            yield* Effect.all([apply(declared(parents, children), Option.none()), apply(declared(parents, children), Option.none())], { concurrency: 'unbounded' });
             assert.deepStrictEqual(yield* rows('children'), []);
         }),
     );
-    define('keeps every row and column when two catalogs rebuild and extend one table concurrently', (apply) =>
+    define('keeps every row and column when two catalogs rebuild and extend one table concurrently', (applyCatalog) =>
         Effect.gen(function* () {
-            yield* seeded(apply);
-            const [extension, rebuild] = yield* Effect.all([Effect.exit(reconcile(declared(annotated, children), Option.none())), Effect.exit(reconcile(declared(reopened, children), Option.none()))], { concurrency: 'unbounded' });
+            yield* seeded(applyCatalog);
+            const [extension, rebuild] = yield* Effect.all([Effect.exit(apply(declared(annotated, children), Option.none())), Effect.exit(apply(declared(reopened, children), Option.none()))], { concurrency: 'unbounded' });
             assert.isTrue(Exit.isSuccess(rebuild) || Exit.isSuccess(extension));
             assert.deepStrictEqual(yield* rows('parents'), [{ id: 'p', label: 'Parent', state: 'open', ...(Exit.isSuccess(extension) ? { note: null } : {}) }]);
             assert.deepStrictEqual((yield* rows('children')).length, 2);
         }),
     );
-    define('refuses a new required column without a default, and a tenant table and a search over a non-integer key outside PostgreSQL', (apply, _, sql) =>
+    define('refuses a new required column without a default, and a tenant table and a search over a non-integer key outside PostgreSQL', (applyCatalog, _, sql) =>
         Effect.gen(function* () {
-            yield* seeded(apply);
-            const refused = (catalog: Catalog) => Effect.map(Effect.flip(reconcile(catalog, Option.none())), (error) => error._tag === 'ReconcileError' && error.findings);
+            yield* seeded(applyCatalog);
+            const refused = (catalog: Catalog) => Effect.map(Effect.flip(apply(catalog, Option.none())), (error) => error._tag === 'ReconcileError' && error.findings);
             const unsupported = yield* sql.onDialectOrElse({ pg: () => Effect.succeed([]), orElse: () => refused(declared(ledgers, textNotes)) });
             assert.deepStrictEqual(yield* refused(declared(required, children)), [{ _tag: 'Required', table: 'parents', columns: ['owner'] }]);
             assert.deepStrictEqual(
@@ -228,7 +233,7 @@ const cases = <R, F>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<R>>
             );
         }),
     );
-    define('stores 64-bit integers, JSON keys, bytes, instants, booleans, options, and bounded values on every store', (apply, _, sql) =>
+    define('stores 64-bit integers, JSON keys, bytes, instants, booleans, options, and bounded values on every store', (applyCatalog, _, sql) =>
         Effect.gen(function* () {
             const written = Array.map(['2026-10-17T12:00:00.123Z', '1969-07-20T20:17:40.500Z'] as const, (at, index) => ({
                 id: `019a0000-0000-7000-8000-00000000000${index}`,
@@ -242,7 +247,7 @@ const cases = <R, F>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<R>>
                 note: index === 0 ? Option.some(at) : Option.none(),
             }));
             const digests = Array.make({ digest: new TextEncoder().encode('first'), size: 1 }, { digest: new TextEncoder().encode('second'), size: 2 });
-            yield* apply(declared(values, blobs));
+            yield* applyCatalog(declared(values, blobs));
             assert.deepStrictEqual(yield* values.insert(written), written);
             assert.deepStrictEqual(yield* values.select('id', [Array.headNonEmpty(written).id]), [Array.headNonEmpty(written)]);
             assert.deepStrictEqual(yield* values.select('count', [Array.lastNonEmpty(written).count]), [Array.lastNonEmpty(written)]);
@@ -253,11 +258,11 @@ const cases = <R, F>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<R>>
             assert.isTrue((yield* Effect.flip(sql`UPDATE ${sql('values')} SET code = 'abc'`))._tag === 'SqlError');
         }),
     );
-    define('writes and reads collections through one parameter with upsert, delete, and latest per key', (apply) =>
+    define('writes and reads collections through one parameter with upsert, delete, and latest per key', (applyCatalog) =>
         Effect.gen(function* () {
             const volume = 150;
             const tenants = [2, 0, 1] as const;
-            yield* apply(declared(events));
+            yield* applyCatalog(declared(events));
             const written = Array.makeBy(volume, (index) => ({ id: `e${index}`, tenant: index % tenants.length, at: DateTime.add(DateTime.makeUnsafe('2026-01-01T00:00:00.000Z'), { seconds: index }), kind: 'view' as const }));
             assert.deepStrictEqual((yield* events.insert(written)).length, volume);
             assert.deepStrictEqual(yield* events.upsert(written), []);
@@ -273,9 +278,9 @@ const cases = <R, F>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<R>>
             assert.deepStrictEqual((yield* events.select('tenant', tenants)).length, volume - volume / tenants.length);
         }),
     );
-    define('enforces partial case-insensitive unique keys and reads JSON projections', (apply) =>
+    define('enforces partial case-insensitive unique keys and reads JSON projections', (applyCatalog) =>
         Effect.gen(function* () {
-            yield* apply(declared(accounts));
+            yield* applyCatalog(declared(accounts));
             const account = (id: string, email: string, deleted: boolean) => ({ id, email, deletedAt: deleted ? DateTime.makeUnsafe('2026-10-17T00:00:00.000Z') : null, profile: { plan: 'pro' } });
             yield* accounts.insert([account('019a0000-0000-7000-8000-000000000001', 'A@example.com', true), account('019a0000-0000-7000-8000-000000000002', 'a@example.com', false)]);
             assert.isTrue((yield* Effect.flip(accounts.insert([account('019a0000-0000-7000-8000-000000000003', 'A@EXAMPLE.COM', false)])))._tag === 'SqlError');
@@ -285,9 +290,9 @@ const cases = <R, F>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<R>>
             );
         }),
     );
-    define('searches declared text columns by words and by trigrams and follows updates', (apply, _, sql) =>
+    define('searches declared text columns by words and by trigrams and follows updates', (applyCatalog, _, sql) =>
         Effect.gen(function* () {
-            yield* apply(declared(notes, fragments));
+            yield* applyCatalog(declared(notes, fragments));
             const written = Array.make({ id: 1, title: 'Concrete shell', body: 'Thin vaults' }, { id: 2, title: 'Timber frame', body: 'Glulam beams' }, { id: 3, title: 'Café crème', body: 'Voûte mince' });
             yield* notes.insert(written);
             yield* fragments.insert(written);
@@ -323,13 +328,13 @@ const cases = <R, F>(it: Vitest.MethodsNonLive<R>, client: Client<F, NoInfer<R>>
             orElse: () => Effect.void,
         }),
     );
-    define('moves a declared retype of 32-bit and text JSON columns to the current types with every row', (apply, _, sql) =>
+    define('moves a declared retype of 32-bit and text JSON columns to the current types with every row', (applyCatalog, _, sql) =>
         sql.onDialectOrElse({
             pg: () =>
                 Effect.gen(function* () {
                     yield* sql`CREATE TABLE ${sql('legacy')} (id text NOT NULL PRIMARY KEY, count integer NOT NULL, body text NOT NULL CHECK (body IS JSON))`;
                     yield* sql`INSERT INTO legacy ${sql.insert({ id: 'l', count: 7, body: '{"camelKey":1}' })}`;
-                    yield* apply(declared(legacy));
+                    yield* applyCatalog(declared(legacy));
                     assert.deepStrictEqual(yield* legacy.select('id', ['l']), [{ id: 'l', count: 7, body: { camelKey: 1 } }]);
                     assert.deepStrictEqual(yield* sql`SELECT column_name, data_type FROM information_schema.columns WHERE table_name = 'legacy' AND column_name <> 'id' ORDER BY 1`, [
                         { columnName: 'body', dataType: 'jsonb' },

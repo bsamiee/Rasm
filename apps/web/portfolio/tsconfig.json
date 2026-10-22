@@ -5,5 +5,5 @@
         "lib": [ "esnext", "dom" ],
         "types": [ "vite/client", "./.cloudflare/types", "@cloudflare/vitest-plugin/types" ]
     },
-    "include": [ "**/*", ".storybook/*.stories.tsx", "../../../tests/typescript/apps/web/portfolio" ]
+    "include": [ "**/*", ".storybook/*.stories.ts", "../../../tests/typescript/apps/web/portfolio" ]
 }

@@ -1,4 +1,4 @@
-import type { Manifest } from '@rasm/uxp/manifest';
+import type { Manifest } from '@rasm/uxp/manifest.ts';
 import { Option } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------

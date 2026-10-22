@@ -148,8 +148,8 @@ Products reach a person through separate levels:
 |  [19]   | Container runtime              | Mise clients, `[daemons]` `docker` row for Colima on macOS, Docker Engine on Linux                   |
 |  [20]   | Shared Vite configuration      | `vite.config.ts`                                                                                     |
 |  [21]   | Shared Vitest configuration    | `vitest.config.ts`, browser settings and the story project every package derives                     |
-|  [22]   | Shared Storybook addons        | `@rasm/test-support` `preset` and `preview` modules                                                  |
-|  [23]   | Shared Playwright settings     | `@rasm/test-support` `playwright` module                                                             |
+|  [22]   | Shared Storybook addons        | `@rasm/test-support` `preset.ts` and `preview.ts` modules                                            |
+|  [23]   | Shared Playwright settings     | `@rasm/test-support` `playwright.ts` module                                                          |
 |  [24]   | Test MCP suites                | `tests/typescript/playwright.config.ts`                                                              |
 |  [25]   | Agent browser options          | `.playwright/cli.config.json`                                                                        |
 |  [26]   | GitHub Action version          | Published tag on each `uses:` row under `.github/`                                                   |

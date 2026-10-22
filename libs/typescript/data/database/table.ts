@@ -1,193 +1,20 @@
-import { D1Client } from '@effect/sql-d1';
-import { Array, Effect, Equal, Filter, Function, flow, Hash, Match, Option, Record, Schema, SchemaAST, SchemaRepresentation, SchemaTransformation, String, Struct } from 'effect';
+import { Array, Effect, Option, Record, Schema } from 'effect';
 import { Hex } from 'effect/encoding';
-import { SqlClient, Statement } from 'effect/sql';
+import { SqlClient, type Statement } from 'effect/sql';
+import { type Column, dataTypes, type Field, type Fields } from './column.ts';
+import { definition, document, ftsTable, type Present, type TableOptions } from './definition.ts';
+import { literal, quote } from './lexical.ts';
+import { atomic } from './transaction.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-interface Fields extends Schema.Struct.Fields {
-    readonly [field: PropertyKey]: Schema.ConstraintCodec<unknown, string | number | Uint8Array | readonly number[] | null>;
-}
-type Field<F> = keyof F & string;
-type Present<F extends Fields> = string extends keyof F ? string : { readonly [K in keyof F]: null extends F[K]['Encoded'] ? never : K }[keyof F] & string;
-type Where<F> = { readonly [K in Field<F>]?: null | Array.NonEmptyReadonlyArray<string | number> | { readonly not: null | Array.NonEmptyReadonlyArray<string | number> } };
-interface Options<F extends Fields> {
-    readonly key?: Array.NonEmptyReadonlyArray<Present<F>>;
-    readonly indexes?: ReadonlyArray<{
-        readonly columns: Array.NonEmptyReadonlyArray<Field<F> | { readonly casefold: Field<F> }>;
-        readonly unique?: true;
-        readonly where?: Where<F>;
-        readonly include?: readonly Field<F>[];
-        readonly method?: 'gin' | 'gist' | 'brin';
-    }>;
-    readonly references?: ReadonlyArray<{ readonly columns: Array.NonEmptyReadonlyArray<Field<F>>; readonly table: Relation; readonly onDelete?: keyof typeof actions }>;
-    readonly defaults?: { readonly [K in keyof F]?: Exclude<F[K]['Encoded'], Uint8Array | readonly number[]> };
-    readonly projections?: { readonly [K in Field<F>]?: { readonly from: Field<F>; readonly path: Array.NonEmptyReadonlyArray<string> } | { readonly where: Where<F> } };
-    readonly search?: { readonly columns: Array.NonEmptyReadonlyArray<Field<F>>; readonly tokenizer: 'trigram' | { readonly configuration: string; readonly filters: readonly string[]; readonly tokenize: string } };
-    readonly withoutRowid?: true;
-    readonly tenant?: Present<F>;
-    readonly renamed?: { readonly [K in Field<F>]?: string };
-    readonly renamedFrom?: string;
-    readonly retype?: readonly Field<F>[];
-    readonly retired?: readonly string[];
-    readonly retiredIndexes?: readonly Array.NonEmptyReadonlyArray<string>[];
-}
-type Column = ReturnType<typeof column>;
 type Values<F extends Fields, K extends Field<F>> = Array.NonEmptyReadonlyArray<F[K]['Type']>;
-interface Relation<F extends Fields = Fields> extends Schema.Struct<F> {
-    readonly table: ReturnType<typeof facts<F>>;
-}
-interface Catalog {
-    readonly tables: Array.NonEmptyReadonlyArray<Relation>;
-    readonly retired: readonly string[];
-    readonly reader?: string;
-}
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const names = { transformQueryNames: String.camelToSnake, transformResultNames: String.snakeToCamel, transformJson: false };
-const uuid = { version: 7 } as const;
 const patterns = { words: /\s+/u, like: /[\\%_]/gu };
-const types = {
-    sqlite: { text: 'TEXT', uuid: 'TEXT', json: 'TEXT', instant: 'TEXT', integer: 'INTEGER', int64: 'INTEGER', decimal: 'TEXT', real: 'REAL', number: 'REAL', boolean: 'INTEGER', blob: 'BLOB' },
-    pg: { text: 'text', uuid: 'uuid', json: 'jsonb', instant: 'timestamptz(3)', integer: 'bigint', int64: 'bigint', decimal: 'numeric', real: 'double precision', number: 'double precision', boolean: 'boolean', blob: 'bytea' },
-} as const;
-const actions = { 'NO ACTION': 'a', RESTRICT: 'r', CASCADE: 'c', 'SET NULL': 'n', 'SET DEFAULT': 'd' };
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-const Bytes = Schema.Union([Schema.Uint8Array, Schema.Array(Schema.Int)]).pipe(Schema.decodeTo(Schema.Uint8Array, SchemaTransformation.transform<Uint8Array, Uint8Array | readonly number[]>({ decode: (bytes) => new Uint8Array(bytes), encode: Function.identity })));
-const Uuid = Schema.String.check(Schema.isUUID(uuid.version), Schema.isLowercased());
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-
-// --- [NAMES]
-const quote = Statement.defaultEscape('"');
-const literal = (text: string) => `'${text.replaceAll("'", "''")}'`;
-const identifier = (parts: readonly string[]) => {
-    const name = parts.map(names.transformQueryNames).join('_');
-    const limit = 63;
-    const radix = 36;
-    const digest = Math.abs(Hash.string(name)).toString(radix);
-    const encoder = new TextEncoder();
-    return encoder.encode(name).length <= limit ? name : `${name.slice(0, encoder.encodeInto(name, new Uint8Array(limit - digest.length - 1)).read)}_${digest}`;
-};
-const document = ({ columns, tokenizer }: Option.Option.Value<Relation['table']['search']>) => {
-    const joined = columns.map(({ name }) => `coalesce(${quote(name)}, '')`).join(` || ' ' || `);
-    return tokenizer === 'trigram' ? joined : `to_tsvector(${literal(tokenizer.name)}, ${joined})`;
-};
-
-// --- [FACTS]
-const conditions = <F extends Fields>(where: Where<F>) => Object.entries(where).flatMap(([field, predicate]) => (predicate === undefined ? [] : [{ column: names.transformQueryNames(field), predicate }]));
-const column = <F extends Fields>(field: Field<F>, schema: F[Field<F>], { defaults, projections, renamed, retype }: Options<F>, retired: readonly string[]) => {
-    const flat = (node: SchemaRepresentation.Representation): readonly SchemaRepresentation.Representation[] => (node._tag === 'Union' ? node.types.flatMap(flat) : [node]);
-    const walk = (ast: SchemaAST.AST) => Array.partition(flat(SchemaRepresentation.toRepresentation(ast, { referencePolicy: () => undefined }).representation), Filter.tagged<SchemaRepresentation.Representation>()('Null'));
-    const [nulls, values] = walk(schema.ast);
-    const [, decoded] = walk(SchemaAST.toType(schema.ast));
-    const leaves = (check: SchemaRepresentation.Check): readonly SchemaRepresentation.Check[] => (check._tag === 'FilterGroup' ? check.checks.flatMap(leaves) : [check]);
-    const payloads =
-        (nodes: readonly SchemaRepresentation.Representation[]) =>
-        <P>({ id, payloadSchema }: SchemaRepresentation.FilterReviver<P>) =>
-            Array.flatMapNullishOr(
-                nodes.flatMap((node) => ('checks' in node ? node.checks.flatMap(leaves) : [])),
-                Struct.get('representation'),
-            ).flatMap((check) => (check.id === id ? Option.toArray(Schema.decodeOption(Schema.toCodecJson(payloadSchema))(check.payload)) : []));
-    const [stored, typed] = [payloads(values), payloads(decoded)];
-    const has = flow(stored, Array.isReadonlyArrayNonEmpty);
-    const limits = <P>(read: typeof stored, reviver: SchemaRepresentation.FilterReviver<P>, length: boolean, ...bounds: ReadonlyArray<(payload: P) => readonly [string, number | bigint]>) => read(reviver).flatMap((payload) => bounds.map((bound) => bound(payload)).map(([op, value]) => ({ op, value, length })));
-    const lower = ({ minimum, exclusiveMinimum }: Pick<typeof SchemaRepresentation.isBetweenReviver.payloadSchema.Type | typeof SchemaRepresentation.isBetweenBigIntReviver.payloadSchema.Type, 'minimum' | 'exclusiveMinimum'>) => [exclusiveMinimum === true ? '>' : '>=', minimum] as const;
-    const upper = ({ maximum, exclusiveMaximum }: Pick<typeof SchemaRepresentation.isBetweenReviver.payloadSchema.Type | typeof SchemaRepresentation.isBetweenBigIntReviver.payloadSchema.Type, 'maximum' | 'exclusiveMaximum'>) => [exclusiveMaximum === true ? '<' : '<=', maximum] as const;
-    const boolean = decoded.some(({ _tag }) => _tag === 'Boolean');
-    const literals = values.flatMap((node) =>
-        Match.value(node).pipe(
-            Match.tag('Literal', ({ literal: member }) => (boolean ? [] : [member])),
-            Match.tag('Enum', ({ enums }) => enums.map(([, member]) => member)),
-            Match.orElse(() => []),
-        ),
-    );
-    const numeric = Array.isReadonlyArrayNonEmpty(literals) && literals.every((member) => typeof member === 'number');
-    const integer = has(SchemaRepresentation.isIntReviver);
-    const name = names.transformQueryNames(field);
-    return {
-        field,
-        name,
-        schema,
-        kind: Match.value({ node: values[0], decoded: decoded[0], boolean, numeric, integer: integer || (numeric && literals.every(Number.isInteger)), finite: has(SchemaRepresentation.isFiniteReviver), uuid: has(SchemaRepresentation.isUUIDReviver) }).pipe(
-            Match.withReturnType<keyof typeof types.sqlite>(),
-            Match.when({ node: { _tag: 'String', annotations: { contentMediaType: 'application/json' } } }, () => 'json'),
-            Match.when({ node: { _tag: 'String' }, decoded: { _tag: 'BigInt' } }, () => 'int64'),
-            Match.when({ node: { _tag: 'String' }, decoded: { _tag: 'Declaration', representation: { id: Match.is(SchemaRepresentation.DateReviver.id, SchemaRepresentation.DateTimeUtcReviver.id) } } }, () => 'instant'),
-            Match.when({ node: { _tag: 'String' }, decoded: { _tag: 'Declaration', representation: { id: SchemaRepresentation.BigDecimalReviver.id } } }, () => 'decimal'),
-            Match.when({ node: { _tag: 'String' }, uuid: true }, () => 'uuid'),
-            Match.when({ boolean: true }, () => 'boolean'),
-            Match.whenOr({ node: { _tag: 'Number' }, integer: true }, { numeric: true, integer: true }, () => 'integer'),
-            Match.whenOr({ node: { _tag: 'Number' }, finite: true }, { numeric: true }, () => 'real'),
-            Match.when({ node: { _tag: 'Number' } }, () => 'number'),
-            Match.whenOr({ node: { _tag: 'Declaration' } }, { node: { _tag: 'Arrays' } }, () => 'blob'),
-            Match.orElse(() => 'text'),
-        ),
-        nullable: Array.isReadonlyArrayNonEmpty(nulls),
-        literals,
-        bounds: [
-            limits(stored, SchemaRepresentation.isGreaterThanReviver, false, ({ exclusiveMinimum }) => ['>', exclusiveMinimum]),
-            limits(stored, SchemaRepresentation.isGreaterThanOrEqualToReviver, false, lower),
-            limits(stored, SchemaRepresentation.isLessThanReviver, false, ({ exclusiveMaximum }) => ['<', exclusiveMaximum]),
-            limits(stored, SchemaRepresentation.isLessThanOrEqualToReviver, false, upper),
-            limits(stored, SchemaRepresentation.isBetweenReviver, false, lower, upper),
-            integer ? limits(stored, SchemaRepresentation.isMultipleOfReviver, false, ({ divisor }) => ['%', divisor]) : [],
-            limits(stored, SchemaRepresentation.isMinCodePointsReviver, true, ({ minCodePoints }) => ['>=', minCodePoints]),
-            limits(stored, SchemaRepresentation.isMaxCodePointsReviver, true, ({ maxCodePoints }) => ['<=', maxCodePoints]),
-            limits(stored, SchemaRepresentation.isBetweenCodePointsReviver, true, lower, upper),
-            limits(typed, SchemaRepresentation.isGreaterThanBigIntReviver, false, ({ exclusiveMinimum }) => ['>', exclusiveMinimum]),
-            limits(typed, SchemaRepresentation.isGreaterThanOrEqualToBigIntReviver, false, lower),
-            limits(typed, SchemaRepresentation.isLessThanBigIntReviver, false, ({ exclusiveMaximum }) => ['<', exclusiveMaximum]),
-            limits(typed, SchemaRepresentation.isLessThanOrEqualToBigIntReviver, false, upper),
-            limits(typed, SchemaRepresentation.isBetweenBigIntReviver, false, lower, upper),
-        ].flat(),
-        fallback: Option.fromNullishOr(defaults?.[field]),
-        projection: Option.map(Option.fromUndefinedOr(projections?.[field]), (projection) => ('where' in projection ? { _tag: 'Where' as const, where: conditions(projection.where) } : { _tag: 'Path' as const, from: names.transformQueryNames(projection.from), path: projection.path })),
-        earlier: Option.map(Option.fromUndefinedOr(renamed?.[field]), names.transformQueryNames),
-        incarnation: Array.countBy(retired, Equal.equals(name)),
-        retype: Option.exists(Option.fromUndefinedOr(retype), Array.contains(field)),
-    };
-};
-const facts = <F extends Fields>(name: string, fields: F, options: Options<F>) => {
-    const settled = { key: ['id'], indexes: [], references: [], retired: [], retiredIndexes: [], ...options };
-    const key = Array.map(settled.key, names.transformQueryNames);
-    const retired = settled.retired.map(names.transformQueryNames);
-    const declared = settled.indexes.map((index) => {
-        const { columns, unique, include, where, method } = { unique: false, include: [], method: 'btree', where: {}, ...index };
-        return {
-            keys: Array.map(columns, (entry) => (typeof entry === 'string' ? { column: names.transformQueryNames(entry), casefold: false } : { column: names.transformQueryNames(entry.casefold), casefold: true })),
-            unique,
-            include: include.map(names.transformQueryNames),
-            where: conditions(where),
-            method,
-        };
-    });
-    const linked = settled.references.map((reference) => ({ onDelete: 'NO ACTION' as const, ...reference, columns: Array.map(reference.columns, names.transformQueryNames) }));
-    const orders = [key, ...declared.filter(({ method }) => method === 'btree').map((index) => Array.takeWhile(index.keys, ({ casefold }) => !casefold).map(({ column: entry }) => entry))];
-    const covering = linked.filter(({ columns }) => !orders.some((order) => Equal.equals(Array.take(order, columns.length), columns)));
-    const described = Record.map<Field<F>, F[Field<F>], Column>(fields, (schema, field) => column(field, schema, options, retired));
-    return {
-        name: names.transformQueryNames(name),
-        earlier: Option.map(Option.fromUndefinedOr(options.renamedFrom), names.transformQueryNames),
-        key,
-        columns: described,
-        indexes: [...declared, ...covering.map(({ columns }) => ({ keys: Array.map(columns, (entry) => ({ column: entry, casefold: false })), unique: false, include: [], where: [], method: 'btree' }))].map((index) => ({
-            ...index,
-            parts: [...index.keys.map(({ column: entry }) => entry), ...(index.method === 'btree' ? [] : [index.method])],
-        })),
-        references: linked,
-        search: Option.map(Option.fromUndefinedOr(options.search), ({ columns, tokenizer }) => ({
-            columns: Array.map(columns, (field): Column => described[field]),
-            tokenizer: tokenizer === 'trigram' ? tokenizer : { ...tokenizer, name: identifier([tokenizer.configuration, ...tokenizer.filters]) },
-        })),
-        withoutRowid: options.withoutRowid === true,
-        tenant: Option.map(Option.fromUndefinedOr(options.tenant), names.transformQueryNames),
-        retired: { columns: retired, indexes: settled.retiredIndexes.map((columns) => columns.map(names.transformQueryNames)) },
-    };
-};
 
 // --- [DIALECTS]
 const dialects = {
@@ -199,27 +26,19 @@ const dialects = {
     pg: {
         read: ({ name, kind }: Column, scope: string) => (kind === 'int64' ? `${scope}${quote(name)}::text AS ${quote(name)}` : `${scope}${quote(name)}`),
         member: (scope: string, field: string) => `${scope} ->> ${literal(field)}`,
-        element: ({ kind }: Column, text: string) => (kind === 'blob' ? `decode(${text}, 'hex')` : `(${text})::${types.pg[kind]}`),
+        element: ({ kind }: Column, text: string) => (kind === 'blob' ? `decode(${text}, 'hex')` : `(${text})::${dataTypes.pg[kind]}`),
     },
 };
 
 // --- [STATEMENTS]
-const atomic = <A extends object>(statements: Array.NonEmptyReadonlyArray<Statement.Statement<A>>) =>
-    Effect.flatMap(
-        Effect.serviceOption(D1Client.D1Client),
-        Option.match({
-            onSome: (client) => client.batch(statements),
-            onNone: () => SqlClient.SqlClient.use((sql) => sql.withTransaction(Effect.all(statements))),
-        }),
-    );
 const encoded = <S extends Schema.Constraint>(schema: S) => Schema.encodeUnknownEffect(Schema.fromJsonString(schema, { replacer: (_, value) => (value instanceof Uint8Array ? Hex.encode(value) : value) }));
-const table = <const F extends Fields, const O extends Options<F>>(
+const table = <const F extends Fields, const O extends TableOptions<F>>(
     name: string,
     fields: F,
     options: O & ('id' extends Present<F> ? unknown : { readonly key: Array.NonEmptyReadonlyArray<Present<F>> }) & ('inserted' extends keyof F ? never : unknown) & (Extract<keyof F, 'rank' | 'highlight'> extends never ? unknown : { readonly search?: never }),
 ) => {
     const struct = Schema.Struct(fields);
-    const relation = facts(name, fields, options);
+    const relation = definition(name, fields, options);
     const columns = Object.values(relation.columns);
     const written = columns.filter(({ projection }) => Option.isNone(projection));
     const engine = Effect.map(SqlClient.SqlClient, (sql) => {
@@ -316,7 +135,7 @@ const table = <const F extends Fields, const O extends Options<F>>(
                             : sql`SELECT ${reads('')}, ts_rank(${body}, q) AS rank, ${marked((part, open, close) => sql`ts_headline(${sql.literal(literal(tokenizer.name))}, ${sql(part)}, q, ${`StartSel="${open.replaceAll('"', '""')}", StopSel="${close.replaceAll('"', '""')}", HighlightAll=true`})`)} AS highlight FROM ${owner} CROSS JOIN plainto_tsquery(${sql.literal(literal(tokenizer.name))}, ${text}) q WHERE ${body} @@ q ORDER BY rank DESC, ${keys(prefix)} LIMIT ${count}`;
                     },
                     orElse: () => {
-                        const virtual = `${relation.name}_fts`;
+                        const virtual = ftsTable(relation.name);
                         const terms = (tokenizer === 'trigram' ? [text] : text.trim().split(patterns.words)).map((term) => `"${term.replaceAll('"', '""')}"`).join(' ');
                         const marked = Option.match(highlight, { onNone: () => sql.literal('NULL'), onSome: ({ open, close }) => sql`json_object(${sql.csv(searched.flatMap((entry, index) => [literal(entry.field), sql`highlight(${sql(virtual)}, ${sql.literal(`${index}`)}, ${open}, ${close})`]))})` });
                         const gram = 3;
@@ -326,9 +145,9 @@ const table = <const F extends Fields, const O extends Options<F>>(
                 });
             }),
         );
-    return Object.assign(struct, { table: relation, insert, upsert, ensure, select, remove, latest, search });
+    return Object.assign(struct, { definition: relation, insert, upsert, ensure, select, remove, latest, search });
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { actions, atomic, Bytes, type Catalog, type Column, document, identifier, literal, names, quote, type Relation, table, types, Uuid };
+export { table };

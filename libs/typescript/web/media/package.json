@@ -1,7 +1,7 @@
 {
     "name": "@rasm/media",
     "private": true,
-    "description": "Foundation for web apps reading media in the browser: PDF.js documents, sheet rendering and viewing, image renditions, video dimensions, and Uppy upload queues as atoms",
+    "description": "Foundation for web apps reading media in the browser: PDF.js documents, page rendering and viewing, image renditions, video dimensions, and Uppy upload queues as atoms",
     "type": "module",
     "exports": {
         "./*": "./*"

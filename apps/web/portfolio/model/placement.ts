@@ -1,10 +1,14 @@
-import { Array, Context, Effect, Match, Schema, SchemaGetter, SchemaIssue } from 'effect';
-import { type Asset, type AssetCollection, Id, ImageAsset, PdfAsset, Sheet, sheets, VideoAsset } from './asset.ts';
+import { Array, Effect, Match, Schema, SchemaGetter, SchemaIssue } from 'effect';
+import { type Asset, Assets, Id, ImageAsset, PdfAsset, Sheet, sheets, VideoAsset } from './asset.ts';
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const percentBounds = { minimum: 0, maximum: 100 } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const text = { caption: Schema.String, alt: Schema.optionalKey(Schema.String), description: Schema.optionalKey(Schema.String) };
-const percentage = Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: 100 }));
+const percentage = Schema.Finite.check(Schema.isBetween(percentBounds));
 const contain = Schema.Struct({ mode: Schema.Literal('contain') });
 const cover = Schema.Struct({ mode: Schema.Literal('cover'), x: percentage, y: percentage });
 const drawing = Schema.Struct({ ...text, assetId: Id, kind: Schema.Literal('image'), role: Schema.Literal('drawing'), framing: contain });
@@ -57,11 +61,12 @@ const Placement = StoredPlacement.pipe(
         encode: SchemaGetter.transform(({ asset, ...placement }: typeof ResolvedPlacement.Type) => (placement.kind === 'pdf' ? { ...placement, assetId: asset.id, page: placement.page.number } : { ...placement, assetId: asset.id })),
     }),
 );
-const Composition = Schema.Struct({ id: Id, items: Schema.Union([Schema.Tuple([Placement]), Schema.Tuple([Placement, Placement])]), scale: Schema.Literals(['full', 'medium', 'small']), align: Schema.Literals(['left', 'center', 'right']) });
-
-// --- [SERVICES] ------------------------------------------------------------------------
-
-class Assets extends Context.Service<Assets, typeof AssetCollection.Type>()('architectural-portfolio/model/placement/Assets') {}
+const Composition = Schema.Struct({
+    id: Id,
+    items: Schema.Union([Schema.Tuple([Placement]), Schema.Tuple([Placement, Placement])]),
+    scale: Schema.Literals(['full', 'medium', 'small']).pipe(Schema.withConstructorDefault(Effect.succeed('full'))),
+    align: Schema.Literals(['left', 'center', 'right']).pipe(Schema.withConstructorDefault(Effect.succeed('center'))),
+});
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -72,8 +77,11 @@ const placementsFor = (asset: typeof Asset.Type): Array.NonEmptyReadonlyArray<ty
         Match.orElse((image) => [{ kind: 'image', asset: image, caption: '', role: 'drawing', framing: { mode: 'contain' } }] as const),
     );
 const placementDimensions = (placement: typeof Placement.Type) => (placement.kind === 'pdf' ? placement.page : placement.asset);
-const createComposition = (id: string, ...items: typeof Composition.Type.items): typeof Composition.Type => ({ id, items, scale: 'full', align: 'center' });
+const placementRatio = (placement: typeof Placement.Type) => {
+    const { width, height } = placement.kind === 'image' && placement.framing.mode === 'cover' ? { width: 4, height: 3 } : placementDimensions(placement);
+    return width / height;
+};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Assets, Composition, createComposition, Placement, placementDimensions, placementsFor };
+export { Composition, Placement, percentBounds, placementDimensions, placementRatio, placementsFor };

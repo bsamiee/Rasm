@@ -1,4 +1,4 @@
-import { addons } from '@rasm/test-support/preview';
+import { addons } from '@rasm/test-support/preview.ts';
 import { definePreview } from '@storybook/react-vite';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------

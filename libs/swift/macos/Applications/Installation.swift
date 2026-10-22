@@ -11,7 +11,7 @@ private struct InfoFlag: Decodable {
 
     init(from decoder: any Decoder) throws {
         let container: any SingleValueDecodingContainer = try decoder.singleValueContainer()
-        value = try (try? container.decode(Bool.self)) ?? NSString(string: container.decode(String.self)).boolValue
+        value = try Result { try container.decode(Bool.self) }.flatMapError { _ in Result { try NSString(string: container.decode(String.self)).boolValue } }.get()
     }
 }
 

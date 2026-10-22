@@ -10,6 +10,7 @@
         "@rasm/mcp": "workspace:*",
         "@rasm/search": "workspace:*",
         "@rasm/typography": "workspace:*",
+        "amaro": "catalog:",
         "effect": "catalog:"
     },
     "devDependencies": {

@@ -1,6 +1,6 @@
 import { PgClient, PgTypes } from '@effect/sql-pg';
 import { DateTime, Function, flow, Redacted, Result, Schema } from 'effect';
-import { names } from './table.ts';
+import { transforms } from './lexical.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -15,8 +15,8 @@ decoders.forEach(([oid, decode]) => {
     types.register(oid, { decode, encode: (value: unknown) => PgTypes.encode(value, oid) });
 });
 const parsers = { [PgTypes.OID.bool]: (text: string) => Number(text === 't'), [PgTypes.OID.jsonb]: Function.identity<string>, [PgTypes.OID.timestamptz]: flow(DateTime.makeUnsafe<string>, DateTime.formatIso) };
-const direct = (url: Redacted.Redacted) => PgClient.layer({ url, ...names, types });
-const hyperdrive = (binding: Hyperdrive) => PgClient.layerFrom(PgClient.makeClient({ url: Redacted.make(binding.connectionString), ...names, types, prepare: false }));
+const direct = (url: Redacted.Redacted) => PgClient.layer({ url, ...transforms, types });
+const hyperdrive = (binding: Hyperdrive) => PgClient.layerFrom(PgClient.makeClient({ url: Redacted.make(binding.connectionString), ...transforms, types, prepare: false }));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

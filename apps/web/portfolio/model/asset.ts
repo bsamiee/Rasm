@@ -1,8 +1,9 @@
-import { Array, Schema } from 'effect';
+import { Array, Context, Schema } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const uploadLimit = 100_000_000;
+const mediaPath = '/api/media/:id/:width?';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -26,10 +27,15 @@ const Asset = Schema.Union([ImageAsset, VideoAsset, PdfAsset]);
 const AssetCollection = Schema.Record(Schema.String, Asset);
 const mediaTypes = Asset.members.flatMap((member) => member.fields.mime.literals);
 
+// --- [SERVICES] ------------------------------------------------------------------------
+
+class Assets extends Context.Service<Assets, typeof AssetCollection.Type>()('architectural-portfolio/model/asset/Assets') {}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const sheets = ({ pages }: PdfAsset) => Array.map(pages, (page, index) => ({ ...page, number: index + 1 }));
+const mediaUrl = (asset: typeof Asset.Type, width?: number) => `/api/media/${asset.id}${width === undefined ? '' : `/${width}`}`;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Asset, AssetCollection, Id, ImageAsset, mediaTypes, PdfAsset, Sheet, sheets, uploadLimit, VideoAsset };
+export { Asset, AssetCollection, Assets, Id, ImageAsset, mediaPath, mediaTypes, mediaUrl, PdfAsset, Sheet, sheets, uploadLimit, VideoAsset };

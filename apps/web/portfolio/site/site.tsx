@@ -1,16 +1,17 @@
 import { useAtomValue } from '@effect/atom-react';
-import { sessionPath } from '@rasm/hosting/sites.ts';
+import { sessionPath } from '@rasm/hosting/authentication/sites.ts';
 import { openDialogs } from '@rasm/ui/dialogs.ts';
 import { ArrowDown, ArrowUp, Plus } from 'lucide-react';
 import { MotionConfig } from 'motion/react';
 import { lazy, type ReactNode, type RefObject, Suspense, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { Button, Dialog, DialogTrigger, Heading, Modal, ModalOverlay } from 'react-aria-components';
 import { ErrorBoundary } from 'react-error-boundary';
-import { MediaFigure } from '../media/figure.tsx';
-import type { PortfolioData, Session } from '../model/document.ts';
+import { MediaFigure } from '../media/media-figure.tsx';
+import type { PortfolioData } from '../model/portfolio.ts';
+import type { Session } from '../model/shell.ts';
 import { Chapter } from './chapter.tsx';
-import { ProjectIndex, StickyBar } from './contents.tsx';
 import { useNavigation } from './navigation.ts';
+import { StickyBar, WorkIndex } from './work-index.tsx';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -99,7 +100,7 @@ const Site = ({ initial, session }: { initial: typeof PortfolioData.Type; sessio
                     />
                 </Account>
             </header>
-            <ProjectIndex navigation={navigation} portfolio={portfolio} />
+            <WorkIndex navigation={navigation} portfolio={portfolio} />
             <StickyBar navigation={navigation} portfolio={portfolio} ref={sticky}>
                 {preview && (
                     <div className="bg-foreground text-background text-caption flex items-center gap-3.75 px-6 py-2 max-sm:flex-wrap max-sm:gap-1 max-sm:px-4">
@@ -157,8 +158,8 @@ const Site = ({ initial, session }: { initial: typeof PortfolioData.Type; sessio
                         <div className="border-foreground border-t pt-4.75">
                             <h2 className="work-title">Projects and studies</h2>
                         </div>
-                        {portfolio.entries.map((entry, index) => (
-                            <Chapter entry={entry} index={index} key={entry.id} navigation={navigation} />
+                        {portfolio.entries.map((entry) => (
+                            <Chapter entry={entry} key={entry.id} navigation={navigation} />
                         ))}
                         {!populated && (
                             <div className="pt-15.5 pb-3 max-sm:pt-10.5 max-sm:pb-0">

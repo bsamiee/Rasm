@@ -193,22 +193,23 @@ Find/Change scopes save, load, and delete a native query. Native serialization p
 ```ts
 import type { Page, PageItem } from 'adobe:indesign';
 
-const Box = Schema.Struct(Struct.Record(['top', 'left', 'bottom', 'right'], Schema.Finite));
-const extent = Effect.fn('extent')(function* (...placed: readonly (Page | PageItem)[]) {
-    const { AnchorPoint, BoundingBoxLimits, CoordinateSpaces } = yield* Model;
-    return yield* Effect.try({
-        try: () => {
-            const corners: ReadonlyArray<readonly [number, number]> = Array.flatMap(Array.cartesian(placed, [AnchorPoint.TOP_LEFT_ANCHOR, AnchorPoint.BOTTOM_RIGHT_ANCHOR]), ([each, anchor]) =>
-                each.resolve([anchor, BoundingBoxLimits.OUTER_STROKE_BOUNDS, CoordinateSpaces.SPREAD_COORDINATES], CoordinateSpaces.SPREAD_COORDINATES),
-            );
-            return Struct.makeReducer<typeof Box.Type>({ top: Number.ReducerMin, left: Number.ReducerMin, bottom: Number.ReducerMax, right: Number.ReducerMax }).combineAll(Array.map(corners, ([x, y]) => ({ top: y, left: x, bottom: y, right: x })));
-        },
-        catch: (cause) => new Cause.UnknownError(cause, `extent of ${Array.map(placed, (each) => each.toSpecifier()).join(', ')}`),
+class Extent extends Schema.Class<Extent, { readonly brand: unique symbol }>('Extent')(Struct.Record(['top', 'left', 'bottom', 'right'], Schema.Finite)) {
+    static readonly of = Effect.fn('Extent.of')(function* (...placed: readonly (Page | PageItem)[]) {
+        const { AnchorPoint, BoundingBoxLimits, CoordinateSpaces } = yield* Model;
+        return yield* Effect.try({
+            try: () => {
+                const corners: ReadonlyArray<readonly [number, number]> = Array.flatMap(Array.cartesian(placed, [AnchorPoint.TOP_LEFT_ANCHOR, AnchorPoint.BOTTOM_RIGHT_ANCHOR]), ([each, anchor]) =>
+                    each.resolve([anchor, BoundingBoxLimits.OUTER_STROKE_BOUNDS, CoordinateSpaces.SPREAD_COORDINATES], CoordinateSpaces.SPREAD_COORDINATES),
+                );
+                return Extent.make(Struct.makeReducer<typeof Extent.Encoded>({ top: Number.ReducerMin, left: Number.ReducerMin, bottom: Number.ReducerMax, right: Number.ReducerMax }).combineAll(Array.map(corners, ([x, y]) => ({ top: y, left: x, bottom: y, right: x }))));
+            },
+            catch: (cause) => new Cause.UnknownError(cause, `extent of ${Array.map(placed, (each) => each.toSpecifier()).join(', ')}`),
+        });
     });
-});
+}
 ```
 
-`extent` returns spread points with x 0 at a facing-pages spread's spine and at the center of any other spread. The bounds-space anchor form reads anchored items the two-element form misreads, and folding corners keeps a rotated group's box tight where four corners per item overstate it.
+`Extent.of` returns spread points with x 0 at a facing-pages spread's spine and at the center of any other spread. The bounds-space anchor form reads anchored items the two-element form misreads, and folding corners keeps a rotated group's box tight where four corners per item overstate it.
 
 - `page.parent.resolve([[0, 0], page.index], CoordinateSpaces.SPREAD_COORDINATES, true)` locates a page's ruler origin in spread space
 - `geometricBounds` orders `[top, left, bottom, right]` in ruler units
@@ -217,7 +218,7 @@ const extent = Effect.fn('extent')(function* (...placed: readonly (Page | PageIt
 - `spread.pageItems.everyItem().getElements()` lists front to back, and `page.pageItems` lists its base layer first
 - `effectivePpi` reads per item of `allGraphics`, a bulk `everyItem().effectivePpi` returns `undefined`
 - `marginPreferences.left` is the inside margin on a facing page, and `page.side` names the side
-- Anchor-point `resolve` on a `Spread` reads the spread with its pasteboard, and a spread's pages come from `extent` over those pages
+- Anchor-point `resolve` on a `Spread` reads the spread with its pasteboard, and a spread's pages come from `Extent.of` over those pages
 
 ## [07]-[EXPORT]
 
@@ -225,10 +226,11 @@ Export reads app-wide preferences another script left, fails with no throw under
 
 ```ts
 import type { Page } from 'adobe:indesign';
+import { temporary } from '@rasm/indesign/dom/files.ts';
 
 const rendered = Effect.fn('rendered')(function* (page: Page, pixels: number) {
-    const [{ app, ExportFormat, PNGExportRangeEnum, temporary }, { fs }] = yield* Effect.all([Model, Uxp]);
-    const { top, left, bottom, right } = yield* extent(page);
+    const [{ app, ExportFormat, PNGExportRangeEnum }, { fs }] = yield* Effect.all([Model, Uxp]);
+    const { top, left, bottom, right } = yield* Extent.of(page);
     const refused = (cause: unknown) => new Cause.UnknownError(cause, `export of ${page.toSpecifier()}`);
     const pointsPerInch = 72;
     const path = yield* temporary('render.png');
@@ -248,7 +250,7 @@ const rendered = Effect.fn('rendered')(function* (page: Page, pixels: number) {
 }, Effect.scoped);
 ```
 
-`Model` holds `temporary`, a path in the folder ExtendScript `Folder.temp` names that scope release removes through `File(<path>).remove()`, synchronous in plug-ins and scripts alike. `exportFile` takes the path, and `fs` takes it as a `file:` URL. Page pixel size is points times `exportResolution` (1 to 2400) over 72.
+`temporary` in `dom/files.ts` reads `Model` for a path in the folder ExtendScript `Folder.temp` names that scope release removes through `File(<path>).remove()`, synchronous in plug-ins and scripts alike. `exportFile` takes the path, and `fs` takes it as a `file:` URL. Page pixel size is points times `exportResolution` (1 to 2400) over 72.
 
 - Leftover `pageString` from another script makes a one-page export write nothing unless range and page are set together
 - `exportFile` on an item ignores the page range and writes nothing for a zero-area item, and `exportingSpread` true exports the whole spread
@@ -312,9 +314,10 @@ Searches and changes run in one sequence:
 
 ```ts
 import type { Font } from 'adobe:indesign';
+import { temporary } from '@rasm/indesign/dom/files.ts';
 
 const source = Effect.fn('source')(function* (face: Font, characters: string) {
-    const [{ FontStatus, temporary }, { fs }] = yield* Effect.all([Model, Uxp]);
+    const [{ FontStatus }, { fs }] = yield* Effect.all([Model, Uxp]);
     const bytes = (path: string) => Effect.try(() => new Uint8Array(fs.readFileSync(path)));
     const subset = Effect.flatMap(temporary('font.otf'), (path) => Effect.andThen(Effect.try(() => face.createSubsetFont(characters, path)), bytes(`file:${path}`)));
     return face.status.equals(FontStatus.INSTALLED)

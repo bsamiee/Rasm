@@ -3,6 +3,10 @@
     "private": true,
     "description": "Architectural portfolio publishing projects and studies as one server-rendered page, with owner-only editor",
     "type": "module",
+    "exports": {
+        "./package.json": "./package.json",
+        "./server/*": "./server/*"
+    },
     "dependencies": {
         "@effect/atom-react": "catalog:",
         "@effect/platform-browser": "catalog:",

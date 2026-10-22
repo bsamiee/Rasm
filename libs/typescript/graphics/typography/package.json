@@ -4,7 +4,7 @@
     "description": "Foundation for font-aware apps and extensions: opens a face of a font file or collection by PostScript name at a named, generated, or set instance and point size, reads its names, coverage, metrics, embedding rights, language systems, features, axes, instances, and color data, and shapes text runs with feature settings, language, script, and direction",
     "type": "module",
     "exports": {
-        "./*": "./*.ts"
+        "./*": "./*"
     },
     "dependencies": {
         "@rasm/search": "workspace:*",

@@ -4,7 +4,7 @@
     "description": "InDesign's object model as verbs and views: inspect, change, create, remove, script, find and change, render, fonts, preflight, menus, and the contract an InDesign extension serves",
     "type": "module",
     "exports": {
-        "./*": "./*.ts"
+        "./*": "./*"
     },
     "dependencies": {
         "@rasm/search": "workspace:*",

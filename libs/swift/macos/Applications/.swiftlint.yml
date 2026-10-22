@@ -1,0 +1,2 @@
+legacy_objc_type:
+    allowed_types: [NSNumber, NSString]

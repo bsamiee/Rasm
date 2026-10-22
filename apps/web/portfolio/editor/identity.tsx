@@ -1,13 +1,13 @@
 import { useAtomSet } from '@effect/atom-react';
-import { sessionPath } from '@rasm/hosting/sites.ts';
+import { sessionPath } from '@rasm/hosting/authentication/sites.ts';
+import { Field } from '@rasm/ui/field.tsx';
 import { Optic, Struct } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
-import { MediaFigure } from '../media/figure.tsx';
+import { MediaFigure } from '../media/media-figure.tsx';
 import type { AssetCollection } from '../model/asset.ts';
-import type { Portfolio } from '../model/document.ts';
-import { Field } from './controls.tsx';
-import { PlacementFields } from './placement.tsx';
-import { draft, hero } from './services.ts';
+import type { Portfolio } from '../model/portfolio.ts';
+import { PlacementFields } from './placement-fields.tsx';
+import { draft, hero } from './state.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 

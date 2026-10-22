@@ -5,15 +5,17 @@ import { AsyncResult, type Atom } from 'effect/reactivity';
 import { ArrowLeft, X } from 'lucide-react';
 import { lazy, type ReactNode, Suspense, useEffect, useId, useRef, useState } from 'react';
 import { Button, Dialog, Heading, type Key, Modal, ModalOverlay, Tab, TabList, TabPanel, Tabs, Text } from 'react-aria-components';
-import { entryTitle, quantity } from '../media/display.ts';
-import { Entry, type Portfolio, type PortfolioData } from '../model/document.ts';
+import { entryTitle, quantity } from '../media/labels.ts';
+import { Entry, type Portfolio, type PortfolioData } from '../model/portfolio.ts';
 import { Compositions } from './compositions.tsx';
-import { ConfirmDialog, RequestAlert } from './controls.tsx';
+import { ConfirmDialog } from './confirm-dialog.tsx';
 import { EntryFields, EntryList } from './entries.tsx';
 import { Identity } from './identity.tsx';
 import { Library } from './library.tsx';
-import { ReuseFile } from './reuse.tsx';
-import { deleteRequest, draft, identifier, portfolio, reloadRequest, saveRequest } from './services.ts';
+import { RequestAlert } from './request-alert.tsx';
+import { ReuseFile } from './reuse-file.tsx';
+import { deleteRequest, draft, identifier, portfolio, reloadRequest, saveRequest } from './state.ts';
+import { UploadRecovery } from './upload-recovery.tsx';
 import { destination, pendingUploads } from './uploader.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -239,6 +241,7 @@ const DraftEditor = ({ published, onPreview, ...state }: Atom.Success<typeof dra
                         <Suspense fallback={<p role="status">Loading files…</p>}>
                             <Uploads assets={state.assets} entries={state.portfolio.entries} onChoose={chooseSource} />
                         </Suspense>
+                        <UploadRecovery />
                         <Library assets={state.assets} onSelect={setSource} onUse={chooseSource} portfolio={state.portfolio} published={published} sourceId={source} />
                     </TabPanel>
                     <TabPanel className="editor-panel" id={`${ids}identity`} shouldForceMount={true}>

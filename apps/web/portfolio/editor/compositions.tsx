@@ -1,17 +1,18 @@
 import { useAtomSet } from '@effect/atom-react';
-import { ReorderableList } from '@rasm/ui/reorderable.tsx';
+import { MenuButton } from '@rasm/ui/menu-button.tsx';
+import { ReorderableList } from '@rasm/ui/reorderable-list.tsx';
 import { Array, Effect, String, Struct } from 'effect';
 import { AsyncResult } from 'effect/reactivity';
 import { useState } from 'react';
 import { Button } from 'react-aria-components';
-import { CompositionGrid } from '../media/composition.tsx';
-import { compositionLabel, entryTitle, placementTitle, quantity } from '../media/display.ts';
+import { CompositionGrid } from '../media/composition-grid.tsx';
+import { compositionLabel, entryTitle, placementTitle, quantity } from '../media/labels.ts';
 import type { AssetCollection } from '../model/asset.ts';
-import type { Entry } from '../model/document.ts';
 import { Composition } from '../model/placement.ts';
-import { ConfirmDialog, MenuButton } from './controls.tsx';
-import { PlacementFields } from './placement.tsx';
-import { draft, identifier, updateEntry } from './services.ts';
+import type { Entry } from '../model/portfolio.ts';
+import { ConfirmDialog } from './confirm-dialog.tsx';
+import { PlacementFields } from './placement-fields.tsx';
+import { draft, identifier, updateEntry } from './state.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -26,8 +27,8 @@ const CompositionEditor = ({ assets, entry, item }: { assets: typeof AssetCollec
             <CompositionGrid active={true} composition={item} presentation="preview" renderMedia={true} />
             <div className="field-pair">
                 {[
-                    { legend: 'Scale', options: Composition.fields.scale.literals.map((scale) => ({ value: scale, checked: item.scale === scale, next: { ...item, scale } })) },
-                    { legend: 'Alignment', options: Composition.fields.align.literals.map((align) => ({ value: align, checked: item.align === align, next: { ...item, align } })) },
+                    { legend: 'Scale', options: Composition.fields.scale.schema.literals.map((scale) => ({ value: scale, checked: item.scale === scale, next: { ...item, scale } })) },
+                    { legend: 'Alignment', options: Composition.fields.align.schema.literals.map((align) => ({ value: align, checked: item.align === align, next: { ...item, align } })) },
                 ].map(({ legend, options }) => (
                     <fieldset className="min-w-0" key={legend}>
                         <legend className="text-muted mb-2 text-xs">{legend}</legend>

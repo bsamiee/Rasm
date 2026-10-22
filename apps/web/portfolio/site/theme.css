@@ -22,6 +22,7 @@
     --color-muted: rgb(105 105 101);
     --color-surface: rgb(240 240 237);
     --container-intro: 60rem;
+    --content-ordinal: "[" counter(ordinal, decimal-leading-zero) "]";
     --font-mono: ui-monospace, SFMono-Regular, Consolas, monospace;
     --font-sans: Arial, Helvetica, sans-serif;
     --grid-template-columns-leading: max-content minmax(0, 1fr);
@@ -127,6 +128,7 @@
     }
 }
 @utility site-work {
+    counter-reset: ordinal;
     @apply pt-20.5 pb-18 outline-none max-md:py-15;
 }
 @utility site-footer {
@@ -160,10 +162,11 @@
         height: clamp(240px, 52vw, 420px);
     }
 }
-@utility project-index {
+@utility work-index {
     @apply fixed top-39.25 bottom-8.75 left-(--page-gutter) flex w-(--index-width) flex-col max-md:hidden;
 }
 @utility index-list {
+    counter-reset: ordinal;
     scrollbar-width: thin;
     @apply -mx-1 grid grid-cols-leading overflow-auto overscroll-contain px-1 pb-1;
 }
@@ -171,6 +174,10 @@
     font-size: var(--text-sm);
     line-height: 1.45;
     @apply col-span-full grid min-h-11 grid-cols-subgrid items-baseline gap-x-3 border-line border-t py-3.25 focus-visible:-outline-offset-2;
+}
+@utility ordinal {
+    counter-increment: ordinal;
+    @apply before:content-ordinal;
 }
 @utility chapter {
     @apply border-line border-b pt-14 pb-16 last:border-b-0 max-md:pt-10 max-md:pb-12;
@@ -385,7 +392,6 @@
 
 @theme {
     --breakpoint-editor: 800px;
-    --content-ordinal: "[" counter(ordinal, decimal-leading-zero) "]";
     --grid-template-columns-sequence: 15rem minmax(0, 1fr);
     --grid-template-columns-sheets: repeat(auto-fit, minmax(min(100%, 140px), 1fr));
 }
@@ -408,8 +414,7 @@
     counter-reset: ordinal;
     & .react-aria-GridListItem {
         grid-template-columns: auto auto minmax(0, 1fr) auto;
-        counter-increment: ordinal;
-        @apply grid items-center gap-x-1 border-line border-t bg-background dragging:opacity-50 before:col-start-3 before:row-start-1 before:whitespace-nowrap before:font-mono before:text-muted before:text-xs before:content-ordinal;
+        @apply ordinal grid items-center gap-x-1 border-line border-t bg-background dragging:opacity-50 before:col-start-3 before:row-start-1 before:whitespace-nowrap before:font-mono before:text-muted before:text-xs;
         & [role="gridcell"] > * {
             grid-column: 1 / -1;
         }
@@ -422,7 +427,7 @@
         }
         & [role="gridcell"] > [aria-haspopup] {
             grid-area: 1 / 4;
-            @apply button bg-transparent px-2 text-muted text-xs;
+            @apply button border-0 bg-transparent px-2 text-muted text-xs;
         }
     }
     & .react-aria-CheckboxButton {
@@ -445,11 +450,49 @@
             @apply border-accent-text bg-accent-text text-background;
         }
     }
+    .react-aria-TextField,
+    .react-aria-Select {
+        @apply field;
+    }
+    .react-aria-Slider {
+        @apply grid min-w-0 grid-cols-trailing gap-1.75 text-caption text-muted;
+    }
+    .react-aria-Input {
+        @apply control;
+    }
+    .react-aria-TextArea {
+        @apply control min-h-22.5 resize-y;
+    }
+    .react-aria-TextField [slot="description"] {
+        @apply hint mt-3.25;
+    }
+    .react-aria-Button[aria-haspopup="true"] {
+        @apply button button-outline max-w-full min-w-0 text-left wrap-anywhere whitespace-normal;
+    }
+    .react-aria-Select .react-aria-Button {
+        @apply control flex items-center justify-between gap-2 text-left;
+    }
+    .react-aria-SelectValue {
+        @apply min-w-0 truncate placeholder-shown:text-muted;
+    }
+    .react-aria-Select .lucide-chevron-down {
+        @apply size-4 shrink-0;
+    }
+    .react-aria-SliderTrack {
+        @apply relative col-span-full h-11 w-full before:absolute before:top-1/2 before:h-0.5 before:w-full before:-translate-y-1/2 before:bg-control-line;
+    }
+    .react-aria-SliderThumb {
+        @apply top-1/2 size-4 rounded-full bg-accent-text dragging:bg-accent;
+    }
     .react-aria-Popover {
         @apply editor-popover;
     }
+    .react-aria-ListBox,
     .react-aria-Menu {
         @apply outline-none;
+    }
+    .react-aria-ListBoxItem {
+        @apply editor-option selected:underline selected:underline-offset-4;
     }
     .react-aria-MenuItem {
         @apply editor-option;

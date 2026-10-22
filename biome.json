@@ -99,12 +99,13 @@
             }
         },
         { "includes": [ "**/*.tsx" ], "linter": { "domains": { "react": "all" } } },
-        { "includes": [ "**/*.config.ts", "**/worker/index.ts", "tools/nx/release.ts", "**/.storybook/*.{ts,tsx}", "tools/ast-grep/grammars/*/grammar.js" ], "linter": { "rules": { "style": { "noDefaultExport": "off" } } } },
+        { "includes": [ "**/*.config.ts", "**/server/worker.ts", "tools/nx/release.ts", "**/.storybook/*.{ts,tsx}", "tools/ast-grep/grammars/*/grammar.js" ], "linter": { "rules": { "style": { "noDefaultExport": "off" } } } },
         { "includes": [ "**/.storybook/*.stories.tsx" ], "linter": { "rules": { "style": { "useComponentExportOnlyModules": "off" } } } },
         { "includes": [ "**/cloudflare.config.ts" ], "linter": { "rules": { "performance": { "noNamespaceImport": "off" } } } },
         { "includes": [ "tests/typescript/e2e-*/**", "tests/typescript/support/{app,playwright}.ts" ], "linter": { "rules": { "style": { "useConsistentTestIt": "off" } } } },
         { "includes": [ "tests/typescript/libs/data/database/cases.ts" ], "linter": { "rules": { "suspicious": { "useExpect": "off" } } } },
         { "includes": [ "plugins/function-hooks/**" ], "linter": { "rules": { "correctness": { "noUndeclaredDependencies": "off" } } } },
+        { "includes": [ "libs/typescript/ai/mcp/rpc.ts" ], "linter": { "rules": { "style": { "noMagicNumbers": "off" } } } },
         { "includes": [ "biome.json", "nx.json", "package.json" ], "json": { "formatter": { "expand": "never" } } }
     ]
 }

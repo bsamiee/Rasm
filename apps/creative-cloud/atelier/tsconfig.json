@@ -3,5 +3,6 @@
     "compilerOptions": {
         "types": [ "node", "@adobe-uxp-types/uxp/with-protocol" ],
         "paths": { "adobe:indesign": [ "./node_modules/indesign-uxp-types/flat/module.d.ts" ] }
-    }
+    },
+    "include": [ "*.ts", "features/*.ts" ]
 }

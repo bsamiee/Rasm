@@ -4,10 +4,11 @@
     "description": "Drives installed Adobe applications from Node through a Swift helper process, with the frontmost application unchanged",
     "sideEffects": false,
     "type": "module",
-    "exports": "./main.ts",
+    "exports": {
+        "./*": "./*"
+    },
     "dependencies": {
         "@rasm/search": "workspace:*",
-        "amaro": "catalog:",
         "effect": "catalog:"
     },
     "devDependencies": {

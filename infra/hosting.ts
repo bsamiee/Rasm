@@ -7,9 +7,10 @@ import { IamPolicy, IamUser, IamUserPolicyAttachment, Provider, S3Bucket } from 
 import { Extension, Grant, Provider as PostgresProvider, Schema as PostgresSchema, type ProviderArgs, Role, type RoleArgs } from '@pulumi/postgresql';
 import { type CustomResourceOptions, type Input, interpolate, jsonStringify, secret } from '@pulumi/pulumi';
 import { RandomInteger, RandomPassword } from '@pulumi/random';
-import { Bindings, migrator } from '@rasm/hosting/bindings.ts';
-import { contract } from '@rasm/hosting/sites.ts';
-import { environment } from '@rasm/hosting/vite.ts';
+import { type Access, accessBinding } from '@rasm/hosting/authentication/access.ts';
+import { contract } from '@rasm/hosting/authentication/sites.ts';
+import { migratorVariable, WorkerConfig } from '@rasm/hosting/cloudflare/worker-config.ts';
+import { output } from '@rasm/hosting/node/vite.ts';
 import { Array, type Cause, Config, Effect, FileSystem, Function, Match, Path, Record, Redacted, Result, Schema } from 'effect';
 import { resolveConfig } from 'vite';
 
@@ -40,7 +41,7 @@ const postgres = (resource: string, server: ProviderArgs & { readonly database: 
     };
 };
 const targets = {
-    cloudflare: Effect.fnUntraced(function* ({ rootConfig, workers }: BuildOutput, { env, triggers }: typeof Bindings.Type, { name, hostnames, protect }: Stack) {
+    cloudflare: Effect.fnUntraced(function* ({ rootConfig, workers }: BuildOutput, { env, triggers }: typeof WorkerConfig.Type, { name, hostnames, protect }: Stack) {
         const { config, bundleDir, assetsDir } = workers.default;
         const [path, accountId] = yield* Effect.all([Path.Path, rootConfig.accountId === undefined ? Config.String('CLOUDFLARE_ACCOUNT_ID') : Config.succeed(rootConfig.accountId)]);
         const worker = new Worker(name, { accountId, name, logpush: config.logpush, observability: config.observability, subdomain: { enabled: config.workersDev ?? true, previewsEnabled: config.previewUrls } });
@@ -71,7 +72,7 @@ const targets = {
                                     type: 'hyperdrive',
                                     id: new HyperdriveConfig(resource, { accountId, name: resource, origin: { scheme: url.protocol.slice(0, -1), host: url.hostname, port, database, user: runtime.user, password: runtime.password }, caching: { disabled: true } }).id,
                                 },
-                                { name: migrator(variable), type: 'secret_text', text: interpolate`${url.protocol}//${owner.user}:${owner.password}@${url.host}${url.pathname}${url.search}` },
+                                { name: migratorVariable(variable), type: 'secret_text', text: interpolate`${url.protocol}//${owner.user}:${owner.password}@${url.host}${url.pathname}${url.search}` },
                             ];
                         }),
                     secret: () => Effect.map(Config.Redacted(variable), (value) => [{ name: variable, type: 'secret_text', text: secret(Redacted.value(value)) }]),
@@ -108,7 +109,7 @@ const targets = {
                       })),
                   }),
             assets: assetsDir === undefined ? undefined : { directory: assetsDir, config: config.assets },
-            bindings: [...bindings.flat(), { name: 'ACCESS', type: 'json', json: jsonStringify({ team: interpolate`https://${getZeroTrustOrganizationOutput({ accountId }).authDomain}`, aud: access.aud }) }],
+            bindings: [...bindings.flat(), { name: accessBinding, type: 'json', json: jsonStringify({ team: interpolate`https://${getZeroTrustOrganizationOutput({ accountId }).authDomain}`, aud: access.aud } satisfies Record<keyof Access, Input<string>>) }],
             deploy: true,
         });
         return {
@@ -118,9 +119,9 @@ const targets = {
             routes: triggers.map(({ pattern, zone }) => new WorkersRoute(`${name}-${pattern}`, { zoneId: getZoneOutput({ filter: { name: zone, account: { id: accountId } } }).zoneId, pattern, script: worker.name }, { dependsOn: [version] }).pattern),
         };
     }),
-    docker: Effect.fnUntraced(function* ({ root, workers }: BuildOutput, { env }: typeof Bindings.Type, { name, hostnames, protect }: Stack) {
+    docker: Effect.fnUntraced(function* ({ root, workers }: BuildOutput, { env }: typeof WorkerConfig.Type, { name, hostnames, protect }: Stack) {
         const [path, assets, email, resolved] = yield* Effect.all([Path.Path, Effect.fromNullishOr(workers.default.assetsDir), Config.String('OWNER_EMAIL'), Effect.tryPromise(() => resolveConfig({ root }, 'build', 'production'))]);
-        const { build } = yield* Effect.fromNullishOr(resolved.environments[environment]);
+        const { build } = yield* Effect.fromNullishOr(resolved.environments[output.environment]);
         const port = 8080;
         const sites = Array.match(hostnames, { onEmpty: () => [`${name}.localhost`], onNonEmpty: Function.identity });
         const [internal, edge] = [new Network(name, { name, internal: true }), new Network(`${name}-edge`, { name: `${name}-edge` })];
@@ -166,7 +167,7 @@ const targets = {
                             volumes: [volume(database, '/var/lib/postgresql')],
                         });
                         const urls = Record.map(postgres(database, { ...address, database: 'postgres', username: 'postgres', password: result, sslmode: 'disable' }, protect, { dependsOn: server }), ({ user, password: key }) => interpolate`postgres://${user}:${key}@${server.name}:5432/postgres`);
-                        return Effect.succeed({ [variable]: urls.runtime, [migrator(variable)]: urls.migrator });
+                        return Effect.succeed({ [variable]: urls.runtime, [migratorVariable(variable)]: urls.migrator });
                     },
                     secret: () => Effect.map(Config.Redacted(variable), (value) => ({ [variable]: secret(Redacted.value(value)) })),
                     text: ({ value }) => Effect.succeed({ [variable]: value }),
@@ -182,7 +183,7 @@ const targets = {
                 buildOnPreview: false,
                 tags: [`${name}:latest`],
                 context: { location: path.resolve(resolved.root, build.outDir), named: { assets: { location: assets } } },
-                dockerfile: { inline: [`FROM node:${process.versions.node}-slim`, 'WORKDIR /app', 'COPY --from=assets . assets', 'COPY . .', `ENV PORT=${port}`, 'CMD ["node", "index.js"]'].join('\n') },
+                dockerfile: { inline: [`FROM node:${process.versions.node}-slim`, 'WORKDIR /app', `COPY --from=assets . ${output.assets}`, 'COPY . .', `ENV PORT=${port}`, `CMD ["node", "${output.entry}.js"]`].join('\n') },
             }).digest,
             {
                 envs: [...new Map(variables.flatMap(Record.toEntries))].map(([variable, value]) => interpolate`${variable}=${value}`),
@@ -258,16 +259,16 @@ const targets = {
 const hosting = Effect.fn('hosting')(function* (directory: string, target: keyof typeof targets, disposable: boolean) {
     const [fs, build, context] = yield* Effect.all([FileSystem.FileSystem, Effect.tryPromise(() => readBuildOutput(directory)), Effect.context<Path.Path>()]);
     const { config, configPath } = build.workers.default;
-    const bindings = yield* fs.readFileString(configPath).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(Bindings))));
+    const workerConfig = yield* fs.readFileString(configPath).pipe(Effect.flatMap(Schema.decodeUnknownEffect(Schema.fromJsonString(WorkerConfig))));
     const name = disposable ? `${config.name}-disposable` : config.name;
-    const hostnames = bindings.domains.flatMap((domain) =>
+    const hostnames = workerConfig.domains.flatMap((domain) =>
         Match.value(domain).pipe(
             Match.when(Match.string, (hostname) => [hostname]),
             Match.when({ production: true }, ({ hostname }) => [hostname]),
             Match.orElse(() => []),
         ),
     );
-    return { projectName: 'rasm-hosting', stackName: `${name}.${target}`, program: () => Effect.runPromiseWith(context)<Record<string, unknown>, Config.ConfigError | Cause.NoSuchElementError | Cause.UnknownError>(targets[target](build, bindings, { name, hostnames, protect: !disposable })) };
+    return { projectName: 'rasm-hosting', stackName: `${name}.${target}`, program: () => Effect.runPromiseWith(context)<Record<string, unknown>, Config.ConfigError | Cause.NoSuchElementError | Cause.UnknownError>(targets[target](build, workerConfig, { name, hostnames, protect: !disposable })) };
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
