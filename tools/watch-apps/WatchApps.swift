@@ -2,20 +2,22 @@ import AppKit
 import Applications
 import ArgumentParser
 import AsyncAlgorithms
+import CasePaths
 import Encoding
 import OrderedCollections
 import Results
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+@CasePathable
 enum Line: Encodable, Sendable {
     case states(OrderedDictionary<NSRunningApplication, InstanceState>)
     case fail(String)
 
     static func answering(_ states: OrderedDictionary<NSRunningApplication, InstanceState>) -> Self {
         .states(
-            states.filter { _, state in if case .running(status: .launching) = state { false } else { true } }.mapValues { state in
-                if case .running(status: .responding(let elements)) = state { .running(status: .responding(elements: elements.filter(\.requiresAnswer))) } else { state }
+            states.filter { _, state in !state.is(\.running.launching) }.mapValues { state in
+                state[case: \.running.responding].map { elements in .running(status: .responding(elements: elements.filter(\.requiresAnswer))) } ?? state
             }
         )
     }
@@ -51,7 +53,7 @@ struct WatchApps: AsyncParsableCommand {
         }()
         let written: (failed: Bool, printed: [String: Data]) = try await lines.reduce(into: (false, [:])) { @MainActor written, entry in
             let data: Data = try encoder.encodeLine([entry.key: entry.line])
-            if case .fail = entry.line { written.failed = true }
+            if entry.line.is(\.fail) { written.failed = true }
             if written.printed.updateValue(data, forKey: entry.key) != data { try FileHandle.standardOutput.write(contentsOf: data) }
         }
         Self.exit(withError: written.failed ? ExitCode.failure : nil)

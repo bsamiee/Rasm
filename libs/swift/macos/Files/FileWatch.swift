@@ -17,7 +17,7 @@ public enum FileWatchFailure: LocalizedError {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-public enum FileWatch {
+public enum FileWatch: Sendable {
     public static func events(of file: URL) -> AsyncStream<Result<[URL], FileWatchFailure>> {
         AsyncStream { continuation in
             let watcher: Watcher = Watcher(continuation: continuation)

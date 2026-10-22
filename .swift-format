@@ -11,7 +11,6 @@
         "AlwaysUseLowerCamelCase": true,
         "AmbiguousTrailingClosureOverload": true,
         "AvoidRetroactiveConformances": true,
-        "BeginDocumentationCommentWithOneLineSummary": true,
         "DoNotUseSemicolons": true,
         "DontRepeatTypeInStaticProperties": true,
         "FileScopedDeclarationPrivacy": true,
@@ -23,7 +22,6 @@
         "NeverUseImplicitlyUnwrappedOptionals": true,
         "NoAccessLevelOnExtensionDeclaration": true,
         "NoAssignmentInExpressions": true,
-        "NoBlockComments": true,
         "NoEmptyLinesOpeningClosingBraces": true,
         "NoEmptyTrailingClosureParentheses": true,
         "NoLabelsInCasePatterns": true,
@@ -44,8 +42,6 @@
         "UseShorthandTypeNames": true,
         "UseSingleLinePropertyGetter": true,
         "UseSynthesizedInitializer": true,
-        "UseTripleSlashForDocumentationComments": true,
-        "UseWhereClausesInForLoops": true,
-        "ValidateDocumentationComments": true
+        "UseWhereClausesInForLoops": true
     }
 }

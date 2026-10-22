@@ -1,4 +1,5 @@
 public import ApplicationServices
+public import CasePaths
 public import Encoding
 public import Foundation
 public import Results
@@ -115,6 +116,7 @@ private struct Part {
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
+@CasePathable
 public enum ElementFailure: CustomNSError, LocalizedError {
     case untrusted
     case unanswered(ElementAction?)
@@ -325,7 +327,7 @@ extension AXUIElement {
         return element(
             parts.compactMap(\.text),
             parts.compactMap(\.control),
-            reads.compactMap { read in if case .failure(.unreadable(let failed)) = read { failed } else { nil } },
+            reads.compactMap { read in read[case: \.failure.unreadable] },
         )
     }
 }

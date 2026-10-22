@@ -1,9 +1,11 @@
+public import CasePaths
 public import Foundation
 public import Results
 public import Subprocess
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
+@CasePathable
 public enum ProcessFailure: DeadlineFailure, CustomNSError, LocalizedError {
     case subprocess(SubprocessError)
     case io(any Error)

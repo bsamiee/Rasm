@@ -152,7 +152,9 @@ public actor JSONRPCConnection<Method: RawRepresentable & Hashable & Sendable, F
         let (values, value): (AsyncStream<Result<Value, Failure>>, AsyncStream<Result<Value, Failure>>.Continuation) = AsyncStream.makeStream()
         let listener: Listener = Listener(
             receive: { line in
-                try decoder.decode(Message<Value>.self, from: line).params.flatMap { found in predicate(found) ? found : nil }.map { found in value.yield(.success(found)) } != nil
+                guard let found: Value = try decoder.decode(Message<Value>.self, from: line).params, predicate(found) else { return false }
+                value.yield(.success(found))
+                return true
             },
             close: { failure in value.yield(.failure(failure)) },
         )

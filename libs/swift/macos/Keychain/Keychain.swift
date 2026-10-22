@@ -1,3 +1,4 @@
+public import CasePaths
 import Encoding
 public import Foundation
 public import Processes
@@ -8,6 +9,7 @@ import System
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
+@CasePathable
 public enum KeychainFailure: CustomNSError, LocalizedError {
     case interactionNotAllowed
     case lineTooLong
@@ -24,13 +26,13 @@ public enum KeychainFailure: CustomNSError, LocalizedError {
     }
 
     public var errorUserInfo: [String: Any] {
-        if case .process(let error) = self { [NSUnderlyingErrorKey: error] } else { [:] }
+        self[case: \.process].map { error in [NSUnderlyingErrorKey: error] } ?? [:]
     }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-public enum Keychain {
+public enum Keychain: Sendable {
     public static func genericPassword(service: String, account: String, within timeout: Duration) async -> Result<Data?, KeychainFailure> {
         await security(["find-generic-password", "-a", account, "-s", service, "-g"], within: timeout).flatMap { output in
             switch (output, output?.standardError.firstMatch(of: #/^password: (?:0x(?<hex>[0-9A-F]*)|"(?<text>.*)")?/#.anchorsMatchLineEndings())) {

@@ -1,4 +1,5 @@
 import Carbon.OpenScripting
+import CasePathsCore
 import CoreServices
 public import Foundation
 import OrderedCollections
@@ -206,7 +207,7 @@ public final class ScriptingDictionary: Encodable, Sendable {
 
     static func term(_ code: FourCharCode, in scopes: [Scope]) -> Term {
         let found: [Term] = scopes.lazy.compactMap { scope in scope.coded[code] }.first ?? []
-        let name: String? = found.first { term in if case .success(let resolved) = resolve(term.name, in: scopes) { resolved.code == code } else { false } }?.name
+        let name: String? = found.first { term in resolve(term.name, in: scopes)[case: \.success]?.code == code }?.name
         return Term(name: name ?? code.sdef, code: code, types: Set(found.flatMap(\.types)), members: [])
     }
 
@@ -217,7 +218,7 @@ public final class ScriptingDictionary: Encodable, Sendable {
     func classCode(of value: AppleEventValue) -> FourCharCode? {
         switch value {
             case .text(let name), .type(let name), .specifier(want: let name, form: _, seld: _, from: _):
-                if case .success(let term) = Self.resolve(name, in: [types]) { term.code } else { nil }
+                Self.resolve(name, in: [types])[case: \.success]?.code
             case .null: FourCharCode(cApplication)
             case .bool, .number, .list, .record, .enumerator, .date, .file, .opaque: nil
         }

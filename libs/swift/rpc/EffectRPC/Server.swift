@@ -6,9 +6,9 @@ import os
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public enum Response {
-    case value(any Encodable?)
-    case stream(any AsyncSequence<any Encodable & Sendable, Never>)
+public enum Response: Sendable {
+    case value((any Encodable & Sendable)?)
+    case stream(any AsyncSequence<any Encodable & Sendable, Never> & Sendable)
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -38,13 +38,13 @@ actor Calls {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
-public enum EffectRPC {
+public enum EffectRPC: Sendable {
     public static func serve<Request: Decodable & Sendable>(
         reading input: FileHandle,
         writing output: FileHandle,
         _ perform: @escaping @Sendable (Request) async -> Result<Response, any Error>,
     ) async throws {
-        let logger: Logger = Logger(category: "EffectRPC")
+        let logger: Logger = Logger(for: Self.self)
         let (lines, sink): (AsyncStream<Data>, AsyncStream<Data>.Continuation) = AsyncStream.makeStream()
         let calls: Calls = Calls()
         let decoder: JSONDecoder = JSONDecoder()

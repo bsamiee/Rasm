@@ -5,7 +5,6 @@ only_rules:
     - anonymous_argument_in_multiline_closure
     - array_init
     - async_without_await
-    - blanket_disable_command
     - block_based_kvo
     - class_delegate_protocol
     - comma_inheritance
@@ -40,7 +39,6 @@ only_rules:
     - generic_type_name
     - identical_operands
     - implicit_optional_initialization
-    - invalid_swiftlint_command
     - invisible_character
     - is_disjoint
     - joined_default_parameter
@@ -53,7 +51,6 @@ only_rules:
     - legacy_objc_type
     - legacy_random
     - legacy_swiftui_aspect_ratio
-    - local_doc_comment
     - lower_acl_than_parent
     - modifier_order
     - nesting
@@ -63,7 +60,6 @@ only_rules:
     - nsobject_prefer_isequal
     - optional_data_string_conversion
     - optional_enum_case_matching
-    - orphaned_doc_comment
     - overridden_super_call
     - override_in_extension
     - prefer_asset_symbols
@@ -94,9 +90,7 @@ only_rules:
     - sorted_first_last
     - static_operator
     - static_over_final_class
-    - superfluous_disable_command
     - superfluous_else
-    - todo
     - toggle_bool
     - unavailable_condition
     - unavailable_function
@@ -116,13 +110,10 @@ only_rules:
     - yoda_condition
 analyzer_rules:
     - capture_variable
-    - unused_import
 
 # --- [OPTIONS] --------------------------------------------------------------------------
 strict: true
 cache_path: .cache/swiftlint
-blanket_disable_command:
-    allowed_rules: []
 deployment_target:
     macOS_deployment_target: '27.0'
 discouraged_direct_init:

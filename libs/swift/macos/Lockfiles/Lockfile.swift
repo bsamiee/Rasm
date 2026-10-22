@@ -1,8 +1,11 @@
 import AsyncAlgorithms
+public import CasePaths
+import CurrentProcess
 import Files
 public import Foundation
 public import Results
 public import System
+import os
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -14,6 +17,8 @@ public protocol LockFailure: DeadlineFailure {
 // --- [MODELS] --------------------------------------------------------------------------
 
 public struct Lockfile: Equatable, Sendable {
+    fileprivate static let logger: Logger = Logger(for: Self.self)
+
     let url: URL
     let stale: Duration
     let update: Duration
@@ -52,9 +57,10 @@ public struct Lockfile: Equatable, Sendable {
         }
         guard case (let blocked, let error)? = acquired.failure else { return Holder(acquired.lockfiles) }
         let released: Result<Void, Failure> = release(acquired.lockfiles)
-        guard case .held = error, case .success = released, let delay: Duration = blocked.retries.first else { throw Failure.lock(error).releasing(released) }
+        guard error.is(\.held), case .success = released, let delay: Duration = blocked.retries.first else { throw Failure.lock(error).releasing(released) }
+        logger.debug("Waiting up to \(delay, privacy: .public) for held lock \(blocked.url.path(percentEncoded: false), privacy: .private)")
         try await race {
-            await FileWatch.events(of: blocked.url).first { next in if case .failure = next { true } else { !FileManager.default.fileExists(atPath: blocked.url.path(percentEncoded: false)) } }
+            await FileWatch.events(of: blocked.url).first { next in next.is(\.failure) || !FileManager.default.fileExists(atPath: blocked.url.path(percentEncoded: false)) }
                 .map { next in next.map { _ in }.mapError { error in Failure.lock(.filesystem(error)) } } ?? .failure(.deadline(.cancelled))
         } against: {
             await Result { try await Task.sleep(for: delay) }.mapError { _ in Failure.deadline(.cancelled) }
@@ -75,6 +81,7 @@ public struct Lockfile: Equatable, Sendable {
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
+@CasePathable
 public enum LockfileFailure: CustomNSError, LocalizedError {
     case held(URL)
     case compromised(URL)
@@ -89,7 +96,7 @@ public enum LockfileFailure: CustomNSError, LocalizedError {
     }
 
     public var errorUserInfo: [String: Any] {
-        if case .filesystem(let error) = self { [NSUnderlyingErrorKey: error] } else { [:] }
+        self[case: \.filesystem].map { error in [NSUnderlyingErrorKey: error] } ?? [:]
     }
 }
 
@@ -111,7 +118,11 @@ private struct Held: Equatable, Sendable {
         } catch .held {
             switch try stamped(lockfile) {
                 case .some(let current) where current.modified >= .seconds(Date().timeIntervalSince1970) - lockfile.stale: throw .held(lockfile.url)
-                case .some: try remove(at: lockfile.url)
+                case .some(let stale):
+                    try remove(at: lockfile.url)
+                    Lockfile.logger.notice(
+                        "Removed stale lock \(lockfile.url.path(percentEncoded: false), privacy: .private) unchanged for \(Duration.seconds(Date().timeIntervalSince1970) - stale.modified, privacy: .public)"
+                    )
                 case .none: break
             }
             try create()

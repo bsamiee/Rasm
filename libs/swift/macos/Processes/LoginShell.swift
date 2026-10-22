@@ -1,3 +1,4 @@
+public import CasePaths
 public import Foundation
 import Results
 public import Subprocess
@@ -5,6 +6,7 @@ import System
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
+@CasePathable
 public enum LoginShellFailure: CustomNSError, LocalizedError {
     case unlisted(uid_t)
     case run(ProcessFailure)
@@ -19,13 +21,13 @@ public enum LoginShellFailure: CustomNSError, LocalizedError {
     }
 
     public var errorUserInfo: [String: Any] {
-        if case .run(let error) = self { [NSUnderlyingErrorKey: error] } else { [:] }
+        self[case: \.run].map { error in [NSUnderlyingErrorKey: error] } ?? [:]
     }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-public enum LoginShell {
+public enum LoginShell: Sendable {
     public static func environment(within timeout: Duration) async -> Result<[Environment.Key: String], LoginShellFailure> {
         let marker: String = UUID().uuidString
         return await Result { () async throws(LoginShellFailure) in

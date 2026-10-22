@@ -1,11 +1,13 @@
 public import AppKit
 import ApplicationServices
 import AsyncAlgorithms
+public import CasePaths
 import Results
 import Synchronization
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+@CasePathable
 public enum ApplicationStatus: Encodable, Equatable, Sendable {
     case launching
     case responding(elements: [Element])
@@ -91,7 +93,7 @@ extension NSRunningApplication {
 
     public func statusChanges(walking walked: @escaping @Sendable (Element) -> Bool) -> Result<some AsyncSequence<Result<ApplicationStatus, ElementFailure>, Never>, ElementFailure> {
         let (ticks, tick): (AsyncStream<Void>, AsyncStream<Void>.Continuation) = AsyncStream.makeStream(bufferingPolicy: .bufferingNewest(1))
-        let unresponsive: @Sendable (Result<ApplicationStatus, ElementFailure>) -> Bool = { read in if case .success(.unresponsive) = read { true } else { false } }
+        let unresponsive: @Sendable (Result<ApplicationStatus, ElementFailure>) -> Bool = { read in read.is(\.success.unresponsive) }
         return Result { () throws(ElementFailure) in
             let observation: Observation = try Observation(self, ticks: tick)
             tick.onTermination = { _ in withExtendedLifetime(observation) {} }
@@ -106,7 +108,7 @@ extension NSRunningApplication {
                 .flatMap { read in
                     chain([read].async, AsyncTimerSequence(interval: messagingTimeout, clock: .continuous).map { _ in await current() }.drop(while: unresponsive).prefix(unresponsive(read) ? 1 : 0))
                 }
-                .prefix { read in if case .failure(.noProcess) = read { false } else { true } }
+                .prefix { read in !read.is(\.failure.noProcess) }
                 .removeDuplicates { last, next in
                     switch (last, next) {
                         case (.success(let last), .success(let next)): last == next

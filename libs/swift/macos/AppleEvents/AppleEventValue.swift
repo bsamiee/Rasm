@@ -1,3 +1,4 @@
+import CasePathsCore
 import CoreServices
 public import Foundation
 import OrderedCollections
@@ -134,7 +135,7 @@ extension AppleEventValue: Codable {
                 }
             case .type(let name): try tagged(.type) { fields in try fields.encode(name, forKey: .name) }
             case .enumerator(let name): try tagged(.enumerator) { fields in try fields.encode(name, forKey: .name) }
-            case .date(let date): try tagged(.date) { fields in try fields.encode(date.formatted(.iso8601), forKey: .date) }
+            case .date(let date): try tagged(.date) { fields in try fields.encode(date.ISO8601Format(), forKey: .date) }
             case .file(let url): try tagged(.file) { fields in try fields.encode(url, forKey: .url) }
             case .specifier(let want, let form, let seld, let from):
                 try tagged(.specifier) { fields in
@@ -231,7 +232,7 @@ extension AppleEventValue {
                 }
             case .record(let type, let fields):
                 let named: Self? = fields.sorted { left, right in left.key < right.key }.first { key, _ in
-                    if case .success(let term) = ScriptingDictionary.resolve(key, in: [dictionary.properties]) { term.code == FourCharCode(pClass) } else { false }
+                    ScriptingDictionary.resolve(key, in: [dictionary.properties])[case: \.success]?.code == FourCharCode(pClass)
                 }?.value
                 return Result { () throws(AggregateError<DictionaryFailure>) in
                     let record: NSAppleEventDescriptor = try dictionary.record(fields, in: dictionary.scope(named.flatMap(dictionary.classCode(of:)) ?? type), into: .record()).get()

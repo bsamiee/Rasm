@@ -18,8 +18,11 @@ extension Installation {
 
 extension ScriptingDictionary {
     public func script(running source: String) -> (command: Command, arguments: [String: AppleEventValue])? {
-        [AEEventID(sdef: "DjxM"), AEEventID(kAEDoScript)].lazy.compactMap { id in self.commands.first { command in command.eventID == id } }.first.map { command in
-            (command, command.parameters.contains { term in term.code == FourCharCode(sdef: "doLg") } ? ["direct": .text(source), "doLg": .enumerator("JSLg")] : ["direct": .text(source)])
+        let eventIDs: [AEEventID?] = [AEEventID(sdef: "DjxM"), AEEventID(kAEDoScript)]
+        return eventIDs.lazy.compactMap { id in self.commands.first { command in command.eventID == id } }.first.map { command in
+            let arguments: [String: AppleEventValue] =
+                command.parameters.contains { term in term.code == FourCharCode(sdef: "doLg") } ? ["direct": .text(source), "doLg": .enumerator("JSLg")] : ["direct": .text(source)]
+            return (command, arguments)
         }
     }
 }

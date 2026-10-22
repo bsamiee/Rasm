@@ -1,6 +1,7 @@
 public import AppKit
 import AsyncAlgorithms
 import Carbon.OpenScripting
+public import CasePaths
 import Combine
 public import OrderedCollections
 import Subprocess
@@ -12,6 +13,7 @@ private let reportingSignals: Set<Int32> = [SIGQUIT, SIGILL, SIGTRAP, SIGABRT, S
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+@CasePathable
 public enum InstanceState: Encodable, Sendable {
     case running(status: ApplicationStatus)
     case failed(reason: String)
@@ -44,6 +46,7 @@ public enum InstanceState: Encodable, Sendable {
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
+@CasePathable
 public enum LaunchFailure: CustomNSError, LocalizedError {
     case open(any Error)
     case terminated
@@ -58,7 +61,7 @@ public enum LaunchFailure: CustomNSError, LocalizedError {
     }
 
     public var errorUserInfo: [String: Any] {
-        if case .open(let error) = self { [NSUnderlyingErrorKey: error] } else { [:] }
+        self[case: \.open].map { error in [NSUnderlyingErrorKey: error] } ?? [:]
     }
 }
 
@@ -117,7 +120,7 @@ extension NSWorkspace {
         return chain(
             (initial.isEmpty ? [OrderedDictionary()] : []).async,
             changes.reductions(into: (states: OrderedDictionary<NSRunningApplication, InstanceState>(), waiting: initial)) { held, next in
-                held.states.removeAll { _, state in if case .exited = state { true } else { false } }
+                held.states.removeAll { _, state in state.is(\.exited) }
                 held.states[next.instance] = next.state
                 held.waiting.remove(next.instance)
             }

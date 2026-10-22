@@ -1,6 +1,7 @@
 public import AppKit
 public import Applications
 import Carbon.OpenScripting
+import CasePathsCore
 public import Results
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -50,7 +51,7 @@ public actor ScriptingDefinitions {
             }
         held[installation.url] = Held(processes: processes, reading: reading)
         let read: Result<ScriptingDictionary, DefinitionFailure> = await reading.value
-        if case .failure = read, held[installation.url]?.reading == reading { held[installation.url] = nil }
+        if read.is(\.failure), held[installation.url]?.reading == reading { held[installation.url] = nil }
         return read
     }
 }

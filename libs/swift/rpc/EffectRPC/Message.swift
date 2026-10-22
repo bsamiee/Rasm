@@ -47,7 +47,8 @@ struct Encoded: Encodable {
                     : ((error as NSError).domain, error.localizedDescription)
                 try fields.encode(name, forKey: .name)
                 try fields.encode(message, forKey: .message)
-                try fields.encodeIfPresent((error as NSError).underlyingErrors.first.map(Self.init), forKey: .cause)
+                let cause: Self? = (error as NSError).underlyingErrors.first.map(Self.init)
+                try fields.encodeIfPresent(cause, forKey: .cause)
         }
     }
 }
