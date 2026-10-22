@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using Rasm.Rhino.Commands;
+using Rasm.Rhino.Events;
 using Rasm.Rhino.UI.Rows;
 using Rhino;
 using Rhino.UI;
@@ -69,27 +70,43 @@ public static class Toolbars {
         IO.lift(() => Conversions.Rows(RhinoApp.ToolbarFiles).Find(file => file.Id == id).Map(ToolbarMapper.ToState).ToFin(new Refused(nameof(RhinoApp.ToolbarFiles), Refused.Absent)));
 
     // --- [COMMANDS]
-    internal static IO<Unit> RegisterCommand(HostCommand command) =>
-        command.Toolbar.TraverseM(target =>
+    private static readonly HostEvent<Unit> RuiFileAdded = new(typeof(Toolbars), RuiFileEvent, static (deliver, site, retain) =>
+        Subscriptions.Attach(
+            static heard => Refused.Unless(Listen(Queue(owner: null), RuiFileEvent, heard, static held => held(), priority: 1), nameof(Listen)).ThrowIfFail(),
+            static heard => Ignore(Queue(owner: null), RuiFileEvent, heard),
+            () => Callbacks.Started(deliver(unit), site),
+            retain));
+
+    public static IO<Unit> PlaceCommands(IPlugInViews plugIn, Action<IDisposable> retain) =>
+        IO.lift(() => toSeq(plugIn.PlugIn.GetCommands().OfType<HostCommand>()).Filter(static command => command.Toolbar.IsSome).Strict())
+            .Bind(commands => unless(commands.IsEmpty,
+                from placed in Reconciled(commands)
+                from heard in RuiFileAdded.Inline(_ => Reconciled(commands), plugIn, retain)
+                select unit).As());
+
+    private static IO<Unit> Reconciled(Seq<HostCommand> commands) =>
+        commands.TraverseM(static command => command.Toolbar.TraverseM(target =>
             from file in IO.lift(() => Callbacks.Found(
                 TryGetRuiFile(GlobalInstance(owner: null), target.File.IfNone(static () => DefaultRuiId(owner: null)), out object found),
-                found).ToFin(new Refused(nameof(TryGetRuiFile), Refused.Absent)))
-            from toolbar in IO.lift(() => Callbacks.Found(
-                TryGetToolbar(file, target.Toolbar, out object found),
-                found).ToFin(new Refused(nameof(TryGetToolbar), Refused.Absent)))
-            from existing in IO.lift(() => toSeq((IEnumerable<object>)Items(toolbar))
-                .Map(static (item, index) => (Item: item, Index: index))
-                .Find(held => Id(held.Item) == command.Id))
-            from placed in IO.lift(() => Placed(command, toolbar, existing))
-            from refreshed in IO.lift(static () => RefreshToolbars(owner: null))
-            select unit)
-        .As()
-        .Map(unit);
+                found))
+            from placed in file.TraverseM(loaded => Placed(command, loaded, target.Toolbar)).As()
+            select unit).As()).As().Map(unit);
 
-    private static Fin<Unit> Placed(HostCommand command, object toolbar, Option<(object Item, int Index)> existing) {
+    private static IO<Unit> Placed(HostCommand command, object file, Guid id) =>
+        from toolbar in IO.lift(() => Callbacks.Found(
+            TryGetToolbar(file, id, out object found),
+            found).ToFin(new Refused(nameof(TryGetToolbar), Refused.Absent)))
+        from existing in IO.lift(() => toSeq((IEnumerable<object>)Items(toolbar))
+            .Map(static (item, index) => (Item: item, Index: index))
+            .Find(held => Optional(PrivateLeft(held.Item)).Exists(macro => MacroId(macro) == command.Id)))
+        from inserted in IO.lift(() => Inserted(command, toolbar, existing))
+        from refreshed in IO.lift(static () => RefreshToolbars(owner: null))
+        select unit;
+
+    private static Fin<Unit> Inserted(HostCommand command, object toolbar, Option<(object Item, int Index)> existing) {
         object text = LocaleTextFromString(owner: null, command.EnglishName);
         Text(text, command.LocalName);
-        object item = NewItem(command.Id);
+        object item = NewItem(existing.Map(static held => Id(held.Item)).IfNone(Guid.NewGuid));
         object macro = NewMacro(command.Id);
         Name(item, text);
         MenuText(macro, text);
@@ -140,6 +157,18 @@ public static class Toolbars {
     private const string ToolbarMacro = "Rhino.UI.Internal.TabPanels.IO.Structures.ToolbarMacro, Rhino.UI";
     private const string LocaleText = "Rhino.UI.Internal.TabPanels.IO.LocaleText, Rhino.UI";
     private const string ToolbarNode = "Rhino.UI.Internal.TabPanels.IO.Structures.IToolbarNode, Rhino.UI";
+    private const string EventQueue = "Rhino.UI.Internal.Queues.EventQueue, Rhino.UI";
+    private const string RuiFileEvent = "RuiFile";
+
+    [UnsafeAccessor(UnsafeAccessorKind.StaticMethod, Name = "get_GlobalInstance")]
+    [return: UnsafeAccessorType(EventQueue)]
+    private static extern object Queue([UnsafeAccessorType(EventQueue)] object? owner);
+
+    [UnsafeAccessor(UnsafeAccessorKind.Method)]
+    private static extern bool Listen<TThing>([UnsafeAccessorType(EventQueue)] object queue, string eventKey, TThing instanceOfThing, Action<TThing> closure, int priority) where TThing : class;
+
+    [UnsafeAccessor(UnsafeAccessorKind.Method)]
+    private static extern void Ignore([UnsafeAccessorType(EventQueue)] object queue, string eventKey, object instanceOfThing);
 
     [UnsafeAccessor(UnsafeAccessorKind.StaticMethod, Name = "get_GlobalInstance")]
     [return: UnsafeAccessorType(RuiCache)]
@@ -160,6 +189,13 @@ public static class Toolbars {
 
     [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "get_Id")]
     private static extern Guid Id([UnsafeAccessorType(ToolbarItem)] object item);
+
+    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "get_PrivateLeft")]
+    [return: UnsafeAccessorType(ToolbarMacro)]
+    private static extern object? PrivateLeft([UnsafeAccessorType(ToolbarItem)] object item);
+
+    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "get_Id")]
+    private static extern Guid MacroId([UnsafeAccessorType(ToolbarMacro)] object macro);
 
     [UnsafeAccessor(UnsafeAccessorKind.Method)]
     private static extern bool TryAdd([UnsafeAccessorType(NewToolBar + ", Rhino.UI")] object toolbar, [UnsafeAccessorType(ToolbarItem)] object item);

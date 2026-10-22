@@ -1,4 +1,3 @@
-using Rasm.Rhino.Commands;
 using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.PlugIns.Licenses;
@@ -137,6 +136,7 @@ internal sealed class PlugInLifetime(PlugInDefinition definition, Seq<View> kind
             Notifications.NotificationActivated,
             ViewRegistration.RegisterPanels,
             ViewRegistration.AddCustomUISections,
+            Toolbars.PlaceCommands,
             DocumentArchive.Rewrites,
             .. definition.Acquisitions,
             (_, _) => IO.lift(() => definition.Endpoints.Iter(static endpoint => HostUtils.RegisterComputeEndpoint(endpoint.Path, endpoint.Type))),
@@ -149,7 +149,6 @@ internal sealed class PlugInLifetime(PlugInDefinition definition, Seq<View> kind
             Callbacks.Each(definition.Commands.Map(row =>
                 from command in IO.lift(() => row(site.Sink))
                 from registered in IO.lift(() => register(command) ? Fin.Succ(unit) : new Refused(nameof(register), $"refused {command.EnglishName} {command.Id}"))
-                from chrome in Optional(command as HostCommand).TraverseM(Toolbars.RegisterCommand).As()
                 select unit)),
             site);
 
