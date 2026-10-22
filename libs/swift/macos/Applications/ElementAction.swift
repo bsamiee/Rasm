@@ -41,7 +41,7 @@ extension NSRunningApplication {
                 switch outcome {
                     case .success: return
                     case .invalidUIElement: throw .absent(action.element)
-                    case .cannotComplete: throw vanished.map(ElementFailure.noProcess) ?? .unanswered(action)
+                    case .cannotComplete: throw vanished ? .noProcess : .unanswered(action)
                     case let error: throw .refused(action, error)
                 }
             }

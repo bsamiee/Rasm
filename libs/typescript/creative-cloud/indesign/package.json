@@ -13,6 +13,8 @@
         "acorn": "catalog:",
         "acorn-walk": "catalog:",
         "effect": "catalog:",
+        "fast-xml-builder": "catalog:",
+        "fast-xml-parser": "catalog:",
         "image-size": "catalog:"
     },
     "devDependencies": {

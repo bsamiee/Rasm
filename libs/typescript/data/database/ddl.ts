@@ -44,7 +44,7 @@ const dialects = {
                 indexes: [],
                 fts: Option.some({
                     name: `${owner}_fts`,
-                    sql: `CREATE VIRTUAL TABLE ${virtual} USING fts5 (${values}, content = ${literal(owner)}, content_rowid = 'rowid', tokenize = ${literal(tokenizer === 'trigram' ? tokenizer : 'unicode61 remove_diacritics 2')})`,
+                    sql: `CREATE VIRTUAL TABLE ${virtual} USING fts5 (${values}, content = ${literal(owner)}, content_rowid = 'rowid', tokenize = ${literal(tokenizer === 'trigram' ? tokenizer : tokenizer.tokenize)})`,
                     triggers: [trigger('insert', 'INSERT', inserted), trigger('delete', 'DELETE', deleted), trigger('update', 'UPDATE', `${deleted} ${inserted}`)],
                     rebuild: `INSERT INTO ${virtual} (${virtual}) VALUES ('rebuild')`,
                 }),
@@ -71,13 +71,13 @@ const dialects = {
         covering: (_: boolean, include: readonly string[]) => ({ keys: [], clause: Array.isReadonlyArrayNonEmpty(include) ? [`INCLUDE (${include.map(quote).join(', ')})`] : [] }),
         suffix: (_: boolean) => '',
         search: (owner: string, search: Option.Option.Value<Relation['table']['search']>) => {
-            const [name, body, words] = [identifier([owner, 'search']), document(search), search.tokenizer === 'trigram' ? Option.none() : Option.some(search.tokenizer)];
+            const [name, body, words] = [identifier([owner, 'search']), document(search), Option.liftPredicate(search.tokenizer, (tokenizer) => tokenizer !== 'trigram')];
             return {
                 indexes: [
                     {
                         name,
                         parts: ['search'],
-                        extensions: Option.match(words, { onNone: () => [trigram.extension], onSome: Struct.get('filters') }),
+                        extensions: Option.match(words, { onNone: () => [trigram.extension], onSome: () => [] }),
                         configuration: Option.filter(words, ({ filters }) => Array.isReadonlyArrayNonEmpty(filters)),
                         text: (prefix: string, on: string) => `CREATE INDEX ${prefix}${quote(name)} ON ${on} USING gin (${Option.match(words, { onNone: () => `(${body}) ${trigram.classes.gin}`, onSome: () => body })})`,
                     },

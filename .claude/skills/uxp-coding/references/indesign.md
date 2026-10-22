@@ -358,15 +358,19 @@ const source = Effect.fn('source')(function* (face: Font, characters: string) {
 
 ## [11]-[PREFLIGHT]
 
-Preflight runs as a process object over one document and one profile:
-- Profiles resolve by name over `app.preflightProfiles.everyItem().getElements()`, since `itemByName('[Basic]')` reads invalid
-- `app.preflightProcesses.add(document, profile)` starts a process that a scope releases through `remove()` on every exit
-- `waitForProcess(seconds)` can return false with results complete, and a decode of `aggregatedResults` decides
-- `aggregatedResults` is `[name, profile, rows]`, each row `[depth, label, page, info, [key, value][]]`
-- Depth 1 rows are categories and 2 rules, both with no details, and 3 issues whose label is the object kind
-- Rule labels carry their issue count ("Overset text (1)"), and an issue matches across reports by its fields without its rule label
+`document.activeProcess` is one live process per document under its preflight options, and the Preflight panel shows it:
+- `activeProcess` throws "Preflighting is turned off for this document." while `preflightOff` is true
+- InDesign's idle task completes the live process after a change, and no event a script receives marks completion
+- `aggregatedResults` throws "Aggregated Result for this process is not available." while running, else reads `[name, profile, rows]`
+- Rows read `[depth, label, page, info, [key, value][]]`, depth 1 a category, 2 a rule, and 3 an issue with the object kind as label
+- Rows are empty exactly when the process found no issue
+- Rule labels carry their issue count ("Overset text (1)")
 - `processResults` text and `aggregatedResults` rows name no object specifier
-- InDesign raises no preflight event, and code diffs a process run before a change against one after it
+- `preflightWorkingProfile` writes apply to the live process at once
+- Profiles resolve by name over `app.preflightProfiles.everyItem().getElements()`, and `itemByName('[Basic]')` reads invalid
+- `app.preflightProcesses.add(document, profile)` ignores document preflight options and takes no argument for them
+- `waitForProcess()` turns preflight off and on for the application and every open document, and returns false once finished
+- `preflightEmbedWorkingProfile` reads on the application alone, a document's `preflightOptions` throws "Invalid object for this request."
 
 ## [12]-[SCRIPTS]
 

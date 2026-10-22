@@ -23,7 +23,7 @@ interface Options<F extends Fields> {
     readonly references?: ReadonlyArray<{ readonly columns: Array.NonEmptyReadonlyArray<Field<F>>; readonly table: Relation; readonly onDelete?: keyof typeof actions }>;
     readonly defaults?: { readonly [K in keyof F]?: Exclude<F[K]['Encoded'], Uint8Array | readonly number[]> };
     readonly projections?: { readonly [K in Field<F>]?: { readonly from: Field<F>; readonly path: Array.NonEmptyReadonlyArray<string> } | { readonly where: Where<F> } };
-    readonly search?: { readonly columns: Array.NonEmptyReadonlyArray<Field<F>>; readonly tokenizer: 'trigram' | { readonly configuration: string; readonly filters?: readonly string[] } };
+    readonly search?: { readonly columns: Array.NonEmptyReadonlyArray<Field<F>>; readonly tokenizer: 'trigram' | { readonly configuration: string; readonly filters: readonly string[]; readonly tokenize: string } };
     readonly withoutRowid?: true;
     readonly tenant?: Present<F>;
     readonly renamed?: { readonly [K in Field<F>]?: string };
@@ -181,10 +181,7 @@ const facts = <F extends Fields>(name: string, fields: F, options: Options<F>) =
         references: linked,
         search: Option.map(Option.fromUndefinedOr(options.search), ({ columns, tokenizer }) => ({
             columns: Array.map(columns, (field): Column => described[field]),
-            tokenizer: Match.value(tokenizer).pipe(
-                Match.when('trigram', () => 'trigram' as const),
-                Match.orElse(({ configuration, filters = [] }) => ({ name: identifier([configuration, ...filters]), configuration, filters })),
-            ),
+            tokenizer: tokenizer === 'trigram' ? tokenizer : { ...tokenizer, name: identifier([tokenizer.configuration, ...tokenizer.filters]) },
         })),
         withoutRowid: options.withoutRowid === true,
         tenant: Option.map(Option.fromUndefinedOr(options.tenant), names.transformQueryNames),

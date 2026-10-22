@@ -1,3 +1,5 @@
+public import Foundation
+
 // --- [TYPES] ---------------------------------------------------------------------------
 
 public protocol DeadlineFailure: Error {
@@ -6,9 +8,18 @@ public protocol DeadlineFailure: Error {
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-public enum Deadline: Error, Equatable {
+public enum Deadline: DeadlineFailure, Equatable, LocalizedError {
     case timedOut(Duration)
     case cancelled
+
+    public static func deadline(_ deadline: Self) -> Self { deadline }
+
+    public var errorDescription: String? {
+        switch self {
+            case .timedOut(let timeout): "did not finish within \(timeout.formatted(.units(width: .wide)))"
+            case .cancelled: "was canceled"
+        }
+    }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

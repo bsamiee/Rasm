@@ -48,8 +48,7 @@ nonisolated enum CodexFailure: DeadlineFailure, ProviderFailure {
         switch self {
             case .applicationUnavailable: "Codex app not installed"
             case .process(let failure): failure.localizedDescription
-            case .deadline(.timedOut(let timeout)): "Codex app server did not answer within \(timeout.formatted(.units(width: .wide)))"
-            case .deadline(.cancelled): "Canceled"
+            case .deadline(let deadline): "Codex app server \(deadline.localizedDescription)"
             case .rpc(let failure, let serverVersion): "Codex app server \(serverVersion): \(failure.localizedDescription)"
             case .invalidResponse(let method): "Unreadable Codex \(method.rawValue) response"
             case .invalidAuthFile(let url, _): "Unreadable Codex \(url.lastPathComponent)"

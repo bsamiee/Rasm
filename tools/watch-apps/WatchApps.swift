@@ -6,15 +6,6 @@ import Encoding
 import OrderedCollections
 import Results
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-let encoder: JSONEncoder = {
-    let encoder: JSONEncoder = JSONEncoder()
-    encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
-    encoder.userInfo = Discriminator(stringValue: "_tag").userInfo
-    return encoder
-}()
-
 // --- [MODELS] --------------------------------------------------------------------------
 
 enum Line: Encodable, Sendable {
@@ -23,8 +14,8 @@ enum Line: Encodable, Sendable {
 
     static func answering(_ states: OrderedDictionary<NSRunningApplication, InstanceState>) -> Self {
         .states(
-            states.filter { _, state in if case .running(.success(.launching)) = state { false } else { true } }.mapValues { state in
-                if case .running(.success(.responding(let elements))) = state { .running(.success(.responding(elements.filter(\.requiresAnswer)))) } else { state }
+            states.filter { _, state in if case .running(status: .launching) = state { false } else { true } }.mapValues { state in
+                if case .running(status: .responding(let elements)) = state { .running(status: .responding(elements: elements.filter(\.requiresAnswer))) } else { state }
             }
         )
     }
@@ -52,6 +43,8 @@ struct WatchApps: AsyncParsableCommand {
         let parent: any DispatchSourceProcess = DispatchSource.makeProcessSource(identifier: getppid(), eventMask: .exit, queue: .main)
         parent.setEventHandler { output.finish() }
         parent.activate()
+        let encoder: JSONEncoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
         async let _: Void = { @MainActor in
             defer { output.finish() }
             await work(output)
@@ -131,9 +124,6 @@ struct Launch: AsyncParsableCommand {
     @Flag(help: "Launch the instance hidden, its windows and dialogs off screen")
     var hides: Bool = false
 
-    @Option(help: "Seconds the application gets to finish launching, unbounded when absent")
-    var within: Int?
-
     @Option(help: "File the application opens, once per file")
     var document: [String] = []
 
@@ -150,8 +140,8 @@ struct Launch: AsyncParsableCommand {
     var environment: [(String, String)] = []
 
     func run() async throws {
-        let (new, hides, timeout, documents, arguments, environment): (Bool, Bool, Duration?, [URL], [String], [String: String]) = (
-            new, hides, within.map { seconds in .seconds(seconds) }, document.map { path in URL(filePath: path) }, arguments,
+        let (new, hides, documents, arguments, environment): (Bool, Bool, [URL], [String], [String: String]) = (
+            new, hides, document.map { path in URL(filePath: path) }, arguments,
             Dictionary(environment) { _, last in last },
         )
         try await WatchApps.run(installed.names) { installations, output in
@@ -166,14 +156,13 @@ struct Launch: AsyncParsableCommand {
                             configuration.environment = environment
                             return try await NSWorkspace.shared.launchApplication(
                                 at: Installation.single(of: id, among: installations).get().url,
-                                within: timeout,
                                 opening: documents,
                                 configuration: configuration,
                             )
                             .get()
                         }
                         switch launched {
-                            case .success(let instance): output.yield((id, .answering([instance: .running(await instance.status(walking: \.requiresAnswer))])))
+                            case .success(let instance): output.yield((id, .answering([instance: InstanceState(await instance.status(walking: \.requiresAnswer))])))
                             case .failure(let error): output.yield((id, .fail(error.localizedDescription)))
                         }
                     }
@@ -199,7 +188,7 @@ struct Read: AsyncParsableCommand {
             for id: String in OrderedSet(installations.map(\.identifier)) {
                 let running: [NSRunningApplication] = NSRunningApplication.instances(withBundleIdentifier: id)
                 let chosen: [NSRunningApplication] = running.filter { instance in pid.map { pid in pid == instance.processIdentifier } ?? true }
-                let states: [(NSRunningApplication, InstanceState)] = await Array(chosen.async.map { instance in (instance, .running(await instance.status(walking: { _ in true }))) })
+                let states: [(NSRunningApplication, InstanceState)] = await Array(chosen.async.map { instance in (instance, InstanceState(await instance.status(walking: { _ in true }))) })
                 let missed: String? = pid.flatMap { pid in
                     chosen.isEmpty
                         ? Unmatched(subject: "running instance of \(id)", query: String(pid), candidates: running.map { instance in String(instance.processIdentifier) }).localizedDescription : nil

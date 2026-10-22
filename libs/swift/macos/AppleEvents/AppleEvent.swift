@@ -27,21 +27,22 @@ let appleEvents: DispatchQueue = DispatchQueue(label: "AppleEvents", attributes:
 
 extension NSAppleEventDescriptor {
     @concurrent
-    public func sent(within timeout: Duration) async -> Result<NSAppleEventDescriptor, AppleEventFailure> {
-        let undelivered: Set<OSStatus> = [OSStatus(procNotFound), OSStatus(errAEEventNotPermitted)]
+    public func sent() async -> Result<NSAppleEventDescriptor, AppleEventFailure> {
+        let undelivered: Set<OSStatus> = [OSStatus(procNotFound), OSStatus(errAETargetAddressNotPermitted), OSStatus(errAEEventNotPermitted)]
         return await withTaskExecutorPreference(appleEvents) {
-            Result { try sendEvent(options: [.waitForReply, .neverInteract], timeout: timeout / .seconds(1)) }
-                .mapError { error -> AppleEventFailure in
-                    let status: OSStatus = OSStatus((error as NSError).code)
-                    return undelivered.contains(status) ? .undelivered(status) : .unanswered(status)
+            var reply: AppleEvent = unsafe AppleEvent()
+            let status: OSStatus =
+                unsafe aeDesc.map { event in unsafe AESendMessage(event, &reply, AESendMode(kAEWaitReply) | AESendMode(kAENeverInteract), kNoTimeOut) } ?? OSStatus(errAENotAEDesc)
+            let answer: NSAppleEventDescriptor = unsafe NSAppleEventDescriptor(aeDescNoCopy: &reply)
+            let delivered: Result<NSAppleEventDescriptor, AppleEventFailure> =
+                status == noErr ? .success(answer) : .failure(undelivered.contains(status) ? .undelivered(status) : .unanswered(status))
+            return delivered.flatMap { answer in
+                switch answer.paramDescriptor(forKeyword: AEKeyword(keyErrorNumber))?.int32Value {
+                    case .some(let code) where undelivered.contains(code): .failure(.undelivered(code))
+                    case .some(let code) where code != noErr: .failure(.replied(code, answer.paramDescriptor(forKeyword: AEKeyword(keyErrorString))?.stringValue))
+                    case .some, .none: .success(answer.paramDescriptor(forKeyword: AEKeyword(keyDirectObject)) ?? .null())
                 }
-                .flatMap { answer in
-                    switch answer.paramDescriptor(forKeyword: AEKeyword(keyErrorNumber))?.int32Value {
-                        case .some(let code) where undelivered.contains(code): .failure(.undelivered(code))
-                        case .some(let code) where code != noErr: .failure(.replied(code, answer.paramDescriptor(forKeyword: AEKeyword(keyErrorString))?.stringValue))
-                        case .some, .none: .success(answer.paramDescriptor(forKeyword: AEKeyword(keyDirectObject)) ?? .null())
-                    }
-                }
+            }
         }
     }
 }

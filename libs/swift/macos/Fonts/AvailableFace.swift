@@ -4,14 +4,14 @@ public import Results
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public struct InstalledFace: Codable, Hashable, Sendable {
+public struct AvailableFace: Codable, Hashable, Sendable {
     public let postscriptName: String
     public let family: String
     public let style: String
     public let displayName: String
     public let file: URL
 
-    public static func installed() -> [Self] {
+    public static func available() -> [Self] {
         let collection: CTFontCollection = CTFontCollectionCreateFromAvailableFonts([kCTFontCollectionRemoveDuplicatesOption as String: true] as CFDictionary)
         return (CTFontCollectionCreateMatchingFontDescriptors(collection) as? [CTFontDescriptor] ?? []).compactMap(Self.init)
     }
@@ -19,11 +19,13 @@ public struct InstalledFace: Codable, Hashable, Sendable {
     public static func named(_ name: String) -> Result<Self, Unmatched> {
         let query: CTFontDescriptor = CTFontDescriptorCreateWithAttributes([kCTFontNameAttribute: name] as CFDictionary)
         return CTFontDescriptorCreateMatchingFontDescriptor(query, nil).flatMap(Self.init).map(Result.success)
-            ?? .failure(Unmatched(subject: "font", query: name, candidates: CTFontManagerCopyAvailablePostScriptNames() as? [String] ?? []))
+            ?? .failure(
+                Unmatched(subject: "font", query: name, candidates: (CTFontManagerCopyAvailablePostScriptNames() as? [String] ?? []).filter { candidate in candidate.localizedStandardContains(name) })
+            )
     }
 }
 
-extension InstalledFace {
+extension AvailableFace {
     init?(_ descriptor: CTFontDescriptor) {
         switch (
             CTFontDescriptorCopyAttribute(descriptor, kCTFontNameAttribute) as? String, CTFontDescriptorCopyAttribute(descriptor, kCTFontFamilyNameAttribute) as? String,

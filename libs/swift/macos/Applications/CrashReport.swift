@@ -20,7 +20,7 @@ public struct CrashReport: Codable, Hashable, Sendable {
         let bundleInfo: [String: String]?
     }
 
-    private static let logs: URL = URL.libraryDirectory.appending(path: "Logs")
+    private static let directory: URL = URL.libraryDirectory.appending(components: "Logs", "DiagnosticReports")
 
     public let url: URL
     public let pid: pid_t
@@ -58,7 +58,7 @@ public struct CrashReport: Codable, Hashable, Sendable {
                 case .failure(let error): [.failure(.unreadable(url, error))]
             }
         }
-        let found: [Result<(report: Self, date: Date?), CrashReportFailure>] = walk(logs)
+        let found: [Result<(report: Self, date: Date?), CrashReportFailure>] = walk(directory)
         return (
             found.compactMap { read in if case .success(let found) = read, found.report.bundleIdentifier == identifier { found } else { nil } }.sorted(
                 using: KeyPathComparator(\.date, order: .reverse)
@@ -75,7 +75,7 @@ public struct CrashReport: Codable, Hashable, Sendable {
     }
 
     public static func following() -> some AsyncSequence<Result<Self, CrashReportFailure>, Never> {
-        FileWatch.events(of: logs.appending(path: "DiagnosticReports")).flatMap { change -> AsyncSyncSequence<[Result<Self, CrashReportFailure>]> in
+        FileWatch.events(of: directory).flatMap { change -> AsyncSyncSequence<[Result<Self, CrashReportFailure>]> in
             switch change {
                 case .success(let files): files.filter { file in file.pathExtension == "ips" }.flatMap(read).async
                 case .failure(let error): [Result.failure(.unwatched(error))].async

@@ -2,7 +2,7 @@ public import ApplicationServices
 public import Encoding
 public import Foundation
 public import Results
-public import System
+import System
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -135,7 +135,7 @@ private struct Part {
 public enum ElementFailure: CustomNSError, LocalizedError {
     case untrusted
     case unanswered(ElementAction?)
-    case noProcess(Errno)
+    case noProcess
     case unreadable(FailedRead)
     case unobservable(AggregateError<(notification: String, error: AXError)>)
     case absent(Data)
@@ -155,7 +155,7 @@ public enum ElementFailure: CustomNSError, LocalizedError {
             case .untrusted: "Process lacks Accessibility access, allow it in System Settings > Privacy & Security > Accessibility"
             case .unanswered(.none): "Application did not answer within Accessibility messaging timeout"
             case .unanswered(.some(let action)): "\(action) got no answer within messaging timeout and can have run"
-            case .noProcess(let error): error.description
+            case .noProcess: Errno.noSuchProcess.description
             case .unreadable(let read):
                 "\(read.reads.joined(separator: ", ")) on \(read.role ?? "element")\(read.label.map { label in " \"\(label)\"" } ?? "") failed with AXError \(read.error)"
             case .unobservable(let refusals):
@@ -168,7 +168,7 @@ public enum ElementFailure: CustomNSError, LocalizedError {
 
     public var errorUserInfo: [String: Any] {
         switch self {
-            case .noProcess(let error): [NSUnderlyingErrorKey: error]
+            case .noProcess: [NSUnderlyingErrorKey: Errno.noSuchProcess]
             case .untrusted, .unanswered, .unreadable, .unobservable, .absent, .activating, .refused: [:]
         }
     }
@@ -258,7 +258,7 @@ extension AXUIElement {
     func actionNames() throws(ElementFailure) -> [String] {
         var names: CFArray?
         return switch unsafe AXUIElementCopyActionNames(self, &names) {
-            case .success: names as? [String] ?? []
+            case .success: (names as? [String] ?? []).filter { action in action != kAXRaiseAction }
             case .failure, .invalidUIElement: []
             case let error: throw .reading(error, ["AXUIElementCopyActionNames"], on: self)
         }
@@ -305,7 +305,7 @@ extension AXUIElement {
             try role == kAXMenuRole
             ? (value(kAXParentAttribute) as AXUIElement?).flatMap { parent throws(ElementFailure) in try parent.label(parent.values(labelAttributes)) }
             : (attributes[kAXTitleAttribute] as? String).flatMap { title in title.isEmpty ? nil : title }
-        let (id, actions): (Data, [String]) = try (token, actionNames().filter { action in action != kAXRaiseAction })
+        let (id, actions): (Data, [String]) = try (token, actionNames())
         let element: ([String], [Control], [Button], [FailedRead]) -> Element = { text, controls, buttons, unreadable in
             Element(
                 id: id,

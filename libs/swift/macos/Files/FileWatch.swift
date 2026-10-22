@@ -5,19 +5,13 @@ import Synchronization
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-public enum FileWatchFailure: CustomNSError, LocalizedError {
+public enum FileWatchFailure: LocalizedError {
     case unstarted(URL)
-    case unreadable(any Error)
 
     public var errorDescription: String? {
         switch self {
             case .unstarted(let file): "FSEvents stream on \(file.path(percentEncoded: false)) failed to start"
-            case .unreadable(let error): "File handle read failed: \(error.localizedDescription)"
         }
-    }
-
-    public var errorUserInfo: [String: Any] {
-        if case .unreadable(let error) = self { [NSUnderlyingErrorKey: error] } else { [:] }
     }
 }
 
@@ -32,22 +26,18 @@ public enum FileWatch {
         }
     }
 
-    public static func lines(following handle: FileHandle) -> AsyncStream<Result<Data, FileWatchFailure>> {
+    public static func lines(following handle: FileHandle) -> AsyncStream<Data> {
         AsyncStream { continuation in
             let pending: Mutex<Data> = Mutex(Data())
             handle.readabilityHandler = { handle in
-                switch Result(catching: { try handle.readToEnd() }) {
-                    case .success(let appended):
-                        let lines: [Data] = pending.withLock { pending in
-                            let lines: [Data] = (pending + (appended ?? Data())).split(separator: UInt8(ascii: "\n"), omittingEmptySubsequences: false)
-                            pending = lines[lines.endIndex - 1]
-                            return lines.dropLast()
-                        }
-                        for line: Data in lines { continuation.yield(.success(line)) }
-                    case .failure(let error):
-                        continuation.yield(.failure(.unreadable(error)))
-                        continuation.finish()
+                let appended: Data = handle.availableData
+                let lines: [Data] = pending.withLock { pending in
+                    let lines: [Data] = (pending + appended).split(separator: UInt8(ascii: "\n"), omittingEmptySubsequences: false)
+                    pending = appended.isEmpty ? Data() : lines[lines.endIndex - 1]
+                    return appended.isEmpty ? lines.filter { line in !line.isEmpty } : lines.dropLast()
                 }
+                for line: Data in lines { continuation.yield(line) }
+                if appended.isEmpty { continuation.finish() }
             }
             continuation.onTermination = { _ in handle.readabilityHandler = nil }
         }
@@ -73,35 +63,45 @@ public enum FileWatch {
         func start(_ file: URL) {
             var context: FSEventStreamContext = unsafe FSEventStreamContext(version: 0, info: Unmanaged.passUnretained(self).toOpaque(), retain: nil, release: nil, copyDescription: nil)
             let flags: Int = kFSEventStreamCreateFlagFileEvents | kFSEventStreamCreateFlagWatchRoot | kFSEventStreamCreateFlagNoDefer
-            func started(_ stream: FSEventStreamRef) -> Bool {
-                unsafe FSEventStreamSetDispatchQueue(stream, queue)
-                return unsafe FSEventStreamStart(stream)
-            }
-            unsafe stream = FSEventStreamCreate(
-                nil,
-                changed,
-                &context,
-                [file.path(percentEncoded: false)] as CFArray,
-                FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
-                0,
-                FSEventStreamCreateFlags(flags),
-            )
-            guard let created: FSEventStreamRef = unsafe stream, unsafe started(created) else {
-                stop()
+            func unstarted() {
                 continuation.yield(.failure(.unstarted(file)))
                 continuation.finish()
+            }
+            guard
+                let created: FSEventStreamRef = unsafe FSEventStreamCreate(
+                    nil,
+                    changed,
+                    &context,
+                    [file.path(percentEncoded: false)] as CFArray,
+                    FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
+                    0,
+                    FSEventStreamCreateFlags(flags),
+                )
+            else {
+                unstarted()
                 return
             }
+            unsafe FSEventStreamSetDispatchQueue(created, queue)
+            guard unsafe FSEventStreamStart(created) else {
+                unsafe Self.invalidate(created)
+                unstarted()
+                return
+            }
+            unsafe stream = created
             continuation.yield(.success([]))
         }
 
         func stop() {
             if let stream: FSEventStreamRef = (unsafe stream) {
                 unsafe FSEventStreamStop(stream)
-                unsafe FSEventStreamInvalidate(stream)
-                unsafe FSEventStreamRelease(stream)
+                unsafe Self.invalidate(stream)
             }
             unsafe stream = nil
+        }
+
+        private static func invalidate(_ stream: FSEventStreamRef) {
+            unsafe FSEventStreamInvalidate(stream)
+            unsafe FSEventStreamRelease(stream)
         }
     }
 

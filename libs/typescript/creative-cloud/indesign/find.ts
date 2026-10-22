@@ -115,19 +115,20 @@ class Queries extends Schema.Class<Queries, { readonly brand: unique symbol }>('
     run() {
         const { name } = this;
         return Effect.gen(function* () {
-            const [{ app, ScriptLanguage }, { fs }] = yield* Effect.all([Model, Uxp]);
-            const listing = `(function (factory) {
-    var rows = [], modes = Folder(factory ? app.filePath + '/Presets/Find-Change Queries' : app.scriptPreferences.scriptsFolder.parent.parent + '/Find-Change Queries').getFiles() || [];
+            const [{ app, ScriptLanguage, folders }, { fs }] = yield* Effect.all([Model, Uxp]);
+            const { settings, presets, locale } = yield* folders;
+            const listing = `(function (root, within) {
+    var rows = [], modes = Folder(root + '/Find-Change Queries').getFiles() || [];
     for (var at = 0; at < modes.length; at++) {
         if (!(modes[at] instanceof Folder)) continue;
-        var files = Folder(modes[at].fsName + (factory ? '/' + $.locale : '')).getFiles('*.xml') || [];
+        var files = Folder(modes[at].fsName + within).getFiles('*.xml') || [];
         for (var each = 0; each < files.length; each++) rows.push([modes[at].displayName, files[each].displayName.replace(/\\.xml$/i, ''), files[each].fsName]);
     }
     return rows;
-})(arguments[0])`;
+})(arguments[0], arguments[1])`;
             const found = yield* Effect.forEach(Queries.Query.fields.origin.literals, (origin) =>
                 Effect.map(
-                    read(Schema.Array(Schema.Tuple([Schema.String, Schema.String, Schema.String])), `${origin} queries`, () => app.doScript(listing, ScriptLanguage.JAVASCRIPT, [origin === 'factory'])),
+                    read(Schema.Array(Schema.Tuple([Schema.String, Schema.String, Schema.String])), `${origin} queries`, () => app.doScript(listing, ScriptLanguage.JAVASCRIPT, origin === 'factory' ? [presets, `/${locale}`] : [settings, ''])),
                     Array.map(([folder, query, path]) => ({ folder, name: query, origin, path })),
                 ),
             );

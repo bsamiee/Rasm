@@ -3,18 +3,16 @@ import { linked } from '@rasm/uxp/link';
 import { type Cause, Effect, Layer, type Schedule, Schema } from 'effect';
 import { Rpc } from 'effect/rpc';
 import { Model } from '../model.ts';
-import { preserve, Transactions } from '../transactions.ts';
+import { Mutation, preserve, Transactions } from '../transactions.ts';
 import { Hold, InDesign, PATH, WIRE } from './contract.ts';
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
 const hold = Layer.effect(Hold)(
-    Effect.map(
-        Model,
-        ({ app, MeasurementUnits, UserInteractionLevels }) =>
-            (effect) =>
-                Effect.andThen(preserve(app.scriptPreferences, { userInteractionLevel: UserInteractionLevels.NEVER_INTERACT, enableRedraw: false, measurementUnit: MeasurementUnits.POINTS }), effect),
-    ),
+    Effect.map(Model, ({ app, MeasurementUnits, UserInteractionLevels }) => (effect, { payload }) => {
+        const held = { enableRedraw: false, measurementUnit: MeasurementUnits.POINTS };
+        return Effect.andThen(preserve(app.scriptPreferences, Schema.is(Mutation)(payload) ? held : { ...held, userInteractionLevel: UserInteractionLevels.NEVER_INTERACT }), effect);
+    }),
 );
 const handlers = InDesign.toLayer({
     enter: () => Rpc.fork(Transactions.use(({ enter }) => enter)),
@@ -29,6 +27,7 @@ const handlers = InDesign.toLayer({
     render: (payload) => payload.run(),
     menu: (payload) => payload.run(),
     invoke: (payload) => payload.run(),
+    shortcut: (payload) => payload.run(),
     preflight: (payload) => payload.run(),
     queries: (payload) => payload.run(),
 }).pipe(Layer.provideMerge(hold), Layer.provide(Layer.effect(Transactions, Transactions.make)));

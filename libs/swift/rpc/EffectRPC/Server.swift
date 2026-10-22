@@ -16,17 +16,23 @@ public enum Response {
 let effectRPC: DispatchQueue = DispatchQueue(label: "EffectRPC", attributes: .concurrent)
 
 actor Calls {
-    private var running: [Int: Task<Void, Never>] = [:]
+    private var running: [JSONValue: (task: Task<Void, Never>, acks: AsyncStream<Void>.Continuation)] = [:]
 
-    func start(_ id: Int, _ call: @escaping @concurrent @Sendable () async -> Void) {
-        running[id] = Task(executorPreference: effectRPC) {
-            await call()
+    func start(_ id: JSONValue, _ call: @escaping @concurrent @Sendable (AsyncStream<Void>) async -> Void) {
+        let (acks, ack): (AsyncStream<Void>, AsyncStream<Void>.Continuation) = AsyncStream.makeStream()
+        let task: Task<Void, Never> = Task(executorPreference: effectRPC) {
+            await call(acks)
             await self.interrupt(id)
         }
+        running[id] = (task, ack)
     }
 
-    func interrupt(_ id: Int) {
-        running.removeValue(forKey: id)?.cancel()
+    func interrupt(_ id: JSONValue) {
+        running.removeValue(forKey: id)?.task.cancel()
+    }
+
+    func acknowledge(_ id: JSONValue) {
+        running[id]?.acks.yield()
     }
 }
 
@@ -43,15 +49,13 @@ public enum EffectRPC {
         let calls: Calls = Calls()
         let decoder: JSONDecoder = JSONDecoder()
         let encoder: JSONEncoder = JSONEncoder()
-        decoder.userInfo = Discriminator(stringValue: "_tag").userInfo
-        encoder.userInfo = decoder.userInfo
         let send: @Sendable (FromServer) -> Void = { message in
             switch message.line(encoder) {
                 case .success(let data): sink.yield(data)
                 case .failure(let error): logger.debug("Dropped unencodable response: \(error, privacy: .public)")
             }
         }
-        @concurrent @Sendable func answer(_ id: Int, _ request: Result<Request, any Error>) async {
+        @concurrent @Sendable func answer(_ id: JSONValue, _ request: Result<Request, any Error>, acknowledged acks: AsyncStream<Void>) async {
             let outcome: Result<Response, AggregateError<FromServer.Reason>> = await Result { () async throws(AggregateError<FromServer.Reason>) in
                 try await perform(request.aggregated(FromServer.Reason.die).get())
                     .mapError { error in
@@ -62,7 +66,11 @@ public enum EffectRPC {
             switch outcome {
                 case .success(.value(let value)): send(.exit(requestId: id, .success(value)))
                 case .success(.stream(let chunks)):
-                    for await chunk: any Encodable & Sendable in chunks { send(.chunk(requestId: id, chunk)) }
+                    var acknowledgements: AsyncStream<Void>.Iterator = acks.makeAsyncIterator()
+                    for await chunk: any Encodable & Sendable in chunks {
+                        send(.chunk(requestId: id, chunk))
+                        await acknowledgements.next()
+                    }
                     send(.exit(requestId: id, .success(nil)))
                 case .failure(let cause): send(.exit(requestId: id, .failure(cause)))
             }
@@ -77,9 +85,9 @@ public enum EffectRPC {
                 guard byte == UInt8(ascii: "\n") else { continue }
                 defer { line = Data() }
                 switch Result(catching: { try decoder.decode(FromClient<Request>.self, from: line) }) {
-                    case .success(.request(let id, let request)): await calls.start(id) { await answer(id, request) }
+                    case .success(.request(let id, let request)): await calls.start(id) { acks in await answer(id, request, acknowledged: acks) }
                     case .success(.interrupt(let id)): await calls.interrupt(id)
-                    case .success(.ack): break
+                    case .success(.ack(let id)): await calls.acknowledge(id)
                     case .failure(let error): logger.debug("Dropped undecodable message: \(error, privacy: .public)")
                 }
             }

@@ -11,7 +11,7 @@ private struct Message<Payload: Sendable>: Sendable {
     var method: String?
     var params: Payload?
     var result: Payload?
-    var error: JSONRPCRejection?
+    var error: JSONRPCError?
 }
 
 extension Message: Decodable where Payload: Decodable {}
@@ -28,18 +28,19 @@ private struct Skip: Decodable, Sendable {
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-public struct JSONRPCRejection: Error, Codable {
+public struct JSONRPCError: Error, Codable {
     public let code: Int
     public let message: String
+    public let data: JSONValue?
 
-    public init(code: Int, message: String) { (self.code, self.message) = (code, message) }
+    public init(code: Int, message: String, data: JSONValue?) { (self.code, self.message, self.data) = (code, message, data) }
 }
 
 public enum JSONRPCFailure<Method: RawRepresentable & Sendable>: CustomNSError, LocalizedError where Method.RawValue == String {
     case transport(any Error)
     case closed
     case invalidMessage(Method?, any Error)
-    case rejected(Method, JSONRPCRejection)
+    case error(Method?, JSONRPCError)
 
     public var errorDescription: String? {
         switch self {
@@ -47,14 +48,14 @@ public enum JSONRPCFailure<Method: RawRepresentable & Sendable>: CustomNSError, 
             case .closed: "Connection closed"
             case .invalidMessage(.some(let method), _): "Unreadable \(method.rawValue) message"
             case .invalidMessage(.none, _): "Unreadable message"
-            case .rejected(let method, let rejection): "\(method.rawValue) error \(rejection.code): \(rejection.message)"
+            case .error(let method, let error): "\(method?.rawValue ?? "Request") error \(error.code): \(error.message)"
         }
     }
 
     public var errorUserInfo: [String: Any] {
         switch self {
             case .transport(let error), .invalidMessage(_, let error): [NSUnderlyingErrorKey: error]
-            case .closed, .rejected: [:]
+            case .closed, .error: [:]
         }
     }
 }
@@ -100,7 +101,7 @@ public actor JSONRPCConnection<Method: RawRepresentable & Hashable & Sendable, F
         decoder: JSONDecoder,
         timeout: Duration,
         retaining: Set<Method>,
-        serve: @escaping @Sendable (Data) async -> Result<JSONValue, JSONRPCRejection>,
+        serve: @escaping @Sendable (Data) async -> Result<JSONValue, JSONRPCError>,
         failure: @escaping @Sendable (JSONRPCFailure<Method>) -> Failure,
         _ body: (JSONRPCConnection) async -> Value,
     ) async -> Value {
@@ -180,7 +181,7 @@ public actor JSONRPCConnection<Method: RawRepresentable & Hashable & Sendable, F
     }
 
     // --- [TRANSPORT]
-    private func receive(_ line: Data, retaining: Set<Method>, serve: @Sendable (Data) async -> Result<JSONValue, JSONRPCRejection>) async {
+    private func receive(_ line: Data, retaining: Set<Method>, serve: @Sendable (Data) async -> Result<JSONValue, JSONRPCError>) async {
         switch Result(catching: { try decoder.decode(Message<Skip>.self, from: line) }) {
             case .failure(let error): finish(failure(.invalidMessage(nil, error)))
             case .success(let message):
@@ -189,13 +190,13 @@ public actor JSONRPCConnection<Method: RawRepresentable & Hashable & Sendable, F
                         let reply: Message<JSONValue> =
                             switch await serve(line) {
                                 case .success(let result): Message(id: id, result: result)
-                                case .failure(let rejection): Message(id: id, error: rejection)
+                                case .failure(let error): Message(id: id, error: error)
                             }
                         if case .failure(let error) = await Result(catching: { () async throws(Failure) in try await send(reply) }) { finish(error) }
                     case (.some(let id), .none):
                         guard let call: Call = calls.removeValue(forKey: id) else { return }
                         call.answer.yield(
-                            message.error.map { rejection in .failure(failure(.rejected(call.method, rejection))) } ?? .success(line)
+                            message.error.map { error in .failure(failure(.error(call.method, error))) } ?? .success(line)
                         )
                     case (.none, .some(let name)):
                         guard let method: Method = Method(rawValue: name) else { return }
@@ -206,7 +207,8 @@ public actor JSONRPCConnection<Method: RawRepresentable & Hashable & Sendable, F
                         } catch {
                             finish(failure(.invalidMessage(method, error)))
                         }
-                    case (.none, .none): return
+                    case (.none, .none):
+                        if let error: JSONRPCError = message.error { finish(failure(.error(nil, error))) }
                 }
         }
     }

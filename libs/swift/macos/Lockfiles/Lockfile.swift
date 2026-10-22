@@ -109,11 +109,14 @@ private struct Held: Equatable, Sendable {
         do throws(LockfileFailure) {
             try create()
         } catch .held {
-            guard try stamped(lockfile).modified < .seconds(Date().timeIntervalSince1970) - lockfile.stale else { throw .held(lockfile.url) }
-            try remove(at: lockfile.url)
+            switch try stamped(lockfile) {
+                case .some(let current) where current.modified >= .seconds(Date().timeIntervalSince1970) - lockfile.stale: throw .held(lockfile.url)
+                case .some: try remove(at: lockfile.url)
+                case .none: break
+            }
             try create()
         }
-        return try Result { () throws(LockfileFailure) in try stamped(lockfile) }
+        return try Result { () throws(LockfileFailure) in try current(lockfile) }
             .flatMapError { error in
                 Result { () throws(LockfileFailure) in try remove(at: lockfile.url) }
                     .mapError { cleanup in .filesystem(AggregateError(first: error, remaining: [cleanup])) }
@@ -127,8 +130,8 @@ private struct Held: Equatable, Sendable {
         var touched: URL = lockfile.url
         var values: URLResourceValues = URLResourceValues()
         values.contentModificationDate = Date()
-        try Result { try touched.setResourceValues(values) }.mapError(LockfileFailure.filesystem).get()
-        let current: Self = try Self.stamped(lockfile)
+        guard try ifPresent({ try touched.setResourceValues(values) }).mapError(LockfileFailure.filesystem).get() != nil else { throw .compromised(lockfile.url) }
+        let current: Self = try Self.current(lockfile)
         guard current.inode == inode else { throw .compromised(lockfile.url) }
         return current
     }
@@ -142,14 +145,20 @@ private struct Held: Equatable, Sendable {
         guard try Self.stamped(lockfile) == self else { throw .compromised(lockfile.url) }
     }
 
-    private static func stamped(_ lockfile: Lockfile) throws(LockfileFailure) -> Self {
-        let stat: Stat = try Result { () throws(Errno) in try FilePath(lockfile.url.path(percentEncoded: false)).stat() }.mapError(LockfileFailure.filesystem).get()
-        guard stat.type == .directory else { throw .compromised(lockfile.url) }
-        return Self(lockfile: lockfile, inode: stat.inode, modified: Duration(stat.st_mtim))
+    private static func current(_ lockfile: Lockfile) throws(LockfileFailure) -> Self {
+        guard let held: Self = try stamped(lockfile) else { throw .compromised(lockfile.url) }
+        return held
+    }
+
+    private static func stamped(_ lockfile: Lockfile) throws(LockfileFailure) -> Self? {
+        try ifPresent { try FilePath(lockfile.url.path(percentEncoded: false)).stat() }.mapError(LockfileFailure.filesystem).get().map { stat throws(LockfileFailure) in
+            guard stat.type == .directory else { throw .compromised(lockfile.url) }
+            return Self(lockfile: lockfile, inode: stat.inode, modified: Duration(stat.st_mtim))
+        }
     }
 
     private static func remove(at url: URL) throws(LockfileFailure) {
-        try Result { try FileManager.default.removeItem(at: url) }.mapError(LockfileFailure.filesystem).get()
+        _ = try ifPresent { try FileManager.default.removeItem(at: url) }.mapError(LockfileFailure.filesystem).get()
     }
 }
 

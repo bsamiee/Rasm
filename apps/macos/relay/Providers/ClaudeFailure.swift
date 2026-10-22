@@ -148,8 +148,7 @@ nonisolated enum ClaudeFailure: DeadlineFailure, ProviderFailure, LockFailure {
             case .modelUnavailable: "Haiku model unavailable"
             case .greetingFailed: "Claude greeting failed"
             case .protocolFailure: "Unexpected Claude Code response"
-            case .deadline(.cancelled): "Canceled"
-            case .deadline(.timedOut(let deadline)): "Claude Code did not answer within \(deadline.formatted(.units(width: .wide)))"
+            case .deadline(let deadline): "Claude Code \(deadline.localizedDescription)"
             case .lock(.held): "Claude credential update in progress, try again when it finishes"
             case .lock(let failure): failure.localizedDescription
             case .cleanup(let operation, _): operation.localizedDescription

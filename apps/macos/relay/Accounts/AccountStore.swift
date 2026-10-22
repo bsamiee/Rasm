@@ -288,7 +288,7 @@ final class AccountStore {
         root?.cancel()
         authenticationTask?.cancel()
         for model: AccountModel in accounts { model.running?.task.cancel() }
-        let stopped: Result<Void, ProcessFailure> = await withTimeout(.seconds(5)) { @MainActor [self] in
+        let stopped: Result<Void, Deadline> = await withTimeout(.seconds(5)) { @MainActor [self] in
             await root?.value
             await authenticationTask?.value
             for model: AccountModel in accounts { await model.running?.task.value }

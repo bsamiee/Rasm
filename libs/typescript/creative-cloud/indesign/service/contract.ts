@@ -9,7 +9,7 @@ import { Preflight } from '../preflight.ts';
 import { Reference } from '../references.ts';
 import { Render } from '../render.ts';
 import { Script } from '../scripts.ts';
-import { Invoke, Menu } from '../session.ts';
+import { Invoke, Menu, Shortcut } from '../session.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -48,6 +48,7 @@ const InDesign = RpcGroup.make(
     Rpc.make('render', { payload: Render, success: Render.Result, error: Unmatched.Refusal }),
     Rpc.make('menu', { payload: Menu, success: Menu.Result, error: Unmatched.Refusal }),
     Rpc.make('invoke', { payload: Invoke, success: Menu.Action, error: Unmatched.Refusal }),
+    Rpc.make('shortcut', { payload: Shortcut, success: Menu.Action, error: Unmatched.Refusal }),
     Rpc.make('preflight', { payload: Preflight, success: Preflight.Result, error: Unmatched.Refusal }),
     Rpc.make('queries', { payload: Queries, success: Queries.Result, error: Unmatched.Refusal }),
 )

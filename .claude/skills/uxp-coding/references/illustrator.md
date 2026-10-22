@@ -4,47 +4,38 @@ Illustrator answers `do javascript` with its last expression as Unicode text (`u
 
 ## [01]-[CALLS]
 
-Calls needing structured results encode JSON in ExtendScript. Source holds the body as an `encodeURIComponent` string literal, runs it through `new Function`, and returns one encoded `Result` holding the value or the thrown `name`, `message`, and `Error` `number` and `line`:
+Calls needing structured results encode JSON in ExtendScript. Source holds the body as an `encodeURIComponent` string literal, compiles it through `eval` of a function expression, and returns the encoded value, or empty text for no value:
 
 ```js
-(function (body, encoded) {
-    var outcome;
-    try {
-        var value = new Function(decodeURIComponent(body)).call(this);
-        outcome = { _tag: "Success", success: value === undefined ? null : value };
-    } catch (error) {
-        var known = error instanceof Error;
-        var thrown = known ? { name: error.name, message: error.message } : { message: String(error) };
-        if (known && typeof error.number === "number" && typeof error.line === "number") thrown.cause = { number: error.number, line: error.line };
-        outcome = { _tag: "Failure", failure: thrown };
+(function (body) {
+    function encoded(value) {
+        var parts = [], key, at, kind;
+        if (value === null || value === undefined || (typeof value === "number" && !isFinite(value))) return "null";
+        if (typeof value === "number" || typeof value === "boolean") return String(value);
+        if (typeof value === "string") return '"' + value.replace(/[\x00-\x1f"\\]/g, function (c) { return "\\u" + ("000" + c.charCodeAt(0).toString(16)).slice(-4); }) + '"';
+        kind = Object.prototype.toString.call(value);
+        if (kind === "[object Array]") { for (at = 0; at < value.length; at++) parts.push(encoded(value[at])); return "[" + parts.join(",") + "]"; }
+        if (kind !== "[object Object]") return encoded(String(value));
+        for (key in value) parts.push(encoded(key) + ":" + encoded(value[key]));
+        return "{" + parts.join(",") + "}";
     }
-    return encodeURIComponent(encoded(outcome));
-}).call(this, "<body>", function encoded(value) {
-    var parts = [], key, at;
-    if (value === null || value === undefined || (typeof value === "number" && !isFinite(value))) return "null";
-    if (typeof value === "number" || typeof value === "boolean") return String(value);
-    if (typeof value === "string") return '"' + value.replace(/[\x00-\x1f"\\]/g, function (c) { return "\\u" + ("000" + c.charCodeAt(0).toString(16)).slice(-4); }) + '"';
-    if (value instanceof Array) {
-        for (at = 0; at < value.length; at++) parts.push(encoded(value[at]));
-        return "[" + parts.join(",") + "]";
-    }
-    if (value.typename !== undefined) return encoded(String(value));
-    for (key in value) parts.push(encoded(key) + ":" + encoded(value[key]));
-    return "{" + parts.join(",") + "}";
-})
+    var value = eval("(function () {" + decodeURIComponent(body) + "\n})").call(this);
+    return value === undefined ? "" : encodeURIComponent(encoded(value));
+}).call(this, "<body>")
 ```
 
 ```ts
-const Outcome = Schema.fromJsonString(Schema.toCodecJson(Schema.Result(Schema.Json, Schema.ErrorInstance())));
+const Value = Schema.StringFromUriComponent.pipe(Schema.decodeTo(Schema.fromJsonString(Schema.Json)));
 const ran = <E, R>(send: (source: string) => Effect.Effect<string, E, R>, source: string) =>
-    Effect.flatMap(send(source), (reply) => Effect.flatMap(Schema.decodeEffect(Outcome)(decodeURIComponent(reply)), Effect.fromResult));
+    Effect.flatMap(send(source), (reply) => (reply === '' ? Effect.succeedNone : Effect.asSome(Schema.decodeEffect(Value)(reply))));
 ```
 
-`send` passes `source` as the direct parameter of `do javascript` through an Apple Event sender, and a failure decodes as an `Error` with ExtendScript's `number` and `line` as `cause`. Host objects encode as their `String` form (`[Document Untitled-1]`), and bodies return JSON-shaped data. Thrown strings and numbers have no `number`, `message`, or `line`, and a member read on thrown `null` throws 21.
+`send` passes `source` as the direct parameter of `do javascript` through an Apple Event sender, and a throw or a syntax error fails as the Apple event error Illustrator answers. Host objects encode as their `String` form (`[Document Untitled-1]`), and bodies return JSON-shaped data.
 
 - `with arguments` (`«class JArg»`) passes text, numbers, booleans, and lists, `null` and records as `undefined`, and `osascript` `argv` as text
 - ExtendScript reads U+2028 and U+2029 as line terminators, and a string literal holding one raw fails to compile, in source and in JSON alike
 - Uncaught throws and syntax errors answer Apple event error 5001 with no dialog and text `Error <number>: <message>.Line: <line>->  <source line>`
+- Photoshop ExtendScript runs `new Function` of a source with a syntax error as a function answering `undefined`, where `eval` of it throws, and answers an `undefined` last value as the text `undefined`
 - Top-level `var` and `$.global` members persist between calls, and a source holds its state inside one function
 - `do javascript` runs a file passed as direct parameter (`POSIX file "<path>"`) with the same `arguments`
 - Events sent before Illustrator finishes launching fail -600 or get no reply, and a `launch` event to it returns once it accepts them

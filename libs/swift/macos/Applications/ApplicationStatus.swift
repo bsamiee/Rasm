@@ -1,58 +1,55 @@
 public import AppKit
 import ApplicationServices
 import AsyncAlgorithms
-import Encoding
 import Results
 import Synchronization
-import System
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-public enum ApplicationStatus: Equatable, Sendable {
+public enum ApplicationStatus: Encodable, Equatable, Sendable {
     case launching
-    case responding([Element])
+    case responding(elements: [Element])
     case unresponsive
-}
-
-extension ApplicationStatus: Encodable {
-    private enum Key: CodingKey {
-        case elements
-    }
-
-    public func encode(to encoder: any Encoder) throws {
-        switch self {
-            case .launching: try encoder.encode(case: "launching", keyedBy: Key.self)
-            case .responding(let elements): try encoder.encode(case: "responding", keyedBy: Key.self) { fields in try fields.encode(elements, forKey: .elements) }
-            case .unresponsive: try encoder.encode(case: "unresponsive", keyedBy: Key.self)
-        }
-    }
 }
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
 private final class Observation: Sendable {
     let ticks: AsyncStream<Void>.Continuation
-    let observer: Mutex<(observer: AXObserver, element: AXUIElement)>
+    let observer: Mutex<(observer: AXObserver, element: AXUIElement, unregistered: [String])>
 
     init(_ application: NSRunningApplication, ticks: AsyncStream<Void>.Continuation) throws(ElementFailure) {
-        let names: [String] = [
-            kAXWindowCreatedNotification, kAXSheetCreatedNotification, kAXMenuOpenedNotification, kAXMenuClosedNotification, kAXUIElementDestroyedNotification,
-            kAXFocusedWindowChangedNotification, kAXMainWindowChangedNotification, kAXTitleChangedNotification, kAXWindowMiniaturizedNotification,
-            kAXWindowDeminiaturizedNotification, kAXApplicationHiddenNotification, kAXApplicationShownNotification, kAXValueChangedNotification,
-        ]
         let element: AXUIElement = AXUIElementCreateApplication(application.processIdentifier)
         var created: AXObserver?
         let creation: AXError = unsafe AXObserverCreate(application.processIdentifier, observed, &created)
         guard let observer: AXObserver = created else { throw .reading(creation, ["AXObserverCreate"], on: element) }
+        CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observer), .defaultMode)
         self.ticks = ticks
-        self.observer = Mutex((observer, element))
-        try self.observer.withLock { observed throws(ElementFailure) in
-            _ = try traverse(names) { name in
+        self.observer = Mutex(
+            (
+                observer, element,
+                [
+                    kAXWindowCreatedNotification, kAXSheetCreatedNotification, kAXMenuOpenedNotification, kAXMenuClosedNotification, kAXUIElementDestroyedNotification,
+                    kAXFocusedWindowChangedNotification, kAXMainWindowChangedNotification, kAXTitleChangedNotification, kAXWindowMiniaturizedNotification,
+                    kAXWindowDeminiaturizedNotification, kAXApplicationHiddenNotification, kAXApplicationShownNotification, kAXValueChangedNotification,
+                ],
+            )
+        )
+    }
+
+    func register() throws(ElementFailure) {
+        try observer.withLock { observed throws(ElementFailure) in
+            let refusals: [(notification: String, error: AXError)] = observed.unregistered.compactMap { name in
                 let added: AXError = unsafe AXObserverAddNotification(observed.observer, observed.element, name as CFString, Unmanaged.passUnretained(self).toOpaque())
-                return added == .success ? .success(()) : .failure(AggregateError(first: (notification: name, error: added)))
+                return added == .success ? nil : (name, added)
             }
-            .mapError { refusals -> ElementFailure in refusals.first.error == .apiDisabled ? .untrusted : .unobservable(refusals) }.get()
-            CFRunLoopAddSource(CFRunLoopGetMain(), AXObserverGetRunLoopSource(observed.observer), .defaultMode)
+            observed.unregistered = refusals.map(\.notification)
+            switch AggregateError(refusals) {
+                case .none: return
+                case .some(let refused) where refused.first.error == .apiDisabled: throw .untrusted
+                case .some(let refused) where refused.errors.allSatisfy({ refusal in refusal.error == .cannotComplete }): throw .unanswered(nil)
+                case .some(let refused): throw .unobservable(refused)
+            }
         }
     }
 
@@ -63,22 +60,31 @@ private final class Observation: Sendable {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+extension AXUIElement {
+    func responding(walking walked: (Element) -> Bool) throws(ElementFailure) -> ApplicationStatus {
+        try .responding(elements: candidates().map { candidate throws(ElementFailure) in try candidate.described(walking: walked) }.compactMap(\.self))
+    }
+}
+
 extension NSRunningApplication {
-    var vanished: Errno? {
+    var vanished: Bool {
         var process: proc_bsdinfo = proc_bsdinfo()
-        return unsafe proc_pidinfo(processIdentifier, PROC_PIDTBSDINFO, 0, &process, Int32(MemoryLayout<proc_bsdinfo>.size)) <= 0 && errno == ESRCH ? Errno(rawValue: errno) : nil
+        return unsafe proc_pidinfo(processIdentifier, PROC_PIDTBSDINFO, 0, &process, Int32(MemoryLayout<proc_bsdinfo>.size)) <= 0 && errno == ESRCH
     }
 
     @concurrent
     public func status(walking walked: @Sendable (Element) -> Bool) async -> Result<ApplicationStatus, ElementFailure> {
+        await status { application throws(ElementFailure) in try application.responding(walking: walked) }
+    }
+
+    @concurrent
+    private func status(_ read: @Sendable (AXUIElement) throws(ElementFailure) -> ApplicationStatus) async -> Result<ApplicationStatus, ElementFailure> {
         await withTaskExecutorPreference(accessibility) {
             let application: AXUIElement = AXUIElementCreateApplication(processIdentifier)
-            let read: Result<ApplicationStatus, ElementFailure> = Result { () throws(ElementFailure) in
-                try .responding(application.candidates().map { candidate throws(ElementFailure) in try candidate.described(walking: walked) }.compactMap(\.self))
-            }
-            return switch read {
-                case .failure(.unanswered): vanished.map { error in .failure(.noProcess(error)) } ?? .success(isFinishedLaunching ? .unresponsive : .launching)
-                case .success, .failure: read
+            return switch Result(catching: { () throws(ElementFailure) in try read(application) }) {
+                case .failure(.unanswered) where vanished: .failure(.noProcess)
+                case .failure(.unanswered): .success(isFinishedLaunching ? .unresponsive : .launching)
+                case let other: other
             }
         }
     }
@@ -89,13 +95,16 @@ extension NSRunningApplication {
         return Result { () throws(ElementFailure) in
             let observation: Observation = try Observation(self, ticks: tick)
             tick.onTermination = { _ in withExtendedLifetime(observation) {} }
+            let current: @Sendable () async -> Result<ApplicationStatus, ElementFailure> = {
+                await self.status { application throws(ElementFailure) in
+                    try observation.register()
+                    return try application.responding(walking: walked)
+                }
+            }
             return chain([()].async, ticks)
-                .map { _ in await self.status(walking: walked) }
+                .map { _ in await current() }
                 .flatMap { read in
-                    chain(
-                        [read].async,
-                        AsyncTimerSequence(interval: messagingTimeout, clock: .continuous).map { _ in await self.status(walking: walked) }.drop(while: unresponsive).prefix(unresponsive(read) ? 1 : 0),
-                    )
+                    chain([read].async, AsyncTimerSequence(interval: messagingTimeout, clock: .continuous).map { _ in await current() }.drop(while: unresponsive).prefix(unresponsive(read) ? 1 : 0))
                 }
                 .prefix { read in if case .failure(.noProcess) = read { false } else { true } }
                 .removeDuplicates { last, next in

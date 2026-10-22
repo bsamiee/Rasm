@@ -111,15 +111,16 @@ class Pg extends Schema.Class<Pg, { readonly brand: unique symbol }>('Pg')({ tab
 }
 class PgPrelude extends Schema.Class<PgPrelude, { readonly brand: unique symbol }>('PgPrelude')({
     migrator: Schema.String,
-    extensions: Schema.Array(Schema.String),
+    absent: Schema.Array(Schema.String),
     configurations: Schema.fromJsonString(Schema.Array(Schema.Struct({ name: Schema.String, configuration: Schema.String, configured: Schema.Boolean, drift: Schema.Array(Schema.Struct({ tokens: Schema.NonEmptyArray(Schema.String), dictionaries: Schema.OptionFromNullOr(Schema.NonEmptyArray(Schema.String)) })) }))),
 }) {
     static readonly preamble = ["SET LOCAL lock_timeout = '5s'", "SET LOCAL transaction_timeout = '2min'"];
-    static readonly open = (sql: SqlClient.SqlClient, required: readonly string[], configurations: readonly Extract<Option.Option.Value<Relation['table']['search']>['tokenizer'], object>[]) =>
+    static readonly open = (sql: SqlClient.SqlClient, required: readonly string[], filters: readonly string[], configurations: readonly Extract<Option.Option.Value<Relation['table']['search']>['tokenizer'], object>[]) =>
         Effect.forEach(PgPrelude.preamble, (text) => sql.unsafe(text), { discard: true }).pipe(
             Effect.andThen(
                 sql`SELECT pg_advisory_xact_lock(hashtextextended(current_schema(), 0))::text AS lock, set_config('search_path', concat_ws(', ', quote_ident(current_schema()),
-                    (SELECT string_agg(DISTINCT quote_ident(n.nspname), ', ') FROM pg_extension e JOIN pg_namespace n ON n.oid = e.extnamespace WHERE e.extname::text = ANY(${required}::text[]) AND n.oid <> current_schema()::regnamespace), 'pg_temp'), true) AS search_path`,
+                    (SELECT string_agg(quote_ident(n.nspname), ', ' ORDER BY n.nspname) FROM pg_namespace n WHERE n.oid NOT IN (current_schema()::regnamespace, 'pg_catalog'::regnamespace)
+                        AND (EXISTS (SELECT 1 FROM pg_extension e WHERE e.extnamespace = n.oid AND e.extname = ANY(${required}::text[])) OR EXISTS (SELECT 1 FROM pg_ts_dict d WHERE d.dictnamespace = n.oid AND d.dictname = ANY(${filters}::text[])))), 'pg_temp'), true) AS search_path`,
             ),
             Effect.andThen(
                 sql`WITH maps AS (SELECT m.mapcfg, m.maptokentype, array_agg(m.mapdict::regdictionary::text ORDER BY m.mapseqno) AS dictionaries FROM pg_ts_config_map m GROUP BY m.mapcfg, m.maptokentype),
@@ -127,7 +128,9 @@ class PgPrelude extends Schema.Class<PgPrelude, { readonly brand: unique symbol 
                     tokens AS (SELECT d.name, t.tokid, t.alias, CASE WHEN b.dictionaries IS NOT NULL THEN d.filters || b.dictionaries END AS wanted, l.dictionaries AS now
                         FROM declared d JOIN pg_ts_config c ON c.oid = d.base CROSS JOIN ts_token_type(c.cfgparser) t
                         LEFT JOIN maps b ON (b.mapcfg, b.maptokentype) = (d.base, t.tokid) LEFT JOIN maps l ON (l.mapcfg, l.maptokentype) = (coalesce(d.live, d.base), t.tokid))
-                    SELECT current_user::text AS migrator, array(SELECT extname::text FROM pg_extension) AS extensions, array_to_json(array(SELECT json_build_object('name', d.name, 'configuration', d.base::regconfig::text, 'configured', d.live IS NOT NULL,
+                    SELECT current_user::text AS migrator,
+                        array(SELECT a.name FROM (SELECT x FROM unnest(${required}::text[]) x WHERE NOT EXISTS (SELECT 1 FROM pg_extension e WHERE e.extname = x)
+                            UNION SELECT f FROM unnest(${filters}::text[]) f WHERE NOT EXISTS (SELECT 1 FROM pg_ts_dict d WHERE d.dictname = f) AND EXISTS (SELECT 1 FROM pg_available_extensions v WHERE v.name = f)) a(name) ORDER BY a.name) AS absent, array_to_json(array(SELECT json_build_object('name', d.name, 'configuration', d.base::regconfig::text, 'configured', d.live IS NOT NULL,
                         'drift', array(SELECT json_build_object('tokens', array_agg(k.alias ORDER BY k.tokid), 'dictionaries', k.wanted) FROM tokens k WHERE k.name = d.name AND k.now IS DISTINCT FROM k.wanted GROUP BY k.wanted)) FROM declared d))::text AS configurations`,
             ),
             Effect.flatMap(Schema.decodeUnknownEffect(Schema.Tuple([PgPrelude]))),
@@ -405,16 +408,13 @@ const planPg = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, catalog: C
     const drawings = draw('pg', catalog);
     const indexes = drawings.flatMap(({ rendered }) => rendered.indexes);
     const required = Array.dedupe(indexes.flatMap(Struct.get('extensions')));
-    const { migrator, extensions, configurations } = yield* PgPrelude.open(
-        sql,
-        required,
-        Array.dedupeWith(
-            indexes.flatMap(({ configuration }) => Option.toArray(configuration)),
-            (self, that) => self.name === that.name,
-        ),
+    const owned = Array.dedupeWith(
+        indexes.flatMap(({ configuration }) => Option.toArray(configuration)),
+        (self, that) => self.name === that.name,
     );
+    const { migrator, absent, configurations } = yield* PgPrelude.open(sql, required, Array.dedupe(owned.flatMap(Struct.get('filters'))), owned);
     const [existing, drifted] = [configurations.filter(Struct.get('configured')).map(Struct.get('name')), configurations.filter(({ drift }) => Array.isReadonlyArrayNonEmpty(drift)).map(Struct.get('name'))];
-    const ready = ({ extensions: needed, configuration }: (typeof indexes)[number]) => needed.every((name) => extensions.includes(name)) && Option.toArray(configuration).every(({ name }) => existing.includes(name));
+    const ready = ({ extensions: needed, configuration }: (typeof indexes)[number]) => !needed.some((name) => absent.includes(name)) && Option.toArray(configuration).every(({ name }) => existing.includes(name));
     const stored = yield* latestRevision(sql);
     const role = Option.match(runtime, { onNone: () => 'PUBLIC', onSome: quote });
     const block = (body: string) => `DO ${literal(`BEGIN ${body} END`)}`;
@@ -551,7 +551,7 @@ const planPg = Effect.fnUntraced(function* (sql: SqlClient.SqlClient, catalog: C
         findings: [],
         preamble: PgPrelude.preamble,
         opening: [
-            ...Array.difference(required, extensions).map((extension) => `CREATE EXTENSION IF NOT EXISTS ${quote(extension)}`),
+            ...absent.map((extension) => `CREATE EXTENSION IF NOT EXISTS ${quote(extension)}`),
             ...configurations.flatMap(({ name, configuration, configured, drift }) => [
                 ...(configured ? [] : [`CREATE TEXT SEARCH CONFIGURATION ${quote(name)} (COPY = ${configuration})`]),
                 ...drift.map(({ tokens, dictionaries }) => `ALTER TEXT SEARCH CONFIGURATION ${quote(name)} ${Option.match(dictionaries, { onNone: () => `DROP MAPPING IF EXISTS FOR ${tokens.join(', ')}`, onSome: (chain) => `ALTER MAPPING FOR ${tokens.join(', ')} WITH ${chain.join(', ')}` })}`),

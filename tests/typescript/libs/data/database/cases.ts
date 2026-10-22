@@ -51,9 +51,9 @@ const accounts = table(
         ],
     },
 );
-const notes = table('notes', { id: Schema.Int, title: Schema.String, body: Schema.String }, { search: { columns: ['title', 'body'], tokenizer: { configuration: 'simple', filters: ['unaccent'] } } });
+const notes = table('notes', { id: Schema.Int, title: Schema.String, body: Schema.String }, { search: { columns: ['title', 'body'], tokenizer: { configuration: 'simple', filters: ['unaccent'], tokenize: 'unicode61 remove_diacritics 2' } } });
 const fragments = table('fragments', notes.fields, { search: { columns: ['title', 'body'], tokenizer: 'trigram' } });
-const textNotes = table('notes', { ...notes.fields, id: Uuid }, { search: { columns: ['title', 'body'], tokenizer: { configuration: 'simple', filters: ['unaccent'] } } });
+const textNotes = table('notes', { ...notes.fields, id: Uuid }, { search: { columns: ['title', 'body'], tokenizer: { configuration: 'simple', filters: ['unaccent'], tokenize: 'unicode61 remove_diacritics 2' } } });
 const ledgers = table('ledgers', { id: Uuid, tenant: Schema.String, amount: Schema.Int }, { tenant: 'tenant' });
 const legacy = table('legacy', { id: Schema.String, count: Schema.Int, body: Schema.fromJsonString(Schema.Struct({ camelKey: Schema.Finite })) }, { retype: ['count', 'body'] });
 

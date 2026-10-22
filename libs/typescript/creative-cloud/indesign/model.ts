@@ -173,7 +173,14 @@ found === null ? null : (function (model) {
                 return yield* Option.match(listed, { onSome: ([field]) => Effect.succeedSome(field), onNone: () => held });
             }),
         });
-        return Object.assign(model, { exported, classes, enumerations, owning, host, collection, named, document, page, spread, item, text, frame, enumeration, members, declared, plural, unavailable, rows, lineage, catalog });
+        const folders = Effect.try({
+            try: (): unknown => indesign.app.doScript('[app.scriptPreferences.scriptsFolder.parent.parent.fsName, app.filePath.fsName + "/Presets", $.locale]', indesign.ScriptLanguage.JAVASCRIPT),
+            catch: (cause) => new Cause.UnknownError(cause, 'settings and presets folders'),
+        }).pipe(
+            Effect.flatMap(flow(Schema.decodeUnknownEffect(Schema.Tuple([Schema.String, Schema.String, Schema.String])), Effect.orDie)),
+            Effect.map(([settings, presets, locale]) => ({ settings, presets, locale })),
+        );
+        return Object.assign(model, { exported, classes, enumerations, owning, host, collection, named, document, page, spread, item, text, frame, enumeration, members, declared, plural, unavailable, rows, lineage, catalog, folders });
     }),
 }) {}
 

@@ -244,7 +244,7 @@ actor CodexClient: ProviderClient {
                         decoder: CodexProtocol.decoder,
                         timeout: .seconds(60),
                         retaining: [.accountLoginCompleted, .turnCompleted],
-                        serve: { _ in .failure(JSONRPCRejection(code: -32601, message: "Relay does not provide agent tools")) },
+                        serve: { _ in .failure(JSONRPCError(code: -32601, message: "Relay does not provide agent tools", data: nil)) },
                         failure: { failure in .rpc(failure, serverVersion: manifest.version) },
                     ) { connection in
                         let limits: AsyncStream<CodexProtocol.RateLimitsUpdated> = await connection.subscribe(.accountRateLimitsUpdated, to: CodexProtocol.RateLimitsUpdated.self)
