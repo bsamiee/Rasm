@@ -54,25 +54,31 @@ def _ran(*command: str | Path, stdout: int | None = None, stderr: int | None = N
     return catch(lambda: subprocess.run(command, stdout=stdout, stderr=stderr, check=True), exception=subprocess.CalledProcessError)()
 
 
-def _resolved(blender: Path, root: _Root, lock: Path, *exported: str) -> Result[_Interpreter, subprocess.CalledProcessError]:
-    """Return Blender's interpreter once the locked runtime closure is exported to `lock`, leaving out the packages Blender bundles."""
+def _interpreter(blender: Path) -> Result[_Interpreter, subprocess.CalledProcessError]:
+    """Return Blender's Python executable and the extension platform Blender names for its host."""
     probe = "import json, sys; from bl_pkg.cli.blender_ext import platform_from_this_system; sys.stderr.write(json.dumps({'executable': sys.executable, 'platform': platform_from_this_system()}))"
-    excluded = (*("--no-emit-package", Requirement(entry).name) for entry in root.tool.uv.constraint_dependencies)
-    return (
-        _ran("uv", "export", "--locked", "--no-default-groups", "--no-editable", "--no-hashes", "--format", "requirements.txt", *exported, *excluded, "--output-file", lock, stdout=subprocess.DEVNULL)
-        .bind(lambda _: _ran(blender, "--background", "--factory-startup", "--python-exit-code", "1", "--python-expr", probe, stderr=subprocess.PIPE))
-        .map(lambda host: msgspec.json.decode(host.stderr, type=_Interpreter))
+    return _ran(blender, "--background", "--factory-startup", "--python-exit-code", "1", "--python-expr", probe, stderr=subprocess.PIPE).map(
+        lambda host: msgspec.json.decode(host.stderr, type=_Interpreter)
     )
 
 
+def _requirements(root: _Root, lock: Path, *exported: str) -> Result[Path, subprocess.CalledProcessError]:
+    """Return `lock` once it holds the locked runtime closure, leaving out the packages Blender bundles."""
+    excluded = (*("--no-emit-package", Requirement(entry).name) for entry in root.tool.uv.constraint_dependencies)
+    return _ran(
+        "uv", "export", "--locked", "--no-default-groups", "--no-editable", "--no-hashes", "--format", "requirements.txt", *exported, *excluded, "--output-file", lock, stdout=subprocess.DEVNULL
+    ).map(lambda _: lock)
+
+
 def pack(
-    source: ResolvedExistingDirectory, archive: ResolvedPath, /, *, blender: Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")]
+    source: ResolvedExistingDirectory, directory: ResolvedPath, /, *, version: str, blender: Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")]
 ) -> Result[int, subprocess.CalledProcessError | ExceptionGroup[subprocess.CalledProcessError]]:
-    """Build a Blender extension holding the first-party packages as submodules and every other distribution as a wheel.
+    """Build a Blender extension holding the first-party packages as submodules and every other distribution as a wheel, one archive per platform Blender names.
 
     Args:
         source: Extension directory containing its manifest and assets.
-        archive: ZIP file to create or replace.
+        directory: Folder the archives replace, holding nothing else once built.
+        version: Semantic version the manifest takes.
         blender: Blender executable, supplied by BLENDER_PATH.
 
     Returns:
@@ -103,6 +109,7 @@ def pack(
                 newline="",
             )
         document = tomlkit.parse((manifest := stage / "blender_manifest.toml").read_text())
+        document["version"] = version
         document["platforms"] = [interpreter.platform]
         document["wheels"] = tomlkit.item([f"./wheels/{wheel.name}" for wheel in sorted(wheels.glob("*.whl"))]).multiline(multiline=True)
         manifest.write_text(tomlkit.dumps(document))
@@ -119,17 +126,27 @@ def pack(
         rendered: Result[None, subprocess.CalledProcessError | ExceptionGroup[subprocess.CalledProcessError]] = (
             Error(ExceptionGroup("Icon previews failed to render", failures)) if failures else Ok(None)
         )
-        archive.parent.mkdir(parents=True, exist_ok=True)
         lock = Path(folder, "requirements.txt")
+        built = Path(folder, "archives")
+        built.mkdir()
+
+        def placed() -> None:
+            if directory.exists():
+                shutil.rmtree(directory)
+            directory.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(built, directory)
+
         return (
             rendered
-            .bind(lambda _: _resolved(blender, root, lock))
+            .bind(lambda _: _requirements(root, lock))
+            .bind(lambda _: _interpreter(blender))
             .bind(
                 lambda interpreter: _ran("pip", "--python", interpreter.executable, "--disable-pip-version-check", "wheel", "--wheel-dir", stage / "wheels", "--no-deps", "--requirement", lock).map(
                     lambda _: staged(stage, interpreter)
                 )
             )
-            .bind(lambda _: _ran(blender, "--factory-startup", "--command", "extension", "build", "--source-dir", stage, "--output-filepath", archive))
+            .bind(lambda _: _ran(blender, "--factory-startup", "--command", "extension", "build", "--source-dir", stage, "--output-dir", built, "--split-platforms"))
+            .map(lambda _: placed())
             .map(lambda _: 0)
         )
 
@@ -146,8 +163,11 @@ def site(target: ResolvedPath, /, *, blender: Annotated[ResolvedExistingFile, Pa
     """
     root = msgspec.toml.decode(Path("pyproject.toml").read_bytes(), type=_Root)
     with tempfile.TemporaryDirectory() as folder:
-        lock = Path(folder, "requirements.txt")
-        return _resolved(blender, root, lock, "--no-emit-project").bind(lambda interpreter: _ran("uv", "pip", "sync", "--python", interpreter.executable, "--target", target, lock)).map(lambda _: 0)
+        return (
+            _requirements(root, Path(folder, "requirements.txt"), "--no-emit-project")
+            .bind(lambda lock: _interpreter(blender).bind(lambda interpreter: _ran("uv", "pip", "sync", "--python", interpreter.executable, "--target", target, lock)))
+            .map(lambda _: 0)
+        )
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
