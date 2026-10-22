@@ -181,6 +181,10 @@ const git = async ({ system: { exists, root, home }, script: { commands } }: Cal
     });
 };
 
+// --- [BACKGROUND]
+
+const detached = ({ script: { commands, background } }: Call): readonly string[] => (background && !commands.some(({ invocations: chain }) => chain.some(([program]) => program === 'wait')) ? ['A job started with & outlives this call. Wait for it in the command, or set run_in_background'] : []);
+
 // --- [STDIN]
 
 const stdin = ({ script: { commands } }: Call): readonly string[] => commands.flatMap(({ fed, words, invocations: chain }) => (!fed && chain.some(waits) ? [`${words.map(({ text }) => text).join(' ')} waits on standard input nothing feeds. Pass a file or pipe input`] : []));
@@ -218,7 +222,7 @@ const commandDecision = async (system: System, command: string, project: string)
         return { kind: 'deny', reason: `Command not parsed. ${parsed.faults.map((value) => (value.kind === 'exited' ? [`${value.program} exited ${value.code}`, value.output].filter((part) => part !== '').join(', ') : `${value.program} failed, ${String(value.cause)}`)).join('. ')}` };
     }
     const call = { system, script: parsed.value, project };
-    const reasons = new Set((await Promise.all([deletes, git, stdin, inline].map((policy) => policy(call)))).flat());
+    const reasons = new Set((await Promise.all([deletes, git, stdin, inline, detached].map((policy) => policy(call)))).flat());
     if (reasons.size > 0) {
         return { kind: 'deny', reason: [...reasons].join('. ') };
     }

@@ -17,6 +17,7 @@ interface Command {
 }
 interface Script {
     readonly commands: readonly Command[];
+    readonly background: boolean;
 }
 interface Capture {
     readonly text: string;
@@ -27,7 +28,7 @@ type Hit = Capture &
     (
         | { readonly ruleId: 'command'; readonly metaVariables: { readonly single: { readonly CMD: Capture; readonly SCOPE?: Capture }; readonly multi: { readonly ARGS?: readonly Capture[] } } }
         | { readonly ruleId: 'operand' | 'heredoc' | 'herestring'; readonly metaVariables: { readonly single: { readonly BODY: Capture } } }
-        | { readonly ruleId: 'fed' | 'unbounded' }
+        | { readonly ruleId: 'fed' | 'unbounded' | 'background' }
     );
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -105,6 +106,7 @@ const parse = async (system: System, command: string): Promise<Result<Script>> =
                 );
                 return map(inner, (scripts) => ({
                     commands: [...located.map(({ hit, stdin, targets, ...parsed }) => parsed), ...scripts.flatMap(({ commands }) => commands)],
+                    background: sorted.some(({ ruleId }) => ruleId === 'background') || scripts.some(({ background }) => background),
                 }));
             },
         );
@@ -144,6 +146,7 @@ const parse = async (system: System, command: string): Promise<Result<Script>> =
                 },
                 rule: { kind: 'command', any: [{ has: { matches: 'input' } }, { matches: 'stage' }, { inside: { stopBy: 'end', not: { kind: 'list, pipeline, negated_command' }, matches: 'stage' } }] },
             },
+            { id: 'background', rule: { pattern: '&' } },
             {
                 id: 'unbounded',
                 rule: {

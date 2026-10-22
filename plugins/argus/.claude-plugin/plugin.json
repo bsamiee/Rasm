@@ -1,6 +1,5 @@
 {
     "name": "argus",
-    "version": "1.0.1",
     "description": "Repository language servers for code navigation",
     "author": {
         "name": "Bardia Samiee"

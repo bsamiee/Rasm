@@ -1,6 +1,5 @@
 {
     "name": "function-hooks",
-    "version": "1.0.1",
     "description": "Shared command policies for Claude Code and Codex",
     "author": {
         "name": "Bardia Samiee"

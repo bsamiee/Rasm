@@ -1,6 +1,5 @@
 {
     "name": "playwright",
-    "version": "1.0.1",
     "description": "Playwright browser automation and trace reading skills, test agents, and the test runner MCP server",
     "author": {
         "name": "Bardia Samiee"

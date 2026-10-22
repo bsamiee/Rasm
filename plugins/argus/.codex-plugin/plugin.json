@@ -1,6 +1,6 @@
 {
     "name": "argus",
-    "version": "1.0.1",
+    "version": "1.0.0",
     "description": "Repository language servers as MCP tools for code navigation and diagnostics",
     "author": {
         "name": "Bardia Samiee"
