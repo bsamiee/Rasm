@@ -31,7 +31,6 @@ catalog:
     vscode-languageserver-textdocument: 1.0.15
     rfc6902: 5.3.0
     fast-xml-parser: 5.11.2
-    fast-xml-builder: 1.3.1
     '@xmldom/xmldom': 0.9.12 # Namespace-preserving XMP document updates
     cheerio: 1.2.0 # HTML parser for Acrobat accessibility report rows and server-rendered page templates
     parse5: 8.0.1 # Serializer for MCP application documents

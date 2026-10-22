@@ -45,6 +45,7 @@ struct Instance: Encodable {
 enum Request: Decodable {
     case installations
     case instances
+    case status(pid: pid_t)
     case launch(url: URL)
     case perform(pid: pid_t, actions: [ElementAction])
     case terms(url: URL)
@@ -74,6 +75,8 @@ enum Request: Decodable {
                             states.compactMap { instance, state in instance.bundleURL.map { url in Instance(pid: instance.processIdentifier, url: url, state: state) } }
                         }
                     )
+                case .status(let pid):
+                    return try await .value(InstanceState(Adobe.running(pid).get().instance.status(walking: walked)))
                 case .launch(let url):
                     return try await .value(["pid": NSWorkspace.shared.launchApplication(at: Adobe.installation(at: url).get().url).get().processIdentifier])
                 case .perform(let pid, let actions):

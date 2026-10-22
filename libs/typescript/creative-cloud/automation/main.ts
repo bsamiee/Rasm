@@ -107,6 +107,7 @@ const Requests = RpcGroup.make(
         success: Schema.Array(RunningInstance).annotate({ description: 'Running instances with states at subscription and after each change, an exited instance listed until the next change' }),
         stream: true,
     }),
+    Rpc.make('status', { payload: { pid: Pid }, success: State, error: Unmatched.Refusal }),
     Rpc.make('launch', { payload: { url: Schema.URL }, success: Schema.Struct({ pid: Pid.annotate({ description: 'Process of the instance once it finished launching' }) }), error: Schema.ErrorInstance() }),
     Rpc.make('perform', { payload: { pid: Pid, ...Perform.fields }, error: Unmatched.Refusal }),
     Rpc.make('terms', { payload: { url: Schema.URL }, success: Installation.Terms, error: Schema.ErrorInstance() }),

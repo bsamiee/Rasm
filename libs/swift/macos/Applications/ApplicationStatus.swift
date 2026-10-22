@@ -41,7 +41,7 @@ private final class Observation: Sendable {
         try observer.withLock { observed throws(ElementFailure) in
             let refusals: [(notification: String, error: AXError)] = observed.unregistered.compactMap { name in
                 let added: AXError = unsafe AXObserverAddNotification(observed.observer, observed.element, name as CFString, Unmanaged.passUnretained(self).toOpaque())
-                return added == .success ? nil : (name, added)
+                return [.success, .notificationAlreadyRegistered].contains(added) ? nil : (name, added)
             }
             observed.unregistered = refusals.map(\.notification)
             switch AggregateError(refusals) {

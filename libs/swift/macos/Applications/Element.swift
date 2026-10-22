@@ -15,20 +15,13 @@ let messagingTimeout: Duration = .seconds(1)
 public struct Control: Codable, Hashable, Sendable {
     public let id: Data
     public let role: String
-    public let label: String?
-    public let value: JSONValue?
-    public let actions: [String]
-}
-
-public struct Button: Codable, Hashable, Sendable {
-    public let id: Data
-    public let role: String
     public let subrole: String?
     public let label: String?
     public let identifier: String?
     public let attribute: String?
+    public let value: JSONValue?
     public let actions: [String]
-    public let items: [Self]
+    public let items: [Self]?
 }
 
 public struct FailedRead: Codable, Hashable, Sendable {
@@ -60,7 +53,6 @@ public struct Element: Hashable, Sendable {
     public let title: String?
     public let text: [String]
     public let controls: [Control]
-    public let buttons: [Button]
     public let actions: [String]
     public let unreadable: [FailedRead]
 
@@ -69,7 +61,7 @@ public struct Element: Hashable, Sendable {
 
 extension Element: Encodable {
     private enum Key: CodingKey {
-        case id, window, role, subrole, modal, identifier, description, title, text, controls, buttons, actions, unreadable, requiresAnswer
+        case id, window, role, subrole, modal, identifier, description, title, text, controls, actions, unreadable, requiresAnswer
     }
 
     public func encode(to encoder: any Encoder) throws {
@@ -84,7 +76,6 @@ extension Element: Encodable {
         try fields.encodeIfPresent(title, forKey: .title)
         try fields.encode(text, forKey: .text)
         try fields.encode(controls, forKey: .controls)
-        try fields.encode(buttons, forKey: .buttons)
         try fields.encode(actions, forKey: .actions)
         try fields.encode(unreadable, forKey: .unreadable)
         try fields.encode(requiresAnswer, forKey: .requiresAnswer)
@@ -92,7 +83,6 @@ extension Element: Encodable {
 }
 
 private struct Part {
-    let button: Button?
     let text: String?
     let control: Control?
 
@@ -101,31 +91,24 @@ private struct Part {
             [kAXRoleAttribute, kAXSubroleAttribute, kAXEnabledAttribute, kAXValueAttribute, kAXIdentifierAttribute, kAXChildrenAttribute] + labelAttributes
         )
         let role: String? = attributes[kAXRoleAttribute] as? String
-        let label: String? = try node.label(attributes)
         let actions: [String] = try node.actionNames()
-        button = try role.flatMap { role throws(ElementFailure) in
-            try attributes[kAXEnabledAttribute] as? Bool != false && actions.contains(kAXPressAction)
-                ? Button(
-                    id: node.token,
-                    role: role,
-                    subrole: attributes[kAXSubroleAttribute] as? String,
-                    label: label,
-                    identifier: attributes[kAXIdentifierAttribute] as? String,
-                    attribute: attribute,
-                    actions: actions,
-                    items: (attributes[kAXChildrenAttribute] as? [AXUIElement] ?? [])
-                        .map { child throws(ElementFailure) in try child.value(kAXRoleAttribute) == kAXMenuRole ? child.children() : [] }.flatMap(\.self)
-                        .map { item throws(ElementFailure) in try Self(item, attribute: nil).button }.compactMap(\.self),
-                )
-                : nil
-        }
+        let valued: Bool = role.map([kAXTextFieldRole, kAXTextAreaRole, kAXComboBoxRole, kAXPopUpButtonRole, kAXCheckBoxRole, kAXRadioButtonRole].contains) == true
         text = role == kAXStaticTextRole ? (attributes[kAXValueAttribute] as? String).flatMap { line in line.isEmpty ? nil : line } : nil
-        control = role.flatMap { role in
-            switch role {
-                case kAXTextFieldRole, kAXTextAreaRole, kAXComboBoxRole, kAXPopUpButtonRole, kAXCheckBoxRole, kAXRadioButtonRole:
-                    Control(id: node.token, role: role, label: label, value: attributes[kAXValueAttribute].flatMap(JSONValue.init(accessibility:)), actions: actions)
-                default: nil
-            }
+        control = try role.flatMap { role throws(ElementFailure) -> Control? in
+            guard valued || attributes[kAXEnabledAttribute] as? Bool != false && actions.contains(kAXPressAction) else { return nil }
+            let menus: [AXUIElement] = try (attributes[kAXChildrenAttribute] as? [AXUIElement] ?? [])
+                .map { child throws(ElementFailure) in try child.value(kAXRoleAttribute) == kAXMenuRole ? child.children() : [] }.flatMap(\.self)
+            return try Control(
+                id: node.token,
+                role: role,
+                subrole: attributes[kAXSubroleAttribute] as? String,
+                label: node.label(attributes),
+                identifier: attributes[kAXIdentifierAttribute] as? String,
+                attribute: attribute,
+                value: attributes[kAXValueAttribute].flatMap(JSONValue.init(accessibility:)),
+                actions: actions,
+                items: menus.isEmpty ? nil : menus.map { item throws(ElementFailure) in try Self(item, attribute: nil).control }.compactMap(\.self),
+            )
         }
     }
 }
@@ -306,7 +289,7 @@ extension AXUIElement {
             ? (value(kAXParentAttribute) as AXUIElement?).flatMap { parent throws(ElementFailure) in try parent.label(parent.values(labelAttributes)) }
             : (attributes[kAXTitleAttribute] as? String).flatMap { title in title.isEmpty ? nil : title }
         let (id, actions): (Data, [String]) = try (token, actionNames())
-        let element: ([String], [Control], [Button], [FailedRead]) -> Element = { text, controls, buttons, unreadable in
+        let element: ([String], [Control], [FailedRead]) -> Element = { text, controls, unreadable in
             Element(
                 id: id,
                 window: window,
@@ -318,12 +301,11 @@ extension AXUIElement {
                 title: title,
                 text: text,
                 controls: controls,
-                buttons: buttons,
                 actions: actions,
                 unreadable: unreadable,
             )
         }
-        let outline: Element = element([], [], [], [])
+        let outline: Element = element([], [], [])
         guard walked(outline) else { return [kAXMenuRole, kAXMenuBarRole].contains(role) ? nil : outline }
         let marked: [(attribute: String, node: AXUIElement)] = buttonAttributes.compactMap { attribute in
             attributes[attribute].flatMap { slot in CFGetTypeID(slot) == AXUIElementGetTypeID() ? (attribute, unsafe unsafeDowncast(slot, to: AXUIElement.self)) : nil }
@@ -343,7 +325,6 @@ extension AXUIElement {
         return element(
             parts.compactMap(\.text),
             parts.compactMap(\.control),
-            parts.compactMap(\.button),
             reads.compactMap { read in if case .failure(.unreadable(let failed)) = read { failed } else { nil } },
         )
     }

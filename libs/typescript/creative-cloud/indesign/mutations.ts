@@ -146,7 +146,7 @@ class Remove extends Mutation.extend<Remove>('Remove')({ target: Specifier }, { 
                     const remove = yield* Effect.fromOption(Option.liftPredicate(Reflect.get(found, 'remove'), Predicate.isFunction), () => Unmatched.make({ subject: `method of ${found.constructorName}`, query: Option.some('remove'), candidates: Record.keys(methods) }));
                     const removed = Reference.of(found);
                     yield* Effect.try({ try: () => Reflect.apply(remove, found, []), catch: (cause) => new Cause.UnknownError(cause, target) });
-                    return removed;
+                    return Reference.make({ ...removed, valid: found.isValid });
                 }),
             ),
         );

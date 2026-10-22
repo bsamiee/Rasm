@@ -85,12 +85,16 @@ const resolve = Effect.fn('resolve')(function* (specifier: string) {
             const value = (field: string): unknown => Option.getOrUndefined(Option.map(container, (at) => Reflect.get(at, field)));
             const sibling = Option.map(Array.head(siblings), Struct.get('constructorName'));
             const related = fields.flatMap(([field, { type, array }]) => (Option.isSome(array) && Option.isSome(sibling) && Equal.equals(type, sibling) ? Array.ensure<unknown>(value(field)) : [])).filter(model.named);
+            const collections = fields
+                .flatMap(([field, row]) => (model.plural(row) ? [value(field)] : []))
+                .filter(model.collection)
+                .flatMap((items) => Option.toArray(Option.fromUndefinedOr(items.everyItem())));
             const name = NAMED.exec(specifier)?.groups?.name;
             const candidates = Array.dedupe(Array.map([...siblings, ...related.filter((each) => each.name === name)], (each) => each.toSpecifier()));
             return yield* Effect.fromOption(
                 Option.map(
-                    Array.findFirst(fields.flatMap(([field, row]) => (model.plural(row) ? [value(field)] : [])).filter(model.collection), (items) => items.everyItem().toSpecifier() === specifier),
-                    (items) => items.everyItem().getElements(),
+                    Array.findFirst(collections, (every) => every.toSpecifier() === specifier),
+                    (every) => every.getElements(),
                 ),
                 () => (INDEXED.test(specifier) ? Unmatched.make({ subject: Array.isReadonlyArrayNonEmpty(siblings) ? `object among indexes 0 to ${siblings.length - 1}` : 'object', query: Option.some(specifier), candidates: [] }) : Unmatched.make({ subject: 'object', query: Option.some(specifier), candidates })),
             );

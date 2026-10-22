@@ -11,7 +11,7 @@ import { Unmatched } from '@rasm/search';
 import { Face, Instance, Run, Shaped } from '@rasm/typography/main';
 import type { Source } from '@rasm/typography/source';
 import { ORIGIN, Peer } from '@rasm/uxp/link';
-import { Array, Config, Context, Effect, FileSystem, flow, identity, Layer, Match, Option, Path, Result, Schema, SchemaAST, Sink, Stream, Struct, SubscriptionRef } from 'effect';
+import { Array, Config, Context, Effect, FileSystem, flow, identity, Layer, Match, Option, Path, Schema, SchemaAST, Sink, Stream, Struct, SubscriptionRef } from 'effect';
 import { McpSchema, Tool } from 'effect/ai';
 import manifest from './package.json' with { type: 'json' };
 
@@ -55,13 +55,9 @@ main(
                 completion: { pid: () => Effect.map(SubscriptionRef.get(automation.instances), Array.map(Struct.get('pid'))) },
                 changes: SubscriptionRef.changes(automation.instances),
                 content: (_, pid) =>
-                    Effect.flatMap(SubscriptionRef.get(automation.instances), (rows) =>
-                        Effect.fromOption(
-                            Option.map(
-                                Array.findFirst(rows, (row) => row.pid === pid),
-                                Struct.get('state'),
-                            ),
-                        ),
+                    SubscriptionRef.get(automation.instances).pipe(
+                        Effect.flatMap((rows) => Effect.fromOption(Array.findFirst(rows, (row) => row.pid === pid))),
+                        Effect.flatMap(({ state }) => (Schema.is(exited)(state) ? Effect.succeed(state) : automation.status({ pid }))),
                     ),
             });
             const [named, kind] = [McpSchema.param('application', Schema.String), McpSchema.param('kind', Kind)];
@@ -157,7 +153,6 @@ main(
                         preflight: new PublishedResource({
                             uri: 'indesign://preflight',
                             complete: { document: Array.map((process) => process.targetObject.specifier) },
-                            report: Array.some((process) => Result.isFailure(process.aggregatedResults) || Array.isReadonlyArrayNonEmpty(process.aggregatedResults.success[2])),
                         }),
                         queries: new PublishedResource({ uri: 'indesign://queries', complete: { name: Array.map(Struct.get('name')) } }),
                         kind: new PublishedResource({ uri: 'indesign://kinds', complete: { name: Match.valueTags({ Index: ({ classes, enumerations }) => [...classes, ...enumerations], Class: ({ name }) => [name], Enumeration: ({ name }) => [name] }) } }),

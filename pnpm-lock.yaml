@@ -684,9 +684,6 @@ catalogs:
     fast-check:
       specifier: 4.10.2
       version: 4.10.2
-    fast-xml-builder:
-      specifier: 1.3.1
-      version: 1.3.1
     fast-xml-parser:
       specifier: 5.11.2
       version: 5.11.2
@@ -1674,9 +1671,6 @@ importers:
       fast-check:
         specifier: 'catalog:'
         version: 4.10.2
-      fast-xml-builder:
-        specifier: 'catalog:'
-        version: 1.3.1
       fast-xml-parser:
         specifier: 'catalog:'
         version: 5.11.2
@@ -2183,12 +2177,6 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.0.5
-      fast-xml-builder:
-        specifier: 'catalog:'
-        version: 1.3.1
-      fast-xml-parser:
-        specifier: 'catalog:'
-        version: 5.11.2
       image-size:
         specifier: 'catalog:'
         version: 2.0.4

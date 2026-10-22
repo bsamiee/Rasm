@@ -75,6 +75,7 @@ const located = (specifier: string) =>
 
 - `app.panels` holds a member resolving to nothing, and its `item(<index>)` reads `undefined`
 - `everyItem()` or a range over `app.panels` reads `undefined` in UXP and throws in ExtendScript
+- A removed object keeps its `toSpecifier()`, reads `isValid` false, and reads `constructorName` empty
 - `toSpecifier()` repeats the access path: `item(index)` positional, `itemByName` `[@name="<name>"]`, `itemByID` and `getElements()` `[@id=<n>]`
 - `resolve` of an `[@id=<n>]` step returns the object with that id whatever class the step names
 - Text specifiers are character spans that name another range after an edit before them, and `parentPage` reads `null` on the pasteboard
@@ -205,7 +206,7 @@ Find/Change scopes save, load, and delete a native query. Native serialization p
 
 - `MeasurementUnits.POINTS` makes every measurement field read and write points, text size and leading included
 - `AutoEnum.AUTO_VALUE` varies units per field by ruler axis and stroke setting, and unit strings (`'9mm'`) parse under every unit
-- Panels hold `userInteractionLevel` at `NEVER_INTERACT`, `enableRedraw` false, and `measurementUnit` at `POINTS` for each served call
+- Panels hold `enableRedraw` false and `measurementUnit` at `POINTS` for each served call, reads hold `userInteractionLevel` at `NEVER_INTERACT`, and writes run at InDesign's own level
 - Reads that change export preferences hold them through `preserve` without a transaction or document undo entry
 - Scripts start at `INTERACT_WITH_ALL`, and an uncaught script throw alerts under it and `NEVER_INTERACT`
 - `NEVER_INTERACT` turns a PDF font embedding refusal into a silent omission
@@ -360,7 +361,7 @@ const source = Effect.fn('source')(function* (face: Font, characters: string) {
 
 `document.activeProcess` is one live process per document under its preflight options, and the Preflight panel shows it:
 - `activeProcess` throws "Preflighting is turned off for this document." while `preflightOff` is true
-- InDesign's idle task completes the live process after a change, and no event a script receives marks completion
+- InDesign's idle task completes the live process after a change while InDesign is the active application alone, App Nap disabled or not, and no event a script receives marks completion
 - `aggregatedResults` throws "Aggregated Result for this process is not available." while running, else reads `[name, profile, rows]`
 - Rows read `[depth, label, page, info, [key, value][]]`, depth 1 a category, 2 a rule, and 3 an issue with the object kind as label
 - Rows are empty exactly when the process found no issue
@@ -370,6 +371,7 @@ const source = Effect.fn('source')(function* (face: Font, characters: string) {
 - Profiles resolve by name over `app.preflightProfiles.everyItem().getElements()`, and `itemByName('[Basic]')` reads invalid
 - `app.preflightProcesses.add(document, profile)` ignores document preflight options and takes no argument for them
 - `waitForProcess()` turns preflight off and on for the application and every open document, and returns false once finished
+- A process `app.preflightProcesses.add` returns finishes through `waitForProcess()` with InDesign inactive, where `activeProcess.waitForProcess()` returns false at once and leaves the live process running
 - `preflightEmbedWorkingProfile` reads on the application alone, a document's `preflightOptions` throws "Invalid object for this request."
 
 ## [12]-[SCRIPTS]

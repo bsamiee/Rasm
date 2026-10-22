@@ -27,7 +27,6 @@ const handlers = InDesign.toLayer({
     render: (payload) => payload.run(),
     menu: (payload) => payload.run(),
     invoke: (payload) => payload.run(),
-    shortcut: (payload) => payload.run(),
     preflight: (payload) => payload.run(),
     queries: (payload) => payload.run(),
 }).pipe(Layer.provideMerge(hold), Layer.provide(Layer.effect(Transactions, Transactions.make)));

@@ -81,10 +81,9 @@ Lines read `{"<bundle id>": {"<pid>": <state>}}`, one entry per running instance
 - `role`, `subrole`, `modal` (`AXModal`), `title`, and `description` (`AXDescription`, `alert` on an alert) name the element
 - `identifier` (`AXIdentifier`) names its kind as AppKit does, `save-panel`, `open-panel`, and `_NS:87` for an alert, shared by every element of that kind
 - `requiresAnswer` holds for a sheet, a window with `modal` true, or a system dialog, and never for a window that only reads `subrole` `AXDialog`
-- `text` holds its static text, `controls` the `id`, `role`, `label`, `value`, and `actions` of each text field, text area, combo box, pop-up button, check box, and radio button
-- `buttons` hold each enabled control or menu item offering `AXPress` with `id`, `role`, `subrole`, `label`, `identifier`, `actions`, and the element `attribute` naming it: `AXDefaultButton` answers Return, `AXCancelButton` Escape
-- Button `items` hold the enabled items of the menu the button opens, each a button, `[]` for a control opening none
-- Button `identifier` reads `action-button-<n>` on an alert in the order its buttons were added, `OKButton` and `CancelButton` on save and open panels, `PDPrint` and `PSOK` on print and page setup
+- `text` holds its static text, `controls` each text field, text area, combo box, pop-up button, check box, radio button, and enabled element or menu item offering `AXPress` once, with `id`, `role`, `subrole`, `label`, `identifier`, `value`, `actions`, and the element `attribute` naming it: `AXDefaultButton` answers Return, `AXCancelButton` Escape
+- Control `items` hold the controls of the menu the control opens, absent for a control opening none
+- Control `identifier` reads `action-button-<n>` on an alert in the order its buttons were added, `OKButton` and `CancelButton` on save and open panels, `PDPrint` and `PSOK` on print and page setup
 - Save and open panels set neither `AXDefaultButton` nor `AXCancelButton`
 - `actions` hold the element's own Accessibility actions other than `AXRaise`
 - `unreadable` lists Accessibility reads the app refused, each with `reads`, `role`, `label`, and AXError `error`
