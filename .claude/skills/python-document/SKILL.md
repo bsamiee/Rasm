@@ -1,6 +1,6 @@
 ---
 name: python-document
-description: "Use when ruff reports D or DOC rules or a Python member needs a Google-style docstring, covering scope, format, sections, and classes."
+description: "Use when writing or reviewing Python docstrings or fixing ruff D or DOC findings, covering scope and Google-style syntax"
 ---
 
 # [PYTHON_DOCUMENT]

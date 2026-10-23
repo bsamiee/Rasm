@@ -1,6 +1,6 @@
 ---
 name: delegate-codex
-description: "Use when a task, review, or analysis is delegated to Codex, covering the command, sandbox, prompt, resume, result, and review options."
+description: "Use when delegating work to Codex, covering non-interactive codex exec runs"
 argument-hint: "[task]"
 ---
 
@@ -13,14 +13,14 @@ argument-hint: "[task]"
 With a positional prompt, Codex appends piped stdin as a `<stdin>` block.
 
 1. Supply checkout, scope, writable files, acceptance criteria, and distinct event, diagnostic, and final-answer paths in the dispatch brief
-2. Keep `--sandbox read-only` for analysis and review, omitting it only for an authorized writing assignment
+2. Keep `--sandbox read-only` for analysis and review, omit it for an authorized writing assignment alone
 3. Run through `Bash` with `run_in_background: true` and retain its process handle for waiting, cancellation, and exit status
 
 ```bash
 codex exec --json --cd "$checkout" --sandbox read-only -o "$final_answer" "$prompt" </dev/null >"$events_jsonl" 2>"$diagnostics_log"
 ```
 
-Capture `thread_id` from `thread.started` in JSONL stdout and resume that conversation explicitly:
+Resume a conversation by `thread_id` from `thread.started` in JSONL stdout:
 
 ```bash
 codex exec --cd "$checkout" --sandbox read-only resume --json -o "$next_final_answer" "$thread_id" "$followup" </dev/null >"$next_events_jsonl" 2>"$next_diagnostics_log"
@@ -28,12 +28,13 @@ codex exec --cd "$checkout" --sandbox read-only resume --json -o "$next_final_an
 
 ## [02]-[RESULTS]
 
-Read the `-o` destination after process termination and accept the requested artifacts against the dispatch brief.
+After the process exits, read `-o` destination and accept requested artifacts against dispatch brief.
 
 - Item identities and started, updated, and completed events describe progress
-- Completed `agent_message` items can be commentary; item completion does not identify a final answer
-- `turn.completed`, `turn.failed`, and stream errors report turn termination, separately from process exit
-- `--last` can select another concurrent conversation; `--ephemeral` prevents persisted resume
+- Completed `agent_message` items can be commentary, item completion identifies no final answer
+- `turn.completed`, `turn.failed`, and stream errors report turn termination separately from process exit
+- `--last` can select another concurrent conversation
+- `--ephemeral` persists no session files for `resume` to continue
 - Forks isolate conversation history, not files or checkout-bound services
 - `--output-schema` serves a consumer requiring structured final fields
 

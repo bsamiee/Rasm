@@ -1,6 +1,6 @@
 ---
 name: manage-repo
-description: "Use when changing how the repository is structured, built, or checked, assigns each repository concern its owner and growth rule."
+description: "Use when changing how the repository is structured, built, or checked, covering each concern's owner and growth rule"
 ---
 
 # [MANAGE_REPO]
@@ -64,7 +64,7 @@ Rules for adding the next project, tool, plugin, or harness row, current state a
 - Checker configuration holds levels, options, thresholds, and bans for rules a checker includes
 - Forms wrong whatever their types (shape, nesting, banned construct, hand loop) take ast-grep rules, with fixes and reach across languages
 - Compiler extensions hold rules that resolved names, types, expansions, or other files decide
-- `tools/` checker folders take the name of the tool or compiler whose extension point they plug into
+- `tools/` checker folders take the name of the tool or compiler they extend
 - Forms code cannot write or no checker can see take no check
 - Sites more than one rule, parse, or checker reports take one owner by proven correctness and coverage, others exclude them by one shared predicate
 - Checker rules contradicting a required form or another checker stay off with their reason

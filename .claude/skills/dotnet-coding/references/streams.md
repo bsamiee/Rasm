@@ -135,7 +135,7 @@ Parallel computations with independent inputs compute partial results and combin
 |  [03]   | Transactional memory (`Ref`) | Coordinated updates with an atomic commit | Retries on conflict, transaction bodies hold no effects  |
 |  [04]   | Message passing (agent)      | State owned by a process, one handler     | Requires ownership, granularity, and lifecycle design    |
 
-Agents have an inbox that queues messages, state that only the agent owns, and a processing loop that handles one message at a time, and for each message the processing function can perform effects, send messages, create agents, and compute the state for the next message, the state is the fold of all messages received. The invariants are that no caller reads or mutates the owned state, that messages for one agent are processed sequentially, and that the state values passed through the loop are immutable snapshots, a mutable state object lets code outside the loop modify it concurrently. The minimal implementation keeps the state in the accumulator of a fold over the inbox, not in a private field, and avoids a recursive loop, which is not stack-safe in C#:
+Agents have an inbox that queues messages, state that only the agent owns, and a processing loop that handles one message at a time, and for each message the processing function can perform effects, send messages, create agents, and compute the state for the next message, the state is the fold of all messages received. The invariants are that no caller reads or mutates the owned state, that messages for one agent are processed sequentially, and that the state values passed through the loop are immutable snapshots, a mutable state object lets code outside the loop modify it concurrently. `Agent` keeps the state in the accumulator of a fold over the inbox, not in a private field, and avoids a recursive loop, which is not stack-safe in C#:
 
 ```csharp
 internal static class Agent {
@@ -245,7 +245,7 @@ internal static class Registry {
 }
 ```
 
-Load and registration share one `IO` chain, the load answers `IO<Option<Snapshot>>`, and the registry matches its `None` once into an `Error` naming the id on the `IO` error channel when storage has no such entity, a rejected command and a missing entity use the same result type. The design rules:
+Load and registration share one `IO` chain, the load answers `IO<Option<Snapshot>>`, and the registry matches its `None` once into an `Error` naming the id on the `IO` error channel when storage has no such entity, a rejected command and a missing entity use the same result type. Design rules:
 - Give an agent responsibility for owning and transitioning state, and move work that uses no owned state and needs no ordering outside the inbox
 - Make message types express intent (`Debit`, `Increment`)
 - Return immutable snapshots or derived results, even through a reply

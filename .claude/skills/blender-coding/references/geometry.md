@@ -43,7 +43,7 @@ Per-element mesh data goes through attributes and dedicated calls:
 - `VertexGroup.remove` takes indices below `len(mesh.vertices)`, a larger index crashing Blender
 - Object Mode `mesh.attributes` lists `position`, `.edge_verts`, `.corner_vert`, `.corner_edge`, `sharp_face`, UV maps, and `material_index`
 - Vertex groups sit outside original and evaluated mesh attributes, weights reading through `MeshVertex.groups` alone
-- Vertex group names live on the mesh, every object sharing it listing them, and `vertex_groups.clear()` empties `groups` on each vertex
+- Vertex group names belong to the mesh, every object sharing it listing them, and `vertex_groups.clear()` empties `groups` on each vertex
 
 ## [04]-[MESH_BUFFERS]
 

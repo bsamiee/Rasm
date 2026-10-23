@@ -4,7 +4,7 @@
 
 ## [01]-[SOURCES]
 
-`Source.lift` accepts an `IObservable<A>` or an `IEnumerable<A>`, and an observable enters by implementing `Subscribe`, which receives the `IObserver<A>` the source supplies once, delivers `OnNext` per value, ends with `OnCompleted`, and returns the `IDisposable` that owns the subscription lifetime:
+`Source.lift` accepts an `IObservable<A>` or an `IEnumerable<A>`. An observable implements `Subscribe`, and `Subscribe` receives the `IObserver<A>` the source supplies once, delivers `OnNext` per value, ends with `OnCompleted`, and returns the `IDisposable` that owns the subscription lifetime:
 
 ```csharp
 internal sealed class Replay<A>(Seq<A> items) : IObservable<A> {
@@ -35,11 +35,11 @@ internal static class Sources {
 }
 ```
 
-Lifted single values emit and complete at once, lifted enumerables emit their elements and complete, `Reduce` subscribes a lifted observable, `Source.pure` emits one value and completes, `Source.merge` joins sources, `Zip` pairs them, and `Map`, `Filter`, `Take`, `Skip`, and a query that flattens an inner source are the operators. `Event.from(ref Action<A>)` adds its callback to the delegate's invocation list, `Subscribe()` returns an `IO<Source<A>>` that receives every later invocation, and disposing the `Event` detaches the delegate. `Combine` subscribes to the second source only after the first completes, a first source that never completes hides the second, and `Source.pure(value).Combine(source)` prefixes an initial value.
+Lifted single values emit and complete at once, lifted enumerables emit their elements and complete, and `Reduce` subscribes a lifted observable. `Source.pure` emits one value and completes, `Source.merge` joins sources, `Zip` pairs them, and `Map`, `Filter`, `Take`, `Skip`, and a query that flattens an inner source are the operators. `Event.from(ref Action<A>)` adds its callback to the delegate's invocation list, `Subscribe()` returns an `IO<Source<A>>` that receives every later invocation, and disposing the `Event` detaches the delegate. `Combine` subscribes to the second source only after the first completes, a first source that never completes hides the second, and `Source.pure(value).Combine(source)` prefixes an initial value.
 
 ## [02]-[REDUCTION]
 
-`FoldReduce(seed, f)` folds every value into one `IO<S>`, `ReduceIO` lets the reducer stop with `Reduced.DoneIO` or continue with `Reduced.ContinueIO`, and `Fold(f, seed)` is a `Source<S>` over a `foldWhile` transducer with a predicate that never fails, no state reaches downstream, `FoldWhile` and `FoldUntil` yield it when their predicate turns:
+`FoldReduce(seed, f)` folds every value into one `IO<S>`, and `ReduceIO` lets the reducer stop with `Reduced.DoneIO` or continue with `Reduced.ContinueIO`. `Fold(f, seed)` is a `Source<S>` over a `foldWhile` transducer with a predicate that never fails, and no state reaches downstream. `FoldWhile` and `FoldUntil` yield the state when their predicate turns:
 
 ```csharp
 internal static class Reductions {
@@ -51,7 +51,7 @@ internal static class Reductions {
 
 ## [03]-[CONDUITS]
 
-`Conduit.make(Buffer<A>)` builds a `Sink<A>` and `Source<A>` pair, `Post` writes to the sink, `Comap` adapts the sink's input type, `Complete()` closes it and a later `Post` fails, and the buffer policy decides what happens when production outpaces consumption, the consumer cannot slow the producer by requesting the next item:
+`Conduit.make(Buffer<A>)` builds a `Sink<A>` and `Source<A>` pair, `Post` writes to the sink, `Comap` adapts the sink's input type, and `Complete()` closes the sink and a later `Post` fails. Buffer policies decide what happens when production outpaces consumption, the consumer cannot slow the producer by requesting the next item:
 
 | [INDEX] | [BUFFER]               | [BEHAVIOR]                                          |
 | :-----: | :--------------------- | :-------------------------------------------------- |
@@ -60,7 +60,7 @@ internal static class Reductions {
 |  [03]   | `Latest(seed)`         | Starts from the seed and keeps only the last value  |
 |  [04]   | `Newest(n)`            | Keeps the last `n` values                           |
 
-With an unbounded buffer the producer posts, completes, and the reduction reads afterward, while a bounded buffer needs the consumer forked before the producer posts, or `Post` blocks on the full buffer:
+With an unbounded buffer, the producer posts and completes and the reduction reads afterward. A bounded buffer needs the consumer forked before the producer posts, or `Post` blocks on the full buffer:
 
 ```csharp
 internal static class Queues {
@@ -89,7 +89,7 @@ Conduits reduced under `Fork()` while a client posts are message queues, and a s
 
 ## [04]-[PIPES]
 
-`ProducerT`, `PipeT`, and `ConsumerT` are the streaming roles with explicit queues and exact sequencing, `|` fuses them into one `EffectT`, and its `Run()` returns the underlying `K<IO, A>` for the host:
+`ProducerT`, `PipeT`, and `ConsumerT` are the streaming roles with explicit queues and exact sequencing. `|` fuses them into one `EffectT`, and its `Run()` returns the underlying `K<IO, A>` for the host:
 
 ```csharp
 internal static class Pipelines {
@@ -101,4 +101,4 @@ internal static class Pipelines {
 }
 ```
 
-`ProducerT.yieldAll` emits a sequence, `PipeT.map` transforms each value in transit, `ConsumerT.awaiting` receives one value and `ConsumerT.repeat` loops it, and `SinkT`, `SourceT`, and `ConduitT` are the remaining roles.
+`ProducerT.yieldAll` emits a sequence, `PipeT.map` transforms each value in transit, `ConsumerT.awaiting` receives one value, and `ConsumerT.repeat` loops it. `SinkT`, `SourceT`, and `ConduitT` are the remaining roles.

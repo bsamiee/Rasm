@@ -61,7 +61,7 @@ Class-level msgspec fields take their runtime form:
 Optionals the stub declares and runtime returns narrow once at the read through `Option.of_optional`, with no suppression:
 - `Panel.layout`, `Operator.layout`, and popup `layout` outside a draw
 - `Context.area` and `region` in every background run and every GUI timer, msgbus, and `load_post` body, the GUI bodies holding `windows[0]` as `context.window`
-- `Context.area` in GUI `depsgraph_update_post` handlers, which hold the last window of `window_manager.windows`
+- `Context.area` in GUI `depsgraph_update_post` handlers, each holding the last window of `window_manager.windows`
 - `Context.window`, `screen`, and `view_layer` in contexts that lack them, `screen` reading `None` at window close
 - `Context.active_object` with no active object
 - `Depsgraph.scene` and `view_layer` outside evaluation

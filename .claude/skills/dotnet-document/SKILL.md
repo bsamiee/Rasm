@@ -1,12 +1,12 @@
 ---
 name: dotnet-document
-description: "Use when adding or reviewing XML doc comments on a C# member, or a build fails on a compiler or Roslynator doc-comment diagnostic."
+description: "Use when writing or reviewing C# XML doc comments or fixing a doc-comment diagnostic, covering scope and tag syntax"
 disable-model-invocation: true
 ---
 
 # [DOTNET_DOCUMENT]
 
-Covers XML documentation comments (`///`) on C# members, from the tag syntax to the diagnostics the build raises on them. `GenerateDocumentationFile` writes every doc comment to the XML file, member documentation is optional (`.editorconfig` sets `CS1591` to `none`).
+Covers XML documentation comments (`///`) on C# members, their tag syntax, and the diagnostics the build raises on them. `GenerateDocumentationFile` writes every doc comment to the XML file, member documentation is optional (`.editorconfig` sets `CS1591` to `none`).
 
 ## [01]-[PRINCIPLES]
 
@@ -261,13 +261,13 @@ Return type decides the description, a LanguageExt return names the success valu
 
 ## [05]-[THREADING]
 
-Thread constraints sit in `<remarks>` and name the thread, lock, or monitor: the thread a member must run on and whether an awaited continuation resumes on it, any `lock()` or `Monitor.TryEnter` requirement the caller satisfies.
+Thread constraints sit in `<remarks>` and name the thread a member must run on, whether an awaited continuation resumes on it, and any `lock()` or `Monitor.TryEnter` requirement the caller satisfies.
 
 ## [06]-[ACCURACY]
 
 Doc text and examples state what the source declares:
 - Types, members, and overloads that doc text names exist in the source
-- Constraint claims (`must be`, `exactly N`) sit on a member whose body rejects other input, a padding, truncating, or clamping body takes none
+- Constraint claims (`must be`, `exactly N`) sit on a member with a body that rejects other input, a padding, truncating, or clamping body takes none
 - Data-format claims (bit layout, channel order, byte order) match the native header, with bit widths summing to the stated size
 - Comparisons with another type ("Unlike X, which is immutable") match that type's source
 - `<example>` code compiles against the source, tests a nullable return before use, and disposes no object a parent owns

@@ -60,7 +60,7 @@ const located = (specifier: string) =>
     });
 ```
 
-`getElements()` returns each member as its concrete class and throws on an invalid specifier. Reading a native getter (`constructorName`, `length`) with a class prototype as receiver crashes InDesign. `owning` reads no getter and holds for an object whose prototype is an exported class prototype declaring the member: `toSpecifier` for a DOM object, `everyItem` for a collection. A guard for one kind takes a member only that kind's prototypes declare (`documentOffset` for `Page`, `itemLayer` for every `PageItem` class). `located` passes a saved specifier to ExtendScript's `resolve` as an argument and compares an id step's class. Empty collections resolve as `undefined`, and code reads a known collection through `everyItem().getElements()` for an empty array. Supplied source calls native collection methods without computed-member rewriting.
+`getElements()` returns each member as its concrete class and throws on an invalid specifier. Reading a native getter (`constructorName`, `length`) with a class prototype as receiver crashes InDesign. `owning` reads no getter and holds for an object whose prototype is an exported class prototype declaring the member: `toSpecifier` for a DOM object, `everyItem` for a collection. Guards for one kind take a member only that kind's prototypes declare (`documentOffset` for `Page`, `itemLayer` for every `PageItem` class). `located` passes a saved specifier to ExtendScript's `resolve` as an argument and compares an id step's class. Empty collections resolve as `undefined`, and code reads a known collection through `everyItem().getElements()` for an empty array. Supplied source calls native collection methods without computed-member rewriting.
 
 | [INDEX] | [NEED]                     | [FORM]                                          | [DECIDING_FACT]                                |
 | :-----: | :------------------------- | :---------------------------------------------- | :--------------------------------------------- |
@@ -75,7 +75,7 @@ const located = (specifier: string) =>
 
 - `app.panels` holds a member resolving to nothing, and its `item(<index>)` reads `undefined`
 - `everyItem()` or a range over `app.panels` reads `undefined` in UXP and throws in ExtendScript
-- A removed object keeps its `toSpecifier()`, reads `isValid` false, and reads `constructorName` empty
+- Removed objects keep their `toSpecifier()`, read `isValid` false, and read `constructorName` empty
 - `toSpecifier()` repeats the access path: `item(index)` positional, `itemByName` `[@name="<name>"]`, `itemByID` and `getElements()` `[@id=<n>]`
 - `resolve` of an `[@id=<n>]` step returns the object with that id whatever class the step names
 - Text specifiers are character spans that name another range after an edit before them, and `parentPage` reads `null` on the pasteboard
@@ -100,18 +100,18 @@ Refusals throw one field at a time with the host's expected type ("Expected Unit
 
 ## [04]-[TRANSACTIONS]
 
-Throws inside a step roll back every change in every document and record no undo entry. Top-level `app.doScript(<function>, ScriptLanguage.UXPSCRIPT, …)` in a plug-in can lose its hand-off: main thread waits for a callback that never runs, plug-in thread blocks on a fence, and InDesign hangs until killed, where ExtendScript source-text calls and function calls nested inside a callback complete. Peer calls the plug-in serves during an ExtendScript `$.sleep` enter a nested function `doScript`, and open menus, dialogs, and drags hold a peer call before its callback runs. Each kind of work takes one form:
+Throws inside a step roll back every change in every document and record no undo entry. Top-level `app.doScript(<function>, ScriptLanguage.UXPSCRIPT, …)` in a plugin can lose its hand-off: main thread waits for a callback that never runs, plugin thread blocks on a fence, and InDesign hangs until killed, where ExtendScript source-text calls and function calls nested inside a callback complete. Peer calls the plugin serves during an ExtendScript `$.sleep` enter a nested function `doScript`, and open menus, dialogs, and drags hold a peer call before its callback runs. Each kind of work takes one form:
 
 | [INDEX] | [WORK]                 | [FORM]                                                                |
 | :-----: | :--------------------- | :-------------------------------------------------------------------- |
 |  [01]   | Read                   | DOM call, or ExtendScript source text through `doScript`              |
 |  [02]   | Write with no UXP code | ExtendScript source text under `ENTIRE_SCRIPT` around a function step |
-|  [03]   | Write from a plug-in   | Function `doScript` nested in an ExtendScript `$.sleep` call          |
+|  [03]   | Write from a plugin    | Function `doScript` nested in an ExtendScript `$.sleep` call          |
 |  [04]   | Savepoint inside write | Function `doScript` nested in that transaction                        |
 |  [05]   | Rolled-back read       | ExtendScript source text around a throwing function `doScript`        |
 |  [06]   | Write from a script    | Top-level function `doScript` under `ENTIRE_SCRIPT`                   |
 
-`app.doScript` returns a plain object with its scripting property keys alone, and rethrows as a new `Error` with no other field a function's throw as "<name>: <message>", a thrown string as its text, and an ExtendScript source throw as "Uncaught JavaScript exception: <message>". Value and failure leave through a `Deferred`:
+`app.doScript` returns a plain object with its scripting property keys alone and rethrows a throw as a new `Error` with no other field: a function's throw as "<name>: <message>", a thrown string as its text, and an ExtendScript source throw as "Uncaught JavaScript exception: <message>". Value and failure leave through a `Deferred`:
 
 ```ts
 const commit = Effect.fn('commit')(function* <A, E, R>(label: string, body: Effect.Effect<A, E, R>) {
@@ -125,16 +125,16 @@ const commit = Effect.fn('commit')(function* <A, E, R>(label: string, body: Effe
 });
 ```
 
-`commit` runs from a script context, where a top-level function `doScript` completes, and returns the body's value or its typed failure with every change rolled back. A host refusal fails `Cause.UnknownError` with `label` as message, `Deferred.fail` completes `done` only when `doScript` refused before the body ran, and documents a rolled-back step opened close by id difference. A plug-in holds the same step until a call InDesign completes enters it: it repeats ExtendScript `$.sleep(5)` while a peer call runs the step inside the sleep.
+`commit` runs from a script context, where a top-level function `doScript` completes, and returns the body's value or its typed failure with every change rolled back. Host refusals fail `Cause.UnknownError` with `label` as message, `Deferred.fail` completes `done` only when `doScript` refused before the body ran, and documents a rolled-back step opened close by id difference. Plugins repeat ExtendScript `$.sleep(5)` to hold the same step until a call InDesign completes enters it, and a peer call runs the step inside the sleep.
 
 - Nested `doScript` calls are savepoints inside their outer step, where `document.undo()` throws
 - `document.undoHistory` lists step names newest first
 - Synchronous `doScript` calls after awaited work group the edits after them
 - Rollback restores documents and app-wide find, change, and export preferences, and leaves `app.scriptPreferences` and files on disk
-- `app.modalState` reads true under the Preferences dialog, where a plug-in `doScript` drops its field writes with no error
+- `app.modalState` reads true under the Preferences dialog, where a plugin `doScript` drops its field writes with no error
 - `app.modalState` reads true under an ExtendScript dialog open through `do script`, where writes take effect, and reads return under either
 
-ExtendScript writes and rolled-back reads send source text with arguments as data, and a write names its function step with the undo name. Values leave the nested function through outer variables. A catch around a nested throw receives no thrown value, and `done`, set before the throw, tells a rollback from a failure:
+ExtendScript writes and rolled-back reads send source text with arguments as data, and a write names its function step with the undo name. Values leave the nested function through outer variables. Catches around a nested throw receive no thrown value, and `done`, set before the throw, tells a rollback from a failure:
 
 ```ts
 import type { InDesignDOMObject } from 'adobe:indesign';
@@ -157,7 +157,8 @@ value`;
 `based` clears overrides on `target` in a step its throw rolls back and returns `field` as styles set it.
 
 - Arguments pass primitives, dates, enumerators, DOM objects, and arrays of them at any depth, and sources resolve specifiers
-- A DOM object beside a string in one argument list arrives in every position, `[app, "fullName"]` reading as two `Application` arguments, and sources take specifier strings beside other strings
+- Argument lists holding a DOM object and a string pass the object in every position (`[app, "fullName"]` as `[app, app]`)
+- Sources take specifier strings beside other strings
 - Collections and `everyItem()` arrive as a member array or one member, an empty one undefined, and plain objects with scripting property keys alone
 - DOM objects a rolled-back step returns lose their specifier, and sources return `toSpecifier()` read inside the step
 - ExtendScript assignment of a string to `activePage` crashes InDesign, and a `Page` object assigns
@@ -250,7 +251,7 @@ const rendered = Effect.fn('rendered')(function* (page: Page, pixels: number) {
 }, Effect.scoped);
 ```
 
-`temporary` in `dom/files.ts` reads `Model` for a path in the folder ExtendScript `Folder.temp` names that scope release removes through `File(<path>).remove()`, synchronous in plug-ins and scripts alike. `exportFile` takes the path, and `fs` takes it as a `file:` URL. Page pixel size is points times `exportResolution` (1 to 2400) over 72.
+`temporary` in `dom/files.ts` reads `Model` for a path in the folder ExtendScript `Folder.temp` names, and scope release removes the file through `File(<path>).remove()`, synchronous in plugins and scripts alike. `exportFile` takes the path, and `fs` takes it as a `file:` URL. Page pixel size is points times `exportResolution` (1 to 2400) over 72.
 
 - Leftover `pageString` from another script makes a one-page export write nothing unless range and page are set together
 - `exportFile` on an item ignores the page range and writes nothing for a zero-area item, and `exportingSpread` true exports the whole spread
@@ -328,7 +329,7 @@ const source = Effect.fn('source')(function* (face: Font, characters: string) {
 
 `source` reads original bytes and recovers a missing file (`code` -2) through a subset of `characters` under `NEVER_INTERACT`. Permission failures remain failures. `status` decides first: `app.fonts.itemByName` returns a valid specifier for a face InDesign lacks, and its `location` read throws. `postscriptName` selects one face inside a collection file.
 
-- `Font.checkOpenTypeFeature(<OpenTypeFeature member>)` reports GSUB and GPOS features alone, and text applies `morx` features too
+- `Font.checkOpenTypeFeature(<OpenTypeFeature member>)` reports GSUB and GPOS features alone, and text applies `morx` features it leaves out
 - Variable faces read axes through `designAxesName` and `designAxesValues`, and a subset drops them
 - Every `designAxes*` and `numDesignAxes` read of a static face throws, a bulk read holding one included
 - Application font rows can repeat equal objects, and document and application fonts for one face can compare unequal
@@ -338,17 +339,18 @@ const source = Effect.fn('source')(function* (face: Font, characters: string) {
 
 `document.activeProcess` is one live process per document under its preflight options, and the Preflight panel shows it:
 - `activeProcess` throws "Preflighting is turned off for this document." while `preflightOff` is true
-- InDesign's idle task completes the live process after a change while InDesign is the active application alone, App Nap disabled or not, and no event a script receives marks completion
+- InDesign's idle task completes the live process after a change while InDesign is the active application alone, App Nap disabled or not
+- Scripts receive no event marking completion
 - `aggregatedResults` throws "Aggregated Result for this process is not available." while running, else reads `[name, profile, rows]`
 - Rows read `[depth, label, page, info, [key, value][]]`, depth 1 a category, 2 a rule, and 3 an issue with the object kind as label
 - Rows are empty exactly when the process found no issue
-- Rule labels carry their issue count ("Overset text (1)")
+- Rule labels hold their issue count ("Overset text (1)")
 - `processResults` text and `aggregatedResults` rows name no object specifier
 - `preflightWorkingProfile` writes apply to the live process at once
 - Profiles resolve by name over `app.preflightProfiles.everyItem().getElements()`, and `itemByName('[Basic]')` reads invalid
 - `app.preflightProcesses.add(document, profile)` ignores document preflight options and takes no argument for them
 - `waitForProcess()` turns preflight off and on for the application and every open document, and returns false once finished
-- A process `app.preflightProcesses.add` returns finishes through `waitForProcess()` with InDesign inactive, where `activeProcess.waitForProcess()` returns false at once and leaves the live process running
+- Processes `app.preflightProcesses.add` returns finish through `waitForProcess()` with InDesign inactive, where `activeProcess.waitForProcess()` returns false at once and leaves the live process running
 - `preflightEmbedWorkingProfile` reads on the application alone, a document's `preflightOptions` throws "Invalid object for this request."
 
 ## [12]-[SCRIPTS]
@@ -373,13 +375,13 @@ const script = <E>(server: Layer.Layer<never, E, RpcServer.Protocol | Uxp>): voi
 };
 ```
 
-`layerProtocolStdio` reads the request until `stdin` ends, writes one response to `stdout`, and interrupts the launching fiber, so `runSyncExit` returns inside the script with every forked server fiber settled. A server that fails to build answers a `Defect` message, and no failure reaches the host as a throw. Typings omit `script` from `uxp`, and `Reflect.apply` keeps the host's `script` object as receiver. Each `do script` call loads a fresh context, `language javascript` running ExtendScript and `language uxpscript` UXP, and state for a later call goes through `insertLabel`.
+`layerProtocolStdio` reads the request until `stdin` ends, writes one response to `stdout`, and interrupts the launching fiber, and `runSyncExit` returns inside the script with every forked server fiber finished. Servers that fail to build answer a `Defect` message, and no failure reaches the host as a throw. Typings omit `script` from `uxp`, and `Reflect.apply` keeps the host's `script` object as receiver. Each `do script` call loads a fresh context, `language javascript` running ExtendScript and `language uxpscript` UXP, and state for a later call goes through `insertLabel`.
 
 - Runners switch to async mode for source holding `async ` before a function or `await ` before an expression, and reply empty before the body runs
 - Runner tests match `async ` and `await ` inside strings and comments, and modules the entry requires escape the test
-- An `.idjs` entry sent as a file URL and holding `require('./main.js')` runs the bundle beside it synchronously, and a 1.4 MB module requires in about 10 ms
+- `.idjs` entries sent as a file URL and holding `require('./main.js')` run the bundle beside them synchronously, and a 1.4 MB module requires in about 10 ms
 - `app.doScript(<source>, ScriptLanguage.UXPSCRIPT)` returns `undefined` at once for source the runner reads as asynchronous
-- Bundles load through `new Function('require', readFileSync(path, { encoding: 'utf-8' }))(require)` from text-form source, since large source sent as text runs nothing
+- Large source sent as text runs nothing, and bundles load through `new Function('require', readFileSync(path, { encoding: 'utf-8' }))(require)` from text-form source
 - `fullName`, `filePath`, and every field the dictionary types `File` return promises, and ExtendScript `resolve(<specifier>)[<field>].fsName` reads each synchronously
 - `getTemporaryFolder()` returns a promise, ExtendScript `Folder.temp.fsName` names the user temporary folder, and `File(<path>).remove()` deletes, where `require('fs').unlinkSync` throws "a.provider.unlinkSync is not a function"
 - Listeners a script registers fire after its context ended, and reading `handler` or `properties` of one crashes InDesign
@@ -387,7 +389,7 @@ const script = <E>(server: Layer.Layer<never, E, RpcServer.Protocol | Uxp>): voi
 
 ## [13]-[PLUG_INS]
 
-InDesign runs `main` of every enabled plug-in at launch, panel shown or hidden, and timers fire while it is hidden:
+InDesign runs `main` of every enabled plugin at launch, panel shown or hidden, and timers fire while it is hidden:
 - `host.app` other than `ID` rejects the folder, and panels become Window menu actions where commands and shortcuts bind none
 - `featureFlags.uncaughtException` delivers uncaught exceptions as events beside `unhandledRejection`
 - `~/Library/Logs/Adobe/Adobe InDesign/UXPLogs_*.log` records each load and each rejection neither flag delivers
@@ -399,7 +401,7 @@ InDesign runs `main` of every enabled plug-in at launch, panel shown or hidden, 
 - Once a user `ID.json` registry exists InDesign loads its rows alone, and an absolute row `path` loads nothing
 
 Folders join a running InDesign for one session from a script:
-1. `pluginManager.createPlugin(folder, pluginManager.PLUGIN_TYPE_THIRD_PARTY_V2)` returns the plug-in object
+1. `pluginManager.createPlugin(folder, pluginManager.PLUGIN_TYPE_THIRD_PARTY_V2)` returns the plugin object
 2. `pluginManager.addPlugin(plugin, true)` returns `2` for success
 3. `plugin.showPanel(<panel id>)` from a `.then` callback starts its runtime once the script returned
-4. Relaunch loads new code for the id, quit unloads the plug-in, and `plugin.runtime.load()` or `disablePlugin` during DOM work stops InDesign
+4. InDesign restart loads new code for the id, quit unloads the plugin, and `plugin.runtime.load()` or `disablePlugin` during DOM work stops InDesign

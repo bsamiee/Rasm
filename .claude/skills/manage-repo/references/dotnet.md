@@ -12,7 +12,7 @@ MSBuild directory files and central package versions own every shared .NET decla
 - Package metadata and downloads read NuGet's HTTP cache under its default age
 - Rows move down when their current version is unlisted or incompatible with the repository target framework
 - `global.json` `sdk.version` moves by hand to the newest `mise ls-remote dotnet` entry
-- SDK moves enable the new SDK's analyzer rules through `latest-all`, rules it leaves off (CA1021, CA1045) take their own `.editorconfig` rows
+- SDK moves enable the new SDK's analyzer rules through `latest-all`, rules it leaves disabled (CA1021, CA1045) take their own `.editorconfig` rows
 
 ## [02]-[FILE_BASED_APPS]
 
@@ -35,7 +35,7 @@ C# file-based apps inherit `Directory.Build.*`, central package versions, and `.
 
 ## [04]-[CHECKERS]
 
-- `Directory.Build.rsp` turns on BuildCheck
+- `Directory.Build.rsp` enables BuildCheck
 - IDE design-time builds, `dotnet format`, and Roslyn workspaces read no `Directory.Build.rsp`, a setting they need sits in `Directory.Build.props`
 - File-based app builds read only `-m` and `-mt` from `Directory.Build.rsp` and reject `-check`, their virtual projects run no BuildCheck
 - MSBuildWorkspace warns on a referenced project lacking a reference assembly, `ProduceReferenceAssembly` keeps `dotnet format` loads clean

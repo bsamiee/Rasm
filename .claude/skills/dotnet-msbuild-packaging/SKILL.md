@@ -1,6 +1,6 @@
 ---
 name: dotnet-msbuild-packaging
-description: "Use when a .csproj, Directory.Packages.props, NuGet.config, or .slnx changes, covering central versions, restore, packing, and NU codes."
+description: "Use when changing NuGet configuration, package references, or a .slnx, covering package management and NU codes"
 ---
 
 # [DOTNET_MSBUILD_PACKAGING]
@@ -154,12 +154,12 @@ Restore resolves every direct reference to its exact `PackageVersion` and every 
 </configuration>
 ```
 
-- `<clear />` drops every source a user or machine `NuGet.config` adds
-- `<disabledPackageSources><clear /></disabledPackageSources>` drops inherited disables
-- `packageSourceMapping` routes every id, transitive ones included, to the source whose pattern matches
+- `<clear />` removes every source a user or machine `NuGet.config` adds
+- `<disabledPackageSources><clear /></disabledPackageSources>` removes inherited disables
+- `packageSourceMapping` routes every id, transitive ones included, to the source with a matching pattern
 - Exact id patterns beat a prefix, a longer prefix beats a shorter one, `*` is the default
 - CPM reports `NU1507` with more than one HTTP source and no mapping
-- Mapping is skipped for an id present in the global packages folder
+- Restore skips source mapping for an id present in the global packages folder
 - `globalPackagesFolder` in a repository `<config>` splits its packages from outside restores
 - Relative `globalPackagesFolder` and `repositoryPath` values resolve against the directory of the `NuGet.config` that sets them
 - `globalPackagesFolder` applies to `PackageReference`, `repositoryPath` applies to `packages.config`
@@ -170,7 +170,7 @@ Restore resolves every direct reference to its exact `PackageVersion` and every 
 - Solution restores read `RestoreUseStaticGraphEvaluation` from `-p:` or from `Directory.Solution.props`
 - `NuGetAudit=false` skips the vulnerability fetch
 - `RestoreEnablePackagePruning` is on for every framework of a project targeting `net10.0` or later
-- Pruning drops framework-supplied packages from the graph
+- Pruning removes framework-supplied packages from the graph
 - Pruned direct references get `PrivateAssets=all` and `IncludeAssets=none`, `NU1510` asks for removal when every framework prunes the reference
 
 | [INDEX] | [COMMAND]                                | [EFFECT]                                                                      |
@@ -179,7 +179,7 @@ Restore resolves every direct reference to its exact `PackageVersion` and every 
 |  [02]   | `dotnet restore --runtime <rid>`         | Restores the runtime-specific assets a publish for `<rid>` needs              |
 |  [03]   | `dotnet restore -p:Name=Value`           | Global property for the restore evaluation                                    |
 |  [04]   | `dotnet nuget locals all --list`         | Paths of `global-packages`, `http-cache`, `temp`, and `plugins-cache`         |
-|  [05]   | `dotnet nuget locals http-cache --clear` | Drops the 30 minute feed cache after a package republish                      |
+|  [05]   | `dotnet nuget locals http-cache --clear` | Deletes the 30 minute feed cache after a package republish                    |
 
 ## [04]-[PACKAGE_AUTHORING]
 
@@ -203,7 +203,7 @@ Restore resolves every direct reference to its exact `PackageVersion` and every 
 </Project>
 ```
 
-- `EnableDefaultItems=false` drops the default `None` glob, each packed file is one item
+- `EnableDefaultItems=false` removes the default `None` glob, each packed file is one item
 - `lib/<tfm>/_._` is an empty file on disk that marks a framework the package supports, pack targets emit a matching dependency group
 - Native libraries go under `runtimes/<rid>/native/`, the SDK copies each matching RID directory and flattens it on publish
 - Managed assemblies per RID go under `runtimes/<rid>/lib/<tfm>/` with an AnyCPU compile assembly under `ref/<tfm>/`
@@ -231,7 +231,7 @@ Restore resolves every direct reference to its exact `PackageVersion` and every 
 |  [11]   | `NoPackageAnalysis`                     | Skips the `NU5xxx` analysis, for a layout the rules cannot describe                 |
 |  [12]   | `NuspecFile`                            | Packs a hand-written nuspec and ignores the project, for a non-SDK package          |
 
-`GenerateNuspec` runs after `Build` and after `_GetPackageFiles` collects the `Pack="true"` items, a validation target takes `BeforeTargets="GenerateNuspec"`, a target that adds files sets `TargetsForTfmSpecificContentInPackage` and returns `TfmSpecificPackageFile` items with `PackagePath` metadata, or `TargetsForTfmSpecificBuildOutput` for files in `lib/`.
+`GenerateNuspec` runs after `Build` and after `_GetPackageFiles` collects the `Pack="true"` items. Validation targets take `BeforeTargets="GenerateNuspec"`. Targets that add files take a `TargetsForTfmSpecificContentInPackage` entry and return `TfmSpecificPackageFile` items with `PackagePath` metadata, or a `TargetsForTfmSpecificBuildOutput` entry for files in `lib/`.
 
 | [INDEX] | [COMMAND]                                         | [EFFECT]                                                              |
 | :-----: | :------------------------------------------------ | :-------------------------------------------------------------------- |
@@ -244,7 +244,7 @@ Restore resolves every direct reference to its exact `PackageVersion` and every 
 
 ## [05]-[SOLUTION_FILES]
 
-`.slnx` is `dotnet new sln`'s default, solution folders match repository layout, a project a task runner builds on its own stays out of the solution.
+`.slnx` is `dotnet new sln`'s default. Solution folders match repository layout, a project a task runner builds on its own stays out of the solution.
 
 ```xml
 <Solution>
@@ -257,13 +257,13 @@ Restore resolves every direct reference to its exact `PackageVersion` and every 
 </Solution>
 ```
 
-| [INDEX] | [COMMAND]                                                     | [EFFECT]                                                         |
-| :-----: | :------------------------------------------------------------ | :--------------------------------------------------------------- |
-|  [01]   | `dotnet new sln -n Product`                                   | Empty `.slnx`, `--format sln` writes the old format              |
-|  [02]   | `dotnet sln Product.slnx add <csproj> --solution-folder libs` | Adds it and its references under a folder, `--in-root` skips one |
-|  [03]   | `dotnet sln Product.slnx remove <csproj>`                     | Removes the entry, a project name without extension works too    |
-|  [04]   | `dotnet sln Product.slnx list`                                | Project paths                                                    |
-|  [05]   | `dotnet sln Product.sln migrate`                              | Writes `Product.slnx` beside the `.sln`                          |
+| [INDEX] | [COMMAND]                                                     | [EFFECT]                                                      |
+| :-----: | :------------------------------------------------------------ | :------------------------------------------------------------ |
+|  [01]   | `dotnet new sln -n Product`                                   | Empty `.slnx`, `--format sln` writes the old format           |
+|  [02]   | `dotnet sln Product.slnx add <csproj> --solution-folder libs` | Adds project and references to a folder, `--in-root` to root  |
+|  [03]   | `dotnet sln Product.slnx remove <csproj>`                     | Removes the entry, `<csproj>` can be a name without extension |
+|  [04]   | `dotnet sln Product.slnx list`                                | Project paths                                                 |
+|  [05]   | `dotnet sln Product.sln migrate`                              | Writes `Product.slnx` beside the `.sln`                       |
 
 | [INDEX] | [ELEMENT]         | [PURPOSE]                                                                                  |
 | :-----: | :---------------- | :----------------------------------------------------------------------------------------- |
@@ -291,9 +291,9 @@ Every CI property sits in one `PropertyGroup` in root `Directory.Build.props` un
 </PropertyGroup>
 ```
 
-- `ContinuousIntegrationBuild` turns on `DeterministicSourcePaths`
+- `ContinuousIntegrationBuild` enables `DeterministicSourcePaths`
 - `TreatWarningsAsErrors` covers compiler and NuGet warnings, `MSBuildTreatWarningsAsErrors` covers warnings MSBuild tasks and BuildCheck log
-- `SatelliteResourceLanguages=en` keeps named satellite assemblies, `GenerateDocumentationFile=true` writes the XML file and turns on `CS1591`
+- `SatelliteResourceLanguages=en` keeps named satellite assemblies, `GenerateDocumentationFile=true` writes the XML file and enables `CS1591`
 - Warning, satellite, and documentation properties belong to the unconditioned group
 - `EnableWindowsTargeting` stays unset on a non-Windows runner, a Windows target framework then fails `NETSDK1100`
 - `global.json` `rollForward: disable` pins the SDK on runners, `DOTNET_ROLL_FORWARD` governs which runtime an application host selects
@@ -322,8 +322,11 @@ dotnet test --solution Product.slnx --no-build --report-trx
 |  [05]   | `DOTNET_CLI_HOME=<dir>`                | Moves first-run sentinels, workloads, local tools, and packages folder   |
 |  [06]   | `MSBUILDDISABLENODEREUSE=1`            | `-nodeReuse:false` for every MSBuild process, one a tool starts included |
 
-`global.json` `test.runner: Microsoft.Testing.Platform` makes `dotnet test` run every test project as an MTP application and reject a VSTest project, `--report-trx` needs package `Microsoft.Testing.Extensions.TrxReport` in each test project, `--project` and `--solution` exclude each other, and exit codes are `0` for success, `2` for a failed test, `8` for zero tests, `9` for fewer tests than `--minimum-expected-tests`, and `5` for an invalid command line.
+`global.json` `test.runner: Microsoft.Testing.Platform` makes `dotnet test` run every test project as an MTP application and reject a VSTest project.
 
+- `--report-trx` needs package `Microsoft.Testing.Extensions.TrxReport` in each test project
+- `--project` and `--solution` exclude each other
+- Exit codes are `0` for success, `2` for a failed test, `8` for zero tests, `9` for fewer tests than `--minimum-expected-tests`, `5` for an invalid command line
 - `dotnet test --no-build` runs `ComputeRunArguments` per test project and starts the app host
 - `TestingPlatformCommandLineArguments` reaches the test run through `RunArguments`
 - `TestingPlatformDotnetTestSupport` belongs to VSTest mode, MTP-mode `dotnet test` fails when a project sets it

@@ -10,7 +10,7 @@ Nx infers projects through plugins, orders targets through `dependsOn`, caches o
 - Cargo `[package.metadata.nx]` merges over a package's inferred targets as a later layer of its project, a target one package owns sits there
 - Task hashing reads files by project directory, a root naming a file owns none and its tasks fail to hash
 - `package.json` `scripts` entries infer as `nx:run-script` targets with no inputs, outputs, or cache, `nx.targets` holds targets with them
-- `analytics: false` stops telemetry `neverConnectToCloud` leaves on, without a boolean Nx prompts and rewrites `nx.json` expanded
+- `analytics: false` disables telemetry `neverConnectToCloud` leaves enabled. Without a boolean, Nx prompts and rewrites `nx.json` expanded
 
 ## [02]-[DISCOVERY]
 
@@ -46,7 +46,7 @@ Use JSON discovery from workspace root:
 - Pipes, loops, conditionals, and variables in a command entry make it a script
 - Tools taking no directory or walking ignored trees (`yamlfmt`, `yamllint`) run as `fd --hidden --extension <ext> --exec-batch <tool>`
 - `fd --exec-batch` runs no process without a match
-- Target names in `dependsOn` match as minimatch globs, `!(<name>)` leaves out a target the glob would include
+- Target names in `dependsOn` match as minimatch globs, `!(<name>)` excludes a target the glob matches
 - Commands that run `nx` inside a target name a dependency, `dependsOn` holds it
 - Configurations differing in arguments alone set `args` over one `command`
 - `cache: true` alone caches a target, `cache: false` overrides a `targetDefaults` entry setting it for the name
@@ -87,6 +87,6 @@ Products version by Conventional Commits into tags alone, `nx.json` `release` an
 - `pack` caches where every input it reads hashes, Blender's through a runtime input over `HEAD` and its group's tags
 - Xcode and Rhino `pack` read host state no input hashes and run uncached
 - `publish` uploads `pack` output to the release `--tag` names, then pushes it to the host's channel
-- Products whose channel has no publish API hold no `publish`, `rasm:release` tags and releases them alone
+- Products on a channel with no publish API hold no `publish`, `rasm:release` tags and releases them alone
 - Feed channels (`output:appcast`, `output:extension`) take a rolling `<project>-updates` release from `infra/`
 - First releases start from an unsigned lightweight `<group>-<project>-v0.0.0` tag and `rasm:release -- --specifier <version>`, the tag then goes

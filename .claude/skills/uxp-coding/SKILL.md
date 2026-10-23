@@ -1,18 +1,18 @@
 ---
 name: uxp-coding
-description: "Use when writing or reviewing code that runs in an Adobe UXP host, covering contexts, runtime, typings, object models, host errors, scopes, units of work, entry points, and manifests."
+description: "Use when writing or reviewing code that runs in an Adobe UXP host, covering plugin runtime and host boundaries"
 ---
 
 # [UXP_CODING]
 
-UXP runs each plug-in and script in one V8 context inside an Adobe host, with host calls at a boundary that decodes values and translates each `Exit`.
+UXP runs each plugin and script in one V8 context inside an Adobe host, with host calls at a boundary that decodes values and translates each `Exit`.
 
 [REFERENCES]:
-- [01]-[INDESIGN](references/indesign.md): InDesign's synchronous DOM, from its object model and transactions to GREP, export, and plug-in load
-- [02]-[PHOTOSHOP](references/photoshop.md): Photoshop's modal scopes, history, descriptors, DOM members, events, export, fonts, and plug-in load
+- [01]-[INDESIGN](references/indesign.md): InDesign's synchronous DOM, from its object model and transactions to GREP, export, and plugin load
+- [02]-[PHOTOSHOP](references/photoshop.md): Photoshop's modal scopes, history, descriptors, DOM members, events, export, fonts, and plugin load
 - [03]-[PREMIERE](references/premiere.md): Premiere Pro's members, reads, transactions, events, projects, export, and Media Encoder
-- [04]-[ILLUSTRATOR](references/illustrator.md): Illustrator's ExtendScript calls, object model, undo steps, export, and plug-in load
-- [05]-[TRANSPORT](references/transport.md): Typed calls a plug-in serves over a socket it dials
+- [04]-[ILLUSTRATOR](references/illustrator.md): Illustrator's ExtendScript calls, object model, undo steps, export, and plugin load
+- [05]-[TRANSPORT](references/transport.md): Typed calls a plugin serves over a socket it dials
 
 ## [01]-[CONTEXTS]
 
@@ -47,10 +47,10 @@ Context decides what code can hold across time:
 
 | [INDEX] | [CONTEXT] | [LIFETIME]   | [PERMISSIONS]                  | [HOLDS]                                                     |
 | :-----: | :-------- | :----------- | :----------------------------- | :---------------------------------------------------------- |
-|  [01]   | Plug-in   | Host session | Manifest `requiredPermissions` | Listeners, sockets, timers, `localStorage`, `secureStorage` |
+|  [01]   | Plugin    | Host session | Manifest `requiredPermissions` | Listeners, sockets, timers, `localStorage`, `secureStorage` |
 |  [02]   | Script    | One run      | Fixed by host                  | Values of that run, `sessionStorage` that ends with it      |
 
-- Work that finishes after its call returns belongs to a plug-in
+- Work that finishes after its call returns belongs to a plugin
 - State a script needs in a later run is host state: a document, a file, or a stored value
 
 ## [02]-[RUNTIME]
@@ -65,9 +65,9 @@ Each difference from a browser or Node holds in InDesign, Photoshop, and Premier
 |  [04]   | Module typed as Node's (`fs`, `path`)         | Read site | Value decoded where read                 |
 |  [05]   | Feature with a missing part (`Response.body`) | Call site | Whole-body read, flag on whole pattern   |
 
-Effect's encoding and socket modules construct `TextEncoder` during module load, and bundles replace each encoding-global read with an `@exodus/bytes` import. Effect's default clock expects bigint nanoseconds, and UXP's `process.hrtime.bigint` returns a number. The host `Clock` layer derives monotonic nanoseconds from `performance.now()` and wall nanoseconds from each `currentTimeMillis` read, keeping native sleep and wall time. An offset anchored once drops the re-anchoring Effect's wall clock performs on skew. Host callbacks running effects receive caller services through `run*With`.
+Effect's encoding and socket modules construct `TextEncoder` during module load, and bundles replace each encoding-global read with an `@exodus/bytes` import. Effect's default clock expects bigint nanoseconds, and UXP's `process.hrtime.bigint` returns a number. The host `Clock` layer derives monotonic nanoseconds from `performance.now()` and wall nanoseconds from each `currentTimeMillis` read, keeping native sleep and wall time. Offsets anchored once drop the re-anchoring Effect's wall clock performs on skew. Host callbacks running effects receive caller services through `run*With`.
 
-- Effect decodes with `{ stream: true }`, which an encoding package must implement
+- Encoding packages must implement the `{ stream: true }` option Effect decodes with
 - `structuredClone`, `Buffer`, `MessageChannel`, and `Worker` are absent in every host, and `require` of `util`, `buffer`, or a `node:` name throws
 - `fs` holds synchronous reads, writes, and `lstatSync`, and no `existsSync`, `appendFileSync`, `mkdirSync`, or `statSync`
 - `writeFileSync` reads its receiver, and code calls it on the module's default import
@@ -76,7 +76,7 @@ Effect's encoding and socket modules construct `TextEncoder` during module load,
 Bundles keep one form:
 - Output is one CommonJS script with each host module left as a `require` call by module name, and an unresolved dependency throws at its first read
 - Resolution uses neutral conditions: browser conditions select builds that construct absent globals at load, Node conditions emit `node:` requires
-- Plug-in `main` is a script that renders into `document.body`, and UXP never runs `<script type="module">`
+- Plugin `main` is a script that renders into `document.body`, and UXP never runs `<script type="module">`
 
 ## [03]-[TYPINGS]
 
@@ -130,10 +130,10 @@ Object model facts come from the owner that states them for the installed build:
 |  [05]   | Acrobat      | `acrohelp` argument to a native method              | `HelpError.extMessage` per parameter            |
 
 - Acrobat's `extMessage` lists parameters as `name: type`, optional ones in brackets
-- Native scripting dictionaries declare Apple Event commands and parameter types, and a script command's parameters select its language and undo mode
+- Native scripting dictionaries declare Apple event commands and parameter types, and a script command's parameters select its language and undo mode
 - Typings can predate the installed build and rename parameters a host names by reserved words, and renamed parameters call correctly by position
 - Rejected calls complete each model: host errors name a parameter with its expected type and range, and whether a member applies now
-- Probes run as undoable units, return failures as data, and leave no host dialog, test plug-in, registry row, or test document behind
+- Probes run as undoable units, return failures as data, and leave no host dialog, test plugin, registry row, or test document behind
 - `OSACopyScriptingDefinitionFromURL` returns XML that can contain XInclude references
 
 ## [05]-[HOST_ERRORS]
@@ -164,7 +164,7 @@ const written: (target: object, values: Record.ReadonlyRecord<string, unknown>) 
 
 - `catch` names the refused step from arguments of the failed call
 - Consumers decode a host code from `cause` where they branch on it
-- Plug-ins log a cause to the UXP console through `Cause.pretty`, MCP servers render one through `Cause.prettyErrors` with `Formatter.format`, once at their boundary
+- Plugins log a cause to the UXP console through `Cause.pretty`, MCP servers render one through `Cause.prettyErrors` with `Formatter.format`, once at their boundary
 
 | [INDEX] | [REJECTED]                                                | [REQUIRED]                                | [REASON]                 |
 | :-----: | :-------------------------------------------------------- | :---------------------------------------- | :----------------------- |
@@ -220,8 +220,8 @@ Each host entry translates one `Exit` into that entry's host form:
 
 | [INDEX] | [ENTRY]                        | [HOST_FORM]                                                   |
 | :-----: | :----------------------------- | :------------------------------------------------------------ |
-|  [01]   | Plug-in `main` module          | Forks `Layer.launch` at load or builds one `ManagedRuntime`   |
-|  [02]   | `entrypoints.setup`            | One call per plug-in with `plugin`, `panels`, and `commands`  |
+|  [01]   | Plugin `main` module           | Forks `Layer.launch` at load or builds one `ManagedRuntime`   |
+|  [02]   | `entrypoints.setup`            | One call per plugin with `plugin`, `panels`, and `commands`   |
 |  [03]   | Panel `create`, `show`, `hide` | Forks its work and returns inside a 300 ms default timeout    |
 |  [04]   | Command `run`                  | Promise resolved on success, rejected with the squashed cause |
 
@@ -252,11 +252,11 @@ const plugin = <R, E, F, C extends string, P extends string>(
 };
 ```
 
-`hosted` merges the host `Clock` layer with `Uxp`, the service holding `uxp` and `fs`, and `Plugin` holds the manifest `Manifest.json` decodes from the plug-in's own folder. `Layer.provideMerge` keeps every service in the runtime's context, where `Layer.provide` feeds the layer alone and every `runPromise` reads Effect's default clock. `@adobe-uxp-types/uxp` merges the `setup` parameter with `entrypoints`, which a handler record fails for lacking `getCommand`, `getPanel`, `setup`, and `_pluginInfo`. `satisfies` checks each handler against the declared `plugin`, `commands`, and `panels` members, and `Reflect.apply` calls the untyped overload with `entrypoints` as receiver. `ManagedRuntime` builds its layer before any entry's work runs, so `Layer.tapCause` logs a failed build and `Effect.tapCause` a failed entry to the UXP developer console before `runPromise` rejects with the squashed cause. `create` builds every layer at load, a linked socket included, and `dispose` closes every scope they opened.
+`hosted` merges the host `Clock` layer with `Uxp`, the service holding `uxp` and `fs`, and `Plugin` holds the manifest `Manifest.json` decodes from the plugin's own folder. `Layer.provideMerge` keeps every service in the runtime's context, where `Layer.provide` feeds the layer alone and every `runPromise` reads Effect's default clock. `@adobe-uxp-types/uxp` merges the `setup` parameter with `entrypoints`, which a handler record fails for lacking `getCommand`, `getPanel`, `setup`, and `_pluginInfo`. `satisfies` checks each handler against the declared `plugin`, `commands`, and `panels` members, and `Reflect.apply` calls the untyped overload with `entrypoints` as receiver. `ManagedRuntime` builds its layer before any entry's work runs, and `Layer.tapCause` logs a failed build and `Effect.tapCause` a failed entry to the UXP developer console before `runPromise` rejects with the squashed cause. `create` builds every layer at load, a linked socket included, and `dispose` closes every scope they opened.
 
 - `setup` throws for a `plugin` record without `create`, for a command or panel key its manifest lacks, and after one successful call
 - Panel handlers receive their root node: `create(rootNode)`, `show(rootNode, data)`, `hide(rootNode, data)`, `destroy(rootNode)`
-- `main` builds every state a panel reads, since a host can run `main` at launch with no panel shown
+- Hosts can run `main` at launch with no panel shown, and `main` builds every state a panel reads
 - `show` renders from state `main` built, and panel visibility reaches `document` as a `uxpcommand` event
 
 ## [09]-[MANIFESTS]
@@ -266,7 +266,7 @@ One manifest serves one host application: `host.app` takes `ID`, `PS`, `premiere
 | [INDEX] | [KEY]                             | [GRANTS]                                | [WITHOUT]                        |
 | :-----: | :-------------------------------- | :-------------------------------------- | :------------------------------- |
 |  [01]   | `network.domains`                 | Dial and fetch to each listed origin    | Dial throws a manifest denial    |
-|  [02]   | `localFileSystem: "fullAccess"`   | Access outside plug-in storage          | Defaults to plug-in storage      |
+|  [02]   | `localFileSystem: "fullAccess"`   | Access outside plugin storage           | Defaults to plugin storage       |
 |  [03]   | `allowCodeGenerationFromStrings`  | `eval`, `new Function`, inline handlers | InDesign v5 runs `new Function`  |
 |  [04]   | `featureFlags.unhandledRejection` | `unhandledrejection` events             | Rejection logged, no caller told |
 |  [05]   | `launchProcess`                   | `shell.openPath`, `shell.openExternal`  | Both calls throw a denial        |
@@ -276,7 +276,7 @@ One manifest serves one host application: `host.app` takes `ID`, `PS`, `premiere
 - Storage entries preserve native `url` schemes for file reads and expose `nativePath` for host-native writes
 - `domains` entries name a host with a top-level domain or `localhost`, and an IP literal entry is discarded
 - `shell.openPath` and `shell.openExternal` open a path or URL behind a consent dialog, with no arguments or process output
-- Plug-in data sits under `UXP/PluginsStorage/<product>/<major>/External/<pluginId>/PluginData`
+- Plugin data sits under `UXP/PluginsStorage/<product>/<major>/External/<pluginId>/PluginData`
 - Native addons (`.uxpaddon`, manifest 6 `addon` with `enableAddon`) load in Photoshop and Premiere alone
 
-Use `manage-repo` for packaging and installing plug-ins.
+Use `manage-repo` for packaging and installing plugins.

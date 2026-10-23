@@ -12,7 +12,7 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 
 ## [02]-[TOOLCHAIN]
 
-- `mise.toml` holds no `rust` row, one would outrank the `rust-toolchain.toml` mise reads
+- `mise.toml` holds no `rust` row, a `rust` row outranks the `rust-toolchain.toml` mise reads
 - Channel is the dated nightly pinned `clippy_utils` builds against, `cargo dylint` strips `RUSTUP_TOOLCHAIN` and reads the file
 - Files pair the date with `profile = "minimal"`, a rolling `nightly` or an omitted profile resolves per machine and day
 - `[env]` `RUSTUP_TOOLCHAIN = false` stops mise's idiomatic export and leaves selection to the file, builds outside the tree take rustup's default
@@ -49,7 +49,7 @@ Cargo owns resolution, lock, and build through root `Cargo.toml`.
 - Ban rows take `allow-invalid` where their crate loads without the item (platform module, disabled feature), Clippy skips unloaded crates
 - Ban rows name a path code writes, a type a default type parameter supplies (`RandomState` under `HashMap::new`) escapes its ban
 - Cargo checks normal dependencies under default selection or a library selection with all binaries, rustc `unused_crate_dependencies` stays off
-- Clippy's `cargo` group fails a duplicate crate, an `allowed-duplicate-crates` row names one no catalog move clears with each release's dependents
+- Clippy's `cargo` group fails a duplicate crate, an `allowed-duplicate-crates` row names one no catalog move clears
 
 ## [05]-[BUILD]
 

@@ -1,6 +1,6 @@
 ---
 name: search-code
-description: "Use when a task needs a fact about a dependency, covering installed declarations, usage, repository files at a tag, and releases."
+description: "Use when a task needs a fact about a dependency, covering source selection by fact kind"
 ---
 
 # [SEARCH_CODE]
@@ -11,7 +11,7 @@ Dependency declarations come from installed files, usage from Context7, DeepWiki
 - Path: package metadata names repository and commit, Context7 IDs are the repository's `/owner/repo` lowercased, a tag list spells each tag
 - Prose: Context7 descriptions and DeepWiki answers are generated, code quotes come from their Source URL, member names from their declaration
 - Ignore: an ignore file inside the searched tree (`.venv/.gitignore`) hides its files, `--no-ignore` reads them, a listed path needs no flag
-- Size: `mcp__github__get_file_contents`, `mcp__nuget__get_package_context`, and `mcp__deepwiki__read_wiki_contents` return all, `rg` cites a line
+- Size: `mcp__github__get_file_contents`, `mcp__nuget__get_package_context`, and `mcp__deepwiki__read_wiki_contents` return whole content, `rg` cites a line
 - Index: `mcp__github__search_code` reads default branches in files under 384 KB, `mcp__github__get_repository_tree` finds a path at a tag
 - Quota: clients on one GitHub account share 10 `mcp__github__search_code` calls per minute, the next answers HTTP 403, reads at a tag spend none
 - Caps: Context7 tool descriptions cap each tool at 3 calls per question, an ID from a repository URL skips `mcp__context7__resolve-library-id`
@@ -41,7 +41,7 @@ Swift interface of a Clang SDK module (`ApplicationServices`, `CoreFoundation`) 
 xcrun swift-synthesize-interface -module-name <Module> -sdk "$(xcrun --show-sdk-path)" -target "arm64-apple-macos$(xcrun --show-sdk-version)" -include-submodules | rg -n '<Member>'
 ```
 
-.NET types declaring a member as `.xml` doc ids, ` ``N ` follows a generic method name, no decompile:
+.NET types declaring a member as `.xml` doc ids, ` ``N ` follows a generic method name, without decompiling:
 - Installed version, `<lib>` is `$NUGET_PACKAGES/<id>/<version>/lib/<tfm>`
 - Version missing from the packages folder, its nupkg streamed through `tar`, id lowercase
 

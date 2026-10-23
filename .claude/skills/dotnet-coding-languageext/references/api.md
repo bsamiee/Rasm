@@ -509,13 +509,13 @@ Each `LanguageExt.Deriving` interface lifts one `LanguageExt.Traits` conformance
 - `foldWhileM` is the module form with the arguments reordered to `(f, pred, state, ta)`
 - `FoldMaybe` holds its stop in the folder, a `None` step ends the traversal with the last committed state, `FoldBackMaybe` walks right-to-left
 - `FoldT`, `FoldWhileT`, and `FoldUntilT` fold one pass over a nested `K<T, K<U, A>>` without flattening first
-- `Seq<A>` has the throwing `this[Index]` as its only instance index member, `FoldableExtensions.At` answers `None` past the end
+- `Seq<A>` has the throwing `this[Index]` as its only instance index member, `FoldableExtensions.At` returns `None` past the end
 - State-only `Func<S, Option<S>>` overload of `LanguageExt.List.unfold` returns `IEnumerable<S>`
 - Other `unfold` overloads return `IEnumerable<A>` from an `S` or tuple seed
 
 ### [02.10]-[TRACKING_HASH_MAP]
 
-`TrackingHashMap<K, V>` is the change-logged map `HashMap.ToTrackingHashMap()` lifts into, `TrackingHashMap<EqK, K, V>` has the same members with an explicit `EqK` equality trait type parameter, and the static `TrackingHashMap` module creates one (`empty`, `create`, `createRange`, `singleton` over `(K, V)` tuples, `KeyValuePair`s, or a `ReadOnlySpan`) where no source map exists:
+`TrackingHashMap<K, V>` is the change-logged map `HashMap.ToTrackingHashMap()` lifts into, and `TrackingHashMap<EqK, K, V>` has the same members with an explicit `EqK` equality trait type parameter. Where no source map exists, the static `TrackingHashMap` module creates one (`empty`, `create`, `createRange`, `singleton` over `(K, V)` tuples, `KeyValuePair`s, or a `ReadOnlySpan`):
 
 | [INDEX] | [MEMBER]                                                          | [KIND]     | [DESCRIPTION]                                       |
 | :-----: | :---------------------------------------------------------------- | :--------- | :-------------------------------------------------- |
@@ -571,7 +571,7 @@ Each `LanguageExt.Deriving` interface lifts one `LanguageExt.Traits` conformance
 
 ### [02.12]-[ATOM_HASH_MAP]
 
-`AtomHashMap<K, V>` is the lock-free map `Prelude.AtomHashMap(…)` or `HashMap.ToAtom()` creates, every mutation returns `Unit`, publishes on `Change`, and commits under a CAS retry loop, and `AtomHashMap<EqK, K, V>` has the same members with an explicit `EqK` equality trait type parameter:
+`AtomHashMap<K, V>` is the lock-free map `Prelude.AtomHashMap(…)` or `HashMap.ToAtom()` creates, and `AtomHashMap<EqK, K, V>` has the same members with an explicit `EqK` equality trait type parameter. Every mutation returns `Unit`, publishes on `Change`, and commits under a CAS retry loop:
 
 | [INDEX] | [MEMBER]                                                  | [KIND]     | [DESCRIPTION]                                  |
 | :-----: | :-------------------------------------------------------- | :--------- | :--------------------------------------------- |
@@ -583,8 +583,8 @@ Each `LanguageExt.Deriving` interface lifts one `LanguageExt.Traits` conformance
 |  [06]   | `SetItem(K, V)` / `SetItem(K, Func<V,V>)`                 | `instance` | Replace an existing key                        |
 |  [07]   | `TrySetItem(K, V)` / `TrySetItems(IEnumerable<K>, …)`     | `instance` | Replace only where the key is present          |
 |  [08]   | `AddRange` / `AddOrUpdateRange` / `TryAddRange`           | `instance` | One commit per bulk write                      |
-|  [09]   | `Remove(K)` / `RemoveRange(IEnumerable<K>)`               | `instance` | Delete one key or a set of keys                |
-|  [10]   | `Clear()`                                                 | `instance` | Drop every entry                               |
+|  [09]   | `Remove(K)` / `RemoveRange(IEnumerable<K>)`               | `instance` | Remove one key or a set of keys                |
+|  [10]   | `Clear()`                                                 | `instance` | Remove every entry                             |
 |  [11]   | `FilterInPlace(Func<K,V,bool>)` / `MapInPlace(Func<V,V>)` | `instance` | Narrow or reshape without rebuilding           |
 |  [12]   | `Append` / `Subtract` / `Except` / `SymmetricExcept`      | `instance` | Set algebra against a map or a pair sequence   |
 |  [13]   | `Union(rhs, WhenMatched)` / `Intersect(rhs, WhenMatched)` | `instance` | Merge under an explicit collision rule         |

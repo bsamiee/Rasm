@@ -1,6 +1,6 @@
 ---
 name: agent-builder
-description: "Use when writing or reviewing an agent definition, covering skill and agent divide, sections, integration, exclusions, and description."
+description: "Use when writing or reviewing an agent definition, covering definition structure for Claude Code and Codex"
 argument-hint: "[agent-file]"
 ---
 
@@ -86,7 +86,7 @@ Markdown parses text against an opening tag as one HTML block, and a blank line 
 Steps name tools in the form the harness runs:
 
 [CLAUDE_CODE_TOOLS]:
-- Bodies and frontmatter hold call form, injection sits in a preloaded skill when every caller of that skill consumes its output
+- Bodies and frontmatter hold call form, injection sits in a preloaded skill when every caller of the skill consumes its output
 - Commands with outputs one reading consumes join one `Bash` call, commands with output that decides the next step run alone
 - MCP tools appear as `mcp__<server>__<tool>`, a plugin server's as `mcp__plugin_<plugin>_<server>__<tool>`, searches take a bounded result count
 - Paths an MCP tool resolves outside the shell are absolute
@@ -118,4 +118,4 @@ Sentences that state what another file owns, or bind the run past its prompt, go
 
 ## [05]-[DESCRIPTION]
 
-Skills and agents share one form, `Use when <situation>, covering <topics>`, at most 25 words. Descriptions name a tool, language, or file kind a delegating prompt holds, the situation states what the root instructions routing line lacks, covering names the finished file's section subjects.
+Skills and agents share one form, `Use when <situation>, covering <topics>`, under 20 words. Descriptions name a tool, language, or file kind a delegating prompt holds. `<situation>` states what the root instructions routing line lacks, `<topics>` names categories the finished file's sections cover.

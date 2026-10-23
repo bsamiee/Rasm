@@ -5,7 +5,7 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 ## [01]-[RUNTIMES]
 
 - Root Ruff `target-version` and ty `python-version` follow the Python version resolved by mise
-- Host folders whose code a host runs or imports state its interpreter floor once in a nested `requires-python`
+- Host folders with code a host runs or imports state its interpreter floor once in a nested `requires-python`
 - Host `pyproject.toml` files hold `name`, `dynamic = ["version"]`, the floor, `[tool.uv] managed = false`, and Ruff `extend`, and create no Nx project
 - `managed = false` makes `uv sync` refuse a host folder and `uv run` there use the root environment
 - Host runtime compatibility covers code a host executes or imports, shared libraries included, wheel membership alone imposes none
@@ -48,7 +48,7 @@ uv owns distribution, resolution, lock, and environment through root `pyproject.
 - Ruff prefers a nested `requires-python` over an extended `target-version` and runs once, ty and mypy take one version per run
 - Workspace inference runs ty, mypy, and refurb over root code at the configured version and once per nested `requires-python` over its folders
 - Editors and bare ty and mypy runs check host folders at the root version
-- Python ast-grep rules for a form below or from one release carry `metadata` `python-below` or `python-from` as `'<major>.<minor>'`
+- Python ast-grep rules for a form below or from one release set `metadata` `python-below` or `python-from` as `'<major>.<minor>'`
 - Root scans select version rules from resolved mise metadata and each host's `requires-python`
 - Host-supplied modules with no typings package type as Any through ty `replace-imports-with-any` `<root>.**` rows and mypy `ignore_missing_imports`
 - PEP 723 scripts read ty settings from their block alone, a block's `[tool.ty.rules]` opens with root `[tool.ty] rules` entries

@@ -30,7 +30,7 @@ const ran = <E, R>(send: (source: string) => Effect.Effect<string, E, R>, source
     Effect.flatMap(send(source), (reply) => (reply === '' ? Effect.succeedNone : Effect.asSome(Schema.decodeEffect(Value)(reply))));
 ```
 
-`send` passes `source` as the direct parameter of `do javascript` through an Apple Event sender, and a throw or a syntax error fails as the Apple event error Illustrator answers. Host objects encode as their `String` form (`[Document Untitled-1]`), and bodies return JSON-shaped data.
+`send` passes `source` as the direct parameter of `do javascript` through an Apple event sender, and a throw or a syntax error fails as the Apple event error Illustrator answers. Host objects encode as their `String` form (`[Document Untitled-1]`), and bodies return JSON-shaped data.
 
 - `with arguments` (`«class JArg»`) passes text, numbers, booleans, and lists, `null` and records as `undefined`, and `osascript` `argv` as text
 - ExtendScript reads U+2028 and U+2029 as line terminators, and a string literal holding one raw fails to compile, in source and in JSON alike
@@ -78,7 +78,7 @@ Each `do javascript` call is one undo step, and `app.undo()` in a later call rev
 
 ## [05]-[HOST_ERRORS]
 
-Caught `Error` values carry `number`, `message`, and `line`, and code branches on `number`:
+Caught `Error` values hold `number`, `message`, and `line`, and code branches on `number`:
 
 | [INDEX] | [NUMBER] | [RAISED_BY]                                                               |
 | :-----: | :------: | :------------------------------------------------------------------------ |
@@ -121,7 +121,7 @@ Caught `Error` values carry `number`, `message`, and `line`, and code branches o
 
 ## [08]-[PLUG_INS]
 
-Illustrator loads UXP plug-ins from `Contents/Required/UXP/extensions` alone:
+Illustrator loads UXP plugins from `Contents/Required/UXP/extensions` alone:
 - UXP logs hold no `upic::` line, and a row in `UXP/PluginsInfo/v1/AI.json` loads nothing
-- `XManConfig.xml` lists no `UxpHostCode` for `ILST`, and `UnifiedPluginInstallerAgent` installs no UXP plug-in into Illustrator
-- `AIUXPExtensionHostAPI` registers module `illustrator` (`{ app }`, each member forwarded to ExtendScript) for third-party plug-ins none can load
+- `XManConfig.xml` lists no `UxpHostCode` for `ILST`, and `UnifiedPluginInstallerAgent` installs no UXP plugin into Illustrator
+- `AIUXPExtensionHostAPI` registers module `illustrator` (`{ app }`, each member forwarded to ExtendScript) for third-party plugins none can load

@@ -1,11 +1,11 @@
 ---
 name: dotnet-coding
-description: "Use when writing or reviewing C#, covering signatures, purity, pattern matching, immutability, Option, Fin, Validation, IO, and effects."
+description: "Use when writing or reviewing C#, covering functional design with result and effect types"
 ---
 
 # [DOTNET_CODING]
 
-Covers the decisions of writing C# under the workspace standards (TOTALITY, FLOW, INDEPENDENCE, PURITY, BOUNDARY), from the shape of a signature to the host boundary. LanguageExt, Thinktecture, and Mapperly are part of the language, every example uses their types as vocabulary.
+Covers C# design decisions under workspace standards (TOTALITY, PURITY, BOUNDARY), from signature shape to host boundary. LanguageExt, Thinktecture, and Mapperly are part of the language, every example uses their types as vocabulary.
 
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Worked flows for functions as values, from combinators to the composition root and a request's effects
@@ -19,7 +19,7 @@ Covers the decisions of writing C# under the workspace standards (TOTALITY, FLOW
 
 ## [01]-[FUNCTIONS]
 
-Function signatures are contracts, input types describe every value the function accepts and the return type every outcome the caller must handle. Arrow notation keeps a signature compact, `()` stands for no input or no returned information, grouped inputs form a tuple, and the delegate states the signature in code:
+Function signatures are contracts, input types describe every value the function accepts and the return type every outcome the caller must handle. Arrow notation writes `()` for no input or no returned information and a tuple for grouped inputs, the delegate states the signature in code:
 
 | [INDEX] | [PURPOSE]                   | [ARROW_NOTATION]                      | [DELEGATE]                                |
 | :-----: | :-------------------------- | :------------------------------------ | :---------------------------------------- |
@@ -129,7 +129,7 @@ internal static class Rates {
 }
 ```
 
-Each arm states an input category beside its outcome, and the switch expression forms a function body or a `Func` passed to a higher-order function. The patterns:
+Each arm states an input category beside its outcome, and the switch expression forms a function body or a `Func` passed to a higher-order function. Pattern forms:
 - Type patterns test a runtime type and bind the typed value only when the arm needs its properties
 - Property patterns inspect the shape of an object
 - Extended property patterns (`{ Parent.Name: "root" }`) inspect nested data without extracting each intermediate object
@@ -168,7 +168,7 @@ QuikGraph `DepthFirstSearchAlgorithm` and `BreadthFirstSearchAlgorithm` visit ea
 
 ## [03]-[IMMUTABILITY]
 
-Immutable values are fixed once created, a needed change derives a new value from values already available, and a state transition is a function that receives the old state and the information the change needs and returns the replacement. Language features constrain reassignment:
+Immutable values are fixed once created, a needed change derives a new value from existing values, and a state transition is a function that receives the old state and the information the change needs and returns the replacement. Language features constrain reassignment:
 - `readonly struct` prevents reassignment of its fields, a struct is copied when passed
 - `readonly` protects the fields and not the objects reached through them
 - `init` accessors permit object-initializer syntax and prevent reassignment after initialization
@@ -337,7 +337,7 @@ Inject the narrowest dependency that represents what the consumer needs: a value
 
 ```csharp
 internal static class Validators {
-    private static readonly Error DateIsPast = Error.New(ErrorCodes.ValidationFailed, "the date is in the past");
+    private static readonly Error DateIsPast = Error.New(ErrorCodes.ValidationFailed, "date is in the past");
 
     public static Func<Command, Validation<Error, Command>> NotPast(LocalDate today) =>
         command => command.Date < today ? DateIsPast : command;

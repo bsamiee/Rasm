@@ -26,7 +26,7 @@ def rescaled(call: Call[Scaled]) -> BlenderResult[Done | Unchanged]:
     return (
         call.root(bpy.types.Scene)
         .bind(lambda scene: written(scene, "render.resolution_percentage", call.record.percentage))
-        .map(lambda prior: Done() if prior.is_some() else Unchanged(reason="Resolution holds that scale"))
+        .map(lambda prior: Done() if prior.is_some() else Unchanged(reason="Resolution holds requested scale"))
     )
 
 
@@ -49,7 +49,7 @@ scale = Operator[Scaled](key="scale", title="Scale", description="Set the render
 | :-----: | :------------------- | :-------------------------------------------------------------------------- |
 |  [01]   | `Confirm`            | Confirmation with an optional computed message, then the body               |
 |  [02]   | `Properties`         | Editable dialog running the body on confirm, `cancel_default` for data loss |
-|  [03]   | `Suppressible`       | Dialog with "Don't ask again" clearing the `ask_<key>` preference           |
+|  [03]   | `Suppressible`       | Dialog with "Do not show again" clearing the `ask_<key>` preference         |
 |  [04]   | `Floating`           | Property popup that never runs the body                                     |
 |  [05]   | `InvokePopup.REDO`   | Redo popup over the last call                                               |
 |  [06]   | `InvokePopup.SEARCH` | Enum search over `primary`                                                  |

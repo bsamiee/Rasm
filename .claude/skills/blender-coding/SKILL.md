@@ -1,11 +1,11 @@
 ---
 name: blender-coding
-description: "Use when writing or reviewing Python that runs inside Blender, covering data references, operators, evaluation, properties, undo, callbacks, and host boundaries."
+description: "Use when writing or reviewing Python that runs inside Blender, covering bpy code from data references to host boundaries"
 ---
 
 # [BLENDER_CODING]
 
-Covers `bpy` code decisions under workspace standards `[TOTALITY]`, `[FLOW]`, `[INDEPENDENCE]`, `[PURITY]`, and `[BOUNDARY]`, from holding a data reference to translating a fault at a host entry point.
+Covers `bpy` code decisions under workspace standards, from holding a data reference to translating a fault at a host entry point.
 
 [REFERENCES]:
 - [01]-[DATA](references/data.md): Storage owner per value lifetime, created IDs, library loads, paths, custom property values
@@ -123,7 +123,7 @@ Host references go stale after their event, and code holds the form that survive
 
 Stale references fail by kind:
 - Stale ID, `object_instances` item, `to_mesh()` mesh, and GeometrySet component references raise `ReferenceError` on every read
-- Stale sub-data, `Keyframe`, `PropertyGroup`, and `mathutils` references read freed or reused memory with no raise, wrong values or a crash
+- Stale sub-data, `Keyframe`, `PropertyGroup`, and `mathutils` references read freed or reused memory with no raise, and reads return wrong values or crash Blender
 - Held generated input structs crash Blender at their next read after an interface write, a `default_value` write included
 
 Writes to a governing member reset governed members, and member maps write through `assigned` in host order:
@@ -150,7 +150,7 @@ Identity and lookup follow host keys:
 - `bpy.data.<collection>` iterates in name order, and loops that rename iterate `bpy.data.<collection>[:]`
 - Loops writing object visibility iterate `Collection.all_objects[:]`
 - Default names (`"Material Output"`) translate with the interface language, and code holds the returned reference or matches `type`
-- Embedded node trees sit outside `bpy.data.node_groups` with `id_data` naming each tree, and handles and marks key on its holder from `holder`
+- Embedded node trees sit outside `bpy.data.node_groups` with `id_data` naming each tree, and handles and marks key on the tree's holder from `holder`
 - Names inside data paths and msgbus paths escape through `bpy.utils.escape_identifier`, and generated expression text quotes through `repr`
 - Structs compare with `==`
 - Caches key by `Handle`, its `session_uid` holding across renames, undo, and an undone removal while `as_pointer()` addresses repeat
@@ -160,7 +160,7 @@ Identity and lookup follow host keys:
 - Operators test through `"<name>" in dir(bpy.ops.<module>)` and list parameters through `get_rna_type().properties`, `hasattr` answering true for any name
 - Dynamic enums (engine, color management, OCIO views) list a static placeholder in `enum_items` (`BLENDER_EEVEE`, `NONE`), and `written` validates them live
 - `UILayout.enum_item_name(data, prop, identifier)` reads a dynamic enum's live label and `""` for an identifier outside the live items
-- Collections can hold `None` items (`texture_slots`), iteration enumerates before skipping `None` to keep host indices
+- Collections can hold `None` items (`texture_slots`), and iteration enumerates before skipping `None` to keep host indices
 
 ## [03]-[OPERATORS]
 
@@ -322,7 +322,7 @@ Handler, timer, msgbus, and modal bodies return `BlenderResult` to the row holdi
 - `frame_set` fires `frame_change_pre` and `frame_change_post` alone
 - `frame_change_pre` writes data for the frame, and a `FrameHandler` on `frame_change_post` reads evaluated results
 - Timer bodies return `BlenderResult[Option[float]]`, and `Nothing` or a fault stops the timer
-- Raising native timers unregister for good, and a raising handler prints its traceback while later handlers run
+- Raising native timers unregister permanently, and a raising handler prints its traceback while later handlers run
 - Handlers remove only themselves from their list during their call
 - State seeds from a one-shot persistent `Timer` beside a `load_post` `PathHandler`, native collections included
 - GPU calls outside a GPU context raise `SystemError`

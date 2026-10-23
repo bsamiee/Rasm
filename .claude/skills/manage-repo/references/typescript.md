@@ -12,7 +12,7 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 - `minimumReleaseAge: 0` lifts pnpm's default 1440-minute release delay
 - `allowBuilds` rows name packages with an install script, `true` runs it, `false` skips it, `pnpm install` reports a missing row
 - `permissions.<package>.build` outranks an `allowBuilds` row, builds stay in `allowBuilds` alone
-- `skills.dirs: []` turns off agent skill links, pnpm offers no package skill for approval and removes links it created
+- `skills.dirs: []` disables agent skill links, pnpm offers no package skill for approval and removes links it created
 - `CI` set makes `pnpm install` frozen, a lock out of step with a `package.json` fails the install in place of a lock rewrite
 - `ncu --target newest` takes the latest publish, prereleases included, `greatest` takes abandoned prerelease lines with a higher number
 - `ncu --reject` skips rows `ncu` cannot pick (`typescript`, `tree-sitter-swift`'s suffixed tag), `eng/typescript/upgrade/typescript.ts` moves them
@@ -64,27 +64,27 @@ pnpm resolves every version through the workspace catalog, `tsc` checks each pro
 
 [STORYBOOK]:
 - `.storybook/main.ts` states `framework` and `stories`, which no preset supplies, and lists `@rasm/test-support/preset` resolving its addons
-- Storybook reads `addons` and literal `tags` from `.storybook/preview` source, which passes `@rasm/test-support/preview` `addons` to `definePreview`
+- Storybook reads `addons` and literal `tags` from `.storybook/preview` source. `.storybook/preview` passes `@rasm/test-support/preview` `addons` to `definePreview`
 - Library `viteFinal` adds `react()`, Storybook finds no `vite.config.ts` in a library
-- Root `package.json` lists no `@storybook/react-vite`, its `typescript` peer would take root TypeScript 7 over `docgen` catalog's TypeScript 6
-- Storybook caches stay under each project's `node_modules/.cache/storybook`, a `CACHE_DIR` row would merge every project's cache into one directory
+- Root `package.json` lists no `@storybook/react-vite`, a root row resolves its `typescript` peer to root TypeScript 7 over `docgen` catalog's TypeScript 6
+- Storybook caches stay under each project's `node_modules/.cache/storybook`, a `CACHE_DIR` row merges every project's cache into one directory
 - `@nx/storybook` stays out, its `storybook` peer range ends below 11 and its `test-storybook` repeats `test`
 
 ## [05]-[BIOME]
 
 - Group severity strings enable each group rule at their level over a domain's `none`, a `preset` beside one adds none
-- `project` domain at `all` turns on the scanner its import rules read, a group severity alone leaves import rules silent
+- `project` domain at `all` enables the scanner its import rules read, a group severity alone leaves import rules silent
 - `noUnresolvedImports` and `noUndeclaredVariables` are `off`, `tsc` reads ambient modules the scanner skips and reports unresolved imports and names
 - `noNodejsModules` is `off`, Node programs and Vite configurations import `node:` built-ins
-- Overrides turn off rules where a host requires the form (a loader's default export, CSF stories beside components, `cf-worker` namespace imports)
+- Overrides disable rules where a host requires the form (a loader's default export, CSF stories beside components, `cf-worker` namespace imports)
 - `organizeImports` runs by default, every other source action is a row
 - `files.ignoreUnknown` silences unknown file types in a directory walk, `files.includes` negations name tracked files of a type Biome processes
 
 ## [06]-[HOST_PACKAGING]
 
-UXP plug-ins package as one `.ccx` zip per host with `manifest.json` at its root:
+UXP plugins package as one `.ccx` zip per host with `manifest.json` at its root:
 - `UnifiedPluginInstallerAgent --install <file>.ccx` installs into the release hosts Adobe's installer serves
-- Beta hosts load a plug-in folder through a `UXP/PluginsInfo/v1/<host.app>.json` row, its `path` reading `$localPlugins/External/<folder>`
+- Beta hosts load a plugin folder through a `UXP/PluginsInfo/v1/<host.app>.json` row, its `path` reading `$localPlugins/External/<folder>`
 - Hosts load native addon binaries with a Developer ID signature and notarization alone
-- Marketplace review refuses plug-ins launching an external application
-- Marketplace and independent copies of a plug-in take separate plug-in IDs
+- Marketplace review refuses plugins launching an external application
+- Marketplace and independent copies of a plugin take separate plugin IDs

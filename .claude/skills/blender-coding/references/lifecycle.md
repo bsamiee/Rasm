@@ -58,7 +58,7 @@ def acquisitions(identity: Identity) -> Generator[BlenderResult[Acquisitions]]:
 `Reports.deferred(write)` picks its executor once when its scope opens and yields a callable over hashable handles and records:
 - GUI sessions coalesce calls with equal arguments into one pending main-thread timer
 - Pending timers wait while the interface is locked during a render, then run the write, hold its faults, and push its step name through `ed.undo_push`
-- Background runs execute the write at each call, hold its faults, and drop its step name
+- Background runs run the write at each call, hold its faults, and drop its step name
 - Native timers run beside a GUI render with no interface-lock test
 - `bpy.app.is_job_running` gates native timers per job type (`RENDER`, `RENDER_PREVIEW`, `OBJECT_BAKE`, `COMPOSITE`, `SHADER_COMPILATION`)
 - Timers registered from the render job thread run on the main thread at the next event-loop pass

@@ -1,6 +1,6 @@
 ---
 name: secrets
-description: "Use when a command or build reads a secret or an agent needs a credential, covering Doppler scopes, doppler run, infra prefixes, 1Password sign-in, op reads and writes, SSH, and commit signing."
+description: "Use when a command, build, or agent reads a secret or credential, covering Doppler and 1Password access"
 ---
 
 # [SECRETS]
@@ -32,7 +32,7 @@ Repository programs read owner-issued values from shared project `agent-runtime`
 - `rasm:infra` names `GITHUB_TOKEN` with `--only-secrets`, a missing name fails the run
 - `<project>:hosting` names `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, and `OWNER_EMAIL` with `--no-exit-on-missing-only-secrets`, a missing name stays unset and the program's typed `Config` read names it when a target needs it
 - Variables the prefix leaves unset pass through from the calling environment, a local run sets one on the command
-- Hosting secrets join through `doppler secrets set <NAME> --project agent-runtime --config dev` and a name in the `hosting` target prefix
+- Add a hosting secret through `doppler secrets set <NAME> --project agent-runtime --config dev` and its name in the `hosting` target prefix
 - Values a program generates (store keys, owner passwords) stay Pulumi stack secrets, `pulumi stack output <name> --show-secrets` reads them
 - Pulumi reads its backend credential from the `pulumi login` saved under `PULUMI_HOME`
 - Doppler adds `DOPPLER_PROJECT`, `DOPPLER_CONFIG`, and `DOPPLER_ENVIRONMENT` to every config
@@ -41,7 +41,7 @@ Repository programs read owner-issued values from shared project `agent-runtime`
 ## [03]-[OP_SIGNIN]
 
 Desktop app integration authorizes `op` for account `my.1password.com`:
-1. Use `Skill(watch-apps)` to launch 1Password, a closed app fails `op` with `couldn't connect to the 1Password desktop app`
+1. Use `Skill(watch-apps)` to open 1Password, a closed app fails `op` with `couldn't connect to the 1Password desktop app`
 2. `op vault list` raises the Touch ID prompt and lists vaults `Personal` and `Tokens`
 
 - Authorization covers one terminal session and its subshells, expires after 10 idle minutes or 12 hours, and ends when the app locks
@@ -69,7 +69,7 @@ Secret references take the form `op://<vault>/<item>/[<section>/]<field>[?<query
 
 Value writes pass through stdin JSON, `--dry-run` previews a create or an edit:
 - `doppler secrets get --plain` and `op read` end the value with a newline, `rtrimstr("\n")` drops it
-- `op item edit` writes an empty `DATE` field from stdin JSON as `0`, edits delete empty dates first
+- `op item edit` writes an empty `DATE` field from stdin JSON as `0`, edits remove empty dates first
 
 ```bash
 # New Tokens item
@@ -89,7 +89,7 @@ op item get <NAME> --vault Tokens --format json \
 # Vendor login with a generated password
 op item create --category login --title <vendor> --vault Personal --url <url> username=<email> --generate-password
 
-# Rename, every reader repoints to the new name
+# Rename, update every consumer to the new name
 op item edit <NAME> --vault Tokens --title <NEW_NAME>
 ```
 

@@ -1,6 +1,6 @@
 ---
 name: dotnet-msbuild-diagnostics
-description: "Use when diagnosing a .NET build from a .binlog, covering capture, MCP tools, failure triage, BuildCheck, shared output paths, and performance."
+description: "Use when diagnosing a .NET build, covering binary log capture and analysis"
 argument-hint: "[binlog or request]"
 ---
 
@@ -29,8 +29,8 @@ Targets running `dotnet build`, `restore`, `publish`, `msbuild`, `test`, or `for
 |  [04]   | `-bl:<path>.binlog;ProjectImports=None`              | No imports                                                           |
 |  [05]   | `-check`                                             | BuildCheck reports as build diagnostics                              |
 |  [06]   | `--no-restore -graph -isolate`                       | Static graph build, `MSB4252` on an undeclared project instance      |
-|  [07]   | `-p:Name=Value`                                      | Global property for the restore pass and the build pass              |
-|  [08]   | `-restoreProperty:Name=Value`                        | Global property for the restore pass, the build pass reads empty     |
+|  [07]   | `-p:Name=Value`                                      | Global property for restore and build passes                         |
+|  [08]   | `-restoreProperty:Name=Value`                        | Global property for restore pass, build pass reads empty             |
 |  [09]   | `-pp:<file>.xml`                                     | Every import expanded in place with file boundaries, no build        |
 |  [10]   | `-getProperty:A,B -getItem:C -getResultOutputFile:f` | Evaluated values as JSON in `f`, no build, one project file per call |
 |  [11]   | `-t:X -getTargetResult:X`                            | Runs `X` and prints its returned items as JSON                       |
@@ -44,8 +44,10 @@ Targets running `dotnet build`, `restore`, `publish`, `msbuild`, `test`, or `for
 - Failed builds keep the log
 - `dotnet test` under Microsoft.Testing.Platform writes `<name>-dotnet-test.binlog` beside the build log `<name>.binlog`
 - `-dotnet-test` log holds the platform's project evaluation alone and reports `FAILED`
-- `MSBuildDebugEngine` covers a build a tool starts without `-bl`, both variable names are case-sensitive on macOS
-- Without `MSBUILDDEBUGPATH` the logs go under `.MSBuild_Logs/` in the current directory, the central node's file name starts with `CentralNode_`
+- `MSBuildDebugEngine` covers a build a tool starts without `-bl`
+- `MSBuildDebugEngine` and `MSBUILDDEBUGPATH` are case-sensitive on macOS
+- Without `MSBUILDDEBUGPATH`, logs go under `.MSBuild_Logs/` in the current directory
+- Central node's log file name starts with `CentralNode_`
 - `-check` and `-profileEvaluation` write no binlog of their own, `-bl` beside them captures the run
 - `git clean -fdx -e "*.binlog"` keeps the logs
 - `-getProperty`, `-getItem`, `-getTargetResult`, and `-pp` take one project or `.props` file, a solution path fails `MSB1063` or refuses the switch
@@ -72,8 +74,8 @@ mcp__binlog__binlog_warnings {"binlog_file": "<log>.binlog"}
 
 - Binlog tools are deferred, a `ToolSearch` `select:` query loads each drill-down tool before its first call
 - `<log>.binlog` is the requested log, else the newest log in `<dir>`
-- Each tool's schema `ToolSearch` loads states its purpose and arguments
-- Reader drops records a newer MSBuild wrote, `mcp__binlog__binlog_warnings` reports the loss as `Skipped some data unknown to this version of Viewer`
+- Schemas `ToolSearch` loads state each tool's purpose and arguments
+- Binlog reader drops records a newer MSBuild wrote, `mcp__binlog__binlog_warnings` reports the loss as `Skipped some data unknown to this version of Viewer`
 - `mcp__binlog__binlog_extract` refuses a log with dropped records unless `allow_unsupported_records=true`, the extract omits them
 - `mcp__binlog__binlog_analyzer_summary` accepts no size limit and returns the whole result
 - `mcp__binlog__binlog_task_details` clips oversized parameter values, `offset` pages output messages and `parameter_offset` parameters
@@ -101,7 +103,7 @@ mcp__binlog__binlog_warnings {"binlog_file": "<log>.binlog"}
 
 ### [02.1]-[SEARCH_SYNTAX]
 
-`mcp__binlog__binlog_search` matches nodes, a match on a target or task includes its child messages up to `context` levels, task output, copy details, and up-to-date reasons sit there.
+`mcp__binlog__binlog_search` matches nodes, a target or task match includes child messages up to `context` levels. Child messages hold task output, copy details, and up-to-date reasons.
 
 | [INDEX] | [QUERY]                       | [MATCHES]                                                |
 | :-----: | :---------------------------- | :------------------------------------------------------- |
@@ -129,7 +131,7 @@ For a targeted investigation:
 4. Add `include_descendants=true` for referenced projects and `include_ancestors=true` for callers
 5. Read `skippedUnsupportedRecords` and state the selected scope with the result
 
-Preview tokens stay valid for 10 minutes in the same server process. Defects in an extract are evidence for its selected projects, an empty result excludes no defect elsewhere. Keep every participant when investigating a cross-project relationship.
+Preview tokens stay valid for 10 minutes in the same server process. Defects in an extract are evidence for its selected projects, an empty result excludes no defect elsewhere. When investigating a cross-project relationship, keep every participating project in the selection.
 
 Original logs serve `mcp__binlog__binlog_files`, `mcp__binlog__binlog_search_files`, `mcp__binlog__binlog_preprocess`, and `mcp__binlog__binlog_assets`. Extracts omit the embedded source archive. When the original query cannot run, report its refusal and the available evidence.
 
@@ -193,7 +195,7 @@ Failed restores stop every project, failed references block their dependents. St
 - `-check` on a replay, `dotnet msbuild <log>.binlog -check`, reruns checks over stored events and writes no file
 - Replays print the original `BinaryLogger wrote to:` line and double every count
 - `mcp__binlog__binlog_warnings` with `category=BuildCheck` lists the reports of a `-check` capture with the console counts
-- Under `MSBuildTreatWarningsAsErrors` the reports print as `error BC`, fail the build, and land in `mcp__binlog__binlog_errors`
+- Under `MSBuildTreatWarningsAsErrors` the reports print as `error BC`, fail the build, and appear in `mcp__binlog__binlog_errors`
 - `-check` reports on an incremental build, the checks read declared paths and task inputs
 
 `.editorconfig` configures each code under a section header, MSBuild ignores a key outside a section:
@@ -272,7 +274,7 @@ GOOD:
 
 ### [05.1]-[SHARED_DIRECTORY_ACROSS_PROJECTS]
 
-Restore writes `project.assets.json` under `MSBuildProjectExtensionsPath`, which defaults to `BaseIntermediateOutputPath` with no framework segment, projects with one `obj` share one assets file the last restore overwrites. One shared `bin` lets the second project's copy of a common dependency skip as unchanged, the build succeeds with `BC0102` as the one report.
+Restore writes `project.assets.json` under `MSBuildProjectExtensionsPath`, by default `BaseIntermediateOutputPath` with no framework segment. Projects with one `obj` share one assets file the last restore overwrites. One shared `bin` lets the second project's copy of a common dependency skip as unchanged, the build succeeds with `BC0102` as the one report.
 
 BAD in `Directory.Build.props`:
 

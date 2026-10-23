@@ -1,6 +1,6 @@
 ---
 name: use-ghidra
-description: "Use when reading or annotating a binary through Ghidra, covering headless runs, catalog, decompile, call site, stub, and header scripts, and ghidra-cli edits."
+description: "Use when reading or annotating a binary through Ghidra, covering headless analysis scripts and ghidra-cli edits"
 ---
 
 # [GHIDRA]
@@ -22,8 +22,8 @@ description: "Use when reading or annotating a binary through Ghidra, covering h
 [FACTS]:
 - Run: Postscripts take the output path as their first argument after the script name
 - Run: Runs exit 0 after a script error, `REPORT SCRIPT ERROR` in output and a missing `<out>` mark failure
-- Run: A decompiler that cannot open the program fails `Decompile.java` and `CallSites.java` with its message, one function's failure stays a row
-- Install: Releases ship no macOS arm64 decompiler, the `mise.toml` Ghidra row's `postinstall` builds it and creates `$GHIDRA_PROJECT_DIR`
+- Run: Decompilers that cannot open the program fail `Decompile.java` and `CallSites.java` with their message, one function's failure stays a row
+- Install: Releases include no macOS arm64 decompiler, the `mise.toml` Ghidra row's `postinstall` builds it and creates `$GHIDRA_PROJECT_DIR`
 - Install: `mise install --force github:NationalSecurityAgency/ghidra` reruns `postinstall`, imports abort on a missing project folder
 - Help: `$GHIDRA_INSTALL_DIR/support/analyzeHeadlessREADME.html` lists every headless flag, `ghidra <group> --help` every ghidra-cli flag
 - Project: `mise.toml` names `$GHIDRA_PROJECT_DIR` outside the repository, Ghidra rejects a project path with a dot-prefixed component

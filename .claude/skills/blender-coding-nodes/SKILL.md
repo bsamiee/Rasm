@@ -1,6 +1,6 @@
 ---
 name: blender-coding-nodes
-description: "Use when Blender Python builds, reads, or edits a node tree, covering tree kinds, sockets, fields, interfaces, links, evaluation, reconciliation, modifier inputs, zones, and baking."
+description: "Use when writing or reviewing Python over a Blender node tree, covering tree structure and reconciliation"
 ---
 
 # [BLENDER_CODING_NODES]
@@ -25,13 +25,13 @@ Holders decide how code reaches a tree:
 
 Tree kinds decide node classes and socket types:
 - `nodes.new(bl_idname)` raises `RuntimeError` for a class the tree refuses or the build lacks
-- `interface.new_socket` raises `TypeError` listing the socket types the tree kind takes
+- `interface.new_socket` raises `TypeError` listing socket types the tree kind takes
 - Geometry trees take every zone, and shader trees take repeat zones and closures
 - Bundles, Menu Switch, and Index Switch go to geometry, shader, and compositor trees
 - Texture trees take `TextureNode*` classes and Float, Vector, and Color sockets alone
 - `nodes.new` maps aliased classes to current ones (`ShaderNodeBsdfGlossy` to `ShaderNodeBsdfAnisotropic`), and matches read the created `bl_idname`
 - Stock nodes resolve by `bl_idname` and state, `tree.get_output_node("ALL")` in shader trees and `NodeGroupOutput` with `is_active_output` in groups
-- Modifier-type geometry editors swap a written `space.node_tree` for the active modifier's tree at the next redraw while `space.pin` is off
+- Modifier-type geometry editors swap a written `space.node_tree` for the active modifier's tree at next redraw while `space.pin` is off
 
 Group flags and stock content follow host rules:
 - `is_modifier`, `is_strip_modifier`, and `allow_usage_in_scene_compositor_effect` list a group in pickers and asset menus
@@ -94,7 +94,7 @@ Geometry tree sockets take single values or fields, and a field computes per ele
 - `verify_limits=False` stacks links that read `is_valid` true
 - Links onto a virtual socket pass `handle_dynamic_sockets=True` to add an item named and typed after the source, `None` answering a refused type
 - Plain links onto a virtual socket read `is_valid` false and add nothing
-- Multi-input sockets take up to 4095 links and put a new link on top, `socket.links` listing top first by descending `multi_input_sort_id`
+- Multi-input sockets take up to 4095 links and add each new link on top, `socket.links` listing top first by descending `multi_input_sort_id`
 - `link.swap_multi_input_sort_id(other)` exchanges places with `other`, a link into the same socket
 - `link.is_muted` mutes a link in place, the target reading its own default
 - `nodes.remove(node)` removes the node's links, a held node raising `ReferenceError` and a held link reading `None` endpoints with no raise
@@ -154,7 +154,7 @@ Links read `is_valid` false for:
 - Field reaching a `LINE` input
 
 `is_valid` follows host rules:
-- `links.new` sets `is_valid` at creation, and a topology change recomputes it over a Python write
+- `links.new` sets `is_valid` at creation, and a topology change recomputes it, overwriting a Python write
 - Passes over `tree.links` find false links, and the node editor alone draws why
 - Evaluation ignores `is_valid`, a pair with no conversion leaving its target at the stored `default_value`
 - Fields in a `LINE` input hand it the type's zero
@@ -178,7 +178,7 @@ Zone outputs hold the item collections:
 |  [04]   | Closure    | `input_items`, `output_items`                   |
 
 Zone bodies run per kind:
-- Simulation state items read the zone input on the first frame
+- Simulation state items read zone input on the first frame
 - Simulation outputs replay cached frames when stepped back and compute one step on a jump past the cache
 - Simulation state items refuse `CLOSURE` with `RuntimeError`
 - For Each bodies run once per element of the output's `domain`, input items taking a field outside and one value inside the zone
@@ -189,7 +189,7 @@ Closures and bundles match items by exact, case-sensitive name:
 - Missing closure outputs report `ERROR` in `node_warnings` and read the default, and type differences convert with an `INFO` entry
 - Separate Bundle reads Combine Bundle items by name and ignores extra keys
 - Missing bundle names and types with no conversion report `ERROR` and read the default
-- Bundle item names store `/*&|"^~!,{}()+$#@[];:?<>.-%\=` and edge spaces as `_`, duplicates taking `_001`
+- Bundle item names store `/*&|"^~!,{}()+$#@[];:?<>.-%\=` and leading and trailing spaces as `_`, duplicates taking `_001`
 - `define_signature` items sync through `bpy.ops.node.sockets_sync(node_name=...)` in a node editor context alone, `links.new` never syncing them
 
 Item collections (`capture_items`, `bake_items`, `bundle_items`, `index_switch_items`, `enum_items`, `file_output_items`) define variable sockets:
@@ -212,7 +212,7 @@ Item collections (`capture_items`, `bake_items`, `bundle_items`, `index_switch_i
 - `new_socket(name, description=, in_out=, socket_type=, parent=)` takes a base socket idname (`NodeSocketFloat`)
 - `subtype` and vector `dimensions` follow as separate writes refining the item class `items_tree` returns (`NodeTreeInterfaceSocketFloatDistance`)
 - Refined items keep the base idname in `socket_type`
-- `subtype` `enum_items` read `DEFAULT` alone on every item class, and the `TypeError` of an unknown value lists the subtypes the socket type takes
+- `subtype` `enum_items` read `DEFAULT` alone on every item class, and an unknown value's `TypeError` lists subtypes the socket type takes
 - `new_panel(name, description=, default_closed=)` appends at root, and `move_to_parent(item, parent, to_position)` nests it
 - Sockets and panels take identifiers from one counter per tree (`Socket_<n>`, panel `<n>`) that `remove` and `clear()` never rewind
 - `items_tree[key]` resolves a socket identifier first, then a socket or panel name
@@ -324,10 +324,10 @@ Trees reach a desired state through edits in place and keep nodes a user added:
 - Desired nodes, links, and interface items are frozen `msgspec.Struct` records keyed by structure, compared against live state before each write
 - Owned nodes hold an ID property mark under a key derived from structure, renames and `.001` suffixes breaking `name` keys
 - Copies of owned nodes (editor duplicates, `tree.copy()`) hold the mark, and marks dedupe by tree order with the first holder kept
-- Fresh materials, worlds, and lights hold unmarked stock nodes, cleared before their first reconciliation writes
+- Fresh materials, worlds, and lights hold unmarked stock nodes, removed before their first reconciliation writes
 - Interface items change in place, and reconciliation writes each group node and modifier value an interface default leaves stored
 
-Writes follow socket creation, each step adding the sockets the next one reads:
+Writes follow socket creation, each step adding sockets the next one reads:
 1. Links no desired link keeps
 2. Interface items, then nodes no key holds and new nodes
 3. Group `node_tree`, zone pairs, item collections, and node content, then mode members and `parent`

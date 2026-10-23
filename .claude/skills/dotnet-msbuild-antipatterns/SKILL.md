@@ -1,11 +1,11 @@
 ---
 name: dotnet-msbuild-antipatterns
-description: "Use when reviewing a .csproj, .props, or .targets for MSBuild smells, covering evaluation, placement, items, targets, paths, and build graph."
+description: "Use when changing or reviewing an MSBuild file, covering smells and their fixes"
 ---
 
 # [DOTNET_MSBUILD_ANTIPATTERNS]
 
-Review catalog for project and build files, each entry names the smell, the failure, the rule, and a `BAD` form beside its `GOOD` form:
+Review catalog for project and build files, each entry names smell, failure, rule, and a `BAD` form beside its `GOOD` form:
 - `OK` marks a form to leave
 - `ERROR` names a build failure, a wrong value, or a wrong output
 - `STYLE` names a form that builds and costs maintenance or time
@@ -68,7 +68,7 @@ GOOD:
 
 - SMELL: Project XML assigns a property the command line, `Directory.Build.rsp`, or an `<MSBuild>` task can supply
 - WHY:
-    - Global properties are read-only in evaluation, the assignment is skipped under `-p:`
+    - Global properties are read-only in evaluation, MSBuild skips the assignment under `-p:`
     - `$(ToolRoot)bin/` reads `/usr/toolbin/` under `-p:ToolRoot=/usr/tool`
 - RULE: Derive the normalized value into a `_` property, or declare `TreatAsLocalProperty` on `Project` when the file wins over the command line
 
@@ -89,7 +89,7 @@ GOOD:
 
 ### [02.1]-[AP-04]-[ERROR]-[PROPERTY_DEFAULTS_IN_TARGETS_FILES]
 
-- SMELL: A `.targets` file alone sets a default a `.props` file or the project body reads
+- SMELL: `.targets` file alone setting a default a `.props` file or project body reads
 - WHY: `.targets` imports after the project body, every earlier reader sees an empty value
 - RULE: `.props` owns overridable defaults, `.targets` owns targets and values derived from properties the SDK sets later
 
@@ -127,9 +127,9 @@ GOOD in `Directory.Build.props`:
 
 ### [02.3]-[AP-06]-[ERROR]-[PROPS_CONDITION_ON_A_LATER_VALUE]
 
-- SMELL: A `.props` condition on `$(TargetFramework)`, `$(OutputType)`, an SDK-computed path, or a property the project body sets
+- SMELL: `.props` condition on `$(TargetFramework)`, `$(OutputType)`, an SDK-computed path, or a property the project body sets
 - WHY:
-    - `.props` imports before the body and the SDK `.targets`, the condition compares an empty string
+    - `.props` imports before project body and SDK `.targets`, the condition compares an empty string
     - Multi-targeting inner builds receive `TargetFramework` as a global property and match, the outer build leaves it empty
 - RULE:
     - Condition in `Directory.Build.targets` or after the assignment in the project
@@ -210,10 +210,9 @@ GOOD in a `netstandard2.0` analyzer project:
 ### [02.6]-[AP-09]-[STYLE]-[NOWARN_IN_A_PROJECT_FILE]
 
 - SMELL: `NoWarn` or `WarningsNotAsErrors` in a project, `NoWarn` metadata on a project item, or `NoWarn` assigned without `$(NoWarn);`
-- WHY:
-    - Assignments without `$(NoWarn);` drop SDK defaults `1701;1702`
+- WHY: Assignments without `$(NoWarn);` drop SDK defaults `1701;1702`
 - RULE:
-    - Fix the code each diagnostic reports, a code no fix at the cause clears takes a `Directory.Build.props` row
+    - Fix the code each diagnostic reports, a diagnostic no root-cause fix clears takes a `Directory.Build.props` row
     - Every `NoWarn` assignment starts with `$(NoWarn);`
 
 BAD in `MyProject.csproj`:
@@ -256,7 +255,7 @@ GOOD in `Directory.Build.props`:
 
 - SMELL: `Update` or `Remove` in `Directory.Build.props`, an `Update` matching no item, or an `Include` of a file the default glob matches
 - WHY:
-    - `Update` and `Remove` act on items that exist at that point, the SDK globs import after `Directory.Build.props`
+    - `Update` and `Remove` act on items that exist at that point, SDK globs import after `Directory.Build.props`
     - `Update` or `Remove` before the globs matches nothing and reports nothing
     - Duplicate `Compile` items fail `NETSDK1022`, a full-path duplicate warns `CS2002`, a duplicate `None` copies twice silently
 - RULE: `Update` and `Remove` go in the project or `Directory.Build.targets`, an exclusion goes to `DefaultItemExcludes` in `.props`
@@ -357,7 +356,7 @@ OK:
 ### [03.5]-[AP-15]-[ERROR]-[ASSEMBLYINFO_WITH_GENERATEASSEMBLYINFO]
 
 - SMELL: `AssemblyInfo.cs` with an attribute the SDK generates while `GenerateAssemblyInfo` is `true`
-- WHY: The compiler sees the attribute twice, `CS0579`
+- WHY: Compiler sees the attribute twice, `CS0579`
 - RULE: Delete the file, set the values as properties, add an attribute the SDK lacks as an `AssemblyAttribute` item
 
 BAD in `Properties/AssemblyInfo.cs`:
@@ -374,7 +373,7 @@ GOOD:
 
 ### [03.6]-[AP-16]-[ERROR]-[TARGETFRAMEWORK_PLURAL_SINGULAR_CONFUSION]
 
-- SMELL: A list in `TargetFramework`, both properties in one project, or one value in `TargetFrameworks`
+- SMELL: List in `TargetFramework`, both properties in one project, or one value in `TargetFrameworks`
 - WHY:
     - Lists in `TargetFramework` fail `NETSDK1046`, both together take the singular and report `BC0107`
     - One value in `TargetFrameworks` runs an outer and an inner build and adds `_net10.0` to the pivot, STYLE
@@ -418,8 +417,8 @@ GOOD in `Directory.Build.targets`:
 
 ### [04.1]-[AP-18]-[STYLE]-[CUSTOM_TARGETS_MISSING_INPUTS_AND_OUTPUTS]
 
-- SMELL: A target writing files without `Inputs` and `Outputs`, or a target combining unrelated work
-- WHY: A target without both attributes runs on every build, one stale input reruns every step of a large target
+- SMELL: Targets writing files without `Inputs` and `Outputs`, or targets combining unrelated work
+- WHY: Targets without both attributes run on every build, one stale input reruns every step of a large target
 - RULE:
     - Group outputs sharing a dependency and regeneration step
     - `Inputs` lists every driving file, `Outputs` lists every written file, the written file joins `@(FileWrites)` inside the target
@@ -488,7 +487,7 @@ GOOD:
 ### [04.4]-[AP-21]-[ERROR]-[WRITELINESTOFILE_WITHOUT_OVERWRITE]
 
 - SMELL: `WriteLinesToFile` without `Overwrite="true"` and `WriteOnlyWhenDifferent="true"`
-- WHY: The task appends, the file grows by one copy of `Lines` per build
+- WHY: Task appends, the file grows by one copy of `Lines` per build
 - RULE:
     - Set `Overwrite="true"` and `WriteOnlyWhenDifferent="true"`, the timestamp then holds for the next incremental check
     - Appends after a same-target task writing the file, and targets with `Outputs`, are OK
@@ -528,7 +527,7 @@ GOOD:
 ### [05.1]-[AP-23]-[STYLE]-[HARDCODED_ABSOLUTE_PATHS]
 
 - SMELL: `C:\tools\`, `D:\packages\`, or `/usr/local/bin/` in a project file
-- WHY: The path exists on one machine, a missing import or reference fails `MSB4019` or `MSB3245`
+- WHY: Path exists on one machine, a missing import or reference fails `MSB4019` or `MSB3245`
 - RULE: Compose every path from `$(MSBuildThisFileDirectory)` or `$(MSBuildProjectDirectory)` with `NormalizeDirectory` or `NormalizePath`
 
 BAD:
@@ -547,7 +546,7 @@ GOOD:
 
 - SMELL: Backslash separators in a file that builds on more than one operating system
 - WHY:
-    - On Unix the evaluator converts `\` to `/` in a value whose first segment exists on disk, an item passed to a task converts in every case
+    - On Unix, the evaluator converts `\` to `/` in a value whose first segment exists on disk, an item passed to a task converts in every case
     - `Exec` commands starting with a program name reach `sh` unconverted
 - RULE: Write `/` in every path
 
@@ -582,7 +581,7 @@ GOOD:
 - RULE:
     - Replace the command with its task, a string operation with a string function
     - Replace a path operation with a path function taking `$(MSBuildThisFileDirectory)` first
-    - Relative arguments resolve against the working directory of the build process
+    - Relative arguments resolve against build process's working directory
 
 | [INDEX] | [COMMAND]                         | [TASK]             |
 | :-----: | :-------------------------------- | :----------------- |
@@ -613,7 +612,7 @@ GOOD:
 ### [05.4]-[AP-26]-[ERROR]-[PLATFORM_SPECIFIC_EXEC_WITHOUT_OS_CONDITION]
 
 - SMELL: `<Exec Command="chmod +x ..." />` or `<Exec Command="cmd /c ..." />` without an operating system condition
-- WHY: The command fails on the other operating system
+- WHY: Commands fail on the other operating system
 - RULE: Condition the task or its target on `$([MSBuild]::IsOSPlatform('...'))`
 
 BAD:
@@ -635,7 +634,7 @@ GOOD:
 ### [05.5]-[AP-27]-[ERROR]-[EXEC_BUILDS_A_PROJECT]
 
 - SMELL: `<Exec Command="dotnet build ..." />`, `dotnet msbuild`, `pack`, `publish`, `restore`, `test`, `run`, or `msbuild` inside a target
-- WHY: The command starts a build process the engine cannot schedule or log, global properties reach it by hand, `-check` reports `BC0302`
+- WHY: Command starts a build process the engine cannot schedule or log, global properties reach it by hand, `-check` reports `BC0302`
 - RULE: Order a project through `ProjectReference` with `ReferenceOutputAssembly="false"`, call a target through the `MSBuild` task
 
 BAD:
@@ -658,7 +657,7 @@ Repeated evaluations of one project outside restore share the output paths.
 
 ### [06.1]-[AP-28]-[ERROR]-[DUPLICATE_PROJECT_INSTANCE_WITH_SHARED_OUTPUT_PATH]
 
-- SMELL: An `<MSBuild>` call's `Properties` or an item's `AdditionalProperties` with a value the target project's output path lacks (`_IsPublishing=true`)
+- SMELL: `<MSBuild>` call's `Properties` or an item's `AdditionalProperties` with a value the target project's output path lacks (`_IsPublishing=true`)
 - WHY:
     - One instance exists per project path and global property set, the call creates `(project, {_IsPublishing=true})` beside `(project, {})`
     - Both run every target against one `bin/` and `obj/`, `CoreCompile` runs twice

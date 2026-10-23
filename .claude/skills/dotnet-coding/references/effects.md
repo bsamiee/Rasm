@@ -4,7 +4,7 @@ Covers keeping effects at the boundary, from isolating I/O around a pure core to
 
 ## [01]-[ISOLATION]
 
-Programs require I/O, the goal is a small impure boundary, and each kind of effect gets its own treatment: I/O is isolated, argument mutation is replaced by returned data, errors are results, and non-local state is designed away. List every non-local value a function reads and every externally visible change it makes, then extract the deterministic computation. The effectful function describes the reads and writes as an `Eff<RT, Unit>` that the host performs at `Run(rt)`, and the deterministic logic sits in a pure function it calls:
+Programs require I/O, the goal is a small impure boundary, and each kind of effect gets its own treatment: I/O is isolated, argument mutation is replaced by returned data, errors are results, and non-local state is designed away. List every non-local value a function reads and every externally visible change it makes, then extract the deterministic computation. Effectful functions describe the reads and writes as an `Eff<RT, Unit>` that the host performs at `Run(rt)`, and the deterministic logic sits in a pure function they call:
 
 ```csharp
 internal static class Prompting {
@@ -44,7 +44,7 @@ internal static class Formatting {
 }
 ```
 
-Indexed `Map` passes each item's position, state is input data, and parallel evaluation preserves behavior. Asynchronous code begins another task before an outstanding operation completes, parallel code runs work across cores, multithreading schedules threads the hardware cannot all run at once, and each makes a hidden dependency on mutable state harder to control. `Map` accepts an impure delegate, its function stays pure. The compiler cannot infer purity, parallel execution is requested explicitly, and its overhead is justified only by sufficient work and input size.
+Indexed `Map` passes each item's position, state is input data, and parallel evaluation preserves behavior. Asynchronous code begins another task before an outstanding operation completes, parallel code runs work across cores, multithreading schedules threads the hardware cannot all run at once, and each makes a hidden dependency on mutable state harder to control. `Map` accepts an impure delegate, the function passed to it stays pure. The compiler cannot infer purity, parallel execution is requested explicitly, and its overhead is justified only by sufficient work and input size.
 
 Impure functions have hidden inputs (the current time, database contents, the environment), hidden outputs (emails sent, files written, fields changed), or both, and behave like a larger pure transformation:
 
@@ -55,7 +55,7 @@ Impure functions have hidden inputs (the current time, database contents, the en
 
 ## [02]-[INJECTION]
 
-Reading `TimeProvider.System.GetCurrentInstant()` inside a validator makes the result depend on the system clock, the code that constructs the validator reads the date once and injects the value, which makes the check deterministic and applies to configuration, environment settings, and request-scoped values, with the tradeoff that the validator must not outlive the validity of the captured snapshot:
+Reading `TimeProvider.System.GetCurrentInstant()` inside a validator makes the result depend on the system clock. Code constructing the validator reads the date once and injects the value for a deterministic check. Configuration, environment settings, and request-scoped values inject the same way, and a validator must not outlive the captured snapshot's validity:
 
 ```csharp
 internal sealed record Command(LocalDate Date, string Code);
@@ -211,7 +211,7 @@ Order of the bracketed effects decides which downstream work each scope surround
 
 ## [06]-[EXECUTION]
 
-Each retry waits for the next delay of the schedule and invokes the effect again, when the schedule expires the last error remains observable, and recovery happens on the `Fin<A>` that `RunSafe()` returns. The next step needs the first effect's value before it can create the second effect, `Bind` is sequential. Independent operations use the tuple `Apply` over already-created effects, both start before either is awaited and completion time follows the slower call, or `Fork` and `Await` for explicit control, and `awaitAll` for a `Seq<IO<A>>`:
+Each retry waits for the next delay of the schedule and invokes the effect again, when the schedule expires the last error remains observable, and recovery happens on the `Fin<A>` that `RunSafe()` returns. `Bind` is sequential, the next step needs the first effect's value to create the second effect. Independent operations use the tuple `Apply` over already-created effects, both start before either is awaited and completion time follows the slower call, or `Fork` and `Await` for explicit control, and `awaitAll` for a `Seq<IO<A>>`:
 
 ```csharp
 internal static class Independence {

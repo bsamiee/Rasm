@@ -1,6 +1,6 @@
 ---
 name: dotnet-coding-mapperly
-description: "Use when Mapperly maps domain types to or from contracts, covering boundaries, ownership, projections, attributes, options, and conversions."
+description: "Use when writing or reviewing a Mapperly mapper between domain types and contracts, covering mapping at the host boundary"
 ---
 
 # [DOTNET_CODING_MAPPERLY]
@@ -208,7 +208,7 @@ internal sealed record Item(Guid Id, Bounds Range, decimal Amount, Instant Liste
 internal sealed record ItemDto(Guid Id, string Range, decimal Amount, string ListedAt, IReadOnlyList<LineDto> Lines);
 ```
 
-`ItemDto.Lines` is a BCL collection of the host's contract, and enabled `Enumerable` conversion maps each `Seq<Line>` element through `Line` to `LineDto` mapping into `IReadOnlyList<LineDto>`.
+`ItemDto.Lines` is a BCL collection of the host's contract, and enabled `Enumerable` conversion maps each `Seq<Line>` element through the `Line`-to-`LineDto` mapping into `IReadOnlyList<LineDto>`.
 
 Mapping method declarations, one row per capability:
 

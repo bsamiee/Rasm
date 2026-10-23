@@ -97,7 +97,7 @@ bpy.ops.bim.edit_object_placement(obj=wall.name)
 - Occurrences with nothing selected join the default container, walls starting at the cursor along +X
 - Elements selected before `add_occurrence` lend their container to the new occurrence
 - `bim.edit_object_placement(obj=)` writes an object transform to the IFC at once
-- Names go on through `ifcopenshell.api.attribute.edit_attributes`, then `tool.Root.set_object_name(obj, element)`
+- Names go through `ifcopenshell.api.attribute.edit_attributes`, then `tool.Root.set_object_name(obj, element)`
 - `bim.change_layer_length(length=)` and `bim.change_extrusion_depth(depth=)` resize the selected walls
 - Wall pairs, the second active, take `bim.join_walls_intersection()` for an L corner, the join held in `ConnectedTo` and `ConnectedFrom`
 - Closed loops of joined walls take `bim.draw_slab_from_wall()` with `model.relating_type_id` set to the slab type id string
@@ -237,7 +237,7 @@ bpy.ops.bim.create_drawing()
 - `target_view` takes `PLAN_VIEW`, `ELEVATION_VIEW`, `SECTION_VIEW`, `REFLECTED_PLAN_VIEW`, or `MODEL_VIEW`
 - Plans take their storey id as `location_hint`, placing the camera 1.6 m above the storey
 - Elevations and sections take `NORTH`, `SOUTH`, `EAST`, or `WEST` at the cursor
-- `bim.activate_drawing` swaps the camera's data block and hides IFC objects outside its view volume
+- `bim.activate_drawing` swaps the camera's data-block and hides IFC objects outside its view volume
 - Camera settings go through `camera.data` read after activation
 - `diagram_scale` items follow the scene's unit system (`1/4"=1'-0"|1/48`, `1:100|1/100`)
 - `bim.create_drawing()` writes `drawings/<name>.svg` beside the IFC, pages measuring `width / N` by `height / N`

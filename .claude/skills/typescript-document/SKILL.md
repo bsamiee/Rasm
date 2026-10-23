@@ -1,6 +1,6 @@
 ---
 name: typescript-document
-description: "Use when writing, reviewing, or skipping TSDoc on an exported TypeScript declaration, covering scope, style, tags, and React."
+description: "Use when writing or reviewing TSDoc on TypeScript declarations or React components, covering scope and tag syntax"
 disable-model-invocation: true
 ---
 

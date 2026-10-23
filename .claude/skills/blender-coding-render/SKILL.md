@@ -1,6 +1,6 @@
 ---
 name: blender-coding-render
-description: "Use when Blender Python sets render, view layer, compositor, output, image, color, or sequencer state, covering write order, passes, effects, file layouts, and strip timing."
+description: "Use when writing or reviewing Python that sets Blender render, compositor, or sequencer state, covering the output pipeline"
 ---
 
 # [BLENDER_CODING_RENDER]
@@ -28,7 +28,8 @@ Chain writes follow host rules:
 - Media defaults are `PNG` for `IMAGE`, `OPEN_EXR_MULTILAYER` for `MULTI_LAYER_IMAGE`, and `FFMPEG` for `VIDEO`, each reset following `file_format` write rules
 - `VIDEO` writes with `ffmpeg.video_bitrate` at 0 apply the H264 preset (`MKV`, `H264`, `MEDIUM`, bitrate 6000), and ffmpeg members write after `media_type`
 - `file_format` writes refuse a format outside the current media with `TypeError`, and `MULTI_LAYER_IMAGE` holds `OPEN_EXR_MULTILAYER` alone
-- `file_format` writes keep a `color_mode` and `color_depth` the new format holds (`OPEN_EXR` 16 to `PNG`), take its first otherwise (`JPEG` `RGB` 8, `OPEN_EXR` 32), keep `exr_codec`, and turn `MULTIVIEW` into `INDIVIDUAL` off EXR
+- `file_format` writes keep a `color_mode` and `color_depth` the new format holds (`OPEN_EXR` 16 to `PNG`), take its first otherwise (`JPEG` `RGB` 8, `OPEN_EXR` 32)
+- `file_format` writes keep `exr_codec` and turn `MULTIVIEW` into `INDIVIDUAL` off EXR
 - Linear `file_format` writes reset `linear_colorspace_settings.name` to the working space, display formats and data spaces keeping it
 - `linear_colorspace_settings.name` reads `""` until the first linear `file_format` write, and writes of `""` raise `TypeError`
 - Display writes keep `look`, move views both ways (`AgX` to `AgX - HDR 1000 nits` under `Rec.2100-PQ` and back), and fall back to `Standard` with no error
@@ -93,7 +94,7 @@ Render settings follow host rules:
 
 Color management reads Blender's OCIO config:
 - `PyOpenColorIO.GetCurrentConfig()` returns Blender's live config, the file at `bpy.data.colorspace.ocio_config_path` with `blender:*` spaces added
-- Working-space changes rewrite that one config object in place with a new `getCacheID()`, and caches key by the cache ID
+- Working-space changes rewrite the live config object in place with a new `getCacheID()`, and caches key by cache ID
 - Blender picks a config once at start from `BLENDER_OCIO`, else `OCIO`, else the bundled file, and a running session keeps it
 - `config.getDisplays()` lists `display_device` identifiers, `config.getViews(display)` the `view_transform` identifiers a display offers
 - Views take looks named `<view> - <look>`, else `<family> - <look>` for the family before ` - ` (`AgX` for `AgX - HDR 1000 nits`)
@@ -130,7 +131,7 @@ Engines write the passes they support, in an order of their own, and reads find 
 - Cycles and EEVEE write `Grease Pencil` with a Grease Pencil object alone
 - `view_layer.eevee.use_pass_bloom` writes overwrite every EEVEE pass flag, `True` clearing `use_pass_transparent` and `use_pass_volume_direct` and writing no part
 - Workbench writes `Combined` and `Depth` alone
-- `view_layer.pass_alpha_threshold` (0.5) keeps surfaces below that alpha out of `Depth`, index, `Normal`, `UV`, and `Vector` parts
+- `view_layer.pass_alpha_threshold` (0.5) keeps surfaces below the threshold out of `Depth`, index, `Normal`, `UV`, and `Vector` parts
 
 Shader AOVs write through AOV Output nodes matching their `aov_name` case for case, in Cycles and EEVEE alike:
 - `view_layer.aovs.add()` takes no name, returns `AOV`, then `AOV_001`, and makes the new AOV active
@@ -156,7 +157,7 @@ Light linking on an emitter names `obj.light_linking.receiver_collection` and `b
 - Receiver collections holding an `INCLUDE` member light their `INCLUDE` members alone, and with none light every object but their `EXCLUDE` members
 - Receiver collections count child collection members
 - Blocker `EXCLUDE` members cast no shadow from the emitter
-- Scenes honor 64 receiver collections, 64 blocker collections, and 63 distinct memberships, linking past them dropping with a stdout line
+- Scenes honor 64 receiver collections, 64 blocker collections, and 63 distinct memberships, links past the limits dropping with a stdout line
 - Emitters naming one collection count it once toward scene limits
 
 ## [03]-[COMPOSITOR]
@@ -180,7 +181,7 @@ Light linking on an emitter names `obj.light_linking.receiver_collection` and `b
 
 `bpy.ops.scene` effect operators act on `context.scene`, and calls on another scene run under `context.temp_override(scene=scene)`:
 - `move_compositor_effect_to_index(name=..., index=...)` places an effect at `index`, raising `RuntimeError` at its current index or past the end
-- Stacks reach a wanted order by removing unwanted effects, adding missing ones, then moving each effect with a `find(name)` differing from its index
+- Stacks reach a desired order by removing undesired effects, adding missing ones, then moving each effect with a `find(name)` differing from its index
 
 `compositing_nodes_essentials.blend` in `bpy.utils.system_resource("DATAFILES", path="assets/nodes")` holds stock groups:
 - Stock groups with `allow_usage_in_scene_compositor_effect` set are effects (`Bloom`, `Vignette`, `Film Grain`), the rest helpers for use inside a tree (`Retime`, `Rounded Square Mask`)
@@ -292,7 +293,8 @@ Multi-view renders follow `render.use_multiview` and `render.views`, each view w
 
 Images hold a colorspace tag, a format, and an alpha mode the host applies at each read and write:
 - Images take `colorspace_settings.name` before their first pixel write, a later colorspace write clearing pixels to black
-- New float images take the working space (`bpy.data.colorspace.working_space`), byte images `sRGB`, and `is_data=True` images `Non-Color`, each holding `file_format` `PNG` and `alpha_mode` `STRAIGHT`
+- New float images take the working space (`bpy.data.colorspace.working_space`), byte images `sRGB`, and `is_data=True` images `Non-Color`
+- New images hold `file_format` `PNG` and `alpha_mode` `STRAIGHT`
 - `bpy.ops.wm.set_working_color_space(working_space=..., convert_colors=True)` changes the read-only working space
 - Float buffers hold premultiplied alpha, byte buffers straight alpha
 - `images.new` defaults to `alpha=False`, which writes RGB files composited over black whatever the buffer's alpha
@@ -443,12 +445,14 @@ Writes to strip timing members move content and handles:
 |  [06]   | `channel`                                | Shuffles off an occupied span in its direction |
 
 Timing edits follow host rules:
-- Handles past content hold the edge frame, and durations clamp to 1
-- Handles written across the other handle land one frame from it
+- Handles past content hold the boundary frame, and durations clamp to 1
+- Handles written across the other handle sit one frame from it
 - Single images and `COLOR` strips move content with `left_handle`, image sequences keep it placed
 - Handle, `duration`, and `content_start` writes that overlap another strip push the written strip up a channel
-- `strip.split(frame, "SOFT")` keeps full content in both halves and returns the right half (`<name>.001`), `"HARD"` cuts content, and splits at a left handle or outside return `None`
-- `retiming_keys.add(timeline_frame=...)` adds a key with start and end keys, moving the last key stretches content and handles, `reset()` undoes it
+- `strip.split(frame, "SOFT")` keeps full content in both halves and returns the right half (`<name>.001`), and `"HARD"` cuts content
+- Splits at a left handle or outside the strip return `None`
+- `retiming_keys.add(timeline_frame=...)` adds a key with start and end keys
+- Moving the last retiming key stretches content and handles, and `reset()` undoes it
 - Retiming key writes on a strip with missing media crash Blender
 
 Effects, modifiers, and metas follow host rules:

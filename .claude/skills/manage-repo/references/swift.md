@@ -20,7 +20,7 @@ SwiftPM builds modules and executables through root `Package.swift`, Xcode build
 - SwiftPM writes `.build/` in the working folder when neither is set, `--help` included
 - `SWIFTPM_BUILD_DIR` sits on Nx SwiftPM targets alone, in `mise.toml` `[env]` it moves sourcekit-lsp's build off `swiftPM.scratchPath`
 - SwiftPM locks its scratch path per process, each SwiftPM target takes `parallelism: false`
-- Executables `install` through `experimental-install` into `$XDG_CONFIG_HOME/swiftpm/bin` on mise `_.path`, which refuses an installed name until `rm` deletes it
+- Executables `install` through `experimental-install` into `$XDG_CONFIG_HOME/swiftpm/bin` on mise `_.path`, `experimental-install` refuses an installed name until `rm` deletes it
 - Executables a terminal or harness runs hold its TCC grants, a reinstall keeps them and no bundle is needed
 
 ## [03]-[PROJECT_FILES]
@@ -105,7 +105,7 @@ Toolchain upgrades re-derive compiler policy in root `Xcode.xcconfig` and the ma
 - Size and complexity rules are off, and so are rules forcing a form the file organization standard rejects
 - `explicit_type_interface` is on, `redundant_type_annotation` and `explicit_acl` are off
 - `no_empty_block` is off for required empty witnesses
-- `discouraged_optional_boolean` and `discouraged_optional_collection` are off for wire fields whose absence differs from `false` or empty
+- `discouraged_optional_boolean` and `discouraged_optional_collection` are off for wire fields where absence differs from `false` or empty
 - Rules with an open fix or false-positive defect are off until a release fixes it (`trailing_closure`, `void_function_in_ternary`)
 - `nesting` caps declaration depth, an ast-grep rule caps closure and control depth
 - `custom_rules` is unset, its regexes match text where ast-grep matches syntax

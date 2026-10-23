@@ -200,6 +200,15 @@ Identifier and file renames update every reference:
 - BEFORE: `` In <library>, `<type>` represents absence `` (page already titled after library)
 - AFTER: `` `<type>` represents absence ``
 
+- BEFORE: `'Family styles <host> lists'` (`styles` field of a font family in a `<host>` library)
+- AFTER: `'Style names'`
+- WRONG: `'Styles of the family'` (host gone, field and owner still restated)
+
+- BEFORE: `"<host>'s path to an object, as results return it"`
+- AFTER: `'Object path from results'`
+
+- KEEP: `'Runs code in <host> as <runtime> script, elsewhere through scripting dictionary'` (server drives more than one host, name selects case)
+
 - BEFORE: `` ALWAYS use `<skill>` skill for a fact the open web holds, one page or a cited report ``
 - AFTER: `` ALWAYS use `<skill>` skill for a question the open web answers `` (category covers page, claim, and report)
 - WRONG: `` ALWAYS use `<skill>` skill for facts, pages, and reports from the open web `` (list moved from tail into scope)
@@ -267,7 +276,7 @@ Identifier and file renames update every reference:
 ## [13]-[MESSAGES]
 
 - BEFORE: `"<library> native runtime failed to load; reference the <library> native runtime package for this RID and restart, the CLR caches the failed type initializer"`
-- AFTER: `"<library> native runtime failed to load. CLR caches failed type initializer. Reference runtime package for host RID and restart"`
+- AFTER: `"<library> native runtime for host RID failed to load, add its runtime package and restart"` (caching reason went, reader acts on restart)
 
 - BEFORE: `Expected {0}; got {1}.`
 - AFTER: `Expected {0}, got {1}`

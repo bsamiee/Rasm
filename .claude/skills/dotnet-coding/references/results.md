@@ -4,7 +4,7 @@ Covers the result-type flows, from validators to the laws and their property tes
 
 ## [01]-[VALIDATION]
 
-Each validator has one shape: it accepts the request, returns it on success for the next validator, and returns the error for the violated rule, and a rule that reads the clock receives it as an argument:
+Validators accept the request, return it on success for the next validator, and return the error for the violated rule. Rules that read the clock receive the date as an argument:
 
 ```csharp
 internal sealed record Command(string Code, LocalDate Date);
@@ -52,7 +52,7 @@ internal static class Validators {
 }
 ```
 
-`FailFast` skips the remaining rules after the first invalid result, cheap structural checks go before expensive database or remote checks, and `Harvest` evaluates every rule and accumulates every error for a caller that repairs all violations at once. The empty rule list returns the input as valid, on success the traversal holds one copy of the input per rule, and `Map` discards those copies.
+`FailFast` skips the remaining rules after the first invalid result, cheap structural checks go before expensive database or remote checks, and `Harvest` evaluates every rule and accumulates every error for a caller that repairs all violations at once. Empty rule lists return the input as valid, on success the traversal holds one copy of the input per rule, and `Map` discards those copies.
 
 ## [02]-[WORKFLOWS]
 
@@ -129,7 +129,7 @@ internal static class Queries {
 }
 ```
 
-`let` translates to `Select` and works once mapping exists, `where` needs `Where`, which `Option` supplies beside `Filter`, and collection clauses (`orderby`) need not exist for `Option`, `Either`, or `Validation`. The right-associated `Bind` lets the innermost function close over every earlier value, and the query expresses that without nesting.
+`let` translates to `Select` and works once mapping exists, `where` needs `Where`, which `Option` supplies beside `Filter`, and collection clauses (`orderby`) need not exist for `Option`, `Either`, or `Validation`. Right-associated `Bind` lets the innermost function close over every earlier value, and the query expresses that without nesting.
 
 ## [03]-[HOST_TRANSLATION]
 
@@ -242,11 +242,11 @@ internal static class Folds {
 }
 ```
 
-Scalar cases are the leaves and `Many` and `Keyed` are the containers, the recursive members are ordinary case properties that leave the generator's case discovery unchanged, and a fold takes one replacement per constructor: each scalar replacement receives that case's value, `Nil` receives nothing, and the container replacements receive already-folded child results. The recursion sits in `Fold` once, the handler record passes as the `Switch` state, every arm stays `static`, `Count` replaces every leaf with 1 and adds the node to its children, and `Depth` replaces each container with one more than its deepest child. The remaining operations follow the return-type rules: member lookup passes the requested key as the state and returns `Option<Node>`, a `Keyed` without the key and every other case answer `None`, typed extraction returns `Fin<A>` with an error naming the wanted and the found case, and an operation that preserves a case takes the case type directly when the caller already holds one, which removes the wrong-shape error from its signature.
+Scalar cases are the leaves and `Many` and `Keyed` are the containers, the recursive members are ordinary case properties that leave the generator's case discovery unchanged, and a fold takes one replacement per constructor: each scalar replacement receives that case's value, `Nil` receives nothing, and the container replacements receive already-folded child results. Recursion sits in `Fold` once, the handler record passes as the `Switch` state, every arm stays `static`, `Count` replaces every leaf with 1 and adds the node to its children, and `Depth` replaces each container with one more than its deepest child. Remaining operations follow the return-type rules: member lookup passes the requested key as the state and returns `Option<Node>`, a `Keyed` without the key and every other case answer `None`, typed extraction returns `Fin<A>` with an error naming the wanted and the found case, and an operation that preserves a case takes the case type directly when the caller already holds one, which removes the wrong-shape error from its signature.
 
 ## [05]-[LAWS]
 
-Dedicated `Apply` stays more efficient than one derived from `Bind` and keeps the semantics (accumulation) that a short-circuiting `Bind` cannot give. The laws are equations an implementation must satisfy for every value, including `None` and the failure case, and an implementation that hides mutation, counters, or state tied to the number of calls breaks safe refactoring:
+Dedicated `Apply` stays more efficient than one derived from `Bind` and keeps the semantics (accumulation) that a short-circuiting `Bind` cannot give. Laws are equations an implementation must satisfy for every value, including `None` and the failure case, and an implementation that hides mutation, counters, or state tied to the number of calls breaks safe refactoring:
 
 ```text
 Functor identity:    fa.Map(x => x) == fa
@@ -273,4 +273,4 @@ internal static class Properties {
 }
 ```
 
-`Gen.OneOf` builds a generator that yields both `Some` and `None`, a generator of integers alone checks only the `Some` path. The bounded range keeps the product inside `int`, `Sample` throws on a counterexample, the case count and the ranges are configurable, and a property tied to `Multiply` checks that function alone.
+`Gen.OneOf` builds a generator that yields both `Some` and `None`, a generator of integers alone checks only the `Some` path. `Gen.Int[-1000, 1000]` keeps the product inside `int`, `Sample` throws on a counterexample, the case count and the ranges are configurable, and a property tied to `Multiply` checks that function alone.

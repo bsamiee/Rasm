@@ -1,11 +1,11 @@
 ---
 name: dotnet-coding-languageext
-description: "Use when calling a LanguageExt member, covering result types, errors, IO effects, traits, transformers, collections, shared state, and streams."
+description: "Use when calling a LanguageExt member"
 ---
 
 # [DOTNET_CODING_LANGUAGEEXT]
 
-Covers LanguageExt types and their operations, from result types and their conversions to shared state.
+Covers LanguageExt types and operations, from result types and conversions to shared state.
 
 [REFERENCES]:
 - [01]-[TRAITS_AND_TRANSFORMERS](references/traits-and-transformers.md): Trait encoding, transformer stacks, and the domain monads over them
@@ -33,7 +33,8 @@ Each type exposes `Match` with one function per case:
 - `Option<A>` holds a flag and an inner value, exposes the flag as `IsSome` and `IsNone`, and ignores the inner value in the `None` state
 - `Option<A>` and `Fin<A>` are closed, a `Match` over their cases is total
 - Implicit conversion from `A` maps `null` to `None`, `Optional(x)` does the same for nullable input, `Some(x)` wraps the value as given
-- `ToNullable()` turns a value-element `Option` into `A?`, and `ValueUnsafe()` from `LanguageExt.UnsafeValueAccess` turns a reference element into `A?` at the host boundary
+- `ToNullable()` turns a value-element `Option` into `A?`
+- `ValueUnsafe()` from `LanguageExt.UnsafeValueAccess` turns a reference-element `Option` into `A?` at the host boundary
 - `Option<A>` defines `operator true`, `left || right` evaluates the right operand only when the left is `None`, `left | right` evaluates both
 - `IfNone(A)` takes a value, `IfNone(Func<A>)` takes a computation that runs only on `None`, both return `A`
 - `Match` returning one case unchanged is `IfNone`, `IfFail`, `IfLeft`, or `IfRight`
@@ -65,7 +66,7 @@ internal static class Conversions {
 
 ## [02]-[OPERATIONS]
 
-`Option<A>`, `Seq<A>`, and `Fin<A>` share the operation names, `Seq<A>` has no `Pure`, and LINQ names `Map` as `Select`, `Bind` as `SelectMany`, and `Filter` as `Where`:
+`Option<A>`, `Seq<A>`, and `Fin<A>` share the operation names and `Seq<A>` has no `Pure`. LINQ names `Map` as `Select`, `Bind` as `SelectMany`, and `Filter` as `Where`:
 
 | [INDEX] | [OPERATION] | [SIGNATURE]                 | [BEHAVIOR]                                                   |
 | :-----: | :---------- | :-------------------------- | :----------------------------------------------------------- |
@@ -87,7 +88,7 @@ internal static class Conversions {
 Values in context have type `F<A>`, and the type constructor supplies the computational effect:
 - `Option` adds absence, `Seq` zero or more values, `Func<A>` deferred evaluation
 - `Fin` adds expected failure with a reason, `IO` a deferred side effect with a failure channel
-- No general operation extracts one `A` from every `F<A>`, `Match`, `Count`, `Fold`, `IfNone`, and `RunSafe` are the type-specific extractions
+- No general operation extracts one `A` from every `F<A>`. `Match`, `Count`, `Fold`, `IfNone`, and `RunSafe` are the type-specific extractions
 
 ## [03]-[ERRORS]
 
@@ -153,7 +154,8 @@ internal static class Recovery {
 - `BindFail` lets the recovery return either case, `MapFail` changes only the error, `BiMap` maps both sides, `IfFail` returns a plain value
 
 In a LINQ query, `guard` raises an `Error` when its flag is false:
-- `when` runs its alternative when the flag is true, `unless` when the flag is false, and a branch pairing a unit effect with another effect is `when(<condition>, <effect>).As()` or `unless`
+- `when` runs its alternative when the flag is true, `unless` when the flag is false
+- Branches pairing a unit effect with another effect are `when(<condition>, <effect>).As()` or `unless`
 - Alternative is a failed `Fin<Unit>` or `IO<Unit>`
 - `guard<Error>` names the type argument, an `Expected` subclass argument selects the generic overload `guard<E>(bool, E)`
 
@@ -245,7 +247,8 @@ internal static class Concurrency {
 - `Monad.recur<M, A, B>` loops a state `A` with `Next.Loop<A, B>` and finishes with `Next.Done<A, B>` holding a `B`
 - `Monad.recur` works with every host operation and returns `K<IO, B>` that `.As()` narrows
 - `Monad.recur` checks the state before it advances, an already-finished initial state returns unchanged
-- `RepeatUntil` polls one effect until its value satisfies the predicate, `RepeatWhile` polls while it does, and a constant predicate is `Repeat` or `Retry` over the same schedule
+- `RepeatUntil` polls one effect until its value satisfies the predicate, `RepeatWhile` polls while it does
+- Polls with a constant predicate are `Repeat` or `Retry` over the same schedule
 
 ```csharp
 internal static class Recursion {
@@ -265,9 +268,9 @@ internal static class Recursion {
 `Schedule.spaced` and `Schedule.exponential` build delay sequences:
 - `recurs`, `repeat`, `jitter`, and `maxDelay` are `ScheduleTransformer` values
 - `recurs` caps the attempt count, `repeat` replays the whole schedule, `jitter` randomizes each delay, `maxDelay` caps each delay
-- Each delay is `LanguageExt.Duration`, which converts implicitly from the `TimeSpan` a NodaTime `Duration` returns through `ToTimeSpan()`
-- Between schedules `|` is a union that takes the shorter delay and `&` an intersection that takes the longer
-- When one side is a transformer both operators apply it
+- Delays are `LanguageExt.Duration`, with an implicit conversion from the `TimeSpan` a NodaTime `Duration` returns through `ToTimeSpan()`
+- Between schedules, `|` is a union that takes the shorter delay and `&` an intersection that takes the longer
+- When one side is a transformer, both operators apply it
 - Transformers passed alone convert to `Schedule.Forever` with the transformer applied
 - `Retry(Schedule)` reruns a deferred effect that failed, `Repeat(Schedule)` reruns a successful one
 - `Repeat(Schedule.recurs(2))` runs the effect once and then twice more
@@ -417,7 +420,7 @@ Forms the compiler rejects:
 - `Seq<A>` has no `Sort` instance, sorting is LINQ `Order()` followed by `toSeq`
 - `SeqExtensions.Choose<A, B>` takes both type arguments and `Seq<A>` has no instance form, `Choose<int>(Parse)` is CS1061
 - `Choose` takes the indexed `Func<int, A, Option<B>>` with the index first
-- `Choose(x => x > 0 ? x : None)` is CS1660, the conditional has no target type, and `Map<Option<int>>(same).Somes()` compiles
+- `Choose(x => x > 0 ? x : None)` is CS1660 with no target type for the conditional, `Map<Option<int>>` over the same lambda then `Somes()` compiles
 
 ## [07]-[LENSES_AND_SHARED_STATE]
 
@@ -447,7 +450,7 @@ internal static class Lenses {
 - `SwapKey(key, Func<V, V>)` updates a present key, `SwapKey(key, Func<Option<V>, Option<V>>)` inserts, updates, and removes
 - `Find` reads, `FindOrAdd` adds a missing value or returns the existing one in one atomic step
 - Computed values enter `FindOrAdd` through its `Func<V>` overload to run on a miss alone
-- `Ref<A>` updates run inside `atomic(Func<R>)`, which returns the function result from the transaction
+- `Ref<A>` updates run inside `atomic(Func<R>)`, and `atomic` returns the function result from the transaction
 - `swap` reads the transactional value
 - `commute` applies its function inside the transaction and again at the commit point against the last committed value
 - `Isolation.Serialisable` sets serializable isolation
@@ -455,9 +458,10 @@ internal static class Lenses {
 - `memo(Func<A, B>)` and `memoUnsafe(Func<A, B>)` cache one result per argument and compute it under a lock per key
 - `memo` holds each result behind a weak reference, a garbage collection clears it and the next call reruns the function
 - `memoUnsafe` holds each result in a `ConcurrentDictionary` for the life of the returned function, a table built once and kept takes it
-- `memo(Func<A>)` returns a `Memo<A>` whose first `Value` runs the thunk once while concurrent readers spin
+- `memo(Func<A>)` returns a `Memo<A>` that runs the thunk once on the first `Value` read while concurrent readers spin
 - Throwing thunks leave the `Memo<A>` unloaded for the next read, `Reset` clears the value
-- `memoK` caches the construction of a `K<F, A>` and not its execution, `Value` returns the one `K<F, A>`, and a memoized `IO` runs its effect on every run
+- `memoK` caches the construction of a `K<F, A>` and not its execution, `Value` returns the one `K<F, A>`
+- Memoized `IO` values run their effect on every run
 
 ```csharp
 internal static class SharedState {

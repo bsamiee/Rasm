@@ -1,6 +1,6 @@
 ---
 name: blender-coding-extensions
-description: "Use when writing a Blender extension's register, unregister, preferences, or manifest, covering class order, callbacks, commands, translations, keymaps, lifecycle, user files, permissions, and wheels."
+description: "Use when writing or reviewing a Blender extension's registration, preferences, or manifest, covering lifecycle and packaging"
 ---
 
 # [BLENDER_CODING_EXTENSIONS]
@@ -84,7 +84,7 @@ Acquisitions follow host dependency order, and releases run in reverse, a group 
 
 Registered classes take the forms Blender checks at `register_class` and at each call:
 - Operator `bl_idname` takes `<category>.<name>` in lowercase letters, digits, and underscores, one dot, at most 60 characters, else `RuntimeError`
-- Callbacks declaring another positional parameter count than the host passes raise `ValueError` at `register_class`, `*args` counting none (Panel `draw` takes 2)
+- Callbacks declaring more or fewer positional parameters than the host passes raise `ValueError` at `register_class`, `*args` counting none (Panel `draw` takes 2)
 - `__init__` overrides take `*args, **kwargs` and pass them to `super().__init__` first, a narrower signature reaching callers as `RuntimeError`
 - Blender builds a new operator, panel, and menu instance per call, and instance attributes reach no later call
 - Classes registered under a held `bl_idname` replace the earlier class with an `Info` line
@@ -149,7 +149,7 @@ Presets resolve through host paths:
 Tables take the form `{<locale>: {(<context>, <msgid>): <text>}}`, one per package:
 - Contexts `None`, `""`, and `"*"` name the default context `pgettext` reads
 - Locale keys take a `bpy.app.translations.locales` code or a shorter form
-- Lookups read one dict per table, trying the full locale, `language_country`, `language@variant`, then the bare language
+- Lookups read one dict per table, trying the full locale, `language_country`, `language@variant`, then `language`
 - Tables key each language once, a full code beside a shorter form (`pt_BR` beside `pt`) answering from the shorter form after an earlier table misses
 - Stock catalogs answer first, and tables translate only msgids the stock catalog leaves untranslated
 - `en_US` entries relabel stock English text
@@ -195,7 +195,7 @@ Events reach items in user keyconfig order:
 User edits sit on `keyconfigs.user` as differences from addon items:
 - `unregister()` ends with `keyconfigs.update(keep_properties=True)` after classes unregister, else a disable or update drops edits to extension items
 - Edits follow an item through a changed key or modifier, matched by operator and property values
-- Edits skip an item whose property values changed and stay stored, applying again once values match
+- Edits skip an item with changed property values and stay stored, applying again once values match
 - `keyconfigs.user` holds no keymap while startup `register()` runs
 - User items resolve at each draw through `keymaps.find_match(<addon keymap>)` and `keymap_items.find_match(<addon keymap>, <addon item>)`
 - `KeyMap.restore_item_to_default(<user item>)` resets an item to the extension's row and deletes its edit

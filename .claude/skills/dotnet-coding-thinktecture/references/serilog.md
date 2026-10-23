@@ -1,10 +1,12 @@
 # [SERILOG]
 
-`Serilog` adds one `IDestructuringPolicy` that unwraps a keyed smart enum and a simple value object to the key and an ad hoc union to its current `Value`, and every other type falls through to Serilog's own destructuring.
+`Serilog` adds one `IDestructuringPolicy` that unwraps a keyed smart enum and a simple value object to the key and an ad hoc union to its current `Value`. Every other type falls through to Serilog's own destructuring.
 
 ## [01]-[REGISTRATION]
 
-`UsingThinktectureRuntimeExtensions` is an extension method on `LoggerDestructuringConfiguration` with an optional `TypesToRenderAsString renderAsString` parameter (default `None`) that registers the policy through `Destructure.With` and returns the `LoggerConfiguration` for chaining. Serilog takes the first policy that succeeds and the first `renderAsString` wins, the call runs once before `CreateLogger()`:
+`UsingThinktectureRuntimeExtensions` is an extension method on `LoggerDestructuringConfiguration` with an optional `TypesToRenderAsString renderAsString` parameter (default `None`) that registers the policy through `Destructure.With` and returns the `LoggerConfiguration` for chaining:
+- Serilog takes the first policy that succeeds, the first `renderAsString` wins
+- `UsingThinktectureRuntimeExtensions` runs once before `CreateLogger()`
 
 ```csharp
 internal static class Logging {
@@ -20,7 +22,15 @@ internal static class Logging {
 
 ## [02]-[POLICY]
 
-`TryDestructure` receives the boxed value, calls `MetadataLookup.Find` on its runtime type, and the lookup walks base types, a smart enum item declared as a derived class unwraps to its key. Types without metadata return `null` and the policy declines, keyed smart enums and simple value objects pass `GetKey(value)` to `CreatePropertyValue` with `destructureObjects: true`, ad hoc unions pass `GetValue(value)`, and complex value objects, keyless smart enums, and regular unions return `null`, `TryDestructure` returns `false` and Serilog reflection renders their public instance properties with a `$type` property. `destructureObjects: true` hands the inner value back to the pipeline, the policy runs again on it, a union that holds a smart enum unwraps through both layers, and an inner value without metadata reaches reflection with the limits of any `{@Property}`. Object factories never reach the log, the policy reads the key alone, and a value object with a `string` factory that renders `42%` logs `42`:
+`TryDestructure` receives the boxed value and calls `MetadataLookup.Find` on its runtime type:
+- Lookup walks base types, a smart enum item declared as a derived class unwraps to its key
+- Types without metadata return `null` and the policy declines
+- Keyed smart enums and simple value objects pass `GetKey(value)` to `CreatePropertyValue` with `destructureObjects: true`, ad hoc unions pass `GetValue(value)`
+- Complex value objects, keyless smart enums, and regular unions return `null`, `TryDestructure` returns `false`
+- Serilog reflection renders public instance properties of a declined value with a `$type` property
+- `destructureObjects: true` hands the inner value back to the pipeline and the policy runs again on it, a union holding a smart enum unwraps through both layers
+- Inner values without metadata reach reflection with the limits of any `{@Property}`
+- Object factories never reach the log, the policy reads the key alone, a value object with a `string` factory that renders `42%` logs `42`
 
 ```csharp
 [SmartEnum<string>]
@@ -92,7 +102,14 @@ keyless smart enum: {"LineLimit": 998, "$type": "Channel"}
 regular union: {"Radius": 2.5, "$type": "Circle"}
 ```
 
-Unwrapped families render their inner value, that value renders as a scalar only when it is one, the record renders through reflection with each member passing through the policy again, and the declined families render the public instance properties they declare. Without the policy the same calls print `{"Key": "Paid", "$type": "Status"}` for the smart enum, `{"$type": "Amount"}` for the value object, the generated key member is a private field reflection never finds, and an ad hoc union prints every `IsX` and `AsX` accessor with the inactive `AsX` throwing `InvalidOperationException` into the log line.
+- Unwrapped families render their inner value, as a scalar only when the inner value is one
+- Records render through reflection with each member passing through the policy again
+- Declined families render the public instance properties they declare
+
+Without the policy, the same calls print:
+- `{"Key": "Paid", "$type": "Status"}` for the smart enum
+- `{"$type": "Amount"}` for the value object, the generated key member is a private field reflection never finds
+- Every `IsX` and `AsX` accessor for an ad hoc union, with the inactive `AsX` throwing `InvalidOperationException` into the log line
 
 ## [03]-[DEPTH_LIMITS]
 
@@ -100,7 +117,10 @@ Unwrapped families render their inner value, that value renders as a scalar only
 
 ## [04]-[STRING_RENDERING]
 
-`TypesToRenderAsString` is a `[Flags]` enum, a flagged family renders as `new ScalarValue(value)` and Serilog calls `ToString()` on it when it writes the event, an unflagged family unwraps as before, and no flag reaches a complex value object, a keyless smart enum, or a regular union, the policy declines them first:
+`TypesToRenderAsString` is a `[Flags]` enum:
+- Flagged families render as `new ScalarValue(value)`, Serilog calls `ToString()` on the value when it writes the event
+- Unflagged families unwrap as before
+- No flag reaches a complex value object, a keyless smart enum, or a regular union, the policy declines them first
 
 | [INDEX] | [MEMBER]       | [VALUE] | [EFFECT]                                         |
 | :-----: | :------------- | :------ | :----------------------------------------------- |
@@ -118,11 +138,24 @@ Unwrapped families render their inner value, that value renders as a scalar only
 |  [04]   | Complex value object in union    | Structure with `$type` tag | `"{ Lower = 1, Upper = 10 }"` | `"{ Lower = 1, Upper = 10 }"` |
 |  [05]   | Value object with `SkipToString` | `3`                        | Full type name                | `3`                           |
 
-String-keyed smart enums print the same text under every setting, their `ToString()` returns the key, a decimal key changes from a number to a string, a union under `AdHocUnions` stops unwrapping and renders through its generated `ToString()`, which returns the active member's text, and the flags act per family and not per graph, a top-level `Amount` under `AdHocUnions` alone still unwraps to a number. `SkipToString = true` removes the generated `ToString()` override and keeps the generated `IFormattable`, an interpolated string and a plain output template still print the key through `IFormattable`, Serilog prints the full type name with its namespace and a JSON sink exposes the type name first, nothing at runtime detects the case, a family receives its flag only when no type in it declares `SkipToString = true`, and `None` stays in place unless every type in the flagged family renders a meaningful `ToString()`.
+- String-keyed smart enums print the same text under every setting, their `ToString()` returns the key
+- Decimal keys change from a number to a string
+- Unions under `AdHocUnions` stop unwrapping and render the active member's text through their generated `ToString()`
+- Flags act per family and not per graph, a top-level `Amount` under `AdHocUnions` alone unwraps to a number
+- `SkipToString = true` removes the generated `ToString()` override and keeps the generated `IFormattable`
+- Interpolated strings and plain output templates print the key of a `SkipToString` type through `IFormattable`
+- Serilog prints the full type name of a flagged `SkipToString` type with its namespace, a JSON sink exposes the type name first
+- Nothing at runtime detects the case, a family receives its flag only when no type in it declares `SkipToString = true`
+- `None` stays in place unless every type in the flagged family renders a meaningful `ToString()`
 
 ## [05]-[CAVEATS]
 
-`@` selects destructuring, and without it Serilog calls `ToString()` and the policy never runs: a string-keyed smart enum prints the same text either way, a decimal value object becomes a string, and a record collapses into one string (`"Entry { Status = Paid, Total = 99.95 }"`). Ad hoc union structs that were never assigned have no active member, their `Value` throws `InvalidOperationException` (`This struct of type 'StatusOrText' is not initialized. Make sure all fields, properties and variables are initialized with non-default values.`), Serilog catches the exception during property capture and writes `"Capturing the property value threw an exception: InvalidOperationException"` in its place, and the log call survives without the value:
+`@` selects destructuring, without it Serilog calls `ToString()` and the policy never runs:
+- String-keyed smart enums print the same text either way
+- Decimal value objects become a string
+- Records collapse into one string (`"Entry { Status = Paid, Total = 99.95 }"`)
+
+Ad hoc union structs never assigned have no active member, and their `Value` throws `InvalidOperationException` (`This struct of type 'StatusOrText' is not initialized. Make sure all fields, properties and variables are initialized with non-default values.`). Serilog catches the exception during property capture, writes `"Capturing the property value threw an exception: InvalidOperationException"` in place of the value, and the log call survives without it:
 - Analyzer reports 047 on `default(StatusOrText)` and `new StatusOrText()`, and 104 on a settable field or property until it is `required`
 - Array elements and a generic `default` draw no diagnostic, an uninitialized union reaches a logger through those routes
 - `DefaultValueHandling = UnionDefaultValueHandling.MapToFirstMember` with a stateless first member makes `default` valid

@@ -1,6 +1,6 @@
 ---
 name: dotnet-msbuild-evaluation
-description: "Use when writing or debugging a .props, .targets, or .csproj declaration, covering MSBuild evaluation order, conditions, properties, and items."
+description: "Use when writing or diagnosing an MSBuild declaration, covering the evaluation phase"
 ---
 
 # [DOTNET_MSBUILD_EVALUATION]

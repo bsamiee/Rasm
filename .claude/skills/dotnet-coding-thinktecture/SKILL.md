@@ -1,26 +1,26 @@
 ---
 name: dotnet-coding-thinktecture
-description: "Use when declaring a Thinktecture value object, smart enum, or union, or a TTRESG diagnostic appears, covering generated API, Switch, and Map."
+description: "Use when declaring a Thinktecture type or fixing a TTRESG diagnostic, covering generated API and framework integration"
 ---
 
 # [DOTNET_CODING_THINKTECTURE]
 
-Covers declaring the types `Thinktecture.Runtime.Extensions` generates (value objects, smart enums, ad hoc and regular unions), from their generated API to the packages that integrate them with the frameworks.
+Covers declaring types `Thinktecture.Runtime.Extensions` generates (value objects, smart enums, ad hoc and regular unions), from generated API to framework integration packages.
 
 [REFERENCES]:
 - [01]-[SETTINGS](references/settings.md): Attribute settings of every generated family with defaults and effects, the generator's MSBuild properties
 - [02]-[FACTORY_PATHS](references/factory-paths.md): How each integration point reaches an object factory, with the Entity Framework Core read path
 - [03]-[SERILOG](references/serilog.md): Serilog destructuring policy with its depth limits and string rendering
 
-Every package name omits the prefix `Thinktecture.Runtime.Extensions.` and every analyzer code omits the prefix `TTRESG`:
+Package names omit prefix `Thinktecture.Runtime.Extensions.` and analyzer codes omit prefix `TTRESG`:
 - `Analyzers` reports 048, 049, 098, 100 to 110, and 1000 as warnings, 1001 as information, and every other rule as an error
 - Every generated type is `partial` (006), a non-partial enclosing type fails with `CS0260`
 
 ## [01]-[VALUE_OBJECTS]
 
 Simple value objects wrap one key member under `[ValueObject<TKey>]`, complex value objects hold read-only members under `[ComplexValueObject]`:
-- Both are `partial`, the generator adds `sealed` to a class and `readonly` to a struct and owns the private constructor
-- Hand-written part is the validation hook and the domain behavior
+- Both are `partial`, generator adds `sealed` to a class and `readonly` to a struct and owns the private constructor
+- Hand-written part holds the validation hook and domain behavior
 
 ```csharp
 [ValueObject<string>]
@@ -61,9 +61,9 @@ Declaration rules the analyzer enforces:
 - String keys without `[KeyMemberEqualityComparer]` are 048 unless `SkipEqualityComparison` is set
 - Complex value objects with string members set `DefaultStringComparison` (049)
 - `[IgnoreMember]` removes a member from equality, the factories, and every other generated member
-- Complex form accepts one member or none, and with one member it receives no key-derived members
-- `ValidationError` is the default error, its message is the text that reaches `ValidationException`, `FormatException`, the JSON converters, and model state
-- `[ValidationError<T>]` switches the hook parameter, the second `TryCreate` overload, and `Validate` to a type implementing `IValidationError<T>`
+- Complex form accepts one member or none, a one-member complex form receives no key-derived members
+- `ValidationError` is the default error, its message reaches `ValidationException`, `FormatException`, JSON converters, and model state
+- `[ValidationError<T>]` switches hook parameter, second `TryCreate` overload, and `Validate` to a type implementing `IValidationError<T>`
 - Distinct error types split generic code constrained on the factory interfaces
 - Generator sets its own null-key and unknown-key messages, the hook's message states the violated rule
 
@@ -71,9 +71,9 @@ Declaration rules the analyzer enforces:
 
 | [INDEX] | [MEMBER]                             | [BEHAVIOR]                                                                              |
 | :-----: | :----------------------------------- | :-------------------------------------------------------------------------------------- |
-|  [01]   | `Create(value)`                      | Validates and returns the instance, or throws `ValidationException` with the error text |
-|  [02]   | `TryCreate(value, out obj)`          | Returns `false` on rejection, and the 3-parameter overload returns the error            |
-|  [03]   | `Validate(value, provider, out obj)` | Returns the error or `null` and never throws, the complex form has no provider          |
+|  [01]   | `Create(value)`                      | Validates and returns instance, or throws `ValidationException` with error text         |
+|  [02]   | `TryCreate(value, out obj)`          | Returns `false` on rejection, 3-parameter overload returns the error                    |
+|  [03]   | `Validate(value, provider, out obj)` | Returns error or `null` and never throws, complex form has no provider                  |
 |  [04]   | Equality, `GetHashCode`, `==`, `!=`  | Run through the configured comparer                                                     |
 |  [05]   | `ToString()`                         | Key's `ToString()`, or `{ Lower = 1.23, Upper = 2.57 }` for the complex form            |
 |  [06]   | `IComparable<T>`, `IFormattable`     | Present when the key is comparable or formattable, simple form only                     |
@@ -92,7 +92,7 @@ Declaration rules the analyzer enforces:
 - Every entry point runs the hook: `Create`, `TryCreate`, `Validate`, the conversion from the key, `Parse`, and `TryParse`
 - JSON converters, the MessagePack formatter, and model binding run the hook
 - Hook reports the first violated rule over one value, independent rules over many inputs accumulate at the input boundary
-- `ValidateConstructorArguments(ref TKey value)` exists beside it and rejects by throwing alone
+- `ValidateConstructorArguments(ref TKey value)` exists beside the hook and rejects by throwing alone
 
 Trailing parameters after the members are declared by value without a default (076):
 - Generator then emits `private static TError? ValidateCore(members, extras, out T? obj)` and `private static T CreateCore(members, extras)`
@@ -117,7 +117,8 @@ internal readonly partial struct Amount {
 - Multiplication by `decimal` stays disabled, the product needs a rounding decision
 - Hooks declared `private static partial TValue ValidateFactoryArguments(...)` with a non-void `TValue` return a value for the instance
 - Generated factories pass that value to instance method `partial void FactoryPostInit(TValue factoryArgumentsValidationError)`
-- Receiving field has `[IgnoreMember]` and an initializer, a `readonly` struct cannot hold it, that form belongs to a class
+- Receiving field has `[IgnoreMember]` and an initializer
+- Value-returning hooks belong to a class, a `readonly` struct cannot hold the receiving field
 
 ### [01.3]-[COMPARERS_AND_SETTINGS]
 
@@ -169,7 +170,7 @@ internal sealed partial class Kind {
     public partial decimal Round(decimal amount);
 
     static partial void ValidateConstructorArguments(ref string key, ref decimal rate) {
-        if (string.IsNullOrWhiteSpace(key)) throw new ArgumentException("Key must not be empty.", nameof(key));
+        if (string.IsNullOrWhiteSpace(key)) throw new ArgumentException("key is blank", nameof(key));
         key = key.Trim().ToUpperInvariant();
     }
 }
@@ -235,7 +236,7 @@ String keys use `StringComparer.OrdinalIgnoreCase` for equality, the hash code, 
 - Under `TypeParamRef1` the generator always emits `Get`, `TryGet`, `Validate`, `Items`, equality, `Switch`, `Map`, and the conversions
 - Interfaces of a `TypeParamRef1` smart enum follow the constraints
 - Smart enums model a closed set of named items with one shape, cases with different shapes are a union
-- Items are `static readonly` fields that cannot serve as an attribute argument or a `case` label
+- Items are `static readonly` fields that cannot be an attribute argument or a `case` label
 
 ## [03]-[UNIONS]
 
@@ -286,7 +287,7 @@ internal sealed partial class TextOrCount {
 
 ### [03.2]-[REGULAR_UNIONS]
 
-Generator gives the base a private constructor, types declared outside it cannot derive from it:
+Generator gives the base a private constructor, types declared outside the base cannot derive from it:
 - Class cases are `sealed` or keep private constructors (054), record cases are `sealed` (055)
 - Non-abstract cases are no less accessible than the base (056), a nested type that does not derive from the base is 106
 - Positional record cases are the natural form, abstract members hold behavior that needs no dependency
@@ -332,7 +333,7 @@ Smart enums and unions generate `Switch` with one `Action` per case, `Switch<TRe
 - Every argument is named after its case in camel case (046), every lambda is `static` (1001)
 - Captured context enters through the state overloads that take `TState` first and pass it to every lambda
 - State parameter is named `state` unless `SwitchMapStateParameterName` renames it, `TState : allows ref struct` holds
-- When the arms return different but compatible types an explicit `TResult` on the call moves the error to the one arm that disagrees
+- When arms return different but compatible types, an explicit `TResult` on the call moves the error to the one arm that disagrees
 
 ```csharp
 internal static class Matching {
@@ -347,7 +348,7 @@ internal static class Matching {
 
 - `SwitchPartially` and `MapPartially` exist only under `SwitchMethods` and `MapMethods` set to `DefaultWithPartialOverloads`
 - Void `SwitchPartially` takes an optional `@default` and does nothing for an unhandled case, the value-returning forms require `@default`
-- On an ad hoc union `@default` receives the current member as `object?`, on a regular union the base type
+- On an ad hoc union, `@default` receives the current member as `object?`, on a regular union the base type
 - Partial forms serve an intended fallback alone, the exhaustive form turns a new case into a compile error at every call
 - Every generated `Switch` and `Map` ends in an unreachable arm that throws `InvalidOperationException`
 - Smart enum arm message is `The instance is not a known item of 'Kind'.`, regular union arm message is `Unexpected type '...'.`
@@ -408,7 +409,7 @@ Internal static class `ValidationResults` converts `ValidationError` to `Fin` th
 - Relative changes saturate into `MinValue` and `MaxValue` before `X.Validated`
 - `OutsideRange` keys implement `IComparable<TKey>` and `IFormattable`
 - Class value objects with a value-type key convert implicitly to `TKey?` alone, a class passes `MinValue._value` and `MaxValue._value`
-- `X.Validated(raw)` answers `Fin<X>`, a method group in `Bind` and `Traverse`, for a type with one `IObjectFactory` and for a string-keyed smart enum
+- `X.Validated(raw)` returns `Fin<X>`, a method group in `Bind` and `Traverse`, for a type with one `IObjectFactory` and for a string-keyed smart enum
 - Consumers cross through `Validated` alone, a `Validate` or `TryCreate` call outside a hook, an object factory, or `ValidationResults` is RASM1102
 - Value types declare no `From` factory
 - Types with an extra `[ObjectFactory<T>]` implement more than one `IObjectFactory` and fail `X.Validated` with `CS0411`
@@ -448,7 +449,7 @@ internal static class Crossings {
 
 ## [07]-[CONVENIENCE_MEMBERS]
 
-Package supplies plain static members beside its generators, and they stay at the BCL boundary, domain code uses `Seq<A>()`, `Seq(x)`, `Set(x)`, and `toSeq` in their place:
+Plain static members the package supplies beside its generators stay at the BCL boundary, domain code uses `Seq<A>()`, `Seq(x)`, `Set(x)`, and `toSeq` in their place:
 - `Thinktecture.Empty.Action` converts to every `Action` delegate up to 16 parameters
 - `Empty.Disposable()` and `Empty.AsyncDisposable()` return cached no-op instances
 - `Empty.Collection<T>()`, `Empty.Dictionary<TKey, TValue>()`, `Empty.Lookup<TKey, TValue>()`, and `Empty.Set<T>()` return cached read-only empties

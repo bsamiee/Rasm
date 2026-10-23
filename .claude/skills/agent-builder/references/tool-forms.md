@@ -50,7 +50,7 @@ Use `use-ast-grep` for ast-grep forms and exits
 
 ## [06]-[DOTNET]
 
-Use `dotnet-msbuild-diagnostics` for binlog capture.
+Use `dotnet-msbuild-diagnostics` for binlog capture
 
 - `dotnet msbuild <project> -getProperty:<A>,<B>` evaluates one project, a solution path answers `MSB1063`
 - `dotnet msbuild <project> -getItem:PackageReference` lists every reference with `DefiningProjectFullPath`

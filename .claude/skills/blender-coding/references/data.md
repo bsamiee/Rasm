@@ -1,6 +1,6 @@
 # [DATA]
 
-Covers where data is stored and how long it persists.
+Covers storage owners per value lifetime, created IDs, library loads, paths, and custom property values.
 
 ## [01]-[STORAGE]
 
@@ -23,7 +23,7 @@ Each created kind takes one `Ownership` row:
 - `Saved.NEVER` marks runtime data the file never saves, `Saved.USED` saves while used, `Saved.ALWAYS` sets a fake user
 - `made` returns the earliest holder of an equal `Mark` (key, source ID, content hash) before it builds, `single=False` builds per call
 - `rebuilt` remaps users onto the replacement, removes the predecessor, and restores its name
-- `removed` drops unused `Saved.USED` holders
+- `removed` removes unused `Saved.USED` holders
 - Saved single rows merge imported duplicates on `blend_import_post`
 
 Created and shared data follow host links:
@@ -46,7 +46,7 @@ def founded(parent: Option[bpy.types.Collection], name: str) -> BlenderResult[bp
 
 ## [03]-[LIBRARY_LOADS]
 
-`libraries.load` takes names and hands IDs back after its context exits:
+`libraries.load` takes names and returns IDs after its context exits:
 - `files.blends.sourced(data, path, take, **keywords)` runs `take` over the source listing and returns its value with the loaded IDs per store
 - `files.blends.inspected(path)` yields another file's data in a `bpy.data.temp_data()` store closing with the scope, session data untouched
 - `files.libraries.blocks_loaded(path, kind, names, link)` takes `Linked`, `LocalCopy`, or `Overrides` and accumulates every absent name
@@ -69,7 +69,8 @@ Path properties hold blend-relative and byte paths:
 - `bpy.data.user_map(subset=, key_types=, value_types=)` answers the users of each ID in one call
 - `wm.save_as_mainfile` remaps relative paths and `wm.save_mainfile` keeps them
 - Saves with `compress` unset keep a saved file's compression and read `use_file_compression` for a file never saved
-- Portable files pack images (`file.pack_all`) or go through `files.blends.packed`, importers referencing images at absolute paths and temporary sources packing before removal
+- Portable files pack images (`file.pack_all`) or go through `files.blends.packed`
+- Importers reference images at absolute paths, and temporary sources pack before removal
 - Script writes leave `bpy.data.is_dirty` false in GUI and background runs
 - Scripted `wm.save_mainfile` under `save_modified_images` `ASK` saves no modified image, and images save through `image.save()`
 - `bpy.utils.system_resource(kind, path=...)` resolves folders and returns `""` for a file, and the file name joins onto its resolved folder

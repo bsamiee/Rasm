@@ -1,6 +1,6 @@
 ---
 name: dotnet-roslyn-codelens
-description: "Use when reading, diagnosing, or refactoring C# through Roslyn, covering tool choice, trust, envelopes, and errors."
+description: "Use when reading, diagnosing, or refactoring a file in a .NET solution, covering the roslyn-codelens MCP server"
 ---
 
 # [DOTNET_ROSLYN_CODELENS]
@@ -99,7 +99,7 @@ Before `Read` on a `.cs` file, the wanted view decides:
 
 ### [03.1]-[SYMBOL_NAVIGATION]
 
-- `mcp__roslyn-codelens__go_to_definition` — the file and line where a symbol is declared
+- `mcp__roslyn-codelens__go_to_definition` — file and line where a symbol is declared
 - `mcp__roslyn-codelens__search_symbols` — case-insensitive substring lookup over types, methods, properties, and fields
 - `mcp__roslyn-codelens__find_references` — each occurrence in the solution as one item with a `ReferenceKind`, `kinds` filters on the server
 - `mcp__roslyn-codelens__resolve_stack_trace` — maps a pasted .NET stack trace to file, line, and symbol, items keep trace order
@@ -145,7 +145,7 @@ Reference kinds:
     - Receivers can be keywords, constructed generics, arrays, nullables, or tuples
     - Results ignore `using` scope, `namespace` is always reported, and the import can still be missing
     - Source sorts before metadata, `nameFilter` narrows by substring
-- `mcp__roslyn-codelens__get_instantiation_options` — a type's `constructors`, `factories`, `diRegistrations`, and `requiredMembers` in one call
+- `mcp__roslyn-codelens__get_instantiation_options` — `constructors`, `factories`, `diRegistrations`, and `requiredMembers` of a type in one call
     - `constructors` hold parameters, accessibility, `isImplicit` for the compiler-supplied parameterless constructor, and `isObsolete`
     - `factories` are static members anywhere in the solution that return the type (`WidgetFactory.Create()` for a type with a private constructor)
     - `Task<T>` and `ValueTask<T>` factories are unwrapped and flagged `isAsync`, instance builders are excluded
@@ -153,7 +153,7 @@ Reference kinds:
     - Interfaces, abstract classes, and static classes report `instantiable: false` with a `note`, `mcp__roslyn-codelens__find_implementations` follows
 - `mcp__roslyn-codelens__get_public_api_surface` — every public and protected type and member declared in production projects
     - Test projects, generated code, internal symbols, protected members on sealed types, and inherited members are skipped
-- `mcp__roslyn-codelens__find_breaking_changes` — diffs the current public API surface against a baseline
+- `mcp__roslyn-codelens__find_breaking_changes` — diffs the current public API against a baseline
     - Baselines are a JSON snapshot from `mcp__roslyn-codelens__get_public_api_surface` or a `.dll`
     - Return type changes, `sealed` changes, and nullable annotation changes are undetected, an empty diff leaves compatibility unknown
 
@@ -164,7 +164,7 @@ Reference kinds:
 - `mcp__roslyn-codelens__find_attribute_usages` — types and members decorated with a given attribute
 - `mcp__roslyn-codelens__find_event_subscribers` — every `+=` and `-=` site of an event, with the resolved handler and a subscribe or unsubscribe tag
 - `mcp__roslyn-codelens__find_reflection_usage` — coupling no reference reports: `Activator.CreateInstance`, `MethodInfo.Invoke`, and assembly scanning
-- `mcp__roslyn-codelens__get_di_registrations` — a type's `IServiceCollection` registrations and lifetimes in generic, `typeof` pair, and factory forms
+- `mcp__roslyn-codelens__get_di_registrations` — `IServiceCollection` registrations and lifetimes of a type in generic, `typeof` pair, and factory forms
 - `mcp__roslyn-codelens__get_project_dependencies` — direct and transitive project references of the required `project`
 - `mcp__roslyn-codelens__get_nuget_dependencies` — NuGet packages and versions per project
 - `mcp__roslyn-codelens__find_obsolete_usage` — every call site of an `[Obsolete]` symbol, grouped by deprecation message and severity, errors first
@@ -188,7 +188,7 @@ Reference kinds:
     - Title matching falls back to a case-insensitive substring match in both directions, a near-miss title runs a different action
     - `title` in the result names the action that ran
     - Apply refuses to write when a file changed on disk after the snapshot loaded and names the stale files
-    - `mcp__roslyn-codelens__rebuild_solution` then a retry resolves a stale file
+    - `mcp__roslyn-codelens__rebuild_solution` then a rerun resolves a stale file
     - Actions that add a file write it to disk, and the watcher adds it to the snapshot
 - `mcp__roslyn-codelens__rename_symbol` — solution-wide rename of a type or member through the Roslyn Renamer, preview by default
     - `mcp__roslyn-codelens__apply_code_action` offers no rename
@@ -205,11 +205,11 @@ Reference kinds:
     - Named arguments, optional parameters, `params`, and the extension `this` are handled
     - Moving `this` off first position and leaving `params` anywhere but last are rejected
     - `cascadedTo` lists the rewritten overrides and interface implementations, read it in preview
-    - Source-defined methods only, an overloaded name must be disambiguated, same refusals as `mcp__roslyn-codelens__rename_symbol`
+    - Source-defined methods only, an overloaded name must be disambiguated, refusals match `mcp__roslyn-codelens__rename_symbol`
 - `mcp__roslyn-codelens__analyze_data_flow` — variable lifecycle over a statement range: declared, read, written, captured, and flowing in or out
 - `mcp__roslyn-codelens__analyze_control_flow` — reachability, return statements, and exit points over a statement range
 
-Code generation runs through `mcp__roslyn-codelens__apply_code_action` with the exact title `mcp__roslyn-codelens__get_code_actions` reads, each task with its title:
+Code generation runs through `mcp__roslyn-codelens__apply_code_action` with the exact title `mcp__roslyn-codelens__get_code_actions` returns, each task with its title:
 - Implement missing interface or abstract members → "Implement abstract members" / "Implement interface"
 - Generate a constructor from fields → "Generate constructor"
 - Add null checks → "Add null checks for all parameters"
@@ -220,7 +220,7 @@ Code generation runs through `mcp__roslyn-codelens__apply_code_action` with the 
 
 #### [03.4.1]-[ANALYZER_TRUST]
 
-`mcp__roslyn-codelens__get_diagnostics` defaults to `includeAnalyzers=false` and returns compiler diagnostics only. Pass `includeAnalyzers=true` for analyzer findings and before `mcp__roslyn-codelens__get_code_fixes` for an analyzer diagnostic, `nx run <project>:build` decides whether a project builds.
+`mcp__roslyn-codelens__get_diagnostics` defaults to `includeAnalyzers=false` and returns compiler diagnostics only. Pass `includeAnalyzers=true` for analyzer findings and before `mcp__roslyn-codelens__get_code_fixes` for an analyzer diagnostic. `nx run <project>:build` decides whether a project builds.
 
 Solutions named on the server's command line are trusted for the session, every other solution needs `mcp__roslyn-codelens__trust_solution`. `mcp__roslyn-codelens__get_code_fixes` loads the fix providers as analyzer code and answers `SolutionNotTrusted` on an untrusted solution, compiler diagnostics included.
 
@@ -230,7 +230,7 @@ Analyzers run under `.editorconfig` severities with no analyzer option values. S
 
 Analyzer assemblies built against a newer Roslyn than the server bundles do not load, and `unreliable.loadDiagnostics` in a `mcp__roslyn-codelens__get_diagnostics` summary names each one as `ReferencesNewerCompiler`. Under a preview SDK, `mcp__roslyn-codelens__get_diagnostics` omits `CodeStyle` (`IDE*`) diagnostics, the build reports them until a server release bundles the SDK's Roslyn.
 
-When a call returns `SolutionNotTrusted`, confirm with the user that analyzer DLLs can run in-process, then call `mcp__roslyn-codelens__trust_solution` and retry. `scope` defaults to `session`, `persistent` writes the path to the trust store, and `addRoot` with a directory trusts every solution below it. `mcp__roslyn-codelens__list_trusted_paths` reports the current state, `mcp__roslyn-codelens__revoke_trust` removes an entry.
+When a call returns `SolutionNotTrusted`, confirm with the user that analyzer DLLs can run in-process, then call `mcp__roslyn-codelens__trust_solution` and rerun the call. `scope` defaults to `session`, `persistent` writes the path to the trust store, and `addRoot` with a directory trusts every solution below it. `mcp__roslyn-codelens__list_trusted_paths` reports the current state, `mcp__roslyn-codelens__revoke_trust` removes an entry.
 
 ### [03.5]-[EXCEPTION_ANALYSIS]
 
@@ -280,17 +280,17 @@ Tools see explicit `throw` only, implicit run-time exceptions (null dereference,
 
 `mcp__roslyn-codelens__get_complexity_metrics` rows hold complexity per member (methods, constructors, properties, indexers, operators):
 - `complexity` — cyclomatic, the number of independent paths through the member, a straight-line method scores 1
-- `cognitive` — how hard the member is to follow, a 0 means nothing branches, it ranks refactoring work
+- `cognitive` — how hard the member is to follow, 0 when nothing branches, ranks refactoring work
     - Nesting costs extra, a whole `switch` costs 1, `else`/`else if` cost 1 with no nesting penalty
     - Flat 20-case dispatch and 4 nested `if` levels share one cyclomatic number and differ in cognitive
-- `maxNesting` — the deepest control structure, lambda and local-function bodies included
+- `maxNesting` — deepest control structure, lambda and local-function bodies included
 
 `metric` (`"cyclomatic"` by default, or `"cognitive"`) selects the number `threshold` and the sort use. Both numbers always appear in the response.
 
 ### [03.7]-[SOURCE_GENERATORS]
 
-- `mcp__roslyn-codelens__get_source_generators` — the generators active per project and their outputs
-- `mcp__roslyn-codelens__get_generated_code` — the generated source, filtered by generator or by file path
+- `mcp__roslyn-codelens__get_source_generators` — active generators per project and their outputs
+- `mcp__roslyn-codelens__get_generated_code` — generated source, filtered by generator or by file path
 
 Location-returning results hold an `isGenerated` flag, and the next compile rewrites generator output. Read the flag before editing a match.
 
@@ -302,27 +302,29 @@ Only assemblies the loaded solution references can be inspected. Unreferenced as
 - `mcp__roslyn-codelens__inspect_external_assembly` — what an assembly exposes, drill in before concluding that a package exposes nothing
     - `mode` defaults to `summary` and returns the namespace tree with type counts alone
     - `mode: "namespace"` with `namespaceFilter` gives the public types and members of one namespace
-- `mcp__roslyn-codelens__peek_il` — a method's IL by fully qualified method name with parameter types
+- `mcp__roslyn-codelens__peek_il` — IL of a method by fully qualified method name with parameter types
 
 External types resolve by name in `mcp__roslyn-codelens__go_to_definition`, `mcp__roslyn-codelens__get_symbol_context`, `mcp__roslyn-codelens__get_type_overview`, and `mcp__roslyn-codelens__get_type_hierarchy`, and `mcp__roslyn-codelens__find_references`, `mcp__roslyn-codelens__find_callers`, and `mcp__roslyn-codelens__find_implementations` find the code that uses them.
 
 ### [03.9]-[SOLUTION_MANAGEMENT]
 
-Solutions named on the server's command line load with the first one active. With none named, the server loads the `.sln` or `.slnx` found walking up from the working directory. `ROSLYN_CODELENS_OPEN_PROJECT_TIMEOUT_SECONDS` (default `300`) bounds each project's load, a project over it joins `skippedProjects` with `kind: "Timeout"` and the rest of the solution loads. The server holds one workspace per loaded solution and serves it to every client, so a load, unload, or rebuild reaches every client. Writing, creating, deleting, or renaming a `.cs`, `.csproj`, `.props`, or `.targets` file recompiles on the next tool call: a `.cs` edit recompiles its project and dependents, any other change reopens the solution.
+Solutions named on the server's command line load with the first one active. With none named, the server loads the `.sln` or `.slnx` found walking up from the working directory. `ROSLYN_CODELENS_OPEN_PROJECT_TIMEOUT_SECONDS` (default `300`) bounds each project's load, a project over it joins `skippedProjects` with `kind: "Timeout"` and the rest of the solution loads. Each loaded solution has one workspace the server serves to every client, a load, unload, or rebuild reaches every client. Writing, creating, deleting, or renaming a `.cs`, `.csproj`, `.props`, or `.targets` file recompiles on the next tool call: a `.cs` edit recompiles its project and dependents, any other change reopens the solution.
 
-- `mcp__roslyn-codelens__rebuild_solution` — a full reload: re-open the solution, recompile every project, rebuild every index
+- `mcp__roslyn-codelens__rebuild_solution` — full reload: reopen the solution, recompile every project, rebuild every index
     - Serves the changes the watcher misses: a moved or renamed directory, a `.slnx` edit, and a restore that changed packages or analyzers
 - `mcp__roslyn-codelens__load_solution` — loads a `.sln` or `.slnx` at run time and makes it active, the current one stays active until the load succeeds
-    - `include` takes case-insensitive globs with `*` and `?` only, `rootProjects` takes exact, case-sensitive names, both match the project file name without its extension and seed a transitive `ProjectReference` closure
-    - A filter on a loaded solution disposes its workspace and reloads the subset for every client until the next reload, a filter that matches nothing is an error
+    - `include` takes case-insensitive globs with `*` and `?` only, `rootProjects` takes exact, case-sensitive names
+    - `include` and `rootProjects` match the project file name without its extension and seed a transitive `ProjectReference` closure
+    - Filters on a loaded solution dispose its workspace and reload the subset for every client until the next reload
+    - Filters that match nothing are an error
     - For a solution that takes minutes to open, `background: true` returns a `taskId` for `mcp__roslyn-codelens__get_task_status`
-- `mcp__roslyn-codelens__list_solutions` — the loaded solutions and the active one, read when an expected symbol is missing
+- `mcp__roslyn-codelens__list_solutions` — loaded solutions and the active one, read when an expected symbol is missing
     - `skippedProjects` per entry names each skipped project's `kind` and `reason`
 - `mcp__roslyn-codelens__set_active_solution` — switches the active solution by partial name
 - `mcp__roslyn-codelens__unload_solution` — frees memory, the remaining loaded solution becomes active
 - `mcp__roslyn-codelens__start_background_task` — queues a long tool for `mcp__roslyn-codelens__get_task_status`
     - `mcp__roslyn-codelens__rebuild_solution` is the only allowed tool
-- `mcp__roslyn-codelens__get_task_status` — the status, result, or error of one background task
+- `mcp__roslyn-codelens__get_task_status` — status, result, or error of one background task
 - `mcp__roslyn-codelens__list_running_tasks` — background tasks running or finished within the last 5 minutes
 
 ## [04]-[RESPONSE_ENVELOPE]

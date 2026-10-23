@@ -14,7 +14,7 @@ Before editing, compare the forms a rule reports with the correction its `note` 
 |  [04]   | One position where the shape is produced before its consumption | Match where the shape is produced, no position guard                   |
 |  [05]   | Name where the rule means every node of a kind                  | `kind` with `field` and `nthChild`, `regex` on the name                |
 |  [06]   | `note` naming the instance's fix                                | Correction as the shape to produce                                     |
-|  [07]   | One match where a file of the sibling shapes reports many       | Every sibling the package contract admits                              |
+|  [07]   | One match where a file of the sibling shapes reports many       | Every sibling the package contract accepts                             |
 |  [08]   | Rules with messages that differ by a callee name                | One rule, or each over one shared global util                          |
 |  [09]   | Default `stopBy` where the related node sits levels away        | `stopBy` at the owner kinds, fixed depth through `has` with `field`    |
 |  [10]   | `constraints` on a `$$$` capture or under `not`                 | Structural guard in the rule, `$ITEM` inside the list                  |

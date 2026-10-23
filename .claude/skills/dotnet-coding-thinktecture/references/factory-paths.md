@@ -1,10 +1,12 @@
 # [FACTORY_PATHS]
 
-One `Validate` and `ToValue` pair serves System.Text.Json, Newtonsoft.Json, MessagePack, model binding, and Entity Framework Core, and each integration point reaches it on its own path: the generated `[JsonConverter]`, Newtonsoft `[JsonConverter]`, and `[MessagePackFormatter]` attributes bind the factory value type at compile time, and the registered converter factory, model binder provider, and value converter factory read the type's factories from its metadata at runtime.
+One `Validate` and `ToValue` pair serves System.Text.Json, Newtonsoft.Json, MessagePack, model binding, and Entity Framework Core, each integration point reaches it on its own path:
+- Generated `[JsonConverter]`, Newtonsoft `[JsonConverter]`, and `[MessagePackFormatter]` attributes bind the factory value type at compile time
+- Registered converter factory, model binder provider, and value converter factory read the type's factories from its metadata at runtime
 
 ## [01]-[RUNTIME_SELECTION]
 
-Each integration point filters the type's factories by its flag and the value type, falls back to the key member when no factory matches, and a type without a key member has no conversion at that point:
+Each integration point filters the type's factories by its flag and value type and falls back to the key member when no factory matches, a type without a key member has no conversion at that point:
 
 | [INDEX] | [INTEGRATION]                | [CONDITION]                                                      | [FALLBACK]                          |
 | :-----: | :--------------------------- | :--------------------------------------------------------------- | :---------------------------------- |
@@ -14,11 +16,20 @@ Each integration point filters the type's factories by its flag and the value ty
 |  [04]   | Model binding                | `UseForModelBinding = true`, `T` no `ReadOnlySpan<char>`         | Key member                          |
 |  [05]   | Serilog destructuring        | None                                                             | Key member, union value, or nothing |
 
-`ISpanParsable<TSelf>` joins `IParsable<TSelf>` when the key member is span parsable or a `ReadOnlySpan<char>` factory exists, and the span overloads of `Parse` and `TryParse` parse the key, `Parse("express".AsSpan(), provider: null)` on an `int`-keyed type with a `string` factory throws `FormatException`.
+`ISpanParsable<TSelf>` joins `IParsable<TSelf>` when the key member is span parsable or a `ReadOnlySpan<char>` factory exists:
+- Span overloads of `Parse` and `TryParse` parse the key
+- `Parse("express".AsSpan(), provider: null)` on an `int`-keyed type with a `string` factory throws `FormatException`
 
 ## [02]-[ENTITY_FRAMEWORK_READ_PATH]
 
-`HasCorrespondingConstructor = true` declares a constructor with one parameter of type `T`, the generated metadata holds the expression `static TSelf (T value) => new TSelf(value)`, and the value converter compiles it for reads while `UseConstructorForRead` is `true`, a row materializes without `Validate` and without normalization, the stored value is trusted as it is, and a row that breaks the format fails inside the constructor (an index error on a row without its separator). Entity Framework Core alone uses the constructor, 059 reports a missing constructor, 060 reports a smart enum with the setting, and JSON, MessagePack, and model binding read through `Validate` in every case. Without the constructor, or with `UseConstructorForRead = false`, a read calls `Validate(value, null, out item)`, the error becomes a `ValidationException`, a `null` item for a non-null column becomes an exception that names the factory and the type, and every write calls `ToValue`:
+`HasCorrespondingConstructor = true` declares a constructor with one parameter of type `T`, generated metadata holds the expression `static TSelf (T value) => new TSelf(value)`, and the value converter compiles it for reads while `UseConstructorForRead` is `true`:
+- Rows read through the constructor materialize without `Validate` and without normalization, the stored value is trusted as it is
+- Rows that break the format fail inside the constructor (an index error on a row without its separator)
+- JSON, MessagePack, and model binding read through `Validate` in every case, Entity Framework Core alone uses the constructor
+- 059 reports a missing constructor, 060 reports a smart enum with the setting
+- Without the constructor, or with `UseConstructorForRead = false`, a read calls `Validate(value, null, out item)` and the error becomes a `ValidationException`
+- `null` items from `Validate` for a non-null column become an exception that names the factory and the type
+- Every write calls `ToValue`
 
 ```csharp
 [ComplexValueObject(DefaultStringComparison = StringComparison.OrdinalIgnoreCase)]
@@ -52,7 +63,11 @@ internal sealed partial class Location {
 }
 ```
 
-`string` `Validate` splits the text and delegates to the generated member `Validate`, the hook trims and rejects on the JSON, model binding, and `Parse` paths, a read of `" store :doc"` through the constructor keeps the padding, and the same read through `Validate` trims it. `Configuration` passed to `UseThinktectureValueConverters`, `AddThinktectureValueConverters`, or `HasThinktectureValueConverter` sets column lengths, the strategies skip a type with a factory flagged `UseWithEntityFramework`, and every other column length comes from `HasMaxLength`:
+`string` `Validate` splits the text and delegates to the generated member `Validate`:
+- Hook trims and rejects on the JSON, model binding, and `Parse` paths
+- Reads of `" store :doc"` keep the padding through the constructor and trim it through `Validate`
+
+`Configuration` passed to `UseThinktectureValueConverters`, `AddThinktectureValueConverters`, or `HasThinktectureValueConverter` sets column lengths, strategies skip a type with a factory flagged `UseWithEntityFramework`, and every other column length comes from `HasMaxLength`:
 
 | [INDEX] | [SETTING]                             | [DEFAULT]                               | [EFFECT]                                           |
 | :-----: | :------------------------------------ | :-------------------------------------- | :------------------------------------------------- |
@@ -60,7 +75,14 @@ internal sealed partial class Location {
 |  [02]   | `SmartEnums.MaxLengthStrategy`        | `DefaultSmartEnumMaxLengthStrategy`     | Longest string key, rounded up to a multiple of 10 |
 |  [03]   | `KeyedValueObjects.MaxLengthStrategy` | `NoOpKeyedValueObjectMaxLengthStrategy` | No length                                          |
 
-`Configuration.NoMaxLength` is the preset that skips the length step for both families, the default and no-op strategies expose one `Instance`, `FixedSmartEnumMaxLengthStrategy(32)` and `FixedKeyedValueObjectMaxLengthStrategy(32)` set one length, `CustomSmartEnumMaxLengthStrategy` takes a `Func<Type, Type, IReadOnlyList<ISmartEnumItem>, MaxLengthChange>` and `CustomKeyedValueObjectMaxLengthStrategy` a `Func<Type, Type, MaxLengthChange>`, `MaxLengthChange.None` leaves a column alone, and a strategy's second constructor argument `overwriteExistingMaxLength` replaces a length that `HasMaxLength` already set:
+Length presets and strategies:
+- `Configuration.NoMaxLength` is the preset that skips the length step for both families
+- Default and no-op strategies expose one `Instance`
+- `FixedSmartEnumMaxLengthStrategy(32)` and `FixedKeyedValueObjectMaxLengthStrategy(32)` set one length
+- `CustomSmartEnumMaxLengthStrategy` takes a `Func<Type, Type, IReadOnlyList<ISmartEnumItem>, MaxLengthChange>`
+- `CustomKeyedValueObjectMaxLengthStrategy` takes a `Func<Type, Type, MaxLengthChange>`
+- `MaxLengthChange.None` leaves a column alone
+- Strategy's second constructor argument `overwriteExistingMaxLength` replaces a length `HasMaxLength` set before
 
 ```csharp
 Configuration fixedWidth = new() { SmartEnums = new SmartEnumConfiguration { MaxLengthStrategy = new FixedSmartEnumMaxLengthStrategy(32) } };
@@ -68,7 +90,10 @@ Configuration fixedWidth = new() { SmartEnums = new SmartEnumConfiguration { Max
 
 ## [03]-[MULTIPLE_FACTORIES]
 
-Factories with distinct `T` coexist on one type with one `Validate` and one `ToValue` per `T`, the second `ToValue` is an explicit interface member (`char IConvertible<char>.ToValue()`), parameterless methods cannot share a name, each integration point belongs to at most one factory (068 for `UseWithEntityFramework`, 069 for `UseForModelBinding`, 070 for overlapping `UseForSerialization` flags, naming the shared framework), and attribute order selects nothing:
+Factories with distinct `T` coexist on one type with one `Validate` and one `ToValue` per `T`:
+- Second `ToValue` is an explicit interface member (`char IConvertible<char>.ToValue()`), parameterless methods cannot share a name
+- Each integration point belongs to at most one factory (068 for `UseWithEntityFramework`, 069 for `UseForModelBinding`, 070 for overlapping `UseForSerialization` flags, naming the shared framework)
+- Attribute order selects nothing
 
 ```csharp
 [SmartEnum<int>]
@@ -106,11 +131,16 @@ internal sealed partial class Level {
 }
 ```
 
-Both JSON serializers write `"high"`, MessagePack converts through the `char` factory and encodes `'2'` as the code unit 50, and the `char` `Validate` takes `char value` without a nullable annotation, `T?` is `T` for a value type.
+- Both JSON serializers write `"high"`
+- MessagePack converts through the `char` factory and encodes `'2'` as code unit 50
+- `char` `Validate` takes `char value` without a nullable annotation, `T?` is `T` for a value type
 
 ## [04]-[SPAN_BASED_JSON]
 
-`ReadOnlySpan<char>` factories flagged `SystemTextJson` receive the JSON string as a span through the generated `ThinktectureSpanParsableJsonConverterFactory<TSelf, ValidationError>`: the reader transcodes a value of at most 128 UTF-8 bytes into a `stackalloc` buffer of 128 characters, rents longer values from `ArrayPool<char>.Shared`, unescapes an escaped value first, and rejects a token other than a string or a property name with `JsonException`, a span matched against string constants creates no `string` for a known value:
+`ReadOnlySpan<char>` factories flagged `SystemTextJson` receive the JSON string as a span through generated `ThinktectureSpanParsableJsonConverterFactory<TSelf, ValidationError>`:
+- Reader transcodes a value of at most 128 UTF-8 bytes into a `stackalloc` buffer of 128 characters and rents longer values from `ArrayPool<char>.Shared`
+- Reader unescapes an escaped value first and rejects a token other than a string or a property name with `JsonException`
+- Spans matched against string constants create no `string` for a known value
 
 ```csharp
 [ValueObject<string>]
@@ -141,7 +171,10 @@ internal readonly partial struct Region {
 
 ## [05]-[POLYMORPHIC_DISCRIMINATOR]
 
-Smart enums serve as the discriminator of a polymorphic converter: the item names the case in the payload, and a `[UseDelegateFromConstructor]` method with a `ref Utf8JsonReader` parameter reads the case back, and the `ref` parameter makes the generator emit a nested delegate type:
+Smart enums can be the discriminator of a polymorphic converter:
+- Items name the case in the payload
+- `[UseDelegateFromConstructor]` method with a `ref Utf8JsonReader` parameter reads the case back
+- `ref` parameter makes the generator emit a nested delegate type
 
 ```csharp
 internal abstract record Shape;

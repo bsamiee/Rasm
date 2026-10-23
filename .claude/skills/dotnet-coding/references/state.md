@@ -67,7 +67,7 @@ internal static class EffectfulQuoteCache {
 
 ## [03]-[GENERATORS]
 
-Composable generators serve property-based testing, load testing, and simulation. Conventional pseudo-random generators are deterministic but hide their state: the seed is an implicit input to the next call and the updated seed an implicit output. The `State<int, A>` makes both explicit as `int -> (A, int)`, generation becomes repeatable and testable, the host chooses the seed through `Run(seed)`, and seeding from the clock is impure and not testable. The primitive generator scrambles its input seed and returns the result as both the value and the next seed, and every derived generator reuses it:
+Composable generators serve property-based testing, load testing, and simulation. Conventional pseudo-random generators are deterministic but hide their state: the seed is an implicit input to the next call and the updated seed an implicit output. `State<int, A>` makes both explicit as `int -> (A, int)`, generation becomes repeatable and testable, the host chooses the seed through `Run(seed)`, and seeding from the clock is impure and not testable. Primitive generator `NextInt` scrambles its input seed and returns the result as both the value and the next seed, and every derived generator reuses it:
 
 ```csharp
 internal static class Generator {
@@ -105,11 +105,11 @@ internal static class ListGenerator {
 }
 ```
 
-Policy yields an empty list half the time, one element a quarter of the time, and longer lists with halving probability, long lists are unlikely. For another distribution, generate a bounded length first and then that many values, and for a string, generate a character sequence and construct the string.
+`Ints` yields an empty list half the time, one element a quarter of the time, and longer lists with halving probability, long lists are unlikely. For another distribution, generate a bounded length first and then that many values, and for a string, generate a character sequence and construct the string.
 
 ## [04]-[GENERALIZATION]
 
-`State<int, A>` specializes `State<S, A>` with an integer seed, and other state types use the same `Map`, `Bind`, and `State.pure`. Numbering the leaves of a tree in traversal order uses an integer counter as the state: a leaf pairs its value with the current count and returns the incremented count, and a branch numbers its left subtree, then its right subtree with the state the left returned. The tree is a generic `[Union]`, the numbering needs no dependency and sits on an abstract member:
+`State<int, A>` specializes `State<S, A>` with an integer seed, and other state types use the same `Map`, `Bind`, and `State.pure`. Numbering the leaves of a tree in traversal order uses an integer counter as the state: a leaf pairs its value with the current count and returns the incremented count, and a branch numbers its left subtree, then its right subtree with the state the left returned. `Tree<T>` is a generic `[Union]`, and numbering needs no dependency and sits on an abstract member:
 
 ```csharp
 internal static class Numbering {

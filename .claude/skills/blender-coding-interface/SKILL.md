@@ -1,11 +1,11 @@
 ---
 name: blender-coding-interface
-description: "Use when writing Blender panels, menus, lists, popups, gizmos, tools, asset shelves, or GPU drawing in Python, covering poll, draw, layout, redraw, and interface text."
+description: "Use when writing or reviewing Python that builds Blender's interface or draws in editors, covering interface elements and redraw"
 ---
 
 # [BLENDER_CODING_INTERFACE]
 
-Covers `bpy` code that builds Blender's interface, from `poll` and `draw` on panels, menus, and lists to modal feedback, gizmos, tools, asset shelves, GPU drawing, and translated text.
+Covers `bpy` code that builds Blender's interface and draws in its editors.
 
 - Use `blender-coding` for callback bodies, operator classes, and operator dialogs
 - Use `blender-coding-extensions` for acquiring and releasing classes, draw handlers, menu extensions, previews, and translation tables
@@ -35,8 +35,9 @@ Redraws follow notifiers, and each kind of write reaches them differently:
 - Writes to a `bpy.props` property declared with `update=` run the callback and redraw every region of every window
 - Writes to a property declared without `update=` and `id["<key>"]` writes redraw nothing
 - `region.tag_redraw()` redraws that region, `area.tag_redraw()` every region of the area
-- Tags from inside a region's own draw are ignored, and continuous redraws run from a timer or modal step
-- Popup regions (`context.region_popup`) rerun their `draw` on `tag_refresh_ui()`, `tag_redraw()` repainting the built layout alone, and other regions raise `RuntimeError` on `tag_refresh_ui()`
+- Blender ignores tags from inside a region's own draw, and continuous redraws run from a timer or modal step
+- Popup regions (`context.region_popup`) rerun their `draw` on `tag_refresh_ui()`, `tag_redraw()` repainting the built layout alone
+- Regions other than popups raise `RuntimeError` on `tag_refresh_ui()`
 - `ID.rename()` and `remove` on a registered `CollectionProperty` send no notifier, and code tags the regions drawing that data
 - `ID.name` writes, `bpy.data.<collection>.remove`, and `batch_remove` redraw every area themselves
 - Stock RNA changes no notifier carries to the code's region reach it through a `bpy.msgbus` subscription with a notify calling `tag_redraw()`
@@ -44,12 +45,12 @@ Redraws follow notifiers, and each kind of write reaches them differently:
 - Stock RNA writes and `update=` property writes from a draw handler send a notifier on each draw, an equal value included, and redraw without end
 
 Callback bodies follow from the call table:
-- `poll` answers for every context it meets, a class pattern on `context.space_data` (`bpy.types.SpaceNodeEditor(tree_type="CompositorNodeTree")`) matching `None` and other editors alike
+- `poll` answers for every context it meets, a class pattern on `context.space_data` (`bpy.types.SpaceNodeEditor(tree_type="CompositorNodeTree")`) rejecting `None` and other editors alike
 - `poll` owns every precondition `draw` reads, and `draw` reads them as present, a missing one raising on every redraw
 - Raises in `draw`, `draw_header`, `draw_prepare`, or a draw handler print a traceback on every redraw and leave the class or handler running
 - `draw`, `poll`, and `filter_items` read stored state, Blender refusing writes there to any ID but window manager, screen, and workspace data
 - Summaries derive in the operator or `update` callback that changed their data
-- Failing operator `poll` greys a button and never hides it, and `draw` skips a button the layout must hide
+- Failing operator `poll` grays a button and never hides it, and `draw` skips a button the layout must hide
 
 ## [02]-[PANELS]
 
@@ -57,7 +58,8 @@ Panels follow host rules at registration:
 - Classes registered without `bl_idname` (panels, menus, lists) hold no `bl_idname` attribute, and code reads their name from `cls.bl_rna.identifier`
 - Sidebar (`UI`) panels name a tab in `bl_category`, an existing tab spelled exactly (`Tool`, `View`, `Item`) or their own, an empty category filing them under `Misc`
 - `bl_category` on a region without tabs fails registration in the 3D View, Image, Node, and Sequencer editors, other spaces ignoring it
-- Child panels name their parent in `bl_parent_id` and repeat its `bl_space_type` and `bl_region_type`, a mismatch raising `parent '<id>' for '<id>' not found`, and draw under the parent whatever their `bl_category`
+- Child panels name their parent in `bl_parent_id` and repeat its `bl_space_type` and `bl_region_type`, a mismatch raising `parent '<id>' for '<id>' not found`
+- Child panels draw under their parent whatever their `bl_category`
 - `region.active_panel_category = <category>` opens a tab after the region draws its tabs, raising `AttributeError` before
 - Panels registered outside `register()` store an empty `bl_owner_id` and pass every workspace add-on filter
 - Render engines show stock Properties panels by adding their `bl_idname` to the `COMPAT_ENGINES` set of each stock panel holding `BLENDER_RENDER`
@@ -125,9 +127,9 @@ Icons and previews follow host rules:
 
 ## [04]-[MENUS_AND_POPUPS]
 
-Surfaces answer one need each:
+Interface elements answer one need each:
 
-| [INDEX] | [NEED]                                 | [SURFACE]                                                                   |
+| [INDEX] | [NEED]                                 | [ELEMENT]                                                                   |
 | :-----: | :------------------------------------- | :-------------------------------------------------------------------------- |
 |  [01]   | Settings shown while an editor is open | Panel in the editor's region                                                |
 |  [02]   | Settings a shortcut raises             | Panel through `wm.call_panel(name=<idname>)`                                |
@@ -358,13 +360,15 @@ Built-in shaders read `ModelViewProjectionMatrix` from the `gpu.matrix` stack an
 |  [09]   | `IMAGE_COLOR_SCENE_LINEAR_TO_REC709_SRGB`      | `IMAGE_COLOR` inputs over scene-linear texels                      |   Crash   |
 
 Shaders and batches follow host rules:
-- Shader names carry no `2D_` or `3D_` prefix, and another name raises `ValueError`
-- `config='CLIPPED'` reads push constant `ClipModelMatrix` and a `clip_planes` uniform block (that matrix, then six world planes) bound through `shader.uniform_block` under `gpu.state.clip_distances_set(<n>)`, and crashes Blender on the shaders marked `Crash`
-- `viewportSize` reads `gpu.state.viewport_get()[2:]`, true in regions and offscreen buffers alike
+- Shader names take no `2D_` or `3D_` prefix, and another name raises `ValueError`
+- `config='CLIPPED'` reads push constant `ClipModelMatrix` and a `clip_planes` uniform block (that matrix, then six world planes) bound through `shader.uniform_block` under `gpu.state.clip_distances_set(<n>)`
+- `config='CLIPPED'` crashes Blender on shaders marked `Crash`
+- `viewportSize` reads `gpu.state.viewport_get()[2:]` in regions and offscreen buffers alike
 - `lineWidth` takes pixels, interface-matched widths multiplying by `preferences.system.pixel_size`
 - `UNIFORM_COLOR`, `FLAT_COLOR`, and `SMOOTH_COLOR` draw lines one pixel wide past `line_width_set` with a `DeprecationWarning`
 - `gpu.state.point_size_set` overwrites the `size` uniform unless `gpu.state.program_point_size_set(True)`
-- `gpu.texture.from_image` returns the image's cached texture of scene-linear texels, byte images sampling through `SRGB8_A8`, drawn through a `SCENE_LINEAR_TO_REC709_SRGB` shader or `draw_texture_2d(..., is_scene_linear_with_rec709_srgb_target=True)`
+- `gpu.texture.from_image` returns the image's cached texture of scene-linear texels, byte images sampling through `SRGB8_A8`
+- `from_image` textures draw through a `SCENE_LINEAR_TO_REC709_SRGB` shader or `draw_texture_2d(..., is_scene_linear_with_rec709_srgb_target=True)`
 - Theme colors are display sRGB (`COLOR_GAMMA`) and pass through built-in shaders as they are
 - `POST_VIEW` bodies call `gpu.state.depth_test_set('LESS_EQUAL')` to hide geometry behind objects and restore the prior test after
 - `batch_for_shader` content keys match the shader's attributes, an extra key raising `ValueError`, a missing one `KeyError`, and unequal lengths `ValueError`
@@ -403,7 +407,7 @@ class Stroke(msgspec.Struct, frozen=True, kw_only=True):
             blf.draw(0, label)
 ```
 
-Handler bodies call `drawn` on the `Stroke` cached for current points with `context.preferences`, scales and theme colors reading live on each draw, and the entering blend mode returning after a raise and after `blf.draw` leaves blending at `NONE`.
+Handler bodies call `drawn` on the `Stroke` cached for current points with `context.preferences`, scales and theme colors reading live on each draw. Entering blend mode returns after a raise and after `blf.draw` leaves blending at `NONE`.
 
 Custom shaders come from `gpu.shader.create_from_info` over a `gpu.types.GPUShaderCreateInfo`:
 - `vertex_in(<slot>, <type>, <name>)` declares each attribute `batch_for_shader` fills by name
@@ -415,7 +419,7 @@ Custom shaders come from `gpu.shader.create_from_info` over a `gpu.types.GPUShad
 - `GPUUniformBuf` values passed to `shader.uniform_block` stay bound to a name through `batch.draw`, an inline buffer freeing before the draw and drawing nothing
 - Sources compile to Metal Shading Language on macOS, MSL keywords (`vertex`, `fragment`, `kernel`) being reserved names
 - Matrix constructors under Metal take one scalar, all scalars, whole columns, or a square matrix, a split column failing to compile
-- Compile errors raise a bare `Exception` the lift catches and log the detail under `gpu.shader`
+- Compile errors raise a plain `Exception` that `catch` lifts and log the detail under `gpu.shader`
 
 ```python
 @functools.cache
@@ -473,13 +477,14 @@ def captured(draw: Callable[[], None], size: int) -> Result[NDArray[np.float32],
     return Ok(read(gpu.types.GPUOffScreen(size, size))) if size <= limit else Error(Oversized(size=size, limit=limit))
 ```
 
-`captured(partial(stroke.drawn, label, preferences), size)` reads a handler's own drawing, the pixel projection placing `POST_PIXEL` coordinates as the region does, and both matrix stacks return to the caller's values, a draw handler included.
+`captured(partial(stroke.drawn, label, preferences), size)` reads a handler's own drawing, the pixel projection placing `POST_PIXEL` coordinates as the region does. Both matrix stacks return to the caller's values, a draw handler included.
 
 ## [11]-[TEXT]
 
 Blender translates interface text at draw time in the interface language:
 - `bl_label`, `bl_description`, property names, and literal `text=` and `report` messages translate with no code
-- Operators, panels, and menus set their context in `bl_translation_context`, `bpy.app.translations.contexts.operator_default` by default on operators and `contexts.default` on panels and menus, and lists and headers hold none
+- Operators, panels, and menus set their context in `bl_translation_context`, lists and headers holding none
+- `bl_translation_context` defaults to `bpy.app.translations.contexts.operator_default` on operators and `contexts.default` on panels and menus
 - Properties take their context through `translation_context=`
 - Translation tables key entries through `contexts` members, operator labels as `(contexts.operator_default, <label>)`
 - `text_ctxt=<context>` on a layout call selects another context

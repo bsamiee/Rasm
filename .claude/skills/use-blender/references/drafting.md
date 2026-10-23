@@ -190,7 +190,7 @@ bpy.context.view_layer.update()
 
 - Preset names come from `bpy.pohlke.names`, short docstring names raising `ValueError: '<name>' not a preset.`
 - `add_axonometric_camera(alpha, beta, ...)` and `add_oblique_camera(alpha, beta, shortening, ...)` take degrees
-- `position` and `orientation` pick the view side
+- `position` and `orientation` select the view side
 - Oblique presets stretch through `pixel_aspect_x`
 - With Per-Camera Resolution writing its own `pixel_aspect_x`, paper takes it from `camera["pixel_ratio"]`
 - Cameras sit 25 m from the cursor, larger models moving the camera back along `camera.matrix_world.col[2].xyz` with `clip_end` covering them
@@ -242,8 +242,8 @@ dimension.location = line["line_mid_world"]
 sync.sync_scene_objects(bpy.context.scene)
 ```
 
-- `dimension_type` names the axis the line offsets along, and `offset_distance` sign picks the side
-- `measurement_mode` (`TRUE`, `DELTA_X`, `DELTA_Y`, `DELTA_Z`) picks what is measured
+- `dimension_type` names the axis the line offsets along, and `offset_distance` sign selects the side
+- `measurement_mode` (`TRUE`, `DELTA_X`, `DELTA_Y`, `DELTA_Z`) selects what is measured
 - `set_world_anchor(anchor, co)` fixes a point in space and `set_object_anchor(anchor, obj, co)` follows an object's transform
 - Edit Mode selections annotate through `bpy.ops.dimensions` exec operators, an edge through `dimension_selected_edge()`
 - Edge pairs annotate through `angle_selected_edges()`, and faces through `area_selected_faces()`

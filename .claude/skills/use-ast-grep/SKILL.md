@@ -1,11 +1,11 @@
 ---
 name: use-ast-grep
-description: "Use when outlining, searching, or rewriting code with ast-grep or deriving rules, covering patterns, rules, utils, fixes, and grammars."
+description: "Use when outlining, searching, or rewriting code with ast-grep or writing a rule, covering matching and rule configuration"
 ---
 
 # [AST_GREP]
 
-MCP tools answer searches with a match list or a tree. Deferred MCP tools load through `ToolSearch` query `select:mcp__ast-grep__find_code,mcp__ast-grep__find_code_by_rule,mcp__ast-grep__dump_syntax_tree,mcp__ast-grep__test_match_code_rule`. Repository tasks select `rasm:outline`, `rasm:lint:ast-grep`, or `rasm:rewrite` through native Nx discovery in manage-repo. Direct CLI reads and writes retain their arguments; pass `--custom-languages allow` when using custom grammars. Search rules stay inline, durable rules are files under `ruleDirs` of `sgconfig.yml`.
+MCP tools answer searches with a match list or a tree. Deferred MCP tools load through `ToolSearch` query `select:mcp__ast-grep__find_code,mcp__ast-grep__find_code_by_rule,mcp__ast-grep__dump_syntax_tree,mcp__ast-grep__test_match_code_rule`. Repository tasks select `rasm:outline`, `rasm:lint:ast-grep`, or `rasm:rewrite` through native Nx discovery in manage-repo. Direct CLI reads and writes retain their arguments. Pass `--custom-languages allow` on runs over custom grammars. Search rules stay inline, durable rules are files under `ruleDirs` of `sgconfig.yml`.
 
 [REFERENCES]:
 - [01]-[RULE_BUILDING](references/rule-building.md): Deriving rules from diffs, code smells, and principles
@@ -34,9 +34,9 @@ Patterns are valid code under the language's tree-sitter grammar with whole-node
 ## [02]-[RULES]
 
 - Ids share one namespace across languages, a category checked in more than one names each rule `<category>-<language>`, in one the category alone
-- Rules leave out forms a configured linter or type-aware checker reports, keeping an arm for a defect that checker's fix writes
-- Rule objects are unordered `all`s with keys applied atomic, then `all`, `any`, `not`, `matches`, then relational, `all:` keeps list order
-- Rules need a kind set from `pattern` or `kind`, `regex`, `range`, `nthChild`, `not`, `all: []`, or `any: []` alone fails the load
+- Rules leave out forms a configured linter or type-aware checker reports and keep an arm for a defect that checker's fix writes
+- Rule objects are unordered `all`s applying atomic keys, then `all`, `any`, `not`, `matches`, then relational keys, `all:` keeps list order
+- Rules need a kind set from `pattern` or `kind`, a rule of `regex`, `range`, `nthChild`, `not`, `all: []`, or `any: []` alone fails the load
 - `kind` takes a named node, an anonymous token (`then`) fails the load with `Cannot parse rule`, exit 8
 - `not` guards over a capture sit after its binding clause in `all:`, the first clause naming `$VAR` binds it
 - Rules test one node, `has: {all: [<a>, <b>]}` demands one child with both shapes, one `has` per required child
@@ -89,7 +89,8 @@ Scans parse each file once, try a rule at each node of its kind set, and walk ea
 - `all:` lists capture-free `field` tests, binding clauses in capture order, walks, then `not:` guards
 - `matches:` evaluations take a reference on one util registry every scan thread shares, a util named as a walk target runs at each visited node
 - Walk targets and `stopBy` rules hold an atomic `kind`, a kind list used more than once is a YAML anchor (`&owner`) later sites alias (`*owner`)
-- Rules checking a file-wide fact per candidate place `inside: {kind: <root kind>, stopBy: end, regex: '<name>'}` after the candidate's own text or callee test and before the walk, on a frequent kind it costs a second parse
+- Rules checking a file-wide fact per candidate place `inside: {kind: <root kind>, stopBy: end, regex: '<name>'}` after the candidate's text or callee test, before the walk
+- Root `inside` tests on a frequent kind cost a second parse
 - `matches:` beside `all`, `any`, or `not` in one map runs after them, a cheap gate opens an ordered `all:` list ahead of the walks
 
 ## [05]-[FIX]
@@ -114,7 +115,7 @@ Scans parse each file once, try a rule at each node of its kind set, and walk ea
 - Traversal covers the captured root and its descendants, each node of a `$$$` capture included
 - Rewriters run in listed order at each node, the first match replaces its subtree and blocks descendant matches in that pass
 - `joinBy` omitted keeps unmatched text, separators and comments between rewritten nodes included, `joinBy` set joins the replacements alone
-- Rewriters read captured syntax trees, enclosing rule captures, and enclosing local utilities, no transformed string or transform output
+- Rewriters read captured syntax trees, enclosing rule captures, and enclosing local utils, no transformed string or transform output
 - `fix: {template, expandStart, expandEnd}` widens the replaced range to the sibling the sub-rule matches, a miss keeps the matched range
 - Expansion stops at the first sibling the sub-rule matches, the adjacent sibling alone by default and any sibling under `stopBy: end`
 - `fix` as a list of `{title, template}` offers alternatives, `-U` and `--json` take the first and `-i` offers each
@@ -122,7 +123,7 @@ Scans parse each file once, try a rule at each node of its kind set, and walk ea
 
 ## [06]-[CONFIG]
 
-MCP uses plain `ast-grep` after `ast-grep --custom-languages trust --version` runs interactively in its owning checkout. Trust stores the canonical config path; `--custom-languages revoke` removes it.
+MCP uses plain `ast-grep` after `ast-grep --custom-languages trust --version` runs interactively in its owning checkout. Trust stores the canonical config path, `--custom-languages revoke` removes it.
 
 - `ruleDirs` and `utilDirs` resolve relative to `sgconfig.yml`
 - `languageGlobs.<language>` maps file globs to a language ahead of extension detection
@@ -154,8 +155,8 @@ MCP uses plain `ast-grep` after `ast-grep --custom-languages trust --version` ru
 - Kind lists inside a flow map are quoted (`{kind: 'block_mapping_pair, flow_pair'}`), an unquoted second kind reads as a key
 - Under `expandoChar`, patterns spell metavariables with that character (`_VAR`, `___VAR`), fix templates and transform sources use `$`
 - Unparsable rule files of any language and duplicate ids fail every load of the root config, an unknown key in `sgconfig.yml` loads silently
-- `unused-suppression` reports a comment suppressing nothing at `hint`, `--filter`, `--off`, `--min-severity`, `-r`, or `--inline-rules` turns it off
-- `no-suppress-all` reports an idless comment and is off, `--error=<id>` raises either built-in rule
+- `unused-suppression` reports a comment suppressing nothing at `hint`, `--filter`, `--off`, `--min-severity`, `-r`, or `--inline-rules` disables it
+- `no-suppress-all` reports an idless comment and is disabled, `--error=<id>` raises either built-in rule
 
 ## [07]-[GRAMMAR]
 
@@ -218,7 +219,7 @@ Fixes emit walrus conditionals as `(v := (a if b else c))`.
 | :-----: | :---------------------------- | :------------------------------------------------------------------------------------------------- |
 |  [01]   | `if let a = b, c > 0 { }`     | `if_statement` holds each clause token in field `condition`, `field: condition` reads the first    |
 |  [02]   | `lhs + receiver.member(args)` | `call_expression` over `additive_expression` with `rhs: navigation_expression`, call wraps the `+` |
-|  [03]   | `if let a = unsafe b { }`     | `ERROR`, `unsafe` takes `b { }` as a trailing-closure call, `(unsafe b)` and `unsafe (b)` parse     |
+|  [03]   | `if let a = unsafe b { }`     | `ERROR`, `unsafe` takes `b { }` as a trailing-closure call, `(unsafe b)` and `unsafe (b)` parse    |
 
 | [INDEX] | [SQL]                          | [SHAPE]                                                                                     |
 | :-----: | :----------------------------- | :------------------------------------------------------------------------------------------ |

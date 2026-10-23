@@ -1,6 +1,6 @@
 ---
 name: use-blender
-description: "Use when driving live or background Blender, its extensions, or bpy member reads, covering sessions, background runs, site, drafting, BIM, parametric, and CAD exchange."
+description: "Use when driving Blender or reading bpy members from the installed build, covering host control and installed-extension workflows"
 ---
 
 # [USE_BLENDER]
@@ -54,11 +54,11 @@ Pictures come from the source that draws current state:
 
 ## [02]-[SESSION]
 
-- Inspect UI, logs and crash reports; resolve dialogs and errors, discard untitled and scratch work, save named files in place, decline submission
+- Inspect UI, logs, and crash reports, resolve dialogs and errors, discard untitled and scratch work, save named files in place, decline submission
 
 Sessions open in order:
 1. `lsof -a -nP -iTCP:9876-9877 -sTCP:LISTEN` names the GUI pid
-2. With no listener, use the `watch-apps` skill to launch a new Blender with `PYTHONPYCACHEPREFIX`, `--no-window-focus`, and `--python-use-system-env`
+2. With no listener, use the `watch-apps` skill to open a new Blender with `PYTHONPYCACHEPREFIX`, `--no-window-focus`, and `--python-use-system-env`
 3. One `ToolSearch` select line loads every `mcp__blender__*` and `mcp__mcp-for-blender__*` schema
 4. `mcp__blender__get_blendfile_summary_path_info` names the open file and its `is_dirty` state
 5. `mcp__mcp-for-blender__get_addon_status` answers `"source": "native"`, or `"error"` while replacing a quit GUI's socket, `native` on its next call
@@ -79,7 +79,7 @@ result = {"closed": closed}
 Script-driven task GUIs run a runner script:
 - `python .claude/skills/use-blender/scripts/evaluate.py run <name> -- --no-window-focus --python <runner.py>` runs one and returns once it quits
 - Runners register a persistent `bpy.app.timers` function that runs one step per call, modal jobs and drawing advancing between steps
-- Runners calling `window.event_simulate` launch with `--enable-event-simulate`, the call otherwise raising `RuntimeError`
+- Runners calling `window.event_simulate` run with `--enable-event-simulate`, the call otherwise raising `RuntimeError`
 - Runners end with the quit call
 
 Configured startup files open with:
@@ -93,7 +93,7 @@ Configured startup files open with:
 `mcp__blender__execute_blender_code` runs Python inside the GUI process:
 - Calls on either server run one at a time on the GUI main thread
 - With each call's namespace holding `result = {}` alone, code imports `bpy` and every module it uses
-- Calls importing checkout code from `libs/python` take Blosm's `blosm/threed_tiles` entry off `sys.path` for the call, its `blender.py` module winning over the `blender` namespace root
+- Calls importing checkout code from `libs/python` remove Blosm's `blosm/threed_tiles` entry from `sys.path` for the call, its `blender.py` module winning over the `blender` namespace root
 - `result` returns a dict of names, numbers, and lists, IDs and `mathutils` values returning as their `repr`
 - Each call sets `window` and `screen` and leaves `area` and `region` None
 - Operators reading an area, space, node, or material run under a `temp_override` naming them
@@ -128,7 +128,7 @@ Arguments apply left to right, `--python-exit-code` and the `.blend` before `--p
 ```
 
 Background runs follow host rules:
-- Runs using installed extensions launch `"$BLENDER_PATH"` on the user's profile, every other run passes arguments to `evaluate.py run <name> --`
+- Runs using installed extensions start `"$BLENDER_PATH"` on the user's profile, every other run passes arguments to `evaluate.py run <name> --`
 - Tracebacks exit 0 without `--python-exit-code`, and `sys.exit(<n>)` exits `<n>`
 - Background runs hold no event loop, and `bpy.app.timers` and msgbus callbacks never run
 - Modal operators return `RUNNING_MODAL` without stepping, and invoke-only operators return `PASS_THROUGH`
@@ -137,7 +137,7 @@ Background runs follow host rules:
 - Brush strokes and `render.opengl` need a GUI session, and sculpt operators crash a background run in their undo push
 - `wm.read_homefile(use_empty=True)` empties the scene and keeps loaded extensions
 
-Background renders use named files saved in place; untitled and scratch scenes render in GUI without saving:
+Background renders use named files saved in place, untitled and scratch scenes render in GUI without saving:
 1. `bpy.ops.wm.save_mainfile()` in the GUI saves named work before rendering
 2. `"$BLENDER_PATH" --background <file.blend> -o <absolute dir>/<stem>_#### -f <frame>` with `run_in_background: true` logs `Saved: '<path>'`
 
@@ -186,7 +186,7 @@ Log reads follow host rules:
 
 ## [09]-[EVALUATION]
 
-Blender resolves a `BLENDER_USER_*` variable naming a missing folder through `BLENDER_USER_RESOURCES` to the user's profile. `scripts/evaluate.py` runs from the repository root, launching Blender with factory settings in a fresh `.artifacts/blender/evaluate/<name>/` tree, every `BLENDER_USER_*` folder and `TMPDIR` created before launch:
+Blender resolves a `BLENDER_USER_*` variable naming a missing folder through `BLENDER_USER_RESOURCES` to the user's profile. `scripts/evaluate.py` runs from the repository root, starting Blender with factory settings in a fresh `.artifacts/blender/evaluate/<name>/` tree, every `BLENDER_USER_*` folder and `TMPDIR` created before Blender starts:
 - `python .claude/skills/use-blender/scripts/evaluate.py run <name> -- <arguments>` runs Blender with the arguments and prints its output
 - `run` passes `--python-use-system-env` and the process's `PYTHONPYCACHEPREFIX` ahead of the arguments, and arguments omit them
 - `run` syncs `.cache/blender/scripts/modules` to wheels `nx run <id>:pack` bundles, first on `sys.path`, and adds `libs/python` through `PYTHONPATH`

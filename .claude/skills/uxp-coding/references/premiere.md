@@ -87,11 +87,11 @@ const renamed = (project: Project, items: readonly ProjectItem[], undo: string, 
     );
 ```
 
-`renamed` returns its count over items its caller read before the lock, or fails with `refused` naming each item `addAction` refused beside a transaction that executed every other action. Actions build before the first `addAction`, where a throwing `name` adds none, and a throw from inside the transaction callback follows the actions added before it, which still execute. `refused` leaves through an outer array, since `lockedAccess` returns `true` and drops its callback's value.
+`renamed` returns its count over items its caller read before the lock, or fails with `refused` naming each item `addAction` refused beside a transaction that executed every other action. Actions build before the first `addAction`, where a throwing `name` adds none, and actions added before a throw inside the transaction callback still execute. `lockedAccess` returns `true` and drops its callback's value, and `refused` leaves through an outer array.
 
 | [INDEX] | [CALL]                                      | [RESULT]                                                    |
 | :-----: | :------------------------------------------ | :---------------------------------------------------------- |
-|  [01]   | `create*Action` outside `lockedAccess`      | Throws, inside a transaction callback too                   |
+|  [01]   | `create*Action` outside `lockedAccess`      | Throws, inside a transaction callback included              |
 |  [02]   | `executeTransaction(callback, undo)`        | `true`, one History entry named `undo`, whatever executed   |
 |  [03]   | `executeTransaction` with no `undo`         | History entry "Edit Project"                                |
 |  [04]   | Action built in another `lockedAccess`      | `addAction` returns `false`                                 |
@@ -122,7 +122,7 @@ const dirtied = <E>(
     );
 ```
 
-`dirtied` holds a project's `DIRTY` registration in a scope through `listening`. Handlers receive an event whose `type` equals its name, with no other field.
+`dirtied` holds a project's `DIRTY` registration in a scope through `listening`. Handlers receive an event with `type` equal to its name and no other field.
 
 | [INDEX] | [EVENT]                              | [TARGET]                      | [RAISED_BY]                                         |
 | :-----: | :----------------------------------- | :---------------------------- | :-------------------------------------------------- |
@@ -166,6 +166,6 @@ Files export through the encoder `EncoderManager.getManager()` returns, and fram
 
 ## [07]-[MEDIA_ENCODER]
 
-Media Encoder loads plug-ins under manifest host `ame` from an `ame.json` registry row, `uxp.host.name` reads `ame`, and `require` resolves `mediaencoder` with no `premierepro`:
+Media Encoder loads plugins under manifest host `ame` from an `ame.json` registry row, `uxp.host.name` reads `ame`, and `require` resolves `mediaencoder` with no `premierepro`:
 - Media Encoder's `api_config.json` allows no class, and `Object.keys(require('mediaencoder'))` lists its module (`RenderQueue`, `PresetManager`)
 - Module JavaScript defines `Constants()` as a method returning `RenderQueueStatus`, `Result`, and `Workarea`

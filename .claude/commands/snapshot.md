@@ -1,5 +1,5 @@
 ---
-description: Commit and push the entire working tree as one labeled snapshot
+description: Commits and pushes the whole working tree as one labeled snapshot
 disable-model-invocation: true
 ---
 

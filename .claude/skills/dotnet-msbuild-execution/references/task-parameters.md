@@ -6,8 +6,8 @@ Parameters per built-in task that decide correctness and incremental behavior. E
 
 - `Copy` (`SourceFiles`, `DestinationFiles` or `DestinationFolder`, `SkipUnchangedFiles`, `UseHardlinksIfPossible`, `Retries`, output `CopiedFiles`)
 - `Copy` `DestinationFiles` maps one to one with `SourceFiles`, `CopiedFiles` includes the skipped files
-- `Copy` `Retries` with `RetryDelayMilliseconds` repeats a failed copy
-- `Copy` `OverwriteReadOnlyFiles` clears the attribute, `UseSymboliclinksIfPossible` links
+- `Copy` `Retries` with `RetryDelayMilliseconds` retries a failed copy
+- `Copy` `OverwriteReadOnlyFiles` clears the read-only attribute, `UseSymboliclinksIfPossible` links
 - `MakeDir` (`Directories`) creates every missing level, `Copy` with `DestinationFolder` creates the folder itself
 - `Delete` (`Files`), `RemoveDir` (`Directories`), `Delete` never fails on a missing file
 - `WriteLinesToFile` (`File`, `Lines`, `Overwrite`, `WriteOnlyWhenDifferent`, `Encoding`)

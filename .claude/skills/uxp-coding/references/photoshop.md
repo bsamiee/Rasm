@@ -1,6 +1,6 @@
 # [PHOTOSHOP]
 
-Photoshop's UXP DOM uses Action Manager descriptors: `action.batchPlay` plays changes inside one modal scope and reads anywhere, replying with one descriptor per command. Native Apple Event `do javascript` runs ExtendScript.
+Photoshop's UXP DOM uses Action Manager descriptors: `action.batchPlay` plays changes inside one modal scope and reads anywhere, with one reply descriptor per command. Native Apple event `do javascript` runs ExtendScript.
 
 ## [01]-[MODAL_SCOPES]
 
@@ -39,7 +39,7 @@ const committed = (documentID: number, name: string, commands: ActionDescriptor[
     );
 ```
 
-`committed` plays a command list as one history state named `name`, or fails with the first refused command's error descriptor as cause and leaves no change. `resumeHistory` commits on the body's success and drops every change on failure or interruption, since a suspension left open commits when its body resolves. `modal` runs its body on the caller's services and passes its `signal`, and an interrupted caller interrupts the body. The body returns its `Exit` as a value that `Effect.flatten` unwraps.
+`committed` plays a command list as one history state named `name`, or fails with the first refused command's error descriptor as cause and leaves no change. `resumeHistory` commits on the body's success and drops every change on failure or interruption. Suspensions left open commit when their body resolves. `modal` runs its body on the caller's services and passes its `signal`, and an interrupted caller interrupts the body. `Effect.flatten` unwraps the `Exit` the body returns as a value.
 
 | [INDEX] | [CALL]                                                    | [REPLY]                                                         |
 | :-----: | :-------------------------------------------------------- | :-------------------------------------------------------------- |
@@ -48,7 +48,7 @@ const committed = (documentID: number, name: string, commands: ActionDescriptor[
 |  [03]   | `hide` of no element                                      | `result` -25922                                                 |
 |  [04]   | `multiGet` of a closed document or a missing property     | `result` -25923                                                 |
 |  [05]   | Dialog cancelled, or refusal alert closed under `display` | `result` -128 with an empty `message`                           |
-|  [06]   | Modal scope another plug-in holds                         | Rejects `number` 9 after `timeOut` (1 s default) unless freed   |
+|  [06]   | Modal scope another plugin holds                          | Rejects `number` 9 after `timeOut` (1 s default) unless freed   |
 |  [07]   | `executeAsModal` inside a body                            | Runs nested in its outer scope with a context of its own        |
 |  [08]   | Cancel on the progress window                             | `onCancel` runs, awaited plays throw, rejects `number` 2        |
 |  [09]   | Body rejecting with an `Error`                            | `executeAsModal` rejects with its string, other values as given |
@@ -57,7 +57,7 @@ const committed = (documentID: number, name: string, commands: ActionDescriptor[
 - Plays outside a suspension record one state each under Photoshop's name (`New Layer`, `Master Opacity Change`) and stay when their body throws
 - `Document.suspendHistory(callback, name)` wraps both calls in `executeAsModal`, passes `document` for `hostControl`, and resolves `undefined`
 - `interactive: true` scopes open `display` dialogs and no progress window, which other scopes open after about 2 s and fill from `reportProgress`
-- `@adobe-uxp-types/photoshop` types `executeAsModal` as its target's value, which it resolves with, and `@types/photoshop` as `Promise<void>`
+- `executeAsModal` resolves with its target's value, `@adobe-uxp-types/photoshop` types that value, and `@types/photoshop` types `Promise<void>`
 
 ## [02]-[DESCRIPTORS]
 
@@ -119,7 +119,7 @@ DOM members are JavaScript over descriptors: a getter plays a synchronous `get`,
 - Preference members reach a subset of application keys, and a `get` of the application property reaches the rest (`guidesPrefs`, `interfacePrefs`)
 - Unlocking a background layer gives it a new `id`, which its DOM object takes
 
-Failures leave each member in its own form:
+Members answer failures in their own form:
 
 | [INDEX] | [CASE]                                                                      | [ANSWER]                                                  |
 | :-----: | :-------------------------------------------------------------------------- | :-------------------------------------------------------- |
@@ -135,7 +135,7 @@ Failures leave each member in its own form:
 
 `action.addNotificationListener(events, handler)` calls `handler(event, descriptor)` for each listed event name, and `removeNotificationListener` with the same names and function removes it:
 - User commands arrive with `_isCommand: true` in the descriptor
-- Plays from a plug-in's own modal scope, interactive included, and plays from ExtendScript reach no listener of that plug-in
+- Plays from a plugin's own modal scope, interactive included, and plays from ExtendScript reach no listener of that plugin
 - `core.addNotificationListener('UI', events, handler)` delivers interface events, and group `'OS'` system ones (`displayConfigurationChanged`)
 - `panelVisibilityChanged` holds `panelID` and `visible` for every panel
 
@@ -147,7 +147,7 @@ Failures leave each member in its own form:
 - `close()` opens a save dialog under default `SaveOptions.PROMPTTOSAVECHANGES`, and `closeWithoutSaving()` in a scope discards changes synchronously
 - `hostControl.registerAutoCloseDocument(documentID)` closes a working document unsaved when its scope ends
 - `save` descriptors take `in: { _path: localFileSystem.createSessionToken(file), _kind: 'local' }`, and plain paths reject "invalid file token used"
-- `exportmanager`, which neither typing declares, serves any plug-in outside a modal scope
+- `exportmanager`, which neither typing declares, serves any plugin outside a modal scope
 - `exportImageAsync({ documentID, exportPath, exportOptions, formatOptions, exportTaskID })` writes the file
 - `exportOptions` hold `scaleHorizontal` and `scaleVertical` in percent, and `formatOptions` `{ name: 'png', colorType: 'png24' }`
 - `imaging` calls other than `createImageDataFromBuffer` throw `number` 1000 outside a modal scope, and `putPixels` records one history state
@@ -164,7 +164,7 @@ One `get` of the application property `fontList` returns parallel arrays `fontNa
 
 ## [07]-[PLUG_INS]
 
-Manifest host data decides when Photoshop loads a plug-in and which calls need a scope:
+Manifest host data decides when Photoshop loads a plugin and which calls need a scope:
 
 | [INDEX] | [KEY]                     | [EFFECT]                                                                                          |
 | :-----: | :------------------------ | :------------------------------------------------------------------------------------------------ |
@@ -176,7 +176,7 @@ Manifest host data decides when Photoshop loads a plug-in and which calls need a
 - `.psjs` scripts run once users confirm a JavaScript load warning, write absolute `fs` paths, and throw `EvalError` for `eval` and `new Function`
 - `require('uxp').script.executionContext` of a `.psjs` script holds `hostControl`, `reportProgress`, and `onCancel`
 - `Object.keys(require('uxp').script)` reads empty
-- `~/Library/Logs/Adobe/<app name>/UXPLogs_*.log` records each plug-in load and each rejection no `unhandledRejection` flag delivers
+- `~/Library/Logs/Adobe/<app name>/UXPLogs_*.log` records each plugin load and each rejection no `unhandledRejection` flag delivers
 
 ## [08]-[MEMBERS]
 

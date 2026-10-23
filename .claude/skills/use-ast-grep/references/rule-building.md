@@ -1,6 +1,6 @@
 # [RULE_BUILDING]
 
-Derive rules from a refactor diff, existing code, or a project principle, and integrate each with the existing rules and utilities.
+Derive rules from a refactor diff, existing code, or a project principle, and integrate each with the existing rules and utils.
 
 ## [01]-[SOURCES]
 
@@ -77,7 +77,7 @@ Findings group by correction and reason, instances with both in common become si
 - Siblings are real when the after form, written once per sibling, is the same
 - Siblings include each form that silences the rule and keeps its cause (declaration relaying the value, restated type, rename, wrapper)
 - Criterion derives from the diff's forms, package overloads, and near misses
-- Fixed predicates with one caller stay in the rule, repeated predicates share a utility refined at each caller
+- Fixed predicates with one caller stay in the rule, repeated predicates share a util refined at each caller
 - Default-parameter corrections preserve evaluation timing and argument-binding errors, repeated positional, keyword, and unpacked values included
 - Guards over a position drop when the shape fixes the position
 - Returns in both arms make every later statement dead

@@ -67,14 +67,14 @@ Daemon operations:
 ## [04]-[MAINTENANCE]
 
 - `.claude/skills/manage-repo/scripts/maintain.sh` runs from any directory and upgrades the checkout holding it
-- `mise prune --yes` alone retires old mise installations
+- `mise prune --yes` alone deletes old mise installations
 - Orphan removal runs outside Nx, a running Nx process loads modules from the version an upgrade orphans
 - Root `upgrade` runs its prerequisites, then fails on each package a resolver moved below the version Git's index records for its lock
 - `upgrade:docker` runs mise task `docker:update`, its VM restart on macOS starts the upgraded engine past systemd's `docker.service` start limit
 - Generic cleanup keeps Pixi prefixes and `PULUMI_HOME` and installs no browser or tool
 - Generic cleanup prunes caches and each Pulumi plugin no installed provider package declares
-- Cleanup renames each target to a temporary path beside it before removing it, a concurrent writer recreates the original path
-- `maintain.sh` quits VS Code before its fresh launch, the `code` CLI otherwise reuses a running instance and its old environment
+- Cleanup removes each target in place, an interrupted removal leaves the target at its listed path for the next run
+- `maintain.sh` quits VS Code before reopening it, the `code` CLI otherwise reuses a running instance and its old environment
 
 ## [05]-[TOML]
 

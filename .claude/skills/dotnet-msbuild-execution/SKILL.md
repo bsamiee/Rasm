@@ -1,6 +1,6 @@
 ---
 name: dotnet-msbuild-execution
-description: "Use when writing or ordering an MSBuild target, covering hook points, Inputs and Outputs, generated files, batching, errors, and copy to output."
+description: "Use when writing or ordering an MSBuild target, covering the execution phase"
 ---
 
 # [DOTNET_MSBUILD_EXECUTION]
@@ -29,7 +29,7 @@ MSBuild runs each target at most once per project instance, in an order the targ
 - `BeforeTargets` and `AfterTargets` accept a name no target defines, the target then never runs, detailed verbosity logs the unmatched name
 - `Returns` names the items a caller receives, `Outputs` names the files of the up-to-date check
 - Once one target in the project declares `Returns`, a target with `Outputs` alone returns nothing, `Build` declares `Returns` in every SDK project
-- Returned items are recorded when the target completes, duplicates drop unless `KeepDuplicateOutputs="true"`
+- MSBuild records returned items when the target completes and removes duplicates unless `KeepDuplicateOutputs="true"`
 - Targets appending to the item list through `AfterTargets` change nothing the caller receives
 - `Label` is an identifier for tooling
 
@@ -86,7 +86,7 @@ MSBuild skips a target with every output at least as new as its inputs, a target
 - MSBuild compares timestamps alone and reads the input list of the current run, a file that left the list does not make the target stale
 - `$(MSBuildAllProjects)` in `Inputs` names the project and every imported file, a change to any of them reruns the target
 - Skipped targets still apply their `ItemGroup` and `PropertyGroup` children
-- Skipped targets infer a task `<Output>` with a `TaskParameter` that is a task input too, an output the task computes (`CopiedFiles`) stays unset
+- Skipped targets infer a task `<Output>` when its `TaskParameter` names a task input, an output the task computes (`CopiedFiles`) stays unset
 - Every written file under `$(OutDir)` or `$(IntermediateOutputPath)` joins `@(FileWrites)`
 - `IncrementalClean` deletes a file a prior build wrote and the current build did not, `Clean` deletes every recorded file
 - `@(FileWritesShareable)` records a copy-local file another project can write, `IncrementalClean` keeps it outside the project directory
@@ -137,7 +137,7 @@ Globs outside a target expand during evaluation and cannot see a file a target w
 
 ## [05]-[TASKS]
 
-Tasks inside a target run at execution time with the current properties and items, `ItemGroup` and `PropertyGroup` children are tasks too. A property function computes a value evaluation can produce, a built-in task does file work, `Exec` runs an external program.
+Tasks inside a target, `ItemGroup` and `PropertyGroup` children included, run at execution time with the current properties and items. A property function computes a value evaluation can produce, a built-in task does file work, `Exec` runs an external program.
 
 - `Exec` runs `sh` on macOS and Linux and `cmd.exe` on Windows, a command with shell syntax gets an `IsOSPlatform` condition on the target
 - `Exec` never skips by itself, the target holding it takes `Inputs` and `Outputs`
@@ -156,7 +156,7 @@ Tasks inside a target run at execution time with the current properties and item
 - `DependsOnTargets` runs the named target in the caller's scope
 - `MSBuild` task calls create a new project instance for every new global property set
 - `Properties` on a call to a project the build already builds creates a second build of it
-- `RemoveProperties` strips a global property the callee never reads, on a self-call it changes the instance key as `Properties` does
+- `RemoveProperties` removes a global property the callee never reads, on a self-call it changes the instance key as `Properties` does
 - `SkipNonexistentProjects="true"` skips a missing project file, `SkipNonexistentTargets="true"` skips a project lacking the target
 - `BuildInParallel` follows `$(BuildInParallel)`, `StopOnFirstFailure` applies to a serial call alone, `BuildInParallel` ignores it
 - Inline tasks with `RoslynCodeTaskFactory` replace a property function for a loop over files or a .NET API outside the property function allowlist
@@ -210,7 +210,7 @@ Failed tasks stop their target and the build unless `ContinueOnError` says other
 |  [03]   | `WarnAndContinue`  | Errors become warnings, next task runs                |
 
 - `OnError ExecuteTargets` runs when a task of the target fails with `ErrorAndStop`, and when a target in its `DependsOnTargets` chain fails
-- `OnError` elements come last in the target or the build fails `MSB4038`, each has its own `Condition`, they run in order
+- `OnError` elements run in order, each under its own `Condition`, and come last in the target or the build fails `MSB4038`
 - `-warnaserror` promotes every warning to an error, the target keeps running as for a warning
 - `-warnaserror:CODE` promotes a list, `-warnnotaserror:CODE` exempts a list under `-warnaserror`, `-warnasmessage:CODE` demotes a list
 - `MSBuildTreatWarningsAsErrors`, `MSBuildWarningsAsErrors`, `MSBuildWarningsNotAsErrors`, and `MSBuildWarningsAsMessages` are the property forms
@@ -291,7 +291,7 @@ Multi-targeting projects build once as the outer build, `DispatchToInnerBuilds` 
 
 - `AssignTargetPaths` computes `TargetPath` from `TargetPath`, then `Link`, then the path relative to the project directory
 - SDK sets `Link` to `%(LinkBase)%(RecursiveDir)%(Filename)%(Extension)` for a file outside the project directory
-- `None` and `Content` copy the same way, `Content` joins `ContentFilesProjectOutputGroup` too
+- `None` and `Content` copy the same way, and `Content` items join `ContentFilesProjectOutputGroup`
 - `DefaultCopyToPublishDirectoryMetadata` copies `CopyToOutputDirectory` into an unset `CopyToPublishDirectory` after `AssignTargetPaths`
 - `SkipUnchangedFilesOnCopyAlways=true` applies the `IfDifferent` test to every `Always` item
 - `GetCopyToOutputDirectoryItems` returns the project's items and the items of its `ProjectReference` projects transitively

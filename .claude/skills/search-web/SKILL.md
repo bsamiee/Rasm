@@ -1,6 +1,6 @@
 ---
 name: search-web
-description: "Use when a task needs an answer from the open web, covering discovery, page and PDF reading, site sections, and cited research."
+description: "Use when a task needs an answer from the open web, covering tool selection by source and evidence"
 argument-hint: "[question]"
 ---
 
@@ -55,7 +55,7 @@ tvly search '<topic>' --topic news --include-domains '<domain/path>' \
     --start-date '<YYYY-MM-DD>' --end-date '<YYYY-MM-DD>' \
     --depth advanced --chunks-per-source 3 --max-results 5 --json
 
-# Search when full text is needed from every result
+# Full text from every result
 tvly search '<question>' --include-domains '<domain/path>' \
     --depth advanced --include-raw-content markdown --max-results 3 --json
 ```
@@ -142,7 +142,7 @@ curl -fsSL -o '<pdf>' '<pdf-url>'
 ```
 
 ```text
-# Rendered pages from a downloaded PDF, up to twenty pages per call
+# Rendered pages from a downloaded PDF, up to 20 pages per call
 Read {"file_path": "<pdf>", "pages": "<page>-<page>"}
 ```
 
@@ -153,7 +153,7 @@ Use research when discovery and synthesis require repeated searches. Read select
 Use Tavily `mini` for focused research and `pro` for broad synthesis. Schema `properties` entries require `type` and `description`. Optional `required` selects mandatory fields. Reports return `content` and `sources`.
 
 ```bash
-# Detached report while independent sources are read
+# Detached report while reading independent sources
 tvly research run '<scope>' --model mini --no-wait --json
 
 # Schema for findings with supporting URLs

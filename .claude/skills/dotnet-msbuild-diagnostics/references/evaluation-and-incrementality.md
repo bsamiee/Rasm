@@ -15,7 +15,7 @@ nx run <project>:build --skip-nx-cache -- -profileEvaluation:<dir>/evaluation.md
 - `-profileEvaluation` prints one row per import, property, item, and target
 - `-profileEvaluation` reports inclusive and exclusive time grouped by evaluation pass, the glob rows include the directory enumeration cost
 - Binlogs hold one `Property reassignment:` message per overwritten property, `mcp__binlog__binlog_search` with `"Property reassignment"` lists them
-- SDK files produce most `Property reassignment:` messages, the messages naming a file under the repository matter
+- SDK files produce most `Property reassignment:` messages, messages naming a repository file matter
 
 ### [01.2]-[BINLOG_DIAGNOSIS]
 
@@ -69,7 +69,7 @@ Analyze `<dir>/<project>/build.binlog`, the second build's log:
 2. Read `incrementalCleanDeletions` for a file a skipped target had declared
 3. Run `mcp__binlog__binlog_project_target_times` for each project the rows name
 4. Keep the rows with a file path in `staleOutputs`, a `staleOutputs` value repeating the target name marks a target with no `Outputs`
-5. Per unresolved target, `mcp__binlog__binlog_search` on `under($project <name>) $target <target>` names the stale input or missing output
+5. For each unresolved target, run `mcp__binlog__binlog_search` on `under($project <name>) $target <target>` for the stale input or missing output
 6. Run `mcp__binlog__binlog_expensive_targets` to order the rebuilt targets by cost
 7. Run `mcp__binlog__binlog_search_files` for the target declaration when its `Inputs` and `Outputs` are in question
 

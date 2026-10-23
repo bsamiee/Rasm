@@ -1,6 +1,6 @@
 ---
 name: use-rhino
-description: "Use when a task drives a Rhino document, a .3dm file, or a Grasshopper 2 canvas, covering slots, orientation, layers, selection, commands, files, views, materials, settings, and definitions."
+description: "Use when driving a Rhino document, .3dm file, or Grasshopper 2 canvas, covering background MCP sessions"
 ---
 
 # [USE_RHINO]
@@ -15,7 +15,7 @@ Covers Rhino and Grasshopper 2 work through the `rhino-mcp-platform` server, wit
 | [INDEX] | [TOOL]                                           | [USE_WHEN]                                                       |
 | :-----: | :----------------------------------------------- | :--------------------------------------------------------------- |
 |  [01]   | `mcp__rhino-mcp-platform__list_slots`            | "Which Rhino slots does the router run or adopt?"                |
-|  [02]   | `mcp__rhino-mcp-platform__spawn_slot`            | "Start a disposable document owned by the router"                |
+|  [02]   | `mcp__rhino-mcp-platform__spawn_slot`            | "Open a disposable document owned by the router"                 |
 |  [03]   | `mcp__rhino-mcp-platform__close_slot`            | "Close a spawned slot"                                           |
 |  [04]   | `mcp__rhino-mcp-platform__get_context`           | "What selection, viewport, document, and canvas state is live?"  |
 |  [05]   | `mcp__rhino-mcp-platform__list_objects`          | "Which objects match this name, layer, or geometry type?"        |
@@ -33,7 +33,7 @@ Covers Rhino and Grasshopper 2 work through the `rhino-mcp-platform` server, wit
 |  [17]   | `mcp__rhino-mcp-platform__save_doc`              | "Write the document to this .3dm path"                           |
 |  [18]   | `mcp__rhino-mcp-platform__close_doc`             | "Close the document, saving to a path or discarding"             |
 |  [19]   | `mcp__rhino-mcp-platform__ask_user`              | "Ask the user a decision only they can make"                     |
-|  [20]   | `mcp__rhino-mcp-platform__g2_start`              | "Start Grasshopper 2"                                            |
+|  [20]   | `mcp__rhino-mcp-platform__g2_start`              | "Open Grasshopper 2"                                             |
 |  [21]   | `mcp__rhino-mcp-platform__g2_search_components`  | "Which component matches these words?"                           |
 |  [22]   | `mcp__rhino-mcp-platform__g2_describe_component` | "What inputs and outputs does this component take?"              |
 |  [23]   | `mcp__rhino-mcp-platform__g2_apply_graph`        | "Place sliders and components, wire them, and solve in one call" |
@@ -48,12 +48,12 @@ Covers Rhino and Grasshopper 2 work through the `rhino-mcp-platform` server, wit
 
 ## [02]-[SESSION]
 
-- Inspect UI, logs and crash reports; resolve dialogs and errors, discard untitled and scratch work, save named files in place, decline submission
+- Inspect UI, logs, and crash reports, resolve dialogs and errors, discard untitled and scratch work, save named files in place, decline submission
 
 Sessions open on:
 1. `dotnet run ${CLAUDE_SKILL_DIR}/scripts/Instances.cs` lists each Rhino visible to the router with its documents, slots, and Grasshopper definitions
 2. Document of the work, one case:
-    - New work: an open untitled, unmodified document, else `spawn_slot` starts one without a splash screen on the default template
+    - New work: an open untitled, unmodified document, else `spawn_slot` opens one without a splash screen on the default template
     - Existing work: use the `watch-apps` skill to open the file in Rhino
 3. `list_slots` adopts the announced listeners, then `get_context` reads the target slot's selection, viewport, document, and canvas state
 

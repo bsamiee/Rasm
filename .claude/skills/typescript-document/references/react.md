@@ -1,6 +1,6 @@
 # [REACT]
 
-Component and hook documentation: props interfaces, the component function, and the `Result` a hook returns.
+Covers TSDoc on React components and hooks.
 
 ## [01]-[PROPS_INTERFACES]
 
@@ -18,7 +18,7 @@ Components are documented apart from their props interface, `@param` names the i
  * Observable behavior and integration notes
  *
  * @param props - Props declared on {@link SubmitFormProps}
- * @returns The rendered form
+ * @returns Rendered form
  */
 ```
 
@@ -30,8 +30,8 @@ Hooks from `@effect/atom-react` (`useAtomValue`, `useAtom`) return the atom valu
 
 ```ts
 /**
- * Subscribes to the invoice list of the active account
+ * Subscribes to active account's invoice list
  *
- * @returns `AsyncResult` of the invoices, or `InvoiceFetchError` when the API rejects the account
+ * @returns `AsyncResult` of invoices, or `InvoiceFetchError` when the API rejects the account
  */
 ```

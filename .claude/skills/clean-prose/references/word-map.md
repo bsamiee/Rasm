@@ -34,6 +34,7 @@ Deletion rows remove their words, replacement rows substitute the listed word, n
 |  [26]   | Version words    | `legacy`, `new and current` (as a version), `migrate` (to a version)                                                  |
 |  [27]   | Contrast fillers | `still`, `already`, `rather than` (when the contrasted form is absent from the sentence)                              |
 |  [28]   | Reason markers   | `because`, `due to the fact that` (clause goes whole or becomes the condition)                                        |
+|  [29]   | Softeners        | `try to`, `you can`, `consider`, `you may want` (before an action)                                                    |
 
 ## [02]-[REPLACEMENTS]
 
