@@ -3,6 +3,13 @@ using Rasm.Rhino.Document.Units;
 
 namespace Rasm.Rhino.Modeling.Curves;
 
+// --- [CONSTANTS] -----------------------------------------------------------------------
+internal static class PanjOHaft {
+    public static readonly double CrownDepth = double.Sqrt(0.5);
+    public static readonly double HaunchRadius = 1 - CrownDepth;
+    public static readonly double Rise = double.Sqrt(((1 + HaunchRadius) * (1 + HaunchRadius)) - 0.25) - CrownDepth;
+}
+
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record Grouped<T>(T Value, Seq<int> Inputs);
 
@@ -35,9 +42,7 @@ public sealed partial class SpannedArch {
     public static readonly SpannedArch Equilateral = new();
     public static readonly SpannedArch BasketHandle = new();
     public static readonly SpannedArch Persian = new();
-    public static readonly SpannedArch Tudor = new();
     public static readonly SpannedArch Keel = new();
-    public static readonly SpannedArch ReverseOgee = new();
     public static readonly SpannedArch TentedOgee = new();
 }
 
@@ -49,8 +54,10 @@ public sealed partial class RaisedArch {
     public static readonly RaisedArch Drop = new(new Interval(0.5, double.Sqrt(3) / 2));
     public static readonly RaisedArch PointedHorseshoe = new(new Interval(double.Sqrt(5.0 / 12), double.MaxValue));
     public static readonly RaisedArch DepressedThreeCentered = new(new Interval(0, 0.5));
+    public static readonly RaisedArch Tudor = new(new Interval(0.25, PanjOHaft.Rise));
     public static readonly RaisedArch ThreeCenteredOgee = new(new Interval(0.5, (1 + double.Sqrt(2)) / 2));
-    public static readonly RaisedArch FourCenteredOgee = new(new Interval(0.5, double.MaxValue));
+    public static readonly RaisedArch FourCenteredOgee = new(new Interval(0.5, (1 + double.Sqrt(2)) / 2));
+    public static readonly RaisedArch ReverseOgee = new(new Interval(0, 0.5));
     public static readonly RaisedArch Parabolic = new(new Interval(0, double.MaxValue));
     public static readonly RaisedArch Elliptical = new(new Interval(0, 0.5));
 
@@ -73,10 +80,13 @@ public sealed partial class FoiledArch {
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 public readonly partial struct FoilCount : System.Numerics.IMinMaxValue<FoilCount> {
-    public static FoilCount MinValue { get; } = new(2);
-    public static FoilCount MaxValue { get; } = new(int.MaxValue);
+    public static FoilCount MinValue { get; } = new(7);
+    public static FoilCount MaxValue { get; } = new(17);
 
-    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
+    static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) =>
+        validationError = int.IsOddInteger(value)
+            ? ValidationResults.OutsideRange(value, MinValue, MaxValue)
+            : new ValidationError(string.Create(CultureInfo.InvariantCulture, $"{value} is an even count, a multifoil arch has a key lobe at the crown"));
 }
 
 [Union(MapMethods = SwitchMapMethodsGeneration.None)]
@@ -91,7 +101,9 @@ public abstract partial record ArchForm {
         public static Fin<Raised> Of(RaisedArch kind, ArchSpan span, double height, Tolerances tolerances) =>
             kind.Admitted(span, tolerances).Bind(admitted => (height / span.Baseline.Length) switch {
                 var ratio when admitted.IncludesParameter(double.Abs(ratio)) => Fin.Succ(new Raised(kind, ratio)),
-                var ratio => Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"Arch rise ratio {ratio} has magnitude outside {admitted}")),
+                var ratio => Error.New(ErrorCodes.ValidationFailed, admitted.Max is double.MaxValue
+                    ? string.Create(CultureInfo.InvariantCulture, $"Arch rise {height:G4} is shorter than the least rise {admitted.Min * span.Baseline.Length:G4} on this span")
+                    : string.Create(CultureInfo.InvariantCulture, $"Arch rise {height:G4} lies outside {admitted.Min * span.Baseline.Length:G4} to {admitted.Max * span.Baseline.Length:G4} on this span")),
             });
 
         public static Fin<Raised> Nearest(RaisedArch kind, ArchSpan span, double height, Tolerances tolerances) =>
@@ -174,21 +186,21 @@ public static class CurveConstruction {
                 semicircular: static arch => Arcs(Seq(new Arc(arch.Span.Baseline.From, arch.Span.Frame.YAxis, arch.Span.Baseline.To)), arch.Retain),
                 equilateral: static arch => Symmetric(arch.Span, Seq(new Arc(arch.Span.Frame, arch.Span.Baseline.Length, double.Pi / 3)), arch.Retain),
                 basketHandle: static arch => BasketHandle(arch.Span, arch.Retain),
-                persian: static arch => FourCentered(arch.Span, arch.Span.Baseline.Length * double.Sqrt(3) / 2, arch.Retain),
-                tudor: static arch => FourCentered(arch.Span, arch.Span.Baseline.Length / 2, arch.Retain),
+                persian: static arch => FourCentered(arch.Span, arch.Span.Frame, arch.Span.Baseline.Length * PanjOHaft.HaunchRadius, arch.Span.Baseline.From - (arch.Span.Frame.YAxis * (arch.Span.Baseline.Length * PanjOHaft.CrownDepth)), arch.Retain),
                 keel: static arch => Keel(arch.Span, arch.Retain),
-                reverseOgee: static arch => ReverseOgee(arch.Span, arch.Retain),
                 tentedOgee: static arch => TentedOgee(arch.Span, arch.Retain)),
             raised: static (state, raised) => raised.Kind.Switch(
-                (state.Span, state.Tolerances, state.Retain, Apex: raised.Apex(state.Span)),
+                (state.Span, state.Retain, Apex: raised.Apex(state.Span)),
                 segmental: static arch => Circular(arch.Span, arch.Apex, arch.Retain),
                 horseshoe: static arch => Circular(arch.Span, arch.Apex, arch.Retain),
                 lancet: static arch => Gothic(arch.Span, arch.Apex, arch.Retain),
                 drop: static arch => Gothic(arch.Span, arch.Apex, arch.Retain),
                 pointedHorseshoe: static arch => PointedHorseshoe(arch.Span, arch.Apex, arch.Retain),
                 depressedThreeCentered: static arch => DepressedThreeCentered(arch.Span, arch.Apex, arch.Retain),
-                threeCenteredOgee: static arch => ThreeCenteredOgee(arch.Span, arch.Apex, arch.Tolerances, arch.Retain),
+                tudor: static arch => Tudor(arch.Span, arch.Apex, arch.Retain),
+                threeCenteredOgee: static arch => Ogee(arch.Span, arch.Apex, arch.Span.Baseline.Length / 2, arch.Retain),
                 fourCenteredOgee: static arch => Ogee(arch.Span, arch.Apex, arch.Span.Baseline.Length / 3, arch.Retain),
+                reverseOgee: static arch => ReverseOgee(arch.Span, arch.Apex, arch.Retain),
                 parabolic: static arch => Copies.Acquire(() => NurbsCurve.CreateParabolaFromVertex(arch.Apex, arch.Span.Baseline.From, arch.Span.Baseline.To), nameof(NurbsCurve.CreateParabolaFromVertex), arch.Retain)
                     .Map(static curve => Seq<Curve>(curve)),
                 elliptical: static arch => EllipticalArc(new Ellipse(new Plane(arch.Span.Midpoint, -arch.Span.Frame.XAxis, arch.Apex - arch.Span.Midpoint), arch.Span.Baseline.Length / 2, arch.Span.Midpoint.DistanceTo(arch.Apex)), new Interval(0, double.Pi), arch.Retain)
@@ -258,51 +270,46 @@ public static class CurveConstruction {
             new Arc(span.Frame, crown, span.Baseline.Length / 2, double.Pi / 3)), retain);
     }
 
-    private static IO<Seq<Curve>> FourCentered(ArchSpan span, double depth, Action<IDisposable> retain) {
-        double quarter = span.Baseline.Length / 4;
-        Point3d haunch = span.Baseline.PointAt(0.75);
-        Point3d crown = span.Baseline.PointAt(0.25) - (span.Frame.YAxis * depth);
-        double angle = Vector3d.VectorAngle(span.Frame.XAxis, haunch - crown);
-        Circle circle = new(span.Frame, crown, crown.DistanceTo(haunch) + quarter);
-        return Symmetric(span, Seq(new Arc(span.Frame, haunch, quarter, angle), new Arc(circle, new Interval(angle, double.Acos(quarter / circle.Radius)))), retain);
+    private static IO<Seq<Curve>> Tudor(ArchSpan span, Point3d apex, Action<IDisposable> retain) {
+        double length = span.Baseline.Length;
+        Line rise = new(span.Midpoint, apex);
+        double ratio = rise.Length / length;
+        double offset = (2 * ratio * ratio) - 0.5;
+        double square = (16 * ratio * ratio) - 1;
+        double linear = 8 * offset * ratio;
+        double depth = (double.Sqrt((linear * linear) - (4 * square * ((offset * offset) - 0.25))) - linear) / (2 * square);
+        return FourCentered(span, new Plane(span.Midpoint, span.Frame.XAxis, rise.Direction), length / 4, span.Baseline.PointAt(0.25) - (rise.UnitTangent * (length * depth)), retain);
+    }
+
+    private static IO<Seq<Curve>> FourCentered(ArchSpan span, Plane frame, double haunchRadius, Point3d crown, Action<IDisposable> retain) {
+        Point3d haunch = span.Baseline.To - (frame.XAxis * haunchRadius);
+        double angle = Vector3d.VectorAngle(frame.XAxis, haunch - crown);
+        Circle circle = new(frame, crown, crown.DistanceTo(haunch) + haunchRadius);
+        return Symmetric(span, Seq(new Arc(frame, haunch, haunchRadius, angle), new Arc(circle, new Interval(angle, double.Acos((span.Midpoint - crown) * frame.XAxis / circle.Radius)))), retain);
     }
 
     // --- [FOILED_ARCHES]
     private static IO<Seq<Curve>> Multifoil(ArchSpan span, bool pointed, FoilCount count, Tolerances tolerances, Action<IDisposable> retain) {
         int lobes = (int)count;
         double divisions = lobes - 1;
-        Arc guide = FoilGuide(span, pointed, divisions, springing: 0);
+        Arc guide = FoilGuide(span, pointed, divisions);
         Func<double, Point3d> at = FoilDivisions(guide, divisions);
         return at(0).DistanceTo(at(1)) > tolerances.Absolute
-            ? Symmetric(span, FoilSpringing(span.Frame, at(0), at(1)).Cons(Range(1, (lobes - 2) / 2, 2).ToSeq().Map(index => {
-                Point3d start = at(index);
-                double parameter = guide.AngleDomain.ParameterAt((index + 1) / divisions);
-                Point3d middle = guide.PointAt(parameter);
-                Point3d end = at(index + 2);
-                Point3d apex = middle + (Vector3d.CrossProduct(guide.TangentAt(parameter), span.Frame.ZAxis) * end.DistanceTo(start) / 2);
-                return new Arc(start, apex, end);
-            })) + ((lobes & 1) is 1 ? Seq(FoilCrown(span.Frame, at(divisions), at(divisions - 1))) : []), retain)
+            ? Symmetric(span, FoilSpringing(span.Frame, at(0), at(1)).Cons(Range(1, (lobes - 2) / 2, 2).ToSeq().Map(index => FoilLobe(span.Frame, at(index + 1), at(index), at(index + 2))))
+                .Add(FoilCrown(span.Frame, at(divisions), at(divisions - 1))), retain)
             : IO.fail<Seq<Curve>>(Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"Foil count {lobes} makes lobes shorter than the absolute tolerance {tolerances.Absolute} across this span")));
     }
 
     private static IO<Seq<Curve>> Cinquefoil(ArchSpan span, bool pointed, Action<IDisposable> retain) {
-        int divisions = pointed ? 6 : 5;
-        int springing = pointed ? 0 : 1;
-        Arc guide = FoilGuide(span, pointed, divisions, springing);
+        const int divisions = 4;
+        Arc guide = FoilGuide(span, pointed, divisions);
         Func<double, Point3d> at = FoilDivisions(guide, divisions);
-        Point3d from = at(springing + 1);
-        Point3d center = at(springing + 2);
-        Point3d to = at(springing + 3);
         Point3d crownEnd = at(3);
-        Point3d crownStart = Transform.Mirror(guide.EndPoint, span.Frame.XAxis) * crownEnd;
-        Line crownLine = new(crownStart, crownEnd);
+        Line crownLine = new(Transform.Mirror(guide.EndPoint, span.Frame.XAxis) * crownEnd, crownEnd);
         Arc crown = pointed
-            ? new Arc(new Plane(crownStart, crownLine.Direction, Vector3d.CrossProduct(span.Frame.ZAxis, crownLine.Direction)), crownLine.Length, double.Pi / 3)
-            : FoilCrown(span.Frame, at(divisions), at(divisions - 1));
-        return Symmetric(span, Seq(
-            FoilSpringing(span.Frame, at(springing), at(springing + 1)),
-            new Arc(new Circle(span.Frame, center, center.DistanceTo(from)), new Interval(-Vector3d.VectorAngle(span.Frame.XAxis, from - center), Vector3d.VectorAngle(span.Frame.XAxis, to - center))),
-            crown), retain);
+            ? new Arc(new Plane(crownLine.From, crownLine.Direction, Vector3d.CrossProduct(span.Frame.ZAxis, crownLine.Direction)), crownLine.Length, double.Pi / 3)
+            : FoilCrown(span.Frame, at(divisions), crownEnd);
+        return Symmetric(span, Seq(FoilSpringing(span.Frame, at(0), at(1)), FoilLobe(span.Frame, at(2), at(1), crownEnd), crown), retain);
     }
 
     private static IO<Seq<Curve>> Trefoil(ArchSpan span, bool pointed, Action<IDisposable> retain) {
@@ -314,12 +321,10 @@ public static class CurveConstruction {
         return Symmetric(span, Seq(springing, crown), retain);
     }
 
-    private static Arc FoilGuide(ArchSpan span, bool pointed, double divisions, int springing) {
+    private static Arc FoilGuide(ArchSpan span, bool pointed, double divisions) {
         (double centerFactor, double sweep) = pointed ? (-0.5, double.Pi / 3) : (0, double.Pi / 2);
-        double step = sweep / divisions;
-        double radius = span.Baseline.Length / 2 / (centerFactor + double.Cos(step * springing) + (2 * double.Sin(step / 2)));
-        Point3d center = span.Midpoint + (span.Frame.XAxis * (centerFactor * radius)) - (span.Frame.YAxis * (radius * double.Sin(step * springing)));
-        return new Arc(span.Frame, center, radius, sweep);
+        double radius = span.Baseline.Length / 2 / (centerFactor + 1 + (2 * double.Sin(sweep / divisions / 2)));
+        return new Arc(span.Frame, span.Midpoint + (span.Frame.XAxis * (centerFactor * radius)), radius, sweep);
     }
 
     private static Func<double, Point3d> FoilDivisions(Arc guide, double divisions) =>
@@ -328,15 +333,13 @@ public static class CurveConstruction {
     private static Arc FoilSpringing(Plane frame, Point3d center, Point3d through) =>
         new(frame, center, center.DistanceTo(through), Vector3d.VectorAngle(frame.XAxis, through - center));
 
+    private static Arc FoilLobe(Plane frame, Point3d center, Point3d from, Point3d to) =>
+        new(new Circle(frame, center, center.DistanceTo(from)), new Interval(-Vector3d.VectorAngle(frame.XAxis, from - center), Vector3d.VectorAngle(frame.XAxis, to - center)));
+
     private static Arc FoilCrown(Plane frame, Point3d top, Point3d previous) =>
         new(new Circle(frame, top, top.DistanceTo(previous)), new Interval(-Vector3d.VectorAngle(frame.XAxis, previous - top), double.Pi / 2));
 
     // --- [OGEE_ARCHES]
-    private static IO<Seq<Curve>> ThreeCenteredOgee(ArchSpan span, Point3d apex, Tolerances tolerances, Action<IDisposable> retain) =>
-        apex.DistanceTo(span.Midpoint) - (span.Baseline.Length / 2) <= tolerances.Absolute
-            ? Symmetric(span, Seq(new Arc(new Circle(new Plane(span.Midpoint, span.Frame.XAxis, apex - span.Midpoint), span.Baseline.Length / 2), double.Pi / 2)), retain)
-            : Ogee(span, apex, span.Baseline.Length / 2, retain);
-
     private static IO<Seq<Curve>> Ogee(ArchSpan span, Point3d apex, double radius, Action<IDisposable> retain) {
         Circle springing = new(new Plane(span.Baseline.To - (span.Frame.XAxis * radius), span.Frame.XAxis, apex - span.Midpoint), radius);
         Vector3d diagonal = apex - span.Baseline.To;
@@ -348,17 +351,19 @@ public static class CurveConstruction {
             new Arc(new Circle(new Plane(crown, springing.Plane.XAxis, -springing.Plane.YAxis), crown.DistanceTo(apex)), new Interval(Vector3d.VectorAngle(span.Frame.XAxis, tangent - crown), double.Pi))), retain);
     }
 
-    private static IO<Seq<Curve>> ReverseOgee(ArchSpan span, Action<IDisposable> retain) {
-        const double riseRatio = 19.0 / 61;
-        const double haunchRatio = (riseRatio / 4) + (1 / (16 * riseRatio));
-        const double crownRatio = (3 * riseRatio / 4) - (1 / (16 * riseRatio));
-        Point3d apex = span.Apex(span.Baseline.Length * riseRatio);
-        Point3d haunch = span.Baseline.To + (span.Frame.YAxis * (span.Baseline.Length * haunchRatio));
-        Point3d crown = span.Apex(span.Baseline.Length * crownRatio);
+    private static IO<Seq<Curve>> ReverseOgee(ArchSpan span, Point3d apex, Action<IDisposable> retain) {
+        double length = span.Baseline.Length;
+        Line rise = new(span.Midpoint, apex);
+        double ratio = rise.Length / length;
+        double haunchRatio = (ratio / 4) + (1 / (16 * ratio));
+        double crownRatio = (3 * ratio / 4) - (1 / (16 * ratio));
+        Point3d haunch = span.Baseline.To + (rise.UnitTangent * (length * haunchRatio));
+        Point3d crown = span.Midpoint + (rise.UnitTangent * (length * crownRatio));
         Point3d diagonalMidpoint = new Line(span.Baseline.To, apex).PointAt(0.5);
+        Plane frame = new(span.Midpoint, span.Frame.XAxis, rise.Direction);
         return Symmetric(span, Seq(
-            new Arc(new Circle(new Plane(haunch, span.Frame.XAxis, -span.Frame.YAxis), haunch.DistanceTo(span.Baseline.To)), new Interval(double.Pi / 2, double.Pi - Vector3d.VectorAngle(-span.Frame.XAxis, diagonalMidpoint - haunch))),
-            new Arc(new Circle(span.Frame, crown, crown.DistanceTo(apex)), new Interval(Vector3d.VectorAngle(span.Frame.XAxis, diagonalMidpoint - crown), double.Pi / 2))), retain);
+            new Arc(new Circle(new Plane(haunch, frame.XAxis, -frame.YAxis), haunch.DistanceTo(span.Baseline.To)), new Interval(double.Pi / 2, double.Pi - Vector3d.VectorAngle(-frame.XAxis, diagonalMidpoint - haunch))),
+            new Arc(new Circle(frame, crown, crown.DistanceTo(apex)), new Interval(Vector3d.VectorAngle(frame.XAxis, diagonalMidpoint - crown), double.Pi / 2))), retain);
     }
 
     private static IO<Seq<Curve>> TentedOgee(ArchSpan span, Action<IDisposable> retain) {

@@ -73,6 +73,7 @@ internal static class ArchPrompts {
                 },
                 Configure = [getter => IO.lift(() => {
                     getter.SetBasePoint(rise.Span.Midpoint, showDistanceInStatusBar: true);
+                    getter.ConstrainDistanceFromBasePoint(0.0);
                     return Refused.Unless(getter.Constrain(new Line(rise.Span.Midpoint, rise.Span.Frame.YAxis)), nameof(GetPoint.Constrain));
                 })],
                 Handlers = Seq<PointHandler>(new PointHandler.DynamicDraw(args => ArchFeedback.Draw(args.Display, rise.Span, Raised(rise, args.CurrentPoint, at.Tolerances).ToOption().Map(static form => (ArchForm)form), at.Tolerances))),
@@ -81,10 +82,9 @@ internal static class ArchPrompts {
                 Accept = at.Accept with {
                     Nothing = (Some(((int)count.Form.Count).ToString(RowText.Culture)), Finish(at.Doc, count.Span, count.Form, at.Tolerances)),
                     Number = new NumberEntry<StageStep<ArchStage, Seq<Guid>>>.Plain(Zero: false, number => Count(number).Match(
-                        Succ: value => Finish(at.Doc, count.Span, count.Form with { Count = value }, at.Tolerances),
+                        Succ: value => Advance(count with { Form = count.Form with { Count = value } }),
                         Fail: Retry)),
                 },
-                Configure = [getter => IO.lift(() => getter.SetBasePoint(count.Span.Baseline.From, showDistanceInStatusBar: true))],
                 Handlers = Seq<PointHandler>(new PointHandler.DynamicDraw(args => ArchFeedback.Draw(args.Display, count.Span, count.Form, at.Tolerances))),
             }, _ => Finish(at.Doc, count.Span, count.Form, at.Tolerances)));
 
