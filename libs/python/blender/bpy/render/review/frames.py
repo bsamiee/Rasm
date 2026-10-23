@@ -369,8 +369,13 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True):
 
     @property
     def state(self) -> Attachment[Gated[Compare]]:
-        """Screen compare record for preferences page."""
+        """Screen compare record."""
         return Attachment(key=self.key, form=Gated[Compare], owner=bpy.types.Screen)
+
+    @property
+    def prerequisites(self) -> tuple[Registrable, ...]:
+        """Compare record split handle and overlay bind."""
+        return (self.state,)
 
     @property
     def header(self) -> tuple[Row]:
@@ -445,7 +450,7 @@ class CompareView(msgspec.Struct, frozen=True, kw_only=True):
             command = Operator(
                 key=f"{self.key}_split",
                 title="Compare Split",
-                description="Drags compare split, Shift for tenth speed, Escape restores",
+                description="Drag compare split, Shift for tenth speed, Escape restores",
                 form=Empty,
                 run=lambda _call: Ok(Done()),
                 invoke=Some(Modal(gesture=Gesture.DRAG, begin=begin, preview=preview, restore=lambda _context, state: write(state[0], state[1].split))),
@@ -570,7 +575,7 @@ class FrameRegion(msgspec.Struct, frozen=True, kw_only=True):
             command = Operator(
                 key=f"{self.key}_{order}",
                 title=self.title,
-                description="Drags region handle, Shift for tenth speed, Escape restores",
+                description="Drag region handle, Shift for tenth speed, Escape restores",
                 form=Empty,
                 run=lambda _call: Ok(Done()),
                 invoke=Some(Modal(gesture=Gesture.DRAG, begin=begin, preview=preview, restore=lambda _context, state: state[0].write(state[0].quad))),
@@ -646,7 +651,7 @@ class FrameCharts(msgspec.Struct, frozen=True, kw_only=True):
     over: ClassVar[Color] = (1.0, 0.0, 0.0, 1.0)
     switches: ClassVar[Attachment[Charted]] = Attachment(key=key, form=Charted, owner=bpy.types.Screen)
     ends: ClassVar[Attachment[ClipEnds]] = Attachment(key=f"{key}_clips", form=ClipEnds, owner=bpy.types.Screen)
-    page_rows: ClassVar[tuple[Registrable, ...]] = (switches, ends)
+    prerequisites: ClassVar[tuple[Registrable, ...]] = (switches, ends)
     low: Glyph
     high: Glyph
 
@@ -820,7 +825,7 @@ def picking[P: Picked](key: Key, title: str, description: str, cursor: "rna_enum
         form=form,
         run=ran,
         invoke=Some(Pick(cursor=cursor)),
-        seed=Some(lambda record, event: msgspec.structs.replace(record, x=event.mouse_region_x, y=event.mouse_region_y)),
+        seed=Some(lambda record, event, _identity: msgspec.structs.replace(record, x=event.mouse_region_x, y=event.mouse_region_y)),
     )
 
 

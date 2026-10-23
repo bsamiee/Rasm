@@ -258,7 +258,7 @@ def inspection(row: Callable[[], Placeable], key: Key, title: str, description: 
             .map(lambda _: Done())
         )
 
-    return Operator(key=key, title=title, description=description, form=Named, internal=True, run=run)
+    return Operator(key=key, title=title, description=description, icon=Some("HIDE_OFF"), form=Named, internal=True, run=run)
 
 
 def shown(identity: Identity, entry: bpy.types.SceneCompositorEffect, target: End, *, pending: bool = False) -> BlenderResult[None]:

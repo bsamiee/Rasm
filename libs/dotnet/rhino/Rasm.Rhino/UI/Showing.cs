@@ -284,7 +284,7 @@ public static class Showing {
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 public sealed class PanelCommand(IPlugInSink sink, Guid id, View.Panel panel) : HostCommand(sink, id, RhinoGet.StringToCommandOptionName(panel.Caption), None) {
-    protected override string CommandContextHelpUrl => panel.HelpReference;
+    protected override Option<HelpTopic> Help => panel.Help;
 
     protected override IO<Unit> Run(RhinoDoc doc, RunMode mode, CallbackSite site) => Showing.Toggle(panel, doc);
 }

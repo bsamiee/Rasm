@@ -1,7 +1,7 @@
 """Gizmo groups of themed stock gizmos bound to operators and values."""
 
 from collections.abc import Callable, Generator, Iterable
-from contextlib import contextmanager
+from contextlib import contextmanager, ExitStack
 from functools import partial
 from typing import ClassVar, Literal, TYPE_CHECKING
 
@@ -14,11 +14,11 @@ import msgspec
 from blender.bpy.data.rna.conditions import Condition, holds
 from blender.bpy.data.rna.descriptors import rooted
 from blender.bpy.extension.identity import Identity, Key, Name
-from blender.bpy.extension.registration import Acquisition, Band
+from blender.bpy.extension.registration import Acquisition, Band, entered
 from blender.bpy.faults import BlenderEditFault, BlenderResult
 from blender.bpy.ui.layout.rows import located, Member, ResolvedMember
 from blender.bpy.ui.resources.icons import Glyph, Icons
-from blender.bpy.ui.resources.theme import color, State, widget
+from blender.bpy.ui.resources.theme import color
 from blender.imaging.faults import accumulated, paired
 
 if TYPE_CHECKING:
@@ -175,7 +175,7 @@ class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
     # --- [REGISTRATION]
 
     def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
-        """Builds gizmo group class once every binding resolves."""
+        """Binds part targets, registering group class in the interface band once button glyphs resolve."""
 
         def target[V](key: str, handler: Handler[V]) -> Target:
             """Binds handler as target callbacks."""
@@ -202,8 +202,8 @@ class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
                 return part, lambda gizmo, _context: writer(gizmo.target_set_operator(name, index=0))
 
             match part:
-                case Button() | Primitive():
-                    return part.press.invocation(identity).map(operator)
+                case Button(press=press) | Primitive(press=press):
+                    return press.invocation(identity).map(operator)
                 case Arrow(bind=binding) | Dial(bind=binding):
                     return (
                         binding.reach.map(lambda _: Ok((part, (part.target, binding)))).default_with(lambda: binding.resolved(bpy.types.FloatProperty).map(lambda held: (part, (part.target, held))))
@@ -215,9 +215,8 @@ class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
                 case Move():
                     return Ok((part, target(part.target, part.bind))) if isinstance(part.bind, Handler) else part.bind.invocation(identity).map(operator)
 
-        def built(acquisition: tuple[str, tuple[tuple[GizmoPart, Binding], ...]]) -> tuple[tuple[Band, Acquisition], ...]:
-            """Builds gizmo group class over resolved parts."""
-            name, parts = acquisition
+        def built(name: str, parts: tuple[tuple[GizmoPart, Binding], ...], icons: tuple[Option[int], ...]) -> type[bpy.types.GizmoGroup]:
+            """Builds gizmo group class over resolved parts and button icons."""
 
             def reached(member: Member | ResolvedMember[bpy.types.FloatProperty], context: bpy.types.Context) -> BlenderResult[Option[ResolvedMember[bpy.types.FloatProperty]]]:
                 """Resolves member on its source's current struct."""
@@ -254,15 +253,17 @@ class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
             def setup(group: bpy.types.GizmoGroup, context: bpy.types.Context) -> None:
                 """Creates gizmos with theme colors, then binds targets."""
                 ui = context.preferences.themes[0].user_interface  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
-                for part, _ in parts:
+                for index, (part, _) in enumerate(parts):
                     gizmo = group.gizmos.new(part.kind)
-                    resting, highlighted = (widget(ui.wcol_tool).inner, widget(ui.wcol_tool, State.HOVER).inner) if isinstance(part, Button) else (color(part.role(ui)), color(ui.gizmo_hi))
+                    for value in icons[index].to_list():
+                        gizmo.icon_value = value  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                    resting, highlighted = (color(ui.wcol_tool.inner), color(ui.wcol_tool.inner_sel)) if isinstance(part, Button) else (color(part.role(ui)), color(ui.gizmo_hi))
                     gizmo.color, gizmo.alpha = resting[:3], resting[3]
                     gizmo.color_highlight, gizmo.alpha_highlight = highlighted[:3], highlighted[3]
                     gizmo.use_draw_modal = gizmo.use_draw_value = True
                     gizmo.use_undo = not (isinstance(part, (Button, Primitive)) or (isinstance(part, Move) and not isinstance(part.bind, Handler)))
-                    for name, supplied in ((name, supplied) for name, value in msgspec.structs.asdict(part).items() if isinstance(value, Option) for supplied in value.to_list()):
-                        setattr(gizmo, name, set(supplied) if isinstance(supplied, frozenset) else supplied)
+                    for member, supplied in ((member, supplied) for member, value in msgspec.structs.asdict(part).items() if isinstance(value, Option) for supplied in value.to_list()):
+                        setattr(gizmo, member, set(supplied) if isinstance(supplied, frozenset) else supplied)
                 return accumulated(attach(group.gizmos[index], binding, context) for index, (_, binding) in enumerate(parts)).map(lambda _: None).default_with(identity.reports.hold)
 
             def refresh(group: bpy.types.GizmoGroup, context: bpy.types.Context) -> None:
@@ -274,14 +275,12 @@ class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
                 )
 
             def draw_prepare(group: bpy.types.GizmoGroup, context: bpy.types.Context) -> None:
-                """Places parts, hiding unplaced ones, and reads button icons."""
+                """Places parts, hiding unplaced ones."""
                 for index, (part, _) in enumerate(parts):
                     gizmo, placed = group.gizmos[index], identity.reports.reported(part.place)(context).bind(lambda found: found)
                     gizmo.hide = placed.is_none()
                     for matrix in placed.to_list():
                         gizmo.matrix_basis = matrix
-                    if isinstance(part, Button):
-                        gizmo.icon_value = Icons.value(identity, part.glyph)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
 
             flags = {*self.options, *(("PERSISTENT",) if self.persistent else ())}
             if (self.space == "VIEW_3D" and any(not isinstance(part, Button) for part, _ in parts)) or any(isinstance(part, (Primitive, Dial)) for part, _ in parts):
@@ -299,9 +298,17 @@ class Gizmos(msgspec.Struct, frozen=True, kw_only=True):
             }
             for owner in self.owner.to_list():
                 native["bl_owner_id"] = owner
-            return ((Band.INTERFACE, type(name, (bpy.types.GizmoGroup,), native)),)
+            return type(name, (bpy.types.GizmoGroup,), native)
 
-        return paired(self.named(identity), accumulated(acquired(part) for part in self.parts)).map(built)
+        @contextmanager
+        def registered(name: str, parts: tuple[tuple[GizmoPart, Binding], ...]) -> Generator[BlenderResult[None]]:
+            """Registers group class for the scope once every button glyph resolves."""
+            with ExitStack() as stack:
+                yield accumulated(Icons.value(identity, part.glyph).map(Some) if isinstance(part, Button) else Ok(Nothing) for part, _ in parts).bind(
+                    lambda icons: entered(stack, (built(name, parts, icons),))
+                )
+
+        return paired(self.named(identity), accumulated(acquired(part) for part in self.parts)).map(lambda held: ((Band.INTERFACE, registered(*held)),))
 
 
 class Linked(Gizmos, frozen=True, kw_only=True):

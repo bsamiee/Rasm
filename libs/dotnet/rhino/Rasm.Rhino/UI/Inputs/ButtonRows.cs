@@ -1,52 +1,10 @@
 using Eto.Drawing;
 using Eto.Forms;
 using Rasm.Rhino.Events;
-using Rasm.Rhino.UI.Drawing;
 using Rasm.Rhino.UI.Styling;
 using Rhino.UI.Controls;
 
 namespace Rasm.Rhino.UI.Inputs;
-
-// --- [SERVICES] ------------------------------------------------------------------------
-public sealed class DrawnButton : ComponentControl<Option<Func<PlotCanvas, RectangleF, IO<Unit>>>, Unit, Unit> {
-    private static readonly MarkStyle Hovered = new MarkStyle.Fill(PaintSlot.ControlText, 0.12f);
-    private static readonly MarkStyle Pressing = new MarkStyle.Fill(PaintSlot.ControlText, 0.25f);
-
-    public DrawnButton(IPlugInSink sink, Command command) : base(sink, None, None) => (ToolTip, Enabled) = (command.ToolTip, command.Enabled);
-
-    public IO<Unit> Show(Func<PlotCanvas, RectangleF, IO<Unit>> face) => Advance(_ => new(Some(face), None));
-
-    public static Func<PlotCanvas, RectangleF, IO<Unit>> Glyph(Image image) =>
-        (canvas, bounds) =>
-            from drawn in IO.lift(() => canvas.Graphics.DrawImage(image, bounds.Center.X - (image.Width / 2f), bounds.Center.Y - (image.Height / 2f)))
-            from veil in Plots.Veiled(canvas, new MarkShape.Band(bounds))
-            select veil;
-
-    protected override Seq<PlotMark<Unit>> Layout(Option<Func<PlotCanvas, RectangleF, IO<Unit>>> state, SizeF size, float scale) =>
-        [new PlotMark<Unit>(new MarkShape.Band(new RectangleF(size)), None, Some(new MarkPart<Unit>(unit, 0f)))];
-
-    protected override PartFacet Facet(Option<Func<PlotCanvas, RectangleF, IO<Unit>>> state, Unit key) => new(PartRole.Button, Cursors.Default, ToolTip ?? "", None, None);
-
-    protected override Option<Func<PlotCanvas, RectangleF, IO<Unit>>> Received(Option<Func<PlotCanvas, RectangleF, IO<Unit>>> state, Option<Unit> value) => state;
-
-    protected override Option<Transition<Option<Func<PlotCanvas, RectangleF, IO<Unit>>>, Unit>> Pressed(Option<Func<PlotCanvas, RectangleF, IO<Unit>>> state, SizeF size, float scale, Option<Unit> part, MouseEventArgs e) =>
-        part.Filter(_ => e.Buttons is MouseButtons.Primary).Map(_ => new Transition<Option<Func<PlotCanvas, RectangleF, IO<Unit>>>, Unit>(state, None));
-
-    protected override Transition<Option<Func<PlotCanvas, RectangleF, IO<Unit>>>, Unit> Released(Option<Func<PlotCanvas, RectangleF, IO<Unit>>> state, SizeF size, float scale, Option<Unit> part, MouseEventArgs e) =>
-        new(state, Some<Edit<Unit>>(new Edit<Unit>.Commit(unit)).Filter(_ => part.IsSome && new RectangleF(size).Contains(e.Location)));
-
-    protected override Option<Transition<Option<Func<PlotCanvas, RectangleF, IO<Unit>>>, Unit>> Activated(Option<Func<PlotCanvas, RectangleF, IO<Unit>>> state, SizeF size, float scale, Unit part) =>
-        new Transition<Option<Func<PlotCanvas, RectangleF, IO<Unit>>>, Unit>(state, new Edit<Unit>.Commit(unit));
-
-    protected override Option<Transition<Option<Func<PlotCanvas, RectangleF, IO<Unit>>>, Unit>> KeyPressed(Option<Func<PlotCanvas, RectangleF, IO<Unit>>> state, SizeF size, float scale, Option<Unit> part, KeyEventArgs e) =>
-        Some(new Transition<Option<Func<PlotCanvas, RectangleF, IO<Unit>>>, Unit>(state, new Edit<Unit>.Commit(unit))).Filter(_ => e.Key is Keys.Space or Keys.Enter);
-
-    protected override IO<Unit> Draw(PlotCanvas canvas, RectangleF bounds, Option<Func<PlotCanvas, RectangleF, IO<Unit>>> state, Seq<PlotMark<Unit>> marks, Interaction<Unit> interaction) =>
-        from lit in Plots.Paint(canvas, (interaction.Pressed.IsSome ? Some(Pressing) : interaction.Hovered.IsSome ? Some(Hovered) : None)
-            .Filter(_ => canvas.Enabled).Map(style => new PlotMark<Unit>(new MarkShape.Band(bounds), style, None)).ToSeq())
-        from drawn in state.Match(Some: face => face(canvas, bounds), None: static () => IO.pure(unit))
-        select unit;
-}
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ButtonRows {
@@ -58,7 +16,7 @@ public static class ButtonRows {
         from bound in DisposalOps.Change(() => button.Command, value => button.Command = value, command, owned)
         select button, retain);
 
-    public static IO<Button> Pick(Command command, (IGlyph Glyph, int Master) glyph, IPlugInSink sink, Action<IDisposable> retain) =>
+    public static IO<Button> Pick(Command command, IGlyph glyph, IPlugInSink sink, Action<IDisposable> retain) =>
         DisposalOps.Acquire(owned =>
         from button in Push(command, owned)
         from sized in IO.lift(() => { (button.Text, button.MinimumSize) = ("", Size.Empty); })
@@ -66,26 +24,16 @@ public static class ButtonRows {
         select button, retain);
 
     // --- [GLYPHS]
-    public static IO<DrawnButton> Image(Command command, (IGlyph Glyph, int Master) glyph, IconSlot slot, IPlugInSink sink, Action<IDisposable> retain) =>
+    public static IO<ImageButton> Image(Command command, IGlyph glyph, IconSlot slot, IPlugInSink sink, Action<IDisposable> retain) =>
         DisposalOps.Acquire(owned =>
-        from button in Pressed(command, sink, owned)
-        from cell in slot.Cell()
-        from sized in IO.lift(() => { button.Size = new Size(cell, cell); })
-        from themed in Icons.Themed(sink, glyph, slot, HostTheme.In(button), icon => button.Show(DrawnButton.Glyph(icon)).Run(), owned)
-        select button, retain);
-
-    public static IO<DrawnButton> Pressed(Command command, IPlugInSink sink, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(owned =>
-        from button in DisposalOps.Acquire(IO.lift(() => new DrawnButton(sink, command)), owned)
-        let site = new CallbackSite(sink, typeof(DrawnButton), nameof(DrawnButton.Edited))
-        from enabled in Subscriptions.Attach(h => command.EnabledChanged += h, h => command.EnabledChanged -= h,
-            Callbacks.Handler<EventArgs>(_ => IO.lift(() => { button.Enabled = command.Enabled; }), site with { Member = nameof(Command.EnabledChanged) }), owned)
-        from pressed in Subscriptions.Attach(h => button.Edited += h, h => button.Edited -= h,
-            Callbacks.Handler<EditEventArgs<Unit>>(_ => IO.lift(command.Execute), site), owned)
+        from button in DisposalOps.Acquire(IO.lift(static () => new ImageButton { MaskImageWithBackgroundColorWhenDisabled = true }), owned)
+        from faced in IO.lift(() => { button.ToolTip = command.ToolTip; })
+        from bound in DisposalOps.Change(() => button.Command, value => button.Command = value, command, owned)
+        from themed in Icons.Themed(sink, glyph, slot, HostTheme.In(button), icon => button.Image = icon, owned)
         select button, retain);
 
     public static IO<SegmentedButton> Split(
-        CheckCommand toggle, Seq<(RadioCommand Command, (IGlyph Glyph, int Master) Glyph)> modes, IconSlot slot, IPlugInSink sink, Action<IDisposable> retain) =>
+        CheckCommand toggle, Seq<(RadioCommand Command, IGlyph Glyph)> modes, IconSlot slot, IPlugInSink sink, Action<IDisposable> retain) =>
         DisposalOps.Acquire(owned =>
         from menu in ChoiceRows.Menu([modes.Map(static mode => (MenuEntry)new MenuEntry.Item(mode.Command))], [], None, sink, owned)
         from button in DisposalOps.Acquire(IO.lift(static () => new SegmentedButton()), owned)
@@ -117,7 +65,7 @@ public static class ButtonRows {
         from removed in DisposalOps.Change(() => pair.RemoveCommand, value => pair.RemoveCommand = value, remove, owned)
         select pair, retain);
 
-    public static IO<SegmentedButton> Modes(Seq<(RadioCommand Command, Option<(IGlyph Glyph, int Master)> Glyph)> modes, IconSlot slot, IPlugInSink sink, Action<IDisposable> retain) =>
+    public static IO<SegmentedButton> Modes(Seq<(RadioCommand Command, Option<IGlyph> Glyph)> modes, IconSlot slot, IPlugInSink sink, Action<IDisposable> retain) =>
         DisposalOps.Acquire(owned =>
         from strip in DisposalOps.Acquire(IO.lift(static () => new SegmentedButton()), owned)
         from selected in IO.lift(() => strip.SelectionMode = SegmentedSelectionMode.Single)
@@ -132,7 +80,7 @@ public static class ButtonRows {
         select strip, retain);
 
     private static IO<SegmentedItem> Segment(
-        (RadioCommand Command, Option<(IGlyph Glyph, int Master)> Glyph) mode, SegmentedButton strip, IconSlot slot, IPlugInSink sink, Action<IDisposable> owned) =>
+        (RadioCommand Command, Option<IGlyph> Glyph) mode, SegmentedButton strip, IconSlot slot, IPlugInSink sink, Action<IDisposable> owned) =>
         from segment in DisposalOps.Acquire(IO.lift(static () => new ButtonSegmentedItem()), Released,
             held => owned(new Disposal<SegmentedItem>(held, static item => Released(item).Run())))
         from faced in IO.lift(() => { (segment.Text, segment.ToolTip) = (mode.Glyph.Map(static _ => "").IfNone(mode.Command.ToolBarText), mode.Command.ToolTip); })
@@ -151,7 +99,7 @@ public static class ButtonRows {
         select unit;
 
     // --- [MENUS]
-    public static IO<SegmentedButton> Menu(ContextMenu menu, (IGlyph Glyph, int Master) glyph, IconSlot slot, string toolTip, IPlugInSink sink, Action<IDisposable> retain) =>
+    public static IO<SegmentedButton> Menu(ContextMenu menu, IGlyph glyph, IconSlot slot, string toolTip, IPlugInSink sink, Action<IDisposable> retain) =>
         DisposalOps.Acquire(owned =>
         from button in DisposalOps.Acquire(IO.lift(static () => new SegmentedButton()), owned)
         from segment in DisposalOps.Acquire(IO.lift(static () => new MenuSegmentedItem()), Released,

@@ -13,7 +13,7 @@ namespace Rasm.Rhino.Render.UI;
 [SmartEnum]
 public sealed partial class TraceChannel {
     public static readonly TraceChannel Luma = new(
-        new MarkColor.Series(PaintSlot.ControlText, DashStyles.DashDot), CurveChannel.Master, Option<Lens<Vector3, float>>.None, static traces => traces.Luma);
+        new MarkColor.Series(PaintSlot.Text, DashStyles.DashDot), CurveChannel.Master, Option<Lens<Vector3, float>>.None, static traces => traces.Luma);
     public static readonly TraceChannel Red = new(
         new MarkColor.Series(Color.FromArgb(0xFF, 0x00, 0x00), DashStyles.Solid), CurveChannel.Red,
         Some(Lens<Vector3, float>.New(static rgb => rgb.X, static x => rgb => rgb with { X = x })), static traces => traces.Red);

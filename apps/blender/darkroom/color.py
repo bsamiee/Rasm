@@ -6,11 +6,9 @@ import bpy
 from expression import Some
 import msgspec
 
-from blender.bpy.commands.operators import Acquired
 from blender.bpy.render.color.exposure import AutoExposure
 from blender.bpy.render.color.luts import LutExport
 from blender.bpy.render.color.spaces import change, ConfigInstall, FilmView
-from blender.bpy.render.effects.sections import COMPOSITING
 from blender.bpy.render.effects.tone.curves import Response
 from blender.bpy.render.effects.tone.exposure import exposure
 from blender.bpy.render.effects.viewers import ViewerRead
@@ -23,7 +21,7 @@ from blender.bpy.ui.layout.rows import Member, OperatorButton
 from blender.bpy.ui.layout.sections import Hosted, Single, Store
 from blender.bpy.ui.screens.areas import AreaQuery
 from blender.bpy.ui.surfaces.appends import Append
-from blender.bpy.ui.surfaces.panels import Child, Mirror, Panel, Sidebar
+from blender.bpy.ui.surfaces.panels import Child, Panel
 from blender.imaging.chain import Stage
 from blender.imaging.color.authoring import ConfigBuild
 from blender.imaging.color.processors import DisplayView
@@ -31,7 +29,6 @@ from blender.imaging.effects.tone.film import Film
 from blender.imaging.parameters import Gated, Rgb
 
 from .effects import stack
-from .preferences import category
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
@@ -76,11 +73,12 @@ install = ConfigInstall(
 )
 auto_exposure = AutoExposure(stack=stack, gain=exposure, reading=ViewerRead)
 sampling = PreviewScene(stack=stack)
+luts = LutExport(stack=stack, sampling=sampling, install=install)
 response = Response(stack=stack, sampling=sampling, selection=(Stage.TONE, DisplayView), allocation="blender:agxlog_rec2020_scene", caption="Tone Response")
 rows = (
     change,
     install,
-    LutExport(stack=stack, sampling=sampling, install=install),
+    luts,
     auto_exposure,
     response,
     Overlay(
@@ -89,28 +87,21 @@ rows = (
         scissor_enabled=False,
         respect_overlays=False,
     ),
-    Append(
-        target=TOPBAR_MT_file_export,  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-        rows=tuple(OperatorButton(target=Acquired(key=key)) for key in (LutExport.formation_bake, LutExport.strip_bake, LutExport.tone_view)),
-    ),
-)
-panels = (
+    Append(target=TOPBAR_MT_file_export, rows=tuple(OperatorButton(target=command) for command in (luts.forming, luts.stripping, luts.toning))),
     Panel(
-        section=Single(key="formation", title="Image Formation", rows=(OperatorButton(target=change), OperatorButton(target=Acquired(key=ConfigInstall.key)))),
-        at=Child(parent=RENDER_PT_color_management),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-        mirrors=(Mirror(at=Sidebar(space="VIEW_3D", category=category)), Mirror(at=Sidebar(space="NODE_EDITOR", category=category), condition=Some(COMPOSITING))),
+        section=Single(key="formation", title="Image Formation", rows=(OperatorButton(target=change), OperatorButton(target=install.installing))),
+        at=Child(parent=RENDER_PT_color_management),
         children=(
             Single(
                 key=AutoExposure.key,
                 title="Auto Exposure",
-                rows=(OperatorButton(target=meter_pick), OperatorButton(target=Acquired(key=AutoExposure.key))),
+                rows=(OperatorButton(target=meter_pick), OperatorButton(target=auto_exposure.metering)),
                 store=Some(Hosted(host=Member(root=bpy.types.Context, path="scene"), store=Store(attachment=AutoExposure.attachment))),
             ),
         ),
     ),
 )
-page_rows = auto_exposure.page_rows
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["page_rows", "panels", "rows"]
+__all__ = ["rows"]

@@ -4,6 +4,12 @@
         <Description>Draws historical arch profiles as joined curves from picked span ends, apex or rise, and foil count, with live preview</Description>
     </PropertyGroup>
 
+    <ItemGroup Label="Plug-In Identity">
+        <AssemblyAttribute Include="System.Runtime.InteropServices.GuidAttribute">
+            <_Parameter1>07134403-e825-43e4-b711-8fa2f330760a</_Parameter1>
+        </AssemblyAttribute>
+    </ItemGroup>
+
     <ItemGroup Label="Workspace Packages">
         <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino/Rasm.Rhino.csproj" />
     </ItemGroup>

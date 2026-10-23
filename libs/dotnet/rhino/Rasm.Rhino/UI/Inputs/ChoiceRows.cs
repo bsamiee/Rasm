@@ -9,7 +9,7 @@ using Riok.Mapperly.Abstractions;
 namespace Rasm.Rhino.UI.Inputs;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record ChoiceItem<TModel>(TModel Value, string Caption, Option<(IGlyph Glyph, int Master)> Glyph) where TModel : notnull;
+public sealed record ChoiceItem<TModel>(TModel Value, string Caption, Option<IGlyph> Glyph) where TModel : notnull;
 
 [Union]
 public abstract partial record MenuPick {
@@ -38,7 +38,7 @@ internal static partial class MenuPickMapper {
 
 public static class ChoiceRows {
     // --- [ITEMS]
-    public static Seq<ChoiceItem<TValue>> Items<TValue>(Option<Func<TValue, (IGlyph Glyph, int Master)>> glyph, IPlugInSink plugIn)
+    public static Seq<ChoiceItem<TValue>> Items<TValue>(Option<Func<TValue, IGlyph>> glyph, IPlugInSink plugIn)
         where TValue : ISmartEnum<string, TValue, ValidationError>, ICaptioned =>
         toSeq(TValue.Items).Map(item => new ChoiceItem<TValue>(item, Wording.English.Shown(item.Caption, plugIn), glyph.Map(read => read(item)))).Strict();
 
@@ -75,7 +75,7 @@ public static class ChoiceRows {
                 edit.Shown, Some<RowEdit>(edit), Some(Labelled([], [], scope.Sink))), rules);
 
     public static ControlRow Flags<TRecord>(
-        RowSource<TRecord> source, string caption, string help, IterableNE<(RowField<TRecord> Field, Lens<TRecord, bool> Lens, (IGlyph Glyph, int Master) Glyph)> members, RowRules rules)
+        RowSource<TRecord> source, string caption, string help, IterableNE<(RowField<TRecord> Field, Lens<TRecord, bool> Lens, IGlyph Glyph)> members, RowRules rules)
         where TRecord : notnull =>
         ControlRow.Of(source, members.Map(static member => member.Field), caption, help, RowShape.Inline, (scope, retain) =>
             from site in IO.pure(new CallbackSite(scope.Sink, typeof(SegmentedButton), nameof(SegmentedButton.SelectedItemsChanged)))

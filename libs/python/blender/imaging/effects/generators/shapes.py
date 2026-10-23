@@ -159,7 +159,7 @@ class Figure(Case, frozen=True, kw_only=True, tag=2):
     primitive: Annotated[Primitive, msgspec.Meta(description="Figure drawn about position")] = Ellipse()
     position: Annotated[Position, msgspec.Meta(description="Center in frame fractions")] = (0.5, 0.5)
     rotation: Annotated[Finite, msgspec.Meta(description="Counterclockwise turn about position"), Presentation(quantity=Some(Quantity.ANGLE))] = 0.0
-    short_side: Annotated[bool, msgspec.Meta(title="Fit Short Side", description="Measures lengths against shorter frame side")] = False
+    short_side: Annotated[bool, msgspec.Meta(title="Fit Short Side", description="Measure lengths against shorter frame side")] = False
 
 
 class Frame(Case, frozen=True, kw_only=True, tag=1):
@@ -309,7 +309,7 @@ class Shapes(Effect, frozen=True, kw_only=True, tag=34):
         size=0.4, stretch=1.0, fractal=Fractal.RIDGED_MULTIFRACTAL, octaves=Octaves(detail=15.0, roughness=0.9), distortion=1.9, gain=74.5, cut=Cut(interpolation=Interpolation.LINEAR)
     )
     seed: Annotated[Seed, msgspec.Meta(description="Number selecting edge noise pattern")] = 0
-    invert: Annotated[bool, msgspec.Meta(description="Fills outside field")] = False
+    invert: Annotated[bool, msgspec.Meta(description="Fill outside field")] = False
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

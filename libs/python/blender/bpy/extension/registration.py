@@ -8,7 +8,7 @@ from itertools import chain
 from typing import NoReturn, Protocol, runtime_checkable
 
 import bpy
-from expression import Error, Ok, Option, Result
+from expression import Ok, Option, Result
 
 from blender.bpy.extension.classes import Classes
 from blender.bpy.extension.identity import Identity
@@ -55,6 +55,31 @@ class Registrable(Protocol):
         """
 
 
+@runtime_checkable
+class Dependent(Protocol):
+    """Row whose build reads declarations the scope acquires before every row."""
+
+    @property
+    def prerequisites(self) -> tuple[Registrable, ...]:
+        """Declarations acquired before dependent rows build."""
+
+
+@runtime_checkable
+class Gathering(Protocol):
+    """Row building its acquisitions over every declaration the scope built before it."""
+
+    def gathered(self, identity: Identity, declared: "tuple[Registrable | Gathering, ...]", /) -> BlenderResult[Acquisitions]:
+        """Builds acquisitions over declarations of every other row.
+
+        Args:
+            identity: Extension with names, folder, and reports row reads.
+            declared: Declarations in build order.
+
+        Returns:
+            Build result.
+        """
+
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
@@ -69,12 +94,15 @@ def entered(band_stack: ExitStack, acquisitions: tuple[Acquisition, ...]) -> Ble
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-def scope(package: str, rows: tuple[Registrable, ...]) -> tuple[Callable[[], None], Callable[[], None]]:
+def scope(package: str, rows: tuple[Registrable | Gathering, ...]) -> tuple[Callable[[], None], Callable[[], None]]:
     """Builds register and unregister callbacks.
+
+    Prerequisites of every row precede the rows, a nested row's prerequisites precede it, and gathering rows build last.
+    Equal declarations build once.
 
     Args:
         package: Extension package with manifest `Identity.read` reads.
-        rows: Rows in prerequisite order, rebuilt on each registration.
+        rows: Rows in build order, rebuilt on each registration.
 
     Returns:
         Callbacks, register raising RuntimeError of rendered faults after unwinding.
@@ -92,7 +120,7 @@ def scope(package: str, rows: tuple[Registrable, ...]) -> tuple[Callable[[], Non
         stack.enter_context(identity.reports)
         stacks = {band: stack.enter_context(ExitStack()) for band in Band}
         schema = (Band.GROUPS, Band.ATTACHMENTS)
-        declarations: list[Registrable] = []
+        declarations: list[Registrable | Gathering] = []
         acquired_pairs: list[tuple[Band, Acquisition]] = []
 
         def walked(bands: Iterable[Band], pairs: tuple[tuple[Band, Acquisition], ...]) -> BlenderResult[None]:
@@ -104,26 +132,27 @@ def scope(package: str, rows: tuple[Registrable, ...]) -> tuple[Callable[[], Non
                 acquired_pairs.extend(fresh)
             return Ok(None)
 
-        def built(pairs: tuple[tuple[Band, Acquisition], ...], row: Registrable | tuple[Band, Acquisition]) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
-            """Builds each declaration once, entering new schema acquisitions."""
-            if not isinstance(row, Registrable):
+        def built(pairs: tuple[tuple[Band, Acquisition], ...], row: Registrable | Gathering | tuple[Band, Acquisition]) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
+            """Builds each declaration once after its prerequisites, entering new schema acquisitions."""
+            if not isinstance(row, Registrable | Gathering):
                 return Ok(pairs if row in pairs else (*pairs, row))
-            if any(row is declaration for declaration in declarations):
+            if row in declarations:
                 return Ok(pairs)
-            match walked(schema, pairs):
-                case Result(tag="error", error=faults):
-                    return Error(faults)
-                case Result(ok=_):
-                    declarations.append(row)
-                    answer = row.acquisitions(identity)
-                    acquired = stack.enter_context(answer) if isinstance(answer, AbstractContextManager) else answer
-                    return acquired.bind(lambda members: folded(pairs, members)).bind(lambda held: walked(schema, held).map(lambda _: held))
 
-        def folded(pairs: tuple[tuple[Band, Acquisition], ...], rows: Iterable[Registrable | tuple[Band, Acquisition]]) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
+            def answered(held: tuple[tuple[Band, Acquisition], ...]) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
+                answer = row.gathered(identity, tuple(declarations)) if isinstance(row, Gathering) else row.acquisitions(identity)
+                declarations.append(row)
+                acquired = stack.enter_context(answer) if isinstance(answer, AbstractContextManager) else answer
+                return acquired.bind(lambda members: folded(held, members)).bind(lambda members: walked(schema, members).map(lambda _: members))
+
+            return folded(pairs, row.prerequisites if isinstance(row, Dependent) else ()).bind(lambda held: walked(schema, held).map(lambda _: held)).bind(answered)
+
+        def folded(pairs: tuple[tuple[Band, Acquisition], ...], rows: Iterable[Registrable | Gathering | tuple[Band, Acquisition]]) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
             """Builds rows in order from acquired pairs."""
             return reduce(lambda result, row: result.bind(lambda held: built(held, row)), rows, Result[tuple[tuple[Band, Acquisition], ...], BlenderFaults](ok=pairs))
 
-        return folded((), rows).bind(lambda pairs: walked((band for band in Band if band not in schema), pairs))
+        ordered = (*(needed for row in rows if isinstance(row, Dependent) for needed in row.prerequisites), *sorted(rows, key=lambda row: isinstance(row, Gathering)))
+        return folded((), ordered).bind(lambda pairs: walked((band for band in Band if band not in schema), pairs))
 
     def refused(faults: BlenderFaults) -> NoReturn:
         """Raises rendered faults as RuntimeError."""
@@ -139,4 +168,4 @@ def scope(package: str, rows: tuple[Registrable, ...]) -> tuple[Callable[[], Non
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Acquisition", "Acquisitions", "Band", "Registrable", "entered", "scope"]
+__all__ = ["Acquisition", "Acquisitions", "Band", "Dependent", "Gathering", "Registrable", "entered", "scope"]

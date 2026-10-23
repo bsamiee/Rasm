@@ -24,9 +24,9 @@ from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.commands.calls import called
-from blender.bpy.commands.operators import Acquired, Call, Done, Empty, Operator, Properties
+from blender.bpy.commands.operators import Call, Done, Empty, Operator, Properties
 from blender.bpy.data.ids.store import resolved
-from blender.bpy.data.rna.conditions import AllOf, check, Condition, Setting
+from blender.bpy.data.rna.conditions import Condition, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, rooted, struct_at
 from blender.bpy.extension.events.timers import Timer
 from blender.bpy.extension.identity import Identity, Key, Name
@@ -185,7 +185,6 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
     identity: Identity
     host: Host
     members: Members
-    condition: AllOf
     framed: Framed
     routing: PassRouting
     pathed: Pathed
@@ -254,7 +253,7 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
 
         def gated(plan: Plan, queueing: Queueing) -> BlenderResult[None]:
             online = Dispatcher.connected() if isinstance(queueing.target, Flamenco) else Ok(None)
-            return paired(checked(self.pathed, plan.scopes, day), paired(check(self.condition, context), online)).map(lambda _: None)
+            return paired(checked(self.pathed, plan.scopes, day), online).map(lambda _: None)
 
         def paused(manager: bpy.types.WindowManager) -> BlenderResult[None]:
             def applied(support: Descriptor[bpy.types.BoolProperty], state: EditorState) -> BlenderResult[None]:
@@ -607,37 +606,186 @@ class Dispatcher(msgspec.Struct, frozen=True, kw_only=True):
 
         return paired(self.kept(), self.settings(call.identity)).bind(lambda pair: halted(pair[0][0], pair[0][2], pair[1]))
 
+    def logged(self, call: Call[Empty]) -> BlenderResult[Done]:
+        """Opens log of last sent queue, else of last plan."""
 
-class QueueRun(msgspec.Struct, frozen=True, kw_only=True):
+        def opened_log(plan: Path) -> BlenderResult[Done]:
+            log = (
+                self.state.observed
+                .bind(lambda held: held.sent)
+                .filter(lambda record: isinstance(record.target, LocalMachine))
+                .map(lambda record: self.host.path(record.queue, RunFile.LOG))
+                .default_with(lambda: PlanFile.LOG.beside(plan))
+            )
+            return called(bpy.ops.wm.path_open, {"filepath": str(log)}).map(lambda _: Done())
+
+        return (
+            rooted(bpy.types.WindowManager, call.context)
+            .bind(self.queued.read)
+            .bind(lambda queued: Option.of_optional(queued.plan).to_result_with(lambda: (BlenderAbsentFault(owner=QueueRun.record.key, key="plan"),)))
+            .bind(lambda plan: opened_log(Path(plan)))
+        )
+
+    def unscheduled(self, call: Call[Empty]) -> BlenderResult[Done]:
+        """Cancels shutdown scheduled after local queue."""
+
+        def cancelling(progress: Progress, power: PowerHold) -> BlenderResult[Done]:
+            return (
+                cancelled(progress).map_error(BlenderRenderingFault.lifted).map(lambda _: Done(notes=(("INFO", "Shutdown canceled"),)))
+                if power.shutdown
+                else Error((BlenderAbsentFault(owner=repr(power), key="shutdown"),))
+            )
+
+        return paired(self.kept(), self.settings(call.identity)).bind(lambda pair: cancelling(pair[0][2], pair[1].power))
+
+    def packaged(self, call: Call[Empty]) -> BlenderResult[Done]:
+        """Writes packed file copy under render output folder."""
+        moment = datetime.datetime.now(datetime.UTC).astimezone()
+
+        def done(pack: Path, missing: tuple[BlenderAbsentFault, ...]) -> Done:
+            skipped = accumulated(Error((found,)) for found in missing).swap().to_option()
+            return Done(notes=(("INFO", str(pack)),), skipped=skipped)
+
+        return (
+            call
+            .root(bpy.types.Scene)
+            .bind(lambda scene: self.pathed.path(scene, moment.date()))
+            .bind(lambda path: packed(path.base / "packs" / f"{Path(bpy.data.filepath).stem}_{moment:%Y%m%d-%H%M%S}", compress=Some(True)))
+            .bind(
+                lambda pack: resolved(item.owner for item in pack.missing).map(
+                    lambda owners: done(pack.blend, tuple(BlenderAbsentFault(owner=repr(owner), key=str(item.path)) for item, owner in zip(pack.missing, owners)))
+                )
+            )
+        )
+
+    def managed(self, call: Call[Empty]) -> BlenderResult[Done]:
+        """Reads Manager storage, worker tags, and job types into session state."""
+
+        def flamenco(queueing: Queueing) -> BlenderResult[Flamenco]:
+            match queueing.target:
+                case Flamenco() as target:
+                    return Ok(target)
+                case other:
+                    return Error((BlenderChoiceFault(path=repr(queueing), identifier=other.title, accepted=(Flamenco.title,)),))
+
+        def held(manager: Manager) -> Done:
+            self.state.manager = Some(manager)
+            return Done(notes=(("INFO", f"{len(manager.tags)} worker tags, job type {'installed' if manager.job_type.is_some() else 'missing'}"),))
+
+        return (
+            self
+            .settings(call.identity)
+            .bind(flamenco)
+            .bind(lambda target: Dispatcher.connected().bind(lambda _: exchange.opened(target.server, queried).map_error(BlenderRenderingFault.lifted)))
+            .map(held)
+        )
+
+    def installed(self, call: Call[Empty]) -> BlenderResult[Done]:
+        """Copies job type script into Manager scripts folder."""
+
+        def copied(folder: str) -> BlenderResult[Done]:
+            def written() -> Path:
+                with importlib.resources.as_file(importlib.resources.files(Flamenco.__module__).joinpath(Flamenco.script)) as script:
+                    return Path(shutil.copy(script, Path(folder) / Flamenco.script))
+
+            return catch(written, exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=folder, error=error),)).map(lambda path: Done(notes=(("INFO", str(path)),)))
+
+        return self.settings(call.identity).bind(
+            lambda queueing: copied(queueing.scripts.value) if queueing.scripts.enabled else Error((BlenderAbsentFault(owner=repr(call.context.preferences), key="scripts"),))
+        )
+
+    def tested(self, call: Call[Empty]) -> BlenderResult[Done]:
+        """Posts test notice to listener topic."""
+        return self.settings(call.identity).bind(lambda queueing: posted(queueing.listener, Test())).map(lambda _: Done(notes=(("INFO", "Notice posted"),)))
+
+
+class QueueRun:
     """Render queue commands, operators, status timer, section, and progress row."""
 
-    dispatch: ClassVar[Key] = "dispatch"
-    resume: ClassVar[Key] = "resume"
-    stop: ClassVar[Key] = "stop"
-    log: ClassVar[Key] = "log"
-    shutdown_cancel: ClassVar[Key] = "shutdown_cancel"
-    pack: ClassVar[Key] = "pack"
-    flamenco_read: ClassVar[Key] = "flamenco_read"
-    flamenco_install: ClassVar[Key] = "flamenco_install"
-    notice_test: ClassVar[Key] = "notice_test"
     prepare: ClassVar[Key] = "prepare"
     supervise: ClassVar[Key] = "supervise"
     render: ClassVar[Key] = "render"
     record: ClassVar[TextRecord[Queued]] = TextRecord(key="queue", form=Queued)
     denoise: ClassVar[Attachment[Denoising]] = Attachment(key="queue_denoise", form=Denoising, owner=bpy.types.Scene)
     inputs: ClassVar[Attachment[Rendered]] = Attachment(key="queue_inputs", form=Rendered, owner=bpy.types.Scene)
-    page_rows: ClassVar[tuple[Registrable, ...]] = (record, denoise, inputs)
     pinned: ClassVar[Pinned] = Pinned(ownership=Rendered.ownership, edge=Edge.HEAD, enables=frozenset({Enabled.RENDER}))
     key: ClassVar[Key] = "queue"
     title: ClassVar[str] = "Render Queue"
+    description: ClassVar[str] = ""
     popovers: ClassVar[tuple[Single[Empty], ...]] = ()
     condition: ClassVar[Option[Condition]] = Nothing
     sets: RenderSet
     stack: EffectStack
     settings: Callable[[Identity], BlenderResult[Queueing]]
-    state: QueueState = msgspec.field(default_factory=QueueState)
+    state: QueueState
+    dispatching: Operator[Dispatch]
+    resuming: Operator[Empty]
+    stopping: Operator[Empty]
+    logging: Operator[Empty]
+    unscheduling: Operator[Empty]
+    packing: Operator[Empty]
+    managing: Operator[Empty]
+    installing: Operator[Empty]
+    testing: Operator[Empty]
+
+    # --- [OPERATORS]
+
+    def __init__(self, *, sets: RenderSet, stack: EffectStack, settings: Callable[[Identity], BlenderResult[Queueing]]) -> None:
+        """Declares queue operators, each binding its dispatcher on call."""
+        self.sets, self.stack, self.settings, self.state = sets, stack, settings, QueueState()
+
+        def run[T: msgspec.Struct](step: Callable[[Dispatcher, Call[T]], BlenderResult[Done]]) -> Callable[[Call[T]], BlenderResult[Done]]:
+            return lambda call: self.bound(call.identity).bind(lambda dispatcher: step(dispatcher, call))
+
+        def drawn(layout: bpy.types.UILayout, context: bpy.types.Context, properties: bpy.types.OperatorProperties, identity: Identity) -> None:
+            lines = (
+                paired(self.bound(identity), self.dispatching.bound(identity).bind(lambda pair: pair[1].read(properties)))
+                .bind(lambda pair: paired(pair[0].planned(context, pair[1], datetime.datetime.now(datetime.UTC)), pair[0].settings(identity)))
+                .map(lambda pair: (pair[1].target.title, f"{len(pair[0].scopes)} jobs, {sum(len(ranged(bpy.data.scenes[scope.scene]).numbers) for scope in pair[0].scopes)} frames"))
+                .default_with(lambda faults: tuple(text for _, text in rendered(faults)))
+            )
+            for line in lines:
+                layout.label(text=line)
+            for field in Dispatch.__struct_fields__:
+                layout.prop(properties, field)
+
+        self.dispatching = Operator[Dispatch](
+            key="dispatch",
+            title="Render Queue",
+            description="Plan jobs, write job files in background process, and send queue to target",
+            icon=Some("RENDER_ANIMATION"),
+            condition=Some(Preflight.condition),
+            form=Dispatch,
+            run=run(Dispatcher.dispatched),
+            undo=False,
+            invoke=Some(Properties()),
+            draw=Some(drawn),
+        )
+        self.resuming = Operator(
+            key="resume", title="Resume Queue", description="Render remaining frames of stopped, failed, or canceled queue", icon=Some("PLAY"), undo=False, form=Empty, run=run(Dispatcher.resumed)
+        )
+        self.stopping = Operator(key="stop", title="Stop Queue", description="Stop queue and its renders", icon=Some("CANCEL"), undo=False, form=Empty, run=run(Dispatcher.stopped))
+        self.logging = Operator(key="log", title="Open Queue Log", description="Open last dispatch log", icon=Some("TEXT"), undo=False, form=Empty, run=run(Dispatcher.logged))
+        self.unscheduling = Operator(
+            key="shutdown_cancel", title="Cancel Shutdown", description="Cancel scheduled shutdown", icon=Some("QUIT"), undo=False, form=Empty, run=run(Dispatcher.unscheduled)
+        )
+        self.packing = Operator(
+            key="pack", title="Pack Project", description="Write packed file copy under render output folder", icon=Some("PACKAGE"), undo=False, form=Empty, run=run(Dispatcher.packaged)
+        )
+        self.managing = Operator(
+            key="flamenco_read", title="Read Manager", description="Read Manager storage, worker tags, and job types", icon=Some("FILE_REFRESH"), undo=False, form=Empty, run=run(Dispatcher.managed)
+        )
+        self.installing = Operator(
+            key="flamenco_install", title="Install Job Type", description="Copy job type script into Manager scripts folder", icon=Some("IMPORT"), undo=False, form=Empty, run=run(Dispatcher.installed)
+        )
+        self.testing = Operator(key="notice_test", title="Test Notice", description="Post test notice to listener topic", icon=Some("INFO"), undo=False, form=Empty, run=run(Dispatcher.tested))
 
     # --- [BINDING]
+
+    @property
+    def prerequisites(self) -> tuple[Registrable, ...]:
+        """Queue, denoise, and input stores with render set, frame size, routing, and path bindings read."""
+        return (self.record, self.denoise, self.inputs, *self.sets.prerequisites, FrameSize.attachment, PassSet.attachment, ScenePaths.attachment)
 
     @property
     def bindings(self) -> Option[Mapping[MemberDescriptorType, Choices]]:
@@ -647,15 +795,12 @@ class QueueRun(msgspec.Struct, frozen=True, kw_only=True):
     def bound(self, identity: Identity) -> BlenderResult[Dispatcher]:
         """Binds dispatcher to identity stores, row sets, stack, and session state."""
 
-        def built(
-            parts: tuple[tuple[tuple[Host, Members], tuple[AllOf, Framed]], tuple[tuple[PassRouting, Pathed], tuple[Attached[Queued], tuple[Attached[Denoising], Attached[Rendered]]]]],
-        ) -> Dispatcher:
-            ((host, members), (condition, framed)), ((routing, pathed), (queued, (denoise, inputs))) = parts
+        def built(parts: tuple[tuple[tuple[Host, Members], Framed], tuple[tuple[PassRouting, Pathed], tuple[Attached[Queued], tuple[Attached[Denoising], Attached[Rendered]]]]]) -> Dispatcher:
+            ((host, members), framed), ((routing, pathed), (queued, (denoise, inputs))) = parts
             return Dispatcher(
                 identity=identity,
                 host=host,
                 members=members,
-                condition=condition,
                 framed=framed,
                 routing=routing,
                 pathed=pathed,
@@ -671,7 +816,7 @@ class QueueRun(msgspec.Struct, frozen=True, kw_only=True):
             lambda names: Host(binary=bpy.app.binary_path, supervise_command=names[0], render_command=names[1], folder=str(identity.folder))
         )
         return paired(
-            paired(paired(host, self.sets.bound(identity)), paired(Preflight().condition, FrameSize().bound(identity))),
+            paired(paired(host, self.sets.bound(identity)), FrameSize().bound(identity)),
             paired(
                 paired(PassSet().bound(identity), ScenePaths().bound(identity)),
                 paired(QueueRun.record.attachment.bound(identity), paired(QueueRun.denoise.bound(identity), QueueRun.inputs.bound(identity))),
@@ -689,142 +834,6 @@ class QueueRun(msgspec.Struct, frozen=True, kw_only=True):
             CliCommand(key=QueueRun.render, decoder=msgspec.json.Decoder[Run | RenderFrames](Run | RenderFrames), run=dispatcher.commanded),
         )
 
-    @staticmethod
-    def operators(dispatcher: Dispatcher) -> tuple[Operator[Dispatch] | Operator[Empty], ...]:
-        """Returns queue operators."""
-        identity = dispatcher.identity
-
-        def drawn(layout: bpy.types.UILayout, context: bpy.types.Context, properties: bpy.types.OperatorProperties) -> None:
-            lines = (
-                dispatching
-                .bound(identity)
-                .bind(lambda pair: pair[1].read(properties))
-                .bind(lambda record: paired(dispatcher.planned(context, record, datetime.datetime.now(datetime.UTC)), dispatcher.settings(identity)))
-                .map(lambda pair: (pair[1].target.title, f"{len(pair[0].scopes)} jobs, {sum(len(ranged(bpy.data.scenes[scope.scene]).numbers) for scope in pair[0].scopes)} frames"))
-                .default_with(lambda faults: tuple(text for _, text in rendered(faults)))
-            )
-            for line in lines:
-                layout.label(text=line)
-            for field in Dispatch.__struct_fields__:
-                layout.prop(properties, field)
-
-        def logged(call: Call[Empty]) -> BlenderResult[Done]:
-            def opened_log(plan: Path) -> BlenderResult[Done]:
-                log = (
-                    dispatcher.state.observed
-                    .bind(lambda held: held.sent)
-                    .filter(lambda record: isinstance(record.target, LocalMachine))
-                    .map(lambda record: dispatcher.host.path(record.queue, RunFile.LOG))
-                    .default_with(lambda: PlanFile.LOG.beside(plan))
-                )
-                return called(bpy.ops.wm.path_open, {"filepath": str(log)}).map(lambda _: Done())
-
-            manager = rooted(bpy.types.WindowManager, call.context)
-            return (
-                manager
-                .bind(dispatcher.queued.read)
-                .bind(lambda queued: Option.of_optional(queued.plan).to_result_with(lambda: (BlenderAbsentFault(owner=QueueRun.record.key, key="plan"),)))
-                .bind(lambda plan: opened_log(Path(plan)))
-            )
-
-        def shutdown_cancelled(call: Call[Empty]) -> BlenderResult[Done]:
-            def cancelling(progress: Progress, power: PowerHold) -> BlenderResult[Done]:
-                return (
-                    cancelled(progress).map_error(BlenderRenderingFault.lifted).map(lambda _: Done(notes=(("INFO", "Shutdown canceled"),)))
-                    if power.shutdown
-                    else Error((BlenderAbsentFault(owner=repr(power), key="shutdown"),))
-                )
-
-            return paired(dispatcher.kept(), dispatcher.settings(call.identity)).bind(lambda pair: cancelling(pair[0][2], pair[1].power))
-
-        def packing(call: Call[Empty]) -> BlenderResult[Done]:
-            moment = datetime.datetime.now(datetime.UTC).astimezone()
-
-            def done(pack: Path, missing: tuple[BlenderAbsentFault, ...]) -> Done:
-                skipped = accumulated(Error((found,)) for found in missing).swap().to_option()
-                return Done(notes=(("INFO", str(pack)),), skipped=skipped)
-
-            return (
-                call
-                .root(bpy.types.Scene)
-                .bind(lambda scene: dispatcher.pathed.path(scene, moment.date()))
-                .bind(lambda path: packed(path.base / "packs" / f"{Path(bpy.data.filepath).stem}_{moment:%Y%m%d-%H%M%S}", compress=Some(True)))
-                .bind(
-                    lambda pack: resolved(item.owner for item in pack.missing).map(
-                        lambda owners: done(pack.blend, tuple(BlenderAbsentFault(owner=repr(owner), key=str(item.path)) for item, owner in zip(pack.missing, owners)))
-                    )
-                )
-            )
-
-        def flamenco(queueing: Queueing) -> BlenderResult[Flamenco]:
-            match queueing.target:
-                case Flamenco() as target:
-                    return Ok(target)
-                case other:
-                    return Error((BlenderChoiceFault(path=repr(queueing), identifier=other.title, accepted=(Flamenco.title,)),))
-
-        def read(call: Call[Empty]) -> BlenderResult[Done]:
-            def held(manager: Manager) -> Done:
-                dispatcher.state.manager = Some(manager)
-                return Done(notes=(("INFO", f"{len(manager.tags)} worker tags, job type {'installed' if manager.job_type.is_some() else 'missing'}"),))
-
-            return (
-                dispatcher
-                .settings(call.identity)
-                .bind(flamenco)
-                .bind(lambda target: Dispatcher.connected().bind(lambda _: exchange.opened(target.server, queried).map_error(BlenderRenderingFault.lifted)))
-                .map(held)
-            )
-
-        def installed(call: Call[Empty]) -> BlenderResult[Done]:
-            def copied(folder: str) -> BlenderResult[Done]:
-                def written() -> Path:
-                    with importlib.resources.as_file(importlib.resources.files(Flamenco.__module__).joinpath(Flamenco.script)) as script:
-                        return Path(shutil.copy(script, Path(folder) / Flamenco.script))
-
-                return catch(written, exception=OSError)().map_error(lambda error: (BlenderWriteFault(request=folder, error=error),)).map(lambda path: Done(notes=(("INFO", str(path)),)))
-
-            return dispatcher.settings(call.identity).bind(
-                lambda queueing: copied(queueing.scripts.value) if queueing.scripts.enabled else Error((BlenderAbsentFault(owner=repr(call.context.preferences), key="scripts"),))
-            )
-
-        def tested(call: Call[Empty]) -> BlenderResult[Done]:
-            return dispatcher.settings(call.identity).bind(lambda queueing: posted(queueing.listener, Test())).map(lambda _: Done(notes=(("INFO", "Notice posted"),)))
-
-        dispatching = Operator[Dispatch](
-            key=QueueRun.dispatch,
-            title="Render Queue",
-            description="Plan jobs, write job files in background process, and send queue to target",
-            icon=Some("RENDER_ANIMATION"),
-            condition=Some(dispatcher.condition),
-            form=Dispatch,
-            run=dispatcher.dispatched,
-            undo=False,
-            invoke=Some(Properties()),
-            draw=Some(drawn),
-        )
-        return (
-            dispatching,
-            Operator(
-                key=QueueRun.resume,
-                title="Resume Queue",
-                description="Render remaining frames of stopped, failed, or canceled queue",
-                icon=Some("PLAY"),
-                undo=False,
-                form=Empty,
-                run=dispatcher.resumed,
-            ),
-            Operator(key=QueueRun.stop, title="Stop Queue", description="Stop queue and its renders", icon=Some("CANCEL"), undo=False, form=Empty, run=dispatcher.stopped),
-            Operator(key=QueueRun.log, title="Open Queue Log", description="Open last dispatch log", icon=Some("TEXT"), undo=False, form=Empty, run=logged),
-            Operator(key=QueueRun.shutdown_cancel, title="Cancel Shutdown", description="Cancel scheduled shutdown", icon=Some("QUIT"), undo=False, form=Empty, run=shutdown_cancelled),
-            Operator(key=QueueRun.pack, title="Pack Project", description="Write packed file copy under render output folder", icon=Some("PACKAGE"), undo=False, form=Empty, run=packing),
-            Operator(key=QueueRun.flamenco_read, title="Read Manager", description="Read Manager storage, worker tags, and job types", icon=Some("FILE_REFRESH"), undo=False, form=Empty, run=read),
-            Operator(
-                key=QueueRun.flamenco_install, title="Install Job Type", description="Copy job type script into Manager scripts folder", icon=Some("IMPORT"), undo=False, form=Empty, run=installed
-            ),
-            Operator(key=QueueRun.notice_test, title="Test Notice", description="Post test notice to listener topic", icon=Some("INFO"), undo=False, form=Empty, run=tested),
-        )
-
     # --- [SECTION]
 
     def realized(self, identity: Identity) -> BlenderResult[Drawn]:
@@ -834,10 +843,10 @@ class QueueRun(msgspec.Struct, frozen=True, kw_only=True):
                 key=self.key,
                 title=self.title,
                 rows=(
-                    *(rows.OperatorButton(target=Acquired(key=key)) for key in (self.dispatch, self.flamenco_read, self.flamenco_install, self.notice_test)),
+                    *(rows.OperatorButton(target=command) for command in (self.dispatching, self.managing, self.installing, self.testing)),
                     rows.Progress(runs=dispatcher.runs),
                     Status(),
-                    *(rows.OperatorButton(target=Acquired(key=key)) for key in (self.resume, self.stop, self.log, self.shutdown_cancel, self.pack)),
+                    *(rows.OperatorButton(target=command) for command in (self.resuming, self.stopping, self.logging, self.unscheduling, self.packing)),
                 ),
             ).realized(identity)
         )
@@ -856,7 +865,19 @@ class QueueRun(msgspec.Struct, frozen=True, kw_only=True):
             def joined(dispatcher: Dispatcher) -> BlenderResult[Acquisitions]:
                 restore = scope.enter_context(identity.reports.deferred(dispatcher.restored))
                 scope.callback(identity.reports.reported(dispatcher.restored))
-                return Ok((self.record, self.denoise, self.inputs, *self.commands(dispatcher), *self.operators(dispatcher), Timer(body=lambda: dispatcher.ticked(restore))))
+                return Ok((
+                    *self.commands(dispatcher),
+                    self.dispatching,
+                    self.resuming,
+                    self.stopping,
+                    self.logging,
+                    self.unscheduling,
+                    self.packing,
+                    self.managing,
+                    self.installing,
+                    self.testing,
+                    Timer(body=lambda: dispatcher.ticked(restore)),
+                ))
 
             yield self.bound(identity).bind(joined)
 

@@ -14,7 +14,7 @@ from blender.bpy.faults import BlenderResult
 from blender.bpy.settings import shapes
 from blender.bpy.ui.layout.rows import Binding, bound, colored, fits, gridded, iconed, Line, located, realized, refused, Resolved, RowDraw
 from blender.bpy.ui.resources.icons import Glyph
-from blender.imaging.faults import accumulated
+from blender.imaging.faults import accumulated, paired
 from blender.imaging.parameters import Choice, heading, Rgb
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -77,7 +77,7 @@ class Ranged(Line, frozen=True, kw_only=True):
 
         def ranged(shape: shapes.Shape) -> BlenderResult[RowDraw]:
             match shape:
-                case shapes.Enumerated(enum=choices) if issubclass(choices, Choice):
+                case shapes.Enumerated(enum=choices):
                     offered = tuple(member.name for member in choices if member in self.wheels)
                     return accumulated(
                         realized(self.wheels[member], identity).map(lambda draw: (member, draw)) if member in self.wheels else Error(refused(self.chooser.name, member.name, offered))
@@ -142,13 +142,13 @@ class ShelfPopover(Line, frozen=True, kw_only=True):
     icon: Option[Glyph] = Nothing
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Resolves shelf idname, reading glyph each draw."""
+        """Resolves shelf idname and glyph once."""
 
-        def draw(idname: str) -> RowDraw:
-            return lambda layout, _holder, _context: layout.template_asset_shelf_popover(idname, name=self.name.default_value(""), icon_value=iconed(identity, self.icon))
+        def draw(parts: tuple[str, int]) -> RowDraw:
+            return lambda layout, _holder, _context: layout.template_asset_shelf_popover(parts[0], name=self.name.default_value(""), icon_value=parts[1])
 
         target = self.popup.shelf
-        return (identity.name(Name.SHELF, target) if isinstance(target, str) else Ok(target.bl_rna.identifier)).map(draw)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        return paired(identity.name(Name.SHELF, target) if isinstance(target, str) else Ok(target.bl_rna.identifier), iconed(identity, self.icon)).map(draw)
 
 
 class ImageFormat(Line, frozen=True, kw_only=True):

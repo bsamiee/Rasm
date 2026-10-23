@@ -65,7 +65,7 @@ class LocalMachine(Case, frozen=True, kw_only=True, tag=4):
 
     title = "This Machine"
     retries: Annotated[int, msgspec.Meta(ge=0, description="Restarts of crashed render from remaining frames"), Presentation(soft=Some((0.0, 20.0)))] = 3
-    sampled: Annotated[bool, msgspec.Meta(title="Sample First Frames", description="Renders first two frames of each ready job before others")] = True
+    sampled: Annotated[bool, msgspec.Meta(title="Sample First Frames", description="Render first two frames of each ready job before others")] = True
 
     def schedule(self, queue: RenderQueue) -> tuple[tuple[int, int], ...]:
         """Orders frames by prerequisites, sampled frames, job, then frame."""

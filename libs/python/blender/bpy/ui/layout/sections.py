@@ -116,6 +116,10 @@ class Section(Row, Registrable, Protocol):
         """Title section header draws."""
 
     @property
+    def description(self) -> str:
+        """Hover text of a popover button opening the section."""
+
+    @property
     def popovers(self) -> tuple["Single[operators.Empty]", ...]:
         """Values popovers of section store."""
 
@@ -192,12 +196,13 @@ class Actions(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Drawn(msgspec.Struct, frozen=True, kw_only=True):
-    """Section draws for panel header, body, and layout panel."""
+    """Section draws for panel header, body, and layout panel, and whether a context holds its holder."""
 
     head: Option[SurfaceDraw]
     tail: Option[SurfaceDraw]
     body: SurfaceDraw
     inline: RowDraw
+    present: Callable[[bpy.types.Context], bool] = lambda _context: True
 
 
 class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
@@ -226,15 +231,12 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
         def user(stored: T | Path, key: str) -> BlenderResult[Path]:
             return Ok(stored) if isinstance(stored, Path) else Error((BlenderAbsentFault(owner=str(self.preset.folder(identity)), key=key),))
 
-        def read(stored: T | Path) -> BlenderResult[T]:
-            return self.preset.read(stored) if isinstance(stored, Path) else Ok(stored)
-
         def available(name: PresetName) -> BlenderResult[PresetName]:
             normalized = AddPresetBase.as_filename(name).casefold()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
             return Error((BlenderCollisionFault(request=name, error=self.preset.folder(identity)),)) if any(key.casefold() == normalized for key in self.preset.listed(identity)) else Ok(name)
 
         def neighbor(call: operators.Call[operators.Empty], step: int) -> BlenderResult[operators.Outcome]:
-            if not (values := tuple(read(value) for value in self.preset.listed(identity).values())):
+            if not (values := tuple(map(self.preset.read, self.preset.listed(identity).values()))):
                 return Ok(operators.Unchanged(reason="No presets"))
             return (
                 paired(accumulated(values), self.matches(call.context, tuple(held for value in values for held in value.to_option().to_list())))
@@ -288,7 +290,7 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
             return (path,) if len(record.items) == 1 else tuple(path.parent / f"{item.stem}{path.suffix}" for item in record.items)
 
         return Actions(
-            apply=Verb.APPLY.row(stem, Named, lambda call: self.preset.found(identity, call.record.stem).bind(read).bind(lambda value: self.applied(call.context, value))),
+            apply=Verb.APPLY.row(stem, Named, lambda call: self.preset.found(identity, call.record.stem).bind(self.preset.read).bind(lambda value: self.applied(call.context, value))),
             save=Verb.SAVE.row(stem, Saved, saved, invoke=Some(operators.Properties())),
             delete=Verb.DELETE.row(
                 stem,
@@ -331,7 +333,7 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
                     ),
                     invoke=Some(operators.Properties()),
                 ),
-                draw=Some(lambda layout, _context, properties: layout.prop(properties, renamed)),
+                draw=Some(lambda layout, _context, properties, _identity: layout.prop(properties, renamed)),
             ),
             previous=Verb.PREVIOUS.row(stem, operators.Empty, lambda call: neighbor(call, -1)),
             following=Verb.NEXT.row(stem, operators.Empty, lambda call: neighbor(call, 1)),
@@ -357,7 +359,7 @@ class Listing[T: msgspec.Struct](Line, frozen=True, kw_only=True):
 
             def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
                 layout.emboss = "PULLDOWN_MENU"
-                catalog = tuple((stem, kept, self.preset.read(kept) if isinstance(kept, Path) else Ok(kept)) for stem, kept in self.preset.listed(identity).items())
+                catalog = tuple((stem, kept, self.preset.read(kept)) for stem, kept in self.preset.listed(identity).items())
                 valid = tuple((stem, held) for stem, _, value in catalog for held in value.to_option().to_list())
                 matched = self.matches(context, tuple(value for _, value in valid)).map(lambda marks: dict(zip((stem for stem, _ in valid), marks)))
                 alerted(layout, matched)
@@ -407,7 +409,12 @@ class Store[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
     @property
     def popover(self) -> "Single[operators.Empty]":
         """Values popover section that `surfaces.panels` registers."""
-        return Single(key=self.panel, title="Values", rows=(Values(store=self),))
+        return Single(
+            key=self.panel,
+            title="Values",
+            description="Apply presets, lock fields, copy values, and restore earlier values" if self.presets.is_some() else "Copy values and restore earlier values",
+            rows=(Values(store=self),),
+        )
 
     def bound(self, identity: Identity) -> BlenderResult[Slots[T]]:
         """Binds attachment to scope owners holding it, then builds store rows."""
@@ -600,11 +607,12 @@ class Assembly[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
             draw(layout, holder, context)
 
     def tail(self, layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", host: Option[Host], context: bpy.types.Context) -> None:
-        """Draws header rows, then store slots with host as context pointer."""
+        """Draws header rows, then flat store slots with host as context pointer."""
         line = layout.row(align=True)
         for draw in self.header:
             draw(line, holder, context)
         for slots, found in product(self.slots.to_list(), host.to_list()):
+            line.emboss = "NONE"
             line.context_pointer_set(slots.attached.name, found)
             for draw in slots.tail:
                 draw(line, holder, context)
@@ -651,15 +659,17 @@ class Assembly[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Single[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, kw_only=True):
-    """Rows under header over one holder."""
+    """Rows under header over one holder, the drawing holder while `holder` is unset."""
 
     key: Key
     title: str
+    description: str = ""
     rows: tuple[RowContent, ...] = ()
     header: tuple[RowContent, ...] = ()
     enable: Option[Member] = Nothing
     store: Option[Hosted[T]] = Nothing
     condition: Option[Condition] = Nothing
+    holder: Option[Member] = Nothing
 
     @property
     def popovers(self) -> tuple["Single[operators.Empty]", ...]:
@@ -676,31 +686,50 @@ class Single[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, k
             Ok(Nothing)
         )
 
-        def drawn(parts: tuple[Assembly[T], Option[Resolved]]) -> Drawn:
-            frame, host = parts
+        holding = self.holder.map(lambda member: member.resolved().map(Some)).default_value(Ok(Nothing))
+
+        def drawn(parts: tuple[tuple[Assembly[T], Option[Resolved]], Option[Resolved]]) -> Drawn:
+            (frame, host), reach = parts
+
+            def held(holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> "Option[bpy.types.bpy_struct[object]]":
+                return reach.map(lambda bound: located(bound, holder, context).bind(lambda pair: Option.of_optional(getattr(*pair)))).default_value(Some(holder))
 
             def found(holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> Option[Host]:
                 return host.bind(lambda bound: located(bound, holder, context)).bind(lambda pair: Option.of_optional(getattr(*pair)))
 
-            def body(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
-                layout.active = layout.active and all(holds(required, context, Some(holder)) for required in self.condition.to_list())
-                frame.body(layout, holder, found(holder, context), context, frame.name)
+            def head(layout: bpy.types.UILayout, context: bpy.types.Context) -> None:
+                for holder in held(context, context).to_list():
+                    frame.head(layout, holder, context)
 
-            def inline(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
-                active = all(holds(required, context, Some(holder)) for required in self.condition.to_list())
-                host = found(holder, context)
-                for shown in frame.framed(layout, frame.name, self.title, holder, host, context, Nothing, active=active).to_list():
-                    frame.body(shown, holder, host, context, frame.name)
+            def tail(layout: bpy.types.UILayout, context: bpy.types.Context) -> None:
+                for holder in held(context, context).to_list():
+                    frame.tail(layout, holder, found(holder, context), context)
+
+            def body(layout: bpy.types.UILayout, context: bpy.types.Context) -> None:
+                for holder in held(context, context).to_list():
+                    layout.active = layout.active and all(holds(required, context, Some(holder)) for required in self.condition.to_list())
+                    frame.body(layout, holder, found(holder, context), context, frame.name)
+
+            def inline(layout: bpy.types.UILayout, outer: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
+                for holder in held(outer, context).to_list():
+                    active = all(holds(required, context, Some(holder)) for required in self.condition.to_list())
+                    host = found(holder, context)
+                    for shown in frame.framed(layout, frame.name, self.title, holder, host, context, Nothing, active=active).to_list():
+                        frame.body(shown, holder, host, context, frame.name)
 
             return Drawn(
-                head=frame.gate.map(lambda _: lambda layout, context: frame.head(layout, context, context)),
-                tail=Some(lambda layout, context: frame.tail(layout, context, found(context, context), context)) if self.header or self.store.is_some() else Nothing,
-                body=lambda layout, context: body(layout, context, context),
+                head=frame.gate.map(lambda _: head),
+                tail=Some(tail) if self.header or self.store.is_some() else Nothing,
+                body=body,
                 inline=inline,
+                present=lambda context: held(context, context).is_some(),
             )
 
-        return hosting.bind(
-            lambda held: Assembly.of(identity, self.key, self.rows, self.header, self.enable, held.map(lambda hosted: hosted[1])).map(lambda frame: (frame, held.map(lambda hosted: hosted[0])))
+        return paired(
+            hosting.bind(
+                lambda held: Assembly.of(identity, self.key, self.rows, self.header, self.enable, held.map(lambda hosted: hosted[1])).map(lambda frame: (frame, held.map(lambda hosted: hosted[0])))
+            ),
+            holding,
         ).map(drawn)
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
@@ -714,6 +743,7 @@ class Each[T: msgspec.Struct = operators.Empty](msgspec.Struct, frozen=True, kw_
     key: Key
     title: str
     collection: Member
+    description: str = ""
     rows: tuple[RowContent, ...] = ()
     header: tuple[RowContent, ...] = ()
     enable: Option[Member] = Nothing

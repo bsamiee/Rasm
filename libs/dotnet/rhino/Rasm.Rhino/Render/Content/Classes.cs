@@ -34,7 +34,7 @@ public abstract class DefinedMaterial<TState> : RenderMaterial where TState : IS
 
     protected abstract string Help { get; }
 
-    protected abstract (IGlyph Glyph, int Master) Glyph { get; }
+    protected abstract IGlyph Glyph { get; }
 
     protected abstract Material Simulation(TState state);
 
@@ -69,7 +69,7 @@ public abstract class DefinedTexture<TState> : RenderTexture where TState : ISta
 
     protected abstract string Help { get; }
 
-    protected abstract (IGlyph Glyph, int Master) Glyph { get; }
+    protected abstract IGlyph Glyph { get; }
 
     protected abstract Color4f Sample(TState state, Point3d uvw, Vector3d duvwdx, Vector3d duvwdy);
 
@@ -108,7 +108,7 @@ public abstract class DefinedEnvironment<TState> : RenderEnvironment where TStat
 
     protected abstract string Help { get; }
 
-    protected abstract (IGlyph Glyph, int Master) Glyph { get; }
+    protected abstract IGlyph Glyph { get; }
 
     protected abstract IO<Unit> Simulation(TState state, SimulatedEnvironment simulation, bool isForDataOnly);
 
@@ -160,8 +160,8 @@ public static class ContentRecords {
             static () => [],
             site);
 
-    public static Bitmap? Icon((IGlyph Glyph, int Master) glyph, Size size, CallbackSite site) =>
-        Callbacks.Answer(Icons.Raster(glyph.Glyph, glyph.Master, size).Map(static Bitmap? (image) => image), static () => null, site);
+    public static Bitmap? Icon(IGlyph glyph, Size size, CallbackSite site) =>
+        Callbacks.Answer(Icons.Raster(glyph, size).Map(static Bitmap? (image) => image), static () => null, site);
 
     private static IO<Option<string>> Stored(RenderContent content, string name) =>
         ContentFields.Read(content.Fields, name, field => Conversions.Typed<string>(field.ValueAsObject(), name))

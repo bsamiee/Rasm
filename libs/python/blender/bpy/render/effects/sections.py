@@ -1,4 +1,4 @@
-"""Sidebar section for compositor effect entries."""
+"""Active compositor effect section beside the native scene effect stack."""
 
 from collections.abc import Callable, Mapping
 from typing import Annotated, get_origin
@@ -11,41 +11,37 @@ from msgspec import inspect
 import PyOpenColorIO
 
 from blender.bpy.commands.operators import Call, Done, InvokePopup, Operator, Outcome, Own, Unchanged
-from blender.bpy.data.rna.conditions import AllOf, check, Condition, Setting
+from blender.bpy.data.rna.conditions import AllOf, check, Setting
 from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.extension.identity import Identity, Key
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderImagingFault, BlenderResult
 from blender.bpy.nodes.changes import owned
-from blender.bpy.nodes.interface import addresses, Interface, InterfacePanel, item_key, slot, Socket
+from blender.bpy.nodes.interface import Interface, InterfacePanel, item_key, Socket
 from blender.bpy.render.color.luts import Enabled
 from blender.bpy.render.effects.stack import (
     active,
     composites,
     Configured,
     EffectStack,
-    entry_input,
     entry_interface,
     expanded,
     formation,
     graphed,
-    interface_input,
     KeyPath,
     Named,
     Placeable,
     reached,
     rows,
     Shell,
-    Shift,
     StackEntry,
-    Toward,
     viewed,
 )
 from blender.bpy.render.effects.viewers import EffectViewer, ViewTarget
 from blender.bpy.settings.attachments import Attached, Attachment
 from blender.bpy.settings.properties import Choices
-from blender.bpy.ui.layout.rows import acquired, alerted, joined, Line, Member, operated, OperatorButton, placed, Property, realized, Row, RowContent, RowDraw, split
-from blender.bpy.ui.layout.sections import Each, fields
+from blender.bpy.ui.layout.rows import acquired, alerted, joined, Line, Member, operated, OperatorButton, placed, realized, Row, RowContent, RowDraw, split
+from blender.bpy.ui.layout.sections import fields, Single
 from blender.imaging.chain import Domain, Effect, Stage
 from blender.imaging.color.authoring import dynamic_range_of, DynamicRange
 from blender.imaging.color.processors import DisplayView
@@ -69,7 +65,7 @@ class SpaceField(Named, frozen=True, kw_only=True):
 
 
 class EffectButtons(Line, frozen=True, kw_only=True):
-    """Entry header buttons."""
+    """Entry header actions the native effect header lacks."""
 
     stack: EffectStack
     locks: Option[Callable[[Option[tuple[Key | int, ...]]], RowContent]] = Nothing
@@ -77,33 +73,19 @@ class EffectButtons(Line, frozen=True, kw_only=True):
     def drawn(self, identity: Identity, /) -> BlenderResult[RowDraw]:
         """Returns header draw with command records from each entry."""
         operators = self.stack.operators
-        enables = tuple((enabled, field) for field in msgspec.structs.fields(Configured) for enabled in markers(field.type, Enabled))
 
         def shown(layout: bpy.types.UILayout, holder: object, context: bpy.types.Context) -> None:
             if isinstance(holder, bpy.types.SceneCompositorEffect) and isinstance(scene := holder.id_data, bpy.types.Scene):
                 row = next((held.row for held in self.stack.held(identity, scene) if held.entry == holder), Nothing)
                 actions = (
-                    *(
-                        Property(
-                            target=Member(root=bpy.types.SceneCompositorEffect, path=enabled.descriptor.prop.identifier),
-                            text=Some(""),
-                            icon=Some("RESTRICT_VIEW_OFF" if enabled is Enabled.PREVIEW else "RESTRICT_RENDER_OFF"),
-                            icon_only=True,
-                            action=self.locks.filter(lambda _: row.is_some()).map(lambda action: action(Some((field.name,)))),
-                        )
-                        for enabled, field in enables
-                    ),
                     *(locks(Nothing) for locks in self.locks.to_list() if row.is_some()),
-                    OperatorButton(target=Own(command=operators.moving, values=Shift(name=holder.name, toward=Toward.UP)), text=Some(""), icon=Some("TRIA_UP")),
-                    OperatorButton(target=Own(command=operators.moving, values=Shift(name=holder.name, toward=Toward.DOWN)), text=Some(""), icon=Some("TRIA_DOWN")),
-                    OperatorButton(target=Own(command=operators.resetting, values=Named(name=holder.name)), text=Some(""), icon=Some("LOOP_BACK")),
                     *(
                         OperatorButton(target=Own(command=command, values=command.form(name=holder.name)), text=Some(""))
                         for owned in row.to_list()
                         for command in owned.registrables
                         if isinstance(command, Operator) and issubclass(command.form, Named)
                     ),
-                    OperatorButton(target=Own(command=operators.removing, values=Named(name=holder.name)), text=Some(""), icon=Some("X")),
+                    OperatorButton(target=Own(command=operators.resetting, values=Named(name=holder.name)), text=Some(""), icon=Some("LOOP_BACK")),
                 )
                 alerted(layout, placed(actions, identity).map(lambda draws: joined(draws)(layout, holder, context)))
 
@@ -111,7 +93,7 @@ class EffectButtons(Line, frozen=True, kw_only=True):
 
 
 class EffectBody(Line, frozen=True, kw_only=True):
-    """Entry inputs, attachments, graph templates, and Viewer buttons."""
+    """Entry graph templates, attachments, notices, setup locks, and Viewer buttons the native effect body lacks."""
 
     viewer: EffectViewer
     colorspace: Operator[SpaceField]
@@ -122,10 +104,11 @@ class EffectBody(Line, frozen=True, kw_only=True):
         return Ok((self.viewer, self.colorspace, *acquired(tuple(locks(Nothing) for locks in self.locks.to_list()))))
 
     def drawn(self, identity: Identity, /) -> BlenderResult[RowDraw]:
-        """Returns entry body draw over group inputs and owned nodes."""
+        """Returns entry body draw over the record and owned nodes."""
         stack = self.viewer.stack
         record_key = next(field.name for field in msgspec.structs.fields(Configured) if get_origin(field.type) is Entry)
         entry_fields = msgspec.structs.fields(Entry)
+        enables = tuple((enabled, field) for field in msgspec.structs.fields(Configured) for enabled in markers(field.type, Enabled))
 
         def button[T: msgspec.Struct](layout: bpy.types.UILayout, command: Operator[T], record: T, text: str) -> None:
             context = layout.operator_context
@@ -138,77 +121,31 @@ class EffectBody(Line, frozen=True, kw_only=True):
         def locked(layout: bpy.types.UILayout, entry: bpy.types.SceneCompositorEffect, path: tuple[Key | int, ...], context: bpy.types.Context) -> BlenderResult[None]:
             return accumulated(realized(locks(Some(path)), identity).map(lambda draw: draw(layout, entry, context)) for locks in self.locks.to_list()).map(lambda _: None)
 
-        def toggled(header: bpy.types.UILayout, body: Option[bpy.types.UILayout], name: str, value: "bpy.types.bpy_struct[object]") -> None:
-            header.prop(value, "value", text=name)
-            for inner in body.to_list():
-                inner.active = value.value  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-
-        def inputs(
+        def listed(
             layout: bpy.types.UILayout, entry: bpy.types.SceneCompositorEffect, face: Interface, hidden: frozenset[Key], paths: Mapping[Key, tuple[Key | int, ...]], context: bpy.types.Context
         ) -> BlenderResult[None]:
-            def lock(line: bpy.types.UILayout, key: Key) -> tuple[BlenderResult[None], ...]:
-                return tuple(locked(line, entry, path, context) for path in Option.of_optional(paths.get(key)).to_list())
-
-            def panel(owner: bpy.types.UILayout, key: Key, section: InterfacePanel) -> tuple[Option[bpy.types.UILayout], tuple[BlenderResult[None], ...]]:
-                header, body = owner.panel(f"{entry.name}_{key}", default_closed=section.closed)
-                if section.toggle.is_none():
-                    header.label(text=section.name)
-                return Option.of_optional(body), (
-                    *(entry_input(identity, entry, key).map(lambda value: toggled(header, Option.of_optional(body), section.name, value)) for _ in section.toggle.to_list()),
-                    *lock(header, key),
-                )
-
-            def socket(owner: bpy.types.UILayout, key: Key, name: str) -> tuple[BlenderResult[None], ...]:
-                line = owner.row(align=True)
-                return (entry_input(identity, entry, key).map(lambda value: line.prop(value, "value", text=name)).map(lambda _: None), *lock(line, key))
-
-            bodies: dict[Option[Key], Option[bpy.types.UILayout]] = {Nothing: Some(layout)}
-            answers: list[BlenderResult[None]] = []
+            concealed = set(hidden)
+            lockable: list[tuple[str, tuple[Key | int, ...]]] = [(enabled.descriptor.prop.name, (field.name,)) for enabled, field in enables]
             for key, item, parent, _ in face.walked():
-                host = bodies[parent] if key not in hidden else Nothing
+                if key in concealed or parent.filter(concealed.__contains__).is_some():
+                    concealed.add(key)
+                    continue
                 match item:
-                    case InterfacePanel() as section:
-                        bodies[Some(key)], drawn = host.map(lambda owner: panel(owner, key, section)).default_value((Nothing, ()))
-                        answers.extend(drawn)
-                    case (Socket(name=name, members=members), "INPUT") if key != Shell.image and not any(
-                        descriptor.prop.identifier == "hide_in_modifier" and value for descriptor, value in members.items()
+                    case InterfacePanel(name=name) if key in paths:
+                        lockable.append((name, paths[key]))
+                    case (Socket(name=name, members=members), "INPUT") if (
+                        key in paths and key != Shell.image and not any(descriptor.prop.identifier == "hide_in_modifier" and value for descriptor, value in members.items())
                     ):
-                        answers.extend(answer for owner in host.to_list() for answer in socket(owner, key, name))
+                        lockable.append((name, paths[key]))
+            header, body = layout.panel(f"{entry.name}_locks", default_closed=True)
+            header.label(text="Setup Locks")
+            answers: list[BlenderResult[None]] = []
+            for inner in Option.of_optional(body).to_list():
+                for name, path in lockable:
+                    line = inner.row(align=True)
+                    line.label(text=name)
+                    answers.append(locked(line, entry, path, context))
             return accumulated(answers).map(lambda _: None)
-
-        def native(layout: bpy.types.UILayout, entry: bpy.types.SceneCompositorEffect, group: bpy.types.NodeTree, gates: dict[str, Condition], context: bpy.types.Context) -> None:
-            def panel(owner: bpy.types.UILayout, item: bpy.types.NodeTreeInterfacePanel) -> Option[bpy.types.UILayout]:
-                header, body = owner.panel(f"{entry.name}_{item.identifier}", default_closed=item.default_closed)
-                if (toggle := next((child for child in item.interface_items if isinstance(child, bpy.types.NodeTreeInterfaceSocket) and child.is_panel_toggle), None)) is None:
-                    header.label(text=item.name)
-                else:
-                    alerted(header, interface_input(entry, toggle.identifier).map(lambda value: toggled(header, Option.of_optional(body), item.name, value)))
-                return Option.of_optional(body)
-
-            def socket(owner: bpy.types.UILayout, item: bpy.types.NodeTreeInterfaceSocket) -> None:
-                row = owner.row()
-                if (condition := gates.get(item.identifier)) is not None:
-                    held = check(condition, context, Some(entry))
-                    row.active = held.is_ok()
-                    alerted(row, held)
-                alerted(
-                    row,
-                    interface_input(entry, item.identifier).map(
-                        lambda value: row.prop(value, "value", text=item.name, expand=isinstance(item, bpy.types.NodeTreeInterfaceSocketMenu) and item.menu_expanded)
-                    ),
-                )
-
-            face: bpy.types.NodeTreeInterface = group.interface  # type: ignore[assignment]  # ty: ignore[invalid-assignment]
-            bodies = {root.as_pointer(): Some(layout) for root in Option.of_optional(face.root_panel).to_list()}
-            first = next((item for item in face.items_tree if isinstance(item, bpy.types.NodeTreeInterfaceSocket) and item.in_out == "INPUT"), None)
-            for item in face.items_tree:
-                host = Option.of_optional(item.parent).bind(lambda parent: bodies[parent.as_pointer()])
-                match item:
-                    case bpy.types.NodeTreeInterfacePanel():
-                        bodies[item.as_pointer()] = host.bind(lambda owner: panel(owner, item))
-                    case bpy.types.NodeTreeInterfaceSocket(in_out="INPUT", hide_in_modifier=False, is_panel_toggle=False) if item != first:
-                        for owner in host.to_list():
-                            socket(owner, item)
 
         def offered_drawn(
             layout: bpy.types.UILayout, scene: bpy.types.Scene, entry: bpy.types.SceneCompositorEffect, group: bpy.types.NodeTree, row: Placeable, record: Entry[Effect], context: bpy.types.Context
@@ -276,11 +213,15 @@ class EffectBody(Line, frozen=True, kw_only=True):
                 return accumulated(drawn(attachment) for attachment in row.registrables if isinstance(attachment, Attachment) and attachment.owner is bpy.types.Scene).map(lambda _: None)
 
             return (
-                entry_interface(row.record, len(record.blend.masks))
-                .bind(lambda face: expanded(face, record.effect))
-                .bind(lambda face: inputs(layout, entry, face, hidden, paths, context))
+                graph_fields()
                 .bind(lambda _: attached())
-                .bind(lambda _: graph_fields())
+                .bind(
+                    lambda _: accumulated(
+                        entry_interface(row.record, len(record.blend.masks)).bind(lambda face: expanded(face, record.effect)).bind(lambda face: listed(layout, entry, face, hidden, paths, context))
+                        for _ in self.locks.to_list()
+                    )
+                )
+                .map(lambda _: None)
             )
 
         def notices(
@@ -311,8 +252,6 @@ class EffectBody(Line, frozen=True, kw_only=True):
 
         def shown(layout: bpy.types.UILayout, holder: object, context: bpy.types.Context) -> None:
             match holder:
-                case bpy.types.SceneCompositorEffect(node_group=None):
-                    layout.label(text="Needs node group", icon="STATUS_ERROR_FILLED")
                 case bpy.types.SceneCompositorEffect(id_data=bpy.types.Scene() as scene, node_group=bpy.types.NodeTree() as group) as entry:
                     row = next((held.row for held in stack.held(identity, scene) if held.entry == entry), Nothing)
                     for offered in row.to_list():
@@ -322,15 +261,15 @@ class EffectBody(Line, frozen=True, kw_only=True):
                                 lambda record: offered_drawn(layout, scene, entry, group, offered, record, context).bind(lambda _: notices(layout, scene, entry, offered, record, context))
                             ),
                         )
-                    if row.is_none():
-                        pinned = next((pinned for pinned in stack.pinned if pinned.ownership.marked(identity, group).is_some()), None)
-                        gates: BlenderResult[dict[Key, Condition]] = pinned.conditions.map(lambda conditions: conditions(identity, entry)).default_value(Ok({})) if pinned is not None else Ok({})
-                        alerted(
-                            layout,
-                            paired(slot(identity).map(lambda name: addresses(group, name)), gates).map(
-                                lambda parts: native(layout, entry, group, {parts[0][key]: condition for key, condition in parts[1].items()}, context)
-                            ),
-                        )
+                    alerted(
+                        layout,
+                        accumulated(
+                            gates.bind(lambda held: accumulated(check(condition, context, Some(entry)) for condition in held.values()))
+                            for pinned in stack.pinned
+                            if row.is_none() and pinned.ownership.marked(identity, group).is_some()
+                            for gates in pinned.conditions.map(lambda conditions: conditions(identity, entry)).to_list()
+                        ),
+                    )
                     buttons = layout.row(align=True)
                     button(buttons, self.viewer.viewing, ViewTarget(name=entry.name, node=EffectViewer.entering.node, socket=EffectViewer.entering.socket), "Input")
                     button(buttons, self.viewer.viewing, ViewTarget(name=entry.name, node=EffectViewer.leaving.node, socket=EffectViewer.leaving.socket), "Result")
@@ -344,8 +283,8 @@ class EffectBody(Line, frozen=True, kw_only=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def effect_section(viewer: EffectViewer, title: str = "Effects", *, thumbnail: Row | RowDraw, locks: Option[Callable[[Option[tuple[Key | int, ...]]], RowContent]] = Nothing) -> Each:
-    """Builds effects section with its colorspace command and viewer."""
+def effect_section(viewer: EffectViewer, *, thumbnail: Row | RowDraw, locks: Option[Callable[[Option[tuple[Key | int, ...]]], RowContent]] = Nothing) -> Single:
+    """Builds active effect section with its colorspace command and viewer."""
 
     def changed(call: Call[SpaceField]) -> BlenderResult[Outcome]:
         def wrote(scene: bpy.types.Scene, held: StackEntry) -> BlenderResult[Outcome]:
@@ -370,20 +309,13 @@ def effect_section(viewer: EffectViewer, title: str = "Effects", *, thumbnail: R
         primary=Some(next(field for field in msgspec.structs.fields(SpaceField) if spaces in markers(field.type, Choices))),
         undo=True,
     )
-    body = EffectBody(viewer=viewer, colorspace=colorspace, locks=locks)
-
-    def empty(layout: bpy.types.UILayout, _holder: object, _context: bpy.types.Context) -> None:
-        layout.menu("SCENE_MT_add_compositor_effect", text="Add Effect")
-
-    return Each(
-        key="effects",
-        title=title,
-        collection=Member(root=bpy.types.Scene, path="compositor_effects"),
-        open=Some("show_expanded"),
+    return Single(
+        key="active_effect",
+        title="Active Effect",
+        holder=Some(Member(root=bpy.types.Scene, path="compositor_effects.active")),
         condition=Some(composites),
-        rows=(thumbnail, body),
+        rows=(thumbnail, EffectBody(viewer=viewer, colorspace=colorspace, locks=locks)),
         header=(EffectButtons(stack=viewer.stack, locks=locks),),
-        empty=(empty,),
     )
 
 

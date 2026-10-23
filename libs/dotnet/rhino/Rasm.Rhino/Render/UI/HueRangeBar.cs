@@ -14,10 +14,10 @@ namespace Rasm.Rhino.Render.UI;
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class RangeHandle {
-    private static readonly MarkStyle TipStyle = new MarkStyle.Fill(PaintSlot.ControlText, 0.85f);
-    private static readonly MarkStyle EdgeStyle = new MarkStyle.Stroke(PaintSlot.ControlText, 0.85f, Plots.Inset / 2f);
+    private static readonly MarkStyle TipStyle = new MarkStyle.Fill(PaintSlot.Text, 0.85f);
+    private static readonly MarkStyle EdgeStyle = new MarkStyle.Stroke(PaintSlot.Text, 0.85f, Plots.Inset / 2f);
 
-    public static readonly RangeHandle Band = new(PartRole.Slider, CursorType.Move, "{0} range", 1, None, new MarkStyle.Fill(PaintSlot.ControlText, 0.22f), 0f,
+    public static readonly RangeHandle Band = new(PartRole.Slider, CursorType.Move, "{0} range", 1, None, new MarkStyle.Fill(PaintSlot.Text, 0.22f), 0f,
         static _ => 0f,
         static band => band.Center,
         static (band, key) => (key, band.Width, band.Softness),

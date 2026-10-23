@@ -29,7 +29,7 @@ from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events.handlers import PathHandler
 from blender.bpy.extension.events.subscriptions import Subscription
 from blender.bpy.extension.identity import Identity, Key, Name
-from blender.bpy.extension.registration import Acquisitions
+from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderImagingFault, BlenderResult
 from blender.bpy.nodes.changes import Changes, owned, reconciled
 from blender.bpy.nodes.coordinates import framed
@@ -61,6 +61,7 @@ from blender.bpy.render.effects.stack import (
 )
 from blender.bpy.render.effects.warp.transforms import placed, placement
 from blender.bpy.render.outputs.exports import image_type
+from blender.bpy.render.outputs.framing import FrameSize
 from blender.bpy.render.outputs.paths import OutputPath
 from blender.bpy.render.view_layers.passes import filed, Filing, PassRequest, PassRouting, PassSet, required, synced
 from blender.bpy.scene.lights.groups import used
@@ -220,7 +221,7 @@ class Dragged[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
     pitch: float
 
 
-class Planning(msgspec.Struct, frozen=True, kw_only=True):
+class Planning[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
     """Source outputs and dependencies of one graph build."""
 
     identity: Identity
@@ -228,7 +229,7 @@ class Planning(msgspec.Struct, frozen=True, kw_only=True):
     config: PyOpenColorIO.Config
     luminance: NodeGroup
     denoiser: NodeGroup
-    stack: EffectStack
+    stack: EffectStack[E]
     routed: PassRouting
     offered: dict[Key, dict[str, str]]
     path: OutputPath
@@ -240,7 +241,7 @@ class LayerStacking[E: Effect]:
 
     identity: Identity
     form: type[LayerStack[Source, E]]
-    stack: EffectStack
+    stack: EffectStack[E]
     attached: Attached[LayerStack[Source, E]]
     view: Attached[StackView]
     flags: RecombinationFlags
@@ -253,7 +254,7 @@ class LayerStacking[E: Effect]:
         *,
         identity: Identity,
         form: type[LayerStack[Source, E]],
-        stack: EffectStack,
+        stack: EffectStack[E],
         attached: Attached[LayerStack[Source, E]],
         view: Attached[StackView],
         flags: RecombinationFlags,
@@ -1259,7 +1260,7 @@ def inlined(prefix: Key, group: NodeGroup, outer: Callable[[Key], End]) -> Blend
     )
 
 
-def unit[E: Effect](layer: Layer[Source, E], below: End, base: End, planning: Planning, *, mixes: bool) -> BlenderResult[tuple[Fragment, InterfacePanel, tuple[tuple[FileItem, End], ...]]]:
+def unit[E: Effect](layer: Layer[Source, E], below: End, base: End, planning: Planning[E], *, mixes: bool) -> BlenderResult[tuple[Fragment, InterfacePanel, tuple[tuple[FileItem, End], ...]]]:
     """Builds layer source, gated effects, affine sampling, masks, and coverage."""
     key = layer.key
     context = {key: End(node=INPUTS, socket=key) for field in structs.fields(CameraFrame) for key in (item_key(Shell.frame, field.name),)}
@@ -1386,7 +1387,7 @@ def unit[E: Effect](layer: Layer[Source, E], below: End, base: End, planning: Pl
     )
 
 
-def planned[E: Effect](record: LayerStack[Source, E], planning: Planning) -> BlenderResult[NodeGroup]:
+def planned[E: Effect](record: LayerStack[Source, E], planning: Planning[E]) -> BlenderResult[NodeGroup]:
     """Builds every layer and its matte even when its composite is hidden."""
     shown = frozenset(layer.key for layer, _ in record.composited())
     canvas = End(node="canvas", socket="Image")
@@ -1459,7 +1460,7 @@ class LayerStacks[E: Effect]:
     """Stack ownership and editor row an application places."""
 
     form: type[LayerStack[Source, E]]
-    stack: EffectStack
+    stack: EffectStack[E]
     title: ClassVar[str] = "Layer Stack"
     digits: ClassVar[int] = 4
     ownership: ClassVar[Ownership[bpy.types.CompositorNodeTree]] = Ownership(kind=bpy.types.CompositorNodeTree, key="layer_stack", saved=Saved.ALWAYS, single=False)
@@ -1467,16 +1468,17 @@ class LayerStacks[E: Effect]:
 
     pinned: ClassVar[Pinned] = Pinned(ownership=ownership, edge=Edge.HEAD, conditions=Some(layer_conditions))
 
-    def __init__(self, *, form: type[LayerStack[Source, E]], stack: EffectStack) -> None:
-        """Stores form, stack, and attachment, with bindings per identity."""
-        self.form, self.stack = form, stack
-        self.attachment = Attachment(key=self.ownership.key, form=form, owner=bpy.types.NodeTree, changed=Some(self.changed))
+    def __init__(self, *, stack: EffectStack[E]) -> None:
+        """Stores stack, form over its offered effect records, and attachment, with bindings per identity."""
+        self.stack = stack
+        self.form = LayerStack[Source, stack.offered]  # type: ignore[name-defined]  # ty: ignore[invalid-type-form]
+        self.attachment = Attachment(key=self.ownership.key, form=self.form, owner=bpy.types.NodeTree, changed=Some(self.changed))
         self._bindings: dict[int, LayerStacking[E]] = {}
 
     @property
-    def page_rows(self) -> tuple[Attachment[LayerStack[Source, E]], Attachment[StackView]]:
-        """Attachment rows for application preferences."""
-        return self.attachment, self.view
+    def prerequisites(self) -> tuple[Registrable, ...]:
+        """Stack and view attachments with routing and frame size bindings read."""
+        return self.attachment, self.view, PassSet.attachment, FrameSize.attachment
 
     @contextmanager
     def changed(self, identity: Identity) -> Generator[Changed]:
@@ -1512,7 +1514,9 @@ class LayerStacks[E: Effect]:
 
     def presets(self) -> Single:
         """Returns section of stack, layer, and effect preset listings."""
-        return Single(key=f"{self.ownership.key}_presets", title=f"{self.title} Presets", rows=((self, self.presets_drawn),))
+        return Single(
+            key=f"{self.ownership.key}_presets", title=f"{self.title} Presets", description=f"Apply, add, or import {self.title.lower()}, layer, and effect presets", rows=((self, self.presets_drawn),)
+        )
 
     def presets_drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
         """Returns joined preset listing draws."""

@@ -41,7 +41,7 @@
         </PackageReference>
         <Using Include="Rhino.Geometry" />
         <Using Include="Rhino.Geometry.Interval" Alias="Interval" />
-        <EmbeddedResource Include="**/*.svg" LogicalName="%(Filename)%(Extension)" WithCulture="false" />
+        <EmbeddedResource Include="**/*.svg;**/*.ghicon" LogicalName="%(Filename)%(Extension)" WithCulture="false" />
     </ItemGroup>
 
     <Target Name="ExcludeRhinoHostAssemblies" AfterTargets="ResolvePackageAssets" Condition="'$(RhinoHost)' != ''">
@@ -94,34 +94,48 @@
         <GenerateDependencyFile>false</GenerateDependencyFile>
         <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
         <MinVerTagPrefix>rhino-$(MSBuildProjectName)-v</MinVerTagPrefix>
-        <_PlugInIconSource>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', 'Assets', 'icon.svg'))</_PlugInIconSource>
+        <_PlugInIconSource>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', 'EmbeddedResources', 'icon.svg'))</_PlugInIconSource>
         <_PlugInPackageIcon Condition="Exists('$(_PlugInIconSource)')">icon.png</_PlugInPackageIcon>
         <_PlugInAssetDir>$(IntermediateOutputPath)PlugInAssets/</_PlugInAssetDir>
-        <_PlugInIcon Condition="'$(_PlugInPackageIcon)' != ''">PlugIn.ico</_PlugInIcon>
+        <_PlugInIcon>PlugIn.ico</_PlugInIcon>
     </PropertyGroup>
 
     <ItemGroup Label="Rhino Plug-In Files" Condition="'$(TargetExt)' == '.rhp'">
         <PackageReference Include="MinVer" PrivateAssets="all" />
-        <EmbeddedResource Remove="$(_PlugInIconSource)" />
+        <None Update="$(TargetName).rui" CopyToPublishDirectory="PreserveNewest" />
         <_PlugInDescription Include="Organization" Value="$(Authors)" />
+        <_PlugInDescription Include="WebSite" Value="$(PackageProjectUrl)" />
+        <_GrasshopperPackage Include="@(PackageReference->WithMetadataValue('Identity', 'Grasshopper2'))" />
     </ItemGroup>
 
-    <ItemGroup Label="Rhino Plug-In Icon" Condition="'$(_PlugInIcon)' != ''">
+    <ItemGroup Label="Rhino Plug-In Icon" Condition="'$(_PlugInPackageIcon)' != ''">
+        <_PlugInAsset Include="$(_PlugInAssetDir)$(_PlugInPackageIcon)" />
+        <None Include="$(_PlugInAssetDir)$(_PlugInPackageIcon)" TargetPath="$(_PlugInPackageIcon)" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
+
+    <ItemGroup Label="Rhino Plug-In Ico" Condition="'$(_PlugInPackageIcon)' != '' and '@(_GrasshopperPackage)' == ''">
+        <_PlugInAsset Include="$(_PlugInAssetDir)$(_PlugInIcon)" />
+        <EmbeddedResource Remove="$(_PlugInIconSource)" />
         <EmbeddedResource Include="$(_PlugInAssetDir)$(_PlugInIcon)" LogicalName="$(_PlugInIcon)" WithCulture="false" />
         <_PlugInDescription Include="Icon" Value="$(_PlugInIcon)" />
-        <None Include="$(_PlugInAssetDir)$(_PlugInPackageIcon)" TargetPath="$(_PlugInPackageIcon)" CopyToPublishDirectory="PreserveNewest" />
+    </ItemGroup>
+
+    <ItemGroup Label="Grasshopper 2 Plug-In" Condition="'@(_GrasshopperPackage)' != ''">
+        <Compile Include="$(MSBuildThisFileDirectory)libs/dotnet/rhino/Rasm.Grasshopper/Shell.cs" />
+        <_PlugInDescription Include="Icon" Value="$([System.IO.Path]::GetFileName('$(_PlugInIconSource)'))" Condition="'$(_PlugInPackageIcon)' != ''" />
+        <None Update="Documentation/**" CopyToPublishDirectory="PreserveNewest" />
     </ItemGroup>
 
     <ItemGroup Label="Test Analyzers">
         <PackageReference Include="xunit.analyzers" PrivateAssets="all" Condition="'$(ProjectRole)' == 'tests'" />
     </ItemGroup>
 
-    <Target Name="BuildPlugInIcon" BeforeTargets="CoreCompile" Condition="'$(DesignTimeBuild)' != 'true' and '$(_PlugInIcon)' != ''" Inputs="$(MSBuildThisFileFullPath);$(_PlugInIconSource)" Outputs="$(_PlugInAssetDir)$(_PlugInPackageIcon);$(_PlugInAssetDir)$(_PlugInIcon)">
+    <Target Name="BuildPlugInIcon" BeforeTargets="CoreCompile" Condition="'$(DesignTimeBuild)' != 'true' and '@(_PlugInAsset)' != ''" Inputs="$(MSBuildThisFileFullPath);$(_PlugInIconSource)" Outputs="@(_PlugInAsset)">
         <MakeDir Directories="$(_PlugInAssetDir)" />
         <Exec Command="resvg -w 256 -h 256 &quot;$(_PlugInIconSource)&quot; &quot;$(_PlugInPackageIcon)&quot;" WorkingDirectory="$(_PlugInAssetDir)" StandardOutputImportance="low" />
-        <Exec Command="magick &quot;$(_PlugInPackageIcon)&quot; -define icon:auto-resize &quot;$(_PlugInIcon)&quot;" WorkingDirectory="$(_PlugInAssetDir)" StandardOutputImportance="low" />
+        <Exec Command="magick &quot;$(_PlugInPackageIcon)&quot; -define icon:auto-resize &quot;$(_PlugInIcon)&quot;" WorkingDirectory="$(_PlugInAssetDir)" StandardOutputImportance="low" Condition="'@(_GrasshopperPackage)' == ''" />
         <ItemGroup>
-            <FileWrites Include="$(_PlugInAssetDir)$(_PlugInPackageIcon);$(_PlugInAssetDir)$(_PlugInIcon)" />
+            <FileWrites Include="@(_PlugInAsset)" />
         </ItemGroup>
     </Target>
 
@@ -133,7 +147,6 @@
 
     <Target Name="AddPlugInDescriptions" AfterTargets="GetAssemblyAttributes" Condition="'$(TargetExt)' == '.rhp'">
         <ItemGroup>
-            <_PlugInDescription Include="WebSite" Value="$([System.Text.RegularExpressions.Regex]::Replace('$(PrivateRepositoryUrl)', '\.git$', ''))" />
             <AssemblyAttribute Include="@(_PlugInDescription->'Rhino.PlugIns.PlugInDescriptionAttribute')" RemoveMetadata="Value">
                 <_Parameter1>Rhino.PlugIns.DescriptionType.%(_PlugInDescription.Identity)</_Parameter1>
                 <_Parameter1_IsLiteral>true</_Parameter1_IsLiteral>
@@ -155,10 +168,13 @@
         </PropertyGroup>
         <ItemGroup>
             <_YakOutput Include="$(PublishDir)manifest.yml;$(PublishDir)*.yak" />
+            <_YakKeyword Include="@(AssemblyAttribute->WithMetadataValue('Identity', 'System.Runtime.InteropServices.GuidAttribute')->'guid:%(_Parameter1)')" />
+            <_YakManifestEdit Include=".icon = strenv(YAK_ICON)" Condition="'$(_PlugInPackageIcon)' != ''" />
+            <_YakManifestEdit Include=".keywords += [strenv(YAK_KEYWORD)]" Condition="'@(_GrasshopperPackage)' == ''" />
         </ItemGroup>
         <Delete Files="@(_YakOutput)" />
         <Exec Command="&quot;$(_YakExecutable)&quot; spec --input &quot;$(TargetFileName)&quot;" WorkingDirectory="$(PublishDir)" StandardOutputImportance="low" />
-        <WriteLinesToFile File="$(PublishDir)manifest.yml" Lines="icon: $(_PlugInPackageIcon)" Condition="'$(_PlugInPackageIcon)' != ''" />
+        <Exec Command="yq -i &quot;@(_YakManifestEdit, ' | ')&quot; manifest.yml" EnvironmentVariables="YAK_ICON=$(_PlugInPackageIcon);@(_YakKeyword->'YAK_KEYWORD=%(Identity)')" WorkingDirectory="$(PublishDir)" StandardOutputImportance="low" Condition="'@(_YakManifestEdit)' != ''" />
         <Exec Command="&quot;$(_YakExecutable)&quot; build --platform $(_YakPlatform)" WorkingDirectory="$(PublishDir)" StandardOutputImportance="low" />
     </Target>
 

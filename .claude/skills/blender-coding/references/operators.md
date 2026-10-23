@@ -82,6 +82,6 @@ scale = Operator[Scaled](key="scale", title="Scale", description="Set the render
 
 Buttons, menus, keymaps, and macros place an operator as a value:
 - `Own(command=..., values=record)` places a library operator with a complete record
-- `Acquired(key=...)` places an operator a row registered, and `Stock(operator=bpy.ops..., values=...)` a stock operator with RNA values
+- A `Command` (`Operator` or `Macro`) places itself and sets no properties, and `Stock(operator=bpy.ops..., values=...)` places a stock operator with RNA values
 - `Macro(steps=...)` runs placed steps as one undo step and one redo entry
 - Layouts hand a struct to a placed operator through `layout.context_pointer_set("<member>", struct)`, and the operator reads that context member

@@ -10,7 +10,7 @@ from msgspec import structs
 from blender.bpy.extension.identity import Key
 from blender.bpy.faults import BlenderResult
 from blender.bpy.nodes.graphs import End, ended, Fragment, INPUTS, math, menu, mixed, nested, node, NodeGroup, Operand
-from blender.bpy.nodes.interface import described, Interface, MenuItems, Socket
+from blender.bpy.nodes.interface import Interface, MenuItems, Socket
 from blender.imaging.compositing.blending import Blend, BlendMode
 from blender.imaging.faults import accumulated, paired
 
@@ -37,7 +37,7 @@ def mixback() -> BlenderResult[NodeGroup]:
     """Returns shared HDR blend group."""
     base, result = End(node=INPUTS, socket="base"), End(node=INPUTS, socket="result")
     mode, opacity, _ = structs.fields(Blend)
-    items = MenuItems.of(BlendMode, described(mode.type))
+    items = MenuItems.of(BlendMode)
 
     def blended(straight: tuple[tuple[Fragment, End], ...]) -> BlenderResult[tuple[Fragment, End]]:
         background, foreground = straight

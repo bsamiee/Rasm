@@ -50,10 +50,7 @@ public abstract class DefinedPlugIn(PlugInDefinition definition) : PlugIn, IDefi
 
     public sealed override PlugInLoadTime LoadTime => lifetime.LoadTime(base.LoadTime);
 
-    protected sealed override LoadReturnCode OnLoad(ref string errorMessage) {
-        (LoadReturnCode code, errorMessage) = lifetime.Load(this, CallbackSite.Of(this));
-        return code;
-    }
+    protected sealed override LoadReturnCode OnLoad(ref string errorMessage) => lifetime.Load(this, GetLicense, CallbackSite.Of(this), ref errorMessage);
 
     protected sealed override void CreateCommands() {
         base.CreateCommands();
@@ -62,7 +59,7 @@ public abstract class DefinedPlugIn(PlugInDefinition definition) : PlugIn, IDefi
 
     protected sealed override void OnShutdown() => lifetime.Shutdown(CallbackSite.Of(this));
 
-    protected sealed override void ResetMessageBoxes() => Callbacks.Run(HostDialogs.ResetMessageBoxes(lifetime.Views, ((IPlugInViews)this).Settings), CallbackSite.Of(this));
+    protected sealed override void ResetMessageBoxes() => lifetime.ResetMessageBoxes(this, CallbackSite.Of(this));
 
     // --- [IDENTITY]
     public sealed override object? GetPlugInObject() => lifetime.Definition.Published.ValueUnsafe();
@@ -70,7 +67,7 @@ public abstract class DefinedPlugIn(PlugInDefinition definition) : PlugIn, IDefi
     // --- [HELP]
     public sealed override bool AddToHelpMenu => lifetime.Definition.Help.IsSome;
 
-    public sealed override bool DisplayHelp(nint windowHandle) => Callbacks.Succeeded(lifetime.Definition.Help.Map(static topic => topic.Show), static () => false, CallbackSite.Of(this));
+    public sealed override bool DisplayHelp(nint windowHandle) => lifetime.DisplayHelp(CallbackSite.Of(this));
 
     // --- [PAGES]
     protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) => Callbacks.Run(ViewRegistration.OptionsDialogPages(this, pages), CallbackSite.Of(this));
@@ -96,10 +93,7 @@ public abstract class DefinedImportPlugIn(PlugInDefinition definition, Seq<FileF
 
     public sealed override PlugInLoadTime LoadTime => lifetime.LoadTime(base.LoadTime);
 
-    protected sealed override LoadReturnCode OnLoad(ref string errorMessage) {
-        (LoadReturnCode code, errorMessage) = lifetime.Load(this, CallbackSite.Of(this));
-        return code;
-    }
+    protected sealed override LoadReturnCode OnLoad(ref string errorMessage) => lifetime.Load(this, GetLicense, CallbackSite.Of(this), ref errorMessage);
 
     protected sealed override void CreateCommands() {
         base.CreateCommands();
@@ -108,7 +102,7 @@ public abstract class DefinedImportPlugIn(PlugInDefinition definition, Seq<FileF
 
     protected sealed override void OnShutdown() => lifetime.Shutdown(CallbackSite.Of(this));
 
-    protected sealed override void ResetMessageBoxes() => Callbacks.Run(HostDialogs.ResetMessageBoxes(lifetime.Views, ((IPlugInViews)this).Settings), CallbackSite.Of(this));
+    protected sealed override void ResetMessageBoxes() => lifetime.ResetMessageBoxes(this, CallbackSite.Of(this));
 
     // --- [IDENTITY]
     public sealed override object? GetPlugInObject() => lifetime.Definition.Published.ValueUnsafe();
@@ -116,7 +110,7 @@ public abstract class DefinedImportPlugIn(PlugInDefinition definition, Seq<FileF
     // --- [HELP]
     public sealed override bool AddToHelpMenu => lifetime.Definition.Help.IsSome;
 
-    public sealed override bool DisplayHelp(nint windowHandle) => Callbacks.Succeeded(lifetime.Definition.Help.Map(static topic => topic.Show), static () => false, CallbackSite.Of(this));
+    public sealed override bool DisplayHelp(nint windowHandle) => lifetime.DisplayHelp(CallbackSite.Of(this));
 
     // --- [PAGES]
     protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) => Callbacks.Run(ViewRegistration.OptionsDialogPages(this, pages), CallbackSite.Of(this));
@@ -155,10 +149,7 @@ public abstract class DefinedExportPlugIn(PlugInDefinition definition, Seq<FileF
 
     public sealed override PlugInLoadTime LoadTime => lifetime.LoadTime(base.LoadTime);
 
-    protected sealed override LoadReturnCode OnLoad(ref string errorMessage) {
-        (LoadReturnCode code, errorMessage) = lifetime.Load(this, CallbackSite.Of(this));
-        return code;
-    }
+    protected sealed override LoadReturnCode OnLoad(ref string errorMessage) => lifetime.Load(this, GetLicense, CallbackSite.Of(this), ref errorMessage);
 
     protected sealed override void CreateCommands() {
         base.CreateCommands();
@@ -167,7 +158,7 @@ public abstract class DefinedExportPlugIn(PlugInDefinition definition, Seq<FileF
 
     protected sealed override void OnShutdown() => lifetime.Shutdown(CallbackSite.Of(this));
 
-    protected sealed override void ResetMessageBoxes() => Callbacks.Run(HostDialogs.ResetMessageBoxes(lifetime.Views, ((IPlugInViews)this).Settings), CallbackSite.Of(this));
+    protected sealed override void ResetMessageBoxes() => lifetime.ResetMessageBoxes(this, CallbackSite.Of(this));
 
     // --- [IDENTITY]
     public sealed override object? GetPlugInObject() => lifetime.Definition.Published.ValueUnsafe();
@@ -175,7 +166,7 @@ public abstract class DefinedExportPlugIn(PlugInDefinition definition, Seq<FileF
     // --- [HELP]
     public sealed override bool AddToHelpMenu => lifetime.Definition.Help.IsSome;
 
-    public sealed override bool DisplayHelp(nint windowHandle) => Callbacks.Succeeded(lifetime.Definition.Help.Map(static topic => topic.Show), static () => false, CallbackSite.Of(this));
+    public sealed override bool DisplayHelp(nint windowHandle) => lifetime.DisplayHelp(CallbackSite.Of(this));
 
     // --- [PAGES]
     protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) => Callbacks.Run(ViewRegistration.OptionsDialogPages(this, pages), CallbackSite.Of(this));

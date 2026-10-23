@@ -1,6 +1,6 @@
 """Displayed-render exports as Linear Raw DNG, tagged stills, and layered documents."""
 
-from typing import Annotated, ClassVar, Protocol, Self
+from typing import Annotated, Protocol, Self
 
 import bpy
 from expression import Error, Nothing, Ok, Option, Result, Some
@@ -75,7 +75,7 @@ class Still(msgspec.Struct, frozen=True, kw_only=True):
     save_as_render: Annotated[bool, msgspec.Meta(description="Apply view, exposure, and gamma to unformed source")] = True
     compression: Annotated[Gated[Compressions], msgspec.Meta(description="Writer compression, writer default when off")] = Gated(enabled=False, value=Deflate())
 
-    def seeded(self, _event: bpy.types.Event) -> Self:
+    def seeded(self, _event: bpy.types.Event, _identity: Identity) -> Self:
         """Keeps writer-supported depth and compression on browser open."""
         return (
             writer(self.format)
@@ -125,14 +125,47 @@ class Layering(msgspec.Struct, frozen=True, kw_only=True):
         )
 
 
-class Export(msgspec.Struct, frozen=True, kw_only=True):
+class Export:
     """Render and Viewer export actions."""
 
-    dng: ClassVar[Key] = "export_dng"
-    image: ClassVar[Key] = "export_still"
-    viewing: Viewing
     gain: Gain
-    layering: tuple[Layering, ...] = ()
+    linear: Operator[Empty]
+    still: Operator[Still]
+    layered: tuple[Operator[Sheet], ...]
+
+    def __init__(self, *, gain: Gain, layering: tuple[Layering, ...] = ()) -> None:
+        """Declares linear raw, still, and layered document commands on save browser without undo."""
+        self.gain = gain
+        idle = Job(kind="RENDER")
+        result = Some(AllOf(conditions=(image_type(("RENDER_RESULT",)), idle)))
+        self.linear = Operator(
+            key="export_dng",
+            title="Export Linear Raw DNG",
+            description="Write scene-linear render as DNG",
+            form=Empty,
+            run=self.raw,
+            condition=result,
+            invoke=Some(Save[Empty](extensions=lambda _: (".dng",))),
+            undo=False,
+        )
+        self.still = Operator(
+            key="export_still",
+            title="Export Still",
+            description="Write render or Viewer image with chosen encoding",
+            form=Still,
+            run=self.exported,
+            condition=Some(idle),
+            invoke=Some(Save[Still](extensions=Still.extensions)),
+            seed=Some(Still.seeded),
+            draw=Some(self.drawn),
+            undo=False,
+        )
+        self.layered = tuple(
+            Operator(
+                key=each.key, title=each.title, description=each.description, form=Sheet, run=each.exported, condition=result, invoke=Some(Save[Sheet](extensions=lambda _: (".tif",))), undo=False
+            )
+            for each in layering
+        )
 
     def raw(self, call: Call[Empty]) -> BlenderResult[Done]:
         """Writes scene-linear Combined RGB with total exposure and camera optics."""
@@ -164,131 +197,93 @@ class Export(msgspec.Struct, frozen=True, kw_only=True):
             lambda found: wrote(found[0][0], found[0][1], found[1])
         )
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Declares export actions on save browser without undo."""
-        idle = Job(kind="RENDER")
-        result = Some(AllOf(conditions=(image_type(("RENDER_RESULT",)), idle)))
+    def exported(self, call: Call[Still]) -> BlenderResult[Done]:
+        """Writes render or Viewer image with chosen encoding."""
+        scene, record, target = call.context.scene, call.record, str(call.paths[0])
+        if scene is None:
+            return Error((BlenderAbsentFault(owner=repr(call.context), key="scene"),))
 
-        def exported(call: Call[Still]) -> BlenderResult[Done]:
-            scene, record, target = call.context.scene, call.record, str(call.paths[0])
-            if scene is None:
-                return Error((BlenderAbsentFault(owner=repr(call.context), key="scene"),))
+        def stored(file: ImageFile[np.float32], config: PyOpenColorIO.Config) -> BlenderResult[str]:
+            compressed: Option[Compressions] = Some(record.compression.value) if record.compression.enabled else Nothing
+            metadata = stamped(call.identity)
+            match record.depth:
+                case Depth.UINT8:
+                    written = ImageFile(pixels=codes(unassociated(file.pixels), 8), colorspace=file.colorspace).write(target, Storage(compression=compressed), metadata, config)
+                case Depth.UINT16:
+                    written = ImageFile(pixels=codes(unassociated(file.pixels), 16), colorspace=file.colorspace).write(target, Storage(compression=compressed), metadata, config)
+                case Depth.HALF | Depth.FLOAT as floated:
+                    written = file.write(target, Storage(depth=16 if floated is Depth.HALF else 32, compression=compressed), metadata, config)
+            return written.map_error(BlenderImagingFault.lifted)
 
-            def stored(file: ImageFile[np.float32], config: PyOpenColorIO.Config) -> BlenderResult[str]:
-                compressed: Option[Compressions] = Some(record.compression.value) if record.compression.enabled else Nothing
-                metadata = stamped(call.identity)
-                match record.depth:
-                    case Depth.UINT8:
-                        written = ImageFile(pixels=codes(unassociated(file.pixels), 8), colorspace=file.colorspace).write(target, Storage(compression=compressed), metadata, config)
-                    case Depth.UINT16:
-                        written = ImageFile(pixels=codes(unassociated(file.pixels), 16), colorspace=file.colorspace).write(target, Storage(compression=compressed), metadata, config)
-                    case Depth.HALF | Depth.FLOAT as floated:
-                        written = file.write(target, Storage(depth=16 if floated is Depth.HALF else 32, compression=compressed), metadata, config)
-                return written.map_error(BlenderImagingFault.lifted)
-
-            def encoded(file: ImageFile[np.float32], config: PyOpenColorIO.Config) -> BlenderResult[ImageFile[np.float32]]:
-                return (
-                    Ok(file)
-                    if config.getColorSpace(file.colorspace).isData()
-                    else display_space(config, record.display).bind(
-                        lambda space: (
-                            processor(config, PyOpenColorIO.ColorSpaceTransform(src=file.colorspace, dst=space))
-                            .map(lambda built: ImageFile(pixels=applied(built.getDefaultCPUProcessor(), file.pixels), colorspace=space))
-                            .map_error(BlenderImagingFault.lifted)
-                        )
-                    )
-                )
-
-            def image(native: bpy.types.Image, origin: Production, config: PyOpenColorIO.Config) -> BlenderResult[ImageFile[np.float32]]:
-                pixels = origin.layer.map(lambda layer: origin.scene.resolve().bind(saved).bind(lambda path: plane(path, (layer,), ("R", "G", "B", "A")))).default_with(
-                    lambda: read(native, config).map(lambda file: file.pixels)
-                )
-                match origin.view:
-                    case Option(tag="some", some=(view, exposure, gamma)) if record.save_as_render:
-                        return pixels.bind(
-                            lambda values: paired(
-                                view.form(config, values, source=origin.space, exposure=exposure, gamma=gamma).map_error(BlenderImagingFault.lifted),
-                                view.colorspace(config).to_result_with(lambda: (BlenderAbsentFault(owner=repr(config), key=f"{view.display}/{view.view}"),)),
-                            )
-                        ).map(lambda found: ImageFile(pixels=found[0], colorspace=found[1].getName()))
-                    case _:
-                        return pixels.map(lambda values: ImageFile(pixels=values, colorspace=origin.space))
-
-            selected: BlenderResult[Format] = writer(record.format).to_result_with(lambda: (BlenderAbsentFault(owner="OpenImageIO.extension_list", key=record.format),))
+        def encoded(file: ImageFile[np.float32], config: PyOpenColorIO.Config) -> BlenderResult[ImageFile[np.float32]]:
             return (
-                Result[Format, BlenderFaults]
-                .bind(selected, lambda chosen: sample(chosen, record.depth))
-                .bind(lambda _: config_of())
-                .bind(
-                    lambda config: (
-                        built("RENDER_RESULT" if record.source is Source.RESULT else "COMPOSITING")
-                        .bind(lambda native: production(native).bind(lambda origin: image(native, origin, config)))
-                        .bind(lambda file: encoded(file, config))
-                        .bind(lambda file: stored(file, config))
+                Ok(file)
+                if config.getColorSpace(file.colorspace).isData()
+                else display_space(config, record.display).bind(
+                    lambda space: (
+                        processor(config, PyOpenColorIO.ColorSpaceTransform(src=file.colorspace, dst=space))
+                        .map(lambda built: ImageFile(pixels=applied(built.getDefaultCPUProcessor(), file.pixels), colorspace=space))
+                        .map_error(BlenderImagingFault.lifted)
                     )
                 )
-                .map(lambda _: Done.wrote((target,)))
             )
 
-        def drawn(layout: bpy.types.UILayout, context: bpy.types.Context, properties: bpy.types.OperatorProperties) -> None:
-            def controls(binding: RecordGroup[Still, bpy.types.Operator]) -> BlenderResult[tuple[tuple[RowDraw, ...], Nest]]:
-                return fields(binding, identity).bind(lambda parts: placed(parts[0], identity).map(lambda rows: (rows, parts[1])))
+        def image(native: bpy.types.Image, origin: Production, config: PyOpenColorIO.Config) -> BlenderResult[ImageFile[np.float32]]:
+            pixels = origin.layer.map(lambda layer: origin.scene.resolve().bind(saved).bind(lambda path: plane(path, (layer,), ("R", "G", "B", "A")))).default_with(
+                lambda: read(native, config).map(lambda file: file.pixels)
+            )
+            match origin.view:
+                case Option(tag="some", some=(view, exposure, gamma)) if record.save_as_render:
+                    return pixels.bind(
+                        lambda values: paired(
+                            view.form(config, values, source=origin.space, exposure=exposure, gamma=gamma).map_error(BlenderImagingFault.lifted),
+                            view.colorspace(config).to_result_with(lambda: (BlenderAbsentFault(owner=repr(config), key=f"{view.display}/{view.view}"),)),
+                        )
+                    ).map(lambda found: ImageFile(pixels=found[0], colorspace=found[1].getName()))
+                case _:
+                    return pixels.map(lambda values: ImageFile(pixels=values, colorspace=origin.space))
 
-            bound = still.bound(identity).map(lambda pair: pair[1])
-            form = bound.bind(controls)
-            for rows, nested in form.to_option().to_list():
-                for draw in rows:
-                    draw(layout, properties, context)
-                nested(layout, properties, context, self.image)
-            verdicts = bound.bind(lambda binding: binding.read(properties)).bind(
-                lambda record: paired(writer(record.format).to_result_with(lambda: (BlenderAbsentFault(owner="OpenImageIO.extension_list", key=record.format),)), config_of()).map(
-                    lambda pair: readouts(pair[0], record.depth, record.display, pair[1])
+        selected: BlenderResult[Format] = writer(record.format).to_result_with(lambda: (BlenderAbsentFault(owner="OpenImageIO.extension_list", key=record.format),))
+        return (
+            Result[Format, BlenderFaults]
+            .bind(selected, lambda chosen: sample(chosen, record.depth))
+            .bind(lambda _: config_of())
+            .bind(
+                lambda config: (
+                    built("RENDER_RESULT" if record.source is Source.RESULT else "COMPOSITING")
+                    .bind(lambda native: production(native).bind(lambda origin: image(native, origin, config)))
+                    .bind(lambda file: encoded(file, config))
+                    .bind(lambda file: stored(file, config))
                 )
             )
-            for readings in verdicts.to_option().to_list():
-                for row in readings:
-                    layout.label(text=row.text)
-            alerted(layout, paired(form, verdicts))
-
-        still = Operator(
-            key=self.image,
-            title="Export Still",
-            description="Writes render or Viewer image with chosen encoding",
-            form=Still,
-            run=exported,
-            condition=Some(idle),
-            invoke=Some(Save[Still](extensions=Still.extensions)),
-            seed=Some(Still.seeded),
-            draw=Some(drawn),
-            undo=False,
+            .map(lambda _: Done.wrote((target,)))
         )
-        return Ok((
-            Operator(
-                key=self.dng,
-                title="Export Linear Raw DNG",
-                description="Writes scene-linear render as DNG",
-                form=Empty,
-                run=self.raw,
-                condition=result,
-                invoke=Some(Save[Empty](extensions=lambda _: (".dng",))),
-                undo=False,
-            ),
-            still,
-            *(
-                Operator(
-                    key=layering.key,
-                    title=layering.title,
-                    description=layering.description,
-                    form=Sheet,
-                    run=layering.exported,
-                    condition=result,
-                    invoke=Some(Save[Sheet](extensions=lambda _: (".tif",))),
-                    undo=False,
-                )
-                for layering in self.layering
-            ),
-            productions,
-        ))
+
+    def drawn(self, layout: bpy.types.UILayout, context: bpy.types.Context, properties: bpy.types.OperatorProperties, identity: Identity) -> None:
+        """Draws still encoding fields with writer readouts."""
+
+        def controls(binding: RecordGroup[Still, bpy.types.Operator]) -> BlenderResult[tuple[tuple[RowDraw, ...], Nest]]:
+            return fields(binding, identity).bind(lambda parts: placed(parts[0], identity).map(lambda rows: (rows, parts[1])))
+
+        bound = self.still.bound(identity).map(lambda pair: pair[1])
+        form = bound.bind(controls)
+        for rows, nested in form.to_option().to_list():
+            for draw in rows:
+                draw(layout, properties, context)
+            nested(layout, properties, context, self.still.key)
+        verdicts = bound.bind(lambda binding: binding.read(properties)).bind(
+            lambda record: paired(writer(record.format).to_result_with(lambda: (BlenderAbsentFault(owner="OpenImageIO.extension_list", key=record.format),)), config_of()).map(
+                lambda pair: readouts(pair[0], record.depth, record.display, pair[1])
+            )
+        )
+        for readings in verdicts.to_option().to_list():
+            for row in readings:
+                layout.label(text=row.text)
+        alerted(layout, paired(form, verdicts))
+
+    def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
+        """Returns export commands and render production tracking."""
+        return Ok((self.linear, self.still, *self.layered, productions))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

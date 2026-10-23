@@ -3,6 +3,7 @@
 from collections.abc import Callable, Generator
 from contextlib import contextmanager
 
+import _bpy_types
 from bl_ui import UI_MT_button_context_menu, UI_MT_list_item_context_menu
 import bpy
 from expression import Nothing, Option, Result
@@ -18,7 +19,7 @@ from blender.bpy.ui.layout.rows import acquired, painted, placed, Row, RowDraw, 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Extended = bpy.types.Panel | bpy.types.Menu | bpy.types.Header
-type Destination = type[Extended] | ContextMenu
+type Destination = type[_bpy_types.Panel | _bpy_types.Menu | _bpy_types.Header] | ContextMenu
 
 # --- [MODELS] ---------------------------------------------------------------------------
 

@@ -119,7 +119,6 @@ internal sealed partial class FlamencoContext : JsonSerializerContext;
 
 internal sealed partial record QueueJob(int RhinoVersion, string Copy, QueueJob.Entry[] Entries) {
     internal sealed record Entry(
-        string Override,
         ValueSet Values,
         float? Clay,
         RenderSettings.RenderingSources Source,
@@ -185,7 +184,7 @@ internal static class JobMapper {
 
     internal static QueueJob ToJob(RenderBatch queue, string copy) =>
         new(RhinoApp.ExeVersion, copy, [.. queue.Entries.Map(static entry => new QueueJob.Entry(
-            entry.Override.Name, entry.Override.Values, entry.Override.Clay.Map(static clay => (float)clay).ToNullable(),
+            entry.Override.Values, entry.Override.Clay.Map(static clay => (float)clay).ToNullable(),
             entry.Source.RenderSource, entry.Source.SpecificViewport.ValueUnsafe(), entry.Source.NamedView.ValueUnsafe(), entry.Source.Snapshot.ValueUnsafe(),
             entry.Frames.First, entry.Frames.Last, entry.Extent.Width, entry.Extent.Height, entry.Overscan,
             entry.Region.Map(Region).ValueUnsafe(),
@@ -254,7 +253,7 @@ internal static class JobMapper {
             .As())
         from outputs in Callbacks.Each(toSeq(entry.Outputs).Map(output => Output(columns.Frames, output)))
         select new QueueEntry<Unit>(
-            new RenderOverride(entry.Override, entry.Values, columns.Clay),
+            new RenderOverride(entry.Values, columns.Clay),
             new RenderSourceState(entry.Source, Optional(entry.SpecificViewport), Optional(entry.NamedView), Optional(entry.Snapshot)),
             columns.Frames, columns.Extent, columns.Overscan, columns.Region, columns.Sun, columns.Destination, outputs);
 

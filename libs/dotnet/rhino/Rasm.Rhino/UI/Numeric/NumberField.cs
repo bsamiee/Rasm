@@ -175,7 +175,7 @@ public sealed class NumberField<TValue, TKey> : NumberField
 
     private IO<Unit> Become(FieldState<TValue> next, Option<string> written) =>
         IO.lift(() => {
-            (state, TextColor, Cursor) = (next, PaintSlot.ControlText.Read(), next.Map(
+            (state, TextColor, Cursor) = (next, PaintSlot.EntryText.Read(), next.Map(
                 resting: Cursors.VerticalSplit, pressed: Cursors.VerticalSplit, scrubbing: Cursors.VerticalSplit, editing: Cursors.IBeam));
             _ = written.Iter(shown => Text = shown);
         });

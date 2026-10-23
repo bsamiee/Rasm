@@ -1,7 +1,6 @@
 """Record fields bound to Blender properties, display units, and dynamic enums."""
 
 from collections.abc import Callable, Iterable, Mapping
-from enum import Enum
 import math
 from types import MemberDescriptorType
 import typing
@@ -47,7 +46,7 @@ from blender.bpy.settings.shapes import (
     Vector,
 )
 from blender.imaging.faults import accumulated, paired
-from blender.imaging.parameters import Case, Choice, Gated, heading, markers, Presentation, Quantity, Rgb
+from blender.imaging.parameters import Choice, Gated, heading, markers, Presentation, Quantity, Rgb
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -397,23 +396,6 @@ class RecordGroup[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]" = bpy.typ
                 prop.keywords.update({} if value is msgspec.NODEFAULT else {"default": value})
                 return Ok(prop)
 
-            def shown(value: object) -> str:
-                match value:
-                    case bool():
-                        return "on" if value else "off"
-                    case Choice():
-                        return value.label
-                    case Case():
-                        return type(value).title
-                    case Enum():
-                        return heading(value.name)
-                    case int() | float():
-                        return f"{value * unit.scale:g}"
-                    case tuple():
-                        return ", ".join(map(shown, value))
-                    case _:
-                        return str(value)
-
             def represented() -> BlenderResult[bpy.props._PropertyDeferred]:
                 match shape:
                     case Components(items=items):
@@ -479,7 +461,7 @@ class RecordGroup[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]" = bpy.typ
                         return defaulted(prop, blank)
                     case Enumerated(enum=enum):
                         prop = bpy.props.EnumProperty(items=())
-                        prop.keywords["items"] = tuple((member.name, member.label, "", member.value) if isinstance(member, Choice) else (member.name, member.name, "") for member in enum)
+                        prop.keywords["items"] = tuple((member.name, member.label, member.description.default_value(""), member.value) for member in enum)
                         if default is not msgspec.NODEFAULT:
                             prop.keywords["default"] = next(member.name for member in enum if member == default)
                         return Ok(prop)
@@ -498,9 +480,7 @@ class RecordGroup[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]" = bpy.typ
                     case Entries(enum=enum, gate=gate):
                         return pointer(
                             accumulated(
-                                defined(entry, Declared(shape=gate, title=Some(enum[entry.name].label if issubclass(enum, Choice) else heading(entry.name))), f"{path}_{entry.name.lower()}").map(
-                                    lambda prop: (entry.name, prop)
-                                )
+                                defined(entry, Declared(shape=gate, title=Some(enum[entry.name].label)), f"{path}_{entry.name.lower()}").map(lambda prop: (entry.name, prop))
                                 for entry in RecordGroup.entries(field, shape)
                             )
                             .map(dict)
@@ -508,8 +488,8 @@ class RecordGroup[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]" = bpy.typ
                         )
                     case Flags(enum=enum):
 
-                        def flag(member: Enum) -> bpy.props._PropertyDeferred:
-                            leaf = bpy.props.BoolProperty(name=member.label if isinstance(member, Choice) else heading(member.name), override={"LIBRARY_OVERRIDABLE"})
+                        def flag(member: Choice) -> bpy.props._PropertyDeferred:
+                            leaf = bpy.props.BoolProperty(name=member.label, description=member.description.default_value(description), override={"LIBRARY_OVERRIDABLE"})
                             leaf.keywords.update({} if default is msgspec.NODEFAULT else {"default": member in default})
                             leaf.keywords.update(updating(member.name))
                             return leaf
@@ -538,17 +518,6 @@ class RecordGroup[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]" = bpy.typ
                 prop.keywords.setdefault("options", set(binding.options))
                 if prop.function not in {bpy.props.CollectionProperty, bpy.props.PointerProperty}:
                     prop.keywords.update(updating(field.name))
-                if not presentation.quantity.map(lambda quantity: quantity in {Quantity.LENGTH, Quantity.ANGLE}).default_value(False):
-                    bounds = tuple(
-                        f"{label if inclusive else exclusive} {value * unit.scale:g}"
-                        for side, label, exclusive in zip(
-                            Unit.endpoints(shape.kind) if isinstance(shape, Number | Vector | Color | Integer) else (Nothing, Nothing), ("Min", "Max"), ("Above", "Below")
-                        )
-                        for value, inclusive in side.to_list()
-                        if abs(value * unit.scale) < Unit.largest
-                    )
-                    default_text = (f"Default {shown(blank)}",) if blank is not msgspec.NODEFAULT and field.default_factory is msgspec.NODEFAULT else ()
-                    prop.keywords["description"] = ". ".join(part for part in (description, *bounds, *default_text) if part)
                 return prop
 
             return represented().map(described)
@@ -691,7 +660,7 @@ class RecordGroup[T: msgspec.Struct, S: "bpy.types.bpy_struct[object]" = bpy.typ
                     scale = Unit.of(field.type, kind).scale
                     return written(owner, field.name, tuple(component * scale for component in msgspec.convert(desired, tuple[float, ...]))).map(lambda _: None)
                 case Enumerated(enum=enum):
-                    return written(owner, field.name, enum(desired).name).map(lambda _: None)
+                    return written(owner, field.name, msgspec.convert(desired, enum).name).map(lambda _: None)
                 case Literals():
                     return written(owner, field.name, str(desired)).map(lambda _: None)
                 case Color(kind=kind):

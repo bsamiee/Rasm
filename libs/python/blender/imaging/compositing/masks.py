@@ -85,14 +85,14 @@ class Mask(msgspec.Struct, frozen=True, kw_only=True):
 
     key: Annotated[Key, msgspec.Meta(description="Shape, qualifier, or transition")] = Shape()
     operation: Annotated[MaskOperation, msgspec.Meta(description="Join with preceding masks")] = MaskOperation.ADD
-    invert: Annotated[bool, msgspec.Meta(description="Selects key complement")] = False
+    invert: Annotated[bool, msgspec.Meta(description="Select key complement")] = False
 
 
 class TrackMatte(msgspec.Struct, frozen=True, kw_only=True):
     """Coverage read from layer beneath, optionally inverted."""
 
     channel: Annotated[MatteChannel, msgspec.Meta(description="Coverage channel of layer beneath")] = MatteChannel.ALPHA
-    invert: Annotated[bool, msgspec.Meta(description="Reads channel complement")] = False
+    invert: Annotated[bool, msgspec.Meta(description="Read channel complement")] = False
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

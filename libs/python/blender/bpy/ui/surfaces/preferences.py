@@ -1,6 +1,5 @@
-"""Add-on preferences page, record reads and writes, and listeners."""
+"""Add-on preferences page and record reads and writes."""
 
-from collections import defaultdict
 from collections.abc import Callable, Generator, Mapping
 from contextlib import contextmanager
 from functools import partial
@@ -14,31 +13,31 @@ import msgspec
 from blender.bpy.commands import keymaps, operators
 from blender.bpy.extension.events.timers import Timer
 from blender.bpy.extension.identity import Identity, Name
-from blender.bpy.extension.registration import Acquisitions, Band, Registrable
+from blender.bpy.extension.registration import Acquisitions, Band, Gathering, Registrable
 from blender.bpy.faults import BlenderAbsentFault, BlenderResult
 from blender.bpy.settings.attachments import Attached, Attachment, preferred
-from blender.bpy.settings.properties import Changed, Choices, RecordGroup
+from blender.bpy.settings.properties import Choices, RecordGroup
 from blender.bpy.ui.layout.rows import OperatorButton, placed, Property, RowDraw
 from blender.bpy.ui.layout.sections import fields, Nest, Section, Single, Verb
 from blender.bpy.ui.screens.areas import Located, NewWindow, windowed
+from blender.bpy.ui.surfaces.panels import notified, Panel, PopoverPanel, reached
 from blender.imaging.faults import accumulated, paired
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
-    """Preference record with sections and owned rows."""
+    """Preference record with sections, gathering confirmations, shortcuts, and stores every other row declares."""
 
     record: type[msgspec.Struct]
     sections: tuple[Section, ...] = ()
-    rows: tuple[Registrable, ...] = ()
     bindings: Option[Mapping[MemberDescriptorType, Choices]] = Nothing
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Declares page class and commands, building draw after operators register."""
-        asks = tuple(row for row in self.rows if isinstance(row, operators.Operator) and any(isinstance(form, operators.Suppressible) for form in row.invoke.to_list()))
-        bindings = tuple(row for row in self.rows if isinstance(row, keymaps.Keymap))
-        stores = tuple(row for row in self.rows if isinstance(row, Attachment))
+    def gathered(self, identity: Identity, declared: tuple[Registrable | Gathering, ...], /) -> BlenderResult[Acquisitions]:
+        """Declares page class, commands, and value popovers, building draw after operators register."""
+        asks = tuple(row for row in declared if isinstance(row, operators.Operator) and any(isinstance(form, operators.Suppressible) for form in row.invoke.to_list()))
+        bindings = tuple(row for row in declared if isinstance(row, keymaps.Keymap))
+        stores = tuple(row for row in declared if isinstance(row, Attachment))
         asked = msgspec.defstruct("Asks", [(row.ask, Annotated[bool, msgspec.Meta(title=row.title, description=row.description)], True) for row in asks], frozen=True, kw_only=True)
 
         def attached() -> BlenderResult[tuple[Attached[msgspec.Struct], ...]]:
@@ -115,10 +114,10 @@ class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
                 return read(identity, self.record).bind(lambda settings: write(identity, settings)).map(lambda _: Nothing)
 
             return (
-                *self.rows,
                 *((Band.GROUPS, nested) for built in (group, flags) for nested in built.nested),
                 *commands,
                 *sections,
+                *(Panel(section=popover, at=PopoverPanel()) for popover in reached(sections)),
                 (Band.PREFERENCES, kind),
                 (Band.INTERFACE, prepared()),
                 Timer(body=seeded),
@@ -130,35 +129,7 @@ class PreferencesPage(msgspec.Struct, frozen=True, kw_only=True):
         ).map(lambda parts: built(*parts[0], parts[1]))
 
 
-# --- [REGISTRIES] -----------------------------------------------------------------------
-
-_listeners: defaultdict[Identity, list[Changed]] = defaultdict(list)
-
-
 # --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def notified(identity: Identity) -> Changed:
-    """Returns update callback calling every listener."""
-
-    def body(holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context, row: bpy.types.Property) -> None:
-        for heard in tuple(_listeners.get(identity, ())):
-            heard(holder, context, row)
-
-    return body
-
-
-@contextmanager
-def listening(identity: Identity, heard: Changed) -> Generator[None]:
-    """Holds preference listener until scope exits."""
-    listeners = _listeners[identity]
-    listeners.append(heard)
-    try:
-        yield
-    finally:
-        listeners.remove(heard)
-        if not listeners:
-            del _listeners[identity]
 
 
 def read[T: msgspec.Struct](identity: Identity, record: type[T]) -> BlenderResult[T]:
@@ -202,4 +173,4 @@ show = operators.Operator[operators.Empty](
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["PreferencesPage", "listening", "notified", "read", "show", "stored", "value", "write"]
+__all__ = ["PreferencesPage", "read", "show", "stored", "value", "write"]

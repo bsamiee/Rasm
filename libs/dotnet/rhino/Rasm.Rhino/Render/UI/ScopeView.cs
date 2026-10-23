@@ -322,8 +322,8 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
     private const float ClipSide = 9f;
     private const float ClipDimmed = 0.7f;
     private static readonly SizeF HandleSize = new(10f, 5f);
-    private static readonly MarkStyle HandleFill = new MarkStyle.Fill(new MarkColor.Themed(PaintSlot.ControlText), 1f);
-    private static readonly MarkStyle Outlined = new MarkStyle.Stroke(new MarkColor.Themed(PaintSlot.ControlText), 1f, 1f);
+    private static readonly MarkStyle HandleFill = new MarkStyle.Fill(new MarkColor.Themed(PaintSlot.Text), 1f);
+    private static readonly MarkStyle Outlined = new MarkStyle.Stroke(new MarkColor.Themed(PaintSlot.Text), 1f, 1f);
 
     protected override Seq<PlotMark<ScopePart>> Layout(ScopeViewState state, SizeF size, float scale) =>
         Placed(state, size.Width) switch {
@@ -405,7 +405,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
 
     private static MarkStyle.Fill Lit(ChannelCounts counts, bool shown) =>
         new Vector3(int.Sign(counts.Red), int.Sign(counts.Green), int.Sign(counts.Blue)) switch {
-            var lit when lit == Vector3.Zero => new MarkStyle.Fill(new MarkColor.Themed(PaintSlot.DisabledText), ClipDimmed),
+            var lit when lit == Vector3.Zero => new MarkStyle.Fill(new MarkColor.Themed(PaintSlot.TextDisabled), ClipDimmed),
             var lit => new MarkStyle.Fill(new MarkColor.Fixed(Shade(lit)), shown ? 1f : ClipDimmed),
         };
 
@@ -577,7 +577,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
     private const float DisplayAlpha = 0.5f;
     private const float WorkingAlpha = 0.7f;
     private static readonly Seq<float> Quarters = toSeq(Range(1, 4)).Map(static quarter => quarter / 4f);
-    private static readonly MarkStyle Split = new MarkStyle.Stroke(new MarkColor.Themed(PaintSlot.ControlText), 0.5f, 1f);
+    private static readonly MarkStyle Split = new MarkStyle.Stroke(new MarkColor.Themed(PaintSlot.Text), 0.5f, 1f);
 
     protected override IO<Unit> Draw(PlotCanvas canvas, RectangleF bounds, ScopeViewState state, Seq<PlotMark<ScopePart>> marks, Interaction<ScopePart> interaction) =>
         Placed(state, bounds.Width) switch {
@@ -594,7 +594,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
          let foot = grip.Well.Bottom + GripHeight - (GripHeight * 3f / 4f)
          select new PlotMark<ScopePart>(
              new MarkShape.Rule(new PointF(grip.Well.Left + (grip.Well.Width * 3f / 8f), foot), new PointF(grip.Well.Left + (grip.Well.Width * 5f / 8f), foot)),
-             new MarkStyle.Stroke(new MarkColor.Themed(PaintSlot.ContentTextEnabled), cued is ScopePart.Grip ? 1f : 0.5f, GripHeight / 2f),
+             new MarkStyle.Stroke(new MarkColor.Themed(PaintSlot.Text), cued is ScopePart.Grip ? 1f : 0.5f, GripHeight / 2f),
              None)).ToSeq();
 
     private static IO<Unit> Traced(PlotCanvas canvas, ScopeViewState state, RectangleF plot, ScopeTraces traces) =>
@@ -717,7 +717,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
                 var (low, high) when high > low => rgb.Subtract(low).Divide(high - low) switch {
                     var saturated => new MarkColor.Fixed(new Color((float)saturated[0], (float)saturated[1], (float)saturated[2])),
                 },
-                _ => new MarkColor.Themed(PaintSlot.ControlText),
+                _ => new MarkColor.Themed(PaintSlot.Text),
             },
         };
 
@@ -766,7 +766,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
 
     private static IO<Unit> ChromaticityPlot(PlotCanvas canvas, RectangleF plot, ScopeTraces.Chromaticity traces) {
         PlotPlane.Cartesian square = PlotPlane.Cartesian.Unit(ScopeTraces.Chromaticity.Square(plot));
-        Vector3 ink = Ink(canvas, new MarkColor.Themed(PaintSlot.ControlText));
+        Vector3 ink = Ink(canvas, new MarkColor.Themed(PaintSlot.Text));
         int peak = Peak(traces.Reading.Bins.Counts);
         Vector2 fit = ScopeTraces.Chromaticity.Fit;
         Seq<(string Role, Gamut Gamut, float Alpha)> roles = Roles(traces);
@@ -801,15 +801,15 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
         from mark in Seq(
             new PlotMark<ScopePart>(
                 new MarkShape.Polygon([Xy(square, columns.Red), Xy(square, columns.Green), Xy(square, columns.Blue)]),
-                new MarkStyle.Stroke(new MarkColor.Themed(PaintSlot.ControlText), role.Alpha, 1f),
+                new MarkStyle.Stroke(new MarkColor.Themed(PaintSlot.Text), role.Alpha, 1f),
                 None),
             new PlotMark<ScopePart>(
                 new MarkShape.Band(RectangleF.FromCenter(white, new SizeF(2f * side, 2f * side))),
-                new MarkStyle.Fill(new MarkColor.Themed(PaintSlot.ControlText), role.Alpha),
+                new MarkStyle.Fill(new MarkColor.Themed(PaintSlot.Text), role.Alpha),
                 None),
             new PlotMark<ScopePart>(
                 new MarkShape.Band(RectangleF.FromCenter(white, new SizeF(side, side))),
-                new MarkStyle.Fill(new MarkColor.Themed(PaintSlot.ControlBackground), 1f),
+                new MarkStyle.Fill(new MarkColor.Themed(PaintSlot.ListBackground), 1f),
                 None))
         select mark;
 
@@ -825,7 +825,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
             .Map((line, index) => (line.Text, line.Alpha, Top: plot.Top + (index * canvas.Font.LineHeight) + (line.Block * canvas.Font.LineHeight / 2f)))
             .Iter(line => canvas.Graphics.DrawText(
                 canvas.Font,
-                Plots.Resolve(canvas, new MarkStyle.Fill(new MarkColor.Themed(PaintSlot.ControlText), line.Alpha)),
+                Plots.Resolve(canvas, new MarkStyle.Fill(new MarkColor.Themed(PaintSlot.Text), line.Alpha)),
                 new PointF(plot.Right - canvas.Graphics.MeasureString(canvas.Font, line.Text).Width, line.Top),
                 line.Text)));
 
@@ -838,7 +838,7 @@ public sealed class ScopeView : ComponentControl<ScopeViewState, ScopePart, Scop
             .Map(static line => RowText.Localize(line.Format, arguments: [line.Point.X, line.Point.Y]).Local));
 
     private static IO<Unit> Rastered(PlotCanvas canvas, RectangleF target, PixelExtent extent, Func<PointF, Vector3> trace) =>
-        Rgb(canvas.Slots[PaintSlot.ControlBackground]) switch {
+        Rgb(canvas.Slots[PaintSlot.ListBackground]) switch {
             var well => DisposalOps.Within(() => ImagePlots.Pixels(extent, Enumerable.Range(0, extent.Width * extent.Height).Select(index =>
                     Shade(Vector3.Min(well + trace(new PointF(
                         target.Left + (((index % extent.Width) + 0.5f) * target.Width / extent.Width),

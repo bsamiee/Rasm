@@ -1,6 +1,5 @@
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Events;
-using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
@@ -29,7 +28,7 @@ public abstract partial record ContentScope {
 
 public sealed record ContentMenuRow(
     string Caption,
-    (IGlyph Glyph, int Master) Icon,
+    IGlyph Icon,
     ContentScope Scope,
     LanguageExt.HashSet<RenderContentMenu.Context> Contexts,
     RenderContentMenu.SeparatorStyle Separator,
@@ -47,22 +46,9 @@ public static class ViewRegistration {
 
     // --- [PANELS]
     public static readonly Func<IPlugInViews, Action<IDisposable>, IO<Unit>> RegisterPanels =
-        static (plugIn, retain) => {
-            Func<View.Panel, IO<Option<System.Drawing.Icon>>> image = static row =>
-                from size in IconSlot.PanelTab.Size()
-                from pixels in HostTheme.Device(new(size, size))
-                from icon in row.Icon.TraverseM(glyph => Icons.DrawingIcon(glyph.Glyph, glyph.Master, pixels)).As()
-                select icon;
-            IO<Unit> refresh = Each<View.Panel>(plugIn, row => image(row)
-                .Bind(icon => IO.lift(() => icon.Iter(held => Panels.ChangePanelIcon(row.Identity, held)))).Map(unit));
-            return DisposalOps.Acquire(owned =>
-                from registered in Each<View.Panel>(plugIn, row => image(row).Bind(icon => Hosted(row.Identity, () => Panels.RegisterPanel(
-                    plugIn.PlugIn, row.Identity, RowText.Localize(row.Caption, plugIn).Local,
-                    icon.ValueUnsafe(), row.Kind.IfNone(PanelType.PerDoc)))))
-                from subscriptions in HostTheme.Changed.Cons(Appearance.TabIconSize.Changed.ToSeq())
-                    .TraverseM(signal => signal.Inline(_ => refresh, plugIn, owned)).As()
-                select unit, retain);
-        };
+        static (plugIn, _) => Each<View.Panel>(plugIn, row => Hosted(row.Identity, () => Panels.RegisterPanel(
+            plugIn.PlugIn, row.Identity, RowText.Localize(row.Caption, plugIn).Local,
+            row.Icon.Map(static glyph => glyph.Assets.Assembly).ValueUnsafe(), row.Icon.Map(static glyph => glyph.Key).ValueUnsafe(), row.Kind.IfNone(PanelType.PerDoc))));
 
     // --- [PAGES]
     public static IO<Unit> OptionsDialogPages(IPlugInViews plugIn, ICollection<OptionsDialogPage> pages) =>
@@ -94,7 +80,7 @@ public static class ViewRegistration {
         Each<View.Tab>(plugIn, row =>
             from size in IconSlot.RenderTab.Size()
             from pixels in HostTheme.Device(new(size, size))
-            from icon in row.Icon.TraverseM(glyph => Icons.DrawingIcon(glyph.Glyph, glyph.Master, pixels)).As()
+            from icon in row.Icon.TraverseM(glyph => Icons.DrawingIcon(glyph, pixels)).As()
             from registered in Hosted(row.Identity, () => tabs.RegisterTab(
                 plugIn, row.Identity, row.Scope.TabEngineId(plugIn), RowText.Localize(row.Caption, plugIn).Local, icon.ValueUnsafe()))
             select registered);
@@ -127,7 +113,7 @@ public static class ViewRegistration {
         (plugIn, _) => Callbacks.Each(rows.Map((row, order) =>
                 from size in IconSlot.ContentMenu.Size()
                 from pixels in HostTheme.Device(new(size, size))
-                from icon in Icons.DrawingIcon(row.Icon.Glyph, row.Icon.Master, pixels)
+                from icon in Icons.DrawingIcon(row.Icon, pixels)
                 let site = new CallbackSite(plugIn, typeof(RenderContentMenu), row.Caption)
                 from added in IO.lift(() => RenderContentMenu.AddMenuItem(
                     plugIn.PlugIn.Id,

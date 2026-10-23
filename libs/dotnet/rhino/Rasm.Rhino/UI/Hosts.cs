@@ -7,7 +7,6 @@ using Rhino;
 using Rhino.Commands;
 using Rhino.DocObjects;
 using Rhino.Render;
-using Rhino.Runtime;
 using Rhino.UI;
 using Rhino.UI.Controls;
 using Rhino.UI.Controls.DataSource;
@@ -78,7 +77,7 @@ public abstract class ViewPanel : Panel {
 
 public abstract class DefinedPanel(RhinoDoc? document, View.Panel row) : ViewPanel(row, Optional(document)), IPanel, IHelp {
     // --- [IDENTITY]
-    public string HelpUrl => Row.HelpReference;
+    public string HelpUrl => Conversions.Unset(HelpTopic.Of(Row.Help, this).Map(static string (topic) => topic));
 
     // --- [EDGES]
     public void PanelShown(uint documentSerialNumber, ShowPanelReason reason) => Callbacks.Run(Shown(visible: true), CallbackSite.Of(this));
@@ -115,6 +114,13 @@ public abstract class DefinedSection : EtoCollapsibleSection3 {
     public IO<Unit> Attach(Func<Action<IDisposable>, IO<ViewBody>> realize) => IO.lift(() => { source = Some(realize); });
 
     // --- [EDGES]
+    internal Option<SectionHolder> Holder { get; private set; }
+
+    public override void OnAttachedToHolder(ICollapsibleSectionHolder2 holder) {
+        base.OnAttachedToHolder(holder);
+        Holder = Optional(holder as SectionHolder);
+    }
+
     public override void HolderVisible(bool visible) => Callbacks.Run(lifetime.Visible(visible), CallbackSite.Of(this));
 
     public override void UpdateView(uint flags) => Callbacks.Run(lifetime.Reread, CallbackSite.Of(this));
@@ -227,7 +233,7 @@ public abstract class DefinedOptionsPage : OptionsDialogPage {
     public override bool OnActivate(bool active) =>
         Callbacks.Succeeded((active ? Realized : page.Value).Traverse(held => held.Body.Shown(active)).As(), CallbackSite.Of(this));
 
-    public override void OnHelp() => Callbacks.Run(row.Help.Map(static topic => topic.Show), CallbackSite.Of(this));
+    public override void OnHelp() => Callbacks.Run(HelpTopic.Of(row.Help, this).Map(static topic => topic.Show), CallbackSite.Of(this));
 
     // --- [COMMITS]
     public override bool OnApply() =>
@@ -289,12 +295,10 @@ public abstract class DefinedPropertiesPage(View.PropertiesPage row) : ObjectPro
 
     public override int Index => row.Index.IfNone(() => base.Index);
 
-    public override string PageIconEmbeddedResourceString =>
-        Conversions.Unset(row.Icon.Filter(static _ => HostUtils.RunningOnOSX)
-            .Map(static glyph => Path.ChangeExtension(Icons.ResourceName(glyph.Glyph, glyph.Master), ".png")));
+    public override string PageIconEmbeddedResourceString => Conversions.Unset(row.Icon.Map(static glyph => glyph.Key));
 
     public override System.Drawing.Icon? PageIcon(System.Drawing.Size sizeInPixels) =>
-        Callbacks.Answer(row.Icon.TraverseM(glyph => Icons.DrawingIcon(glyph.Glyph, glyph.Master, sizeInPixels)).As(),
+        Callbacks.Answer(row.Icon.TraverseM(glyph => Icons.DrawingIcon(glyph, sizeInPixels)).As(),
             static () => Option<System.Drawing.Icon>.None, CallbackSite.Of(this)).ValueUnsafe();
 
     public override object? PageControl => Realized.Map(static object (held) => held.Host).ValueUnsafe();
@@ -316,7 +320,7 @@ public abstract class DefinedPropertiesPage(View.PropertiesPage row) : ObjectPro
     public override bool OnActivate(bool active) =>
         Callbacks.Succeeded((active ? Realized : page.Value).Traverse(held => held.Body.Shown(active)).As(), CallbackSite.Of(this));
 
-    public override void OnHelp() => Callbacks.Run(row.Help.Map(static topic => topic.Show), CallbackSite.Of(this));
+    public override void OnHelp() => Callbacks.Run(HelpTopic.Of(row.Help, this).Map(static topic => topic.Show), CallbackSite.Of(this));
 
     // --- [SCRIPTS]
     public override Result RunScript(ObjectPropertiesPageEventArgs e) =>
@@ -362,7 +366,7 @@ public abstract class DefinedTab(View.Tab row) : ViewPanel(row, Optional(RhinoDo
 
     public void DisplayData() => Callbacks.Run(Realized.Map(static body => body.Reread), CallbackSite.Of(this));
 
-    public void DoHelp() => Callbacks.Run(Row.Help.Map(static topic => topic.Show), CallbackSite.Of(this));
+    public void DoHelp() => Callbacks.Run(HelpTopic.Of(Row.Help, this).Map(static topic => topic.Show), CallbackSite.Of(this));
 
     // --- [RELEASE]
     public void Destroy() => Dispose();
@@ -370,7 +374,7 @@ public abstract class DefinedTab(View.Tab row) : ViewPanel(row, Optional(RhinoDo
 
 public abstract class DefinedPane(View.Pane row) : ViewPanel(row, Optional(RhinoDoc.ActiveDoc)), IHelp {
     // --- [IDENTITY]
-    public string HelpUrl => Row.HelpReference;
+    public string HelpUrl => Conversions.Unset(HelpTopic.Of(Row.Help, this).Map(static string (topic) => topic));
 
     // --- [EDGES]
     public void OnVisibilityChanged(bool visible) => Callbacks.Run(Shown(visible), CallbackSite.Of(this));

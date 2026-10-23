@@ -307,8 +307,6 @@ public static class TargetRows {
         new(None, Some(RowRule.When(Chosen, target => target.FileFormat.Verdict(parameter, target).IsSome, TargetParameter.FileFormat, TargetParameter.ColorDepth, TargetParameter.Reader)));
 
     // --- [PAGE]
-    public static Seq<ControlRow> Formation { get; } = SectionRows.Of(Chosen, toSeq(TargetParameter.Items).Filter(static parameter => parameter.Formation), None, Rules);
-
     public static Seq<ControlRow> Page { get; } = [
         ListRows.List("Targets", "Files each save writes from one rendering", new ListRow<(OutputTarget Target, int Index), int>(
                 IterableNE.create<ListColumn<(OutputTarget Target, int Index)>>(
@@ -333,7 +331,7 @@ public static class TargetRows {
                         select written))),
         },
             RowRules.Always),
-        .. SectionRows.Of(Chosen, toSeq(TargetParameter.Items).Filter(static parameter => !parameter.Formation), None, Rules),
+        .. SectionRows.Of(Chosen, toSeq(TargetParameter.Items), None, Rules),
         new ControlRow.Group("Written as", RowRules.Always),
         .. toSeq(TargetParameter.Items).Filter(static parameter => !parameter.Formation).Map(static parameter => TextRows.Readout(
             parameter.Text.Caption, parameter.Text.Help, new ReadoutSource<OutputTarget>.Model(Shown),

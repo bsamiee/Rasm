@@ -6,7 +6,7 @@ using Rasm.Rhino.UI.Styling;
 namespace Rasm.Rhino.UI.Rows;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record CommandFace(string Name, string Caption, string Help, Option<(IGlyph Glyph, int Master)> Glyph, Option<Keys> Shortcut) {
+public sealed record CommandFace(string Name, string Caption, string Help, Option<IGlyph> Glyph, Option<Keys> Shortcut) {
     public Wording Wording { get; init; } = Wording.English;
 }
 

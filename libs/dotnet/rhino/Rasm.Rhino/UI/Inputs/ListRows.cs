@@ -5,6 +5,7 @@ using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.UI.Drawing;
+using Rasm.Rhino.UI.Numeric;
 using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
 using Rhino.UI;
@@ -25,18 +26,18 @@ public abstract partial record ListColumn<TItem> where TItem : notnull {
 
     public bool Stretches => Map(label: true, check: false, glyph: false, progress: true);
 
-    public sealed record Label(Option<string> Caption, Func<TItem, string> Read, Option<Func<TItem, (IGlyph Glyph, int Master)>> Icon, Option<Func<TItem, string, Fin<TItem>>> Rename)
+    public sealed record Label(Option<string> Caption, Func<TItem, string> Read, Option<Func<TItem, IGlyph>> Icon, Option<Func<TItem, string, Fin<TItem>>> Rename)
         : ListColumn<TItem>(Caption);
 
     public sealed record Check(Option<string> Caption, Lens<TItem, bool> Value) : ListColumn<TItem>(Caption);
 
-    public sealed record Glyph(Option<string> Caption, Func<TItem, (IGlyph Glyph, int Master)> Icon) : ListColumn<TItem>(Caption);
+    public sealed record Glyph(Option<string> Caption, Func<TItem, IGlyph> Icon) : ListColumn<TItem>(Caption);
 
     public sealed record Progress(Option<string> Caption, Func<TItem, Option<float>> Read) : ListColumn<TItem>(Caption);
 }
 
 public static class ListColumn {
-    public static ListColumn<TItem> Named<TItem, TValue, TRaw>(Option<string> caption, Lens<TItem, TValue> name, Option<Func<TItem, (IGlyph Glyph, int Master)>> icon)
+    public static ListColumn<TItem> Named<TItem, TValue, TRaw>(Option<string> caption, Lens<TItem, TValue> name, Option<Func<TItem, IGlyph>> icon)
         where TItem : notnull
         where TValue : IObjectFactory<TValue, TRaw, ValidationError>, IConvertible<TRaw>
         where TRaw : notnull, ISpanParsable<TRaw> =>
@@ -343,7 +344,7 @@ public static class ListRows {
             : branches.Fold(item, (held, tree) => tree.Children.Update(kids => Replaced(key, branches, kids, edited), held)));
 
     private static IO<Cell> CellFor<TItem>(ListColumn<TItem> column, IPlugInSink sink, Action<IDisposable> retain) where TItem : notnull =>
-        IconSlot.ListCell.Size().Bind(size => column.Switch((Sink: sink, Retain: retain, Size: new System.Drawing.Size(size, size)),
+        IconSlot.ListCell.Size().Bind(size => column.Switch((Sink: sink, Retain: retain, Size: new Size(size, size)),
             label: static (held, label) => label.Icon.Match(
                 Some: icon =>
                     from cell in DisposalOps.Acquire(IO.lift(static () => new ImageTextCell()), held.Retain)
@@ -366,10 +367,8 @@ public static class ListRows {
                 from bound in IO.lift(() => cell.Binding = Binding.Delegate<RowItem<TItem>, float?>(node => progress.Read(node.Row).ToNullable()))
                 select (Cell)cell));
 
-    private static IndirectBinding<Image> Pictured<TItem>(Func<TItem, (IGlyph Glyph, int Master)> icon, System.Drawing.Size logicalSize) where TItem : notnull =>
-        Binding.Delegate<RowItem<TItem>, Image>(node => icon(node.Row) switch {
-            var source => Icons.Frame(source.Glyph, source.Master, logicalSize),
-        });
+    private static IndirectBinding<Image> Pictured<TItem>(Func<TItem, IGlyph> icon, Size logicalSize) where TItem : notnull =>
+        Binding.Delegate<RowItem<TItem>, Image>(node => Icons.Frame(icon(node.Row), logicalSize));
 
     private static IndirectBinding<string> Written<TItem>(ListColumn<TItem>.Label label) where TItem : notnull =>
         Binding.Delegate<RowItem<TItem>, string>(
@@ -467,7 +466,7 @@ public static class ListRows {
         IO.lift(() => Resolved(row, list.Value.Nodes, args.Item).Iter(node =>
             (args.Font, args.ForegroundColor) = (
                 node.Kids.IsEmpty ? args.Font : emphasis,
-                row.Available.ForAll(available => available(node.Row)) ? args.ForegroundColor : PaintSlot.DisabledText.Read())));
+                row.Available.ForAll(available => available(node.Row)) ? args.ForegroundColor : PaintSlot.TextDisabled.Read())));
 
     // --- [COMMANDS]
     private static IO<(Option<Control> Pair, Seq<Seq<MenuEntry>> Menu, Seq<(Command Command, Action Run)> Keys, IO<Unit> Refresh)> Commanded(
@@ -548,21 +547,19 @@ public static class ListRows {
         RowSource<BrowserLayout> layout, BrowserMode mode, ThumbnailBrowser<TItem, TKey> browser, RowScope scope, Action<IDisposable> retain)
         where TItem : notnull
         where TKey : notnull =>
-        from slider in DisposalOps.Acquire(IO.lift(static () => new Eto.Forms.Slider()), retain)
-        from ranged in IO.lift(() => { (slider.MinValue, slider.MaxValue, slider.TickFrequency) = ((int)(float)TileSize.MinValue, (int)(float)TileSize.MaxValue, 0); })
+        from slider in DisposalOps.Acquire(IO.lift(() => new ParameterSlider<TileSize, float>(
+            scope.Sink, NumberText.Scalar(NumericDomain.Bounded<TileSize, float>(TileSize.Presentation), ""), RowText.Localize(BrowserLayoutParameter.Size.Text.Caption).Local)), retain)
         let keys = Named(layout, scope)
         let written = (Func<Func<BrowserLayout, BrowserLayout>, IO<Unit>>)(next =>
             from held in scope.Read(layout)
             from stored in scope.Store(layout).Write(Some(next(held)))
             from changed in scope.Changed(keys)
             select unit)
-        from modes in ChoiceRows.Strip(ChoiceRows.Items(Some<Func<BrowserMode, (IGlyph Glyph, int Master)>>(static item => (item.Glyph, IconSlot.PanelButton.Master)), scope.Sink),
+        from modes in ChoiceRows.Strip(ChoiceRows.Items(Some<Func<BrowserMode, IGlyph>>(static item => item.Glyph), scope.Sink),
             picked => written(held => held with { Mode = Some(picked) }), scope.Sink, retain)
-        let add = (Action<EventHandler<EventArgs>>)(h => slider.ValueChanged += h)
-        let remove = (Action<EventHandler<EventArgs>>)(h => slider.ValueChanged -= h)
-        let moved = Callbacks.Handler<EventArgs>(_ => IO.lift(() => TileSize.Validated(slider.Value))
-            .Bind(size => written(held => held with { Size = Some(size) })), new CallbackSite(scope.Sink, typeof(Eto.Forms.Slider), nameof(Eto.Forms.Slider.ValueChanged)))
-        let widths = IO.lift(() => browser.ImageWidth).Bind(width => Subscriptions.Detached(add, remove, moved, IO.lift(() => { slider.Value = (int)MathF.Round(width, MidpointRounding.ToEven); })))
+        let moved = Callbacks.Handler<EditEventArgs<TileSize>>(args => args.Edit.Carried.Traverse(size => written(held => held with { Size = Some(size) })).As().Map(unit),
+            new CallbackSite(scope.Sink, typeof(ParameterSlider<TileSize, float>), nameof(ParameterSlider<,>.Edited)))
+        let widths = IO.lift(() => browser.ImageWidth).Bind(width => slider.Receive(Some(TileSize.Clamped(width))))
         from watched in Watched(layout, keys, held =>
             from sized in browser.TileWidth(held.Size)
             from moded in browser.Mode(held.Mode.IfNone(mode))
@@ -570,7 +567,7 @@ public static class ListRows {
             from fitted in widths
             select unit,
             scope, new CallbackSite(scope.Sink, typeof(ThumbnailBrowser<TItem, TKey>), nameof(ThumbnailBrowser<,>.Mode)), retain)
-        from movedRoute in Subscriptions.Attach(add, remove, moved, retain)
+        from movedRoute in Subscriptions.Attach(h => slider.Edited += h, h => slider.Edited -= h, moved, retain)
         from sizedRoute in Subscriptions.Attach(h => browser.SizeChanged += h, h => browser.SizeChanged -= h,
             Callbacks.Handler<EventArgs>(_ => widths, new CallbackSite(scope.Sink, typeof(ThumbnailBrowser<TItem, TKey>), nameof(Control.SizeChanged))), retain)
         from table in DisposalOps.Acquire(IO.lift(static () => new TableLayout()), retain)

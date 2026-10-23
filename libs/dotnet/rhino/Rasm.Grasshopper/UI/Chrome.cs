@@ -119,9 +119,9 @@ public static class CanvasChrome {
 
     private static IO<Unit> Added(IFlexControl control, (FloatingCommand Command, Seq<FloatingAction> Actions) row, FloatingAction action, RowScope scope, Action<IDisposable> retain) =>
         from icon in IconOf(action.Face, scope.Sink)
+        from held in action.Checked.Traverse(read => read(scope)).As()
         from added in DisposalOps.Acquire(IO.lift(() => {
             string info = action.Face.Wording.Shown(action.Face.Help, scope.Sink);
-            Color color = PaintSlot.ControlBackground.Read();
             IIcon? glyph = icon.ValueUnsafe();
             FloatingButtonHandler click = (button, _) => Callbacks.Answer(
                 scope, at => action.Execute(at)
@@ -130,8 +130,8 @@ public static class CanvasChrome {
                 static () => Response.Handled,
                 new CallbackSite(scope.Sink, typeof(FloatingButton), action.Face.Name));
             _ = row.Command.Placement.Match(
-                Left: position => control.FloatingButtons.Add(position, action.Name, info, color, glyph, click),
-                Right: anchor => control.FloatingButtons.AddAnchored(anchor, action.Name, info, color, glyph, click));
+                Left: position => control.FloatingButtons.Add(position, action.Name, info, Shade(held), glyph, click),
+                Right: anchor => control.FloatingButtons.AddAnchored(anchor, action.Name, info, Shade(held), glyph, click));
             return new Disposal<FloatingButton>(control.FloatingButtons[action.Name], static button => {
                 button.Enabled = false;
                 button.Close();
@@ -146,17 +146,20 @@ public static class CanvasChrome {
         from shown in IO.lift(() => {
             FloatingButton button = buttons[action.Name];
             button.Enabled = enabled;
-            button.ModifyColour((checkedState.Exists(static held => held) ? PaintSlot.Highlight : PaintSlot.ControlBackground).Read());
+            button.ModifyColour(Shade(checkedState));
             if (visible) button.Show(); else button.Hide();
             buttons.Control.ScheduleRedraw();
         })
         select unit;
 
+    private static Color Shade(Option<bool> held) =>
+        Skin.Current.Shades[held.Exists(static on => on) ? ShadeKind.NormalSelected : ShadeKind.Normal].Apex;
+
     // --- [TIPS]
     public static IO<Unit> Tip(
-        IPlugInSink sink, Option<(IGlyph Glyph, int Master)> glyph, string caption, string help, bool warnings, bool errors,
+        IPlugInSink sink, Option<IGlyph> glyph, string caption, string help, bool warnings, bool errors,
         Either<Seq<(string Label, string Value)>, (Action<Context, Rectangle> Painter, Size Size)> body) =>
-        from icon in glyph.Traverse(held => CanvasIcons.Vector(sink, held.Glyph, held.Master)).As()
+        from icon in glyph.Traverse(shown => CanvasIcons.Vector(sink, shown)).As()
         let local = fun((string text) => RowText.Localize(text, sink).Local)
         from shown in IO.lift(() => body.Match(
             Left: lines => Frame.Show(icon.ValueUnsafe(), local(caption), local(help), [.. lines.Map(line => new LazyStrings(local(line.Label), line.Value))], warnings, errors),
@@ -173,7 +176,7 @@ public static class CanvasChrome {
 
     // --- [FACES]
     private static IO<Option<IIcon>> IconOf(CommandFace face, IPlugInSink sink) =>
-        face.Glyph.Traverse(glyph => CanvasIcons.Vector(sink, glyph.Glyph, glyph.Master)).As();
+        face.Glyph.Traverse(glyph => CanvasIcons.Vector(sink, glyph)).As();
 
     private static Nomen Named(CommandFace face, Option<string> section, IPlugInSink sink) =>
         new(face.Wording.Shown(face.Caption, sink), face.Wording.Shown(face.Help, sink), section: section.ValueUnsafe());

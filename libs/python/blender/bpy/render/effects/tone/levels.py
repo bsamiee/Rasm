@@ -56,6 +56,7 @@ auto_levels = Operator(
     key="auto_levels",
     title="Auto Levels",
     description=f"Measure {Levels.title} from stage input",
+    icon=Some("SEQ_HISTOGRAM"),
     form=Named,
     undo=False,
     condition=Some(Job(kind="RENDER")),

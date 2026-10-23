@@ -67,7 +67,7 @@ class Browsing(msgspec.Struct, frozen=True, kw_only=True):
     """History browser session state."""
 
     shown: Annotated[str, msgspec.Meta(title="Before", description="Stored render drawn as before frame"), entries] = ""
-    difference: Annotated[bool, msgspec.Meta(title="Difference", description="Tints pixels by perceived difference from before frame")] = False
+    difference: Annotated[bool, msgspec.Meta(title="Difference", description="Tint pixels by perceived difference from before frame")] = False
     newest: Annotated[str, msgspec.Meta(title="Newest", description="Newest stored render key"), Definition(options=frozenset({"HIDDEN"}))] = ""
 
 
@@ -159,25 +159,25 @@ class HistoryCommands(msgspec.Struct, frozen=True, kw_only=True):
             return held(identity).bind(lambda history: kept(identity, history, msgspec.structs.replace(history, entries=()))).map(lambda _: Done())
 
         return cls(
-            restore=Operator(key="history_restore", title="Restore Settings", description="Applies stored settings to scene", form=Empty, run=restored),
-            diff=Operator(key="history_diff", title="Compare Settings", description="Reports settings changed since stored render", form=Empty, run=diffed, undo=False),
-            open=Operator(key="history_open", title="Open Render", description="Shows stored render", form=Empty, run=opened, undo=False),
-            measure=Operator(key="history_measure", title="Measure Difference", description="Grades stored render against shown frame", form=Empty, run=measured, undo=False),
+            restore=Operator(key="history_restore", title="Restore Settings", description="Apply stored settings to scene", form=Empty, run=restored),
+            diff=Operator(key="history_diff", title="Compare Settings", description="Report settings changed since stored render", form=Empty, run=diffed, undo=False),
+            open=Operator(key="history_open", title="Open Render", description="Show stored render", form=Empty, run=opened, undo=False),
+            measure=Operator(key="history_measure", title="Measure Difference", description="Grade stored render against shown frame", form=Empty, run=measured, undo=False),
             note=Operator(
                 key="history_note",
                 title="Edit Note",
-                description="Writes stored render note",
+                description="Write stored render note",
                 form=Noting,
                 run=noting,
                 invoke=Some(Properties()),
-                seed=Some(lambda record, _event: chosen(identity, bpy.context).map(lambda pair: Noting(note=pair[1].value)).default_value(record)),
+                seed=Some(lambda record, _event, _identity: chosen(identity, bpy.context).map(lambda pair: Noting(note=pair[1].value)).default_value(record)),
                 undo=False,
             ),
-            remove=Operator(key="history_remove", title="Remove Render", description="Deletes stored render and files", form=Empty, run=removed, undo=False),
+            remove=Operator(key="history_remove", title="Remove Render", description="Delete stored render and files", form=Empty, run=removed, undo=False),
             clear=Operator(
                 key="history_clear",
                 title="Clear History",
-                description="Deletes every stored render",
+                description="Delete every stored render",
                 form=Empty,
                 run=cleared,
                 invoke=Some(Confirm(confirm_text=Some("Clear"), icon="WARNING")),
@@ -186,7 +186,7 @@ class HistoryCommands(msgspec.Struct, frozen=True, kw_only=True):
             folder=Operator(
                 key="history_folder",
                 title="Open History Folder",
-                description="Opens stored render folder",
+                description="Open stored render folder",
                 form=Empty,
                 undo=False,
                 run=lambda _: called(bpy.ops.wm.path_open, {"filepath": str(folder(identity))}).map(lambda _: Done()),
@@ -207,9 +207,9 @@ class HistoryStore(msgspec.Struct, frozen=True, kw_only=True):
         return CompareView(key="history_compare", glyph=self.glyph, read=lambda identity, _: before(identity), kinds=("IMAGE", "RENDER_RESULT"), refreshes=watched)
 
     @property
-    def page_rows(self) -> tuple[Registrable, ...]:
-        """Browser and compare state preferences page acquires."""
-        return (browsing, self.compare.state)
+    def prerequisites(self) -> tuple[Registrable, ...]:
+        """Browser attachment refresh watches bind."""
+        return (browsing,)
 
     def section(self) -> Single:
         """Returns Render History section."""

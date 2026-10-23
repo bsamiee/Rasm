@@ -1,5 +1,6 @@
-using System.Runtime.CompilerServices;
 using Rasm.Rhino.Objects;
+using Rasm.Rhino.PlugIns;
+using Rasm.Rhino.UI;
 using Rhino;
 using Rhino.Commands;
 using Rhino.DocObjects;
@@ -38,14 +39,23 @@ public static class CommandRegistry {
             .Strict());
 
     // --- [REGISTRATION]
-    public static IO<TCommand> Register<TCommand>(PlugIn plugIn, TCommand command) where TCommand : Command =>
-        IO.lift(() => Refused.Unless(RegisterCommand(plugIn, command), command, nameof(RegisterCommand)));
-
     public static IO<Seq<Command>> GetCommands(Guid plugInId) =>
         IO.lift(() => Refused.UnlessFound(PlugIn.Find(plugInId), nameof(PlugIn.Find)).Map(static plugIn => toSeq(plugIn.GetCommands())));
 
-    [UnsafeAccessor(UnsafeAccessorKind.Method)]
-    private static extern bool RegisterCommand(PlugIn plugIn, Command command);
+    // --- [IDENTITY]
+    extension(Command command) {
+        internal string LocalizedName => Localization.LocalizeCommandName(command.EnglishName, command.PlugIn);
+
+        internal string HelpUrl(CallbackSite site) =>
+            Callbacks.Answer(PlugInRegistry.ReadPlugIn(command.PlugIn.Id).Map(static state => Conversions.Unset(state.Bind(static held => held.WebSite))), static () => "", site);
+
+        internal void ShowHelp(Option<HelpTopic> topic, CallbackSite site) =>
+            Callbacks.Run(
+                from views in IO.lift(Conversions.Cast<IPlugInViews>(command.PlugIn))
+                from shown in (topic || views.Help).Match(Some: static held => held.Show, None: static () => IO.pure(unit))
+                select shown,
+                site);
+    }
 }
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
@@ -55,9 +65,13 @@ public abstract class HostCommand(IPlugInSink sink, Guid id, string englishName,
 
     public sealed override string EnglishName { get; } = englishName;
 
-    public sealed override string LocalName => Localization.LocalizeCommandName(EnglishName, PlugIn);
+    public sealed override string LocalName => this.LocalizedName;
 
-    public Option<(Option<Guid> File, Guid Toolbar)> Toolbar { get; init; }
+    protected virtual Option<HelpTopic> Help => None;
+
+    protected sealed override string CommandContextHelpUrl => this.HelpUrl(new CallbackSite(sink, GetType(), nameof(CommandContextHelpUrl)));
+
+    protected sealed override void OnHelp() => this.ShowHelp(Help, new CallbackSite(sink, GetType(), nameof(OnHelp)));
 
     // --- [EXECUTION]
     protected abstract IO<Unit> Run(RhinoDoc doc, RunMode mode, CallbackSite site);
@@ -87,7 +101,13 @@ public abstract class HostSelectionCommand(IPlugInSink sink, Guid id, string eng
 
     public sealed override string EnglishName { get; } = englishName;
 
-    public sealed override string LocalName => Localization.LocalizeCommandName(EnglishName, PlugIn);
+    public sealed override string LocalName => this.LocalizedName;
+
+    protected virtual Option<HelpTopic> Help => None;
+
+    protected sealed override string CommandContextHelpUrl => this.HelpUrl(new CallbackSite(sink, GetType(), nameof(CommandContextHelpUrl)));
+
+    protected sealed override void OnHelp() => this.ShowHelp(Help, new CallbackSite(sink, GetType(), nameof(OnHelp)));
 
     // --- [EXECUTION]
     protected abstract SelectionAnswer Select(RhinoObject candidate);
@@ -124,7 +144,13 @@ public abstract class HostTransformCommand(IPlugInSink sink, Guid id, string eng
 
     public sealed override string EnglishName { get; } = englishName;
 
-    public sealed override string LocalName => Localization.LocalizeCommandName(EnglishName, PlugIn);
+    public sealed override string LocalName => this.LocalizedName;
+
+    protected virtual Option<HelpTopic> Help => None;
+
+    protected sealed override string CommandContextHelpUrl => this.HelpUrl(new CallbackSite(sink, GetType(), nameof(CommandContextHelpUrl)));
+
+    protected sealed override void OnHelp() => this.ShowHelp(Help, new CallbackSite(sink, GetType(), nameof(OnHelp)));
 
     // --- [EXECUTION]
     protected abstract IO<Unit> Run(RhinoDoc doc, RunMode mode, CallbackSite site);

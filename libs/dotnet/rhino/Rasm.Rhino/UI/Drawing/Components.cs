@@ -53,6 +53,7 @@ public readonly record struct Transition<TState, TValue>(TState State, Option<Ed
 public abstract class ComponentControl : Drawable {
     public const float DragThreshold = 3f;
     private Option<Func<(SizeF Size, float Scale)>> hosted;
+    private Option<string> help;
 
     public static string HandlerStyle { get; } = StyleName(typeof(ComponentControl));
 
@@ -63,6 +64,11 @@ public abstract class ComponentControl : Drawable {
     }
 
     public IPlugInSink Sink { get; }
+
+    public IO<Unit> Describe(Option<string> text) => IO.lift(() => {
+        help = text;
+        RefreshToolTip();
+    });
 
     protected (SizeF Size, float Scale) Surface => hosted.Match(Some: static read => read(), None: () => (Size, ParentWindow.LogicalPixelSize));
 
@@ -90,6 +96,7 @@ public abstract class ComponentControl : Drawable {
     public abstract Option<float> PreferredHeight(float width);
     public abstract bool Captured { get; }
     public abstract IO<Unit> SurfaceChanged { get; }
+    protected abstract Option<PartFacet> HoveredFacet { get; }
 
     public event EventHandler? Redraw;
     public event EventHandler? PreferredSizeChanged;
@@ -102,6 +109,8 @@ public abstract class ComponentControl : Drawable {
     protected void RefreshPreferredHeight(Option<float> before, Option<float> after) {
         if (before != after) PreferredSizeChanged?.Invoke(this, EventArgs.Empty);
     }
+
+    protected void RefreshToolTip() => ToolTip = (HoveredFacet.Map(facet => (facet.Help | help).IfNone(facet.Label)) | help).ValueUnsafe();
 
     public static string StyleName(Type control) => $"{control.Assembly.GetName().Name}.{control.Name}";
     public static float Scale(Keys modifiers) => (modifiers & Application.Instance.CommonModifier) is not Keys.None ? 0.1f : 1f;
@@ -138,6 +147,8 @@ public abstract class ComponentControl<TState, TPart, TValue>(IPlugInSink sink, 
 
     protected Interaction<TPart> Cues => new(hovered, grip.Bind(static held => held.Part));
 
+    protected override Option<PartFacet> HoveredFacet => hovered.Map(key => Facet(State, key));
+
     protected CallbackSite Site([CallerMemberName] string member = "") => new(Sink, GetType(), member);
 
     private Unit Apply(SizeF size, float scale, Option<Transition<TState, TValue>> next) => next.Match(Some: held => Apply(size, scale, held), None: static () => unit);
@@ -166,6 +177,7 @@ public abstract class ComponentControl<TState, TPart, TValue>(IPlugInSink sink, 
             .Concat(was == now ? Seq<RectangleF>() : Regions(marks, toHashSet(Seq(was.Hovered, now.Hovered, was.Pressed, now.Pressed).Somes())))
             .Iter(RedrawRegion);
         Cursor = (now.Pressed | now.Hovered).Match(Some: key => Facet(State, key).Cursor, None: static () => Cursors.Default);
+        if (now.Hovered != was.Hovered) RefreshToolTip();
         _ = surface.Iter(held => RefreshPreferredHeight(Fitted(before, held.Size.Width), Fitted(State, held.Size.Width)));
         _ = Optional(ParentWindow).Iter(_ => Fit());
         Callbacks.Run(Reconcile(before, State, was, now), Site(nameof(Reconcile)));

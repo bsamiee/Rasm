@@ -26,7 +26,8 @@ public sealed record FramePane(
     Seq<Func<FrameView, RowScope, CallbackSite, Func<Option<(FrameOverlay Case, FrameEdit Value)>, IO<Unit>>, IO<bool>, Action<IDisposable>, IO<IO<Unit>>>> Targets,
     Seq<ControlRow> Tools,
     FramePicker Picker,
-    Option<FrameLink> Link);
+    Option<FrameLink> Link,
+    string Empty);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class FramePicker(Option<RowSource<ScopeState>> scope) {
@@ -270,16 +271,16 @@ public static partial class PreviewRows {
                 .Apply(static (masks, own) => (own.Current, own.Reference, Masks: masks + own.Masks)).As(),
         })
         from initial in linked.Read
-        from view in DisposalOps.Acquire(IO.lift(() => new FrameView(scope.Sink, initial, linked)), retain)
+        from view in DisposalOps.Acquire(IO.lift(() => new FrameView(scope.Sink, Wording.English.Shown(pane.Empty, scope.Sink), initial, linked)), retain)
         from readout in DisposalOps.Acquire(IO.lift(static () => new Label { Font = HostTheme.Digits(EtoFonts.SmallFont), TextAlignment = TextAlignment.Right }), retain)
         from cells in atomIO(toList(pane.Targets.Map(static _ => Option<(FrameOverlay Case, FrameEdit Value)>.None)))
         from ticks in atomIO((Before: PaneTick.Initial, After: PaneTick.Initial))
         let site = new CallbackSite(scope.Sink, typeof(PreviewRows), nameof(Frame))
         from tools in pane.Tools.Choose(row => Realized(row, scope, retain)).TraverseM(static row => row).As()
-        from compare in ButtonRows.Split(view.Compare, view.Modes.Map(static mode => (mode.Command, ((IGlyph)mode.Mode.Glyph, IconSlot.PanelButton.Master))), IconSlot.PanelButton, scope.Sink, retain)
-        from swap in ButtonRows.Image(view.Swap, (GlyphRole.Swap, IconSlot.PanelButton.Master), IconSlot.PanelButton, scope.Sink, retain)
+        from compare in ButtonRows.Split(view.Compare, view.Modes.Map(static mode => (mode.Command, (IGlyph)mode.Mode.Glyph)), IconSlot.PanelButton, scope.Sink, retain)
+        from swap in ButtonRows.Image(view.Swap, GlyphRole.Swap, IconSlot.PanelButton, scope.Sink, retain)
         from actions in Seq((Command: view.Fit, Glyph: GlyphRole.Fit), (Command: view.ActualSize, Glyph: GlyphRole.ActualSize))
-            .TraverseM(action => ButtonRows.Image(action.Command, (action.Glyph, IconSlot.PanelButton.Master), IconSlot.PanelButton, scope.Sink, retain)).As()
+            .TraverseM(action => ButtonRows.Image(action.Command, action.Glyph, IconSlot.PanelButton, scope.Sink, retain)).As()
         from targets in pane.Targets.Map((target, index) => Targeted(target, index, view, scope, site, cells, retain)).TraverseM(static target => target).As()
         from picking in scope.Document.ToSeq().TraverseM(document => Picking(pane.Picker, document.RuntimeSerialNumber, view, site, retain)).As()
         from clock in FrameClocks.Sample(view, Ticked(view, readout, pane.Link, cells, ticks), site, retain)
@@ -380,7 +381,7 @@ public static partial class PreviewRows {
                         from frame in stage.Read
                         from done in frame.Bind(held => square.Mean(held, pixel)).Match(Some: picked, None: static () => IO.pure(unit))
                         select done, owned)), site), owned)).As()
-        from button in ButtonRows.Pick(command, (GlyphRole.Pick, IconSlot.PickButton.Master), scope.Sink, owned)
+        from button in ButtonRows.Pick(command, GlyphRole.Pick, scope.Sink, owned)
         select button, retain);
 
     // --- [VIEWPORTS]

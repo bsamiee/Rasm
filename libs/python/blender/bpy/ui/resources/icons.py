@@ -4,25 +4,23 @@ from collections.abc import Callable, Generator
 from contextlib import contextmanager, ExitStack
 import importlib.resources
 from importlib.resources.abc import Traversable
-from itertools import chain
 import math
 from pathlib import Path
 from typing import ClassVar, TYPE_CHECKING
 
 import bpy
 import bpy.utils.previews
-from expression import Nothing, Ok, Option
+from expression import Nothing, Ok, Option, Some
 import msgspec
 import numpy as np
 import numpy.typing as npt
 
 from blender.bpy.extension.events.subscriptions import Subscription
 from blender.bpy.extension.identity import Identity
-from blender.bpy.extension.registration import Acquisition, Band
+from blender.bpy.extension.registration import Acquisitions, Band
 from blender.bpy.extension.reports import redrawn
-from blender.bpy.faults import BlenderResult
+from blender.bpy.faults import BlenderAbsentFault, BlenderResult
 from blender.bpy.ui.resources.theme import Color, color
-from blender.imaging.faults import accumulated
 
 if TYPE_CHECKING:
     from bpy.stub_internal import rna_enums
@@ -35,20 +33,13 @@ type Glyph = rna_enums.IconItems | Path
 
 
 class IconSet(msgspec.Struct, frozen=True, kw_only=True, eq=False):
-    """Preview collection with original pixels and tint per source."""
+    """Preview collection with original pixels and tint per source, brand icon ID, and deferred tint write."""
 
     collection: bpy.utils.previews.ImagePreviewCollection
     sources: dict[Path, tuple[npt.NDArray[np.float32], Option[Color]]]
     tint: Callable[[Path], Option[Color]]
-    brand: Option[Path]
-
-    # --- [READING]
-
-    def value(self, source: Path) -> int:
-        """Returns stable preview icon ID."""
-        return self.collection[source.as_posix()].icon_id
-
-    # --- [WRITING]
+    brand: Option[int]
+    pending: Callable[[], None]
 
     def reinked(self) -> bool:
         """Writes changed tints over source alpha, returning whether one changed."""
@@ -63,33 +54,35 @@ class IconSet(msgspec.Struct, frozen=True, kw_only=True, eq=False):
 
 
 class Icons(msgspec.Struct, frozen=True, kw_only=True):
-    """Staged image glyphs of one extension."""
+    """Staged image glyphs of one extension, inked in regular widget text color by default."""
 
-    tint: Callable[[Path], Option[Color]] = lambda _: Nothing
+    tint: Callable[[Path], Option[Color]] = lambda _: Some(ink())
     brand: Option[Path] = Nothing
     held: ClassVar[dict[str, IconSet]] = {}
 
     # --- [ACQUISITION]
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[tuple[tuple[Band, Acquisition], ...]]:
-        """Builds preview collection and theme color subscriptions."""
-        folder = Icons.folder(identity)
+    def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
+        """Builds full-size previews held in the resources band, and theme color subscriptions rewriting tints."""
 
         def reinked() -> BlenderResult[Option[str]]:
             """Writes changed tints, redrawing when one changed."""
             return redrawn() if Icons.held[identity.package].reinked() else Ok(Nothing)
 
-        pending: Callable[[], None]
+        def scheduled() -> BlenderResult[None]:
+            """Schedules tint write on theme color change."""
+            Icons.held[identity.package].pending()
+            return Ok(None)
 
         @contextmanager
-        def loaded() -> Generator[None]:
-            """Holds full-size previews, ending tint writes before removal."""
-            nonlocal pending
-            with ExitStack() as scope, identity.reports.deferred(reinked) as pending:
+        def loaded() -> Generator[BlenderResult[None]]:
+            """Holds previews and deferred tint writer for the scope."""
+            with ExitStack() as scope:
                 collection = bpy.utils.previews.new()
                 scope.callback(bpy.utils.previews.remove, collection)
+                pending = scope.enter_context(identity.reports.deferred(reinked))
                 sources: dict[Path, tuple[npt.NDArray[np.float32], Option[Color]]] = {}
-                for entry in folder.iterdir():
+                for entry in Icons.folder(identity).iterdir():
                     if Path(entry.name).suffix == ".png":
                         source = Path(entry.name).with_suffix(".svg")
                         preview = collection.load(source.as_posix(), str(entry), "IMAGE")
@@ -98,20 +91,31 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
                         preview.icon_size = preview.image_size
                         preview.icon_pixels_float.foreach_set(pixels)  # type: ignore[arg-type]
                         sources[source] = (pixels.reshape(-1, 4), Nothing)
-                icons = IconSet(collection=collection, sources=sources, tint=self.tint, brand=self.brand)
-                icons.reinked()
-                Icons.held[identity.package] = icons
-                scope.callback(Icons.held.pop, identity.package)
-                yield
 
-        def scheduled() -> BlenderResult[None]:
-            """Schedules tint write on theme color change."""
-            pending()
-            return Ok(None)
+                def branded() -> BlenderResult[Option[int]]:
+                    """Returns brand glyph preview icon ID, absent fault for a glyph the folder lacks."""
+                    return self.brand.map(
+                        lambda source: (
+                            Option
+                            .of_optional(collection.get(source.as_posix()))
+                            .map(lambda preview: Some(preview.icon_id))
+                            .to_result_with(lambda: (BlenderAbsentFault(owner=str(Icons.folder(identity)), key=source.as_posix()),))
+                        )
+                    ).default_value(Ok(Nothing))
 
-        keys = ((bpy.types.ThemeWidgetColors, "text"), (bpy.types.Theme, "filepath"))
-        subscriptions = (Subscription(owner=owner, setting=owner.bl_rna.properties[member], body=scheduled) for owner, member in keys)
-        return accumulated(row.acquisitions(identity) for row in subscriptions).map(lambda pairs: ((Band.RESOURCES, loaded()), *chain.from_iterable(pairs)))
+                def held(brand: Option[int]) -> None:
+                    """Holds inked icon set until scope exit."""
+                    icons = IconSet(collection=collection, sources=sources, tint=self.tint, brand=brand, pending=pending)
+                    icons.reinked()
+                    Icons.held[identity.package] = icons
+                    scope.callback(Icons.held.pop, identity.package)
+
+                yield branded().map(held)
+
+        return Ok((
+            (Band.RESOURCES, loaded()),
+            *(Subscription(owner=owner, setting=owner.bl_rna.properties[member], body=scheduled) for owner, member in ((bpy.types.ThemeWidgetColors, "text"), (bpy.types.Theme, "filepath"))),
+        ))
 
     # --- [READING]
 
@@ -121,14 +125,29 @@ class Icons(msgspec.Struct, frozen=True, kw_only=True):
         return importlib.resources.files(identity.package) / "icons"
 
     @classmethod
-    def value(cls, identity: Identity, glyph: Glyph) -> int:
-        """Returns built-in icon value or image preview icon ID."""
-        return cls.held[identity.package].value(glyph) if isinstance(glyph, Path) else bpy.types.UILayout.bl_rna.functions["prop"].parameters["icon"].enum_items[glyph].value  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    def value(cls, identity: Identity, glyph: Glyph) -> BlenderResult[int]:
+        """Returns built-in icon value or staged preview icon ID, absent fault for a glyph the host or icon set lacks."""
+        match glyph:
+            case Path():
+                return (
+                    Option
+                    .of_optional(cls.held.get(identity.package))
+                    .bind(lambda icons: Option.of_optional(icons.collection.get(glyph.as_posix())))
+                    .map(lambda preview: preview.icon_id)
+                    .to_result_with(lambda: (BlenderAbsentFault(owner=str(cls.folder(identity)), key=glyph.as_posix()),))
+                )
+            case _:
+                return (
+                    Option
+                    .of_optional(bpy.types.UILayout.bl_rna.functions["prop"].parameters["icon"].enum_items.get(glyph))  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+                    .map(lambda item: item.value)
+                    .to_result_with(lambda: (BlenderAbsentFault(owner=bpy.types.UILayout.__name__, key=glyph),))
+                )
 
     @classmethod
     def mark(cls, identity: Identity) -> Option[int]:
         """Returns brand glyph icon ID, Nothing without brand or icon set."""
-        return Option.of_optional(cls.held.get(identity.package)).bind(lambda icons: icons.brand.map(icons.value))
+        return Option.of_optional(cls.held.get(identity.package)).bind(lambda icons: icons.brand)
 
     @classmethod
     def path(cls, identity: Identity, source: Path) -> str:

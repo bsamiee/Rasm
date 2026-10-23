@@ -46,7 +46,7 @@ public sealed record KeyedText(
                 from set in IO.lift(() => entries.Iter(entry => entry.Text.Match(
                     Some: text => file.Set(entry.Key, text),
                     None: () => file.Node.RemoveItem(entry.Key))))
-                from saved in IO.lift(() => Refused.Unless(file.TrySaveSettingsToFile(), nameof(SettingsFile.TrySaveSettingsToFile)))
+                from saved in GrasshopperStores.Saved(file)
                 select saved,
             None);
 }
@@ -70,6 +70,9 @@ public static class GrasshopperStores {
             Applied.Live,
             Some(ValueStore.Signal(GrasshopperEvents.SettingChanged(setting), static _ => true)));
     }
+
+    public static IO<Unit> Saved(SettingsFile file) =>
+        IO.lift(() => Refused.Unless(Settings.SandBox || file.TrySaveSettingsToFile(), nameof(SettingsFile.TrySaveSettingsToFile)));
 
     // --- [KEYS]
     public static ValueStore<TValue> Of<TValue, TRaw>(KeyedText text, ValueKey<TValue, TRaw> key)

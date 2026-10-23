@@ -43,9 +43,10 @@ class Quantity(Enum):
 
 
 class Choice(IntEnum):
-    """Menu choice with persistent integer identity and display text."""
+    """Menu choice with persistent integer identity, display text, and hover text."""
 
     label: str
+    description: Option[str]
 
     def __new__(cls, value: int, *_: object) -> Self:
         """Constructs choice from declared integer, passing other values to `__init__`."""
@@ -53,9 +54,10 @@ class Choice(IntEnum):
         member._value_ = value
         return member
 
-    def __init__(self, _: int, label: str | None = None) -> None:
-        """Sets declared label, or member name heading."""
+    def __init__(self, _: int, label: str | None = None, description: str | None = None) -> None:
+        """Sets declared label, or member name heading, and hover text."""
         self.label = Option.of_optional(label).default_with(lambda: heading(self.name))
+        self.description = Option.of_optional(description)
 
 
 class Interpolation(StrEnum):

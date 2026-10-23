@@ -37,8 +37,8 @@ class Layer[S: Case, E: Effect](msgspec.Struct, frozen=True, kw_only=True):
     affine: Annotated[Affine, msgspec.Meta(title="Transform", description="Content placement")] = Affine()
     blend: Annotated[Blend, msgspec.Meta(description="Mix over preceding layers")] = Blend()
     matte: Annotated[Gated[TrackMatte], msgspec.Meta(title="Track Matte", description="Coverage read from layer beneath")] = Gated(enabled=False, value=TrackMatte())
-    visible: Annotated[bool, msgspec.Meta(description="Composites layer")] = True
-    solo: Annotated[bool, msgspec.Meta(description="Composites soloed layers alone")] = False
+    visible: Annotated[bool, msgspec.Meta(description="Composite layer")] = True
+    solo: Annotated[bool, msgspec.Meta(description="Composite soloed layers alone")] = False
 
 
 class LayerStack[S: Case, E: Effect](msgspec.Struct, frozen=True, kw_only=True):

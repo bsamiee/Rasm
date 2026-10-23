@@ -39,7 +39,7 @@ public sealed record NoticeSettings(NoticeServer Server, Option<NoticeTopic> Top
     public static NoticeSettings Default { get; } = new(NoticeServer.Default, None);
 }
 
-public sealed record NoticeOptions(IO<NoticeSettings> Settings, Option<(IGlyph Glyph, int Master)> Glyph, Option<View.Panel> Reveal);
+public sealed record NoticeOptions(IO<NoticeSettings> Settings, Option<IGlyph> Glyph, Option<View.Panel> Reveal);
 
 [SmartEnum<int>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
 public sealed partial class NoticePriority {
@@ -61,7 +61,7 @@ public abstract partial record QueueEvent {
 
     public abstract string Description(DateTimeZone zone);
 
-    public Notice Notice(DateTimeZone zone, Option<(IGlyph Glyph, int Master)> glyph, Option<View.Panel> reveal) =>
+    public Notice Notice(DateTimeZone zone, Option<IGlyph> glyph, Option<View.Panel> reveal) =>
         new(RowText.Localize(Title), Description(zone), None, Priority.Severity, glyph, reveal);
 
     public sealed record Started(int Entries, long Frames) : QueueEvent(NoticePriority.Default, "racehorse", "Render queue started", fresh: true) {

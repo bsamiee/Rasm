@@ -85,11 +85,7 @@ class LightList(msgspec.Struct, frozen=True, kw_only=True):
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
         """Returns solo attachment, emissive select menu entry, and section."""
         *_, select = self.commands
-        return Ok((
-            LightList.solo,
-            Append(target=VIEW3D_MT_select_object, rows=(OperatorButton(target=select),)),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-            *acquired((self.section(),)),
-        ))
+        return Ok((LightList.solo, Append(target=VIEW3D_MT_select_object, rows=(OperatorButton(target=select),)), *acquired((self.section(),))))
 
     def section(self) -> Section:
         """Returns emitter list, active light rows, and operator buttons."""

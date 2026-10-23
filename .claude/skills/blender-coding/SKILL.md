@@ -72,8 +72,8 @@ Interface needs, each owner a row `extension.registration.scope` acquires:
 
 | [INDEX] | [NEED]                                      | [OWNER]                                                                                    |
 | :-----: | :------------------------------------------ | :----------------------------------------------------------------------------------------- |
-|  [01]   | Panel in a tab, sidebar, region, or popover | `ui.surfaces.panels.Panels` at `Tab`, `Sidebar`, `Joined`, `Child`, `EditorRegion`         |
-|  [02]   | Panel as top bar popover or docked          | `ui.surfaces.panels.Panels` at `PopoverPanel`, `Docked`                                    |
+|  [01]   | Panel in a tab, sidebar, region, or popover | `ui.surfaces.panels.Panel` at `Tab`, `Sidebar`, `Joined`, `Child`, `EditorRegion`          |
+|  [02]   | Panel as top bar popover or docked          | `ui.surfaces.panels.Panel` at `PopoverPanel`, `Docked`                                     |
 |  [03]   | Collapsible section inside a draw           | `ui.layout.sections` `Single`, `Each`, `Store`, `Hosted`                                   |
 |  [04]   | Menu, pie, keyed menu, preset menu          | `ui.surfaces.menus.Menu` with a `Dropdown`, `Keyed`, or `Pie` body, `PresetMenu`           |
 |  [05]   | Registered menu, panel, or shelf popup      | `commands.calls.opened` over `MenuPopup`, `PanelPopup`, `ShelfPopup`                       |

@@ -47,13 +47,77 @@ public abstract partial record SwatchEncoding {
     }
 }
 
+public sealed record SwatchLook(Option<Vector4> Stored, bool Selected);
+
+// --- [SERVICES] ------------------------------------------------------------------------
+public sealed class SwatchWell(IPlugInSink sink, SwatchEncoding encoding, Command dialog)
+    : ComponentControl<SwatchLook, Unit, Unit>(sink, new SwatchLook(None, Selected: false), None) {
+    // --- [METRICS]
+    private const float Rim = 1f;
+    private const float VariesInset = 4f;
+
+    private static readonly MarkStyle Varies = new MarkStyle.Fill(new MarkColor.Fixed(Colors.DarkGray), 1f);
+    private static readonly MarkStyle VariesRim = new MarkStyle.Stroke(new MarkColor.Fixed(Colors.Gray), 1f, Rim);
+
+    public SwatchEncoding Encoding { get; } = encoding;
+
+    public Color4f Opening => Encoding.Shown(State.Stored.IfNone(Vector4.One));
+
+    public bool Shows(System.Drawing.Color color) => State.Stored.Exists(held => Encoding.Shown(held).AsSystemColor().ToArgb() == color.ToArgb());
+
+    public IO<Unit> Show(Option<Vector4> stored, bool selected) => Advance(_ => new(new SwatchLook(stored, selected), None));
+
+    private static RectangleF Inner(RectangleF bounds) => RectangleF.Inset(bounds, new PaddingF(2f * Rim));
+
+    // --- [LAYOUT]
+    protected override Seq<PlotMark<Unit>> Layout(SwatchLook state, SizeF size, float scale) =>
+        [new PlotMark<Unit>(new MarkShape.Band(new RectangleF(size)), None, Some(new MarkPart<Unit>(unit, 0f)))];
+
+    protected override PartFacet Facet(SwatchLook state, Unit key) =>
+        new(PartRole.Button, Cursors.Default, dialog.ToolTip, state.Stored.Map(static stored => Conversions.Hex(Swatch.From(stored))), None);
+
+    protected override SwatchLook Received(SwatchLook state, Option<Unit> value) => state;
+
+    // --- [TRANSITIONS]
+    protected override Option<Transition<SwatchLook, Unit>> Pressed(SwatchLook state, SizeF size, float scale, Option<Unit> part, MouseEventArgs e) =>
+        part.Filter(_ => e.Buttons is MouseButtons.Primary).Map(_ => new Transition<SwatchLook, Unit>(state, None));
+
+    protected override Transition<SwatchLook, Unit> Released(SwatchLook state, SizeF size, float scale, Option<Unit> part, MouseEventArgs e) =>
+        new(state, Some<Edit<Unit>>(new Edit<Unit>.Commit(unit)).Filter(_ => part.IsSome && new RectangleF(size).Contains(e.Location)));
+
+    protected override Option<Transition<SwatchLook, Unit>> Activated(SwatchLook state, SizeF size, float scale, Unit part) =>
+        new Transition<SwatchLook, Unit>(state, new Edit<Unit>.Commit(unit));
+
+    protected override Option<Transition<SwatchLook, Unit>> KeyPressed(SwatchLook state, SizeF size, float scale, Option<Unit> part, KeyEventArgs e) =>
+        Some(new Transition<SwatchLook, Unit>(state, new Edit<Unit>.Commit(unit))).Filter(_ => e.Key is Keys.Space or Keys.Enter);
+
+    // --- [PAINT]
+    protected override IO<Unit> Draw(PlotCanvas canvas, RectangleF bounds, SwatchLook state, Seq<PlotMark<Unit>> marks, Interaction<Unit> interaction) =>
+        Inner(bounds) switch {
+            var swatch =>
+                from fill in when(canvas.Enabled, state.Stored.Match(
+                    Some: stored => Encoding.Shown(stored) switch {
+                        var shown =>
+                            from board in when(shown.A < 1f, Thumbnails.Checker(canvas, swatch, Checkerboard.Content)).As()
+                            from color in Plots.Paint(canvas, Seq(new PlotMark<Unit>(new MarkShape.Band(swatch), new MarkStyle.Fill(new MarkColor.Fixed(shown.ToEto()), shown.A), None)))
+                            select unit,
+                    },
+                    None: () => Plots.Paint(canvas, Seq(
+                        new PlotMark<Unit>(new MarkShape.Band(swatch), Varies, None),
+                        new PlotMark<Unit>(new MarkShape.Band(swatch), VariesRim, None),
+                        new PlotMark<Unit>(new MarkShape.Rule(
+                            new PointF(swatch.Left + VariesInset, swatch.Bottom - VariesInset), new PointF(swatch.Right - VariesInset, swatch.Top + VariesInset)), VariesRim, None))))).As()
+                from rim in Plots.Paint(canvas, Seq(new PlotMark<Unit>(
+                    new MarkShape.Band(RectangleF.Inset(bounds, new PaddingF(Rim / 2f))),
+                    new MarkStyle.Stroke(state.Selected || interaction.Hovered.IsSome ? PaintSlot.Highlight : PaintSlot.EntryBorder, 1f, Rim), None)))
+                select unit,
+        };
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ColorRows {
     // --- [SWATCHES]
     private const int SwatchSide = 24;
-    private const float FrameWidth = 1f;
-    private const float WellWidth = 3f;
-    private const float RimWidth = 1f;
     private const string PickCaption = "Pick Color";
 
     public static ControlRow SwatchColor<TRecord>(RowSource<TRecord> source, RowField<TRecord> field, Lens<TRecord, Swatch> lens, Option<StageInput> stage, RowRules rules)
@@ -99,7 +163,7 @@ public static class ColorRows {
                     pair.Box.ThreeState = value.IsNone;
                     pair.Box.Checked = on.ToNullable();
                 });
-            }).Bind(_ => Restyled(well, value.Map(record => swatch.Get(record).Display), PaintSlot.FrameEdge)),
+            }).Bind(_ => well.Button.Show(value.Map(record => swatch.Get(record).Display), selected: false)),
         };
 
     private static IO<Unit> Gating<TRecord>(RowSource<TRecord> source, RowEdit<TRecord> edit, Lens<TRecord, bool> gate, CheckBox box, RowScope scope, CallbackSite site, Action<IDisposable> retain)
@@ -221,12 +285,10 @@ public static class ColorRows {
             strip.Remove.Enabled = held.Selected.Exists(at => at < count);
         })
         from painted in wells.Zip(Entries(strip, held))
-            .Map((pair, index) => Restyled(pair.First, pair.Second.Map(static swatch => swatch.Display), Frame(held.Selected, index)))
+            .Map((pair, index) => pair.First.Button.Show(pair.Second.Map(static swatch => swatch.Display), held.Selected.Exists(at => at == index)))
             .TraverseM(static paint => paint)
             .As()
         select unit;
-
-    private static PaintSlot Frame(Option<int> selected, int index) => selected.Exists(at => at == index) ? PaintSlot.Selection : PaintSlot.FrameEdge;
 
     private static IO<Well> Placed<TRecord>(Strip<TRecord> strip, Option<Swatch> entry, int index, Action<IDisposable> retain) where TRecord : notnull =>
         from well in Welled(new SwatchEncoding.DisplayReferred(), new Size(SwatchSide, SwatchSide), Selected(strip, Some(index)), strip.Scope.Sink, retain)
@@ -247,15 +309,16 @@ public static class ColorRows {
         select unit;
 
     private static IO<Well> Welled(SwatchEncoding encoding, Size size, IO<Unit> touched, IPlugInSink sink, Action<IDisposable> retain) =>
+        DisposalOps.Acquire(owned =>
         from dialog in IO.lift(static () => RowText.Localize("Color Picker…").Local switch {
             var shown => new Command { MenuText = shown, ToolTip = shown },
         })
-        from button in ButtonRows.Pressed(dialog, sink, retain)
-        from sized in IO.lift(() => { button.Size = size; })
-        from look in atomIO((Stored: Option<Vector4>.None, Frame: PaintSlot.FrameEdge))
-        let well = new Well(button, dialog, encoding, touched, look)
-        from painted in Painted(well)
-        select well;
+        from button in DisposalOps.Acquire(IO.lift(() => new SwatchWell(sink, encoding, dialog) { Size = size }), owned)
+        let site = new CallbackSite(sink, typeof(SwatchWell), nameof(SwatchWell.Edited))
+        from enabled in Subscriptions.Attach(h => dialog.EnabledChanged += h, h => dialog.EnabledChanged -= h,
+            Callbacks.Handler<EventArgs>(_ => IO.lift(() => { button.Enabled = dialog.Enabled; }), site with { Member = nameof(Command.EnabledChanged) }), owned)
+        from pressed in Subscriptions.Attach(h => button.Edited += h, h => button.Edited -= h, Callbacks.Handler<EditEventArgs<Unit>>(_ => IO.lift(dialog.Execute), site), owned)
+        select new Well(button, dialog, touched), retain);
 
     private static EventHandler<EventArgs> Opened<TRecord>(Well well, RowEdit<TRecord> edit, Func<Vector4, TRecord, Fin<TRecord>> write, RowScope scope, CallbackSite site)
         where TRecord : notnull =>
@@ -264,60 +327,29 @@ public static class ColorRows {
     private static IO<Unit> Dialog<TRecord>(Well well, RowEdit<TRecord> edit, Func<Vector4, TRecord, Fin<TRecord>> write, RowScope scope, CallbackSite site) where TRecord : notnull =>
         (from touched in well.Touched
          from document in scope.DocumentIO
-         from look in well.Look.ValueIO
+         from opening in IO.lift(() => well.Button.Opening)
          from opened in edit.Opened
          from taken in DisposalOps.OnFailure(
              HostDialogs.ShowColorDialog(
-                 document, well.Encoding.Shown(look.Stored.IfNone(Vector4.One)), well.Encoding.Alpha, None, Some((Previewed(well, edit, write), site)))
-                 .Bind(chosen => edit.Take(new Edit<Vector4>.Commit(well.Encoding.Stored(chosen)), write)),
+                 document, opening, well.Button.Encoding.Alpha, None, Some((Previewed(well, edit, write), site)))
+                 .Bind(chosen => edit.Take(new Edit<Vector4>.Commit(well.Button.Encoding.Stored(chosen)), write)),
              edit.Cancel)
          select unit)
         .Catch(static error => error.Is(Errors.Cancelled), static _ => IO.pure(unit));
 
     private static Func<Color4f, IO<Unit>> Previewed<TRecord>(Well well, RowEdit<TRecord> edit, Func<Vector4, TRecord, Fin<TRecord>> write) where TRecord : notnull =>
-        color => edit.Take(new Edit<Vector4>.Preview(well.Encoding.Stored(color)), write).Map(unit);
+        color => edit.Take(new Edit<Vector4>.Preview(well.Button.Encoding.Stored(color)), write).Map(unit);
 
     private static Seq<Seq<MenuEntry>> Menu<TRecord>(Well well, RowEdit<TRecord> edit, Func<Vector4, TRecord, Fin<TRecord>> write) where TRecord : notnull =>
-        Seq(Seq<MenuEntry>(well.Dialog, new MenuEntry.Listed(RowText.Localize("Named Colors").Local, well.Look.ValueIO.Map(look => Named(well, edit, write, look.Stored)))));
+        Seq(Seq<MenuEntry>(well.Dialog, new MenuEntry.Listed(RowText.Localize("Named Colors").Local, IO.lift(() => Named(well, edit, write)))));
 
-    private static Seq<MenuPick> Named<TRecord>(Well well, RowEdit<TRecord> edit, Func<Vector4, TRecord, Fin<TRecord>> write, Option<Vector4> stored) where TRecord : notnull =>
+    private static Seq<MenuPick> Named<TRecord>(Well well, RowEdit<TRecord> edit, Func<Vector4, TRecord, Fin<TRecord>> write) where TRecord : notnull =>
         toSeq(NamedColorList.Default).Map<MenuPick>(named => new MenuPick.Item(
             named.Name,
-            stored.Exists(held => well.Encoding.Shown(held).AsSystemColor().ToArgb() == named.Color.ToArgb()),
-            well.Touched.Bind(_ => edit.Take(new Edit<Vector4>.Commit(well.Encoding.Stored(new Color4f(named.Color))), write)).Map(unit)));
+            well.Button.Shows(named.Color),
+            well.Touched.Bind(_ => edit.Take(new Edit<Vector4>.Commit(well.Button.Encoding.Stored(new Color4f(named.Color))), write)).Map(unit)));
 
-    private static IO<Unit> Restyled(Well well, Option<Vector4> stored, PaintSlot frame) =>
-        well.Look.SwapIO(_ => (stored, frame)).Bind(_ => Painted(well));
-
-    private static IO<Unit> Painted(Well well) =>
-        well.Look.ValueIO.Bind(look => well.Button.Show((canvas, bounds) => Drawn(canvas, bounds, well.Encoding, look.Stored, look.Frame)));
-
-    private static IO<Unit> Drawn(PlotCanvas canvas, RectangleF bounds, SwatchEncoding encoding, Option<Vector4> stored, PaintSlot frame) =>
-        from swatch in IO.pure(RectangleF.Inset(bounds, new PaddingF(FrameWidth + WellWidth)))
-        from well in Plots.Paint(canvas, Seq(
-            new PlotMark<Unit>(new MarkShape.Band(RectangleF.Inset(bounds, new PaddingF(FrameWidth))), new MarkStyle.Fill(PaintSlot.WindowBackground, 1f), None),
-            new PlotMark<Unit>(new MarkShape.Band(RectangleF.Inset(bounds, new PaddingF(FrameWidth / 2f))), new MarkStyle.Stroke(frame, 1f, FrameWidth), None)))
-        from color in when(canvas.Enabled, stored.Match(Some: held => Colored(canvas, swatch, encoding.Shown(held)), None: () => Varied(canvas, swatch))).As()
-        from rim in Plots.Paint(canvas, Seq(
-            new PlotMark<Unit>(new MarkShape.Band(RectangleF.Inset(swatch, new PaddingF(RimWidth / 2f))), new MarkStyle.Stroke(frame, 1f, RimWidth), None)))
-        select unit;
-
-    private static IO<Unit> Colored(PlotCanvas canvas, RectangleF swatch, Color4f shown) =>
-        from board in when(shown.A < 1f, Thumbnails.Checker(canvas, swatch, Checkerboard.Content)).As()
-        from fill in Plots.Paint(canvas, Seq(new PlotMark<Unit>(new MarkShape.Band(swatch), new MarkStyle.Fill(new MarkColor.Fixed(shown.ToEto()), shown.A), None)))
-        select unit;
-
-    private static IO<Unit> Varied(PlotCanvas canvas, RectangleF swatch) =>
-        from white in Plots.Paint(canvas, Seq(new PlotMark<Unit>(new MarkShape.Band(swatch), new MarkStyle.Fill(new MarkColor.Fixed(Colors.White), 1f), None)))
-        from text in IO.lift(() => canvas.Graphics.MeasureString(canvas.Font, RowEdit.Varies))
-        from marked in text.Width <= swatch.Width && text.Height <= swatch.Height
-            ? IO.lift(() => canvas.Graphics.DrawText(canvas.Font, Colors.Black, swatch.Center - (text / 2f), RowEdit.Varies))
-            : Plots.Paint(canvas, Seq(new PlotMark<Unit>(
-                new MarkShape.Polygon([swatch.TopRight, swatch.BottomRight, swatch.BottomLeft]), new MarkStyle.Fill(new MarkColor.Fixed(Colors.Black), 1f), None)))
-        select unit;
-
-    private sealed record Well(
-        DrawnButton Button, Command Dialog, SwatchEncoding Encoding, IO<Unit> Touched, Atom<(Option<Vector4> Stored, PaintSlot Frame)> Look);
+    private sealed record Well(SwatchWell Button, Command Dialog, IO<Unit> Touched);
 
     private sealed record Strip<TRecord>(
         Panel Panel, Command Add, Command Remove, Atom<StripState<TRecord>> State,
@@ -555,7 +587,7 @@ public static class ColorRows {
             well.Dialog.Enabled = selected.IsSome;
             position.Enabled = selected.IsSome;
         })
-        from swatch in Restyled(well, selected.Map(static held => held.Color), PaintSlot.FrameEdge)
+        from swatch in well.Button.Show(selected.Map(static held => held.Color), selected: false)
         from shown in position.Receive(selected.Map(static held => held.Position))
         select unit;
 

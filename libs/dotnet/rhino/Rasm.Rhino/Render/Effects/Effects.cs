@@ -4,8 +4,8 @@ using System.Reflection;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Tone;
 using Rasm.Rhino.Persistence.Stores;
+using Rasm.Rhino.Render.UI;
 using Rasm.Rhino.UI;
-using Rhino;
 using Rhino.Render;
 using Rhino.Render.PostEffects;
 using Rhino.UI.Controls;
@@ -30,7 +30,7 @@ public static class EffectStyles {
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record EffectKind(Guid Id, PostEffectType Stage, Type State, Option<Func<ValueSet, PassContext, IO<(Option<PixelPass> Pass, PassContext Context)>>> Pass, Func<RhinoDoc, Seq<ValueBinding>> Binding) {
+public sealed record EffectKind(Guid Id, PostEffectType Stage, Type State, Option<Func<ValueSet, PassContext, IO<(Option<PixelPass> Pass, PassContext Context)>>> Pass, Func<EffectSource, Seq<ValueBinding>> Binding) {
     public Option<BuiltinEffect> Replaces { get; init; }
 }
 
@@ -41,12 +41,8 @@ public abstract class DefinedEffect<TEffect, TState, TParameter> : PostEffect
     where TParameter : class, IStateParameter<TState>, ISmartEnum<string, TParameter, ValidationError> {
     // --- [DEFINITION]
     private protected static EffectKind Defined(Option<Func<ValueSet, PassContext, IO<(Option<PixelPass> Pass, PassContext Context)>>> pass) =>
-        new(
-            typeof(TEffect).GUID,
-            typeof(TEffect).GetCustomAttribute<CustomPostEffectAttribute>()?.PostEffectType ?? throw new UnreachableException(),
-            typeof(TState),
-            pass,
-            static doc => EffectStates.Binding<TEffect, TState, TParameter>(doc, TEffect.Row));
+        new(typeof(TEffect).GUID, typeof(TEffect).GetCustomAttribute<CustomPostEffectAttribute>()?.PostEffectType ?? throw new UnreachableException(), typeof(TState), pass,
+            static source => EffectStates.Binding<TEffect, TState, TParameter>(source, TEffect.Row));
 
     // --- [STATE]
     private protected DefinedEffect() =>
@@ -79,11 +75,15 @@ public abstract class DefinedEffect<TEffect, TState, TParameter> : PostEffect
             _ => IO.lift(EndChange).Map(unit));
 
     // --- [UI]
-    private protected abstract Func<EtoPostEffectCollapsibleSection, Action<IDisposable>, IO<View.Section>> Section { get; }
+    private protected abstract Func<EtoPostEffectCollapsibleSection, View.Section> Section { get; }
+
+    private protected virtual (Option<Atom<StageFrame>> Watched, IO<Option<ScopeFrames>> Scoped) Frames => (None, IO.pure(Option<ScopeFrames>.None));
 
     public sealed override void AddUISections(PostEffectUI ui) =>
-        Callbacks.Run(DisposalOps.Acquire(IO.lift(() => new DefinedEffectSection<TEffect>(this, Section)), ui.AddSection),
-            CallbackSite.Of(this));
+        Callbacks.Run(Frames switch {
+            var (watched, scoped) => Callbacks.Each((Seq(Section) + TEffect.Row.Sections.Map(extra => fun((EtoPostEffectCollapsibleSection section) => extra(section, scoped))))
+                .Map(row => DisposalOps.Acquire(IO.lift(() => new DefinedEffectSection<TEffect>(this, row, watched)), ui.AddSection))).Map(unit),
+        }, CallbackSite.Of(this));
 
     public sealed override bool DisplayHelp() =>
         Callbacks.Succeeded(TEffect.Row.Help.Map(static topic => topic.Show), static () => false, CallbackSite.Of(this));
@@ -117,7 +117,9 @@ public abstract class StageEffect<TEffect, TState, TParameter> : DefinedEffect<T
         }
     }
 
-    private protected sealed override Func<EtoPostEffectCollapsibleSection, Action<IDisposable>, IO<View.Section>> Section => SectionRows.Stage(this, Held, TEffect.Row.Looks, input);
+    private protected sealed override Func<EtoPostEffectCollapsibleSection, View.Section> Section => SectionRows.Stage(this, Held, TEffect.Row.Looks, input);
+
+    private protected sealed override (Option<Atom<StageFrame>> Watched, IO<Option<ScopeFrames>> Scoped) Frames => (Some(input), SectionRows.Scoped(PostEffectType, Held, input));
 
     public sealed override Guid[] RequiredChannels => EffectPipeline.Ids(TState.Channels(Held.Current));
 

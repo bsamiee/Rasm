@@ -12,7 +12,6 @@ using Rasm.Rhino.Persistence.Settings;
 using Rasm.Rhino.Persistence.Stores;
 using Rasm.Rhino.PlugIns;
 using Rasm.Rhino.Render.Effects;
-using Rasm.Rhino.Render.Presets;
 using Rasm.Rhino.Render.Sessions;
 using Rasm.Rhino.Render.Settings;
 using Rasm.Rhino.UI;
@@ -226,7 +225,7 @@ public sealed record QueueContext(
 public sealed record Relaunch(string Job, RetryDelay Delay);
 
 public sealed record QueuedEntry(
-    Option<SetName> Set,
+    bool Renders,
     Option<Albedo> Clay,
     RenderSourceState Source,
     FrameSpan Frames,
@@ -234,34 +233,24 @@ public sealed record QueuedEntry(
     Overscan Overscan,
     Option<RenderRegion> Region,
     Option<SunWindow> Sun) {
-    public Option<string> Name => Set.Map(static name => (string)name) | Source.NamedView | Source.Snapshot | Source.SpecificViewport;
+    public Option<string> Name => Source.NamedView | Source.Snapshot | Source.SpecificViewport;
 }
 
 public sealed record QueueBook(Seq<QueuedEntry> Entries) {
     // --- [RECORD]
     public static QueueBook Empty { get; } = new(Seq<QueuedEntry>());
 
-    public static DictionaryCodec<QueueBook> Codec { get; } = DictionaryCodec.Json<QueueBook>(nameof(QueueBook), 2);
+    public static DictionaryCodec<QueueBook> Codec { get; } = DictionaryCodec.Json<QueueBook>(nameof(QueueBook), 3);
 
     // --- [TRANSITIONS]
-    public QueueBook Added(Seq<QueuedEntry> entries) => new(entries.Fold(Entries, static (held, entry) => held.Exists(entry.Equals) ? held : held.Add(entry)));
+    public QueueBook Added(Seq<QueuedEntry> entries) => new(entries.Fold(Entries, static (held, entry) => held.Exists(kept => kept with { Renders = entry.Renders } == entry) ? held : held.Add(entry)));
 
-    public QueueBook Removed(LanguageExt.HashSet<QueuedEntry> entries) => new(Entries.Filter(entry => !entries.Contains(entry)));
+    public QueueBook Removed(LanguageExt.HashSet<int> indices) => new(toSeq(Entries.Where((_, index) => !indices.Contains(index))));
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Queues {
     // --- [RESOLUTION]
-    public static IO<RenderOverride> Override(QueueContext context, RhinoDoc doc, Option<SetName> set, Option<Albedo> clay) =>
-        set.Match(
-            Some: name =>
-                from book in RenderSets.Book(doc)
-                from setValue in IO.lift(book.Find(name))
-                from member in unless(setValue.Membership.Renders, IO.fail<Unit>(Error.New($"Render set {name} is excluded from render"))).As()
-                from values in setValue.Stored.Match(Some: static stored => IO.pure(stored), None: () => context.Bindings(doc).Bind(static @group => @group.Capture))
-                select new RenderOverride(name, values, clay),
-            None: () => context.Bindings(doc).Bind(static @group => @group.Capture).Map(values => new RenderOverride("Current settings", values, clay)));
-
     public static IO<RenderBatch> Resolve(RhinoDoc doc, QueuePlan plan, Option<QueueProgress> resumed) =>
         Placed(doc, plan.Entries.Map(entry => entry.Placed(
             from frame in entry.Frames.Numbers
@@ -324,8 +313,8 @@ public static class Queues {
         from book in Book(doc)
         from outputs in TargetRows.Book(doc)
         from saved in IO.lift(() => Conversions.Present(doc.Path))
-        from entries in Callbacks.Each(book.Entries.Map(entry => Override(context, doc, entry.Set, entry.Clay).Map(held => (Entry: entry, Override: held))))
-        from plan in IO.lift(Plan(outputs, saved, entries))
+        from values in context.Bindings(doc).Bind(static bound => bound.Capture)
+        from plan in IO.lift(Plan(outputs, saved, book.Entries.Filter(static entry => entry.Renders).Map(entry => (Entry: entry, Override: new RenderOverride(values, entry.Clay)))))
         select plan;
 
     // --- [RUN]
@@ -592,11 +581,18 @@ public static class Queues {
 
     private static readonly Func<QueueContext, IO<Option<QueueProgress>>> Fresh = static _ => IO.pure(Option<QueueProgress>.None);
 
-    private static readonly (RowSource<Seq<QueuedEntry>> Source, RowField<Seq<QueuedEntry>> Field) Listed =
-        RowSource.Opaque(Owner, "entries", Seq<QueuedEntry>(), static scope => ValueStore.Readout(scope.DocumentIO.Bind(Book).Map(static book => book.Entries), None));
+    private static readonly (RowSource<Seq<(QueuedEntry Entry, int Index)>> Source, RowField<Seq<(QueuedEntry Entry, int Index)>> Field) Listed =
+        RowSource.Opaque(Owner, "entries", Seq<(QueuedEntry Entry, int Index)>(), static scope => ValueStore.Of(
+            scope.DocumentIO.Bind(Book).Map(static book => Some(book.Entries.Map(static (entry, index) => (Entry: entry, Index: index)))),
+            rows =>
+                from doc in scope.DocumentIO
+                from changed in Change(doc, RowText.Localize("Edit Entries"), _ => new QueueBook(rows.IfNone([]).Map(static row => row.Entry)))
+                select unit,
+            Applied.Live,
+            None));
 
-    private static readonly (RowSource<LanguageExt.HashSet<QueuedEntry>> Source, RowField<LanguageExt.HashSet<QueuedEntry>> Field) Picked =
-        RowSource.Opaque(Owner, "picked", LanguageExt.HashSet<QueuedEntry>.Empty);
+    private static readonly (RowSource<LanguageExt.HashSet<int>> Source, RowField<LanguageExt.HashSet<int>> Field) Picked =
+        RowSource.Opaque(Owner, "picked", LanguageExt.HashSet<int>.Empty);
 
     private static readonly (RowSource<bool> Source, RowField<bool> Field) Clayed = RowSource.Opaque(Owner, "clay", @default: false);
 
@@ -632,14 +628,16 @@ public static class Queues {
         ];
         return [
             new ControlRow.Group("Entries", RowRules.Always) { Wording = Wording.Library },
-            ListRows.List("Entries", "Queued renders of document, in add order", new ListRow<QueuedEntry, QueuedEntry>(
-                    IterableNE.create<ListColumn<QueuedEntry>>(
-                        new ListColumn<QueuedEntry>.Label(Some(entryCaption), static entry => entry.Name.IfNone(static () => RowText.Localize("Active viewport")), None, None),
-                        new ListColumn<QueuedEntry>.Label(Some("Frames"), static entry => entry.Frames.Count > 1
-                            ? RowText.Localize("{0} to {1}", arguments: [(int)entry.Frames.First, (int)entry.Frames.Last])
-                            : ((int)entry.Frames.First).ToString(RowText.Culture), None, None),
-                        new ListColumn<QueuedEntry>.Label(Some("Size"), static entry => RowText.Localize("{0} × {1}", arguments: [entry.Extent.Width, entry.Extent.Height]), None, None)),
-                    static entry => entry,
+            ListRows.List("Entries", "Queued renders of document, in add order", new ListRow<(QueuedEntry Entry, int Index), int>(
+                    IterableNE.create<ListColumn<(QueuedEntry Entry, int Index)>>(
+                        new ListColumn<(QueuedEntry Entry, int Index)>.Check(Some("Render"), Lens<(QueuedEntry Entry, int Index), bool>.New(
+                            static row => row.Entry.Renders, static renders => row => row with { Entry = row.Entry with { Renders = renders } })),
+                        new ListColumn<(QueuedEntry Entry, int Index)>.Label(Some(entryCaption), static row => row.Entry.Name.IfNone(static () => RowText.Localize("Active viewport")), None, None),
+                        new ListColumn<(QueuedEntry Entry, int Index)>.Label(Some("Frames"), static row => row.Entry.Frames.Count > 1
+                            ? RowText.Localize("{0} to {1}", arguments: [(int)row.Entry.Frames.First, (int)row.Entry.Frames.Last])
+                            : ((int)row.Entry.Frames.First).ToString(RowText.Culture), None, None),
+                        new ListColumn<(QueuedEntry Entry, int Index)>.Label(Some("Size"), static row => RowText.Localize("{0} × {1}", arguments: [row.Entry.Extent.Width, row.Entry.Extent.Height]), None, None)),
+                    static row => row.Index,
                     Listed,
                     Picked) {
                 AllowMultipleSelection = true,
@@ -651,11 +649,11 @@ public static class Queues {
                             from doc in scope.DocumentIO
                             from picked in scope.Read(Picked.Source)
                             from removed in Change(doc, RowText.Localize("Remove Entries"), was => was.Removed(picked))
+                            from cleared in scope.Store(Picked.Source).Put(Some(LanguageExt.HashSet<int>.Empty))
                             select unit))),
                 Commands = _ => [
                     new CommandRow.Run(Face("render-queue-add-named-views", "Add Named Views", "Queue every named view"), None, static scope => Added(scope, NamedViewEntries)),
                     new CommandRow.Run(Face("render-queue-add-snapshots", "Add Snapshots", "Queue every snapshot"), None, static scope => Added(scope, SnapshotEntries)),
-                    new CommandRow.Run(Face("render-queue-add-sets", "Add Render Sets", "Queue every render set that renders"), None, static scope => Added(scope, SetEntries)),
                     new CommandRow.Run(Face("render-queue-add-study", "Add Sun Study", "Queue sun study, one frame per moment"), None, static scope => Added(scope, StudyEntries)),
                     new CommandRow.Check(Face("render-queue-clay", "Clay", "Render entries added next with every object in clay"), None,
                         static scope => scope.Read(Clayed.Source), static (scope, on) => scope.Store(Clayed.Source).Put(Some(on)).Map(unit)),
@@ -710,20 +708,18 @@ public static class Queues {
         ];
     }
 
-    private sealed record Placement(Option<SetName> Set, RenderSourceState Source, Option<SunWindow> Sun) {
-        public static Placement Active { get; } = new(None, new RenderSourceState(RenderSettings.RenderingSources.ActiveViewport, None, None, None), None);
+    private sealed record Placement(RenderSourceState Source, Option<SunWindow> Sun) {
+        public static Placement Active { get; } = new(new RenderSourceState(RenderSettings.RenderingSources.ActiveViewport, None, None, None), None);
 
         public static Placement Named(ViewInfo view) => Active with { Source = new RenderSourceState(RenderSettings.RenderingSources.NamedView, None, Some(view.Name), None) };
 
         public static Placement Snapshot(string name) => Active with { Source = new RenderSourceState(RenderSettings.RenderingSources.SnapShot, None, None, Some(name)) };
 
-        public static Placement Rendered(SetName set) => Active with { Set = Some(set) };
-
         public static Placement Studied(SunWindow window) => Active with { Sun = Some(window) };
 
         public Fin<QueuedEntry> Queued(Option<Albedo> clay, PixelExtent extent) =>
             FrameSpan.Of(0, Sun.Map(static window => window.Frames.Count - 1).IfNone(0))
-                .Map(frames => new QueuedEntry(Set, clay, Source, frames, extent, Overscan.Off, None, Sun));
+                .Map(frames => new QueuedEntry(Renders: true, clay, Source, frames, extent, Overscan.Off, None, Sun));
     }
 
     private static CommandFace Face(string name, string caption, string help) =>
@@ -747,9 +743,6 @@ public static class Queues {
 
     private static IO<Seq<Placement>> SnapshotEntries(RhinoDoc doc) =>
         NamedSnapshots.Names(doc).Map(static names => names.Map(Placement.Snapshot));
-
-    private static IO<Seq<Placement>> SetEntries(RhinoDoc doc) =>
-        RenderSets.Renderable(doc).Map(static names => names.Map(Placement.Rendered));
 
     private static IO<Seq<Placement>> StudyEntries(RhinoDoc doc) =>
         DisposalOps.Within(() => doc.AnimationProperties, static copy => IO.lift(() => SunWindow.Read(copy)))

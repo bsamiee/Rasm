@@ -103,7 +103,8 @@ public sealed class RowGrid : Drawable {
     private static IO<RowPlace> Lined(int at, ControlRow row, Option<RowCells> cells, RowScope scope, Action<IDisposable> retain) =>
         cells.Match(
             Some: held =>
-                from tipped in IO.lift(() => held.Value.ToolTip = Helped(row, held, scope.Sink).ValueUnsafe())
+                from help in IO.pure(Helped(row, held, scope.Sink))
+                from tipped in held.Value is ComponentControl plot ? plot.Describe(help) : IO.lift(() => { held.Value.ToolTip = help.ValueUnsafe(); })
                 from first in (from keys in row.Keys.AsIterableNE() from source in row.Bound from edit in held.Edit select Trailed(source, keys, edit, scope, retain)).Traverse(static trailed => trailed).As()
                 let caption = row.Layout.Filter(shape => shape.Labeled && (!shape.Spans || held.Heads.IsEmpty)).Map(_ => row.Wording.Shown(row.Caption, scope.Sink))
                 let heads = held.Heads.Map((line, index) => Headed(line, row.Wording, scope.Sink, first.Filter(_ => index is 0)))
@@ -116,7 +117,7 @@ public sealed class RowGrid : Drawable {
                         : Seq(new LineSpec(caption.Map(static text => new LineCaption(text, CaptionCell.Column, Own: true)), Columned: true, held.Gate, Some(held.Value), held.Pick, first, Trailing: true, Fills: false)),
                     None: () => Seq(new LineSpec(None, Columned: false, None, Some(held.Value), None, None, Trailing: false, Fills: false)))
                 from hosted in lines.TraverseM(spec => Hosted(spec, retain)).As()
-                select new RowPlace(at, row, cells, caption, Helped(row, held, scope.Sink), hosted, first),
+                select new RowPlace(at, row, cells, caption, help, hosted, first),
             None: () =>
                 from hosted in Hosted(new LineSpec(Some(new LineCaption(row.Wording.Shown(row.Caption, scope.Sink), CaptionCell.Rule, Own: true)), Columned: false, None, None, None, None, Trailing: false, Fills: false), retain)
                 select new RowPlace(at, row, None, None, row.Help.Map(text => row.Wording.Shown(text, scope.Sink)), Seq(hosted), None));
@@ -128,7 +129,7 @@ public sealed class RowGrid : Drawable {
 
     private static IO<GridLine> Hosted(LineSpec spec, Action<IDisposable> retain) =>
         from host in DisposalOps.Acquire(IO.lift(static () => new Panel()), static held => IO.lift(() => { held.Content = null; held.Dispose(); }), retain)
-        from content in spec.Gate.IsNone && spec.Pick.IsNone
+        from content in spec.Gate.IsNone && spec.Pick.IsNone && spec.Trail.IsNone
             ? IO.pure(spec.Value)
             : DisposalOps.Acquire(IO.lift(() => new TableLayout(new TableRow(spec.Cells)) { Padding = 0, Spacing = RhinoLayout.Spacing(RhinoLayout.SpacingType.Table) }),
                 static held => IO.lift(() => { held.Rows.Clear(); held.Dispose(); }), retain).Map(static table => Some<Control>(table))
@@ -146,7 +147,20 @@ public sealed class RowGrid : Drawable {
             + padlock.ToSeq().Map(command => Subscriptions.Host<EventArgs>(typeof(CheckCommand), h => command.Executed += h, h => command.Executed -= h, nameof(CheckCommand.Executed))
                 .Inline(_ => scope.Lock(toSeq(keys), command.Checked), scope.Sink, retain)))
             .TraverseM(static attached => attached).As()
-        select new RowTrail(keys, restore, copy, paste, padlock);
+        from reset in Pinned(GlyphRole.Reset, restore.MenuText, retain)
+        from commanded in DisposalOps.Change(() => reset.Command, value => reset.Command = value, restore, retain)
+        from shackle in padlock.Traverse(command =>
+            from button in Pinned(GlyphRole.LockOpen, command.MenuText, retain)
+            from clicked in Subscriptions.Host<EventArgs>(typeof(ImageButton), h => button.Click += h, h => button.Click -= h, nameof(ImageButton.Click))
+                .Inline(_ => scope.Lock(toSeq(keys), !command.Checked), scope.Sink, retain)
+            select button).As()
+        select new RowTrail(keys, restore, copy, paste, padlock, reset, shackle);
+
+    private static IO<ImageButton> Pinned(IGlyph glyph, string toolTip, Action<IDisposable> retain) =>
+        from icon in Icons.Frames(glyph, IconSlot.PanelButton)
+        from button in DisposalOps.Acquire(IO.lift(() => new ImageButton { Image = icon, ToolTip = toolTip, MaskImageWithBackgroundColorWhenDisabled = true }), retain)
+        from sized in IO.lift(() => { button.Size = button.Size; })
+        select button;
 
     // --- [FORM]
     private static IO<RowMetrics> Measured(Seq<ControlRow> column, Seq<RowPlace> places, IPlugInSink sink, Action<IDisposable> retain) =>
@@ -160,11 +174,12 @@ public sealed class RowGrid : Drawable {
         let field = fields.Fold(0f, static (widest, fit) => MathF.Max(widest, fit.Width))
         from sized in IO.lift(() => fields.Iter(fit => fit.Field.Width = (int)MathF.Ceiling(field)))
         let lines = places.Bind(static place => place.Lines).Map(static line => line.Spec)
-        from slot in IconSlot.PanelButton.Size()
         from widths in IO.lift(() => (
             Values: Widest(lines.Filter(static line => line.Columned).Choose(static line => line.Value)),
             Gate: Widest(lines.Choose(static line => line.Gate)),
-            Pick: Widest(lines.Choose(static line => line.Pick))))
+            Pick: Widest(lines.Choose(static line => line.Pick)),
+            Reset: Widest(lines.Choose(static line => line.Trail.Map(static Control (trail) => trail.Reset))),
+            Lock: Widest(lines.Choose(static line => line.Trail.Bind(static trail => trail.Shackle).Map(static Control (button) => button)))))
         from aligned in IO.lift(() => {
             _ = lines.Choose(static line => line.Gate).Iter(gate => gate.Width = (int)MathF.Ceiling(widths.Gate.IfNone(0f)));
             _ = lines.Choose(static line => line.Pick).Iter(pick => pick.Width = (int)MathF.Ceiling(widths.Pick.IfNone(0f)));
@@ -173,8 +188,8 @@ public sealed class RowGrid : Drawable {
             MathF.Ceiling(labels),
             widths.Gate,
             widths.Pick,
-            Some((float)slot).Filter(_ => places.Exists(static place => place.Trail.IsSome)),
-            Some((float)slot).Filter(_ => places.Exists(static place => place.Trail.Exists(static trail => trail.Lock.IsSome))),
+            widths.Reset,
+            widths.Lock,
             widths.Values.IfNone(0f),
             RhinoLayout.Spacing(RhinoLayout.SpacingType.Table),
             MathF.Ceiling(regular.LineHeight),
@@ -224,7 +239,7 @@ public sealed class RowGrid : Drawable {
             Subscriptions.Host<EventArgs>(typeof(StackLayout), h => stack.SizeChanged += h, h => stack.SizeChanged -= h, nameof(SizeChanged)).Inline(_ => IO.lift(Invalidate), Sink, acquired.Retain),
             Subscriptions.Host<AtomChangedEvent<RowMarks>, RowMarks>(typeof(Atom<RowMarks>), h => marks.Change += h, h => marks.Change -= h,
                 static handler => held => handler(sender: null, held), nameof(marks.Change)).Inline(held => IO.lift(() => {
-                    ToolTip = held.Hovered.Bind(Tip).ValueUnsafe();
+                    ToolTip = held.Hovered.Bind(at => places.Find(place => place.At == at)).Bind(static place => place.Help).ValueUnsafe();
                     Invalidate();
                 }), Sink, acquired.Retain))
         + places.Choose(place => place.Cells.Bind(static cells => cells.Menu).Map(attach =>
@@ -256,18 +271,24 @@ public sealed class RowGrid : Drawable {
         from shown in place.Row.Rules.Shows(scope)
         from modified in place.Cells.Bind(static cells => cells.Edit).Match(Some: static edit => edit.Modified, None: static () => IO.pure(value: false))
         from locked in place.Trail.Match(Some: trail => scope.Locked.Map(held => trail.Keys.ForAll(held.Contains)), None: static () => IO.pure(value: false))
-        from painted in IO.lift(() => Activated(place, enabled, modified))
+        from painted in Activated(place, enabled, modified, locked)
         from available in place.Cells.Bind(static cells => cells.Availability).Traverse(changed => changed(shown && enabled)).As()
         from showed in place.Cells.Match(Some: static cells => cells.Show, None: static () => IO.pure(unit))
-        select (shown, new RowPaint(enabled, modified, locked));
+        select (shown, new RowPaint(enabled, modified));
 
-    private static Unit Activated(RowPlace place, bool enabled, bool modified) {
-        _ = place.Lines.Bind(static line => line.Spec.Controls).Iter(control => control.Enabled = enabled);
-        return place.Trail.Iter(trail => {
-            (trail.Restore.Enabled, trail.Copy.Enabled, trail.Paste.Enabled) = (enabled && modified, enabled, enabled && Clipboard.Instance.ContainsText);
-            _ = trail.Lock.Iter(command => command.Enabled = enabled);
-        });
-    }
+    private static IO<Unit> Activated(RowPlace place, bool enabled, bool modified, bool locked) =>
+        from controls in IO.lift(() => place.Lines.Bind(static line => line.Spec.Controls).Iter(control => control.Enabled = enabled))
+        from trails in place.Trail.Traverse(trail =>
+            from reset in Icons.Frames(GlyphRole.Reset, IconSlot.PanelButton)
+            from shackle in Icons.Frames(locked ? GlyphRole.LockClosed : GlyphRole.LockOpen, IconSlot.PanelButton)
+            from set in IO.lift(() => {
+                (trail.Restore.Enabled, trail.Copy.Enabled, trail.Paste.Enabled) = (enabled && modified, enabled, enabled && Clipboard.Instance.ContainsText);
+                trail.Reset.Image = enabled && modified ? reset : null;
+                _ = trail.Lock.Iter(command => (command.Enabled, command.Checked) = (enabled, locked));
+                _ = trail.Shackle.Iter(button => (button.Enabled, button.Image) = (enabled, shackle));
+            })
+            select unit).As()
+        select unit;
 
     // --- [PAINT]
     protected override void OnPaint(PaintEventArgs e) {
@@ -281,9 +302,9 @@ public sealed class RowGrid : Drawable {
             _ = drawn.Caption.Iter(caption => {
                 Font font = caption.Text.Own && paint.Modified ? metrics.Emphasis : metrics.Regular;
                 Color ink = (paint.Enabled, caption.Text.Own && paint.Modified) switch {
-                    (false, _) => PaintSlot.ContentTextDisabled.Read(),
-                    (true, true) => PaintSlot.ContentHighlight.Read(),
-                    (true, false) => PaintSlot.ContentTextEnabled.Read(),
+                    (false, _) => PaintSlot.TextDisabled.Read(),
+                    (true, true) => PaintSlot.Highlight.Read(),
+                    (true, false) => PaintSlot.Text.Read(),
                 };
                 SizeF measured = font.MeasureString(caption.Text.Text);
                 float x = caption.Text.Cell is CaptionCell.Column && beside && HostUtils.RunningOnOSX ? caption.Bounds.Right - measured.Width : caption.Bounds.X;
@@ -292,16 +313,7 @@ public sealed class RowGrid : Drawable {
                 if (caption.Text.Cell is CaptionCell.Rule)
                     graphics.DrawLine(PaintSlot.FrameEdge.Read(), new PointF(origin.X + measured.Width + metrics.Spacing.Width, caption.Bounds.Center.Y), new PointF(caption.Bounds.Right, caption.Bounds.Center.Y));
             });
-            _ = drawn.Reset.Filter(_ => paint.Enabled && paint.Modified).Iter(bounds => Glyph(graphics, held, new RowHit(drawn.Place.At, HitCell.Reset), GlyphRole.Reset, bounds));
-            _ = drawn.Lock.Iter(bounds => Glyph(graphics, held, new RowHit(drawn.Place.At, HitCell.Lock), paint.Locked ? GlyphRole.LockClosed : GlyphRole.LockOpen, bounds));
         });
-
-    private static Unit Glyph(Graphics graphics, RowMarks held, RowHit hit, GlyphRole glyph, RectangleF bounds) {
-        if (held.Hovered == Some(hit) || held.Pressed == Some(hit))
-            graphics.FillRectangle(new Color(PaintSlot.ControlText.Read(), held.Pressed == Some(hit) ? 0.25f : 0.12f), bounds);
-        graphics.DrawImage(Icons.Frame(glyph, IconSlot.PanelButton.Master, new System.Drawing.Size((int)MathF.Ceiling(bounds.Width), (int)MathF.Ceiling(bounds.Height))), bounds);
-        return unit;
-    }
 
     private Seq<DrawnLine> Placements(bool beside) =>
         from place in places
@@ -310,30 +322,19 @@ public sealed class RowGrid : Drawable {
         select metrics.Drawn(place, line, beside);
 
     // --- [POINTER]
-    private Option<RowHit> Hit(PointF at) =>
-        Placements(form.Value.Beside).Bind(drawn =>
-            drawn.Caption.Filter(caption => caption.Bounds.Contains(at)).Map(_ => new RowHit(drawn.Place.At, HitCell.Caption)).ToSeq()
-            + drawn.Reset.Filter(bounds => bounds.Contains(at) && marks.Value.Paints.Find(drawn.Place.At).Exists(static paint => paint.Enabled && paint.Modified)).Map(_ => new RowHit(drawn.Place.At, HitCell.Reset)).ToSeq()
-            + drawn.Lock.Filter(bounds => bounds.Contains(at)).Map(_ => new RowHit(drawn.Place.At, HitCell.Lock)).ToSeq())
-        .Head;
+    private Option<int> Hit(PointF at) =>
+        Placements(form.Value.Beside).Choose(drawn => drawn.Caption.Filter(caption => caption.Bounds.Contains(at)).Map(_ => drawn.Place.At)).Head;
 
-    private IO<Unit> Pointed(Func<RowMarks, RowMarks> step) =>
-        marks.SwapMaybeIO(held => Some(step(held)).Filter(next => next.Hovered != held.Hovered || next.Pressed != held.Pressed)).Map(unit);
-
-    private Option<string> Tip(RowHit hit) =>
-        places.Find(place => place.At == hit.Place).Bind(place => hit.Cell switch {
-            HitCell.Caption => place.Help,
-            HitCell.Reset => Some(RowText.Localize("Reset").Local),
-            HitCell.Lock => Some(RowText.Localize("Lock").Local),
-        });
+    private IO<Unit> Pointed(Option<int> hovered) =>
+        marks.SwapMaybeIO(held => Some(held with { Hovered = hovered }).Filter(_ => hovered != held.Hovered)).Map(unit);
 
     protected override void OnMouseMove(MouseEventArgs e) {
-        Callbacks.Run(Pointed(held => held with { Hovered = Hit(e.Location) }), new CallbackSite(Sink, typeof(RowGrid), nameof(OnMouseMove)));
+        Callbacks.Run(Pointed(Hit(e.Location)), new CallbackSite(Sink, typeof(RowGrid), nameof(OnMouseMove)));
         base.OnMouseMove(e);
     }
 
     protected override void OnMouseLeave(MouseEventArgs e) {
-        Callbacks.Run(Pointed(static held => held with { Hovered = None, Pressed = None }), new CallbackSite(Sink, typeof(RowGrid), nameof(OnMouseLeave)));
+        Callbacks.Run(Pointed(None), new CallbackSite(Sink, typeof(RowGrid), nameof(OnMouseLeave)));
         base.OnMouseLeave(e);
     }
 
@@ -341,31 +342,11 @@ public sealed class RowGrid : Drawable {
         Callbacks.Run(
             from hit in IO.lift(() => Hit(e.Location))
             from claimed in IO.lift(() => { e.Handled = hit.IsSome; })
-            from acted in hit.Traverse(found => e.Buttons is MouseButtons.Alternate
-                ? IO.lift(() => marks.Value.Menus.Find(found.Place).Iter(menu => menu.Show(this, e.Location)))
-                : Pointed(held => held with { Pressed = Some(found).Filter(static pressed => pressed.Cell is not HitCell.Caption) })).As()
+            from shown in IO.lift(() => hit.Filter(_ => e.Buttons is MouseButtons.Alternate).Bind(marks.Value.Menus.Find).Iter(menu => menu.Show(this, e.Location)))
             select unit, new CallbackSite(Sink, typeof(RowGrid), nameof(OnMouseDown)));
         if (!e.Handled)
             base.OnMouseDown(e);
     }
-
-    protected override void OnMouseUp(MouseEventArgs e) {
-        Callbacks.Run(
-            from released in IO.lift(() => marks.Value.Pressed.Filter(pressed => Hit(e.Location) == Some(pressed)))
-            from cleared in Pointed(static held => held with { Pressed = None })
-            from acted in released.Traverse(Acted).As()
-            select unit, new CallbackSite(Sink, typeof(RowGrid), nameof(OnMouseUp)));
-        base.OnMouseUp(e);
-    }
-
-    private IO<Unit> Acted(RowHit hit) =>
-        places.Find(place => place.At == hit.Place).Bind(static place => place.Trail).Match(
-            Some: trail => hit.Cell switch {
-                HitCell.Caption => IO.pure(unit),
-                HitCell.Reset => IO.lift(trail.Restore.Execute),
-                HitCell.Lock => scope.Locked.Bind(held => scope.Lock(toSeq(trail.Keys), !trail.Keys.ForAll(held.Contains))),
-            },
-            None: static () => IO.pure(unit));
 
     // --- [RELEASE]
     protected override void Dispose(bool disposing) {
@@ -379,12 +360,6 @@ public sealed class RowGrid : Drawable {
         Rule,
     }
 
-    private enum HitCell {
-        Caption,
-        Reset,
-        Lock,
-    }
-
     private sealed record LineCaption(string Text, CaptionCell Cell, bool Own);
 
     private sealed record LineSpec(Option<LineCaption> Caption, bool Columned, Option<Control> Gate, Option<Control> Value, Option<Control> Pick, Option<RowTrail> Trail, bool Trailing, bool Fills) {
@@ -393,13 +368,16 @@ public sealed class RowGrid : Drawable {
         public Seq<TableCell> Cells =>
             Gate.Map(static gate => new TableCell(gate)).ToSeq()
                 .Add(Value.Match(Some: static value => new TableCell(value, scaleWidth: true), None: static () => new TableCell { ScaleWidth = true }))
-            + Pick.Map(static pick => new TableCell(pick)).ToSeq();
+            + Pick.Map(static pick => new TableCell(pick)).ToSeq()
+            + Trail.ToSeq().Bind(static trail => trail.Buttons).Map(static button => new TableCell(button));
     }
 
     private sealed record GridLine(LineSpec Spec, Panel Host);
 
-    private sealed record RowTrail(IterableNE<EntryKey> Keys, Command Restore, Command Copy, Command Paste, Option<CheckCommand> Lock) {
+    private sealed record RowTrail(IterableNE<EntryKey> Keys, Command Restore, Command Copy, Command Paste, Option<CheckCommand> Lock, ImageButton Reset, Option<ImageButton> Shackle) {
         public Seq<Seq<Command>> Groups => [[Restore, .. Lock.ToSeq()], [Copy, Paste]];
+
+        public Seq<ImageButton> Buttons => Reset.Cons(Shackle.ToSeq());
     }
 
     private sealed record RowPlace(int At, ControlRow Row, Option<RowCells> Cells, Option<string> Caption, Option<string> Help, Seq<GridLine> Lines, Option<RowTrail> Trail) {
@@ -408,17 +386,15 @@ public sealed class RowGrid : Drawable {
         public Seq<RowSource> Sources => Row.Rules.Each.Bind(static rule => rule.Sources);
     }
 
-    private sealed record RowPaint(bool Enabled, bool Modified, bool Locked) {
-        public static RowPaint Plain { get; } = new(Enabled: true, Modified: false, Locked: false);
+    private sealed record RowPaint(bool Enabled, bool Modified) {
+        public static RowPaint Plain { get; } = new(Enabled: true, Modified: false);
     }
 
-    private readonly record struct RowHit(int Place, HitCell Cell);
-
-    private sealed record RowMarks(HashMap<int, RowPaint> Paints, HashMap<int, ContextMenu> Menus, Option<RowHit> Hovered, Option<RowHit> Pressed) {
-        public static RowMarks Initial { get; } = new([], [], None, None);
+    private sealed record RowMarks(HashMap<int, RowPaint> Paints, HashMap<int, ContextMenu> Menus, Option<int> Hovered) {
+        public static RowMarks Initial { get; } = new([], [], None);
     }
 
-    private sealed record DrawnLine(RowPlace Place, Option<(LineCaption Text, RectangleF Bounds)> Caption, Option<RectangleF> Reset, Option<RectangleF> Lock);
+    private sealed record DrawnLine(RowPlace Place, Option<(LineCaption Text, RectangleF Bounds)> Caption);
 
     private sealed record RowForm(bool Beside, LanguageExt.HashSet<int> Hidden) {
         public static RowForm Initial { get; } = new(Beside: false, []);
@@ -434,7 +410,7 @@ public sealed class RowGrid : Drawable {
             (new Padding(
                     (int)MathF.Ceiling((line.Columned && beside ? Labels + Spacing.Width : 0f) + (Gated(line) && line.Gate.IsNone ? Gate.IfNone(0f) + Spacing.Width : 0f)),
                     (int)MathF.Ceiling(line.Columned && !beside && line.Caption.IsSome ? CaptionHeight + Spacing.Height : 0f),
-                    (int)MathF.Ceiling(line.Trailing ? Seq(Pick.Filter(_ => line.Pick.IsNone), Reset, Lock).Somes().Fold(0f, (sum, width) => sum + width + Spacing.Width) : 0f),
+                    (int)MathF.Ceiling(line.Trailing ? Seq(Pick.Filter(_ => line.Pick.IsNone), Reset.Filter(_ => line.Trail.IsNone), Lock.Filter(_ => !line.Trail.Exists(static trail => trail.Shackle.IsSome))).Somes().Fold(0f, (sum, width) => sum + width + Spacing.Width) : 0f),
                     0),
                 new Size(0, (int)MathF.Ceiling(MathF.Max(
                     line.Caption.IsSome && !(line.Columned && !beside) ? CaptionHeight : 0f,
@@ -449,12 +425,9 @@ public sealed class RowGrid : Drawable {
                         CaptionCell.Column => new RectangleF(bounds.X, bounds.Y, bounds.Width, CaptionHeight),
                         CaptionCell.Span or CaptionCell.Rule => RectangleF.Inset(content, new PaddingF(
                             left: Gate.Filter(_ => line.Spec.Gate.IsSome).Map(width => width + Spacing.Width).IfNone(0f), top: 0f,
-                            right: line.Spec.Pick.Map(_ => Pick.IfNone(0f) + Spacing.Width).IfNone(0f), bottom: 0f)),
-                    })),
-                    Reset.Filter(_ => line.Spec.Trailing && line.Spec.Trail.IsSome)
-                        .Map(width => new RectangleF(bounds.Right - Lock.Map(held => held + Spacing.Width).IfNone(0f) - width, content.Y + ((content.Height - width) / 2f), width, width)),
-                    Lock.Filter(_ => line.Spec.Trailing && line.Spec.Trail.Exists(static trail => trail.Lock.IsSome))
-                        .Map(width => new RectangleF(bounds.Right - width, content.Y + ((content.Height - width) / 2f), width, width))),
+                            right: Seq(line.Spec.Pick.Bind(_ => Pick), line.Spec.Trail.Bind(_ => Reset), line.Spec.Trail.Bind(static trail => trail.Shackle).Bind(_ => Lock))
+                                .Somes().Fold(0f, (sum, width) => sum + width + Spacing.Width), bottom: 0f)),
+                    }))),
             };
     }
 }

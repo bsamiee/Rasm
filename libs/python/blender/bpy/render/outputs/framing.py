@@ -15,7 +15,7 @@ from blender.bpy.data.rna.descriptors import Descriptor, rooted
 from blender.bpy.data.rna.snapshots import Persisted, Snapshot
 from blender.bpy.extension.events.handlers import PathHandler
 from blender.bpy.extension.identity import Identity, Key, Name
-from blender.bpy.extension.registration import Acquisitions
+from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.extension.reports import rendered
 from blender.bpy.faults import BlenderAbsentFault, BlenderFaults, BlenderRenderingFault, BlenderResult, BlenderUnmetFault
 from blender.bpy.scene.cameras import render_cameras, widened
@@ -220,16 +220,27 @@ class FrameSize(msgspec.Struct, frozen=True, kw_only=True):
     """Framing attachment, border actions, native-panel readings, and load restoration."""
 
     key: ClassVar[Key] = "framing"
-    camera_border: ClassVar[Key] = "camera_border"
-    selection_border: ClassVar[Key] = "selection_border"
     members: ClassVar[tuple[str, ...]] = tuple(field.name for field in msgspec.structs.fields(Framing) if field.name not in {"density", "extent"})
     edges: ClassVar[tuple[tuple[str, str], ...]] = (("left", "border_min_x"), ("bottom", "border_min_y"), ("right", "border_max_x"), ("top", "border_max_y"))
     attachment: ClassVar[Attachment[Whole]] = Attachment(key=key, form=Whole, owner=bpy.types.Scene)
-
-    @property
-    def page_rows(self) -> tuple[Attachment[Whole]]:
-        """Attachment declaration for preferences page."""
-        return (self.attachment,)
+    prerequisites: ClassVar[tuple[Registrable, ...]] = (attachment,)
+    camera: ClassVar[Setting] = Setting(descriptor=Descriptor(root=bpy.types.RegionView3D, owner="", prop=bpy.types.RegionView3D.bl_rna.properties["view_perspective"]), accepted=("CAMERA",))
+    camera_bordering: ClassVar[Operator[Empty]] = Operator(
+        key="camera_border",
+        title="Render Region from Camera",
+        description="Set render region to camera frame",
+        form=Empty,
+        run=lambda call: Result[bpy.types.Scene, BlenderFaults].bind(call.root(bpy.types.Scene), lambda scene: FrameSize().bound(call.identity).bind(lambda framed: framed.bordered(scene, Region()))),
+        condition=Some(camera),
+    )
+    selection_bordering: ClassVar[Operator[Empty]] = Operator(
+        key="selection_border",
+        title="Render Region from Selection",
+        description="Set render region to selection bounds in camera view",
+        form=Empty,
+        run=lambda call: FrameSize().bound(call.identity).bind(lambda framed: framed.selected(call)),
+        condition=Some(AllOf(conditions=(camera, Count(collection=Descriptor.declared(bpy.types.ViewLayer, "objects.selected", bpy.types.CollectionProperty))))),
+    )
 
     def bound(self, identity: Identity) -> BlenderResult[Framed]:
         """Binds registered overscan and its stored-state name."""
@@ -240,40 +251,17 @@ class FrameSize(msgspec.Struct, frozen=True, kw_only=True):
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
         """Returns declarations with callbacks binding after registration."""
-        camera = Setting(descriptor=Descriptor(root=bpy.types.RegionView3D, owner="", prop=bpy.types.RegionView3D.bl_rna.properties["view_perspective"]), accepted=("CAMERA",))
-        return Descriptor.resolve(bpy.types.ViewLayer, "objects.selected", bpy.types.CollectionProperty).map(
-            lambda selection: (
-                self.attachment,
-                Operator(
-                    key=self.camera_border,
-                    title="Render Region from Camera",
-                    description="Sets render region to camera frame",
-                    form=Empty,
-                    run=lambda call: Result[bpy.types.Scene, BlenderFaults].bind(
-                        call.root(bpy.types.Scene), lambda scene: self.bound(call.identity).bind(lambda framed: framed.bordered(scene, Region()))
-                    ),
-                    condition=Some(camera),
-                ),
-                Operator(
-                    key=self.selection_border,
-                    title="Render Region from Selection",
-                    description="Sets render region to selection bounds in camera view",
-                    form=Empty,
-                    run=lambda call: self.bound(call.identity).bind(lambda framed: framed.selected(call)),
-                    condition=Some(AllOf(conditions=(camera, Count(collection=selection)))),
-                ),
-                safe_broadcast,
-                Append(
-                    target=RENDER_PT_format,  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                    rows=(Label(text=lambda context: self.bound(identity).map(lambda framed: framed.caption(context)).default_with(summarized)),),
-                ),
-                Append(target=RENDER_PT_frame_range, rows=(Label(text=duration),)),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                PathHandler(
-                    handlers=bpy.app.handlers.load_post,  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                    body=lambda _: self.bound(identity).bind(lambda framed: accumulated(framed.restored(scene) for scene in bpy.data.scenes).map(lambda _: None)),
-                ),
-            )
-        )
+        return Ok((
+            self.camera_bordering,
+            self.selection_bordering,
+            safe_broadcast,
+            Append(target=RENDER_PT_format, rows=(Label(text=lambda context: self.bound(identity).map(lambda framed: framed.caption(context)).default_with(summarized)),)),
+            Append(target=RENDER_PT_frame_range, rows=(Label(text=duration),)),
+            PathHandler(
+                handlers=bpy.app.handlers.load_post,  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+                body=lambda _: self.bound(identity).bind(lambda framed: accumulated(framed.restored(scene) for scene in bpy.data.scenes).map(lambda _: None)),
+            ),
+        ))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -325,7 +313,7 @@ def duration(context: bpy.types.Context) -> Option[str]:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-safe_broadcast = Operator(key="safe_broadcast", title="Broadcast Safe Areas", description="Sets safe areas for a broadcast standard", form=Standard, run=broadcasted)
+safe_broadcast = Operator(key="safe_broadcast", title="Broadcast Safe Areas", description="Set safe areas for a broadcast standard", form=Standard, run=broadcasted)
 safe_presets = Preset(key="safe_areas", form=Snapshot)
 safe_listing = Listing(
     preset=safe_presets,

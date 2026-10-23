@@ -41,10 +41,7 @@ public abstract class DefinedRenderPlugIn(PlugInDefinition definition, RendererD
 
     public sealed override PlugInLoadTime LoadTime => lifetime.LoadTime(base.LoadTime);
 
-    protected sealed override LoadReturnCode OnLoad(ref string errorMessage) {
-        (LoadReturnCode code, errorMessage) = lifetime.Load(this, CallbackSite.Of(this));
-        return code;
-    }
+    protected sealed override LoadReturnCode OnLoad(ref string errorMessage) => lifetime.Load(this, GetLicense, CallbackSite.Of(this), ref errorMessage);
 
     protected sealed override void CreateCommands() {
         base.CreateCommands();
@@ -58,7 +55,7 @@ public abstract class DefinedRenderPlugIn(PlugInDefinition definition, RendererD
 
     protected sealed override void ResetMessageBoxes() {
         base.ResetMessageBoxes();
-        Callbacks.Run(HostDialogs.ResetMessageBoxes(lifetime.Views, ((IPlugInViews)this).Settings), CallbackSite.Of(this));
+        lifetime.ResetMessageBoxes(this, CallbackSite.Of(this));
     }
 
     // --- [IDENTITY]
@@ -67,7 +64,7 @@ public abstract class DefinedRenderPlugIn(PlugInDefinition definition, RendererD
     // --- [HELP]
     public sealed override bool AddToHelpMenu => lifetime.Definition.Help.IsSome;
 
-    public sealed override bool DisplayHelp(nint windowHandle) => Callbacks.Succeeded(lifetime.Definition.Help.Map(static topic => topic.Show), static () => false, CallbackSite.Of(this));
+    public sealed override bool DisplayHelp(nint windowHandle) => lifetime.DisplayHelp(CallbackSite.Of(this));
 
     // --- [PAGES]
     protected sealed override void OptionsDialogPages(List<OptionsDialogPage> pages) {

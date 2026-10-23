@@ -4,7 +4,7 @@ using Eto.Forms;
 using Rasm.Imaging.Color;
 using Rasm.Rhino.UI.Drawing;
 using Rasm.Rhino.UI.Styling;
-using Rhino.Resources;
+using Rhino.Runtime;
 
 namespace Rasm.Rhino.UI.Numeric;
 
@@ -20,38 +20,40 @@ public sealed class ParameterSlider<TValue, TKey>(IPlugInSink sink, ScalarText<T
     where TValue : notnull
     where TKey : struct, INumber<TKey> {
     // --- [METRICS]
-    private static readonly MarkStyle Groove = new MarkStyle.Fill(PaintSlot.ControlText, 0.22f);
-    private static readonly MarkStyle Span = new MarkStyle.Fill(PaintSlot.Highlight, 1f);
-    private static readonly MarkStyle Tick = new MarkStyle.Stroke(PaintSlot.ControlText, 0.4f, 1f);
-    private static readonly MarkStyle Face = new MarkStyle.Fill(PaintSlot.ControlBackground, 1f);
-    private static readonly MarkStyle Focused = new MarkStyle.Stroke(PaintSlot.Highlight, 1f, 2f);
+    private const float Corner = 4f;
+    private const float Marker = 15f;
 
-    private readonly float knob = EtoFonts.SmallFont.LineHeight;
+    private static readonly MarkStyle Border = new MarkStyle.Stroke(PaintSlot.Text, 0.2f, 1f);
+    private static readonly MarkStyle Focused = new MarkStyle.Stroke(PaintSlot.Text, 0.4f, 1f);
+    private static readonly MarkStyle Span = new MarkStyle.Fill(PaintSlot.FrameBackground, 1f);
+    private static readonly MarkStyle Knob = new MarkStyle.Fill(PaintSlot.Highlight, 1f);
+    private static readonly MarkStyle Rim = new MarkStyle.Stroke(PaintSlot.Text, 0.6f, 1f);
 
-    private RectangleF Bar(SizeF size) => new(knob / 2f, (knob - Plots.Inset) / 2f, float.Max(size.Width - knob, 0f), Plots.Inset);
+    private static RectangleF Groove(SizeF size) => new(size);
 
-    protected override Option<float> Fitted(ParameterSliderState<TValue, TKey> state, float width) => knob + Plots.Inset;
+    private static RectangleF Bar(SizeF size) => new(Marker / 2f, 0f, float.Max(size.Width - Marker, 0f), size.Height);
+
+    protected override Option<float> Fitted(ParameterSliderState<TValue, TKey> state, float width) => HostUtils.RunningOnOSX ? 17f : 18f;
 
     // --- [LAYOUT]
     protected override Seq<PlotMark<Unit>> Layout(ParameterSliderState<TValue, TKey> state, SizeF size, float scale) =>
         (PlotPlane.Cartesian.Unit(Bar(size)), Position(state)) switch {
             var (plane, position) =>
-                Seq(new PlotMark<Unit>(new MarkShape.Band(new RectangleF(size)), None, Some(new MarkPart<Unit>(unit, 0f))))
+                Seq(new PlotMark<Unit>(new MarkShape.Band(Groove(size), Corner), None, Some(new MarkPart<Unit>(unit, 0f))))
                     + Filled(state, plane, position)
-                    + toSeq(Range(0, NumberText.TickIntervals + 1)).Map(index => plane.Point((float)index / NumberText.TickIntervals, 0f).X switch {
-                        var x => new PlotMark<Unit>(new MarkShape.Rule(new PointF(x, knob), new PointF(x, knob + Plots.Inset)), Tick, None),
-                    })
-                    + Seq(new PlotMark<Unit>(new MarkShape.Disc(plane.Point((float)position, 0.5f), knob - 1f), Face, None),
-                        new PlotMark<Unit>(new MarkShape.Disc(plane.Point((float)position, 0.5f), knob - 1f), MarkStyle.Ring, None)),
+                    + Seq(new PlotMark<Unit>(new MarkShape.Band(RectangleF.Inset(Groove(size), new PaddingF(0.5f)), Corner), Border, None))
+                    + state.Shown.ToSeq().Bind(_ => RectangleF.FromCenter(plane.Point((float)position, 0.5f), new SizeF(Marker, size.Height)) switch {
+                        var knob => Seq(new PlotMark<Unit>(new MarkShape.Band(knob, Corner), Knob, None), new PlotMark<Unit>(new MarkShape.Band(RectangleF.Inset(knob, new PaddingF(0.5f)), Corner), Rim, None)),
+                    }),
         };
 
     private Seq<PlotMark<Unit>> Filled(ParameterSliderState<TValue, TKey> state, PlotPlane.Cartesian plane, double position) {
         double origin = text.Domain.Presentation.Origin.Map(key => text.Domain.Presentation.Position(key, Track(state))).IfNone(0d);
         return text.Domain.Presentation.Stops.IsSome
             ? Seq<PlotMark<Unit>>()
-            : new PlotMark<Unit>(new MarkShape.Band(plane.Plot), Groove, None).Cons(state.Shown.Map(_ => new PlotMark<Unit>(new MarkShape.Band(RectangleF.FromSides(
-                plane.Point((float)double.Min(origin, position), 0f).X, plane.Plot.Top,
-                plane.Point((float)double.Max(origin, position), 0f).X, plane.Plot.Bottom)), Span, None)).ToSeq());
+            : state.Shown.Map(_ => new PlotMark<Unit>(new MarkShape.Band(RectangleF.FromSides(
+                plane.Point((float)double.Min(origin, position), 0f).X - (Marker / 2f), plane.Plot.Top,
+                plane.Point((float)double.Max(origin, position), 0f).X + (Marker / 2f), plane.Plot.Bottom), Corner), Span, None)).ToSeq();
     }
 
     // --- [TRACK]
@@ -72,7 +74,7 @@ public sealed class ParameterSlider<TValue, TKey>(IPlugInSink sink, ScalarText<T
     private TKey Stepped(TKey from, double steps, Keys modifiers, (TKey Low, TKey High) track) =>
         Clamped(Snaps(modifiers) ? text.Snap(from, steps, track) : text.Moved(from, steps * Scale(modifiers)), track);
 
-    private double Pointed(SizeF size, PointF point) => PlotPlane.Cartesian.Unit(Bar(size)).Value(point).First;
+    private static double Pointed(SizeF size, PointF point) => PlotPlane.Cartesian.Unit(Bar(size)).Value(point).First;
 
     // --- [TRANSITIONS]
     protected override ParameterSliderState<TValue, TKey> Received(ParameterSliderState<TValue, TKey> state, Option<TValue> value) => state with { Shown = value };
@@ -133,16 +135,22 @@ public sealed class ParameterSlider<TValue, TKey>(IPlugInSink sink, ScalarText<T
 
     // --- [PAINT]
     protected override IO<Unit> Draw(PlotCanvas canvas, RectangleF bounds, ParameterSliderState<TValue, TKey> state, Seq<PlotMark<Unit>> marks, Interaction<Unit> interaction) =>
-        PlotPlane.Cartesian.Unit(Bar(bounds.Size)) switch {
-            var plane =>
-                from stops in when(text.Domain.Presentation.Stops.IsSome, Plots.Strip(canvas, plane, position => text.Domain.Presentation.Fill(text.Domain.Presentation.Key(position, Track(state), text.Domain.Bounds), text.Domain.Bounds)
-                    .Map(static light => Plots.Encoded(Gamut.StandardRgb, light.AsVector3()))
-                    .IfNone(Colors.Transparent))).As()
-                from veil in Plots.Veiled(canvas, new MarkShape.Band(plane.Plot))
-                from painted in Plots.Paint(canvas, marks.Map(mark => mark.Style == Some(MarkStyle.Ring) ? mark with { Style = Ringed(canvas.Focused, interaction) } : mark))
+        (Groove(bounds.Size), Bar(bounds.Size)) switch {
+            var (groove, bar) =>
+                from stops in when(text.Domain.Presentation.Stops.IsSome, DisposalOps.Within(
+                    () => new MarkShape.Band(groove, Corner).Figure(),
+                    path => IO.lift(() => canvas.Graphics.SetClip(path)).Bind(_ => Plots.Strip(canvas, PlotPlane.Cartesian.Unit(groove), fraction =>
+                        text.Domain.Presentation.Fill(text.Domain.Presentation.Key(float.Clamp(((fraction * groove.Width) - bar.Left) / bar.Width, 0f, 1f), Track(state), text.Domain.Bounds), text.Domain.Bounds)
+                            .Map(static light => Plots.Encoded(Gamut.StandardRgb, light.AsVector3()))
+                            .IfNone(Colors.Transparent))),
+                    path => IO.lift(() => {
+                        path.Dispose();
+                        canvas.Graphics.ResetClip();
+                    }))).As()
+                from veil in Plots.Veiled(canvas, new MarkShape.Band(groove, Corner))
+                from painted in Plots.Paint(canvas, marks.Map(mark => mark.Style.Exists(static style => style == Border) && canvas.Focused
+                    ? mark with { Style = Focused }
+                    : mark.Style.Exists(static style => style == Rim) && (interaction.Hovered.IsSome || interaction.Pressed.IsSome) ? mark with { Style = MarkStyle.Lifted } : mark))
                 select unit,
         };
-
-    private static MarkStyle Ringed(bool focused, Interaction<Unit> cues) =>
-        focused ? Focused : cues.Hovered.IsSome || cues.Pressed.IsSome ? MarkStyle.Lifted : MarkStyle.Ring;
 }

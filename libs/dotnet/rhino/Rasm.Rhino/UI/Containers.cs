@@ -154,7 +154,7 @@ public static class Containers {
         from shown in refresh
         select (Control)row;
 
-    private static IO<(Seq<DrawnButton> Buttons, IO<Unit> Refresh)> Tile(CommandRow command, RowScope scope, Action<IDisposable> retain) =>
+    private static IO<(Seq<ImageButton> Buttons, IO<Unit> Refresh)> Tile(CommandRow command, RowScope scope, Action<IDisposable> retain) =>
         from realized in command.Commands(scope, retain)
         from buttons in realized.Commands.TraverseM(cell =>
             from glyph in IO.lift(cell.Face.Glyph.ToFin(new Refused(nameof(CommandFace.Glyph), Refused.Absent)))

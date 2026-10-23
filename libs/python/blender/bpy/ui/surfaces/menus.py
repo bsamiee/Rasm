@@ -1,7 +1,7 @@
 """Menus of ordered rows, context-keyed rows, or pie slots."""
 
 from collections.abc import Callable, Generator, Hashable, Iterable, Mapping
-from contextlib import contextmanager, ExitStack
+from contextlib import AbstractContextManager, contextmanager, ExitStack
 from enum import Enum
 
 import bpy
@@ -170,11 +170,13 @@ class PresetMenu[T: msgspec.Struct = Snapshot](msgspec.Struct, frozen=True, kw_o
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
         """Returns source acquisitions, then preset menu."""
 
-        def listed[S: msgspec.Struct](listing: Listing[S], owned: tuple[RowContent, ...]) -> BlenderResult[Acquisitions]:
-            return Ok((
-                *acquired(owned),
-                (Band.INTERFACE, registered(identity, listing.key, f"{bpy.path.display_name(listing.preset.key)} Presets", "", lambda: placed(owned, identity).map(painted), search=True)),
-            ))
+        def menu[S: msgspec.Struct](listing: Listing[S]) -> AbstractContextManager[BlenderResult[None]]:
+            name = bpy.path.display_name(listing.preset.key)
+            owned = (listing, *self.entries)
+            return registered(identity, listing.key, f"{name} Presets", f"Apply, add, or import {name.lower()} presets", lambda: placed(owned, identity).map(painted), search=True)
+
+        def listed[S: msgspec.Struct](listing: Listing[S]) -> BlenderResult[Acquisitions]:
+            return Ok((*acquired((listing, *self.entries)), (Band.INTERFACE, menu(listing))))
 
         match self.source:
             case Store() as store:
@@ -182,22 +184,16 @@ class PresetMenu[T: msgspec.Struct = Snapshot](msgspec.Struct, frozen=True, kw_o
                 @contextmanager
                 def registered_store() -> Generator[BlenderResult[None]]:
                     with ExitStack() as stack:
-
-                        def held(listing: Listing[T]) -> BlenderResult[None]:
-                            return stack.enter_context(
-                                registered(
-                                    identity, listing.key, f"{bpy.path.display_name(listing.preset.key)} Presets", "", lambda: placed((listing, *self.entries), identity).map(painted), search=True
-                                )
-                            )
-
-                        result: BlenderResult[None] = store.bound(identity).bind(lambda slots: slots.listing.map(held).default_value(Result[None, BlenderFaults](ok=None)))
+                        result: BlenderResult[None] = store.bound(identity).bind(
+                            lambda slots: slots.listing.map(lambda listing: stack.enter_context(menu(listing))).default_value(Result[None, BlenderFaults](ok=None))
+                        )
                         yield result
 
                 return Ok((store.attachment, store, *acquired(self.entries), (Band.INTERFACE, registered_store())))
             case Listing() as listing:
-                return listed(listing, (listing, *self.entries))
+                return listed(listing)
             case Captured() as captured:
-                return captured.listing().bind(lambda listing: listed(listing, (listing, *self.entries)))
+                return captured.listing().bind(listed)
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

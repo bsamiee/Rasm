@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Draw = Callable[[bpy.types.UILayout, bpy.types.Context, bpy.types.OperatorProperties], None]
+type Draw = Callable[[bpy.types.UILayout, bpy.types.Context, bpy.types.OperatorProperties, Identity], None]
 type Writer = Callable[[bpy.types.OperatorProperties], BlenderResult[None]]
 type Invoke[T: msgspec.Struct, S] = Confirm[T] | Suppressible[T] | Properties | Floating | InvokePopup | Open[T] | Save[T] | Pick | Modal[S]
 type Outcome = Done | Unchanged
@@ -196,7 +196,7 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
     form: type[T]
     run: Callable[[Call[T]], BlenderResult[Outcome]]
     invoke: Option[Invoke[T, S]] = Nothing
-    seed: Option[Callable[[T, bpy.types.Event], T]] = Nothing
+    seed: Option[Callable[[T, bpy.types.Event, Identity], T]] = Nothing
     undo: bool | str = True
     draw: Option[Draw] = Nothing
     check: Option[Callable[[bpy.types.Operator, bpy.types.Context], bool]] = Nothing
@@ -299,15 +299,16 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
             return tuple(prop for prop in properties.bl_rna.properties if prop.identifier in made and not prop.is_hidden)
 
         def described(_cls: type[bpy.types.Operator], _context: bpy.types.Context, properties: bpy.types.OperatorProperties) -> str:
-            return ". ".join((
-                self.description,
-                *(
-                    f"{prop.name}: {descriptor.shown(descriptor.read(properties))}"
+            return next(
+                (
+                    item.description
                     for prop in shown(properties)
-                    if properties.is_property_set(prop.identifier) and not isinstance(prop, (bpy.types.PointerProperty, bpy.types.CollectionProperty))
-                    for descriptor in (Descriptor(root=type(properties), owner="", prop=prop),)
+                    if isinstance(prop, bpy.types.EnumProperty) and not prop.is_enum_flag and properties.is_property_set(prop.identifier)
+                    for item in prop.enum_items
+                    if item.identifier == getattr(properties, prop.identifier) and item.description
                 ),
-            ))
+                self.description,
+            )
 
         def draw(operator: bpy.types.Operator, context: bpy.types.Context) -> None:
             for layout in Option.of_optional(operator.layout).to_list():
@@ -316,12 +317,12 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
                         for prop in shown(operator.properties):
                             layout.prop(operator, prop.identifier)
                     case body:
-                        body(layout, context, operator.properties)
+                        body(layout, context, operator.properties, identity)
 
         members: dict[str, object] = {
             **RecordGroup.body(group.struct),
             "execute": execute,
-            **({"description": classmethod(described)} if made else {}),
+            **({"description": classmethod(described)} if any(prop.function is bpy.props.EnumProperty for prop in made.values()) else {}),
             **({"draw": draw} if self.draw.is_some() else {}),
             **self.check.map(lambda callback: {"check": callback}).default_value({}),
             **self.primary.map(lambda member: {"bl_property": member.name}).default_value({}),
@@ -513,7 +514,7 @@ class Operator[T: msgspec.Struct, S = None](Command, frozen=True, kw_only=True):
                 .bind(
                     lambda record: (
                         self.seed
-                        .map(lambda seed: seeded(operator.properties, record, seed(record, event)))
+                        .map(lambda seed: seeded(operator.properties, record, seed(record, event, identity)))
                         .map(lambda fresh: binding.write(operator.properties, fresh).map(lambda _: fresh))
                         .default_value(Ok(record))
                     )
@@ -539,16 +540,6 @@ class Own[T: msgspec.Struct, S = None](msgspec.Struct, frozen=True, kw_only=True
     def invocation(self, identity: Identity, /) -> BlenderResult[tuple[str, Writer]]:
         """Returns operator name and writer of supplied record."""
         return identity.name(Name.OPERATOR, self.command.key).map(lambda name: (name, lambda properties: self.command.bound(identity).bind(lambda pair: pair[1].write(properties, self.values))))
-
-
-class Acquired(msgspec.Struct, frozen=True, kw_only=True):
-    """Placement by key of operator built during registration."""
-
-    key: Key
-
-    def invocation(self, identity: Identity, /) -> BlenderResult[tuple[str, Writer]]:
-        """Returns operator name with no-op writer."""
-        return identity.name(Name.OPERATOR, self.key).map(lambda name: (name, lambda _: Ok(None)))
 
 
 class Stock(msgspec.Struct, frozen=True, kw_only=True):
@@ -621,7 +612,6 @@ def tallied(edits: tuple[BlenderResult[object], ...], notes: tuple[tuple["rna_en
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
-    "Acquired",
     "Call",
     "Command",
     "Confirm",

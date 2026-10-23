@@ -7,6 +7,7 @@ from pathlib import PurePath
 import typing
 from typing import Annotated, ClassVar, Generic, Literal, overload, Protocol, runtime_checkable
 
+import _bpy_types
 import bpy
 from expression import Error, Nothing, Ok, Option, Some
 import msgspec
@@ -178,15 +179,17 @@ class Property(Line, frozen=True, kw_only=True):
     text: Option[str] = Nothing
     icon: Option[Glyph] = Nothing
     icon_only: bool = False
+    expand: bool = False
+    slider: bool = False
     placeholder: Option[str] = Nothing
     action: Option[RowContent] = Nothing
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Binds setting and action once for every redraw."""
+        """Binds setting, glyph, and action once for every redraw."""
         kinds = (bpy.types.BoolProperty, bpy.types.IntProperty, bpy.types.FloatProperty, bpy.types.StringProperty, bpy.types.EnumProperty, bpy.types.ID)
         forms = (shapes.Flag, shapes.Integer, shapes.Number, shapes.Text, shapes.Enumerated, shapes.Vector, shapes.Components, shapes.Flags, shapes.Pointer, shapes.Color, shapes.Gate)
 
-        def valued(layout: bpy.types.UILayout, owner: Native, key: str, shape: Option[shapes.Shape], label: Option[str], index: int = -1) -> None:
+        def valued(layout: bpy.types.UILayout, owner: Native, key: str, shape: Option[shapes.Shape], label: Option[str], icon: int, index: int = -1) -> None:
             prop = owner.bl_rna.properties[key]  # type: ignore[union-attr]  # ty: ignore[unresolved-attribute]
             match shape.to_optional():
                 case shapes.Gate(value=value):
@@ -196,7 +199,7 @@ class Property(Line, frozen=True, kw_only=True):
                     inner = gate.row(align=True)
                     inner.active = getattr(group, shapes.ENABLED)
                     for field, held in value.to_list():
-                        valued(inner, group, field.name, Some(held.shape), Some(""))
+                        valued(inner, group, field.name, Some(held.shape), Some(""), icon)
                 case shapes.Flags(enum=choices):
                     group = getattr(owner, key)
                     inner = layout.column(heading=label.default_value(prop.name), align=True)
@@ -206,21 +209,13 @@ class Property(Line, frozen=True, kw_only=True):
                     group = getattr(owner, key)
                     inner = layout.column(heading=label.default_value(prop.name), align=True)
                     for name, item in zip(type(group).__annotations__, items):
-                        valued(inner, group, name, Some(item.shape), Nothing)
+                        valued(inner, group, name, Some(item.shape), Nothing, icon)
                 case _:
                     layout.prop(
-                        owner,
-                        key,
-                        index=index,
-                        text=label.to_optional(),
-                        icon_value=iconed(identity, self.icon),
-                        icon_only=self.icon_only,
-                        placeholder=self.placeholder.to_optional(),
-                        slider=isinstance(prop, bpy.types.FloatProperty) and prop.subtype == "ANGLE",
-                        expand=isinstance(prop, bpy.types.EnumProperty) and not prop.is_enum_flag and 2 <= len(prop.enum_items) <= 5,
+                        owner, key, index=index, text=label.to_optional(), icon_value=icon, icon_only=self.icon_only, placeholder=self.placeholder.to_optional(), slider=self.slider, expand=self.expand
                     )
 
-        def draw(held: Resolved, action: Option[RowDraw], shape: Option[shapes.Shape]) -> RowDraw:
+        def draw(held: Resolved, action: Option[RowDraw], shape: Option[shapes.Shape], icon: int) -> RowDraw:
             index = held.descriptor.index.default_value(-1) if isinstance(held, ResolvedMember) else -1
 
             def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
@@ -231,7 +226,7 @@ class Property(Line, frozen=True, kw_only=True):
                     case _:
                         labelled = Ok(self.text)
                 for owner, key in located(held, holder, context).to_list():
-                    alerted(line, labelled.map(lambda label: valued(line, owner, key, shape, label, index)))
+                    alerted(line, labelled.map(lambda label: valued(line, owner, key, shape, label, icon, index)))
                     for extra in action.to_list():
                         extra(line, holder, context)
 
@@ -239,7 +234,9 @@ class Property(Line, frozen=True, kw_only=True):
 
         action = self.action.map(lambda row: realized(row, identity).map(Some)).default_value(Ok(Nothing))
         shape = shapes.field_shape(self.target.type).map(lambda declared: Some(declared.shape)) if isinstance(self.target, msgspec.structs.FieldInfo) else Ok(Nothing)
-        return bound(((self.target, lambda held: fits(held, kinds, forms)),), paired(action, shape).map(lambda pair: lambda held: draw(held[0], *pair)))
+        return bound(
+            ((self.target, lambda held: fits(held, kinds, forms)),), paired(paired(action, shape), iconed(identity, self.icon)).map(lambda parts: lambda held: draw(held[0], *parts[0], parts[1]))
+        )
 
 
 class SearchField(Line, frozen=True, kw_only=True):
@@ -475,46 +472,48 @@ class OperatorButton(Line, frozen=True, kw_only=True):
             case _:
                 glyph, invoked = self.icon, True
 
-        def draw(parts: tuple[str, operators.Writer]) -> RowDraw:
-            idname, write = parts
+        def draw(parts: tuple[tuple[str, operators.Writer], int]) -> RowDraw:
+            (idname, write), icon = parts
 
             def shown(layout: bpy.types.UILayout, _holder: "bpy.types.bpy_struct[object]", _context: bpy.types.Context) -> None:
                 line = gridded(layout, self.label)
-                alerted(
-                    line, operated(line.operator(idname, text=self.text.to_optional(), emboss=self.emboss, icon_value=iconed(identity, glyph), search_weight=self.search_weight), idname).bind(write)
-                )
+                alerted(line, operated(line.operator(idname, text=self.text.to_optional(), emboss=self.emboss, icon_value=icon, search_weight=self.search_weight), idname).bind(write))
 
             return invoking(shown, self.context) if invoked else shown
 
-        return keymaps.invocation(self.target, identity).map(draw)
+        return paired(keymaps.invocation(self.target, identity), iconed(identity, glyph)).map(draw)
 
 
 class Popover(Line, frozen=True, kw_only=True):
     """Popover button for stock panel or extension panel key."""
 
-    panel: type[bpy.types.Panel] | Key
+    panel: type[_bpy_types.Panel] | Key
     text: Option[str] = Nothing
     label: Option[str] = Nothing
     icon: Option[Glyph] = Nothing
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Resolves panel idname, reading glyph each draw."""
-        named = identity.name(Name.PANEL, self.panel) if isinstance(self.panel, str) else Ok(self.panel.bl_rna.identifier)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        return named.map(lambda name: lambda layout, _holder, _context: gridded(layout, self.label).popover(panel=name, text=self.text.to_optional(), icon_value=iconed(identity, self.icon)))
+        """Resolves panel idname and glyph once."""
+        named = identity.name(Name.PANEL, self.panel) if isinstance(self.panel, str) else Ok(self.panel.bl_rna.identifier)
+        return paired(named, iconed(identity, self.icon)).map(
+            lambda parts: lambda layout, _holder, _context: gridded(layout, self.label).popover(panel=parts[0], text=self.text.to_optional(), icon_value=parts[1])
+        )
 
 
 class Pulldown(Line, frozen=True, kw_only=True):
     """Menu button for stock menu or extension menu key."""
 
-    menu: type[bpy.types.Menu] | Key
+    menu: type[_bpy_types.Menu] | Key
     text: Option[str] = Nothing
     label: Option[str] = Nothing
     icon: Option[Glyph] = Nothing
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Resolves menu idname, reading glyph each draw."""
-        named = identity.name(Name.MENU, self.menu) if isinstance(self.menu, str) else Ok(self.menu.bl_rna.identifier)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
-        return named.map(lambda name: lambda layout, _holder, _context: gridded(layout, self.label).menu(name, text=self.text.to_optional(), icon_value=iconed(identity, self.icon)))
+        """Resolves menu idname and glyph once."""
+        named = identity.name(Name.MENU, self.menu) if isinstance(self.menu, str) else Ok(self.menu.bl_rna.identifier)
+        return paired(named, iconed(identity, self.icon)).map(
+            lambda parts: lambda layout, _holder, _context: gridded(layout, self.label).menu(parts[0], text=self.text.to_optional(), icon_value=parts[1])
+        )
 
 
 class Caption(Line, frozen=True, kw_only=True):
@@ -547,19 +546,22 @@ class Label(Line, frozen=True, kw_only=True):
     icon: Option[Glyph] = Nothing
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
-        """Returns draw reading text and icon each redraw."""
+        """Resolves glyph once, returning draw reading text each redraw."""
 
-        def shown(layout: bpy.types.UILayout, _holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
-            for text in (Some(self.text) if isinstance(self.text, str) else self.text(context)).to_list():
-                match self.icon:
-                    case Option(tag="some", some=glyph):
-                        layout.label_multiline(text=text, icon_value=Icons.value(identity, glyph))
-                    case _ if Option.of_optional(context.region).filter(lambda region: region.type == "HEADER").is_some():
-                        layout.label(text=text)
-                    case _:
-                        layout.label_markdown(text=text)
+        def draw(icon: Option[int]) -> RowDraw:
+            def shown(layout: bpy.types.UILayout, _holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
+                for text in (Some(self.text) if isinstance(self.text, str) else self.text(context)).to_list():
+                    match icon:
+                        case Option(tag="some", some=value):
+                            layout.label_multiline(text=text, icon_value=value)
+                        case _ if Option.of_optional(context.region).filter(lambda region: region.type == "HEADER").is_some():
+                            layout.label(text=text)
+                        case _:
+                            layout.label_markdown(text=text)
 
-        return Ok(shown)
+            return shown
+
+        return self.icon.map(lambda glyph: Icons.value(identity, glyph).map(Some)).default_value(Ok(Nothing)).map(draw)
 
 
 class Text(Line, frozen=True, kw_only=True):
@@ -701,9 +703,9 @@ def marked(setting: Descriptor, owners: "tuple[bpy.types.bpy_struct[object], ...
 # --- [DRAWING]
 
 
-def iconed(identity: Identity, icon: Option[Glyph]) -> int:
-    """Reads glyph icon ID, 0 for `NONE`."""
-    return icon.map(lambda glyph: Icons.value(identity, glyph)).default_value(0)
+def iconed(identity: Identity, icon: Option[Glyph]) -> BlenderResult[int]:
+    """Resolves glyph icon ID, 0 leaving the RNA icon, absent fault for a glyph the host or icon set lacks."""
+    return icon.map(lambda glyph: Icons.value(identity, glyph)).default_value(Ok(0))
 
 
 def operated(properties: bpy.types.OperatorProperties | None, idname: str) -> BlenderResult[bpy.types.OperatorProperties]:
@@ -919,12 +921,10 @@ __all__ = [
     "colored",
     "fits",
     "gridded",
-    "guarded",
     "iconed",
     "invoking",
     "joined",
     "located",
-    "marked",
     "operated",
     "painted",
     "placed",

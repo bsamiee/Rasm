@@ -1,6 +1,5 @@
 using System.Reflection;
 using System.Runtime.CompilerServices;
-using Grasshopper2;
 using Grasshopper2.Components;
 using Grasshopper2.Doc;
 using Grasshopper2.Framework;
@@ -10,88 +9,76 @@ using Rasm.Rhino;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.PlugIns;
 using Rasm.Rhino.Render.Effects;
-using Rasm.Rhino.UI.Styling;
 
 namespace Rasm.Grasshopper;
 
+// --- [TYPES] ---------------------------------------------------------------------------
+public interface IGrasshopperPlugin : IPlugInLifetime {
+    public Plugin Plugin { get; }
+
+    void IPlugInSink.Report(Error error, Type owner, string member) => Session.Report(error, owner, member);
+}
+
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record GrasshopperPluginDefinition {
-    public Option<(IGlyph Glyph, int Master)> Mark { get; init; }
-    public Seq<Func<DefinedGrasshopperPlugin, IO<Unit>>> DataTypes { get; init; }
+    public Seq<Func<IGrasshopperPlugin, IO<Unit>>> DataTypes { get; init; }
     public required TimeProvider Clock { get; init; }
     public Seq<Action<ILoggingBuilder>> Logging { get; init; }
-    public Seq<Func<DefinedGrasshopperPlugin, Action<IDisposable>, IO<Unit>>> Acquisitions { get; init; }
+    public Seq<Func<IGrasshopperPlugin, Action<IDisposable>, IO<Unit>>> Acquisitions { get; init; }
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class GrasshopperPlugins {
+    private static readonly AtomHashMap<Assembly, IGrasshopperPlugin> Owners = AtomHashMap<Assembly, IGrasshopperPlugin>();
+
+    // --- [DISCOVERY]
     public static IO<Unit> Load(string location) =>
         from scoped in IO.lift(() => PluginServer.ScopePlugin(location))
         from loaded in IO.lift(Fin<Unit> () => PluginServer.LoadPlugin(location, out FailureInfo failure)
             ? unit
             : new Expected($"{failure.Location} failed to load ({failure.Kind}), {failure.Reason}", 0, Optional(failure.Exception).Map(static exception => Error.New(exception))))
         select loaded;
-}
 
-// --- [COMPOSITION] ---------------------------------------------------------------------
-public abstract class DefinedGrasshopperPlugin : Plugin, IPlugInLifetime {
-    // --- [STATE]
-    private readonly GrasshopperPluginDefinition definition;
+    // --- [OWNERS]
+    public static IGrasshopperPlugin Owner(Type type) => Owners[type.Assembly];
 
-    protected DefinedGrasshopperPlugin(GrasshopperPluginDefinition definition) {
-        this.definition = definition;
-        SettingsFile = SettingsFile.InDefaultFolder(Path.GetFileNameWithoutExtension(Location));
-        Session = new(IO.lift(() => Refused.Unless(SettingsFile.TrySaveSettingsToFile(), nameof(SettingsFile.TrySaveSettingsToFile))), definition.Logging);
-    }
+    public static CallbackSite Site(IDocumentObject constructed, [CallerMemberName] string member = "") =>
+        new(Owner(constructed.GetType()), constructed.GetType(), member);
 
-    public SettingsFile SettingsFile { get; }
+    // --- [LIFECYCLE]
+    public static void Register(IGrasshopperPlugin plugin) => Owners.AddOrUpdate(plugin.Plugin.Assembly, plugin);
 
-    public PlugInSession Session { get; }
+    public static Option<IIcon> Icon(IGrasshopperPlugin plugin, CallbackSite site) =>
+        Callbacks.Answer(CanvasIcons.PlugIn(plugin), static () => None, site);
 
-    // --- [IDENTITY]
-    public sealed override IIcon Icon =>
-        Callbacks.Answer(
-            definition.Mark.Map(mark => CanvasIcons.Vector(this, mark.Glyph, mark.Master)),
-            () => base.Icon,
-            () => base.Icon,
-            CallbackSite.Of(this));
-
-    // --- [HARVEST]
-    protected sealed override void HarvestCustomTypes() =>
+    public static void Harvest(IGrasshopperPlugin plugin, GrasshopperPluginDefinition definition, CallbackSite site) =>
         Callbacks.Run(from derived in IO.lift(() => {
-            static Seq<(Type Type, Func<DefinedGrasshopperPlugin, IO<Unit>> Register)> Registrations<TSelf>(ComponentRow<TSelf> row) where TSelf : ModularComponent =>
+            static Seq<(Type Type, Func<IGrasshopperPlugin, IO<Unit>> Register)> Registrations<TSelf>(ComponentRow<TSelf> row) where TSelf : ModularComponent =>
                 row.Inputs.Concat(row.Outputs).Bind(static parameter => parameter.DataTypes);
-            Func<ComponentRow<ModularComponent>, Seq<(Type Type, Func<DefinedGrasshopperPlugin, IO<Unit>> Register)>> registrations = Registrations;
+            Func<ComponentRow<ModularComponent>, Seq<(Type Type, Func<IGrasshopperPlugin, IO<Unit>> Register)>> registrations = Registrations;
             MethodInfo derive = registrations.Method.GetGenericMethodDefinition();
             return toSeq((
-                from type in PluginDocumentObjectTypes.OrderBy(static type => type.FullName, StringComparer.Ordinal)
+                from type in plugin.Plugin.PluginDocumentObjectTypes.OrderBy(static type => type.FullName, StringComparer.Ordinal)
                 from contract in type.GetInterfaces()
                 where contract.IsConstructedGenericType && contract.GetGenericTypeDefinition() == typeof(IComponentDefinition<>)
                 from getter in type.GetInterfaceMap(contract).TargetMethods
-                from row in (Seq<(Type Type, Func<DefinedGrasshopperPlugin, IO<Unit>> Register)>)derive.MakeGenericMethod(getter.ReturnType.GenericTypeArguments).Invoke(
+                from row in (Seq<(Type Type, Func<IGrasshopperPlugin, IO<Unit>> Register)>)derive.MakeGenericMethod(getter.ReturnType.GenericTypeArguments).Invoke(
                     null, BindingFlags.DoNotWrapExceptions, binder: null, [getter.Invoke(null, BindingFlags.DoNotWrapExceptions, binder: null, parameters: null, culture: null)], culture: null)!
                 select row).DistinctBy(static row => row.Type)).Strict();
         })
-                      from custom in Callbacks.Each(definition.DataTypes.Map(row => IO.pure(this).Bind(row)))
-                      from registered in Callbacks.Each(derived.Map(row => IO.pure(this).Bind(row.Register)))
-                      select unit, CallbackSite.Of(this));
+                      from custom in Callbacks.Each(definition.DataTypes.Map(row => IO.pure(plugin).Bind(row)))
+                      from registered in Callbacks.Each(derived.Map(row => IO.pure(plugin).Bind(row.Register)))
+                      select unit, site);
 
-    // --- [LOAD]
-    public sealed override void OnLoaded() =>
+    public static void Loaded(IGrasshopperPlugin plugin, GrasshopperPluginDefinition definition, CallbackSite site) =>
         _ = Callbacks.Settled(
                 (from initialized in IO.lift(static () => AssemblyLoading.Initialized)
-                 from opened in Session.Open(this, [
+                 from opened in plugin.Session.Open(plugin, [
                      static (owner, retain) => EventKind.RhinoAppClosing.Inline(_ => owner.Session.Close, owner, retain),
-                     static (owner, retain) => PreviewTiles.Open(owner, owner.definition.Clock, None, retain).Bind(tiles => PreviewTiles.Current.Publish(owner, tiles)),
+                     (owner, retain) => PreviewTiles.Open(owner, definition.Clock, None, retain).Bind(tiles => PreviewTiles.Current.Publish(owner, tiles)),
                      .. definition.Acquisitions])
                  select unit)
-                .Catch(error => IO.lift(() => Report(error, GetType(), nameof(OnLoaded))).Bind(_ => IO.fail<Unit>(error)))
+                .Catch(error => IO.lift(() => site.Sink.Report(error, site.Owner, site.Member)).Bind(_ => IO.fail<Unit>(error)))
                 .As(), CancellationToken.None)
             .ThrowIfFail();
-
-    // --- [SINK]
-    public void Report(Error error, Type owner, string member) => Session.Report(error, owner, member);
-
-    public static CallbackSite Site(IDocumentObject constructed, [CallerMemberName] string member = "") =>
-        new((IPlugInSink)PluginServer.FindPluginForObject(constructed), constructed.GetType(), member);
 }

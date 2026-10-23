@@ -11,7 +11,6 @@ using Rasm.Imaging.Quantization;
 using Rasm.Rhino.Commands;
 using Rasm.Rhino.Document.Files;
 using Rasm.Rhino.Render.Effects;
-using Rasm.Rhino.Render.Presets;
 using Rasm.Rhino.Render.Settings;
 using Rasm.Rhino.UI;
 using Rhino;
@@ -350,9 +349,7 @@ public static class Saves {
         from origin in FileOrigin.At(sink)
         from created in IO.lift(() => origin.Clock.GetCurrentZonedDateTime().ToDateTimeOffset())
         from density in RenderSettingsSources.Store<ImageOutputState>(document).Read.Map(static held => held.IfNone(ImageOutputState.Default).ImageDpi)
-        from active in RenderSets.Book(document).Map(static book => book.Active)
-        from set in IO.lift(active.Traverse(static name => FileOrigin.Field("RenderSet", name)).As())
-        select new FileMetadata(origin.Software, created, density, origin.Fields.AddRange(set.ToSeq()));
+        select new FileMetadata(origin.Software, created, density, origin.Fields);
 
     // --- [PROMPTS]
     internal static IO<A> Measured<A>(RhinoDoc document, Func<RenderSettings, PixelExtent, IO<A>> body) =>
@@ -387,8 +384,7 @@ public sealed class LutExportCommand(IPlugInSink sink, Guid id, string englishNa
         Saves.Measured(doc, (settings, extent) =>
             DisposalOps.Within(static () => new Derivations(), derivations =>
                 from entries in EffectRegistry.Read(settings)
-                from history in RenderHistory.Current.Of(site.Sink)
-                from grading in history.Grading(doc)
+                from grading in EffectRegistry.Bindings(new EffectSource.Document(doc), site.Sink)
                 from set in grading.Capture
                 from kinds in EffectRegistry.Kinds.Of(site.Sink)
                 let ordered = EffectPipeline.Ordered(entries, kinds)

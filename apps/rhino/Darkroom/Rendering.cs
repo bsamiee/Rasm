@@ -5,28 +5,23 @@ using Rasm.Imaging.Filters.Stylize;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Tone;
-using Rasm.Rhino;
-using Rasm.Rhino.Document;
 using Rasm.Rhino.Persistence.Stores;
+using Rasm.Rhino.Render.Effects;
 using Rasm.Rhino.Render.Presets;
 using Rasm.Rhino.Render.Queue;
-using Rasm.Rhino.Render.Sessions;
-using Rasm.Rhino.Render.Settings;
+using Rasm.Rhino.Render.UI;
 using Rasm.Rhino.UI;
-using Rasm.Rhino.UI.Rows;
+using Rhino.UI.Controls;
 
 namespace Darkroom;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 [Guid("1EA59DFD-DF4C-4D26-8A78-8E17DEC6826E")]
-public sealed class RenderSetsSection() : DefinedSection(Row) {
-    public static readonly View.Section Row = new() {
-        Identity = typeof(RenderSetsSection),
-        Caption = "Render Sets and Presets",
-        Store = Some(RenderSets.Store),
-        Children = RenderSets.Rows().Add(PresetBinding.Browser(static scope =>
-            from history in IO.lift(scope.History.ToFin(new Refused(nameof(RowScope.History), Refused.Absent)))
-            select new PresetBinding(scope, history.Group, EntryKey.TypeOwner(typeof(RenderSetsSection).GUID), Stock))),
+internal static class LooksSection {
+    public static readonly Func<EtoPostEffectCollapsibleSection, IO<Option<ScopeFrames>>, View.Section> Row = static (section, _) => new() {
+        Identity = typeof(LooksSection),
+        Caption = "Looks",
+        Children = [PresetBinding.Browser(new EffectSource.Section(section), EntryKey.TypeOwner(typeof(LooksSection).GUID), Stock)],
     };
 
     private static readonly Seq<Preset> Stock = Stocked();
@@ -103,16 +98,6 @@ public sealed class RenderSetsSection() : DefinedSection(Row) {
             ]),
         ];
     }
-}
-
-[Guid("b72c0d83-70be-4b3a-b087-7f2fccad64ec")]
-public sealed class OutputSection() : DefinedSection(Row) {
-    public static readonly View.Section Row = new() {
-        Identity = typeof(OutputSection),
-        Caption = "Output",
-        Store = Some<ViewStore>(new ViewStore.DocumentStores(new RedrawPolicy.Silent())),
-        Children = [.. RenderSettingsSources.Fields<ImageOutputState, ImageOutputParameter>(Seq(ImageOutputParameter.ImageDpi)), .. TargetRows.Page],
-    };
 }
 
 [Guid("5241D43D-4825-41EC-B908-468DFF1FF424")]

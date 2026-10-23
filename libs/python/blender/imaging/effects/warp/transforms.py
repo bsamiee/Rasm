@@ -57,7 +57,7 @@ class Transform(Effect, frozen=True, kw_only=True, tag=38):
     extension: Annotated[Extension, msgspec.Meta(description="Source sampling past frame edges")] = Extension.CLIP
     filtername: Annotated[str, msgspec.Meta(description="Native reconstruction filter name"), GraphForm.SETTING] = "triangle"
     filterwidth: Annotated[Positive, msgspec.Meta(description="Filter support width in source pixels")] = 2.0
-    motion_blur: Annotated[bool, msgspec.Meta(description="Integrates travel and timed shake across exposure")] = False
+    motion_blur: Annotated[bool, msgspec.Meta(description="Integrate travel and timed shake across exposure")] = False
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

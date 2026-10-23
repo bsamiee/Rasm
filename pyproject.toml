@@ -564,7 +564,7 @@ pylint                    = { allow-magic-value-types = ["str", "bytes", "int"],
 "tests/**"                                      = ["assert"]
 "{libs/python/blender,apps/blender}/**"         = [
     "boolean-positional-value-in-call",                                                     # bpy, gpu, RNA writes, and `Ok` take booleans as values (`gpu.state.scissor_test_set(True)`, `Ok(True)`)
-    "import-private-name",                                                                  # Blender (`_bpy_internal`, `_blendfile_header`) and Windows (`_winapi`) supply private modules with no public form
+    "import-private-name",                                                                  # Blender (`_bpy_internal`, `_bpy_types`, `_blendfile_header`) and Windows (`_winapi`) supply private modules with no public form
     "no-self-use",                                                                          # Structural `Row`, `Part`, and `Effect` protocol methods read no `self`, and `@override` rejects a method with no base class
 ]
 "apps/blender/**"                               = ["non-empty-init-module"]                 # Extension `__init__.py` composes the `register` and `unregister` entry points Blender imports
@@ -779,8 +779,8 @@ disable    = [
 experimental_namespace_package = true # Import roots under backend `module-root` are namespace packages holding no top-level module
 
 [tool.deptry.per_rule_ignores]
-DEP001 = ["_blendfile_header", "_bpy_internal", "bl_keymap_utils", "bl_operators", "bl_ui", "blf", "bmesh", "bpy", "bpy_extras", "cycles", "gpu", "gpu_extras", "idprop", "mathutils", "rna_keymap_ui"] # Modules Blender supplies to host code
-DEP002 = ["matplotlib", "tzdata"]                                                                                                                                                                       # `import colour` loads matplotlib its metadata marks optional, zoneinfo reads tzdata data files
+DEP001 = ["_blendfile_header", "_bpy_internal", "_bpy_types", "bl_keymap_utils", "bl_operators", "bl_ui", "blf", "bmesh", "bpy", "bpy_extras", "cycles", "gpu", "gpu_extras", "idprop", "mathutils", "rna_keymap_ui"] # Modules Blender supplies to host code
+DEP002 = ["matplotlib", "tzdata"]                                                                                                                                                                                     # `import colour` loads matplotlib its metadata marks optional, zoneinfo reads tzdata data files
 
 # --- [PYTEST] ---------------------------------------------------------------------------
 

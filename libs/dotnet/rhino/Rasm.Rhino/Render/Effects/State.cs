@@ -1,9 +1,9 @@
 using Rasm.Imaging.Pixels;
 using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.Render.Settings;
+using Rasm.Rhino.Render.UI;
 using Rasm.Rhino.UI;
-using Rhino;
 using Rhino.Render.PostEffects;
+using Rhino.UI.Controls;
 
 namespace Rasm.Rhino.Render.Effects;
 
@@ -18,6 +18,8 @@ public sealed record EffectRow<TState, TParameter>
     public Option<HelpTopic> Help { get; init; }
 
     public Seq<(string Name, EffectLook<TState, TParameter> Look)> Looks { get; init; }
+
+    public Seq<Func<EtoPostEffectCollapsibleSection, IO<Option<ScopeFrames>>, View.Section>> Sections { get; init; }
 }
 
 public sealed record EffectValue<TState>(TState Record, Option<AxisFraction> Amount);
@@ -159,23 +161,22 @@ public static class EffectStates {
         select (new EffectValue<TState>(parts.Record, mixes.Succs.Head | amount), parts.Refused + mixes.Fails);
 
     // --- [BINDING]
-    public static Seq<ValueBinding> Binding<TEffect, TState, TParameter>(RhinoDoc doc, EffectRow<TState, TParameter> row)
+    public static Seq<ValueBinding> Binding<TEffect, TState, TParameter>(EffectSource source, EffectRow<TState, TParameter> row)
         where TEffect : PostEffect
         where TState : IStateRecord<TState, TParameter>
         where TParameter : class, IStateParameter<TState>, ISmartEnum<string, TParameter, ValidationError> =>
         ValueBinding.Fields(
                 EntryKey.TypeOwner(typeof(TEffect).GUID),
                 ValueStore.Of(
-                    RenderSettingsSources.Read(doc, scope => EffectRegistry.State<TEffect, TState>(scope.Settings, Some(row.Default)))
-                        .Map(record => Some(record).Filter(held => !EqualityComparer<TState>.Default.Equals(held, row.Default))),
-                    record => RenderSettingsSources.Edit(doc, scope => EffectRegistry.Apply(scope.Settings, EffectRequest.Tuning.Of<TEffect, TState>(record.IfNone(row.Default)))).Map(unit),
+                    EffectRegistry.State<TEffect, TState>(source, row.Default).Map(record => Some(record).Filter(held => !EqualityComparer<TState>.Default.Equals(held, row.Default))),
+                    record => EffectRegistry.Tune(source, EffectRequest.Tuning.Of<TEffect, TState>(record.IfNone(row.Default))),
                     Applied.Live,
-                    None),
+                    Some(source.Changed)),
                 row.Default,
                 TState.Parameters)
             .Cons(row.Amount.Map(factory => ValueBinding.Key(EntryKey.TypeOwner(typeof(TEffect).GUID), AmountKey(factory), ValueStore.Of(
-                RenderSettingsSources.Read(doc, static scope => EffectRegistry.Amount<TEffect>(scope.Settings)).Map(found => found.Filter(mix => mix != factory)),
-                mix => RenderSettingsSources.Edit(doc, scope => EffectRegistry.Apply(scope.Settings, [EffectRequest.Tuning.Amount<TEffect>(mix.IfNone(factory))])).Map(unit),
+                EffectRegistry.Amount<TEffect>(source).Map(found => found.Filter(mix => mix != factory)),
+                mix => EffectRegistry.Tune(source, [EffectRequest.Tuning.Amount<TEffect>(mix.IfNone(factory))]),
                 Applied.Live,
-                None))).ToSeq());
+                Some(source.Changed)))).ToSeq());
 }

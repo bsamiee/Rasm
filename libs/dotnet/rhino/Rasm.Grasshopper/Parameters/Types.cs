@@ -22,11 +22,11 @@ using UnitsNet;
 namespace Rasm.Grasshopper.Parameters;
 
 // --- [SERVICES] ------------------------------------------------------------------------
-internal class DataAssistant<T>(Guid parameterId, string name, DefinedGrasshopperPlugin plugin, IIcon icon, Func<T, T> copy, Func<T, string> describe)
+internal class DataAssistant<T>(Guid parameterId, string name, IGrasshopperPlugin plugin, IIcon icon, Func<T, T> copy, Func<T, string> describe)
     : TypeAssistant<T>(RowText.Localize(name, plugin).Local), GrasshopperIO.ICustomIoId {
     public Guid CustomIoId { get; } = parameterId;
 
-    protected DefinedGrasshopperPlugin Plugin { get; } = plugin;
+    protected IGrasshopperPlugin Plugin { get; } = plugin;
 
     public sealed override IIcon Icon { get; } = icon;
 
@@ -37,7 +37,7 @@ internal class DataAssistant<T>(Guid parameterId, string name, DefinedGrasshoppe
     public override string DescribePrimary(Pear<T> pear) => describe(pear.Item);
 }
 
-internal sealed class ImageDataAssistant(Guid parameterId, string name, DefinedGrasshopperPlugin plugin, IIcon icon)
+internal sealed class ImageDataAssistant(Guid parameterId, string name, IGrasshopperPlugin plugin, IIcon icon)
     : DataAssistant<PixelFrame>(parameterId, name, plugin, icon, static frame => frame.Copy(),
         static frame => string.Create(CultureInfo.InvariantCulture, $"{frame.Size.Width} × {frame.Size.Height} at {frame.Origin} in {frame.Extent.Width} × {frame.Extent.Height}")) {
     public override IValueDisplay Show(Pear<PixelFrame> pear) =>
@@ -63,7 +63,7 @@ internal sealed class ImageValueDisplay(Pear<PixelFrame> image, IValueDisplay te
             None: () => IO.lift(() => text.Draw(context, font, background, frame)))), site);
 }
 
-internal class StoredDataAssistant<T>(Guid parameterId, string name, DefinedGrasshopperPlugin plugin, IIcon icon, Func<T, T> copy, Func<T, string> describe, Func<T, string> capture, Func<string, Fin<T>> recall)
+internal class StoredDataAssistant<T>(Guid parameterId, string name, IGrasshopperPlugin plugin, IIcon icon, Func<T, T> copy, Func<T, string> describe, Func<T, string> capture, Func<string, Fin<T>> recall)
     : DataAssistant<T>(parameterId, name, plugin, icon, copy, describe) {
     public override string Format(T instance) => capture(instance);
 
@@ -86,7 +86,7 @@ internal class StoredDataAssistant<T>(Guid parameterId, string name, DefinedGras
             Fail: error => Result<T>.Fail(error.Message, text));
 }
 
-internal sealed class NumericDataAssistant<TValue, TKey>(Guid parameterId, string name, DefinedGrasshopperPlugin plugin, IIcon icon, Func<TValue, string> describe, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key)
+internal sealed class NumericDataAssistant<TValue, TKey>(Guid parameterId, string name, IGrasshopperPlugin plugin, IIcon icon, Func<TValue, string> describe, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key)
     : StoredDataAssistant<TValue>(parameterId, name, plugin, icon, identity, describe, value => StoredText.Capture(value, key), text => StoredText.Recall(text, create, key))
     where TValue : notnull
     where TKey : struct, System.Numerics.INumber<TKey> {
@@ -191,39 +191,38 @@ public static class DataTypes {
             : Option<Transfer>.None;
 
     // --- [ROWS]
-    public static Func<DefinedGrasshopperPlugin, IO<Unit>> Of<T>(Guid parameterId, string name, IIcon icon, Func<T, T> copy, Func<T, string> describe) =>
+    public static Func<IGrasshopperPlugin, IO<Unit>> Of<T>(Guid parameterId, string name, IIcon icon, Func<T, T> copy, Func<T, string> describe) =>
         plugin => Registered(new DataAssistant<T>(parameterId, name, plugin, icon, copy, describe));
 
-    public static Func<DefinedGrasshopperPlugin, IO<Unit>> Opaque<T>(IGlyph glyph, int master, SpecialColour accent, Func<T, T> copy, Func<T, string> describe) =>
-        Field<T>((plugin, id, name) => CanvasIcons.Accented(plugin, glyph, master, accent).Bind(icon => Of(id, name, icon, copy, describe)(plugin))).Register;
+    public static Func<IGrasshopperPlugin, IO<Unit>> Opaque<T>(string caption, IGlyph glyph, Func<T, T> copy, Func<T, string> describe) =>
+        plugin => CanvasIcons.Vector(plugin, glyph).Bind(icon => Of(ParameterId<T>(plugin), caption, icon, copy, describe)(plugin));
 
-    public static Func<DefinedGrasshopperPlugin, IO<Unit>> Image(IGlyph glyph, int master) =>
-        Field<PixelFrame>((plugin, id, name) => CanvasIcons.Accented(plugin, glyph, master, SpecialColour.Input)
-            .Bind(icon => Registered(new ImageDataAssistant(id, name, plugin, icon)))).Register;
+    public static Func<IGrasshopperPlugin, IO<Unit>> Image(string caption, IGlyph glyph) =>
+        plugin => CanvasIcons.Vector(plugin, glyph).Bind(icon => Registered(new ImageDataAssistant(ParameterId<PixelFrame>(plugin), caption, plugin, icon)));
 
-    public static Func<DefinedGrasshopperPlugin, IO<Unit>> Of<T, TAssistant>(Func<DefinedGrasshopperPlugin, IO<TAssistant>> create)
+    public static Func<IGrasshopperPlugin, IO<Unit>> Of<T, TAssistant>(Func<IGrasshopperPlugin, IO<TAssistant>> create)
         where TAssistant : TypeAssistant<T>, GrasshopperIO.ICustomIoId =>
         plugin => create(plugin).Bind(static assistant => Registered(assistant));
 
-    public static Func<DefinedGrasshopperPlugin, IO<Unit>> Stored<T>(Guid parameterId, string name, IIcon icon, Func<T, T> copy, Func<T, string> describe, Func<T, string> capture, Func<string, Fin<T>> recall) =>
+    public static Func<IGrasshopperPlugin, IO<Unit>> Stored<T>(Guid parameterId, string name, IIcon icon, Func<T, T> copy, Func<T, string> describe, Func<T, string> capture, Func<string, Fin<T>> recall) =>
         plugin => Registered(new StoredDataAssistant<T>(parameterId, name, plugin, icon, copy, describe, capture, recall));
 
-    public static Func<DefinedGrasshopperPlugin, IO<Unit>> Number<TValue, TKey>(Guid parameterId, string name, IIcon icon, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key)
+    public static Func<IGrasshopperPlugin, IO<Unit>> Number<TValue, TKey>(Guid parameterId, string name, IIcon icon, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key)
         where TValue : notnull
         where TKey : struct, System.Numerics.INumber<TKey> =>
         Numeric(parameterId, name, icon, value => StoredText.Capture(value, key), create, key, arithmetic: !typeof(IQuantity).IsAssignableFrom(typeof(TValue)));
 
-    internal static Func<DefinedGrasshopperPlugin, IO<Unit>> OptionalNumber<TValue, TKey>(Guid parameterId, string name, IIcon icon, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key)
+    internal static Func<IGrasshopperPlugin, IO<Unit>> OptionalNumber<TValue, TKey>(Guid parameterId, string name, IIcon icon, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key)
         where TValue : notnull
         where TKey : struct, System.Numerics.INumber<TKey> =>
         Schema(FieldTexts.Gate(FieldTexts.Leaf(value => StoredText.Capture(value, key), text => StoredText.Recall(text, create, key))), parameterId, name, icon);
 
-    public static Func<DefinedGrasshopperPlugin, IO<Unit>> Integer<TValue, TKey>(Guid parameterId, string name, IIcon icon, Func<TValue, string> describe)
+    public static Func<IGrasshopperPlugin, IO<Unit>> Integer<TValue, TKey>(Guid parameterId, string name, IIcon icon, Func<TValue, string> describe)
         where TValue : IObjectFactory<TValue, TKey, ValidationError>, IConvertible<TKey>
         where TKey : struct, System.Numerics.IBinaryInteger<TKey> =>
         Numeric(parameterId, name, icon, describe, ValidationResults.Validated<TValue, TKey>, static value => value.ToValue());
 
-    public static Func<DefinedGrasshopperPlugin, IO<Unit>> Keyed<TValue, TRaw>(Guid parameterId, string name, IIcon icon, Func<TValue, string> describe)
+    public static Func<IGrasshopperPlugin, IO<Unit>> Keyed<TValue, TRaw>(Guid parameterId, string name, IIcon icon, Func<TValue, string> describe)
         where TValue : IObjectFactory<TValue, TRaw, ValidationError>, IConvertible<TRaw>
         where TRaw : notnull, ISpanParsable<TRaw> =>
         plugin => Registered(
@@ -233,7 +232,8 @@ public static class DataTypes {
                 Converted<TValue, TRaw>(KeyConversions<TValue, TRaw>.Outbound)));
 
     // --- [REGISTRATION]
-    private static Func<DefinedGrasshopperPlugin, IO<Unit>> Numeric<TValue, TKey>(Guid parameterId, string name, IIcon icon, Func<TValue, string> describe, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key, bool arithmetic = true)
+    private static Func<IGrasshopperPlugin, IO<Unit>> Numeric<TValue, TKey>(
+        Guid parameterId, string name, IIcon icon, Func<TValue, string> describe, Func<TKey, Fin<TValue>> create, Func<TValue, TKey> key, bool arithmetic = true)
         where TValue : notnull
         where TKey : struct, System.Numerics.INumber<TKey> =>
         plugin => Registered(
@@ -249,19 +249,20 @@ public static class DataTypes {
                     : [],
             ]);
 
-    internal static (Type Type, Func<DefinedGrasshopperPlugin, IO<Unit>> Register) Field<T>(Func<DefinedGrasshopperPlugin, Guid, string, IO<Unit>> create) =>
+    internal static (Type Type, Func<IGrasshopperPlugin, IO<Unit>> Register) Field<T>(Func<Guid, string, IIcon, Func<IGrasshopperPlugin, IO<Unit>>> create) =>
         (typeof(T), plugin =>
             from assistant in IO.lift(static () => Optional(TypeAssistantServer.Find<T>()))
             from registered in assistant.Match(
                 Some: static _ => unitIO,
-                None: () => create(plugin, Uuid.NewNameBased(plugin.Id, typeof(DataParameter<T>).ToString()), typeof(T).ToString()))
+                None: () => CanvasIcons.PlugIn(plugin).Bind(icon => create(ParameterId<T>(plugin), typeof(T).Name, icon.IfNone(StandardIcons.Parameters.Unknown))(plugin)))
             select registered);
 
-    internal static Func<DefinedGrasshopperPlugin, IO<Unit>> Schema<TData>(
-        FieldCodec<TData> codec, Guid parameterId, string name, IIcon icon)
+    private static Guid ParameterId<T>(IGrasshopperPlugin plugin) => Uuid.NewNameBased(plugin.Plugin.Id, typeof(DataParameter<T>).ToString());
+
+    internal static Func<IGrasshopperPlugin, IO<Unit>> Schema<TData>(FieldCodec<TData> codec, Guid parameterId, string name, IIcon icon)
         where TData : notnull {
         string owner = EntryKey.TypeOwner(parameterId);
-        FieldCodec<TData> rooted = codec.Under(name);
+        FieldCodec<TData> rooted = codec.Under(typeof(TData).ToString());
         Func<TData, string> capture = value => new ValueSet(toHashMap(rooted.Capture(value).AsIterable()
             .Map(entry => (new EntryKey(owner, entry.Key), entry.Value)))).Text();
         return Stored(parameterId, name, icon, identity, capture, capture,

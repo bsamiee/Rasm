@@ -13,7 +13,7 @@ from blender.bpy.extension.identity import Key
 from blender.bpy.faults import BlenderResult
 from blender.bpy.nodes.coordinates import framed, FrameSpace, pixels
 from blender.bpy.nodes.graphs import compared, End, ended, Fragment, INPUTS, math, menu, nested, node, NodeGroup, Operand, switched, vector
-from blender.bpy.nodes.interface import described, DesiredItem, Interface, InterfacePanel, item_key, MenuItems, Socket
+from blender.bpy.nodes.interface import DesiredItem, Interface, InterfacePanel, item_key, MenuItems, Socket
 from blender.bpy.render.color.spaces import COLOR_INPUT, COLOR_RESULT, converted, hsy, logarithmic
 from blender.imaging.compositing.masks import Band, HueRange, Mask, MaskOperation, MatteChannel, Outline, Qualifier, Shape, TrackMatte, Transition
 from blender.imaging.faults import accumulated, paired
@@ -142,9 +142,7 @@ def shape() -> BlenderResult[NodeGroup]:
             )
             return paired(
                 paired(box, ellipse).bind(
-                    lambda keys: menu(
-                        "outline", "FLOAT", End(node=INPUTS, socket=outline.name), MenuItems.of(Outline, described(outline.type)), {Outline.BOX.label: keys[0], Outline.ELLIPSE.label: keys[1]}
-                    )
+                    lambda keys: menu("outline", "FLOAT", End(node=INPUTS, socket=outline.name), MenuItems.of(Outline), {Outline.BOX.label: keys[0], Outline.ELLIPSE.label: keys[1]})
                 ),
                 positive,
             ).bind(lambda ends: math("inside", "MULTIPLY", *ends))
@@ -294,15 +292,7 @@ def matte(working: NodeGroup) -> BlenderResult[NodeGroup]:
     channel, invert = msgspec.structs.fields(TrackMatte)
     return (
         paired(node("alpha", bpy.types.CompositorNodeSeparateColor, {"Image": image}, {"mode": "RGB"}).map(ended("alpha", "Alpha")), nested("luminance", working, {"image": image}, "luminance"))
-        .bind(
-            lambda ends: menu(
-                "channel",
-                "FLOAT",
-                End(node=INPUTS, socket=channel.name),
-                MenuItems.of(MatteChannel, described(channel.type)),
-                {MatteChannel.ALPHA.label: ends[0], MatteChannel.LUMINANCE.label: ends[1]},
-            )
-        )
+        .bind(lambda ends: menu("channel", "FLOAT", End(node=INPUTS, socket=channel.name), MenuItems.of(MatteChannel), {MatteChannel.ALPHA.label: ends[0], MatteChannel.LUMINANCE.label: ends[1]}))
         .bind(lambda selected: node("clamped", bpy.types.ShaderNodeClamp, {"Value": selected, "Min": 0.0, "Max": 1.0}, {}))
         .map(ended("clamped", "Result"))
         .bind(lambda coverage: math("flip", "SUBTRACT", End(node=INPUTS, socket=invert.name), coverage))
@@ -364,15 +354,7 @@ def joined(*, opening: bool) -> BlenderResult[NodeGroup]:
                     math(f"join_{operation.name.lower()}", name, start if opening else End(node=INPUTS, socket="running"), keyed, clamp=clamp) for operation, (name, clamp, start) in joins.items()
                 )
             )
-            .bind(
-                lambda ends: menu(
-                    "join",
-                    "FLOAT",
-                    End(node=INPUTS, socket=operation_mask.name),
-                    MenuItems.of(MaskOperation, described(operation_mask.type)),
-                    dict(zip((operation.label for operation in joins), ends)),
-                )
-            )
+            .bind(lambda ends: menu("join", "FLOAT", End(node=INPUTS, socket=operation_mask.name), MenuItems.of(MaskOperation), dict(zip((operation.label for operation in joins), ends))))
         )
 
     return paired(Interface.of(Mask), accumulated((shape(), qualifier(), wipe())).bind(keyed).bind(joining)).bind(

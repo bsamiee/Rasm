@@ -28,6 +28,8 @@ internal interface IDefinedPlugIn : IPlugInViews, IPlugInLifetime {
 
     TimeProvider IPlugInViews.Clock => Lifetime.Definition.Clock;
 
+    Option<HelpTopic> IPlugInViews.Help => Lifetime.Definition.Help;
+
     AtomHashMap<Guid, ValueHistory> IPlugInViews.Histories => Lifetime.Histories;
 
     IO<HistoryLimits> IPlugInViews.Limits => Lifetime.Definition.History(Settings);
@@ -115,19 +117,22 @@ internal sealed class PlugInLifetime(PlugInDefinition definition, Seq<View> kind
             });
 
     // --- [LOAD]
-    public (LoadReturnCode Code, string Message) Load<TPlugIn>(TPlugIn plugIn, CallbackSite site) where TPlugIn : PlugIn, IDefinedPlugIn =>
-        Callbacks.Answer(
-            Loading(plugIn)
+    public LoadReturnCode Load<TPlugIn>(TPlugIn plugIn, Func<LicenseCapabilities, string?, ValidateProductKeyDelegate, OnLeaseChangedDelegate, bool> getLicense, CallbackSite site, ref string errorMessage)
+        where TPlugIn : PlugIn, IDefinedPlugIn {
+        (LoadReturnCode code, errorMessage) = Callbacks.Answer(
+            Loading(plugIn, getLicense)
                 .Map(static _ => (LoadReturnCode.Success, ""))
                 .Catch(ErrorOps.Cancellation, static _ => IO.pure((LoadReturnCode.ErrorNoDialog, "")))
                 .Catch(error => IO.lift(() => site.Sink.Report(error, site.Owner, site.Member)).Map(_ => (LoadReturnCode.ErrorShowDialog, ErrorOps.Localize(error))))
                 .As(),
             static () => (LoadReturnCode.ErrorShowDialog, ""),
             site);
+        return code;
+    }
 
-    private IO<Unit> Loading<TPlugIn>(TPlugIn plugIn) where TPlugIn : PlugIn, IDefinedPlugIn =>
+    private IO<Unit> Loading<TPlugIn>(TPlugIn plugIn, Func<LicenseCapabilities, string?, ValidateProductKeyDelegate, OnLeaseChangedDelegate, bool> getLicense) where TPlugIn : PlugIn, IDefinedPlugIn =>
         from initialized in IO.lift(static () => AssemblyLoading.Initialized)
-        from licensed in definition.License.TraverseM(license => Licensing.Request(plugIn, license)).As()
+        from licensed in definition.License.TraverseM(license => Licensing.Request(plugIn, license, getLicense)).As()
         let collection = new ViewCatalog(definition.Views.Concat(kindViews))
         from published in views.SwapIO(_ => collection)
         from dependencies in PlugInRegistry.LoadPlugIns(definition.Dependencies)
@@ -136,7 +141,6 @@ internal sealed class PlugInLifetime(PlugInDefinition definition, Seq<View> kind
             Notifications.NotificationActivated,
             ViewRegistration.RegisterPanels,
             ViewRegistration.AddCustomUISections,
-            Toolbars.PlaceCommands,
             DocumentArchive.Rewrites,
             .. definition.Acquisitions,
             (_, _) => IO.lift(() => definition.Endpoints.Iter(static endpoint => HostUtils.RegisterComputeEndpoint(endpoint.Path, endpoint.Type))),
@@ -151,6 +155,12 @@ internal sealed class PlugInLifetime(PlugInDefinition definition, Seq<View> kind
                 from registered in IO.lift(() => register(command) ? Fin.Succ(unit) : new Refused(nameof(register), $"refused {command.EnglishName} {command.Id}"))
                 select unit)),
             site);
+
+    // --- [HELP]
+    public bool DisplayHelp(CallbackSite site) => Callbacks.Succeeded(definition.Help.Map(static topic => topic.Show), static () => false, site);
+
+    // --- [DIALOGS]
+    public void ResetMessageBoxes(IPlugInViews plugIn, CallbackSite site) => Callbacks.Run(HostDialogs.ResetMessageBoxes(Views, plugIn.Settings), site);
 
     // --- [SHUTDOWN]
     public void Shutdown(CallbackSite site) => Callbacks.Run(Session.Close, site);

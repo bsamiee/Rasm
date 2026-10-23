@@ -12,7 +12,7 @@ from expression import Error, Nothing, Ok, Option, Some
 from expression.extra.result import catch
 import msgspec
 
-from blender.bpy.commands.operators import Acquired, Done, Empty, InvokePopup, Operator, Stock
+from blender.bpy.commands.operators import Done, Empty, InvokePopup, Operator, Stock
 from blender.bpy.data.ids.evaluation import evaluated, Instance
 from blender.bpy.data.ids.store import resolved
 from blender.bpy.data.rna import conditions
@@ -23,7 +23,7 @@ from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderRe
 from blender.bpy.files.blends import dependencies, Dependency
 from blender.bpy.render.outputs.paths import OutputPath, Pathed
 from blender.bpy.settings.properties import Choices
-from blender.bpy.ui.layout.rows import Label, OperatorButton
+from blender.bpy.ui.layout.rows import OperatorButton
 from blender.bpy.ui.layout.sections import Section, Single
 from blender.imaging.effects.detail.denoise import TemporalDenoise
 from blender.imaging.faults import accumulated, paired
@@ -72,11 +72,6 @@ class Measure(msgspec.Struct, frozen=True, kw_only=True):
         """Counts and image memory as report lines."""
         return (f"Objects {self.objects:,}", f"Vertices {self.vertices:,}", f"Faces {self.faces:,}", f"Triangles {self.triangles:,}", f"Images {self.images:,} ({self.image_bytes / 2**20:,.1f} MiB)")
 
-    @property
-    def caption(self) -> str:
-        """Notes joined for status bar."""
-        return " | ".join(self.notes)
-
 
 class Shader(msgspec.Struct, frozen=True, kw_only=True):
     """Shader node class to list material users of."""
@@ -96,119 +91,76 @@ class JobScope(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class Preflight(msgspec.Struct, frozen=True, kw_only=True):
-    """Audit operators, dispatch condition, and scene statistic labels."""
-
-    measures: ClassVar[tuple[Label]] = (Label(text=lambda context: Option.of_optional(context.view_layer).bind(lambda layer: measured(layer).to_option()).map(lambda measure: measure.caption)),)
-    counts: ClassVar[tuple[Label]] = (
-        Label(
-            text=lambda context: (
-                Option
-                .of_optional(context.scene)
-                .map(lambda scene: tuple(scene.compositor_effects))
-                .filter(bool)
-                .map(lambda effects: f"Nodes {sum(len(tree.nodes) for effect in effects for tree in Option.of_optional(effect.node_group).to_list()):,}")
-            )
-        ),
-    )
+    """Audit operators and dispatch condition."""
 
     # --- [CONDITIONS]
 
-    @property
-    def condition(self) -> BlenderResult[conditions.AllOf]:
-        """Saved file, used view layer, writable output folder, no running render."""
-        return paired(
-            paired(Descriptor.resolve(bpy.types.Context, "blend_data.filepath", bpy.types.StringProperty), Descriptor.resolve(bpy.types.Scene, "view_layers", bpy.types.CollectionProperty)),
-            paired(Descriptor.resolve(bpy.types.ViewLayer, "use", bpy.types.BoolProperty), Descriptor.resolve(bpy.types.Scene, "render.filepath", bpy.types.StringProperty)),
-        ).map(
-            lambda pair: conditions.AllOf(
-                conditions=(
-                    conditions.Not(condition=conditions.Setting(descriptor=pair[0][0], accepted=("",))),
-                    conditions.Count(collection=pair[0][1], where=Some(conditions.Setting(descriptor=pair[1][0]))),
-                    conditions.Folder(path=pair[1][1], least=0),
-                    conditions.Job(kind="RENDER"),
-                )
-            )
+    condition: ClassVar[conditions.AllOf] = conditions.AllOf(
+        conditions=(
+            conditions.Not(condition=conditions.Setting(descriptor=Descriptor.declared(bpy.types.Context, "blend_data.filepath", bpy.types.StringProperty), accepted=("",))),
+            conditions.Count(
+                collection=Descriptor.declared(bpy.types.Scene, "view_layers", bpy.types.CollectionProperty),
+                where=Some(conditions.Setting(descriptor=Descriptor.declared(bpy.types.ViewLayer, "use", bpy.types.BoolProperty))),
+            ),
+            conditions.Folder(path=Descriptor.declared(bpy.types.Scene, "render.filepath", bpy.types.StringProperty), least=0),
+            conditions.Job(kind="RENDER"),
         )
+    )
 
     # --- [COMMANDS]
 
-    @property
-    def operators(self) -> tuple[Operator[Empty] | Operator[Shader], ...]:
-        """Audit operators."""
-
-        def active(context: bpy.types.Context) -> BlenderResult[bpy.types.ID]:
-            """Reads editor `context.id`, absent when unset."""
-            return catch(lambda: context.id, exception=AttributeError)().to_option().bind(Option.of_optional).to_result_with(lambda: (BlenderAbsentFault(owner="bpy.context", key="id"),))
-
-        def opened(block: bpy.types.ID, folder: Path) -> BlenderResult[Done]:
-            """Opens block library in detached Blender process."""
-            match block if isinstance(block, bpy.types.Library) else block.library:
-                case bpy.types.Library() as library:
-                    return detached((bpy.app.binary_path, bpy.path.abspath(library.filepath)), folder / "library.log").map_error(BlenderRenderingFault.lifted).map(lambda _: Done())
-                case None:
-                    return Error((BlenderAbsentFault(owner=repr(block), key="library"),))
-
-        def listed(kind: str) -> BlenderResult[Done]:
-            """Reports each material user of chosen shader class."""
-            return (
+    operators: ClassVar[tuple[Operator[Empty] | Operator[Shader], ...]] = (
+        Operator(
+            key="audit",
+            title="Audit File",
+            description="Report missing files, empty material slots, and empty group or image nodes",
+            icon=Some("CHECKMARK"),
+            form=Empty,
+            run=lambda _: Ok(Done(skipped=audited().swap().to_option())),
+            undo=False,
+        ),
+        Operator(
+            key="users",
+            title="List Users",
+            description="Report users of active data-block",
+            form=Empty,
+            run=lambda call: active(call.context).map(lambda block: Done(notes=tuple(("INFO", repr(user)) for user in users(block)))),
+            undo=False,
+        ),
+        Operator[Shader](
+            key="shader",
+            title="List Shader Users",
+            description="Report materials using shader node, groups included",
+            form=Shader,
+            run=lambda call: listed(call.record.kind),
+            invoke=Some(InvokePopup.SEARCH),
+            undo=False,
+            primary=Some(next(field for field in msgspec.structs.fields(Shader) if field.name == "kind")),
+        ),
+        Operator[Empty](
+            key="measure",
+            title="Measure View Layer",
+            description="Report evaluated geometry and image memory",
+            form=Empty,
+            run=lambda call: (
                 Option
-                .of_optional(next((shader for shader in shader_kinds() if shader.__name__ == kind), None))
-                .to_result_with(lambda: (BlenderAbsentFault(owner="bpy.types", key=kind),))
-                .map(lambda shader: Done(notes=tuple(("INFO", repr(user)) for user in shader_users(shader))))
-            )
-
-        return (
-            Operator(
-                key="audit",
-                title="Audit File",
-                description="Report missing files, empty material slots, and empty group or image nodes",
-                icon=Some("CHECKMARK"),
-                form=Empty,
-                run=lambda _: Ok(Done(skipped=audited().swap().to_option())),
-                undo=False,
+                .of_optional(call.context.view_layer)
+                .map(measured)
+                .default_with(lambda: Error((BlenderAbsentFault(owner="bpy.context", key="view_layer"),)))
+                .map(lambda measure: Done(notes=tuple(("INFO", text) for text in measure.notes)))
             ),
-            Operator(
-                key="users",
-                title="List Users",
-                description="Report users of active data-block",
-                form=Empty,
-                run=lambda call: active(call.context).map(lambda block: Done(notes=tuple(("INFO", repr(user)) for user in users(block)))),
-                undo=False,
-            ),
-            Operator[Shader](
-                key="shader",
-                title="List Shader Users",
-                description="Report materials using shader node, groups included",
-                form=Shader,
-                run=lambda call: listed(call.record.kind),
-                invoke=Some(InvokePopup.SEARCH),
-                undo=False,
-                primary=Some(next(field for field in msgspec.structs.fields(Shader) if field.name == "kind")),
-            ),
-            Operator[Empty](
-                key="measure",
-                title="Measure View Layer",
-                description="Report evaluated geometry and image memory",
-                form=Empty,
-                run=lambda call: (
-                    Option
-                    .of_optional(call.context.view_layer)
-                    .map(measured)
-                    .default_with(lambda: Error((BlenderAbsentFault(owner="bpy.context", key="view_layer"),)))
-                    .map(lambda measure: Done(notes=tuple(("INFO", text) for text in measure.notes)))
-                ),
-                undo=False,
-            ),
-            Operator(
-                key="library_open",
-                title="Open Library",
-                description="Open active data-block's library in new Blender process",
-                icon=Some("FILE_BLEND"),
-                form=Empty,
-                run=lambda call: active(call.context).bind(lambda block: opened(block, call.identity.folder)),
-                undo=False,
-            ),
-        )
+            undo=False,
+        ),
+        Operator(
+            key="library_open",
+            title="Open Library",
+            description="Open active data-block's library in new Blender process",
+            icon=Some("FILE_BLEND"),
+            form=Empty,
+            run=lambda call: active(call.context).bind(lambda block: opened(block, call.identity.folder)),
+            undo=False,
+        ),
+    )
 
     def acquisitions(self, _identity: Identity, /) -> BlenderResult[Acquisitions]:
         """Returns audit operators for registration."""
@@ -216,16 +168,36 @@ class Preflight(msgspec.Struct, frozen=True, kw_only=True):
 
     def section(self) -> Section:
         """Returns section of audit buttons and Find Missing Files."""
-        return Single(
-            key="preflight",
-            title="Preflight",
-            rows=(*(OperatorButton(target=Acquired(key=row.key), icon=row.icon) for row in self.operators), OperatorButton(target=Stock(operator=bpy.ops.file.find_missing_files))),
-        )
+        return Single(key="preflight", title="Preflight", rows=(*(OperatorButton(target=row) for row in self.operators), OperatorButton(target=Stock(operator=bpy.ops.file.find_missing_files))))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 # --- [AUDIT]
+
+
+def active(context: bpy.types.Context) -> BlenderResult[bpy.types.ID]:
+    """Reads editor `context.id`, absent when unset."""
+    return catch(lambda: context.id, exception=AttributeError)().to_option().bind(Option.of_optional).to_result_with(lambda: (BlenderAbsentFault(owner="bpy.context", key="id"),))
+
+
+def opened(block: bpy.types.ID, folder: Path) -> BlenderResult[Done]:
+    """Opens block library in detached Blender process."""
+    match block if isinstance(block, bpy.types.Library) else block.library:
+        case bpy.types.Library() as library:
+            return detached((bpy.app.binary_path, bpy.path.abspath(library.filepath)), folder / "library.log").map_error(BlenderRenderingFault.lifted).map(lambda _: Done())
+        case None:
+            return Error((BlenderAbsentFault(owner=repr(block), key="library"),))
+
+
+def listed(kind: str) -> BlenderResult[Done]:
+    """Reports each material user of chosen shader class."""
+    return (
+        Option
+        .of_optional(next((shader for shader in shader_kinds() if shader.__name__ == kind), None))
+        .to_result_with(lambda: (BlenderAbsentFault(owner="bpy.types", key=kind),))
+        .map(lambda shader: Done(notes=tuple(("INFO", repr(user)) for user in shader_users(shader))))
+    )
 
 
 def audited() -> BlenderResult[None]:

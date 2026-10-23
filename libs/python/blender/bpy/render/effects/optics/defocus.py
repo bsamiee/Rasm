@@ -250,7 +250,7 @@ defocus: CompositorEffect[Defocus] = CompositorEffect(
     requested=Some(lambda _record, layer: PassRequest.depth(layer, precise=True)),
     cameras={"dof.use_dof": False},
     registrables=(
-        Operator(key="match_camera_iris", title="Match Camera", description="Set f-stop and iris from scene camera", form=Named, run=matched),
+        Operator(key="match_camera_iris", title="Match Camera", description="Set f-stop and iris from scene camera", icon=Some("CAMERA_DATA"), form=Named, run=matched),
         inspection(lambda: defocus, "defocus_radius", "View Defocus Radius", "Gather radius per pixel", lambda: End(node="select", socket="Output")),
     ),
 )

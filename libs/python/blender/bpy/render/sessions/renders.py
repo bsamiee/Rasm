@@ -14,13 +14,13 @@ from expression.extra.result import catch
 import msgspec
 
 from blender.bpy.commands.calls import called
-from blender.bpy.commands.operators import Acquired, Call, Done, Operator, Properties, Stock
+from blender.bpy.commands.operators import Call, Done, Operator, Properties, Stock
 from blender.bpy.data.rna.conditions import Setting
 from blender.bpy.data.rna.descriptors import Descriptor, written
 from blender.bpy.data.rna.snapshots import Endpoints, Persisted, Scenes, Snapshot
 from blender.bpy.extension.events.handlers import PathHandler
 from blender.bpy.extension.events.timers import Timer
-from blender.bpy.extension.identity import Identity, Key, Name
+from blender.bpy.extension.identity import Identity, Name
 from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderEditFault, BlenderFaults, BlenderResult
 from blender.bpy.render.effects.stack import EffectStack
@@ -101,19 +101,196 @@ class RenderOverride(msgspec.Struct, frozen=True, kw_only=True):
     isolated: Gated[Isolated] = Gated(enabled=False, value=Isolated())
 
 
+class Overriding(msgspec.Struct, frozen=True, kw_only=True):
+    """Override store, frame size, pass routing, and recovery endpoints one render binds."""
+
+    held: Attached[RenderOverride]
+    framed: Framed
+    routing: PassRouting
+    recovery: Stored[Endpoints]
+
+
 # --- [SERVICES] -------------------------------------------------------------------------
 
 
-class RenderSlots(msgspec.Struct, frozen=True, kw_only=True):
+class RenderSlots:
     """Render operators with temporary scene overrides."""
 
     stack: EffectStack
-
-    render: ClassVar[Key] = "render"
-    viewport: ClassVar[Key] = "render_viewport"
+    rendering: Operator[Launch]
+    viewporting: Operator[Launch]
     override: ClassVar[Attachment[RenderOverride]] = Attachment(key="render_override", form=RenderOverride, owner=bpy.types.Scene)
     bakes: ClassVar[Preset[Snapshot]] = Preset(key="bake", form=Snapshot)
-    page_rows: ClassVar[tuple[Registrable, ...]] = (override,)
+    prerequisites: ClassVar[tuple[Registrable, ...]] = (override, FrameSize.attachment, PassSet.attachment)
+
+    # --- [COMMANDS]
+
+    def __init__(self, *, stack: EffectStack) -> None:
+        """Declares slot and viewport render commands, each binding overrides on call."""
+        self.stack = stack
+        self.rendering = Operator(
+            key="render",
+            title="Render",
+            description="Render into chosen slot with temporary scene overrides",
+            form=Launch,
+            invoke=Some(Properties()),
+            undo=False,
+            run=lambda call: self.launched(call, viewport=False),
+        )
+        self.viewporting = Operator(
+            key="render_viewport",
+            title="Render Viewport",
+            description="Render 3D view with temporary scene overrides",
+            form=Launch,
+            invoke=Some(Properties()),
+            undo=False,
+            condition=Some(Setting(descriptor=Descriptor(root=bpy.types.SpaceView3D, owner="", prop=bpy.types.SpaceView3D.bl_rna.properties["type"]), accepted=("VIEW_3D",))),
+            run=lambda call: self.launched(call, viewport=True),
+        )
+
+    # --- [OVERRIDES]
+
+    def bound(self, identity: Identity) -> BlenderResult[Overriding]:
+        """Binds override store, frame size, pass routing, and recovery endpoints."""
+        return paired(paired(paired(self.override.bound(identity), FrameSize().bound(identity)), PassSet().bound(identity)), identity.name(Name.ATTACHMENT, "render_restore").map(endpoints)).map(
+            lambda parts: Overriding(held=parts[0][0][0], framed=parts[0][0][1], routing=parts[0][1], recovery=parts[1])
+        )
+
+    def restored(self, bound: Overriding, scene: bpy.types.Scene) -> BlenderResult[Option[str]]:
+        """Reverts scene overrides once its render finishes, keeping endpoints of members a revert misses."""
+        framed, routing, recovery = bound.framed, bound.routing, bound.recovery
+
+        def reverted(state: Endpoints) -> BlenderResult[None]:
+            before = state.before
+
+            def restored(after: Persisted) -> BlenderResult[None]:
+                missing = Tree(roots=tuple(key for key in before.roots if key not in after.owners), owners={key: held for key, held in before.owners.items() if key not in after.owners})
+                return (
+                    Snapshot
+                    .reverted(before, after)
+                    .bind(lambda _: routing.pathed.path(scene, datetime.datetime.now(datetime.UTC).astimezone().date()))
+                    .bind(lambda path: routing.reconciled(scene, bpy.context, path))
+                    .bind(
+                        lambda _: (
+                            recovery.write(scene, Endpoints(before=missing)).bind(lambda _: Error((BlenderAbsentFault(owner=repr(scene), key=f"{recovery.name}.after"),)))
+                            if missing.owners
+                            else recovery.removed(scene).map(lambda _: None)
+                        )
+                    )
+                )
+
+            return state.completed(scene, recovery.name).bind(restored)
+
+        return recovery.read(scene).bind(lambda state: framed.restored(scene).bind(lambda _: state.map(reverted).default_value(Ok(None))).map(lambda _: Nothing))
+
+    def launched(self, call: Call[Launch], *, viewport: bool) -> BlenderResult[Done]:
+        """Renders into chosen slot under temporary overrides, recovery endpoints written first."""
+        identity = call.identity
+
+        def overridden_by(bound: Overriding) -> BlenderResult[Done]:
+            held, framed, routing, recovery = bound.held, bound.framed, bound.routing, bound.recovery
+
+            def scene_render(scene: bpy.types.Scene, layer: bpy.types.ViewLayer) -> BlenderResult[Done]:
+                record = call.record
+                images = tuple(image for image in bpy.data.images if image.type == "RENDER_RESULT")
+                prior = tuple((image, image.render_slots.active_index, Option.of_optional(image.render_slots.active).map(lambda slot: (slot, slot.name))) for image in images)
+                created: list[tuple[bpy.types.Image, bpy.types.RenderSlot]] = []
+                chosen = Some(record.layer.value) if record.layer.enabled and not viewport else Nothing
+                member = chosen.default_value(scene.name)
+
+                def prepared(values: tuple[tuple[RenderOverride, Snapshot], tuple[int, OutputPath]]) -> BlenderResult[None]:
+                    (override, captured), (version, path) = values
+                    presets = value_sets.found(identity, override.values.value.name).bind(value_sets.read).map(lambda snapshot: (snapshot,)) if override.values.enabled else Ok(())
+                    isolated = isolation(scene, layer, override.isolated.value) if override.isolated.enabled else Ok(())
+                    stamp = noted(member, version, content_hash(Snapshot, captured))
+
+                    def overridden(owned: tuple[tuple[Snapshot, ...], tuple[tuple[bpy.types.Object, Snapshot], ...]]) -> BlenderResult[None]:
+                        owners = (scene, *(owner for owner, _ in owned[1]))
+
+                        def changed(before: Persisted) -> BlenderResult[None]:
+                            applied = paired(
+                                reduce(lambda outcome, snapshot: outcome.bind(lambda _: snapshot.apply(scene).outcome), (*owned[0], stamp), Result[None, BlenderFaults](ok=None)),
+                                accumulated(snapshot.apply(owner).outcome for owner, snapshot in owned[1]),
+                            ).bind(lambda _: routing.reconciled(scene, call.context, path))
+                            final = tuple(Snapshot.capture(owner, native=True) for owner in owners)
+                            trees = tuple(tree for answer in final for tree in answer.to_option().to_list())
+                            after = Tree.joined(trees)
+                            endpoint = Snapshot.persisted(after).bind(lambda projected: recovery.write(scene, Endpoints(before=before, after=projected)))
+                            return paired(applied, paired(accumulated(final), endpoint)).map(lambda _: None)
+
+                        return (
+                            accumulated(Snapshot.capture(owner, native=True) for owner in owners)
+                            .map(Tree.joined)
+                            .bind(Snapshot.persisted)
+                            .bind(lambda before: recovery.write(scene, Endpoints(before=before)).bind(lambda _: changed(before)))
+                        )
+
+                    return (
+                        paired(presets, isolated)
+                        .bind(lambda owned: routing.reconciled(scene, call.context, path).bind(lambda _: overridden(owned)))
+                        .bind(lambda _: framed.grown(scene).map(lambda _: None))
+                    )
+
+                def slotted(version: int) -> BlenderResult[None]:
+                    def changed(image: bpy.types.Image) -> BlenderResult[None]:
+                        title = f"{member} v{version}"
+
+                        def retained(slot: bpy.types.RenderSlot) -> BlenderResult[None]:
+                            created.append((image, slot))
+                            return written(image.render_slots, "active", slot).map(lambda _: None)
+
+                        destination: BlenderResult[bpy.types.RenderSlot] = (
+                            Option.of_optional(image.render_slots.active).to_result_with(lambda: (BlenderAbsentFault(owner=repr(image), key="render_slots.active"),))
+                            if record.into is Into.DISPLAYED
+                            else catch(lambda: image.render_slots.new(name=title), exception=RuntimeError)().map_error(
+                                lambda error: (BlenderEditFault(request=f"{image!r}.render_slots.new", error=error),)
+                            )
+                        )
+                        return Result[bpy.types.RenderSlot, BlenderFaults].bind(
+                            destination, lambda slot: written(slot, "name", title).map(lambda _: None) if record.into is Into.DISPLAYED else retained(slot)
+                        )
+
+                    return accumulated(map(changed, images)).map(lambda _: None)
+
+                def undone(faults: BlenderFaults) -> BlenderResult[Done]:
+                    def removed(image: bpy.types.Image, slot: bpy.types.RenderSlot) -> BlenderResult[None]:
+                        return (
+                            written(image.render_slots, "active", slot)
+                            .bind(lambda _: called(bpy.ops.image.remove_render_slot, {}, override=Some(call.context.temp_override(edit_image=image))))
+                            .map(lambda _: None)
+                        )
+
+                    return accumulated((
+                        Error(faults),
+                        self.restored(bound, scene),
+                        *starmap(removed, created),
+                        *(written(image.render_slots, "active_index", index) for image, index, _ in prior),
+                        *(written(slot, "name", name) for _, _, held in prior for slot, name in held.to_list()),
+                    )).map(lambda _: Done())
+
+                def called_render(_: None) -> BlenderResult[Done]:
+                    properties = {"animation": record.animation, "write_still": record.write and not record.animation}
+                    outcome = (
+                        called(bpy.ops.render.opengl, properties | {"view_context": True}, context="INVOKE_DEFAULT")
+                        if viewport
+                        else self.stack.precision(call.identity).bind(lambda precision: execution.rendered(call.identity, self.stack, scene, precision, properties | {"layer": chosen}))
+                    )
+                    return outcome.bind(lambda status: self.restored(bound, scene).map(lambda _: Done()) if "FINISHED" in status else Ok(Done()))
+
+                day = datetime.datetime.now(datetime.UTC).astimezone().date()
+                return (
+                    paired(paired(held.read(scene), Snapshot.capture(scene)), paired(routing.pathed.attached.read(scene).map(lambda outputs: outputs.version), routing.pathed.path(scene, day)))
+                    .bind(lambda values: prepared(values).bind(lambda _: slotted(values[1][0])).bind(called_render))
+                    .or_else_with(undone)
+                )
+
+            def checked(roots: tuple[bpy.types.Scene, bpy.types.ViewLayer]) -> BlenderResult[Done]:
+                scene = roots[0]
+                return recovery.read(scene).bind(lambda held: Error((BlenderCollisionFault(request=repr(scene), error=recovery.name),)) if held.is_some() else scene_render(*roots))
+
+            return paired(call.root(bpy.types.Scene), call.root(bpy.types.ViewLayer)).bind(checked)
+
+        return self.bound(identity).bind(overridden_by)
 
     # --- [REGISTRATION]
 
@@ -121,198 +298,35 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True):
     def acquisitions(self, identity: Identity) -> Generator[BlenderResult[Acquisitions]]:
         """Holds declarations and override recovery until running render finishes."""
         scope = ExitStack()
-        pending: set[bpy.types.Scene] = set()
 
-        def built(parts: tuple[tuple[tuple[Attached[RenderOverride], Framed], PassRouting], Stored[Endpoints]]) -> BlenderResult[Acquisitions]:
-            ((held, framed), routing), recovery = parts
+        def built(bound: Overriding) -> BlenderResult[Acquisitions]:
+            finishing = scope.enter_context(identity.reports.deferred(lambda scene: self.restored(bound, scene)))
 
-            def restored(scene: bpy.types.Scene) -> BlenderResult[Option[str]]:
-                def reverted(state: Endpoints) -> BlenderResult[None]:
-                    before = state.before
-
-                    def restored(after: Persisted) -> BlenderResult[None]:
-                        missing = Tree(roots=tuple(key for key in before.roots if key not in after.owners), owners={key: held for key, held in before.owners.items() if key not in after.owners})
-                        return (
-                            Snapshot
-                            .reverted(before, after)
-                            .bind(lambda _: routing.pathed.path(scene, datetime.datetime.now(datetime.UTC).astimezone().date()))
-                            .bind(lambda path: routing.reconciled(scene, bpy.context, path))
-                            .bind(
-                                lambda _: (
-                                    recovery.write(scene, Endpoints(before=missing)).bind(lambda _: Error((BlenderAbsentFault(owner=repr(scene), key=f"{recovery.name}.after"),)))
-                                    if missing.owners
-                                    else recovery.removed(scene).map(lambda _: None)
-                                )
-                            )
-                        )
-
-                    return state.completed(scene, recovery.name).bind(restored)
-
-                def finished(_: None) -> BlenderResult[Option[str]]:
-                    pending.discard(scene)
-                    return Ok(Nothing)
-
-                return recovery.read(scene).bind(lambda state: framed.restored(scene).bind(lambda _: state.map(reverted).default_value(Ok(None))).bind(finished))
-
-            finishing = scope.enter_context(identity.reports.deferred(restored))
-
-            def seeded() -> BlenderResult[Option[float]]:
-                pending.update(bpy.data.scenes)
-                return Ok(Nothing)
+            def held() -> tuple[bpy.types.Scene, ...]:
+                stored = identity.reports.reported(lambda scene: paired(bound.recovery.read(scene), bound.framed.held.read(scene)).map(lambda parts: parts[0].is_some() or parts[1].is_some()))
+                return tuple(scene for scene in bpy.data.scenes if stored(scene).default_value(False))
 
             def ticked() -> BlenderResult[Option[float]]:
                 if not bpy.app.is_job_running("RENDER"):
-                    for scene in tuple(pending):
+                    for scene in held():
                         finishing(scene)
                 return Ok(Some(0.25))
 
             def loaded(_: Option[Path]) -> BlenderResult[None]:
-                pending.clear()
-                return accumulated(restored(scene) for scene in bpy.data.scenes).map(lambda _: None)
+                return accumulated(self.restored(bound, scene) for scene in bpy.data.scenes).map(lambda _: None)
 
-            scope.callback(lambda: identity.reports.reported(lambda: accumulated(restored(scene) for scene in tuple(pending)).map(lambda _: None))().to_optional())
-
-            def launched(call: Call[Launch], *, viewport: bool) -> BlenderResult[Done]:
-                def scene_render(scene: bpy.types.Scene, layer: bpy.types.ViewLayer) -> BlenderResult[Done]:
-                    record = call.record
-                    images = tuple(image for image in bpy.data.images if image.type == "RENDER_RESULT")
-                    prior = tuple((image, image.render_slots.active_index, Option.of_optional(image.render_slots.active).map(lambda slot: (slot, slot.name))) for image in images)
-                    created: list[tuple[bpy.types.Image, bpy.types.RenderSlot]] = []
-                    chosen = Some(record.layer.value) if record.layer.enabled and not viewport else Nothing
-                    member = chosen.default_value(scene.name)
-
-                    def prepared(values: tuple[tuple[RenderOverride, Snapshot], tuple[int, OutputPath]]) -> BlenderResult[None]:
-                        (override, captured), (version, path) = values
-                        presets = (
-                            value_sets
-                            .found(identity, override.values.value.name)
-                            .bind(lambda source: value_sets.read(source) if isinstance(source, Path) else Ok(source))
-                            .map(lambda snapshot: (snapshot,))
-                            if override.values.enabled
-                            else Ok(())
-                        )
-                        isolated = isolation(scene, layer, override.isolated.value) if override.isolated.enabled else Ok(())
-                        stamp = noted(member, version, content_hash(Snapshot, captured))
-
-                        def overridden(owned: tuple[tuple[Snapshot, ...], tuple[tuple[bpy.types.Object, Snapshot], ...]]) -> BlenderResult[None]:
-                            owners = (scene, *(owner for owner, _ in owned[1]))
-
-                            def changed(before: Persisted) -> BlenderResult[None]:
-                                pending.add(scene)
-                                applied = paired(
-                                    reduce(lambda outcome, snapshot: outcome.bind(lambda _: snapshot.apply(scene).outcome), (*owned[0], stamp), Result[None, BlenderFaults](ok=None)),
-                                    accumulated(snapshot.apply(owner).outcome for owner, snapshot in owned[1]),
-                                ).bind(lambda _: routing.reconciled(scene, call.context, path))
-                                final = tuple(Snapshot.capture(owner, native=True) for owner in owners)
-                                trees = tuple(tree for answer in final for tree in answer.to_option().to_list())
-                                after = Tree.joined(trees)
-                                endpoint = Snapshot.persisted(after).bind(lambda projected: recovery.write(scene, Endpoints(before=before, after=projected)))
-                                return paired(applied, paired(accumulated(final), endpoint)).map(lambda _: None)
-
-                            return (
-                                accumulated(Snapshot.capture(owner, native=True) for owner in owners)
-                                .map(Tree.joined)
-                                .bind(Snapshot.persisted)
-                                .bind(lambda before: recovery.write(scene, Endpoints(before=before)).bind(lambda _: changed(before)))
-                            )
-
-                        return (
-                            paired(presets, isolated)
-                            .bind(lambda owned: routing.reconciled(scene, call.context, path).bind(lambda _: overridden(owned)))
-                            .bind(lambda _: framed.grown(scene).map(lambda _: None))
-                        )
-
-                    def slotted(version: int) -> BlenderResult[None]:
-                        def changed(image: bpy.types.Image) -> BlenderResult[None]:
-                            title = f"{member} v{version}"
-
-                            def retained(slot: bpy.types.RenderSlot) -> BlenderResult[None]:
-                                created.append((image, slot))
-                                return written(image.render_slots, "active", slot).map(lambda _: None)
-
-                            destination: BlenderResult[bpy.types.RenderSlot] = (
-                                Option.of_optional(image.render_slots.active).to_result_with(lambda: (BlenderAbsentFault(owner=repr(image), key="render_slots.active"),))
-                                if record.into is Into.DISPLAYED
-                                else catch(lambda: image.render_slots.new(name=title), exception=RuntimeError)().map_error(
-                                    lambda error: (BlenderEditFault(request=f"{image!r}.render_slots.new", error=error),)
-                                )
-                            )
-                            return Result[bpy.types.RenderSlot, BlenderFaults].bind(
-                                destination, lambda slot: written(slot, "name", title).map(lambda _: None) if record.into is Into.DISPLAYED else retained(slot)
-                            )
-
-                        return accumulated(map(changed, images)).map(lambda _: None)
-
-                    def undone(faults: BlenderFaults) -> BlenderResult[Done]:
-                        def removed(image: bpy.types.Image, slot: bpy.types.RenderSlot) -> BlenderResult[None]:
-                            return (
-                                written(image.render_slots, "active", slot)
-                                .bind(lambda _: called(bpy.ops.image.remove_render_slot, {}, override=Some(call.context.temp_override(edit_image=image))))
-                                .map(lambda _: None)
-                            )
-
-                        return accumulated((
-                            Error(faults),
-                            restored(scene),
-                            *starmap(removed, created),
-                            *(written(image.render_slots, "active_index", index) for image, index, _ in prior),
-                            *(written(slot, "name", name) for _, _, held in prior for slot, name in held.to_list()),
-                        )).map(lambda _: Done())
-
-                    def called_render(_: None) -> BlenderResult[Done]:
-                        properties = {"animation": record.animation, "write_still": record.write and not record.animation}
-                        outcome = (
-                            called(bpy.ops.render.opengl, properties | {"view_context": True}, context="INVOKE_DEFAULT")
-                            if viewport
-                            else self.stack.precision(call.identity).bind(lambda precision: execution.rendered(call.identity, self.stack, scene, precision, properties | {"layer": chosen}))
-                        )
-                        return outcome.bind(lambda status: restored(scene).map(lambda _: Done()) if "FINISHED" in status else Ok(Done()))
-
-                    day = datetime.datetime.now(datetime.UTC).astimezone().date()
-                    return (
-                        paired(paired(held.read(scene), Snapshot.capture(scene)), paired(routing.pathed.attached.read(scene).map(lambda outputs: outputs.version), routing.pathed.path(scene, day)))
-                        .bind(lambda values: prepared(values).bind(lambda _: slotted(values[1][0])).bind(called_render))
-                        .or_else_with(undone)
-                    )
-
-                def checked(roots: tuple[bpy.types.Scene, bpy.types.ViewLayer]) -> BlenderResult[Done]:
-                    scene = roots[0]
-                    return recovery.read(scene).bind(lambda held: Error((BlenderCollisionFault(request=repr(scene), error=recovery.name),)) if held.is_some() else scene_render(*roots))
-
-                return paired(call.root(bpy.types.Scene), call.root(bpy.types.ViewLayer)).bind(checked)
-
-            viewport = Setting(descriptor=Descriptor(root=bpy.types.SpaceView3D, owner="", prop=bpy.types.SpaceView3D.bl_rna.properties["type"]), accepted=("VIEW_3D",))
+            scope.callback(lambda: identity.reports.reported(lambda: accumulated(self.restored(bound, scene) for scene in held()).map(lambda _: None))().to_optional())
             return Ok((
-                self.override,
                 PresetMenu(source=Captured(preset=value_sets, scope=Scenes(), selection=("render", "cycles", "eevee"))),
                 PresetMenu(source=Captured(preset=self.bakes, scope=Scenes(), selection=("render.bake",))),
-                Operator(
-                    key=self.render,
-                    title="Render",
-                    description="Render into chosen slot with temporary scene overrides",
-                    form=Launch,
-                    invoke=Some(Properties()),
-                    undo=False,
-                    run=lambda call: launched(call, viewport=False),
-                ),
-                Operator(
-                    key=self.viewport,
-                    title="Render Viewport",
-                    description="Render 3D view with temporary scene overrides",
-                    form=Launch,
-                    invoke=Some(Properties()),
-                    undo=False,
-                    condition=Some(viewport),
-                    run=lambda call: launched(call, viewport=True),
-                ),
+                self.rendering,
+                self.viewporting,
                 PathHandler(handlers=bpy.app.handlers.load_post, body=loaded),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                Timer(body=seeded),
                 Timer(body=ticked),
             ))
 
         try:
-            recovery = identity.name(Name.ATTACHMENT, "render_restore").map(endpoints)
-            yield paired(paired(paired(self.override.bound(identity), FrameSize().bound(identity)), PassSet().bound(identity)), recovery).bind(built)
+            yield self.bound(identity).bind(built)
         finally:
 
             def retired() -> float | None:
@@ -328,13 +342,12 @@ class RenderSlots(msgspec.Struct, frozen=True, kw_only=True):
 
     # --- [SECTIONS]
 
-    @staticmethod
-    def section(retention: Option[Callable[[Identity], BlenderResult[Retention]]] = Nothing) -> Single[RenderOverride]:
+    def section(self, retention: Option[Callable[[Identity], BlenderResult[Retention]]] = Nothing) -> Single[RenderOverride]:
         """Returns section of render buttons and override settings."""
         return Single(
             key="render",
             title="Render",
-            rows=(OperatorButton(target=Acquired(key=RenderSlots.render)), OperatorButton(target=Acquired(key=RenderSlots.viewport))),
+            rows=(OperatorButton(target=self.rendering), OperatorButton(target=self.viewporting)),
             store=Some(Hosted(host=Member(root=bpy.types.Context, path="scene"), store=Store(attachment=RenderSlots.override, retention=retention))),
         )
 

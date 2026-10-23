@@ -90,8 +90,18 @@
             },
             {
                 "filter": { "projects": [ "tag:output:extension" ] },
-                "command": "version=$(dotnet dnx minver-cli --prerelease -y -- -t blender-{projectName}-v -v e) && python -m eng.python.fitout pack {projectRoot} .artifacts/blender/{projectName} --version \"$version\"",
-                "inputs": [ "...", "default", "python", "{workspaceRoot}/eng/python/fitout/**/*.py", { "runtime": "\"$BLENDER_PATH\" --version" }, { "runtime": "pip --version" }, { "runtime": "resvg --version" }, { "runtime": "git rev-parse HEAD && git for-each-ref 'refs/tags/blender-*'" } ],
+                "command": "version=$(dotnet dnx minver-cli --prerelease -y -- -t blender-{projectName}-v -v e) && props=$(dotnet msbuild Directory.Build.props -getProperty:Authors -getProperty:PackageProjectUrl) && maintainer=$(printf %s \"$props\" | jq -er .Properties.Authors) && website=$(printf %s \"$props\" | jq -er .Properties.PackageProjectUrl) && python -m eng.python.fitout pack {projectRoot} .artifacts/blender/{projectName} --version \"$version\" --maintainer \"$maintainer\" --website \"$website\"",
+                "inputs": [
+                    "...",
+                    "default",
+                    "python",
+                    "{workspaceRoot}/eng/python/fitout/**/*.py",
+                    "{workspaceRoot}/Directory.Build.props",
+                    { "runtime": "\"$BLENDER_PATH\" --version" },
+                    { "runtime": "pip --version" },
+                    { "runtime": "resvg --version" },
+                    { "runtime": "git rev-parse HEAD && git for-each-ref 'refs/tags/blender-*'" }
+                ],
                 "outputs": [ "{workspaceRoot}/.artifacts/blender/{projectName}" ],
                 "cache": true
             },

@@ -14,8 +14,8 @@ namespace Rasm.Rhino.Render.UI;
 // --- [MODELS] --------------------------------------------------------------------------
 [SmartEnum]
 public sealed partial class WheelPart {
-    public static readonly WheelPart Disc = new(PartRole.Slider, CursorType.Crosshair, "{0} hue", MarkStyle.Ring, new MarkStyle.Stroke(PaintSlot.ControlText, 1f, 1f));
-    public static readonly WheelPart Puck = new(PartRole.Handle, CursorType.Move, "{0} strength", new MarkStyle.Stroke(PaintSlot.ControlText, 1f, 1f), new MarkStyle.Stroke(PaintSlot.Highlight, 1f, 1f));
+    public static readonly WheelPart Disc = new(PartRole.Slider, CursorType.Crosshair, "{0} hue", MarkStyle.Ring, new MarkStyle.Stroke(PaintSlot.Text, 1f, 1f));
+    public static readonly WheelPart Puck = new(PartRole.Handle, CursorType.Move, "{0} strength", new MarkStyle.Stroke(PaintSlot.Text, 1f, 1f), new MarkStyle.Stroke(PaintSlot.Highlight, 1f, 1f));
 
     public PartRole Role { get; }
     public CursorType Cursor { get; }

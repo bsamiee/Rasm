@@ -12,7 +12,7 @@ public static class ToggleRows {
         ControlRow.Of(source, field, RowShape.Inline, (scope, retain) => Boxed(source, field, lens, scope, retain), rules);
 
     // --- [GLYPH_TOGGLES]
-    public static IO<ToggleButton> Command(CheckCommand command, (IGlyph Glyph, int Master) glyph, IconSlot slot, IPlugInSink sink, Action<IDisposable> retain) =>
+    public static IO<ToggleButton> Command(CheckCommand command, IGlyph glyph, IconSlot slot, IPlugInSink sink, Action<IDisposable> retain) =>
         DisposalOps.Acquire(owned =>
         from button in DisposalOps.Acquire(IO.lift(static () => new ToggleButton()), owned)
         from faced in IO.lift(() => { (button.ToolTip, button.Checked) = (command.ToolTip, command.Checked); })

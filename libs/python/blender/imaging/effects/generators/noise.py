@@ -184,7 +184,7 @@ class Perlin(Case, frozen=True, kw_only=True, tag=1):
     octaves: Annotated[Octaves, msgspec.Meta(description="Noise detail across scales")] = Octaves(detail=4.0)
     offset: Annotated[Finite, msgspec.Meta(description="Octave offset in ridged, hybrid, and hetero terrain sums"), Presentation(soft=Some((-2.0, 2.0)))] = 0.0
     gain: Annotated[NonNegative, msgspec.Meta(description="Octave weight passed on in ridged and hybrid sums"), Presentation(soft=Some((0.0, 4.0)))] = 1.0
-    distortion: Annotated[Finite, msgspec.Meta(description="Warps noise by its own signal"), Presentation(soft=Some((-4.0, 4.0)))] = 1.0
+    distortion: Annotated[Finite, msgspec.Meta(description="Warp noise by its own signal"), Presentation(soft=Some((-4.0, 4.0)))] = 1.0
     cut: Annotated[Cut, msgspec.Meta(title="Density", description="Noise value mapped to density")] = Cut(threshold=0.17, softness=0.83, interpolation=Interpolation.LINEAR)
 
 

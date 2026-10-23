@@ -27,7 +27,6 @@ class Settings(msgspec.Struct, frozen=True, kw_only=True):
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-category = "Darkroom"
 sections = (Single(key="status", title="Status", rows=(Status(),)),)
 queueing = value(Settings, lambda settings: settings.queue)
 reviewing = value(Settings, lambda settings: settings.review)
@@ -36,4 +35,4 @@ previewed: Callable[[Identity, NodePreviews], BlenderResult[None]] = stored(Sett
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Settings", "category", "previewed", "previewing", "queueing", "reviewing", "sections"]
+__all__ = ["Settings", "previewed", "previewing", "queueing", "reviewing", "sections"]

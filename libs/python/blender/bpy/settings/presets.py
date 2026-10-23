@@ -57,8 +57,10 @@ class Preset[T: msgspec.Struct](msgspec.Struct, frozen=True, kw_only=True):
 
     # --- [FILES]
 
-    def read(self, source: Path) -> BlenderResult[T]:
-        """Decodes and validates user file."""
+    def read(self, source: T | Path) -> BlenderResult[T]:
+        """Decodes and validates user file, passing stock preset through."""
+        if not isinstance(source, Path):
+            return Ok(source)
         try:
             value = msgspec.json.decode(source.read_bytes(), type=self.form)
         except (OSError, msgspec.DecodeError) as error:

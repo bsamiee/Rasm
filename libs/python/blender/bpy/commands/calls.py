@@ -5,6 +5,7 @@ from contextlib import nullcontext
 from functools import partial
 from typing import TYPE_CHECKING
 
+import _bpy_types
 import bpy
 from expression import Error, Nothing, Ok, Option
 import msgspec
@@ -28,14 +29,14 @@ type Operation = Callable[..., set[rna_enums.OperatorReturnItems]]  # type: igno
 class MenuPopup(msgspec.Struct, frozen=True, kw_only=True):
     """Registered menu opened as popup or pie."""
 
-    menu: type[bpy.types.Menu] | Key
+    menu: type[_bpy_types.Menu] | Key
     pie: bool = False
 
 
 class PanelPopup(msgspec.Struct, frozen=True, kw_only=True):
     """Registered panel opened as popover."""
 
-    panel: type[bpy.types.Panel] | Key
+    panel: type[_bpy_types.Panel] | Key
     keep_open: bool = True
     auto_keymap: bool = False
 
@@ -43,7 +44,7 @@ class PanelPopup(msgspec.Struct, frozen=True, kw_only=True):
 class ShelfPopup(msgspec.Struct, frozen=True, kw_only=True):
     """Registered asset shelf opened as popover."""
 
-    shelf: type[bpy.types.AssetShelf] | Key
+    shelf: type[_bpy_types.AssetShelf] | Key
 
 
 class DrawnMenu(msgspec.Struct, frozen=True, kw_only=True):
@@ -91,7 +92,7 @@ def called(
 
 def resolved(popup: CalledPopup, identity: Identity) -> BlenderResult[tuple[Operation, dict[str, str | bool]]]:
     """Returns registered popup operator and properties."""
-    target: type[bpy.types.Menu | bpy.types.Panel | bpy.types.AssetShelf] | Key
+    target: type[_bpy_types.Menu | _bpy_types.Panel | _bpy_types.AssetShelf] | Key
     match popup:
         case MenuPopup(menu=menu, pie=pie):
             target, form, operator, values = menu, Name.MENU, bpy.ops.wm.call_menu_pie if pie else bpy.ops.wm.call_menu, {}
@@ -99,7 +100,7 @@ def resolved(popup: CalledPopup, identity: Identity) -> BlenderResult[tuple[Oper
             target, form, operator, values = panel, Name.PANEL, bpy.ops.wm.call_panel, {"keep_open": keep_open, "auto_keymap": auto_keymap}
         case ShelfPopup(shelf=shelf):
             target, form, operator, values = shelf, Name.SHELF, bpy.ops.wm.call_asset_shelf_popover, {}
-    named = identity.name(form, target) if isinstance(target, str) else Ok(target.bl_rna.identifier)  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+    named = identity.name(form, target) if isinstance(target, str) else Ok(target.bl_rna.identifier)
     return named.map(lambda identifier: (operator, {"name": identifier} | values))
 
 

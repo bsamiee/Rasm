@@ -36,6 +36,11 @@ class _Project(msgspec.Struct, frozen=True):
 class _Uv(msgspec.Struct, frozen=True, rename="kebab"):
     constraint_dependencies: tuple[str, ...]
 
+    @property
+    def bundled(self) -> tuple[str, ...]:
+        """Options omitting distributions Blender bundles from an emitted requirements file."""
+        return tuple(option for entry in self.constraint_dependencies for option in ("--no-emit-package", Requirement(entry).name))
+
 
 class _Tool(msgspec.Struct, frozen=True):
     uv: _Uv
@@ -62,23 +67,24 @@ def _interpreter(blender: Path) -> Result[_Interpreter, subprocess.CalledProcess
     )
 
 
-def _requirements(root: _Root, lock: Path, *exported: str) -> Result[Path, subprocess.CalledProcessError]:
-    """Returns `lock` holding locked runtime closure without packages Blender bundles."""
-    excluded = (*("--no-emit-package", Requirement(entry).name) for entry in root.tool.uv.constraint_dependencies)
-    return _ran(
-        "uv", "export", "--locked", "--no-default-groups", "--no-editable", "--no-hashes", "--format", "requirements.txt", *exported, *excluded, "--output-file", lock, stdout=subprocess.DEVNULL
-    ).map(lambda _: lock)
+def _exported(lock: Path, *options: str) -> Result[Path, subprocess.CalledProcessError]:
+    """Returns `lock` holding locked runtime closure of root project dependencies."""
+    return _ran("uv", "export", "--locked", "--no-default-groups", "--no-emit-project", "--no-hashes", "--format", "requirements.txt", *options, "--output-file", lock, stdout=subprocess.DEVNULL).map(
+        lambda _: lock
+    )
 
 
 def pack(
-    source: ResolvedExistingDirectory, directory: ResolvedPath, /, *, version: str, blender: Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")]
+    source: ResolvedExistingDirectory, directory: ResolvedPath, /, *, version: str, maintainer: str, website: str, blender: Annotated[ResolvedExistingFile, Parameter(env_var="BLENDER_PATH")]
 ) -> Result[int, OSError | subprocess.CalledProcessError | ExceptionGroup[subprocess.CalledProcessError]]:
-    """Builds host platform extension archive, first-party packages as submodules and other distributions as wheels.
+    """Builds host platform extension archive, first-party packages as submodules and the locked closure of extension dependency rows as wheels.
 
     Args:
-        source: Extension directory with manifest and assets.
+        source: Extension directory with manifest, dependency rows, and assets.
         directory: Folder built archive replaces.
         version: Semantic version written to manifest.
+        maintainer: Maintainer written to manifest.
+        website: Website written to manifest.
         blender: Blender executable.
 
     Returns:
@@ -109,24 +115,26 @@ def pack(
                 newline="",
             )
         document = tomlkit.parse((manifest := stage / "blender_manifest.toml").read_text())
-        document["version"] = version
-        document["platforms"] = [interpreter.platform]
-        document["wheels"] = tomlkit.item([f"./wheels/{wheel.name}" for wheel in sorted(wheels.glob("*.whl"))]).multiline(multiline=True)
+        document.update(
+            version=version,
+            maintainer=maintainer,
+            website=website,
+            platforms=[interpreter.platform],
+            wheels=tomlkit.item([f"./wheels/{wheel.name}" for wheel in sorted(wheels.glob("*.whl"))]).multiline(multiline=True),
+        )
         manifest.write_text(tomlkit.dumps(document))
 
     with tempfile.TemporaryDirectory() as folder:
         stage = Path(folder, "stage")
         previews = stage / icons.name
-        shutil.copytree(
-            source, stage, ignore=lambda parent, names: [name for name in names if Path(parent, name) == source / "pyproject.toml" or (Path(parent).is_relative_to(icons) and name.endswith(".svg"))]
-        )
+        shutil.copytree(source, stage, ignore=shutil.ignore_patterns("pyproject.toml", "*.svg"))
         for master in (icons / "tools").glob("*.svg"):
             (previews / master.relative_to(icons)).with_suffix(".dat").write_bytes(encoded(master))
         failures = [*_ran("resvg", "--width", "256", "--height", "256", master, previews / f"{master.stem}.png").swap().to_option().to_list() for master in icons.glob("*.svg")]
         rendered: Result[None, OSError | subprocess.CalledProcessError | ExceptionGroup[subprocess.CalledProcessError]] = (
             Error(ExceptionGroup("Icon previews failed to render", failures)) if failures else Ok(None)
         )
-        lock = Path(folder, "requirements.txt")
+        pins, lock = Path(folder, "pins.txt"), Path(folder, "requirements.txt")
         built = Path(folder, "archives")
         built.mkdir()
 
@@ -141,12 +149,30 @@ def pack(
 
         return (
             rendered
-            .bind(lambda _: _requirements(root, lock))
+            .bind(lambda _: _exported(pins))
             .bind(lambda _: _interpreter(blender))
             .bind(
-                lambda interpreter: _ran("pip", "--python", interpreter.executable, "--disable-pip-version-check", "wheel", "--wheel-dir", stage / "wheels", "--no-deps", "--requirement", lock).map(
-                    lambda _: staged(stage, interpreter)
-                )
+                lambda interpreter: _ran(
+                    "uv",
+                    "pip",
+                    "compile",
+                    source / "pyproject.toml",
+                    "--constraints",
+                    pins,
+                    "--python",
+                    interpreter.executable,
+                    "--no-header",
+                    "--no-annotate",
+                    *root.tool.uv.bundled,
+                    "--output-file",
+                    lock,
+                    stdout=subprocess.DEVNULL,
+                ).map(lambda _: interpreter)
+            )
+            .bind(
+                lambda interpreter: _ran(
+                    "pip", "--python", interpreter.executable, "--disable-pip-version-check", "wheel", "--wheel-dir", stage / "wheels", "--no-deps", "--requirement", lock, "."
+                ).map(lambda _: staged(stage, interpreter))
             )
             .bind(lambda _: _ran(blender, "--factory-startup", "--command", "extension", "build", "--source-dir", stage, "--output-dir", built, "--split-platforms"))
             .bind(lambda _: placed())
@@ -167,7 +193,7 @@ def site(target: ResolvedPath, /, *, blender: Annotated[ResolvedExistingFile, Pa
     root = msgspec.toml.decode(Path("pyproject.toml").read_bytes(), type=_Root)
     with tempfile.TemporaryDirectory() as folder:
         return (
-            _requirements(root, Path(folder, "requirements.txt"), "--no-emit-project")
+            _exported(Path(folder, "requirements.txt"), *root.tool.uv.bundled)
             .bind(lambda lock: _interpreter(blender).bind(lambda interpreter: _ran("uv", "pip", "sync", "--python", interpreter.executable, "--target", target, lock)))
             .map(lambda _: 0)
         )

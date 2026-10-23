@@ -1,17 +1,13 @@
 using System.Buffers;
 using Rasm.Imaging.Files;
 using Rasm.Rhino.Document.Files;
-using Rasm.Rhino.Events;
-using Rasm.Rhino.Persistence;
 using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.PlugIns;
 using Rasm.Rhino.Render.Effects;
 using Rasm.Rhino.Render.Sessions;
 using Rasm.Rhino.Render.Settings;
 using Rasm.Rhino.UI;
 using Rasm.Rhino.UI.Inputs;
 using Rasm.Rhino.UI.Rows;
-using Rhino;
 using Rhino.UI;
 
 namespace Rasm.Rhino.Render.Presets;
@@ -162,70 +158,72 @@ public sealed class PresetBinding {
                 .Map(static held => (MenuPick)new MenuPick.Item(RowText.Localize("Delete {0}", arguments: [(string)held.Name]).Local, Marked: false, Delete(held)))
                 .ToSeq());
 
-    public static ControlRow Browser(Func<RowScope, IO<PresetBinding>> bindings) =>
-        ListRows.Browser("Presets", "Stock looks and saved presets", new BrowserRow<Preset, PresetName>(
-                Key: static preset => preset.Name,
-                Label: static (scope, preset) => preset.Caption(scope.Sink),
-                Tile: static (scope, view, preset, box, retain) =>
-                    from tiles in PreviewTiles.Current.Of(scope.Sink)
-                    from request in Requested(scope, preset).OnUiThread()
-                    from thumbnail in tiles.Thumbnail(view, request, box, retain)
-                    select thumbnail,
-                Items: scope => new ValueStore<Seq<Preset>>(
-                    bindings(scope).Bind(static binding => binding.Shelf).Map(static shelf => Some(shelf.Listed)),
-                    items => items.Match(Some: held => bindings(scope).Bind(binding => binding.Renamed(held)), None: static () => IO.pure(Change<Seq<Preset>>.None)),
-                    EqualityComparer<Seq<Preset>>.Default.Equals,
-                    Applied.Live,
-                    None),
-                Current: scope => bindings(scope).Bind(static binding => binding.Current).Map(static held => held.Map(static preset => preset.Name)),
-                Choose: (scope, name) => bindings(scope).Bind(binding => binding.Picked(name)),
-                Mode: BrowserMode.Grid,
-                Extent: new ReadoutSource<Eto.Drawing.Size>.Model(Framing.Extent),
-                Empty: "No presets") {
-            Numbered = true,
-            Search = Some(new ListSearch<Preset>("Search presets", static (scope, preset) => preset.Caption(scope.Sink), None)),
-            Rename = Some<Func<Preset, string, Fin<Preset>>>(static (preset, text) =>
-                preset.File.ToFin(new NotFound("preset", preset.Name))
-                    .Bind(_ => PresetName.Validated(text)).Map(name => preset with { Name = name })),
-            File = Some<Func<Preset, Option<string>>>(static preset => preset.File.Map(static file => file.FullName)),
-            Preview = Some<Func<RowScope, Preset, Action<IDisposable>, IO<Unit>>>(static (scope, hovered, retain) =>
-                from comparison in RenderingComparison.Current.Of(scope.Sink)
-                from request in Requested(scope, hovered)
-                from previewed in comparison.Previewed(request, retain)
-                select previewed),
-            Reloads = Seq(RenderHistory.Changed, EventKind.DocumentPropertiesChanged.Choose(static _ => Some(unit))),
-            Commands = selection => [
-                Run("preset-save", "Save Preset...", "Save section values as preset",
-                    scope => from binding in bindings(scope) from current in binding.Current from saved in binding.Saved(current) select saved),
-                Run("preset-replace", "Replace Preset", "Write section values over selected presets",
-                    scope => from binding in bindings(scope) from chosen in selection from replaced in Callbacks.Each(chosen.Map(binding.Replaced)) select unit),
-                Run("preset-import", "Import Presets...", "Copy preset files into section presets",
-                    scope => bindings(scope).Bind(static binding => binding.Imported)),
-                Run("preset-export", "Export Presets...", "Write each selected preset to file",
-                    _ => from chosen in selection from exported in chosen.TraverseM(Exported).As() select unit),
-                Run("preset-delete", "Delete Presets", "Delete selected user presets",
-                    _ => from chosen in selection from deleted in Callbacks.Each(chosen.Map(Delete)) select unit),
-                Run("preset-previous", "Previous Preset", "Apply preset listed before current",
-                    scope => bindings(scope).Bind(static binding => binding.Stepped(forward: false)).Map(unit)),
-                Run("preset-next", "Next Preset", "Apply preset listed after current",
-                    scope => bindings(scope).Bind(static binding => binding.Stepped(forward: true)).Map(unit)),
-            ],
-            Wording = Wording.Library,
-        },
-            RowRules.Always);
+    public static ControlRow Browser(EffectSource source, string owner, Seq<Preset> stock) =>
+        fun((RowScope scope) => EffectRegistry.Bindings(source, scope.Sink).Map(group => new PresetBinding(scope, group, owner, stock))) switch {
+            var bindings => ListRows.Browser("Presets", "Stock looks and saved presets", new BrowserRow<Preset, PresetName>(
+                    Key: static preset => preset.Name,
+                    Label: static (scope, preset) => preset.Caption(scope.Sink),
+                    Tile: (scope, view, preset, box, retain) =>
+                        from tiles in PreviewTiles.Current.Of(scope.Sink)
+                        from binding in bindings(scope)
+                        from request in binding.Requested(source, preset).OnUiThread()
+                        from thumbnail in tiles.Thumbnail(view, request, box, retain)
+                        select thumbnail,
+                    Items: scope => new ValueStore<Seq<Preset>>(
+                        bindings(scope).Bind(static binding => binding.Shelf).Map(static shelf => Some(shelf.Listed)),
+                        items => items.Match(Some: held => bindings(scope).Bind(binding => binding.Renamed(held)), None: static () => IO.pure(Change<Seq<Preset>>.None)),
+                        EqualityComparer<Seq<Preset>>.Default.Equals,
+                        Applied.Live,
+                        None),
+                    Current: scope => bindings(scope).Bind(static binding => binding.Current).Map(static held => held.Map(static preset => preset.Name)),
+                    Choose: (scope, name) => bindings(scope).Bind(binding => binding.Picked(name)),
+                    Mode: BrowserMode.Grid,
+                    Extent: new ReadoutSource<Eto.Drawing.Size>.Model(Framing.Extent),
+                    Empty: "No presets") {
+                Numbered = true,
+                Search = Some(new ListSearch<Preset>("Search presets", static (scope, preset) => preset.Caption(scope.Sink), None)),
+                Rename = Some<Func<Preset, string, Fin<Preset>>>(static (preset, text) =>
+                    preset.File.ToFin(new NotFound("preset", preset.Name))
+                        .Bind(_ => PresetName.Validated(text)).Map(name => preset with { Name = name })),
+                File = Some<Func<Preset, Option<string>>>(static preset => preset.File.Map(static file => file.FullName)),
+                Preview = Some<Func<RowScope, Preset, Action<IDisposable>, IO<Unit>>>((scope, hovered, retain) =>
+                    from comparison in RenderingComparison.Current.Of(scope.Sink)
+                    from binding in bindings(scope)
+                    from request in binding.Requested(source, hovered)
+                    from previewed in comparison.Previewed(request, retain)
+                    select previewed),
+                Reloads = Seq(RenderHistory.Changed, source.Changed),
+                Commands = selection => [
+                    Run("preset-save", "Save Preset...", "Save section values as preset",
+                        scope => from binding in bindings(scope) from current in binding.Current from saved in binding.Saved(current) select saved),
+                    Run("preset-replace", "Replace Preset", "Write section values over selected presets",
+                        scope => from binding in bindings(scope) from chosen in selection from replaced in Callbacks.Each(chosen.Map(binding.Replaced)) select unit),
+                    Run("preset-import", "Import Presets...", "Copy preset files into section presets",
+                        scope => bindings(scope).Bind(static binding => binding.Imported)),
+                    Run("preset-export", "Export Presets...", "Write each selected preset to file",
+                        _ => from chosen in selection from exported in chosen.TraverseM(Exported).As() select unit),
+                    Run("preset-delete", "Delete Presets", "Delete selected user presets",
+                        _ => from chosen in selection from deleted in Callbacks.Each(chosen.Map(Delete)) select unit),
+                    Run("preset-previous", "Previous Preset", "Apply preset listed before current",
+                        scope => bindings(scope).Bind(static binding => binding.Stepped(forward: false)).Map(unit)),
+                    Run("preset-next", "Next Preset", "Apply preset listed after current",
+                        scope => bindings(scope).Bind(static binding => binding.Stepped(forward: true)).Map(unit)),
+                ],
+                Wording = Wording.Library,
+            },
+                RowRules.Always),
+        };
 
     private static CommandRow.Run Run(string name, string caption, string help, Func<RowScope, IO<Unit>> execute) =>
         new(new CommandFace(name, caption, help, None, None) { Wording = Wording.Library }, None, execute);
 
-    private static IO<TileRequest> Requested(RowScope scope, Preset preset) =>
-        from doc in scope.DocumentIO
+    private IO<TileRequest> Requested(EffectSource source, Preset preset) =>
         from history in RenderHistory.Current.Of(scope.Sink)
         from renderings in history.Renderings
         from newest in IO.lift(renderings.Head.ToFin(new Refused(nameof(RenderHistory.Renderings), Refused.Absent)))
-        from grading in history.Grading(doc)
-        from current in grading.Capture
+        from current in bound.Capture
         from locks in scope.Locked
-        from entries in RenderSettingsSources.Read(doc, static held => EffectRegistry.Read(held.Settings))
+        from entries in EffectRegistry.Read(source)
         from kinds in EffectRegistry.Kinds.Of(scope.Sink)
         from request in IO.lift(TileRequest.Applied(newest, preset, current, locks, EffectPipeline.Ordered(entries, kinds)))
         select request;
@@ -275,36 +273,4 @@ public sealed class PresetBinding {
         from renamed in Callbacks.Each(edits)
         let next = shelf with { User = renamed.Fold(shelf.User, static (users, edit) => users.Remove(edit.Before).AddOrUpdate(edit.After.Name, edit.After)) }
         select ValueStore.Between<Seq<Preset>>(shelf.Listed, next.Listed);
-}
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-public static class LockSets {
-    // --- [STORE]
-    public static IO<Ref<HashMap<Guid, LanguageExt.HashSet<EntryKey>>>> Registry(RhinoDoc doc) =>
-        IO.lift(() => doc.RuntimeData.GetValue(typeof(LockSets), static _ => Ref(HashMap<Guid, LanguageExt.HashSet<EntryKey>>())));
-
-    public static ValueStore<LanguageExt.HashSet<EntryKey>> Store(RhinoDoc doc, Guid section) =>
-        new(
-            Registry(doc).Bind(static registry => registry.ValueIO).Map(registry => registry.Find(section)),
-            locks =>
-                from writable in Frame.Writable(doc)
-                from registry in Registry(doc)
-                from changed in atomicIO(() => {
-                    HashMap<Guid, LanguageExt.HashSet<EntryKey>> before = registry.Value;
-                    registry.Value = locks.Match(Some: held => before.AddOrUpdate(section, held), None: () => before.Remove(section));
-                    return ValueStore.Between(before.Find(section), locks);
-                })
-                from modified in when(changed.HasChanged, IO.lift(() => { doc.Modified = true; })).As()
-                select changed,
-            EqualityComparer<LanguageExt.HashSet<EntryKey>>.Default.Equals,
-            Applied.Live,
-            None);
-
-    // --- [ARCHIVE]
-    public static DocumentFrame<HashMap<Guid, LanguageExt.HashSet<EntryKey>>> Frame { get; } = new(
-        0x4C4F_434Bu,
-        DictionaryCodec.Json<HashMap<Guid, LanguageExt.HashSet<EntryKey>>>(nameof(LockSets), 2),
-        HashMap<Guid, LanguageExt.HashSet<EntryKey>>(),
-        static (doc, _) => Registry(doc).Bind(static registry => registry.ValueIO),
-        static (doc, locks) => Registry(doc).Bind(registry => atomicIO(() => registry.Value = registry.Value.AddOrUpdateRange(locks.AsIterable()))).Map(unit));
 }

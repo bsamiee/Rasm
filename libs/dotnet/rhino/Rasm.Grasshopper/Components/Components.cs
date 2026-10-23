@@ -1,12 +1,10 @@
 using System.Collections.Concurrent;
-using System.Reflection;
 using Grasshopper2.Components;
 using Grasshopper2.Doc;
 using Grasshopper2.Parameters;
 using Grasshopper2.Parameters.Standard;
 using Grasshopper2.UI.Icon;
 using Grasshopper2.UI.InputPanel;
-using Grasshopper2.UI.Toolbar;
 using Grasshopper2.Undo;
 using Grasshopper2.Undo.Actions;
 using Rasm.Grasshopper.Doc;
@@ -16,7 +14,6 @@ using Rasm.Rhino;
 using Rasm.Rhino.Document.Units;
 using Rasm.Rhino.Events;
 using Rasm.Rhino.Persistence.Stores;
-using Rasm.Rhino.UI;
 using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
 using Rhino;
@@ -33,16 +30,13 @@ public interface IComponentDefinition<TSelf> where TSelf : ModularComponent {
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record ComponentRow<TSelf>(
     Nomen Face,
-    IGlyph Glyph,
-    int Master,
-    SpecialColour Accent,
+    Option<IGlyph> Glyph,
     Seq<ParameterRow> Inputs,
     Seq<ParameterRow> Outputs,
     Seq<Guid> SupportedPins,
     Func<TSelf, IDataAccess, IO<Unit>> Solve)
     where TSelf : ModularComponent {
     // --- [PRESENTATION]
-    public Option<HelpTopic> Help { get; init; }
     public Func<TSelf, Seq<ControlRow>> Panel { get; init; } = static _ => [];
     public Option<Func<TSelf, Fin<IAttributes>>> Attributes { get; init; }
 
@@ -51,10 +45,10 @@ public sealed record ComponentRow<TSelf>(
 
     // --- [DECLARE]
     public static ComponentRow<TSelf> Of<TRecord>(
-        Nomen face, IGlyph glyph, int master, SpecialColour accent, Seq<ParameterRow> inputs, Seq<ParameterField<TRecord>> fields, Seq<ParameterRow> outputs,
+        Nomen face, Option<IGlyph> glyph, Seq<ParameterRow> inputs, Seq<ParameterField<TRecord>> fields, Seq<ParameterRow> outputs,
         Seq<Guid> supportedPins, TRecord fallback, Func<TSelf, IDataAccess, TRecord, IO<Unit>> solve)
         where TRecord : notnull =>
-        new(face, glyph, master, accent, [.. inputs, .. fields.Map(static field => field.Input)], outputs, supportedPins,
+        new(face, glyph, [.. inputs, .. fields.Map(static field => field.Input)], outputs, supportedPins,
             (owner, access) => ParameterField.Read(fields, inputs.Count, access).Bind(set => solve(owner, access, set(fallback))));
 }
 
@@ -91,11 +85,11 @@ public abstract class DefinedComponent<TSelf> : ModularComponent, IPinCushion wh
         Ref(Option<(Action<IDisposable> Retain, IDisposable Lease)>.None);
 
     // --- [CONSTRUCTION]
-    protected DefinedComponent() : base(ComponentOps.Localized(TSelf.Row.Face, typeof(TSelf).Assembly)) => DocumentChanged += AttachmentChanged;
+    protected DefinedComponent() : base(ComponentOps.Localized(TSelf.Row.Face, GrasshopperPlugins.Owner(typeof(TSelf)))) => DocumentChanged += AttachmentChanged;
 
     protected DefinedComponent(GrasshopperIO.IReader reader) : base(reader) {
         DocumentChanged += AttachmentChanged;
-        CallbackSite site = DefinedGrasshopperPlugin.Site(this);
+        CallbackSite site = GrasshopperPlugins.Site(this);
         Callbacks.Run(Callbacks.Each(
             from placed in TSelf.Row.Inputs.Map((row, index) => (Row: row, Parameter: Parameters.Input(index))).Concat(TSelf.Row.Outputs.Map((row, index) => (Row: row, Parameter: Parameters.Output(index))))
             from attach in placed.Row.Attach
@@ -104,23 +98,21 @@ public abstract class DefinedComponent<TSelf> : ModularComponent, IPinCushion wh
 
     public IEnumerable<Guid> SupportedPins => TSelf.Row.SupportedPins;
 
-    protected override IIcon IconInternal {
-        get {
-            CallbackSite site = DefinedGrasshopperPlugin.Site(this);
-            return Callbacks.Answer(CanvasIcons.Accented(site.Sink, TSelf.Row.Glyph, TSelf.Row.Master, TSelf.Row.Accent), () => base.IconInternal, site);
-        }
-    }
+    protected override IIcon IconInternal =>
+        GrasshopperPlugins.Site(this) switch {
+            var site => Callbacks.Answer(TSelf.Row.Glyph.Map(glyph => CanvasIcons.Vector(site.Sink, glyph)), () => base.IconInternal, () => base.IconInternal, site),
+        };
 
     protected sealed override void AddInputs(ModularInputAdder inputs) =>
-        Added(TSelf.Row.Inputs, (row, sink) => row.Input(inputs, sink), DefinedGrasshopperPlugin.Site(this));
+        Added(TSelf.Row.Inputs, (row, sink) => row.Input(inputs, sink), GrasshopperPlugins.Site(this));
 
     protected sealed override void AddOutputs(ModularOutputAdder outputs) =>
-        Added(TSelf.Row.Outputs, (row, sink) => row.Output(outputs, sink), DefinedGrasshopperPlugin.Site(this));
+        Added(TSelf.Row.Outputs, (row, sink) => row.Output(outputs, sink), GrasshopperPlugins.Site(this));
 
     protected override IAttributes CreateAttributes() =>
         Callbacks.Answer(
             TSelf.Row.Attributes.Map(create => IO.lift(() => create((TSelf)this))),
-            () => base.CreateAttributes(), () => base.CreateAttributes(), DefinedGrasshopperPlugin.Site(this));
+            () => base.CreateAttributes(), () => base.CreateAttributes(), GrasshopperPlugins.Site(this));
 
     private static void Added(Seq<ParameterRow> rows, Func<ParameterRow, IPlugInSink, IO<IParameter>> add, CallbackSite site) =>
         Callbacks.Run(rows.TraverseM(row => add(row, site.Sink)).As(), site);
@@ -131,7 +123,7 @@ public abstract class DefinedComponent<TSelf> : ModularComponent, IPinCushion wh
             Detached,
             when(Document is not null, DisposalOps.Acquire(
                 retain => TSelf.Row.Attached.TraverseM(attached => attached((TSelf)this, retain)).As().Map(retain),
-                (retain, lease) => atomic(() => attachment.Value = Some((retain, lease)))).Map(static _ => unit)).As())), DefinedGrasshopperPlugin.Site(this));
+                (retain, lease) => atomic(() => attachment.Value = Some((retain, lease)))).Map(static _ => unit)).As())), GrasshopperPlugins.Site(this));
 
     private IO<Unit> Detached => atomicIO(() => {
         Option<(Action<IDisposable> Retain, IDisposable Lease)> held = attachment.Value;
@@ -151,7 +143,7 @@ public abstract class DefinedComponent<TSelf> : ModularComponent, IPinCushion wh
             Succ: static _ => Seq<Error>(),
             Fail: static error => toSeq(error.AsIterable()).Filter(static leaf => !leaf.Is(Errors.Cancelled)).Strict());
         _ = failed.Iter(leaf => access.AddMessage(ComponentOps.Rendered(Message.Error, leaf, [])));
-        _ = failed.Filter(static leaf => leaf.IsExceptional).Iter(leaf => DefinedGrasshopperPlugin.Site(this).Sink.Report(leaf, GetType(), nameof(Process)));
+        _ = failed.Filter(static leaf => leaf.IsExceptional).Iter(leaf => GrasshopperPlugins.Site(this).Sink.Report(leaf, GetType(), nameof(Process)));
     }
 
     public IO<Seq<A>> Matched<A>(SolutionMode mode, Func<IDataAccess, IO<A>> read) =>
@@ -181,17 +173,12 @@ public abstract class DefinedComponent<TSelf> : ModularComponent, IPinCushion wh
     // --- [PANEL]
     public override void AppendToInputPanel(InputPanel panel) {
         base.AppendToInputPanel(panel);
-        CallbackSite site = DefinedGrasshopperPlugin.Site(this);
+        CallbackSite site = GrasshopperPlugins.Site(this);
         Callbacks.Run(Appended(panel, site), site);
     }
 
     private IO<Unit> Appended(InputPanel panel, CallbackSite site) =>
-        IO.lift(() => TSelf.Row.Help.Iter(topic =>
-            panel.AddBar(drawCategoryLabels: false).AddPushButton(
-                icon: null,
-                new Nomen(RowText.Localize("Help"), RowText.Localize("Opens component help")),
-                () => Callbacks.Started(topic.Show, site)).Style = IconTextStyle.Text))
-        .Bind(_ => IO.lift(() => TSelf.Row.Panel((TSelf)this))).Bind(rows => unless(rows.IsEmpty,
+        IO.lift(() => TSelf.Row.Panel((TSelf)this)).Bind(rows => unless(rows.IsEmpty,
               from document in IO.lift(static () => Refused.UnlessFound(RhinoDoc.ActiveDoc, nameof(RhinoDoc.ActiveDoc)))
               from scope in RowScope.Open(site.Sink, Some(document), new CommitMode.Immediate())
               from held in IO.lift(static () => AtomSeq<IDisposable>())
@@ -210,12 +197,9 @@ public abstract class DefinedComponent<TSelf> : ModularComponent, IPinCushion wh
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ComponentOps {
     // --- [METADATA]
-    public static Nomen Localized(Nomen face, Assembly assembly) =>
-        face.WithChapter(string.IsNullOrEmpty(face.Chapter)
-                ? Optional(assembly.GetCustomAttribute<AssemblyTitleAttribute>()).Map(static title => title.Title)
-                    .Filter(static title => !string.IsNullOrWhiteSpace(title)).IfNone(() => Path.GetFileNameWithoutExtension(assembly.Location))
-                : face.Chapter)
-            .WithName(RowText.Localize(face.Name, assembly)).WithInfo(RowText.Localize(face.Info, assembly));
+    public static Nomen Localized(Nomen face, IGrasshopperPlugin plugin) =>
+        face.WithChapter(string.IsNullOrEmpty(face.Chapter) ? plugin.Plugin.Name : face.Chapter)
+            .WithName(RowText.Localize(face.Name, plugin)).WithInfo(RowText.Localize(face.Info, plugin));
 
     // --- [COMPLETED_INPUTS]
     public static IO<Option<A>> Completed<A>(ModularComponent component, Func<ObjectSolutionState, Option<A>> read) =>

@@ -18,7 +18,7 @@ from blender.bpy.data.rna import conditions
 from blender.bpy.data.rna.descriptors import Descriptor, IdName, rooted
 from blender.bpy.data.rna.snapshots import Applied, Scenes, Snapshot, ViewLayers
 from blender.bpy.extension.identity import Identity
-from blender.bpy.extension.registration import Acquisitions
+from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderRenderingFault, BlenderResult
 from blender.bpy.render.color.spaces import config_of
 from blender.bpy.render.view_layers.collections import applied, CollectionState, Extent, Flag, flags, isolates
@@ -47,8 +47,8 @@ class Role(Choice):
 class Direction(Choice):
     """Direction active layer moves in list."""
 
-    UP = 1, "Up"
-    DOWN = 2, "Down"
+    UP = 1, "Up", "Move active view layer up the list"
+    DOWN = 2, "Down", "Move active view layer down the list"
 
 
 class Swatch(Choice):
@@ -142,6 +142,7 @@ class LayerOverride(Line, frozen=True, kw_only=True):
     """Row of layer list with move buttons and layer commands."""
 
     layer: ClassVar[Attachment[Layer]] = Attachment(key="layer", form=Layer, owner=bpy.types.ViewLayer)
+    prerequisites: ClassVar[tuple[Registrable, ...]] = (layer,)
 
     def commands(self, identity: Identity) -> BlenderResult[LayerCommands]:
         """Builds layer list commands over descriptors resolved once."""
@@ -275,11 +276,6 @@ class LayerOverride(Line, frozen=True, kw_only=True):
 
         return paired(members, bound).map(built)
 
-    @property
-    def page_rows(self) -> tuple[Attachment[Layer]]:
-        """Layer attachment preferences page stores."""
-        return (self.layer,)
-
     def listed(self, commands: LayerCommands) -> ItemList[Layer, bpy.types.ViewLayer]:
         """Returns layer list with use column and move buttons."""
         return ItemList(
@@ -289,7 +285,10 @@ class LayerOverride(Line, frozen=True, kw_only=True):
             active=Member(root=bpy.types.Window, path="view_layer"),
             attachment=Some(self.layer),
             columns=(Property(target=Member(root=bpy.types.ViewLayer, path="use"), text=Some("")),),
-            side=tuple(OperatorButton(target=Own(command=commands.move, values=Moving(direction=direction)), text=Some("")) for direction in Direction),
+            side=tuple(
+                OperatorButton(target=Own(command=commands.move, values=Moving(direction=direction)), text=Some(""), icon=Some("TRIA_UP" if direction is Direction.UP else "TRIA_DOWN"))
+                for direction in Direction
+            ),
         )
 
     def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
@@ -302,7 +301,7 @@ class LayerOverride(Line, frozen=True, kw_only=True):
         )
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Returns layer list and commands, attachment left to preferences page."""
+        """Returns layer list and commands."""
         return self.commands(identity).map(lambda commands: (self.listed(commands), commands.move, *commands.actions))
 
     def section(self) -> Single[Empty]:

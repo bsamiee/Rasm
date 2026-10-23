@@ -26,6 +26,7 @@ public static class Provider {
     public static readonly Provider<RenderContentCollection> ContentSelectionForSetParams = new(ProviderIds.ContentSelectionForSetParams);
     public static readonly Provider<RdkSelectionNavigator> SelectionNavigator = new(ProviderIds.SelectionNavigator);
     public static readonly Provider<RdkEdit> RdkEdit = new(ProviderIds.RdkEdit);
+    public static readonly Provider<IDisposable> RdkRenderingPostEffects = new(ProviderIds.RdkRenderingPostEffects);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

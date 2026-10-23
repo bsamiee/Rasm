@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using Rasm.Imaging.Files;
 using Rasm.Imaging.Grade;
 using Rasm.Imaging.Grade.Curves;
@@ -57,22 +58,26 @@ public sealed class DefinedEffectSection<TEffect> : EtoPostEffectCollapsibleSect
     private static readonly Guid Effect = typeof(TEffect).GUID;
 
     private readonly PostEffectType stage;
+    private readonly Guid id;
     private readonly SectionLifetime lifetime;
 
-    public DefinedEffectSection(PostEffect effect, Func<EtoPostEffectCollapsibleSection, Action<IDisposable>, IO<View.Section>> row) {
+    public DefinedEffectSection(PostEffect effect, Func<EtoPostEffectCollapsibleSection, View.Section> build, Option<Atom<StageFrame>> watched) {
         IPlugInViews views = IPlugInViews.Of(effect);
-        (stage, Caption) = (effect.PostEffectType, RowText.Localize(effect.LocalName, views));
+        View.Section row = build(this);
+        (stage, id, Caption) = (effect.PostEffectType, row.Identity.GUID, RowText.Localize(row.Caption, views));
         lifetime = new SectionLifetime(this, views, Some(ProviderIds.RdkRenderingPostEffects), () => Excluded, visible: true, retain =>
-            from section in row(this, retain)
-            from document in IO.lift(static () => Refused.UnlessFound(RhinoDoc.ActiveDoc, nameof(RhinoDoc.ActiveDoc)))
+            from watching in watched.Traverse(input => StageFrame.Watch(input, retain)).As()
+            from document in IO.lift(() => (Optional(ViewModel?.GetData(ProviderIds.RdkRendering, bForWrite: false, bAutoChangeBracket: false))
+                    .Bind(static rendering => Optional(RhinoDoc.FromRuntimeSerialNumber(SectionRows.RhinoDocumentId(rendering)))) | Optional(RhinoDoc.ActiveDoc))
+                .ToFin(new Refused(nameof(RhinoDoc.ActiveDoc), Refused.Absent)))
             from scope in RowScope.Open(views, Some(document), new CommitMode.Immediate())
-            from held in ViewBody.Realize(views, section, scope, retain)
+            from held in ViewBody.Realize(views, row, scope, retain)
             select held);
     }
 
     public override Guid PostEffectId => Effect;
-    public override string SettingsTag => Effect.ToString("D", CultureInfo.InvariantCulture);
-    Guid ICollapsibleSection.Id => Effect;
+    public override string SettingsTag => id.ToString("D", CultureInfo.InvariantCulture);
+    Guid ICollapsibleSection.Id => id;
     public override LocalizeStringPair Caption { get; }
     public override int SectionHeight => lifetime.Height;
     public override bool Hidden => Excluded || lifetime.Hidden;
@@ -92,32 +97,37 @@ public sealed class DefinedEffectSection<TEffect> : EtoPostEffectCollapsibleSect
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class SectionRows {
+    // --- [HOSTS]
+    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "RhinoDocumentId")]
+    internal static extern uint RhinoDocumentId([UnsafeAccessorType("Rhino.Render.Rendering, RhinoCommon")] object rendering);
+
     // --- [EFFECTS]
-    public static Func<EtoPostEffectCollapsibleSection, Action<IDisposable>, IO<View.Section>> Stage<TState, TParameter>(
+    public static Func<EtoPostEffectCollapsibleSection, View.Section> Stage<TState, TParameter>(
         PostEffect effect, EffectState<TState> state, Seq<(string Name, EffectLook<TState, TParameter> Look)> looks, Atom<StageFrame> input)
         where TState : IPixelStage<TState>
         where TParameter : class, IStateParameter<TState> =>
-        (section, retain) => Row(effect, state, looks, section, source =>
-            Demanded(input, retain).Map(read => Seq(PreviewRows.Contextual(source, effect.LocalName, "Parameters over stage input", read,
+        section => Row(effect, state, looks, section, source =>
+            Seq(PreviewRows.Contextual(source, effect.LocalName, "Parameters over stage input",
+                IO.lift(() => input.Value.Input.Map(static held => new StageInput(IO.pure(Some(held.Frame)), held.Context, None))),
                 [Subscriptions.Host<AtomChangedEvent<StageFrame>, StageFrame>(typeof(Atom<StageFrame>), handler => input.Change += handler, handler => input.Change -= handler,
                     static handler => frame => handler(sender: null, frame), nameof(input.Change)).Choose(static _ => Some(unit))],
-                stage => Blocks(source, stage), RowRules.Always)) + Amount(state, section)));
+                stage => Blocks(source, stage), RowRules.Always)) + Amount(state, section));
 
-    public static Func<EtoPostEffectCollapsibleSection, Action<IDisposable>, IO<View.Section>> Job<TState, TParameter>(
+    public static Func<EtoPostEffectCollapsibleSection, View.Section> Job<TState, TParameter>(
         PostEffect effect, EffectState<TState> state, Seq<(string Name, EffectLook<TState, TParameter> Look)> looks, Atom<WorkState> work)
         where TState : IStateRecord<TState>
         where TParameter : class, IStateParameter<TState> =>
-        (section, _) => Row(effect, state, looks, section, source =>
-            IO.pure(Of(source, source.Fields, None, static _ => RowRules.Always)
-                .Add(TextRows.Progress("Progress", "Last effect run", new ReadoutSource<WorkState>.Cell(work), RowRules.Always))));
+        section => Row(effect, state, looks, section, source =>
+            Of(source, source.Fields, None, static _ => RowRules.Always)
+                .Add(TextRows.Progress("Progress", "Last effect run", new ReadoutSource<WorkState>.Cell(work), RowRules.Always)));
 
-    private static IO<View.Section> Row<TState, TParameter>(
+    private static View.Section Row<TState, TParameter>(
         PostEffect effect, EffectState<TState> state, Seq<(string Name, EffectLook<TState, TParameter> Look)> looks,
-        EtoPostEffectCollapsibleSection section, Func<RowSource<TState>, IO<Seq<ControlRow>>> rows)
+        EtoPostEffectCollapsibleSection section, Func<RowSource<TState>, Seq<ControlRow>> rows)
         where TState : IStateRecord<TState>
         where TParameter : class, IStateParameter<TState> =>
         RowSource.Fields(state.Owner, TState.Parameters, _ => IO.pure(Seq(Store(state, section))), Some(state.Default.Record)) switch {
-            var source => rows(source).Map(children => new View.Section {
+            var source => new View.Section {
                 Identity = effect.GetType(),
                 Caption = effect.LocalName,
                 Store = Some<ViewStore>(new ViewStore.ApplicationStores()),
@@ -125,18 +135,41 @@ public static class SectionRows {
                     Presets(source, looks,
                         scope => new BindingGroup(Seq(source.Values(scope)) + state.Default.Amount.ToSeq().Map(factory =>
                             ValueBinding.Key(state.Owner, EffectStates.AmountKey(factory), Mixed(state, section, factory))))),
-                    .. children,
+                    .. rows(source),
                 ],
-            }),
+            },
         };
 
     private static Seq<ControlRow> Amount<TState>(EffectState<TState> state, EtoPostEffectCollapsibleSection section)
         where TState : IStateRecord<TState> =>
         state.Default.Amount.ToSeq().Bind(factory => Accepted(Library(RowSource.Keyed(state.Owner, EffectStates.AmountKey(factory), _ => Mixed(state, section, factory))), RowRules.Always));
 
-    private static IO<IO<Option<StageInput>>> Demanded(Atom<StageFrame> input, Action<IDisposable> retain) =>
-        StageFrame.Watch(input, retain).Map(static read => read.Map(static pair => pair.Map(static held =>
-            new StageInput(IO.pure(Some(held.Frame)), held.Context, None))));
+    // --- [SCOPES]
+    public static IO<Option<ScopeFrames>> Scoped<TState>(PostEffectType stage, EffectState<TState> state, Atom<StageFrame> input) where TState : IPixelStage<TState> =>
+        Atom(Option<(PixelFrame Input, EffectValue<TState> Value, ScopeFrames Frames)>.None) switch {
+            var formed => IO.lift(() => input.Value.Input.Map(held => (held.Frame, held.Context, state.Value))).Bind(current => current.Traverse(now =>
+                formed.Value.Filter(prior => ReferenceEquals(prior.Input, now.Frame) && prior.Value == now.Value).Match(
+                    Some: static prior => IO.pure(prior.Frames),
+                    None: () =>
+                        from frames in Formed(stage, now.Frame, now.Context, now.Value)
+                        from kept in formed.SwapIO(_ => Some((now.Frame, now.Value, frames)))
+                        select frames)).As()),
+        };
+
+    private static IO<ScopeFrames> Formed<TState>(PostEffectType stage, PixelFrame input, PassContext context, EffectValue<TState> value) where TState : IPixelStage<TState> =>
+        EffectPipeline.Staged(value, context) switch {
+            var pass =>
+                from formed in IO.lift(() => pass.IsSome ? input.Copy() : input)
+                from ran in pass.Traverse(staged => IO.lift(() => staged.Run(formed, new Progress<int>()))).As()
+                let displayed = stage is not PostEffectType.Early
+                select new ScopeFrames(
+                    formed,
+                    displayed ? context.Display.Encoding.Gamut : context.Working,
+                    stage is PostEffectType.ToneMapping ? context.Display.Encoding.Transfer : context.Signal,
+                    context.Depth.Levels.Filter(_ => displayed).Map(static levels => (float)levels.MaxCode),
+                    context.Depth.Levels.Filter(_ => displayed).Map(static levels => levels.Clipping),
+                    Some((input, context.Working))),
+        };
 
     // --- [LOOKS]
     public static ControlRow.Readout Presets<TState, TParameter>(
@@ -147,7 +180,7 @@ public static class SectionRows {
             from menu in ChoiceRows.Menu([], [], Some(new PresetBinding(
                     scope, bindings(scope), source.Owner, looks.Map(look => new Preset(PresetName.Create(look.Name), look.Look.Capture(source.Owner))))
                 .Listing()), scope.Sink, retain)
-            from button in ButtonRows.Menu(menu, (GlyphRole.Presets, IconSlot.PanelButton.Master), IconSlot.PanelButton, RowText.Localize("Presets").Local, scope.Sink, retain)
+            from button in ButtonRows.Menu(menu, GlyphRole.Presets, IconSlot.PanelButton, RowText.Localize("Presets").Local, scope.Sink, retain)
             select new RowCells(button, None, None, None, [], [], new RowHelp(None, None), IO.pure(unit), None, None),
             "Presets", "Stock looks and saved presets", RowRules.Always) { Wording = Wording.Library };
 
@@ -174,7 +207,7 @@ public static class SectionRows {
         (key, text) => Try.lift(() => section.SetParameter(key, text)).Run()
             .Bind(static accepted => Refused.Unless(accepted, nameof(EtoPostEffectCollapsibleSection.SetParameter)));
 
-    private static HostEvent<Unit> Changed(EtoPostEffectCollapsibleSection section) =>
+    internal static HostEvent<Unit> Changed(EtoPostEffectCollapsibleSection section) =>
         ValueStore.Signal(
             Subscriptions.Host<NativeDataSourceEventArgs>(
                 typeof(EtoCollapsibleSection), handler => section.DataChanged += handler, handler => section.DataChanged -= handler, nameof(EtoCollapsibleSection.DataChanged)),

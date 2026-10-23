@@ -66,7 +66,7 @@ class CollectionStates(Line, frozen=True, kw_only=True):
     def commands(states: dict[Flag, Descriptor[bpy.types.BoolProperty]]) -> tuple[Operator[CollectionState], Operator[Empty], Operator[Empty], Operator[Empty]]:
         """Returns restriction command, then clipboard commands."""
 
-        def seeded(record: CollectionState, event: bpy.types.Event) -> CollectionState:
+        def seeded(record: CollectionState, event: bpy.types.Event, _identity: Identity) -> CollectionState:
             return msgspec.structs.replace(record, extent=Extent.ISOLATE if event.ctrl else Extent.CHILDREN if event.shift else Extent.ONE)
 
         def pasting(owners: Callable[[bpy.types.Context], BlenderResult[tuple[bpy.types.LayerCollection, ...]]]) -> Callable[[Call[Empty]], BlenderResult[Outcome]]:

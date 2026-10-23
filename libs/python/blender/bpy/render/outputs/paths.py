@@ -23,7 +23,7 @@ from blender.bpy.data.rna.descriptors import Descriptor, Value, written
 from blender.bpy.extension.events.handlers import PathHandler
 from blender.bpy.extension.events.subscriptions import Subscription
 from blender.bpy.extension.identity import Identity, Key, Name
-from blender.bpy.extension.registration import Acquisitions
+from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.extension.reports import rendered
 from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaults, BlenderRenderingFault, BlenderResult, BlenderUnmetFault, BlenderWriteFault
 from blender.bpy.files.blends import BlendFile
@@ -428,10 +428,7 @@ def opened(call: Call[Empty]) -> BlenderResult[Done]:
 class ScenePaths(msgspec.Struct, frozen=True, kw_only=True):
     """Scene grammar attachment with replace, version, take, and folder actions."""
 
-    replace: ClassVar[Key] = "output_replace"
     version: ClassVar[Key] = "output_version"
-    take: ClassVar[Key] = "output_take"
-    folder: ClassVar[Key] = "output_folder"
     edited: ClassVar[tuple[Setting, Setting]] = (
         Setting(descriptor=Descriptor(root=bpy.types.SpaceNodeEditor, owner="", prop=bpy.types.SpaceNodeEditor.bl_rna.properties["tree_type"]), accepted=(bpy.types.CompositorNodeTree.__name__,)),
         Setting(descriptor=Descriptor(root=bpy.types.SpaceNodeEditor, owner="edit_tree", prop=bpy.types.NodeTree.bl_rna.properties["is_editable"])),
@@ -446,20 +443,46 @@ class ScenePaths(msgspec.Struct, frozen=True, kw_only=True):
 
     attachment: ClassVar[Attachment[Outputs]] = Attachment(key="outputs", form=Outputs, owner=bpy.types.Scene, changed=Some(changed))
     replacing: ClassVar[Operator[Replace]] = Operator(
-        key=replace,
+        key="output_replace",
         title="Replace in Outputs",
-        description="Replaces text in selected paths, labels, and item names",
+        description="Replace text in selected paths, labels, and item names",
         condition=Some(AllOf(conditions=edited)),
         icon=Some("FILE_REFRESH"),
         form=Replace,
         run=lambda call: planned(call.context.selected_nodes, call.record).bind(lambda renames: applied(renames, "No selected path holds find text")),
         invoke=Some(Suppressible(message=previewed, width=400)),
     )
-
-    @property
-    def page_rows(self) -> tuple[Attachment[Outputs], Operator[Replace]]:
-        """Attachment and replace declarations for preferences page."""
-        return self.attachment, self.replacing
+    versioning: ClassVar[Operator[Bump]] = Operator(
+        key=version,
+        title="Step Version",
+        description="Move version tokens in active File Output node",
+        condition=Some(
+            AllOf(
+                conditions=(
+                    *edited,
+                    Setting(
+                        descriptor=Descriptor(root=bpy.types.SpaceNodeEditor, owner="edit_tree.nodes", prop=bpy.types.Nodes.bl_rna.properties["active"]),
+                        accepted=(bpy.types.CompositorNodeOutputFile.__name__,),
+                    ),
+                )
+            )
+        ),
+        form=Bump,
+        run=bumped,
+        undo=version,
+    )
+    taking: ClassVar[Operator[Empty]] = Operator(
+        key="output_take",
+        title="New Take",
+        description="Set scene take past matching written files",
+        icon=Some("ADD"),
+        form=Empty,
+        run=lambda call: ScenePaths().bound(call.identity).bind(lambda pathed: pathed.taken(call)),
+    )
+    opening: ClassVar[Operator[Empty]] = Operator(
+        key="output_folder", title="Open Output Folder", description="Open deepest existing output folder", icon=Some("FILE_FOLDER"), form=Empty, run=opened, undo=False
+    )
+    prerequisites: ClassVar[tuple[Registrable, ...]] = (attachment,)
 
     def bound(self, identity: Identity) -> BlenderResult[Pathed]:
         """Binds registered scene settings."""
@@ -473,34 +496,16 @@ class ScenePaths(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Returns declarations with bodies binding attachment on call."""
+        """Returns commands and refresh handlers binding attachment on call."""
 
         def refreshed() -> BlenderResult[None]:
             return self.bound(identity).bind(lambda pathed: pathed.refreshed(identity))
 
-        active = Setting(
-            descriptor=Descriptor(root=bpy.types.SpaceNodeEditor, owner="edit_tree.nodes", prop=bpy.types.Nodes.bl_rna.properties["active"]), accepted=(bpy.types.CompositorNodeOutputFile.__name__,)
-        )
         return Ok((
-            *self.page_rows,
-            Operator(
-                key=self.version,
-                title="Step Version",
-                description="Moves version tokens in active File Output node",
-                condition=Some(AllOf(conditions=(*self.edited, active))),
-                form=Bump,
-                run=bumped,
-                undo=self.version,
-            ),
-            Operator(
-                key=self.take,
-                title="New Take",
-                description="Sets scene take past matching written files",
-                icon=Some("ADD"),
-                form=Empty,
-                run=lambda call: self.bound(call.identity).bind(lambda pathed: pathed.taken(call)),
-            ),
-            Operator(key=self.folder, title="Open Output Folder", description="Opens deepest existing output folder", icon=Some("FILE_FOLDER"), form=Empty, run=opened, undo=False),
+            self.replacing,
+            self.versioning,
+            self.taking,
+            self.opening,
             PathHandler(handlers=bpy.app.handlers.load_post, body=lambda _: refreshed()),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
             PathHandler(handlers=bpy.app.handlers.save_pre, body=lambda _: refreshed()),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
             *(

@@ -23,6 +23,8 @@ public interface IPlugInViews : IPlugInSink {
 
     public TimeProvider Clock { get; }
 
+    public Option<HelpTopic> Help { get; }
+
     public AtomHashMap<Guid, ValueHistory> Histories { get; }
 
     public IO<HistoryLimits> Limits { get; }
@@ -38,6 +40,8 @@ public interface IPlugInViews : IPlugInSink {
 [KeyMemberComparer<ComparerAccessors.StringOrdinalIgnoreCase, string>]
 public sealed partial class HelpTopic {
     public IO<Unit> Show => IO.lift(() => Refused.Unless(RhinoHelp.Show(_value), nameof(RhinoHelp.Show)));
+
+    public static Option<HelpTopic> Of(Option<HelpTopic> row, object constructed) => row || IPlugInViews.Of(constructed).Help;
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref string value) =>
         (value, validationError) = value.TrimOrNullify() is { } trimmed
@@ -71,14 +75,12 @@ public sealed record NavigationText(bool Bold, Option<System.Drawing.Color> Colo
 public abstract partial record View {
     public required Type Identity { get; init; }
     public required string Caption { get; init; }
-    public Option<(IGlyph Glyph, int Master)> Icon { get; init; }
+    public Option<IGlyph> Icon { get; init; }
     public Option<HelpTopic> Help { get; init; }
     public Option<RowRule> Enabled { get; init; }
     public Option<RowRule> Visible { get; init; }
     public Option<ViewStore> Store { get; init; }
     public Seq<Child> Children { get; init; }
-
-    public string HelpReference => Conversions.Unset(Help.Map(static string (topic) => topic));
 
     public abstract RhinoLayout.SpacingType Spacing { get; }
 

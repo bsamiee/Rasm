@@ -111,12 +111,12 @@ class Exposing(msgspec.Struct, frozen=True, kw_only=True):
     gain: Gain
     title: ClassVar[str] = "Meter Exposure"
 
-    def consumed(self, identity: Identity, scene: bpy.types.Scene, _entry: bpy.types.SceneCompositorEffect, file: ImageFile[np.float32]) -> BlenderResult[Option[str]]:
+    def consumed(self, scene: bpy.types.Scene, file: ImageFile[np.float32]) -> BlenderResult[Option[str]]:
         """Writes metered absolute stops and names undo step on change."""
         return paired(self.stack.config(), self.attached.read(scene)).bind(
             lambda pair: Result[Option[float], BlenderFaults].bind(
                 pair[1].meter.stops(pair[0], file.pixels).map_error(BlenderImagingFault.lifted),
-                lambda measured: measured.map(lambda value: self.gain.written(identity, scene, value + pair[1].bias).map(lambda changed: Some(self.title) if changed else Nothing)).default_value(
+                lambda measured: measured.map(lambda value: self.gain.written(self.identity, scene, value + pair[1].bias).map(lambda changed: Some(self.title) if changed else Nothing)).default_value(
                     Ok(Nothing)
                 ),
             )
@@ -208,50 +208,54 @@ class Follower(msgspec.Struct, kw_only=True):
                 self.previous = Nothing
 
 
-class AutoExposure(msgspec.Struct, frozen=True, kw_only=True):
+class AutoExposure:
     """Rendered-frame meter and viewport following."""
 
     stack: Forming
     gain: Gain
-    reading: Reading
+    read: Read
+    metering: Operator[Empty]
     key: ClassVar[Key] = "auto_exposure"
     attachment: ClassVar[Attachment[Metering]] = Attachment(key=key, form=Metering, owner=bpy.types.Scene)
-    page_rows: ClassVar[tuple[Registrable, ...]] = (attachment,)
+    prerequisites: ClassVar[tuple[Registrable, ...]] = (attachment,)
+
+    def __init__(self, *, stack: Forming, gain: Gain, reading: Reading) -> None:
+        """Declares viewer read and meter command, each binding metering storage on call."""
+        self.stack, self.gain = stack, gain
+        self.read = reading(consume=lambda identity, scene, _entry, file: self.bound(identity).bind(lambda exposing: exposing.consumed(scene, file)))
+        self.metering = Operator(
+            key=self.key, title=Exposing.title, description="Meter exposure entry input and write absolute stops", form=Empty, run=self.metered, condition=Some(Job(kind="RENDER")), undo=False
+        )
+
+    def metered(self, call: Call[Empty]) -> BlenderResult[Done]:
+        """Arms viewer read on earliest owned exposure entry input."""
+        if (scene := call.context.scene) is None:
+            return Error((BlenderAbsentFault(owner=repr(call.context), key="scene"),))
+        entry: BlenderResult[bpy.types.SceneCompositorEffect] = Option.of_optional(next(iter(self.stack.entries(call.identity, scene, self.gain.record)), None)).to_result_with(
+            lambda: (BlenderAbsentFault(owner=repr(scene.compositor_effects), key=self.gain.record.__name__),)
+        )
+        return (
+            Result[bpy.types.SceneCompositorEffect, BlenderFaults]
+            .bind(entry, lambda item: self.read.entering(call.identity, item))
+            .map(lambda _: Done(notes=(("INFO", "Metering exposure entry input"),)))
+        )
+
+    def bound(self, identity: Identity) -> BlenderResult[Exposing]:
+        """Binds registered metering storage with stack and exposure destination."""
+        return self.attachment.bound(identity).map(lambda attached: Exposing(identity=identity, attached=attached, stack=self.stack, gain=self.gain))
 
     @contextmanager
     def acquisitions(self, identity: Identity) -> Generator[BlenderResult[Acquisitions]]:
         """Binds registered storage and scopes deferred work through native teardown."""
-        resolved = paired(self.attachment.bound(identity), Descriptor.resolve(bpy.types.SpaceView3D, "shading.type", bpy.types.EnumProperty))
+        resolved = paired(self.bound(identity), Descriptor.resolve(bpy.types.SpaceView3D, "shading.type", bpy.types.EnumProperty))
         match resolved:
-            case Result(tag="ok", ok=(attached, shading)):
-                exposing = Exposing(identity=identity, attached=attached, stack=self.stack, gain=self.gain)
-                read = self.reading(consume=exposing.consumed)
+            case Result(tag="ok", ok=(exposing, shading)):
                 refresh, interval = Signal(), 0.12
-
-                def metered(call: Call[Empty]) -> BlenderResult[Done]:
-                    if (scene := call.context.scene) is None:
-                        return Error((BlenderAbsentFault(owner=repr(call.context), key="scene"),))
-                    entry: BlenderResult[bpy.types.SceneCompositorEffect] = Option.of_optional(next(iter(self.stack.entries(call.identity, scene, self.gain.record)), None)).to_result_with(
-                        lambda: (BlenderAbsentFault(owner=repr(scene.compositor_effects), key=self.gain.record.__name__),)
-                    )
-                    return (
-                        Result[bpy.types.SceneCompositorEffect, BlenderFaults]
-                        .bind(entry, lambda item: read.entering(call.identity, item))
-                        .map(lambda _: Done(notes=(("INFO", "Metering exposure entry input"),)))
-                    )
 
                 with identity.reports.deferred(exposing.stepped) as step:
                     yield Ok((
-                        Operator(
-                            key=self.key,
-                            title=Exposing.title,
-                            description="Meters exposure entry input and writes absolute stops",
-                            form=Empty,
-                            run=metered,
-                            condition=Some(Job(kind="RENDER")),
-                            undo=False,
-                        ),
-                        read,
+                        self.metering,
+                        self.read,
                         Timer(body=lambda: refresh.fired().map(lambda _: Some(interval))),
                         Overlay[Following](
                             drawing=Drawing(

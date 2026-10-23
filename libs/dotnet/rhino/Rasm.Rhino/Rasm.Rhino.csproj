@@ -44,12 +44,6 @@
         <PackageReference Include="Microsoft.Extensions.Logging.Console" />
     </ItemGroup>
 
-    <ItemGroup Label="Desktop UI">
-        <PackageReference Include="SkiaSharp" />
-        <PackageReference Include="Svg.Model" />
-        <PackageReference Include="Svg.Skia" />
-    </ItemGroup>
-
     <ItemGroup Label="Workspace Packages">
         <ProjectReference Include="../../bim/Rasm.Drafting/Rasm.Drafting.csproj" />
         <ProjectReference Include="../../graphics/Rasm.Imaging/Rasm.Imaging.csproj" />

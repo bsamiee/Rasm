@@ -23,7 +23,7 @@ public abstract partial record WorkState {
     }
 }
 
-public sealed record Notice(string Title, string Description, Option<string> Message, Notification.Severity Severity, Option<(IGlyph Glyph, int Master)> Glyph, Option<View.Panel> Reveal);
+public sealed record Notice(string Title, string Description, Option<string> Message, Notification.Severity Severity, Option<IGlyph> Glyph, Option<View.Panel> Reveal);
 
 public sealed record NoticeReplies(Option<string> Confirm, Option<string> Alternate, Option<string> Cancel, Func<ButtonType, IO<Unit>> Clicked);
 

@@ -21,7 +21,7 @@ public readonly partial struct Albedo : System.Numerics.IMinMaxValue<Albedo> {
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref float value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
 }
 
-public sealed record RenderOverride(string Name, ValueSet Values, Option<Albedo> Clay);
+public sealed record RenderOverride(ValueSet Values, Option<Albedo> Clay);
 
 public sealed record OverrideScope(RhinoDoc Document, BindingGroup Group, IPlugInViews Sink);
 

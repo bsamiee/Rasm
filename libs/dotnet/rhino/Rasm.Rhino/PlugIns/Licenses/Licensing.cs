@@ -1,5 +1,4 @@
 using System.Drawing;
-using System.Runtime.CompilerServices;
 using Eto.Forms;
 using Rasm.Rhino.UI.Styling;
 using Rhino.PlugIns;
@@ -57,19 +56,21 @@ internal static partial class LicenseMapper {
 
 public static class Licensing {
     // --- [REQUEST]
-    public static IO<Unit> Request<TPlugIn>(TPlugIn plugIn, LicenseDefinition license) where TPlugIn : PlugIn, IPlugInSink =>
-        Asked(plugIn, license, (validate, leaseChanged) => GetLicense(plugIn, license.Capabilities, license.TextMask.ValueUnsafe(), validate, leaseChanged));
+    public static IO<Unit> Request(IPlugInSink sink, LicenseDefinition license, Func<LicenseCapabilities, string?, ValidateProductKeyDelegate, OnLeaseChangedDelegate, bool> getLicense) =>
+        Asked(sink, license, (validate, leaseChanged) => getLicense(license.Capabilities, license.TextMask.ValueUnsafe(), validate, leaseChanged));
 
-    public static IO<Unit> AskUser<TPlugIn>(TPlugIn plugIn, LicenseDefinition license, LicenseBuildType build, Option<Control> parent) where TPlugIn : PlugIn, IPlugInSink =>
-        Asked(plugIn, license, (validate, leaseChanged) => AskUserForLicense(plugIn, build, standAlone: false, license.TextMask.ValueUnsafe(), parent.ValueUnsafe(), validate, leaseChanged));
+    public static IO<Unit> AskUser(
+        IPlugInSink sink, LicenseDefinition license, LicenseBuildType build, Option<Control> parent,
+        Func<LicenseBuildType, bool, string?, object?, ValidateProductKeyDelegate, OnLeaseChangedDelegate, bool> askUserForLicense) =>
+        Asked(sink, license, (validate, leaseChanged) => askUserForLicense(build, false, license.TextMask.ValueUnsafe(), parent.ValueUnsafe(), validate, leaseChanged));
 
     private static IO<Unit> Asked(IPlugInSink sink, LicenseDefinition license, Func<ValidateProductKeyDelegate, OnLeaseChangedDelegate, bool> ask) =>
-        Icons.PlugInImage(sink, static (assets, name) => assets.Native.SystemDrawing.Icons.Get(name))
+        Icons.PlugInImage(sink, static (assets, name) => assets.SystemDrawing.Icons.Get(name))
             .Bind(icon => IO.lift(() => guard(ask(Validator(license.Validate, sink), LeaseHandler(license.LeaseChanged, icon, sink)), Errors.Cancelled).ToFin()));
 
     // --- [RELEASE]
-    public static IO<Unit> Return(PlugIn plugIn) =>
-        IO.lift(() => Refused.Unless(ReturnLicense(plugIn), nameof(ReturnLicense)));
+    public static IO<Unit> Return(Func<bool> returnLicense) =>
+        IO.lift(() => Refused.Unless(returnLicense(), nameof(returnLicense)));
 
     // --- [STATUS]
     public static IO<Seq<LicenseState>> GetLicenseStatus() =>
@@ -102,14 +103,4 @@ public static class Licensing {
                 new CallbackSite(sink, typeof(OnLeaseChangedDelegate), nameof(OnLeaseChangedDelegate.Invoke)));
             answer = icon.ValueUnsafe();
         };
-
-    // --- [ACCESSORS]
-    [UnsafeAccessor(UnsafeAccessorKind.Method)]
-    private static extern bool GetLicense(PlugIn plugIn, LicenseCapabilities licenseCapabilities, string? textMask, ValidateProductKeyDelegate validateProductKeyDelegate, OnLeaseChangedDelegate leaseChangedDelegate);
-
-    [UnsafeAccessor(UnsafeAccessorKind.Method)]
-    private static extern bool AskUserForLicense(PlugIn plugIn, LicenseBuildType productBuildType, bool standAlone, string? textMask, object? parentWindow, ValidateProductKeyDelegate validateProductKeyDelegate, OnLeaseChangedDelegate onLeaseChangedDelegate);
-
-    [UnsafeAccessor(UnsafeAccessorKind.Method)]
-    private static extern bool ReturnLicense(PlugIn plugIn);
 }

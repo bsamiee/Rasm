@@ -19,7 +19,7 @@ public sealed record ParameterFace(ParameterText Text, string Code, Option<(stri
 public sealed record ParameterRow(ParameterFace Face, Func<IPlugInSink, IO<IParameter>> Create) {
     // --- [DECLARE]
     public Seq<Func<IParameter, IPlugInSink, IO<Unit>>> Attach { get; init; }
-    public Seq<(Type Type, Func<DefinedGrasshopperPlugin, IO<Unit>> Register)> DataTypes { get; internal init; }
+    public Seq<(Type Type, Func<IGrasshopperPlugin, IO<Unit>> Register)> DataTypes { get; internal init; }
 
     public static ParameterRow Of(ParameterFace face, Func<Nomen, IParameter> construct) =>
         new(face, sink => IO.lift(() => construct(face.Localized(sink))).Bind(parameter => Coded(parameter, face, sink)));
@@ -59,10 +59,10 @@ public sealed record ParameterRow(ParameterFace Face, Func<IPlugInSink, IO<IPara
     private static IO<IParameter> Coded(IParameter parameter, ParameterFace face, IPlugInSink sink) =>
         IO.lift(() => parameter.UserName = RowText.Localize(face.Code, sink)).Map(parameter);
 
-    internal ParameterRow Presented(IGlyph glyph, int master, SpecialColour accent) =>
+    internal ParameterRow Presented(IGlyph glyph) =>
         this with {
             Attach = Attach.Add((parameter, sink) =>
-                from icon in CanvasIcons.Accented(sink, glyph, master, accent)
+                from icon in CanvasIcons.Vector(sink, glyph)
                 from presented in IO.lift(() => parameter.ModifyIcon(icon, overrideExtrinsicIcon: false))
                 select unit),
         };
@@ -102,9 +102,9 @@ public sealed class DataParameter<T> : Parameter<T>, GrasshopperIO.ICustomIoId {
 public static class ParameterField {
     // --- [DECLARE]
     public static ParameterField<TRecord> Of<TRecord>(
-        StateParameter<TRecord> kind, ParameterFace face, IGlyph glyph, int master, SpecialColour accent, Access access, Requirement requirement, Option<TRecord> initial)
+        StateParameter<TRecord> kind, ParameterFace face, IGlyph glyph, Access access, Requirement requirement, Option<TRecord> initial)
         where TRecord : notnull =>
-        kind.Accept(new Crossing<TRecord>(face, glyph, master, accent, initial, requirement, access));
+        kind.Accept(new Crossing<TRecord>(face, glyph, initial, requirement, access));
 
     public static ParameterField<TRecord> Of<TRecord, TData>(
         Option<TRecord> initial, Lens<TRecord, TData> lens, ParameterFace face, Func<Nomen, Parameter<TData>> construct, Seq<(string Caption, TData Value)> presets,
@@ -127,31 +127,30 @@ public static class ParameterField {
             .Map(static sets => fun((TRecord seed) => sets.Fold(seed, static (record, set) => set(record))));
 
     internal sealed class Crossing<TRecord>(
-        ParameterFace face, IGlyph glyph, int master, SpecialColour accent, Option<TRecord> initial, Requirement requirement, Access access)
+        ParameterFace face, IGlyph glyph, Option<TRecord> initial, Requirement requirement, Access access)
         : IStateParameterVisitor<TRecord, ParameterField<TRecord>> where TRecord : notnull {
 
         public ParameterField<TRecord> Numeric<TValue, TKey>(Lens<TRecord, TValue> lens, NumericDomain<TValue, TKey> domain)
             where TValue : notnull
             where TKey : struct, System.Numerics.INumber<TKey> =>
-            Typed(lens, [], (plugin, id, name) =>
-                DataTypes.Number(id, name, plugin.Icon, domain.Create, domain.Key)(plugin), Some(domain.Checked));
+            Typed(lens, [], (id, name, icon) => DataTypes.Number(id, name, icon, domain.Create, domain.Key), Some(domain.Checked));
 
         public ParameterField<TRecord> OptionalNumeric<TValue, TKey>(Lens<TRecord, Gated<TValue>> lens, NumericDomain<TValue, TKey> domain)
             where TValue : notnull
             where TKey : struct, System.Numerics.INumber<TKey> =>
-            Typed(lens, [], (plugin, id, name) => DataTypes.OptionalNumber(id, name, plugin.Icon, domain.Create, domain.Key)(plugin),
+            Typed(lens, [], (id, name, icon) => DataTypes.OptionalNumber(id, name, icon, domain.Create, domain.Key),
                 Some<Func<Gated<TValue>, Fin<Gated<TValue>>>>(gate => domain.Checked(gate.Value).Map(_ => gate)));
 
         public ParameterField<TRecord> Choice<TValue>(Lens<TRecord, TValue> lens)
             where TValue : ISmartEnum<string, TValue, ValidationError>, ICaptioned =>
             Typed(lens, toSeq(TValue.Items).Map(static item => (item.Caption, item)),
-                static (plugin, id, name) => DataTypes.Keyed<TValue, string>(id, name, plugin.Icon, StoredText.Capture<TValue, string>)(plugin));
+                static (id, name, icon) => DataTypes.Keyed<TValue, string>(id, name, icon, StoredText.Capture<TValue, string>));
 
         public ParameterField<TRecord> OptionalChoice<TValue>(Lens<TRecord, Option<TValue>> lens, string absent)
             where TValue : ISmartEnum<string, TValue, ValidationError>, ICaptioned =>
             Typed(lens, Seq((Caption: absent, Value: Option<TValue>.None))
                 + toSeq(TValue.Items).Map<(string Caption, Option<TValue> Value)>(static item => (item.Caption, Some(item))),
-                static (plugin, id, name) => DataTypes.Schema(FieldTexts.Optional(StoredText.Capture<TValue, string>, StoredText.Recall<TValue, string>), id, name, plugin.Icon)(plugin));
+                static (id, name, icon) => DataTypes.Schema(FieldTexts.Optional(StoredText.Capture<TValue, string>, StoredText.Recall<TValue, string>), id, name, icon));
 
         public ParameterField<TRecord> Variant<TValue>(Lens<TRecord, TValue> lens) where TValue : class =>
             Archived(lens, StateCase<TValue>.Items.Map(static item => (item.Caption, item.Default)), FieldTexts.Variant<TValue>());
@@ -178,12 +177,12 @@ public static class ParameterField {
 
         public ParameterField<TRecord> Swatches<TValue>(Lens<TRecord, TValue> lens)
             where TValue : IObjectFactory<TValue, Seq<Swatch>, ValidationError>, IConvertible<Seq<Swatch>>, IObjectFactory<TValue, string, ValidationError>, IConvertible<string> =>
-            Typed(lens, [], static (plugin, id, name) => DataTypes.Keyed<TValue, string>(id, name, plugin.Icon, StoredText.Capture<TValue, string>)(plugin));
+            Typed(lens, [], static (id, name, icon) => DataTypes.Keyed<TValue, string>(id, name, icon, StoredText.Capture<TValue, string>));
 
         public ParameterField<TRecord> Keyed<TValue, TRaw>(Lens<TRecord, TValue> lens)
             where TValue : IObjectFactory<TValue, TRaw, ValidationError>, IConvertible<TRaw>
             where TRaw : notnull, ISpanParsable<TRaw> =>
-            Typed(lens, [], static (plugin, id, name) => DataTypes.Keyed<TValue, TRaw>(id, name, plugin.Icon, StoredText.Capture<TValue, TRaw>)(plugin));
+            Typed(lens, [], static (id, name, icon) => DataTypes.Keyed<TValue, TRaw>(id, name, icon, StoredText.Capture<TValue, TRaw>));
 
         public ParameterField<TRecord> OptionalKeyed<TValue, TRaw>(Lens<TRecord, Option<TValue>> lens)
             where TValue : IObjectFactory<TValue, TRaw, ValidationError>, IConvertible<TRaw>
@@ -197,17 +196,17 @@ public static class ParameterField {
         }
 
         public ParameterField<TRecord> Opaque<TValue>(Lens<TRecord, TValue> lens) where TValue : notnull =>
-            Typed(lens, [], static (plugin, id, name) => DataTypes.Of<TValue>(id, name, plugin.Icon, identity, static value => value.ToString()!)(plugin));
+            Typed(lens, [], static (id, name, icon) => DataTypes.Of<TValue>(id, name, icon, identity, static value => value.ToString()!));
 
         private ParameterField<TRecord> Archived<TData>(Lens<TRecord, TData> lens, Seq<(string Caption, TData Value)> presets, FieldCodec<TData> codec) where TData : notnull =>
-            Typed(lens, presets, (plugin, id, name) => DataTypes.Schema(codec, id, name, plugin.Icon)(plugin));
+            Typed(lens, presets, (id, name, icon) => DataTypes.Schema(codec, id, name, icon));
 
         private ParameterField<TRecord> Typed<TData>(Lens<TRecord, TData> lens, Seq<(string Caption, TData Value)> presets,
-            Func<DefinedGrasshopperPlugin, Guid, string, IO<Unit>> create, Option<Func<TData, Fin<TData>>> admit = default)
+            Func<Guid, string, IIcon, Func<IGrasshopperPlugin, IO<Unit>>> create, Option<Func<TData, Fin<TData>>> admit = default)
             where TData : notnull {
-            (Type Type, Func<DefinedGrasshopperPlugin, IO<Unit>> Register) registration = DataTypes.Field<TData>(create);
+            (Type Type, Func<IGrasshopperPlugin, IO<Unit>> Register) registration = DataTypes.Field<TData>(create);
             ParameterField<TRecord> field = Of(initial, lens, face, nomen => ParameterRow.Construct<TData>(nomen, access, requirement), presets, admit);
-            return field with { Input = field.Input.Presented(glyph, master, accent) with { DataTypes = [registration] } };
+            return field with { Input = field.Input.Presented(glyph) with { DataTypes = [registration] } };
         }
     }
 }

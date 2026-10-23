@@ -5,30 +5,28 @@ using Rasm.Rhino.Render.Sessions;
 using Rasm.Rhino.Render.UI;
 using Rasm.Rhino.UI;
 using Rasm.Rhino.UI.Rows;
+using Rhino.UI.Controls;
 
 namespace Darkroom;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 [Guid("B5194C2A-A4C8-4FDA-B1BB-5A1AD9224F6F")]
-public sealed class ScopesSection() : DefinedSection(Row) {
-    public static readonly FrameLink Link = new();
-
-    public static readonly (ControlRow Row, RowSource<ScopeState> Source) Scope =
+internal static class ScopesSection {
+    public static readonly (Func<IterableNE<ScopeSource>, ControlRow> Row, RowSource<ScopeState> Source) Scope =
         EntryKey.TypeOwner(typeof(ScopesSection).GUID) switch {
             var owner => ChartRows.Scope(
                 "Scope",
-                "Chart of newest rendering",
-                IterableNE.create(new ScopeSource("Current", RenderingComparison.Scoped)),
+                "Chart of stage input formed for display",
                 owner,
                 scope => PlugInSettings.Record<ScopeState>(((IPlugInViews)scope.Sink).Settings.Child(owner), Applied.Live),
-                Some(Link),
+                None,
                 RowRules.Always),
         };
 
-    public static readonly View.Section Row = new() {
+    public static readonly Func<EtoPostEffectCollapsibleSection, IO<Option<ScopeFrames>>, View.Section> Row = static (_, frames) => new() {
         Identity = typeof(ScopesSection),
         Caption = "Scopes",
-        Children = [Scope.Row],
+        Children = [Scope.Row(IterableNE.create(new ScopeSource("Formed", _ => frames)))],
     };
 }
 
@@ -43,10 +41,9 @@ public sealed class CompareSection() : DefinedSection(Row) {
             PreviewRows.Frame(
                 "Frame",
                 "Newest rendering wiped against compared rendering",
-                new FramePane(RenderingComparison.Sample, [], [RenderingComparison.Difference], Picker, Some(ScopesSection.Link)),
+                new FramePane(RenderingComparison.Sample, [], [RenderingComparison.Difference], Picker, None, "Newest rendering appears here"),
                 RowRules.Always),
             RenderingComparison.Measures(ComparisonSettingRows.Default),
-            .. TargetRows.Formation,
             RenderingComparison.Export,
             RenderingComparison.Settings,
         ],
@@ -58,6 +55,7 @@ public sealed class HistorySection() : DefinedSection(Row) {
     public static readonly View.Section Row = new() {
         Identity = typeof(HistorySection),
         Caption = "Render History",
+        Store = Some(RenderHistory.Store),
         Children = [RenderHistory.Browser],
     };
 }

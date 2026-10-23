@@ -1,6 +1,5 @@
 """Field shapes parsed once from record declarations."""
 
-from enum import Enum
 import functools
 from types import GenericAlias
 import typing
@@ -13,7 +12,7 @@ from typing_inspection.introspection import AnnotationSource, inspect_annotation
 
 from blender.bpy.faults import BlenderReadFault, BlenderResult
 from blender.imaging.faults import accumulated
-from blender.imaging.parameters import Case, Gated, GraphForm, Knot, markers, Ramp, Rgb
+from blender.imaging.parameters import Case, Choice, Gated, GraphForm, Knot, markers, Ramp, Rgb
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -75,9 +74,9 @@ class OptionalText(msgspec.Struct, frozen=True, kw_only=True, tag=True):
 
 
 class Enumerated(msgspec.Struct, frozen=True, kw_only=True, tag=True):
-    """Enum member."""
+    """Choice member."""
 
-    enum: type[Enum]
+    enum: type[Choice]
 
 
 class Literals(msgspec.Struct, frozen=True, kw_only=True, tag=True):
@@ -112,16 +111,16 @@ class Records(msgspec.Struct, frozen=True, kw_only=True, tag=True):
 
 
 class Entries(msgspec.Struct, frozen=True, kw_only=True, tag=True):
-    """Enum member to value mapping, one gate per member."""
+    """Choice member to value mapping, one gate per member."""
 
-    enum: type[Enum]
+    enum: type[Choice]
     gate: Gate
 
 
 class Flags(msgspec.Struct, frozen=True, kw_only=True, tag=True):
-    """Set of enum members."""
+    """Set of choice members."""
 
-    enum: type[Enum]
+    enum: type[Choice]
 
 
 class Pointer(msgspec.Struct, frozen=True, kw_only=True, tag=True):
@@ -228,18 +227,18 @@ def field_shape(annotation: object) -> BlenderResult[Declared]:
                 return leaf(Flag())
             case native.StrType():
                 return leaf(Text(space=GraphForm.COLOR_SPACE in markers(annotation, GraphForm)))
-            case native.EnumType(cls=enum):
+            case native.EnumType(cls=enum) if issubclass(enum, Choice):
                 return leaf(Enumerated(enum=enum))
             case native.LiteralType(values=values):
                 integers = tuple(value for value in values if type(value) is int)
                 return leaf(Literals(values=integers)) if len(integers) == len(values) else refused(annotation, kind)
             case native.VarTupleType(item_type=native.StructType(cls=record)):
                 return leaf(Records(record=record))
-            case native.DictType(key_type=native.EnumType(cls=enum)):
+            case native.DictType(key_type=native.EnumType(cls=keys)) if issubclass(keys, Choice):
                 return gate(GenericAlias(Gated, typing.get_args(inspect_annotation(annotation, annotation_source=AnnotationSource.ANY, unpack_type_aliases="eager").type)[1])).bind(
-                    lambda held: leaf(Entries(enum=enum, gate=held))
+                    lambda held: leaf(Entries(enum=keys, gate=held))
                 )
-            case native.FrozenSetType(item_type=native.EnumType(cls=enum)) | native.SetType(item_type=native.EnumType(cls=enum)):
+            case native.FrozenSetType(item_type=native.EnumType(cls=enum)) | native.SetType(item_type=native.EnumType(cls=enum)) if issubclass(enum, Choice):
                 return leaf(Flags(enum=enum))
             case native.UnionType(types=(native.CustomType(cls=block), native.NoneType()) | (native.NoneType(), native.CustomType(cls=block))) if issubclass(block, bpy.types.ID):
                 return leaf(Pointer(block=block))

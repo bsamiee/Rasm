@@ -9,6 +9,7 @@ using Rasm.Imaging.Pixels;
 using Rasm.Imaging.Tone;
 using Rasm.Rhino.UI.Drawing;
 using Rasm.Rhino.UI.Styling;
+using Rhino.Resources;
 using Rhino.UI.Controls;
 using Riok.Mapperly.Abstractions;
 
@@ -180,11 +181,13 @@ public sealed record FrameViewState(
 public sealed class FrameView : ComponentControl<FrameViewState, FramePart, FrameEdit> {
     // --- [STATE]
     private readonly Seq<(Command Command, Func<FrameViewState, Transition<FrameViewState, FrameEdit>> Act)> bindings;
+    private readonly string empty;
     private Cache cache = Cache.Empty;
     private Option<IDisposable> appearance;
 
-    public FrameView(IPlugInSink sink, (FrameShown Current, Option<FrameShown> Reference, Seq<FrameMask> Masks) initial, FrameSampling sampling)
+    public FrameView(IPlugInSink sink, string empty, (FrameShown Current, Option<FrameShown> Reference, Seq<FrameMask> Masks) initial, FrameSampling sampling)
         : base(sink, Initial(initial), Some(Sampled(sampling))) {
+        this.empty = empty;
         Compare = Titled(new CheckCommand(), "Compare");
         Modes = toSeq(CompareMode.Items).Map(static mode => (mode, Titled(new RadioCommand { Shortcut = mode.Shortcut }, mode.Caption))).Strict();
         Swap = Titled(new Command { Shortcut = Keys.Alt | Keys.W }, "Swap");
@@ -214,6 +217,9 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
         from focused in IO.lift(Focus)
         from picked in Advance(static state => new(state with { Picking = true, Drag = None }, None))
         select picked;
+
+    protected override Option<float> Fitted(FrameViewState state, float width) =>
+        Some(state.Current.Frame.Map(frame => width * frame.Size.Height / frame.Size.Width).IfNone(() => Plots.Fitted(EtoFonts.SmallFont, empty, width)));
 
     protected override FrameViewState Received(FrameViewState state, Option<FrameEdit> value) =>
         value.Match(
@@ -752,16 +758,15 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
 
     private static Seq<(Orientation Axis, RectangleF Band, float Degrees)> Flips(Placement at, QuadCorners corners) {
         PointF center = toSeq(QuadCorner.Items).Fold(PointF.Empty, (sum, corner) => sum + at.View(corner.Point.Get(corners))) / QuadCorner.Items.Count;
-        float glyph = IconSlot.PanelButton.Master;
         return Seq((Axis: Orientation.Horizontal, From: corners.TopLeft, To: corners.TopRight), (Axis: Orientation.Vertical, From: corners.BottomLeft, To: corners.TopLeft))
-            .Map(edge => Flipped(edge.Axis, at.View(edge.From), at.View(edge.To), center, glyph));
+            .Map(edge => Flipped(edge.Axis, at.View(edge.From), at.View(edge.To), center));
     }
 
-    private static (Orientation Axis, RectangleF Band, float Degrees) Flipped(Orientation axis, PointF from, PointF to, PointF center, float glyph) =>
+    private static (Orientation Axis, RectangleF Band, float Degrees) Flipped(Orientation axis, PointF from, PointF to, PointF center) =>
         ((to - from).Normal / (to - from).Length, (from + to) / 2f) switch {
             var (normal, middle) => (
                 axis,
-                RectangleF.FromCenter(middle + ((PointF.DotProduct(normal, middle - center) < 0f ? -normal : normal) * glyph), new SizeF(glyph, glyph)),
+                RectangleF.FromCenter(middle + ((PointF.DotProduct(normal, middle - center) < 0f ? -normal : normal) * FlipSide), new SizeF(FlipSide, FlipSide)),
                 (to - from).Angle),
         };
 
@@ -774,6 +779,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
 
     // --- [PAINT]
     private const float GripSide = 4f;
+    private const float FlipSide = 16f;
 
     private static readonly MarkStyle Outline = new MarkStyle.Stroke(new MarkColor.Themed(PaintSlot.Highlight), 1f, 1f);
     private static readonly MarkStyle Knob = new MarkStyle.Fill(new MarkColor.Themed(PaintSlot.Highlight), 1f);
@@ -790,6 +796,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
 
     protected override IO<Unit> Draw(PlotCanvas canvas, RectangleF bounds, FrameViewState state, Seq<PlotMark<FramePart>> marks, Interaction<FramePart> interaction) =>
         from well in Plots.Well(canvas, bounds)
+        from lettered in when(state.Current.Frame.IsNone, Plots.Lettered(canvas, bounds, empty)).As()
         let layers = Layers(state, bounds.Size, canvas.Scale)
         let tints =
             from layer in layers
@@ -923,7 +930,7 @@ public sealed class FrameView : ComponentControl<FrameViewState, FramePart, Fram
         (from caged in Caged(state)
          from at in Placed(state, size, canvas.Scale)
          select Flips(at, QuadMapper.ToCorners(caged.Quad))).Match(
-            Some: flips => Icons.Frames((GlyphRole.Flip, IconSlot.PanelButton.Master), IconSlot.PanelButton).Bind(icon => flips.TraverseM(flip => Turned(canvas, icon, flip)).As()).Map(unit),
+            Some: flips => Icons.Frames(GlyphRole.Flip, IconSlot.PanelButton).Bind(icon => flips.TraverseM(flip => Turned(canvas, icon, flip)).As()).Map(unit),
             None: static () => IO.pure(unit));
 
     private static IO<Unit> Turned(PlotCanvas canvas, Image icon, (Orientation Axis, RectangleF Band, float Degrees) flip) =>

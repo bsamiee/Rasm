@@ -144,6 +144,15 @@ class Descriptor(msgspec.Struct, Generic[P_co], frozen=True, kw_only=True):
             case _:
                 return Error((BlenderAbsentFault(owner=definition.identifier, key=path),))
 
+    @staticmethod
+    def declared[K: bpy.types.Property](root: "type[bpy.types.bpy_struct[object]]", path: str, kind: type[K]) -> "Descriptor[K]":
+        """Resolves dotted path of a declaration over the pinned host, a missing member raising as a defect."""
+        match Descriptor.resolve(root, path, kind):
+            case Result(tag="ok", ok=descriptor):
+                return descriptor
+            case Result(error=faults):
+                raise LookupError(path, faults)
+
     def owner_of(self, context: Native, item: Option[Native] = Nothing) -> Option[Native]:
         """Returns live property owner from item, root, or context."""
         return (

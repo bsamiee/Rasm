@@ -229,6 +229,10 @@ public sealed class RenderHistory {
     // --- [ROWS]
     public static PlugInSlot<RenderHistory> Current { get; } = new();
 
+    public static ViewStore Store { get; } = new ViewStore.DocumentStores(new RedrawPolicy.Silent()) {
+        Bindings = Some<Func<IPlugInViews, RhinoDoc, IO<BindingGroup>>>(static (owner, doc) => Current.Of(owner).Bind(history => history.Bindings(doc))),
+    };
+
     public static Func<IPlugInViews, Action<IDisposable>, IO<Unit>> Register(
         View.Section settings, Func<RenderHistory, Seq<Func<IPlugInViews, Action<IDisposable>, IO<Unit>>>> readers) =>
         (sink, retain) => DisposalOps.Acquire(owned =>
@@ -244,7 +248,7 @@ public sealed class RenderHistory {
 
     // --- [BINDINGS]
     public IO<BindingGroup> Grading(RhinoDoc doc) =>
-        EffectRegistry.Kinds.Of(plugIn).Map(kinds => new BindingGroup(kinds.Bind(kind => kind.Binding(doc))));
+        EffectRegistry.Bindings(new EffectSource.Document(doc), plugIn);
 
     public IO<BindingGroup> Bindings(RhinoDoc doc) =>
         Grading(doc).Map(grading => new BindingGroup(RenderSettingsSources.Bindings(doc).Bindings + grading.Bindings));

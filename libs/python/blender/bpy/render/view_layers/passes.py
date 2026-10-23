@@ -22,7 +22,7 @@ from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events.handlers import PathHandler
 from blender.bpy.extension.events.subscriptions import Subscription
 from blender.bpy.extension.identity import Identity, Key
-from blender.bpy.extension.registration import Acquisitions
+from blender.bpy.extension.registration import Acquisitions, Registrable
 from blender.bpy.extension.reports import rendered
 from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderCollisionFault, BlenderFaults, BlenderImagingFault, BlenderResult, BlenderUnmetFault
 from blender.bpy.nodes.changes import Added, Changes, changes, made, owned, reconciled
@@ -546,6 +546,7 @@ class PassSet(Line, frozen=True):
     """Row of pass routing."""
 
     attachment: ClassVar[Attachment[Routing]] = Attachment(key="passes", form=Routing, owner=bpy.types.ViewLayer)
+    prerequisites: ClassVar[tuple[Registrable, ...]] = (attachment,)
     presets: ClassVar[Preset[PassPreset]] = Preset(key="passes", form=PassPreset)
     ownership: ClassVar[Ownership[bpy.types.CompositorNodeTree]] = Ownership(kind=bpy.types.CompositorNodeTree, key="passes", saved=Saved.USED)
 
@@ -654,11 +655,6 @@ class PassSet(Line, frozen=True):
             .bind(lambda found: collected(*found))
         )
 
-    @property
-    def page_rows(self) -> tuple[Attachment[Routing]]:
-        """Routing attachment preferences page stores."""
-        return (self.attachment,)
-
     def document(self, identity: Identity, scene: bpy.types.Scene, frame: Multilayer, depth: Depth) -> BlenderResult[Document[np.uint8 | np.uint16 | np.float32]]:
         """Builds ID document of a written frame with one group per matte, the `Documents` port."""
         size = (frame.parts[0].height, frame.parts[0].width)
@@ -738,7 +734,7 @@ class PassSet(Line, frozen=True):
         return paired(self.bound(identity), tested).bind(lambda pair: placed(rows(*pair), identity)).map(joined)
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Returns routing acquisitions, attachment left to preferences page."""
+        """Returns routing acquisitions."""
 
         def acquired(routing: PassRouting, rows: tuple[Subscription, ...]) -> Acquisitions:
             handlers = (bpy.app.handlers.load_post, bpy.app.handlers.save_post)

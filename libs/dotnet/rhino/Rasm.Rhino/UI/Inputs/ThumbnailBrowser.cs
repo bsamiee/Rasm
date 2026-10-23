@@ -38,10 +38,7 @@ public readonly record struct TileFlow(int Columns, SizeF Cell) {
 }
 
 public readonly record struct TileFace(RectangleF Image, RectangleF Caption, RectangleF Band, Option<RectangleF> Number, FormattedTextAlignment Align, bool Ruled) {
-    public RectangleF Star =>
-        IconSlot.ListCell.Master switch {
-            var side => new RectangleF(Image.Right - Plots.Inset - side, Image.Top + Plots.Inset, side, side),
-        };
+    public RectangleF Star(SizeF side) => new(Image.Right - Plots.Inset - side.Width, Image.Top + Plots.Inset, side.Width, side.Height);
 }
 
 [SmartEnum<string>]
@@ -195,7 +192,9 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
             None: () => state with { Current = None, Proposed = None, Gap = None }));
 
     protected override Option<float> Fitted(BrowserState<TItem, TKey> state, float width) =>
-        scroll.Map(_ => state.Viewport.Fold(Geometry(state, width).Flow.Height(Slots(state).Count), static (height, view) => float.Max(height, view.Height)));
+        scroll.Map(_ => state.Viewport.Fold(
+            state.Items.IsEmpty ? Plots.Fitted(EtoFonts.SmallFont, source.Empty, width) : Geometry(state, width).Flow.Height(Slots(state).Count),
+            static (height, view) => float.Max(height, view.Height)));
 
     // --- [LAYOUT]
     private sealed record Entry(TItem Item, TKey Key, int Number);
@@ -263,7 +262,7 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
         Seq<PlotMark<BrowserPart<TKey>>> Marked(Placed at) =>
             Seq(Some(new PlotMark<BrowserPart<TKey>>(new MarkShape.Band(at.Cell), None, new MarkPart<BrowserPart<TKey>>(new BrowserPart<TKey>.Tile(at.Entry.Key), 0f))),
                     at.Face.Ruled
-                        ? Some(new PlotMark<BrowserPart<TKey>>(new MarkShape.Band(at.Face.Caption with { Height = 1f }), new MarkStyle.Fill(PaintSlot.ContentListEnabledText, 1f), None))
+                        ? Some(new PlotMark<BrowserPart<TKey>>(new MarkShape.Band(at.Face.Caption with { Height = 1f }), new MarkStyle.Fill(PaintSlot.ListText, 1f), None))
                         : None,
                     state.Selected.Contains(at.Entry.Key)
                         ? Some(new PlotMark<BrowserPart<TKey>>(new MarkShape.Band(at.Face.Band), new MarkStyle.Fill(PaintSlot.Highlight, 1f), None))
@@ -271,9 +270,8 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
                     source.Renames && (state.Proposed | state.Current) == Some(at.Entry.Key)
                         ? Some(new PlotMark<BrowserPart<TKey>>(new MarkShape.Band(at.Face.Caption), None, new MarkPart<BrowserPart<TKey>>(new BrowserPart<TKey>.Caption(at.Entry.Key), 0f)))
                         : None,
-                    source.Favorite.IsSome
-                        ? Some(new PlotMark<BrowserPart<TKey>>(new MarkShape.Band(at.Face.Star), None, new MarkPart<BrowserPart<TKey>>(new BrowserPart<TKey>.Star(at.Entry.Key), 0f)))
-                        : None)
+                    source.Favorite.Bind(_ => stars.Find(GlyphRole.FavoriteOff))
+                        .Map(icon => new PlotMark<BrowserPart<TKey>>(new MarkShape.Band(at.Face.Star(icon.Size)), None, new MarkPart<BrowserPart<TKey>>(new BrowserPart<TKey>.Star(at.Entry.Key), 0f))))
                 .Somes();
     }
 
@@ -606,9 +604,9 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
                             where !state.Selected.Contains(key) && framed != Some(key)
                             from at in Locate(placed, key)
                             select Plots.Paint(canvas, Seq(
-                                new PlotMark<BrowserPart<TKey>>(new MarkShape.Band(at.Face.Band), new MarkStyle.Fill(PaintSlot.ContentHighlightHover, 1f), None),
-                                Outline(at.Cell, PaintSlot.ContentHighlightHover, 1f))),
-                            Some(Lettered(canvas, bounds, state, placed)),
+                                new PlotMark<BrowserPart<TKey>>(new MarkShape.Band(at.Face.Band), new MarkStyle.Fill(PaintSlot.HighlightHover, 1f), None),
+                                Outline(at.Cell, PaintSlot.HighlightHover, 1f))),
+                            Some(state.Items.IsEmpty ? Plots.Lettered(canvas, bounds, source.Empty) : Lettered(canvas, placed)),
                             from key in framed
                             from at in Locate(placed, key)
                             select Plots.Paint(canvas, Seq(Outline(at.Cell, PaintSlot.Highlight, canvas.Focused ? 2f : 1f))),
@@ -623,28 +621,26 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
         IO.lift(() => canvas.Graphics.ClipBounds)
             .Bind(clip => placed.Filter(at => at.Cell.Intersects(clip))
                 .Choose(at => state.Loaded.Find(at.Entry.Key).Bind(static loaded => loaded.Held).Map(thumbnail => (Thumbnail: thumbnail, Box: Contained(thumbnail, at.Face.Image))))
-                .TraverseM(tile => Thumbnails.Checker(canvas, tile.Box, Checkerboard.Content).Bind(_ => tile.Thumbnail.Paint(canvas, tile.Box, PaintSlot.ContentListEnabledText)))
+                .TraverseM(tile => Thumbnails.Checker(canvas, tile.Box, Checkerboard.Content).Bind(_ => tile.Thumbnail.Paint(canvas, tile.Box, PaintSlot.ListText)))
                 .As())
             .Map(unit);
 
-    private IO<Unit> Lettered(PlotCanvas canvas, RectangleF bounds, BrowserState<TItem, TKey> state, Seq<Placed> placed) =>
+    private IO<Unit> Lettered(PlotCanvas canvas, Seq<Placed> placed) =>
         DisposalOps.Within(() => new FormattedText {
             Font = canvas.Font,
-            ForegroundBrush = Brushes.Cached(Plots.Resolve(canvas, new MarkStyle.Fill(PaintSlot.ContentListEnabledText, 1f))),
+            ForegroundBrush = Brushes.Cached(Plots.Resolve(canvas, new MarkStyle.Fill(PaintSlot.ListText, 1f))),
             Trimming = FormattedTextTrimming.CharacterEllipsis,
-        }, text => IO.lift(() => Runs(bounds, state, placed).Iter(run => Typeset(canvas.Graphics, text, run))).Map(unit));
+        }, text => IO.lift(() => Runs(placed).Iter(run => Plots.Typeset(canvas.Graphics, text, run))).Map(unit));
 
-    private Seq<(string Text, RectangleF Box, FormattedTextAlignment Align, FormattedTextWrapMode Wrap)> Runs(RectangleF bounds, BrowserState<TItem, TKey> state, Seq<Placed> placed) =>
-        state.Items.IsEmpty
-            ? [(source.Empty, bounds.Width > 200f ? RectangleF.Inset(bounds, new PaddingF(50f, 0f)) : bounds, FormattedTextAlignment.Center, FormattedTextWrapMode.Word)]
-            : placed.Bind(at => (source.Label(at.Entry.Item), at.Face.Caption, at.Face.Align, FormattedTextWrapMode.None)
-                .Cons(at.Face.Number.Map(column => (at.Entry.Number.ToString(RowText.Culture), column, FormattedTextAlignment.Right, FormattedTextWrapMode.None)).ToSeq()));
+    private Seq<(string Text, RectangleF Box, FormattedTextAlignment Align, FormattedTextWrapMode Wrap)> Runs(Seq<Placed> placed) =>
+        placed.Bind(at => (source.Label(at.Entry.Item), at.Face.Caption, at.Face.Align, FormattedTextWrapMode.None)
+            .Cons(at.Face.Number.Map(column => (at.Entry.Number.ToString(RowText.Culture), column, FormattedTextAlignment.Right, FormattedTextWrapMode.None)).ToSeq()));
 
     private IO<Unit> Starred(PlotCanvas canvas, Seq<Placed> placed, Option<TKey> hovered, Func<TItem, bool> favorite) =>
         IO.lift(() => placed
             .Map(at => (At: at, On: favorite(at.Entry.Item)))
             .Filter(star => star.On || hovered == Some(star.At.Entry.Key))
-            .Iter(star => stars.Find(star.On ? GlyphRole.FavoriteOn : GlyphRole.FavoriteOff).Iter(icon => canvas.Graphics.DrawImage(icon, star.At.Face.Star))));
+            .Iter(star => stars.Find(star.On ? GlyphRole.FavoriteOn : GlyphRole.FavoriteOff).Iter(icon => canvas.Graphics.DrawImage(icon, star.At.Face.Star(icon.Size)))));
 
     private static PlotMark<BrowserPart<TKey>> Outline(RectangleF bounds, PaintSlot slot, float width) =>
         new(new MarkShape.Band(RectangleF.Inset(bounds, new PaddingF(width / 2f))), new MarkStyle.Stroke(slot, 1f, width), None);
@@ -653,11 +649,6 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
         (SizeF)thumbnail.Switch(raster: static raster => raster.Pixels.Size, linework: static linework => linework.Extent, hatching: static hatching => hatching.Extent) switch {
             var extent => RectangleF.FromCenter(box.Center, extent * float.Min(box.Width / extent.Width, box.Height / extent.Height)),
         };
-
-    private static void Typeset(Graphics graphics, FormattedText text, (string Text, RectangleF Box, FormattedTextAlignment Align, FormattedTextWrapMode Wrap) run) {
-        (text.Text, text.Alignment, text.Wrap, text.MaximumWidth) = (run.Text, run.Align, run.Wrap, run.Box.Width);
-        graphics.DrawText(text, new PointF(run.Box.X, run.Box.Y + ((run.Box.Height - text.Measure().Height) / 2f)));
-    }
 
     // --- [LIFETIME]
     protected override void OnLoad(EventArgs e) {
@@ -711,7 +702,7 @@ public sealed class ThumbnailBrowser<TItem, TKey> : ComponentControl<BrowserStat
                     static handler => Application.Instance.IsActiveChanged += handler, static handler => Application.Instance.IsActiveChanged -= handler,
                     Callbacks.Handler<EventArgs>(_ => Hovered, Site(nameof(Application.IsActiveChanged))), keep)))
             .Concat(source.Preview.ToSeq().Map(_ => FrameClocks.Sample(this, Observed, Site(nameof(Observed)), keep)))
-            .Concat(source.Favorite.ToSeq().Bind(static _ => Seq(GlyphRole.FavoriteOn, GlyphRole.FavoriteOff)).Map(role => Icons.Themed(Sink, (role, IconSlot.ListCell.Master), IconSlot.ListCell, HostTheme.In(this), icon => {
+            .Concat(source.Favorite.ToSeq().Bind(static _ => Seq(GlyphRole.FavoriteOn, GlyphRole.FavoriteOff)).Map(role => Icons.Themed(Sink, role, IconSlot.ListCell, HostTheme.In(this), icon => {
                 stars = stars.AddOrUpdate(role, icon);
                 Invalidate();
             }, keep)))

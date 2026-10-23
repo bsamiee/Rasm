@@ -18,7 +18,7 @@ public sealed class AngleDial<TValue, TKey>(IPlugInSink sink, ScalarText<TValue,
     private const double AngleSnap = Math.Tau / 72d;
     private static readonly Axis.Periodic AngleAxis = new(AxisRange.Radians);
     private static readonly Axis.Linear RadiusAxis = new(AxisRange.Unit);
-    private static readonly MarkStyle Needle = new MarkStyle.Stroke(PaintSlot.ControlText, 1f, 2f);
+    private static readonly MarkStyle Needle = new MarkStyle.Stroke(PaintSlot.Text, 1f, 2f);
 
     private static PlotPlane.Polar Plane(SizeF size) => new(new RectangleF(size), AngleAxis, RadiusAxis);
 

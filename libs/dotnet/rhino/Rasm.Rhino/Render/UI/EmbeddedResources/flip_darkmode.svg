@@ -1,0 +1,5 @@
+<svg aria-hidden="true" fill="none" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" >
+  <path d="M6.5 3.5L1.5 12.5H6.5Z" fill="#74c0fc" stroke="#000000"/>
+  <path d="M9.5 3.5L14.5 12.5H9.5Z" stroke="#e1e1e1"/>
+  <path d="M8 1.5V14.5" stroke="#e1e1e1" stroke-dasharray="1.5 1.5"/>
+</svg>

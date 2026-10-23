@@ -29,9 +29,9 @@ class Fit(Choice):
 class Broadcast(Choice):
     """Broadcast standard of safe area preset."""
 
-    WIDE = 1, "16:9"
-    PROTECTED = 2, "14:9 in 16:9"
-    CENTER_CUT = 3, "4:3 in 16:9"
+    WIDE = 1, "16:9", "Clear center-cut safe areas for a full 16:9 frame"
+    PROTECTED = 2, "14:9 in 16:9", "Set center-cut safe areas for a 14:9 frame inside 16:9"
+    CENTER_CUT = 3, "4:3 in 16:9", "Set center-cut safe areas for a 4:3 frame inside 16:9"
 
 
 # --- [MODELS] ---------------------------------------------------------------------------
@@ -51,7 +51,7 @@ class Region(Case, frozen=True, kw_only=True, tag=6):
     bottom: Annotated[Unit, msgspec.Meta(description="Share of frame height"), Presentation(quantity=Some(Quantity.FRAME_HEIGHT))] = 0.0
     right: Annotated[Unit, msgspec.Meta(description="Share of frame width"), Presentation(quantity=Some(Quantity.FRAME_WIDTH))] = 1.0
     top: Annotated[Unit, msgspec.Meta(description="Share of frame height"), Presentation(quantity=Some(Quantity.FRAME_HEIGHT))] = 1.0
-    crop: Annotated[bool, msgspec.Meta(description="Writes region pixels alone")] = False
+    crop: Annotated[bool, msgspec.Meta(description="Write region pixels alone")] = False
 
 
 class Framing(msgspec.Struct, frozen=True, kw_only=True):

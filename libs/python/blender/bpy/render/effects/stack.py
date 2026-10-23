@@ -22,8 +22,7 @@ import PyOpenColorIO
 from typing_extensions import TypeForm
 
 from blender.bpy.commands.calls import called
-from blender.bpy.commands.keymaps import Keymap
-from blender.bpy.commands.operators import Call, Done, Empty, Open, Operator, Outcome, Suppressible, Unchanged
+from blender.bpy.commands.operators import Call, Done, Empty, Open, Operator, Outcome, Unchanged
 from blender.bpy.data.ids.images import produced, productions
 from blender.bpy.data.ids.ownership import Mark, Ownership, Saved
 from blender.bpy.data.ids.store import Handle
@@ -39,7 +38,7 @@ from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderCo
 from blender.bpy.files.interchange import Importing, Interchange
 from blender.bpy.nodes.changes import Changes, made, owned, reconciled
 from blender.bpy.nodes.graphs import End, ended, Fragment, INPUTS, Link, Node, node, NodeGroup, Operand, OUTPUTS
-from blender.bpy.nodes.interface import addresses, described, Interface, InterfacePanel, item_key, MenuItems, slot, Socket, under
+from blender.bpy.nodes.interface import addresses, Interface, InterfacePanel, item_key, MenuItems, slot, Socket, under
 from blender.bpy.nodes.trees import active_output, socket_at
 from blender.bpy.render.color.exposure import Gain
 from blender.bpy.render.color.luts import Enabled
@@ -50,7 +49,7 @@ from blender.bpy.render.outputs.formats import owners
 from blender.bpy.render.outputs.framing import Framed, FrameSize
 from blender.bpy.render.view_layers.passes import PassRequest, required
 from blender.bpy.scene import cameras
-from blender.bpy.settings.attachments import Attachment, Stored
+from blender.bpy.settings.attachments import Stored
 from blender.bpy.settings.properties import RecordGroup, Unit
 from blender.bpy.settings.shapes import unwrapped, vector
 from blender.imaging.chain import Domain, Effect, Stage
@@ -95,9 +94,9 @@ class Edge(Enum):
 class Toward(Choice):
     """Move target, neighbor or processing rank."""
 
-    UP = 1, "Up"
-    DOWN = 2, "Down"
-    RANK = 3, "Processing Order"
+    UP = 1, "Up", "Move effect up the stack"
+    DOWN = 2, "Down", "Move effect down the stack"
+    RANK = 3, "Processing Order", "Move effect into processing order"
 
 
 class ShutterPosition(Enum):
@@ -165,11 +164,6 @@ class Placeable(Registrable, Protocol[_E_co]):
     @property
     def reads(self) -> "tuple[tuple[type[bpy.types.bpy_struct[object]], bpy.types.Property], ...]":
         """RNA members refreshing derived inputs on write."""
-        ...
-
-    @property
-    def page_rows(self) -> tuple[Registrable, ...]:
-        """Declarations application places on preference pages."""
         ...
 
     def seeded(self, scene: bpy.types.Scene) -> BlenderResult[_E_co]:
@@ -423,13 +417,6 @@ class CompositorEffect[R: Effect, D: msgspec.Struct = msgspec.Struct](msgspec.St
     def reads(self) -> "tuple[tuple[type[bpy.types.bpy_struct[object]], bpy.types.Property], ...]":
         """RNA members derived record reads."""
         return self.derived.map(lambda derived: derived.reads if isinstance(derived, Derived) else ()).default_value(())
-
-    @property
-    def page_rows(self) -> tuple[Registrable, ...]:
-        """Attachments, keymaps, and suppressible operators."""
-        return tuple(
-            row for row in self.registrables if isinstance(row, Attachment | Keymap) or (isinstance(row, Operator) and row.invoke.filter(lambda invoke: isinstance(invoke, Suppressible)).is_some())
-        )
 
     def seeded(self, scene: bpy.types.Scene) -> BlenderResult[R]:
         """Returns scene seed, record defaults, or absent file fault for opened rows."""
@@ -805,8 +792,8 @@ class CompositorEffect[R: Effect, D: msgspec.Struct = msgspec.Struct](msgspec.St
         return accumulated((frame, values, channels)).map(any)
 
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
-        """Returns ownerships and registrables off preference pages."""
-        return Ok((*ownerships(self.record), *(row for row in self.registrables if all(row is not placed for placed in self.page_rows))))
+        """Returns ownerships and registrables."""
+        return Ok((*ownerships(self.record), *self.registrables))
 
 
 class EffectStack[E: Effect = Effect]:
@@ -827,14 +814,19 @@ class EffectStack[E: Effect = Effect]:
         return (formation, *self.effects)
 
     @property
+    def offered(self) -> TypeForm[E]:
+        """Union of offered row record types."""
+        return reduce(or_, (row.record for row in self.effects))
+
+    @property
     def form(self) -> TypeForm[E | DisplayView]:
         """Union of row record types."""
         return reduce(or_, (row.record for row in self.rows))
 
     @property
-    def page_rows(self) -> tuple[Registrable, ...]:
-        """Deduplicated preference page declarations of every row."""
-        return tuple({id(row): row for offered in self.rows for row in offered.page_rows}.values())
+    def prerequisites(self) -> tuple[Registrable, ...]:
+        """Frame size attachment camera frame derivation binds."""
+        return (FrameSize.attachment,)
 
     @property
     def standalone(self) -> tuple[Placeable[E], ...]:
@@ -1575,16 +1567,16 @@ def graphed(
 def menus(kind: type[msgspec.Struct], *, value: Option[msgspec.Struct] = Nothing) -> dict[KeyPath, MenuItems]:
     """Derives menu items from enum and tagged-union fields."""
 
-    def menu(field: msgspec.structs.FieldInfo, shape: native.Type) -> Option[MenuItems]:
+    def menu(shape: native.Type) -> Option[MenuItems]:
         match unwrapped(shape):
-            case native.EnumType(cls=choices):
-                return Some(MenuItems.of(choices, described(field.type)))
+            case native.EnumType(cls=choices) if issubclass(choices, Choice):
+                return Some(MenuItems.of(choices))
             case native.UnionType(types=cases):
                 return Some(MenuItems.of(tuple(record for case in cases if isinstance(case, native.StructType) for record in (case.cls,) if issubclass(record, Case))))
             case _:
                 return Nothing
 
-    return {path: items for path, field, shape in rows(kind, value=value) if not markers(field.type, GraphForm) for items in menu(field, shape).to_list()}
+    return {path: items for path, field, shape in rows(kind, value=value) if not markers(field.type, GraphForm) for items in menu(shape).to_list()}
 
 
 def hidden(face: Interface) -> Interface:
@@ -1828,8 +1820,8 @@ def inputs[T: msgspec.Struct](
                     )
 
                 return socket(at).bind(selected)
-            case native.EnumType(cls=choices), _:
-                members = tuple((choice.label if isinstance(choice, Choice) else choice.name, choice.value) for choice in choices)
+            case native.EnumType(cls=choices), _ if issubclass(choices, Choice):
+                members = tuple((choice.label, choice.value) for choice in choices)
                 return socket(at).bind(
                     lambda label: Option.of_optional(next((value for title, value in members if title == label), None)).to_result_with(
                         lambda: (BlenderChoiceFault(path=key, identifier=str(label), accepted=tuple(title for title, _ in members)),)
@@ -1881,8 +1873,8 @@ def entered(identity: Identity, entry: bpy.types.SceneCompositorEffect, prefix: 
             return socket((*msgspec.structs.astuple(value), 1.0))
         if isinstance(value, Case) and isinstance(shape, native.UnionType):
             return socket(type(value).title)
-        if isinstance(value, Enum):
-            return socket(value.label if isinstance(value, Choice) else value.name)
+        if isinstance(value, Choice):
+            return socket(value.label)
         if isinstance(value, set | frozenset) and isinstance(shape, native.SetType | native.FrozenSetType) and isinstance(shape.item_type, native.EnumType):
             return accumulated(
                 entry_input(identity, entry, item_key(*at, choice.name)).bind(lambda item: written(item, "value", choice in value)).map(Option.is_some) for choice in shape.item_type.cls

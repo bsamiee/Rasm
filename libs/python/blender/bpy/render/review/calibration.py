@@ -71,8 +71,8 @@ class Direction(Choice):
 class Mirror(Choice):
     """Patch order mirror axis."""
 
-    ACROSS = 1, "Left to Right"
-    UPRIGHT = 2, "Top to Bottom"
+    ACROSS = 1, "Left to Right", "Mirror patch order left to right"
+    UPRIGHT = 2, "Top to Bottom", "Mirror patch order top to bottom"
 
     @property
     def order(self) -> tuple[int, int, int, int]:
@@ -293,12 +293,12 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True):
     stack: EffectStack
     across: Glyph
     upright: Glyph
-    settings: Option[Callable[[Identity], BlenderResult[Charting]]] = Nothing
+    seed: Option[Callable[[Identity], BlenderResult[Calibrating]]] = Nothing
 
     @property
-    def page_rows(self) -> tuple[Registrable, ...]:
-        """Chart and calibration attachments for preferences page, seeded from settings reader."""
-        return (charts, msgspec.structs.replace(calibrations, seed=self.settings.map(lambda read: lambda bound: read(bound).map(lambda charting: Calibrating(charting=charting)))))
+    def prerequisites(self) -> tuple[Registrable, ...]:
+        """Chart and calibration attachments, calibrations carrying the seed."""
+        return (charts, msgspec.structs.replace(calibrations, seed=self.seed))
 
     def operators(self, identity: Identity) -> ChartCommands:
         """Builds calibration operator rows."""
@@ -537,11 +537,11 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True):
 
         shown = Some(ChartCalibration.imaged)
         return ChartCommands(
-            place=Operator(key="chart_place", title="Place Chart", description="Places a square-cell chart at shown image center", condition=shown, form=Empty, run=placing),
+            place=Operator(key="chart_place", title="Place Chart", description="Place a square-cell chart at shown image center", condition=shown, form=Empty, run=placing),
             sample=Operator(
                 key="chart_sample",
                 title="Sample Chart",
-                description="Measures each patch's mean color",
+                description="Measure each patch's mean color",
                 condition=shown,
                 form=Empty,
                 run=sampling,
@@ -550,7 +550,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True):
             clear=Operator(
                 key="chart_clear",
                 title="Clear Samples",
-                description="Removes patch samples",
+                description="Remove patch samples",
                 condition=shown,
                 form=Empty,
                 run=clearing,
@@ -559,24 +559,24 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True):
             flip=Operator(
                 key="chart_flip",
                 title="Flip Chart",
-                description="Mirrors patch order inside chart corners",
+                description="Mirror patch order inside chart corners",
                 condition=shown,
                 form=Flipping,
                 run=edited(lambda call, samples: samples[list(call.record.mirror.order)]),
             ),
             turn=Operator(
-                key="chart_turn", title="Turn Chart", description="Rotates patch order a quarter turn", condition=shown, form=Empty, run=edited(lambda _, samples: np.roll(samples, 1, axis=0))
+                key="chart_turn", title="Turn Chart", description="Rotate patch order a quarter turn", condition=shown, form=Empty, run=edited(lambda _, samples: np.roll(samples, 1, axis=0))
             ),
-            center=Operator(key="chart_center", title="Center Chart", description="Centers chart in visible frame", condition=shown, form=Empty, run=centered),
-            reset=Operator(key="chart_reset", title="Reset Chart", description="Resets chart layout", condition=shown, form=Empty, run=resetting),
-            frame=Operator(key="chart_frame", title="View Chart", description="Shows panorama chart in a rectilinear view", condition=shown, form=Framing, run=framing, invoke=Some(Properties())),
-            leave=Operator(key="chart_leave", title="Leave View", description="Shows panorama holding chart", condition=shown, form=Empty, run=leaving),
-            grade=Operator(key="chart_grade", title="Apply Calibration", description="Writes calibration into scene primaries", form=Empty, run=grading),
-            node=Operator(key="chart_node", title="Insert Calibration", description="Inserts calibration matrix after active node", condition=Some(ChartCalibration.shader), form=Empty, run=splicing),
+            center=Operator(key="chart_center", title="Center Chart", description="Center chart in visible frame", condition=shown, form=Empty, run=centered),
+            reset=Operator(key="chart_reset", title="Reset Chart", description="Reset chart layout", condition=shown, form=Empty, run=resetting),
+            frame=Operator(key="chart_frame", title="View Chart", description="Show panorama chart in a rectilinear view", condition=shown, form=Framing, run=framing, invoke=Some(Properties())),
+            leave=Operator(key="chart_leave", title="Leave View", description="Show panorama holding chart", condition=shown, form=Empty, run=leaving),
+            grade=Operator(key="chart_grade", title="Apply Calibration", description="Write calibration into scene primaries", form=Empty, run=grading),
+            node=Operator(key="chart_node", title="Insert Calibration", description="Insert calibration matrix after active node", condition=Some(ChartCalibration.shader), form=Empty, run=splicing),
             bake=Operator(
                 key="chart_bake",
                 title="Bake Calibration LUT",
-                description="Bakes forward and inverse calibration LUTs",
+                description="Bake forward and inverse calibration LUTs",
                 form=Baking,
                 run=exporting,
                 invoke=Some(Save[Baking](extensions=Baking.extensions, destinations=Some(lambda path, _record: export_paths(path)))),
@@ -586,7 +586,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True):
             write=Operator(
                 key="chart_write",
                 title="Write Calibration",
-                description="Writes forward and inverse calibration transform files",
+                description="Write forward and inverse calibration transform files",
                 form=Writing,
                 run=exporting,
                 invoke=Some(Save[Writing](extensions=Writing.extensions, destinations=Some(lambda path, _record: export_paths(path)))),
@@ -596,7 +596,7 @@ class ChartCalibration(msgspec.Struct, frozen=True, kw_only=True):
         )
 
     def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Returns declarations except `page_rows` attachments."""
+        """Returns declarations over bound chart attachment."""
         refreshes = (Updated(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Scene, bpy.types.Image)),)
 
         def rows(chart: Attached[ChartImage], commands: ChartCommands) -> tuple[Registrable, ...]:

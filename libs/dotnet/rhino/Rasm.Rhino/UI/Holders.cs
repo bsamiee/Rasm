@@ -1,6 +1,4 @@
 using System.Drawing;
-using System.Runtime.CompilerServices;
-using Eto;
 using Eto.Forms;
 using NodaTime.Text;
 using Rasm.Rhino.Events;
@@ -9,7 +7,6 @@ using Rasm.Rhino.UI.Inputs;
 using Rasm.Rhino.UI.Rows;
 using Rasm.Rhino.UI.Styling;
 using Rhino;
-using Rhino.UI;
 using Rhino.UI.Controls;
 using NativeDataSourceEventArgs = Rhino.UI.Controls.DataSource.EventArgs;
 
@@ -28,7 +25,16 @@ public abstract partial record HolderRow {
     public sealed record Filled(Seq<View.Section> Above, View.Section Fill, Seq<View.Section> Below) : HolderRow;
 }
 
-internal sealed record HeaderButton(GlyphRole Glyph, string ToolTip, IO<Unit> Click);
+[SmartEnum<string>(SwitchMethods = SwitchMapMethodsGeneration.None, MapMethods = SwitchMapMethodsGeneration.None)]
+[KeyMemberEqualityComparer<ComparerAccessors.StringOrdinal, string>]
+[KeyMemberComparer<ComparerAccessors.StringOrdinal, string>]
+internal sealed partial class SectionAction {
+    public static readonly SectionAction Presets = new("Presets", GlyphRole.Presets);
+    public static readonly SectionAction Values = new("Values", GlyphRole.Options);
+    public static readonly SectionAction Reset = new("Reset", GlyphRole.Reset);
+
+    public GlyphRole Glyph { get; }
+}
 
 // --- [SERVICES] ------------------------------------------------------------------------
 public sealed class ViewBody : IDisposable {
@@ -36,6 +42,7 @@ public sealed class ViewBody : IDisposable {
     private readonly View row;
     private readonly RowScope enclosing;
     private readonly Retained<IDisposable> owned;
+    private readonly Seq<IO<Unit>> clicks;
     private readonly Atom<bool> hidden = Atom(value: false);
     private readonly ShownSubscription listeners;
     private RowRules Rules => new(row.Enabled, row.Visible);
@@ -44,14 +51,13 @@ public sealed class ViewBody : IDisposable {
     private ViewBody(
         View row, Control content, RowScope scope, RowScope enclosing, BindingGroup group, Seq<IO<Unit>> clicks,
         Option<Func<ViewBody, Action<IDisposable>, IO<Unit>>> listening, Retained<IDisposable> owned) {
-        (this.row, Content, Scope, this.enclosing, Group, Clicks, this.owned) = (row, content, scope, enclosing, group, clicks, owned);
+        (this.row, Content, Scope, this.enclosing, Group, this.clicks, this.owned) = (row, content, scope, enclosing, group, clicks, owned);
         listeners = new ShownSubscription(retain => Listening(listening, retain));
     }
 
     public Control Content { get; }
     public RowScope Scope { get; }
     public BindingGroup Group { get; }
-    public Seq<IO<Unit>> Clicks { get; }
     public bool Hidden => hidden.Value;
     public int Height => hidden.Value ? 0 : (int)Math.Ceiling(Content.GetPreferredSize().Height);
 
@@ -73,7 +79,7 @@ public sealed class ViewBody : IDisposable {
             let scope = enclosing.Nested(ViewOps.Settings(owner, row), history, ViewOps.Locks(row, enclosing.Document))
             from hidden in scope.Shown(visible: false)
             from content in ViewOps.Realize(owner, row.Children, scope, owned.Retain)
-            from clicks in (from section in Optional(row as View.Section) from held in history select Clicked(owner, section, held, scope, owned.Retain))
+            from clicks in (from section in Optional(row as View.Section) from held in history select Actions(section).TraverseM(entry => entry.Realize(owner, held, scope, owned.Retain)).As())
                 .IfNone(IO.pure(Seq<IO<Unit>>()))
             from built in IO.lift(() => new ViewBody(row, content, scope, enclosing, bindings, clicks, listening, owned))
             from visibility in enclosing.OnVisibility(_ => built.Evaluated, owned.Retain)
@@ -99,6 +105,7 @@ public sealed class ViewBody : IDisposable {
         from enables in Rules.Enables(Scope)
         from visible in enclosing.Visibility
         from swapped in hidden.SwapIO(_ => !shows)
+        from fitted in SectionHolder.Fitted(Content)
         from set in IO.lift(() => { (Content.Visible, Content.Enabled) = (shows, enables); })
         from availability in Scope.Shown(showing && visible && shows && enables)
         from sections in SectionHolder.Shown(Content, showing && visible && shows && enables)
@@ -121,22 +128,20 @@ public sealed class ViewBody : IDisposable {
 
     // --- [HEADER]
     public static Option<IHeaderButtonHandler> Header(View.Section row, IO<Option<ViewBody>> current, IPlugInSink sink) =>
-        Faces(row) switch {
+        Actions(row) switch {
             { IsEmpty: true } => None,
-            var faces => Some<IHeaderButtonHandler>(new HeaderButtons(faces.Map((face, at) => new HeaderButton(face.Glyph, face.ToolTip,
-                current.Bind(held => IO.lift(held.Bind(body => body.Clicks.At(at)).ToFin(new Refused(nameof(Clicks), Refused.Absent)))).Bind(static click => click))), sink, row.Identity)),
+            var actions => Some<IHeaderButtonHandler>(new HeaderButtons(actions.Map(static entry => entry.Action), index =>
+                current.Bind(held => IO.lift(held.Bind(body => body.clicks.At(index)).ToFin(new Refused(nameof(clicks), Refused.Absent)))).Bind(static click => click), sink, row.Identity)),
         };
 
-    private static Seq<(GlyphRole Glyph, string ToolTip)> Faces(View.Section row) =>
+    private static Seq<(SectionAction Action, Func<IPlugInViews, HistoryBinding, RowScope, Action<IDisposable>, IO<IO<Unit>>> Realize)> Actions(View.Section row) =>
         row.Store.IsSome
-            ? row.Presets.Map(static _ => (Glyph: GlyphRole.Presets, ToolTip: "Presets")).ToSeq() + Seq<(GlyphRole Glyph, string ToolTip)>((GlyphRole.Options, "Values"), (GlyphRole.Reset, "Reset to defaults"))
+            ? [
+                .. row.Presets.Map(static listing => (SectionAction.Presets, fun((IPlugInViews owner, HistoryBinding _, RowScope scope, Action<IDisposable> retain) => Popped(listing(scope), owner, retain)))).ToSeq(),
+                (SectionAction.Values, (owner, history, scope, retain) => Popped(Listing(owner, row.Children.Bind(static child => child.Controls), history, scope), owner, retain)),
+                (SectionAction.Reset, static (_, history, scope, _) => IO.pure(scope.Commit(history.Group, history.Group.Defaults).Map(unit))),
+            ]
             : [];
-
-    private static IO<Seq<IO<Unit>>> Clicked(IPlugInViews owner, View.Section row, HistoryBinding history, RowScope scope, Action<IDisposable> retain) =>
-        row.Presets.Map(listing => Popped(listing(scope), owner, retain)).ToSeq()
-            .Add(Popped(Listing(owner, row.Children.Bind(static child => child.Controls), history, scope), owner, retain))
-            .Add(IO.pure(scope.Commit(history.Group, history.Group.Defaults).Map(unit)))
-            .TraverseM(static click => click).As();
 
     private static IO<IO<Unit>> Popped(IO<Seq<MenuPick>> listing, IPlugInSink sink, Action<IDisposable> retain) =>
         ChoiceRows.Menu(Seq<Seq<MenuEntry>>(), Seq<IO<Unit>>(), Some(listing), sink, retain).Map(static menu => IO.lift(() => menu.Show()));
@@ -172,82 +177,12 @@ public sealed class ViewBody : IDisposable {
         };
 }
 
-internal sealed class HeaderButtons(Seq<HeaderButton> buttons, IPlugInSink sink, Type owner) : IHeaderButtonHandler {
-    internal IO<Seq<ButtonDrawable>> Realize(Action<IDisposable> retain) =>
-        buttons.Map((button, index) =>
-            from icon in Icons.Frames((button.Glyph, IconSlot.SectionHeader.Master), IconSlot.SectionHeader)
-            from drawable in Create(this, index, icon.GetFrame(1f).Bitmap, RowText.Localize(button.ToolTip).Local, new Retained<IDisposable>(DisposalOps.Release), retain)
-            from paint in Subscriptions.Attach(
-                handler => drawable.Paint += handler, handler => drawable.Paint -= handler,
-                Callbacks.Handler<PaintEventArgs>(_ => IO.lift(() => Image(drawable) = Icons.Frame(
-                    button.Glyph, IconSlot.SectionHeader.Master, new(drawable.Width, drawable.Height))
-                    .GetFrame(drawable.ParentWindow.LogicalPixelSize, new(drawable.Width, drawable.Height)).Bitmap).Map(unit),
-                    new CallbackSite(sink, owner, nameof(Drawable.Paint))), retain)
-            select drawable).TraverseM(static drawable => drawable).As();
-
-    internal static IO<Seq<ButtonDrawable>> Realize(IHeaderButtonHandler header, CallbackSite site, Action<IDisposable> retain) {
-        IO<Option<(Eto.Drawing.Bitmap Image, string ToolTip)>> read(int index, Eto.Drawing.Size pixels, Action<IDisposable> owned) =>
-            DisposalOps.Within(() => new Bitmap(pixels.Width, pixels.Height), seed =>
-                IO.lift(() => {
-                    Bitmap bitmap = seed;
-                    string toolTip = "";
-                    return header.ButtonDetails(index, ref bitmap, ref toolTip) ? Some((Bitmap: bitmap, ToolTip: toolTip)) : None;
-                }).Bind(found => found.Traverse(value => DisposalOps.Acquire(IO.lift(value.Bitmap.ToEto), owned)
-                    .Map(bitmap => (Image: bitmap, value.ToolTip))).As()));
-        return header is HeaderButtons authored ? authored.Realize(retain) : Monad.recur(Seq<ButtonDrawable>(), controls =>
-            from images in IO.lift(static () => new Retained<IDisposable>(DisposalOps.Release))
-            from initial in DisposalOps.Acquire(
-                owned => IconSlot.SectionHeader.Size().Bind(size => read(controls.Count, new(size, size), owned)),
-                (found, release) => found.Match(Some: _ => images.Retain(release), None: release.Dispose))
-            from next in initial.Match(
-                Some: value =>
-                    from drawable in Create(header, controls.Count, value.Image, value.ToolTip, images, retain)
-                    from painted in Subscriptions.Attach(handler => drawable.Paint += handler, handler => drawable.Paint -= handler,
-                        Callbacks.Handler<PaintEventArgs>(_ => DisposalOps.Replace(
-                            owned => read(controls.Count, Eto.Drawing.Size.Ceiling((Eto.Drawing.SizeF)drawable.Size * drawable.ParentWindow.LogicalPixelSize), owned),
-                            (found, release) => found.Match(
-                                Some: shown => DisposalOps.Published(images, shown, release, () => (Image: Image(drawable), drawable.ToolTip), current => (Image(drawable), drawable.ToolTip) = current),
-                                None: () => DisposalOps.Release(release))).Map(unit), site), retain)
-                    select Next.Loop<Seq<ButtonDrawable>, Seq<ButtonDrawable>>(controls.Add(drawable)),
-                None: () => IO.pure(Next.Done<Seq<ButtonDrawable>, Seq<ButtonDrawable>>(controls)))
-            select next).As();
-    }
-
-    private static IO<ButtonDrawable> Create(IHeaderButtonHandler header, int index, Eto.Drawing.Bitmap image, string toolTip, Retained<IDisposable> images, Action<IDisposable> retain) =>
-        DisposalOps.Within<IDisposable, ButtonDrawable>(owned => {
-            Dictionary<ButtonDrawable, System.Collections.Generic.HashSet<Action>> prior = [];
-            EventHandler<WidgetCreatedEventArgs> created = (_, args) => {
-                if (args.Instance is not ButtonDrawable drawable) return;
-
-                drawable.Tag = images;
-                prior.Add(drawable, [.. ThemeActions(ThemeNotifier(owner: null, drawable))]);
-            };
-            return from attached in Subscriptions.Attach(
-                static handler => Platform.Instance.WidgetCreated += handler, static handler => Platform.Instance.WidgetCreated -= handler, created, owned)
-                   from drawable in DisposalOps.Acquire(IO.lift<ButtonDrawable>(() => new HeaderDrawable(header, index, image, toolTip, images)), retain)
-                   from configured in IO.lift(() => {
-                       List<Action> actions = ThemeActions(ThemeNotifier(owner: null, drawable));
-                       _ = actions.RemoveAll(action => !prior[drawable].Contains(action));
-                       actions.Add(drawable.Invalidate);
-                   })
-                   select drawable;
-        }, DisposalOps.Release);
-
-    [UnsafeAccessor(UnsafeAccessorKind.StaticMethod, Name = "Get")]
-    [return: UnsafeAccessorType("Rhino.UI.EtoExtensions+ThemeNotifier, Rhino.UI")]
-    private static extern object ThemeNotifier([UnsafeAccessorType("Rhino.UI.EtoExtensions+ThemeNotifier, Rhino.UI")] object? owner, Control control);
-
-    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "get_Actions")]
-    private static extern List<Action> ThemeActions([UnsafeAccessorType("Rhino.UI.EtoExtensions+ThemeNotifier, Rhino.UI")] object notifier);
-
-    [UnsafeAccessor(UnsafeAccessorKind.Field, Name = "m_image")]
-    private static extern ref Eto.Drawing.Bitmap Image(ButtonDrawable drawable);
-
+internal sealed class HeaderButtons(Seq<SectionAction> actions, Func<int, IO<Unit>> click, IPlugInSink sink, Type owner) : IHeaderButtonHandler {
     public bool ButtonDetails(int index, ref Bitmap iconOut, ref string sToolTipOut) {
         (bool Shown, Bitmap Icon, string ToolTip) held = (false, iconOut, sToolTipOut);
         (bool shown, iconOut, sToolTipOut) = Callbacks.Answer(
-            buttons.At(index)
-                .Traverse(static button => Icons.Raster((button.Glyph, IconSlot.SectionHeader.Master), IconSlot.SectionHeader).Map(icon => (Shown: true, Icon: icon, ToolTip: RowText.Localize(button.ToolTip).Local)))
+            actions.At(index)
+                .Traverse(static action => Icons.Raster(action.Glyph, IconSlot.SectionHeader).Map(icon => (Shown: true, Icon: icon, ToolTip: RowText.Localize(action.Key).Local)))
                 .As()
                 .Map(found => found.IfNone(held)),
             () => held,
@@ -256,22 +191,12 @@ internal sealed class HeaderButtons(Seq<HeaderButton> buttons, IPlugInSink sink,
     }
 
     public bool OnButtonClicked(int index) =>
-        Callbacks.Succeeded(buttons.At(index).Map(static button => button.Click), static () => false, new CallbackSite(sink, owner, nameof(OnButtonClicked)));
+        Callbacks.Succeeded(actions.At(index).Map(_ => click(index)), static () => false, new CallbackSite(sink, owner, nameof(OnButtonClicked)));
 
     public Rectangle ButtonRect(int index, Rectangle rectHeader) =>
         Callbacks.Answer(IconSlot.SectionHeader.Size().Map(static size => new Rectangle(0, 0, size, size)), static () => Rectangle.Empty, new CallbackSite(sink, owner, nameof(ButtonRect)));
 
     public void DeleteThis() { }
-
-    private sealed class HeaderDrawable(IHeaderButtonHandler header, int index, Eto.Drawing.Bitmap image, string toolTip, Retained<IDisposable> images)
-        : ButtonDrawable(header, index, image, toolTip) {
-        protected override void Dispose(bool disposing) {
-            if (disposing)
-                _ = IO.lift(() => base.Dispose(disposing)).Bind(_ => images.Close).Uninterruptible().Run();
-            else
-                base.Dispose(disposing);
-        }
-    }
 }
 
 public sealed class SectionLifetime : IDisposable {
@@ -315,7 +240,6 @@ public sealed class SectionLifetime : IDisposable {
         Optional(section.Parent as Expander) switch {
             var expander => IO.lift(() => expander.ForAll(static held => held.Expanded) && !excluded()).Bind(realized.Shown) switch {
                 var evaluated =>
-                    from released in IO.lift(() => retain(realized))
                     from expansions in expander.Traverse(held => Subscriptions.Attach(
                         handler => held.ExpandedChanged += handler, handler => held.ExpandedChanged -= handler,
                         Callbacks.Handler<EventArgs>(_ => evaluated, new CallbackSite(sink, typeof(Expander), nameof(Expander.ExpandedChanged))), retain)).As()
@@ -341,94 +265,18 @@ public sealed class SectionLifetime : IDisposable {
     }
 }
 
-public sealed class SectionHolder : EtoCollapsibleSectionHolder2, ICollapsibleSectionHolder2 {
+public sealed class SectionHolder : EtoCollapsibleSectionHolder2 {
     // --- [STATE]
-    private readonly OrderedDictionary<IDisposable, Control> owned;
-    private readonly EventHandler<EventArgs> tick;
-    private Option<ICollapsibleSection> fullHeight;
+    private readonly Option<int> above;
 
-    private SectionHolder(OrderedDictionary<IDisposable, Control> owned) {
-        this.owned = owned;
-        tick = TimerElapsed(m_timer)!;
-        m_timer.Elapsed -= tick;
-        _ = Subscriptions.Attach<EventHandler<EventArgs>>(
-            handler => m_timer.Elapsed += handler, handler => m_timer.Elapsed -= handler,
-            OnTick, lease => owned.TryAdd(lease, this)).Run();
-    }
-
-    private void OnTick(object? sender, EventArgs args) =>
-        Callbacks.Started(DisposalOps.OnFailure(Native(IO.lift(() => {
-            FullHeightIndex(this) = fullHeight.Match(
-                Some: section => toSeq(m_sectionContainers).Filter(static container => !container.Interface.Hidden)
-                    .TakeWhile(container => !ReferenceEquals(container.Interface, section)).Count,
-                None: static () => -1);
-            tick.Invoke(sender, args);
-        }), held => owned.TryAdd(held, held)), Retired).Bind(_ => Retired), CallbackSite.Of(this));
-
-    public new void SetFullHeightSection(ICollapsibleSection sec) =>
-        _ = toSeq(m_sectionContainers).Find(container => ReferenceEquals(container.Interface, sec)).Iter(_ => fullHeight = Some(sec));
-
-    // --- [NATIVE_SECTIONS]
-    protected override void AddSectionToContainer(ICollapsibleSection section) =>
-        _ = Native(
-            from content in IO.lift(() => Refused.UnlessFound(InternalAdd(section), nameof(InternalAdd)))
-            from retained in IO.lift(() => owned.TryAdd(section, content))
-            from container in DisposalOps.Acquire(IO.lift(() => new HeldSectionContainer(section, content)), held => owned.TryAdd(held, held))
-            from buttons in IO.lift(() => Optional(section as ICollapsibleSection2).Bind(static held => Optional(held.NewHeaderButtonHandler())))
-            from images in buttons.Traverse(held => HeaderButtons.Realize(held, CallbackSite.Of(this), container.Owned.Retain)).As()
-            from expanded in Subscriptions.Attach<EventHandler<EventArgs>>(
-                handler => container.ExpandedChanged += handler, handler => container.ExpandedChanged -= handler,
-                (sender, args) => ExpandedChanged(this, sender!, args), container.Owned.Retain)
-            from loaded in Subscriptions.Attach<EventHandler<EventArgs>>(
-                handler => container.Load += handler, handler => container.Load -= handler,
-                (_, args) => ExpandedChanged(this, container, args), container.Owned.Retain)
-            from configured in IO.lift(() => {
-                _ = images.Iter(held => {
-                    List<ButtonDrawable> controls = [.. held];
-                    ((CollapsibleSectionContainerHandler)container.Handler).AddHeaderButtons(controls);
-                    m_button_array.Add(section, controls);
-                });
-                NativeSections(this).Add(section);
-                m_sectionContainers.Add(container);
-                container.Expanded = IsExpanded(owner: null, section);
-                if (UseCheckBoxes) {
-                    StackLayout layout = new() {
-                        Orientation = Orientation.Horizontal,
-                        HorizontalContentAlignment = HorizontalAlignment.Left,
-                        VerticalContentAlignment = VerticalAlignment.Top,
-                    };
-                    CheckBox checkBox = new();
-                    layout.Items.Add(checkBox);
-                    layout.Items.Add(new StackLayoutItem(container, expand: true));
-                    if (!section.Hidden)
-                        m_stack.Items.Add(new StackLayoutItem(layout));
-                    object nativeBox = NewCheckBox(section.Caption.Local, checkBox);
-                    _ = ((System.Collections.IList)CheckBoxes(this)).Add(nativeBox);
-                    object listener = NewCheckBoxListener(this, new OnCheckboxCheckedHandler(OnCheckBoxClicked).Method.MethodHandle.GetFunctionPointer());
-                    AttachCheckBoxListener(nativeBox, listener);
-                    container.Owned.Retain(new Disposal<object>(listener, held => DetachCheckBoxListener(nativeBox, held)));
-                } else if (!section.Hidden)
-                    m_stack.Items.Add(new StackLayoutItem(container));
-                _ = Optional(section as ICollapsibleSection2).Iter(held => held.OnAttachedToHolder(this));
-            })
-            select container, held => owned.TryAdd(held, held)).Run();
+    private SectionHolder(Option<int> above) => this.above = above;
 
     // --- [HOLD]
     public static IO<SectionHolder> Hold(IPlugInViews owner, HolderRow holder, RowScope scope, Action<IDisposable> retain) =>
-        DisposalOps.Acquire(owned =>
-            from stack in DisposalOps.Acquire(IO.lift(static () => {
-                OrderedDictionary<IDisposable, Control> native = new(ReferenceEqualityComparer.Instance);
-                return DisposalOps.OnFailure(
-                    Native(IO.lift(() => new SectionHolder(native)), held => native.TryAdd(held, held)),
-                    IO.lift(() => toSeq(native.Keys.ToArray())).Bind(DisposalOps.Release)).Run();
-            }), owned)
-            from sections in holder.Sections.TraverseM(row => Section(owner, row, scope, held => stack.owned.TryAdd(held, held))).As()
-            from configured in IO.lift(() => {
-                _ = sections.Iter(stack.Add);
-                _ = holder.Switch(sections, stacked: static (_, _) => Option<DefinedSection>.None, filled: static (held, filled) => Some(held[filled.Above.Count]))
-                    .Iter(stack.SetFullHeightSection);
-            })
-            select stack, retain);
+        from stack in DisposalOps.Acquire(IO.lift(() => new SectionHolder(holder.Switch(stacked: static _ => Option<int>.None, filled: static filled => Some(filled.Above.Count)))), retain)
+        from sections in holder.Sections.TraverseM(row => Section(owner, row, scope, stack.Add)).As()
+        from fitted in IO.lift(stack.Fit)
+        select stack;
 
     public static IO<DefinedSection> Section(IPlugInViews owner, View.Section row, RowScope scope, Action<DefinedSection> retain) =>
         DisposalOps.Acquire(owned =>
@@ -445,131 +293,16 @@ public sealed class SectionHolder : EtoCollapsibleSectionHolder2, ICollapsibleSe
             _ => IO.pure(unit),
         };
 
-    protected override void Dispose(bool disposing) {
-        if (disposing && !IsDisposed) {
-            Seq<Control> roots = Optional(Content).ToSeq().Add(m_stack).Distinct();
-            Seq<Control> layouts = roots.Filter(root => !ReferenceEquals(root, m_stack));
-            Seq<SectionContainer> containers = toSeq(m_sectionContainers.ToArray());
-            IDisposable handler = (IDisposable)Handler;
-            try {
-                _ = Callbacks.Each(containers.Map(static container => IO.lift(container.Detach)))
-                    .Bind(_ => IO.lift(Unbind)).Bind(_ => IO.lift(Detach)).Bind(_ => IO.lift(DetachNative))
-                    .Bind(_ => IO.lift(() => {
-                        Seq<IDisposable> released = toSeq(owned.Keys.ToArray()).Filter(resource => !roots.Exists(root => ReferenceEquals(root, resource)));
-                        owned.Clear();
-                        m_sectionContainers.Clear();
-                        NativeSections(this).Clear();
-                        m_button_array.Clear();
-                        return released;
-                    }))
-                    .Bind(DisposalOps.Release).Uninterruptible().Run();
-            } finally {
-                SetDisposed(this, value: true);
-                try {
-                    base.Dispose(disposing);
-                } finally {
-                    _ = Callbacks.Each(Seq(DisposalOps.Release(layouts), IO.lift(() => { handler.Dispose(); SetHandler(this, value: null); }))).Uninterruptible().Run();
-                }
-            }
-        } else
-            base.Dispose(disposing);
-    }
-
-    private sealed class HeldSectionContainer(ICollapsibleSection section, Control content) : SectionContainer(section, content) {
-        internal Retained<IDisposable> Owned { get; } = new(DisposalOps.Release);
-
-        protected override void Dispose(bool disposing) {
-            if (disposing && !IsDisposed) {
-                IDisposable handler = (IDisposable)Handler;
-                try {
-                    _ = IO.lift(() => { Section(this) = null; Content = null; })
-                        .Bind(_ => IO.lift(Unbind)).Bind(_ => IO.lift(Detach)).Bind(_ => IO.lift(DetachNative))
-                        .Bind(_ => Owned.Close).Uninterruptible().Run();
-                } finally {
-                    SetDisposed(this, value: true);
-                    try {
-                        base.Dispose(disposing);
-                    } finally {
-                        handler.Dispose();
-                        SetHandler(this, value: null);
-                    }
-                }
-            } else
-                base.Dispose(disposing);
-        }
-    }
-
-    // --- [NATIVE_LIFECYCLE]
-    private const string SectionCheckBoxType = "Rhino.UI.Controls.SectionCheckBox, Rhino.UI";
-    private const string SectionCheckBoxListenerType = "Rhino.UI.Controls.SectionCheckBox+OnCheckboxCheckedHandler, Rhino.UI";
-
-    [UnsafeAccessor(UnsafeAccessorKind.StaticMethod, Name = "IsExpanded")]
-    private static extern bool IsExpanded([UnsafeAccessorType("Rhino.UI.Controls.HolderUtil, Rhino.UI")] object? owner, ICollapsibleSection sec);
-
-    [UnsafeAccessor(UnsafeAccessorKind.Constructor)]
-    [return: UnsafeAccessorType(SectionCheckBoxType)]
-    private static extern object NewCheckBox(string caption, CheckBox checkBox);
-
-    [UnsafeAccessor(UnsafeAccessorKind.Constructor)]
-    [return: UnsafeAccessorType(SectionCheckBoxListenerType)]
-    private static extern object NewCheckBoxListener(object target, nint method);
-
-    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "add_OnCheckBoxChecked")]
-    private static extern void AttachCheckBoxListener([UnsafeAccessorType(SectionCheckBoxType)] object checkBox, [UnsafeAccessorType(SectionCheckBoxListenerType)] object listener);
-
-    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "remove_OnCheckBoxChecked")]
-    private static extern void DetachCheckBoxListener([UnsafeAccessorType(SectionCheckBoxType)] object checkBox, [UnsafeAccessorType(SectionCheckBoxListenerType)] object listener);
-
-    [UnsafeAccessor(UnsafeAccessorKind.Field, Name = "m_checkboxes")]
-    [return: UnsafeAccessorType("System.Collections.Generic.List`1[[" + SectionCheckBoxType + "]], System.Private.CoreLib")]
-    private static extern ref object CheckBoxes(EtoCollapsibleSectionHolder holder);
-
-    [UnsafeAccessor(UnsafeAccessorKind.Field, Name = "m_iFullHeightSection")]
-    private static extern ref int FullHeightIndex(EtoCollapsibleSectionHolder2 holder);
-
-    [UnsafeAccessor(UnsafeAccessorKind.Field, Name = "Elapsed")]
-    private static extern ref EventHandler<EventArgs>? TimerElapsed(UITimer timer);
-
-    [UnsafeAccessor(UnsafeAccessorKind.Field, Name = "m_section")]
-    private static extern ref ICollapsibleSection? Section(SectionContainer container);
-
-    [UnsafeAccessor(UnsafeAccessorKind.Field, Name = "m_sections")]
-    private static extern ref List<ICollapsibleSection> NativeSections(EtoCollapsibleSectionHolder holder);
-
-    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "OnExpandedChanged")]
-    private static extern void ExpandedChanged(EtoCollapsibleSectionHolder holder, object sender, EventArgs args);
-
-    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "set_IsDisposed")]
-    private static extern void SetDisposed(Widget control, bool value);
-
-    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "set_Handler")]
-    private static extern void SetHandler(Widget control, object? value);
+    internal static IO<Unit> Fitted(Control content) =>
+        IO.lift(() => Optional(content.Parent as DefinedSection).Bind(static section => section.Holder).Iter(static holder => holder.Fit()));
 
     // --- [LAYOUT]
+    private Unit Fit() =>
+        above.Iter(count => SetFullHeightSection(SectionAt(toSeq(Sections).Take(count).Filter(static section => !section.Hidden).Count)));
+
     protected override void OnPreLoad(EventArgs e) {
         base.OnPreLoad(e);
         if (UseScrollbars && toSeq(Parents).Exists(static parent => parent is Scrollable))
-            Callbacks.Run(DisposalOps.OnFailure(Native(IO.lift(() => { UseScrollbars = false; }), held => owned.TryAdd(held, held)), Retired).Bind(_ => Retired), CallbackSite.Of(this));
+            Callbacks.Run(IO.lift(() => { UseScrollbars = false; }), CallbackSite.Of(this));
     }
-
-    private IO<Unit> Retired =>
-        from retired in IO.lift(() => {
-            Seq<Control> roots = this.Cons(toSeq(m_sectionContainers).Map(static container => (Control)container));
-            System.Collections.Generic.HashSet<Control> current = new(roots.Bind(static root => root.Cons(Optional(root as Container).ToSeq()
-                .Bind(static container => toSeq(container.VisualChildren)))), ReferenceEqualityComparer.Instance);
-            return toSeq(owned.ToArray()).Filter(held => !current.Contains(held.Value)).Map(static held => held.Key);
-        })
-        from released in DisposalOps.Release(retired)
-        from removed in IO.lift(() => retired.Iter(held => owned.Remove(held)))
-        select unit;
-
-    private static IO<A> Native<A>(IO<A> body, Action<Control> retain) =>
-        DisposalOps.Within<IDisposable, A>(owned => {
-            EventHandler<WidgetCreatedEventArgs> created = (_, args) => {
-                if (args.Instance is Control control and not SectionHolder and not SectionContainer and not ButtonDrawable)
-                    _ = DisposalOps.Acquire(IO.lift(() => control), retain).Run();
-            };
-            return Subscriptions.Attach(
-                static handler => Platform.Instance.WidgetCreated += handler, static handler => Platform.Instance.WidgetCreated -= handler, created, owned).Bind(_ => body);
-        }, DisposalOps.Release);
 }

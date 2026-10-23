@@ -108,15 +108,6 @@ public static class RenderSettingsSources {
                 detached: static _ => Option<RhinoDoc>.None),
         };
 
-    // --- [ARRIVALS]
-    public static Func<IPlugInSink, Action<IDisposable>, IO<Unit>> Register<TRecord>(Func<TRecord, TRecord> next) where TRecord : IRenderSettingsRecord<TRecord> =>
-        (sink, retain) => EventKind.DocumentArrived.Choose(static serial => Some((serial, unit))).Through(Subscriptions.Idle<uint, Unit>(arrived => Arrived(arrived, next)), sink, retain);
-
-    private static IO<Unit> Arrived<TRecord>(HashMap<uint, Unit> arrived, Func<TRecord, TRecord> next) where TRecord : IRenderSettingsRecord<TRecord> =>
-        from stores in IO.lift(() => toSeq(arrived.Keys).Choose(static serial => Optional(RhinoDoc.FromRuntimeSerialNumber(serial))).Map(static doc => Store<TRecord>(doc)).Strict())
-        from written in Callbacks.Each(stores.Map(store => store.Read.Bind(held => store.Write(next(held.IfNone(TRecord.Default))))))
-        select unit;
-
     // --- [BINDINGS]
     public static BindingGroup Bindings(RenderSettingsSource source) =>
         new(Rows(source).Map(static row => row.Binding));

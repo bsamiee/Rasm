@@ -46,7 +46,7 @@ public sealed partial class RaisedArch {
     public static readonly RaisedArch Segmental = new(new Interval(0, 0.5));
     public static readonly RaisedArch Horseshoe = new(new Interval(0.5, double.MaxValue));
     public static readonly RaisedArch Lancet = new(new Interval(double.Sqrt(3) / 2, double.MaxValue));
-    public static readonly RaisedArch DepressedGothic = new(new Interval(0.5, double.Sqrt(3) / 2));
+    public static readonly RaisedArch Drop = new(new Interval(0.5, double.Sqrt(3) / 2));
     public static readonly RaisedArch PointedHorseshoe = new(new Interval(double.Sqrt(5.0 / 12), double.MaxValue));
     public static readonly RaisedArch DepressedThreeCentered = new(new Interval(0, 0.5));
     public static readonly RaisedArch ThreeCenteredOgee = new(new Interval(0.5, (1 + double.Sqrt(2)) / 2));
@@ -55,6 +55,14 @@ public sealed partial class RaisedArch {
     public static readonly RaisedArch Elliptical = new(new Interval(0, 0.5));
 
     public Interval Ratios { get; }
+
+    public Fin<Interval> Admitted(ArchSpan span, Tolerances tolerances) =>
+        (tolerances.Absolute / span.Baseline.Length) switch {
+            var margin => new Interval(Ratios.T0 + margin, Ratios.T1 - margin) switch {
+                { IsIncreasing: true } admitted => admitted,
+                _ => Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"Arch span {span.Baseline.Length} admits no rise ratio inside {Ratios}")),
+            },
+        };
 }
 
 [SmartEnum(MapMethods = SwitchMapMethodsGeneration.None)]
@@ -65,7 +73,7 @@ public sealed partial class FoiledArch {
 
 [ValueObject<int>(SkipIParsable = true, AdditionOperators = OperatorsGeneration.None, SubtractionOperators = OperatorsGeneration.None, MultiplyOperators = OperatorsGeneration.None, DivisionOperators = OperatorsGeneration.None)]
 public readonly partial struct FoilCount : System.Numerics.IMinMaxValue<FoilCount> {
-    public static FoilCount MinValue { get; } = new(1);
+    public static FoilCount MinValue { get; } = new(2);
     public static FoilCount MaxValue { get; } = new(int.MaxValue);
 
     static partial void ValidateFactoryArguments(ref ValidationError? validationError, ref int value) => validationError = ValidationResults.OutsideRange(value, MinValue, MaxValue);
@@ -80,13 +88,14 @@ public abstract partial record ArchForm {
         public RaisedArch Kind { get; }
         public double Ratio { get; }
 
-        public static Fin<Raised> Of(RaisedArch kind, double ratio) =>
-            double.Abs(ratio) is > 0 and var magnitude && kind.Ratios.IncludesParameter(magnitude)
-                ? new Raised(kind, ratio)
-                : Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"Arch rise ratio {ratio} has magnitude outside {kind.Ratios}"));
+        public static Fin<Raised> Of(RaisedArch kind, ArchSpan span, double height, Tolerances tolerances) =>
+            kind.Admitted(span, tolerances).Bind(admitted => (height / span.Baseline.Length) switch {
+                var ratio when admitted.IncludesParameter(double.Abs(ratio)) => Fin.Succ(new Raised(kind, ratio)),
+                var ratio => Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"Arch rise ratio {ratio} has magnitude outside {admitted}")),
+            });
 
-        public static Raised Nearest(RaisedArch kind, ArchSpan span, double height, Tolerances tolerances) =>
-            new(kind, double.CopySign(double.Clamp(double.Abs(height) / span.Baseline.Length, double.Min(double.Max(kind.Ratios.T0, tolerances.Absolute / span.Baseline.Length), kind.Ratios.T1), kind.Ratios.T1), height));
+        public static Fin<Raised> Nearest(RaisedArch kind, ArchSpan span, double height, Tolerances tolerances) =>
+            kind.Admitted(span, tolerances).Map(admitted => new Raised(kind, double.CopySign(double.Clamp(double.Abs(height) / span.Baseline.Length, admitted.Min, admitted.Max), height)));
 
         public Point3d Apex(ArchSpan span) => span.Apex(Ratio * span.Baseline.Length);
     }
@@ -175,7 +184,7 @@ public static class CurveConstruction {
                 segmental: static arch => Circular(arch.Span, arch.Apex, arch.Retain),
                 horseshoe: static arch => Circular(arch.Span, arch.Apex, arch.Retain),
                 lancet: static arch => Gothic(arch.Span, arch.Apex, arch.Retain),
-                depressedGothic: static arch => Gothic(arch.Span, arch.Apex, arch.Retain),
+                drop: static arch => Gothic(arch.Span, arch.Apex, arch.Retain),
                 pointedHorseshoe: static arch => PointedHorseshoe(arch.Span, arch.Apex, arch.Retain),
                 depressedThreeCentered: static arch => DepressedThreeCentered(arch.Span, arch.Apex, arch.Retain),
                 threeCenteredOgee: static arch => ThreeCenteredOgee(arch.Span, arch.Apex, arch.Tolerances, arch.Retain),
@@ -188,7 +197,7 @@ public static class CurveConstruction {
                 (state.Span, state.Retain, foiled.Pointed),
                 trefoil: static arch => Trefoil(arch.Span, arch.Pointed, arch.Retain),
                 cinquefoil: static arch => Cinquefoil(arch.Span, arch.Pointed, arch.Retain)),
-            multifoil: static (state, multifoil) => Multifoil(state.Span, multifoil.Pointed, multifoil.Count, state.Retain));
+            multifoil: static (state, multifoil) => Multifoil(state.Span, multifoil.Pointed, multifoil.Count, state.Tolerances, state.Retain));
 
     // --- [CENTERED_ARCHES]
     private static IO<Seq<Curve>> Circular(ArchSpan span, Point3d apex, Action<IDisposable> retain) =>
@@ -259,20 +268,21 @@ public static class CurveConstruction {
     }
 
     // --- [FOILED_ARCHES]
-    private static IO<Seq<Curve>> Multifoil(ArchSpan span, bool pointed, FoilCount count, Action<IDisposable> retain) {
+    private static IO<Seq<Curve>> Multifoil(ArchSpan span, bool pointed, FoilCount count, Tolerances tolerances, Action<IDisposable> retain) {
         int lobes = (int)count;
-        double divisions = 2.0 * ((lobes / 2) + (lobes & 1));
+        double divisions = lobes - 1;
         Arc guide = FoilGuide(span, pointed, divisions, springing: 0);
         Func<double, Point3d> at = FoilDivisions(guide, divisions);
-        Seq<Arc> arcs = Range(1, (lobes - 1) / 2, 2).ToSeq().Map(index => {
-            Point3d start = at(index);
-            double parameter = guide.AngleDomain.ParameterAt((index + 1) / divisions);
-            Point3d middle = guide.PointAt(parameter);
-            Point3d end = at(index + 2);
-            Point3d apex = middle + (Vector3d.CrossProduct(guide.TangentAt(parameter), span.Frame.ZAxis) * end.DistanceTo(start) / 2);
-            return new Arc(start, apex, end);
-        });
-        return Symmetric(span, FoilSpringing(span.Frame, at(0), at(1)).Cons(arcs) + Seq(FoilCrown(span.Frame, at(divisions), at(divisions - 1))), retain);
+        return at(0).DistanceTo(at(1)) > tolerances.Absolute
+            ? Symmetric(span, FoilSpringing(span.Frame, at(0), at(1)).Cons(Range(1, (lobes - 2) / 2, 2).ToSeq().Map(index => {
+                Point3d start = at(index);
+                double parameter = guide.AngleDomain.ParameterAt((index + 1) / divisions);
+                Point3d middle = guide.PointAt(parameter);
+                Point3d end = at(index + 2);
+                Point3d apex = middle + (Vector3d.CrossProduct(guide.TangentAt(parameter), span.Frame.ZAxis) * end.DistanceTo(start) / 2);
+                return new Arc(start, apex, end);
+            })) + ((lobes & 1) is 1 ? Seq(FoilCrown(span.Frame, at(divisions), at(divisions - 1))) : []), retain)
+            : IO.fail<Seq<Curve>>(Error.New(ErrorCodes.ValidationFailed, string.Create(CultureInfo.InvariantCulture, $"Foil count {lobes} makes lobes shorter than the absolute tolerance {tolerances.Absolute} across this span")));
     }
 
     private static IO<Seq<Curve>> Cinquefoil(ArchSpan span, bool pointed, Action<IDisposable> retain) {

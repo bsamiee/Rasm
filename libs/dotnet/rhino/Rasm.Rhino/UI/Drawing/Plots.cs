@@ -111,11 +111,11 @@ public abstract partial record MarkStyle {
     public MarkColor Paint { get; }
     public float Alpha { get; }
 
-    public static MarkStyle Grid { get; } = new Stroke(PaintSlot.ControlText, 0.1f, 1f);
-    public static MarkStyle Label { get; } = new Fill(PaintSlot.ControlText, 0.7f);
+    public static MarkStyle Grid { get; } = new Stroke(PaintSlot.Text, 0.1f, 1f);
+    public static MarkStyle Label { get; } = new Fill(PaintSlot.Text, 0.7f);
     public static MarkStyle Selection { get; } = new Fill(PaintSlot.Highlight, 0.39f);
-    public static MarkStyle Ring { get; } = new Stroke(PaintSlot.ControlText, 0.7f, 1f);
-    public static MarkStyle Lifted { get; } = new Stroke(PaintSlot.ControlText, 1f, 1f);
+    public static MarkStyle Ring { get; } = new Stroke(PaintSlot.Text, 0.7f, 1f);
+    public static MarkStyle Lifted { get; } = new Stroke(PaintSlot.Text, 1f, 1f);
 
     public sealed record Fill(MarkColor Paint, float Alpha) : MarkStyle(Paint, Alpha);
     public sealed record Stroke(MarkColor Paint, float Alpha, float Width) : MarkStyle(Paint, Alpha);
@@ -177,15 +177,21 @@ public abstract partial record MarkShape {
         }
     }
 
-    public sealed record Band(RectangleF Bounds) : MarkShape {
+    public sealed record Band(RectangleF Bounds, float Radius = 0f) : MarkShape {
         public override bool Closed => true;
 
         public override MarkShape Snapped(float scale, float stroke) =>
             MathF.Round(stroke * scale, MidpointRounding.ToEven) switch {
-                var device => new Band(RectangleF.FromSides(Snap(Bounds.Left, scale, device), Snap(Bounds.Top, scale, device), Snap(Bounds.Right, scale, device), Snap(Bounds.Bottom, scale, device))),
+                var device => this with { Bounds = RectangleF.FromSides(Snap(Bounds.Left, scale, device), Snap(Bounds.Top, scale, device), Snap(Bounds.Right, scale, device), Snap(Bounds.Bottom, scale, device)) },
             };
 
-        protected override void AddTo(IGraphicsPath path) => path.AddRectangle(Bounds);
+        protected override void AddTo(IGraphicsPath path) {
+            if (Radius > 0f) {
+                using IGraphicsPath rounded = GraphicsPath.GetRoundRect(Bounds, Radius);
+                path.AddPath(rounded);
+            } else
+                path.AddRectangle(Bounds);
+        }
     }
 
     public sealed record Disc(PointF Center, float Diameter) : MarkShape {
@@ -287,19 +293,19 @@ public static class Plots {
 
     // --- [PAINT]
     public static Color Resolve(PlotCanvas canvas, MarkStyle style) =>
-        new(canvas.Enabled ? Ink(canvas, style.Paint) : canvas.Slots[PaintSlot.DisabledText],
+        new(canvas.Enabled ? Ink(canvas, style.Paint) : canvas.Slots[PaintSlot.TextDisabled],
             style.Switch(
                 canvas,
                 fill: static (_, fill) => fill.Alpha,
                 stroke: static (held, stroke) => held.Accessibility.IncreaseContrast ? null : (float?)stroke.Alpha));
 
     public static IO<Unit> Well(PlotCanvas canvas, RectangleF well) =>
-        IO.lift(() => canvas.Graphics.FillRectangle(canvas.Slots[PaintSlot.ControlBackground], well));
+        IO.lift(() => canvas.Graphics.FillRectangle(canvas.Slots[PaintSlot.ListBackground], well));
 
     public static IO<Unit> Veiled(PlotCanvas canvas, MarkShape area) =>
         IO.lift(() => HostTheme.Veil(canvas.Slots).Filter(_ => !canvas.Enabled).Iter(alpha => {
             using IGraphicsPath path = area.Figure();
-            canvas.Graphics.FillPath(new Color(canvas.Slots[PaintSlot.ControlBackground], alpha), path);
+            canvas.Graphics.FillPath(new Color(canvas.Slots[PaintSlot.ListBackground], alpha), path);
         }));
 
     public static IO<Unit> Paint<T>(PlotCanvas canvas, Seq<PlotMark<T>> marks) where T : notnull =>
@@ -361,6 +367,23 @@ public static class Plots {
             .Find(kept => kept.Zip(kept.Tail).ForAll(pair =>
                 MathF.Abs(side.Position(pair.Second.Tick) - side.Position(pair.First.Tick)) >= (side.Span(pair.First.Size) + side.Span(pair.Second.Size)) / 2f))
             .IfNone(() => labels.Take(1));
+
+    // --- [TEXT]
+    public static float Fitted(Font font, string text, float width) {
+        using FormattedText measured = new() { Font = font, Text = text, Wrap = FormattedTextWrapMode.Word, MaximumWidth = Lettering(new RectangleF(0f, 0f, width, 0f)).Width };
+        return measured.Measure().Height + (2f * Inset);
+    }
+
+    public static IO<Unit> Lettered(PlotCanvas canvas, RectangleF bounds, string text) =>
+        DisposalOps.Within(() => new FormattedText { Font = canvas.Font, ForegroundBrush = Brushes.Cached(Resolve(canvas, new MarkStyle.Fill(PaintSlot.ListText, 1f))) },
+            lettered => IO.lift(() => Typeset(canvas.Graphics, lettered, (text, Lettering(bounds), FormattedTextAlignment.Center, FormattedTextWrapMode.Word))));
+
+    internal static void Typeset(Graphics graphics, FormattedText text, (string Text, RectangleF Box, FormattedTextAlignment Align, FormattedTextWrapMode Wrap) run) {
+        (text.Text, text.Alignment, text.Wrap, text.MaximumWidth) = (run.Text, run.Align, run.Wrap, run.Box.Width);
+        graphics.DrawText(text, new PointF(run.Box.X, run.Box.Y + ((run.Box.Height - text.Measure().Height) / 2f)));
+    }
+
+    private static RectangleF Lettering(RectangleF bounds) => bounds.Width > 200f ? RectangleF.Inset(bounds, new PaddingF(50f, 0f)) : bounds;
 
     // --- [HIT]
     public const float Reach = 5f;

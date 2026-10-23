@@ -28,8 +28,8 @@ if sys.platform == "win32":
 class PowerHold(msgspec.Struct, frozen=True, kw_only=True):
     """Sleep and shutdown settings."""
 
-    awake: Annotated[bool, msgspec.Meta(title="Keep Awake", description="Prevents sleep while queue renders")] = True
-    shutdown: Annotated[bool, msgspec.Meta(title="Shut Down", description="Shuts down one minute after queue finishes")] = False
+    awake: Annotated[bool, msgspec.Meta(title="Keep Awake", description="Prevent sleep while queue renders")] = True
+    shutdown: Annotated[bool, msgspec.Meta(title="Shut Down", description="Shut down one minute after queue finishes")] = False
 
     def held[T](self, operation: Callable[[], RenderingResult[T]]) -> RenderingResult[T]:
         """Runs operation with sleep inhibited."""

@@ -32,7 +32,7 @@ from blender.bpy.data.rna.descriptors import Descriptor, IdName, rooted, Value, 
 from blender.bpy.data.rna.snapshots import Snapshot
 from blender.bpy.extension.events.handlers import Change, PathHandler, SceneHandler, UpdateHandler
 from blender.bpy.extension.identity import Identity, Name
-from blender.bpy.extension.registration import Acquisitions, Band, Registrable
+from blender.bpy.extension.registration import Acquisitions, Band
 from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderFaults, BlenderImagingFault, BlenderReadFault, BlenderResult, BlenderWriteFault
 from blender.bpy.nodes.changes import reconciled
 from blender.bpy.nodes.graphs import End, Graph, Link, Node
@@ -1153,16 +1153,6 @@ class NodePreview:
         scene = rooted(bpy.types.Scene, context)
         return paired(paired(scene, self.settings(identity)), paired(self.stack.config(), identity.name(Name.ATTACHMENT, PreviewScene.value))).bind(lambda parts: planned(*parts[0], *parts[1]))
 
-    @property
-    def page_rows(self) -> tuple[Registrable, ...]:
-        """Toggle, enlarge, and refresh chords with per-node setting attachment."""
-        return (
-            Keymap(keymap="Node Editor", bindings={Chord(type="P", ctrl=1, alt=1): self.toggle}),
-            Keymap(keymap="Node Editor", bindings={Chord(type="Z", ctrl=1, alt=1): self.enlarge}),
-            Keymap(keymap="Node Editor", bindings={Chord(type="R", ctrl=1, alt=1): self.refresh}),
-            NodePreview.setting,
-        )
-
     def section(self, header: tuple[Row, ...] = ()) -> Single:
         """Returns node previews section."""
         return Single(
@@ -1225,6 +1215,7 @@ class NodePreview:
         return Ok((
             self.tiles,
             self.setting,
+            Keymap(keymap="Node Editor", bindings={Chord(type="P", ctrl=1, alt=1): self.toggle, Chord(type="Z", ctrl=1, alt=1): self.enlarge, Chord(type="R", ctrl=1, alt=1): self.refresh}),
             self.clay,
             self.swatch,
             (Band.RESOURCES, scoped()),
@@ -1236,10 +1227,7 @@ class NodePreview:
             self.clear,
             self.mark,
             self.export,
-            Append(
-                target=NODE_MT_context_menu,  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                rows=(OperatorButton(target=self.mark), OperatorButton(target=self.export), OperatorButton(target=self.refresh)),
-            ),
+            Append(target=NODE_MT_context_menu, rows=(OperatorButton(target=self.mark), OperatorButton(target=self.export), OperatorButton(target=self.refresh))),
             overlay,
             UpdateHandler(handlers=bpy.app.handlers.depsgraph_update_post, ids=stores, body=dropped),  # type: ignore[arg-type]
             UpdateHandler(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Object,), body=dropped, changes=Some(Change.GEOMETRY | Change.SHADING)),

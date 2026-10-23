@@ -1,7 +1,6 @@
 """Desired group interfaces, record interfaces, stored item keys, and live interface writes."""
 
 from collections.abc import Callable, Iterable, Iterator, Mapping
-from enum import Enum
 import itertools
 from typing import Literal, Self
 
@@ -41,12 +40,12 @@ class MenuItems(msgspec.Struct, frozen=True, kw_only=True):
     items: tuple[MenuItem, ...]
 
     @classmethod
-    def of(cls, choices: type[Enum] | tuple[type[Case], ...], description: str = "") -> Self:
-        """Builds items from enum members sharing one description, or from tagged cases described by docstrings."""
+    def of(cls, choices: type[Choice] | tuple[type[Case], ...]) -> Self:
+        """Builds items from choice members described by their choice text, or from tagged cases described by docstrings."""
         return (
             cls(items=tuple(MenuItem(name=case.title, description=Option.of_optional(case.__doc__).default_value("")) for case in choices))
             if isinstance(choices, tuple)
-            else cls(items=tuple(MenuItem(name=member.label if isinstance(member, Choice) else member.name, description=description) for member in choices))
+            else cls(items=tuple(MenuItem(name=member.label, description=member.description.default_value("")) for member in choices))
         )
 
 
@@ -128,6 +127,7 @@ class Interface(msgspec.Struct, frozen=True, kw_only=True):
                 address: str = item_key(*path),
                 name: str = title,
                 items: Option[MenuItems] = Nothing,
+                description: str = description,
             ) -> BlenderResult[tuple[Socket | InterfacePanel, ...]]:
                 return members.bind(
                     lambda values: accumulated(Descriptor.resolve(owner, identifier, bpy.types.Property) for identifier in values).map(
@@ -192,12 +192,7 @@ class Interface(msgspec.Struct, frozen=True, kw_only=True):
                 case shapes.Text():
                     return socket(bpy.types.NodeSocketString, bpy.types.NodeTreeInterfaceSocketString, given(lambda value: Ok(msgspec.convert(value, str))))
                 case shapes.Enumerated(enum=choices):
-                    return socket(
-                        bpy.types.NodeSocketMenu,
-                        bpy.types.NodeTreeInterfaceSocketMenu,
-                        given(lambda value: Ok(choice.label if isinstance(choice := choices(value), Choice) else choice.name)),
-                        items=Some(MenuItems.of(choices, described(field.type))),
-                    )
+                    return socket(bpy.types.NodeSocketMenu, bpy.types.NodeTreeInterfaceSocketMenu, given(lambda value: Ok(msgspec.convert(value, choices).label)), items=Some(MenuItems.of(choices)))
                 case shapes.Flags(enum=choices):
                     selected = default()
                     return accumulated(
@@ -206,7 +201,8 @@ class Interface(msgspec.Struct, frozen=True, kw_only=True):
                             bpy.types.NodeTreeInterfaceSocketBool,
                             Ok(selected.map(lambda values: {"default_value": member in msgspec.convert(values, frozenset[object])}).default_value({})),
                             item_key(*path, member.name),
-                            member.label if isinstance(member, Choice) else member.name,
+                            member.label,
+                            description=member.description.default_value(description),
                         )
                         for member in choices
                     ).map(lambda parts: tuple(itertools.chain.from_iterable(parts)))

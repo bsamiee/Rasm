@@ -44,7 +44,7 @@ class View(msgspec.Struct, frozen=True, kw_only=True):
 
     name: Annotated[str, msgspec.Meta(min_length=1, title="View", description="Render view name")]
     suffix: Annotated[str, msgspec.Meta(description="Camera name and image file suffix")]
-    use: Annotated[bool, msgspec.Meta(title="Render", description="Renders view")] = True
+    use: Annotated[bool, msgspec.Meta(title="Render", description="Render view")] = True
 
 
 class Stereo(Case, frozen=True, kw_only=True, tag=1):
@@ -69,6 +69,8 @@ class RenderViews(msgspec.Struct, frozen=True, kw_only=True):
 class CameraDisplay(msgspec.Struct, frozen=True, kw_only=True):
     """Scene camera display rows with context menu entry."""
 
+    camera: ClassVar[Setting] = Setting(descriptor=Descriptor.declared(bpy.types.Scene, "camera.type", bpy.types.EnumProperty), accepted=("CAMERA",))
+
     @property
     def passepartout(self) -> tuple[Property, Property]:
         """Passepartout switch gating alpha row."""
@@ -77,14 +79,7 @@ class CameraDisplay(msgspec.Struct, frozen=True, kw_only=True):
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
         """Returns passepartout rows on object context menu in camera view."""
         perspective = Descriptor(root=bpy.types.RegionView3D, owner="", prop=bpy.types.RegionView3D.bl_rna.properties["view_perspective"])
-        camera = Descriptor(root=bpy.types.Scene, owner="camera", prop=bpy.types.Object.bl_rna.properties["type"])
-        return Ok((
-            Append(
-                target=VIEW3D_MT_object_context_menu,  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-                rows=self.passepartout,
-                condition=Some(AllOf(conditions=(Setting(descriptor=perspective, accepted=("CAMERA",)), Setting(descriptor=camera, accepted=("CAMERA",))))),
-            ),
-        ))
+        return Ok((Append(target=VIEW3D_MT_object_context_menu, rows=self.passepartout, condition=Some(AllOf(conditions=(Setting(descriptor=perspective, accepted=("CAMERA",)), self.camera)))),))
 
     def section(self) -> Section:
         """Returns display rows under sensor preset popover."""
@@ -100,8 +95,8 @@ class CameraDisplay(msgspec.Struct, frozen=True, kw_only=True):
                 Caption(rows=tuple(map(_camera_row, (*guides, "composition_guide_color"))), heading=Some("Composition Guides")),
                 *map(_camera_row, ("show_name", "show_sensor", "show_limits", "show_mist")),
             ),
-            header=(Popover(panel=CAMERA_PT_presets),),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-            condition=Some(Setting(descriptor=Descriptor(root=bpy.types.Scene, owner="camera", prop=bpy.types.Object.bl_rna.properties["type"]), accepted=("CAMERA",))),
+            header=(Popover(panel=CAMERA_PT_presets),),
+            condition=Some(self.camera),
         )
 
 

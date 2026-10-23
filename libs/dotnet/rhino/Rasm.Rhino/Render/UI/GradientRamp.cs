@@ -99,9 +99,9 @@ public sealed class GradientRamp(IPlugInSink sink, string caption, GradientRampS
     // --- [PAINT]
     private const float Opaque = 0.25f;
 
-    private static readonly MarkStyle Frame = new MarkStyle.Stroke(PaintSlot.ControlText, 0.7f, 1f);
-    private static readonly MarkStyle KnotStroke = new MarkStyle.Stroke(PaintSlot.ControlText, 1f, 1f);
-    private static readonly MarkStyle KnotSelected = new MarkStyle.Fill(PaintSlot.ControlText, 1f);
+    private static readonly MarkStyle Frame = new MarkStyle.Stroke(PaintSlot.Text, 0.7f, 1f);
+    private static readonly MarkStyle KnotStroke = new MarkStyle.Stroke(PaintSlot.Text, 1f, 1f);
+    private static readonly MarkStyle KnotSelected = new MarkStyle.Fill(PaintSlot.Text, 1f);
     private static readonly MarkStyle KnotFocused = new MarkStyle.Fill(PaintSlot.Highlight, 1f);
 
     protected override IO<Unit> Draw(PlotCanvas canvas, RectangleF bounds, GradientRampState state, Seq<PlotMark<RampPart>> marks, Interaction<RampPart> interaction) =>

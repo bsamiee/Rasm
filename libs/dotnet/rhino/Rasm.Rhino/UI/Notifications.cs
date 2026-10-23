@@ -8,7 +8,7 @@ using Riok.Mapperly.Abstractions;
 namespace Rasm.Rhino.UI;
 
 // --- [MODELS] --------------------------------------------------------------------------
-public sealed record TrayRow(string Caption, (IGlyph Glyph, int Master) Glyph, Seq<Seq<MenuEntry>> Menu);
+public sealed record TrayRow(string Caption, IGlyph Glyph, Seq<Seq<MenuEntry>> Menu);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 [Mapper]

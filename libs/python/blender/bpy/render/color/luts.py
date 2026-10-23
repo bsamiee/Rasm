@@ -21,7 +21,7 @@ from blender.bpy.data.ids.ownership import Ownership, Saved
 from blender.bpy.data.rna.conditions import AllOf, Count, Job
 from blender.bpy.data.rna.descriptors import Descriptor
 from blender.bpy.data.rna.snapshots import Snapshot
-from blender.bpy.extension.identity import Identity, Key
+from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
 from blender.bpy.faults import BlenderAbsentFault, BlenderChoiceFault, BlenderFaults, BlenderImagingFault, BlenderReadFault, BlenderResult
 from blender.bpy.render.color.spaces import config_of, ConfigInstall
@@ -109,7 +109,7 @@ class Formatted(msgspec.Struct, frozen=True, kw_only=True):
             lambda: (BlenderChoiceFault(path="format", identifier=self.format, accepted=tuple(row.name for row in rows)),)
         )
 
-    def seeded(self, _event: bpy.types.Event) -> Self:
+    def seeded(self, _event: bpy.types.Event, _identity: Identity) -> Self:
         """Seeds file browser with offered format."""
         return msgspec.structs.replace(self, format=self.offered().name)
 
@@ -151,16 +151,63 @@ class ToneView(msgspec.Struct, frozen=True, kw_only=True):
     lattice: Lattice = Lattice()
 
 
-class LutExport(msgspec.Struct, frozen=True, kw_only=True):
+class LutExport:
     """Formation, strip, and tone-view LUT outputs."""
 
     stack: Forming
     sampling: Sampling
     install: ConfigInstall
+    forming: Operator[Baking]
+    stripping: Operator[Baking]
+    toning: Operator[ToneView]
     lattices: ClassVar[Ownership[bpy.types.Scene]] = Ownership(kind=bpy.types.Scene, key="lattice", saved=Saved.NEVER, single=False)
-    formation_bake: ClassVar[Key] = "bake_formation"
-    strip_bake: ClassVar[Key] = "bake_strip"
-    tone_view: ClassVar[Key] = "install_tone_view"
+    modifiers: ClassVar[Descriptor[bpy.types.CollectionProperty]] = Descriptor.declared(bpy.types.WorkSpace, "sequencer_scene.sequence_editor.active_strip.modifiers", bpy.types.CollectionProperty)
+
+    def __init__(self, *, stack: Forming, sampling: Sampling, install: ConfigInstall) -> None:
+        """Declares formation, strip, and tone-view commands."""
+        self.stack, self.sampling, self.install = stack, sampling, install
+        saved, seed, available = Some(Save[Baking](extensions=Baking.extensions)), Some(Baking.seeded), Job(kind="RENDER")
+        self.forming = Operator(
+            key="bake_formation",
+            title="Bake Formation LUT",
+            description="Bake enabled scene formation into a native LUT",
+            form=Baking,
+            run=self.formed,
+            condition=Some(available),
+            invoke=saved,
+            seed=seed,
+            undo=False,
+        )
+        self.stripping = Operator(
+            key="bake_strip",
+            title="Bake Strip LUT",
+            description="Bake active strip modifiers in sequencer space",
+            form=Baking,
+            run=self.stripped,
+            condition=Some(AllOf(conditions=(Count(collection=self.modifiers), available))),
+            invoke=saved,
+            seed=seed,
+            undo=False,
+        )
+        self.toning = Operator(
+            key="install_tone_view",
+            title="Install Tone View",
+            description="Install sampled tone entry as a view read on restart",
+            form=ToneView,
+            run=self.viewed,
+            condition=Some(available),
+            invoke=Some(Properties()),
+            seed=Some(
+                lambda record, _event, identity: (
+                    Option
+                    .of_optional(bpy.context.scene)
+                    .bind(lambda scene: Option.of_optional(next(iter(self.stack.entries(identity, scene, Stage.TONE)), None)))
+                    .map(lambda entry: msgspec.structs.replace(record, entry=entry.name))
+                    .default_value(record)
+                )
+            ),
+            undo=False,
+        )
 
     def toned(self, identity: Identity, scene: bpy.types.Scene, entries: tuple[bpy.types.SceneCompositorEffect, ...], lattice: Lattice) -> BlenderResult[PyOpenColorIO.GroupTransform]:
         """Samples every RGB channel over lattice domain."""
@@ -263,66 +310,17 @@ class LutExport(msgspec.Struct, frozen=True, kw_only=True):
                 .map(Done.wrote)
             )
 
-    def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
-        """Returns ownership and original operator declarations."""
+    def stripped(self, call: Call[Baking]) -> BlenderResult[Done]:
+        """Bakes active strip modifiers in the strip scene's sequencer space."""
+        match self.modifiers.owner_of(call.context).to_optional():
+            case bpy.types.Strip(id_data=bpy.types.Scene(sequencer_colorspace_settings=bpy.types.ColorManagedSequencerColorspaceSettings(name=space))) as active:
+                return self.sequenced(call, active, space)
+            case _:
+                return Error((BlenderAbsentFault(owner=repr(self.modifiers.root), key=self.modifiers.owner),))
 
-        def rows(modifiers: Descriptor[bpy.types.CollectionProperty]) -> Acquisitions:
-            def stripped(call: Call[Baking]) -> BlenderResult[Done]:
-                match modifiers.owner_of(call.context).to_optional():
-                    case bpy.types.Strip(id_data=bpy.types.Scene(sequencer_colorspace_settings=bpy.types.ColorManagedSequencerColorspaceSettings(name=space))) as active:
-                        return self.sequenced(call, active, space)
-                    case _:
-                        return Error((BlenderAbsentFault(owner=repr(modifiers.root), key=modifiers.owner),))
-
-            saved, seed = Some(Save[Baking](extensions=Baking.extensions)), Some(Baking.seeded)
-            available = Job(kind="RENDER")
-            ready = Some(available)
-            return (
-                self.lattices,
-                Operator(
-                    key=self.formation_bake,
-                    title="Bake Formation LUT",
-                    description="Bakes enabled scene formation into a native LUT",
-                    form=Baking,
-                    run=self.formed,
-                    condition=ready,
-                    invoke=saved,
-                    seed=seed,
-                    undo=False,
-                ),
-                Operator(
-                    key=self.strip_bake,
-                    title="Bake Strip LUT",
-                    description="Bakes active strip modifiers in sequencer space",
-                    form=Baking,
-                    run=stripped,
-                    condition=Some(AllOf(conditions=(Count(collection=modifiers), available))),
-                    invoke=saved,
-                    seed=seed,
-                    undo=False,
-                ),
-                Operator(
-                    key=self.tone_view,
-                    title="Install Tone View",
-                    description="Installs sampled tone entry as a view read on restart",
-                    form=ToneView,
-                    run=self.viewed,
-                    condition=ready,
-                    invoke=Some(Properties()),
-                    seed=Some(
-                        lambda record, _event: (
-                            Option
-                            .of_optional(bpy.context.scene)
-                            .bind(lambda scene: Option.of_optional(next(iter(self.stack.entries(identity, scene, Stage.TONE)), None)))
-                            .map(lambda entry: msgspec.structs.replace(record, entry=entry.name))
-                            .default_value(record)
-                        )
-                    ),
-                    undo=False,
-                ),
-            )
-
-        return Descriptor.resolve(bpy.types.WorkSpace, "sequencer_scene.sequence_editor.active_strip.modifiers", bpy.types.CollectionProperty).map(rows)
+    def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
+        """Returns lattice ownership and LUT commands."""
+        return Ok((self.lattices, self.forming, self.stripping, self.toning))
 
 
 # --- [SERVICES] -------------------------------------------------------------------------

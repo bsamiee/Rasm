@@ -1,6 +1,7 @@
 """Sequencer strip modifiers running standalone effects."""
 
 from contextlib import ExitStack
+from typing import ClassVar
 
 import bpy
 from expression import Nothing, Ok, Option, Result, Some
@@ -9,6 +10,7 @@ import msgspec
 import PyOpenColorIO
 
 from blender.bpy.commands.operators import Call, Done, Operator
+from blender.bpy.data.rna.conditions import AllOf, Not, Present, Setting
 from blender.bpy.data.rna.descriptors import Descriptor, written
 from blender.bpy.extension.identity import Identity
 from blender.bpy.extension.registration import Acquisitions
@@ -16,6 +18,8 @@ from blender.bpy.faults import BlenderAbsentFault, BlenderEditFault, BlenderFaul
 from blender.bpy.nodes.changes import made
 from blender.bpy.nodes.graphs import NodeGroup
 from blender.bpy.render.effects.stack import Context, EffectStack, ownerships, Placeable
+from blender.bpy.ui.layout.rows import OperatorButton
+from blender.bpy.ui.surfaces.menus import Dropdown, Menu
 from blender.imaging.compositing.blending import Entry
 from blender.imaging.faults import paired
 from blender.imaging.parameters import Choice
@@ -43,10 +47,17 @@ class Striping(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class StripEffect:
-    """Strip placement commands for standalone rows."""
+    """Strip placement commands for standalone rows and the menu listing them."""
 
+    placeable: ClassVar[AllOf] = AllOf(
+        conditions=(
+            Present(descriptor=Descriptor.declared(bpy.types.Context, "workspace.sequencer_scene.sequence_editor.active_strip", bpy.types.PointerProperty)),
+            Not(condition=Setting(descriptor=Descriptor.declared(bpy.types.Context, "workspace.sequencer_scene.sequence_editor.active_strip.type", bpy.types.EnumProperty), accepted=("SOUND",))),
+        )
+    )
     stack: EffectStack
     operators: tuple[Operator[Striping], ...]
+    menu: Menu
 
     def __init__(self, *, stack: EffectStack) -> None:
         """Declares one placement command per standalone stack row."""
@@ -95,13 +106,22 @@ class StripEffect:
 
                 return paired(target, self.stack.config()).bind(lambda pair: built(*pair))
 
-            return Operator(key=f"strip_{row.kind}", title=f"Add {row.record.title}", description=f"Run {row.record.title} on active strip", form=Striping, run=run)
+            return Operator(
+                key=f"strip_{row.kind}", title=f"Add {row.record.title}", description=f"Run {row.record.title} on active strip", condition=Some(StripEffect.placeable), form=Striping, run=run
+            )
 
         self.operators = tuple(map(offered, stack.standalone))
+        self.menu = Menu(
+            key="strip_effects",
+            title="Effects",
+            description="Add a stack effect to the active strip",
+            condition=Some(StripEffect.placeable),
+            body=Dropdown(entries=tuple(OperatorButton(target=command, text=Some(row.record.title)) for row, command in zip(stack.standalone, self.operators)), search=True),
+        )
 
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
-        """Returns group ownerships and placement commands."""
-        return Ok((*(msgspec.structs.replace(owner, key=f"{owner.key}_strip") for row in self.stack.standalone for owner in ownerships(row.record)), *self.operators))
+        """Returns group ownerships and the menu holding placement commands."""
+        return Ok((*(msgspec.structs.replace(owner, key=f"{owner.key}_strip") for row in self.stack.standalone for owner in ownerships(row.record)), self.menu))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------

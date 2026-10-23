@@ -36,4 +36,8 @@
     <ItemGroup Label="Workspace Sources">
         <Compile Include="../../ValidationResults.cs" />
     </ItemGroup>
+
+    <ItemGroup Label="Grasshopper 2 Plug-In Shell">
+        <Compile Remove="Shell.cs" />
+    </ItemGroup>
 </Project>

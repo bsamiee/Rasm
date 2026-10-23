@@ -4,6 +4,12 @@
         <Description>Image formation, effects, review, and render queue for Rhino renders</Description>
     </PropertyGroup>
 
+    <ItemGroup Label="Plug-In Identity">
+        <AssemblyAttribute Include="System.Runtime.InteropServices.GuidAttribute">
+            <_Parameter1>b5bac151-510d-4dc3-9f2d-14526e39d793</_Parameter1>
+        </AssemblyAttribute>
+    </ItemGroup>
+
     <ItemGroup Label="Core">
         <PackageReference Include="NodaTime" />
     </ItemGroup>

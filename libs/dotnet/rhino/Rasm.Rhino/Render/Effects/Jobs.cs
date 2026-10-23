@@ -44,7 +44,7 @@ public abstract class JobEffect<TEffect, TState, TParameter, TResource> : Define
     }
 
     // --- [PIPELINE]
-    private protected sealed override Func<EtoPostEffectCollapsibleSection, Action<IDisposable>, IO<View.Section>> Section => SectionRows.Job(this, Held, TEffect.Row.Looks, work);
+    private protected sealed override Func<EtoPostEffectCollapsibleSection, View.Section> Section => SectionRows.Job(this, Held, TEffect.Row.Looks, work);
 
     public sealed override Guid[] RequiredChannels => EffectPipeline.Ids(TResource.Channels(Held.Current));
 

@@ -49,7 +49,7 @@ public abstract record PlottedCurve {
         public override CurveAxis Output => TKind.Kind.Output;
         public override Seq<CurvePoint> Points => Value.Points;
         public override PlottedCurve Identity => this with { Value = HueCurves.Neutral<TKind>() };
-        public override MarkColor Paint => PaintSlot.ControlText;
+        public override MarkColor Paint => PaintSlot.Text;
         public override Option<TraceChannel> Plane => Callbacks.Found(TKind.Kind.Input == InputAxis.Stops, TraceChannel.Luma);
         public override Func<double, double> Fit() => Value.Fit();
 
@@ -189,8 +189,8 @@ public sealed class CurveEditor : ComponentControl<CurveEditorState, CurvePart, 
     private const float OtherAlpha = 0.5f;
     private const float HistogramAlpha = 0.15f;
 
-    private static readonly MarkStyle Neutral = new MarkStyle.Stroke(PaintSlot.ControlText, 0.14f, 1f);
-    private static readonly MarkStyle Hollow = new MarkStyle.Fill(PaintSlot.ControlBackground, 1f);
+    private static readonly MarkStyle Neutral = new MarkStyle.Stroke(PaintSlot.Text, 0.14f, 1f);
+    private static readonly MarkStyle Hollow = new MarkStyle.Fill(PaintSlot.ListBackground, 1f);
 
     protected override Option<float> Fitted(CurveEditorState state, float width) => Some(width);
 
@@ -237,7 +237,7 @@ public sealed class CurveEditor : ComponentControl<CurveEditorState, CurvePart, 
             var plane => Plots.Rules(plane, Orientation.Vertical, GraphGrid(plane))
                 .Concat(Plots.Rules(plane, Orientation.Horizontal, graph.Guides.Map(static guide => guide.Value)))
                 .Map(static rule => new PlotMark<CurvePart>(rule, MarkStyle.Grid, None))
-                .Concat(graph.Transfer.ToSeq().Map(transfer => new PlotMark<CurvePart>(Plots.Sampled(plane, scale, transfer), new MarkStyle.Stroke(PaintSlot.ControlText, 1f, ActiveWidth), None))),
+                .Concat(graph.Transfer.ToSeq().Map(transfer => new PlotMark<CurvePart>(Plots.Sampled(plane, scale, transfer), new MarkStyle.Stroke(PaintSlot.Text, 1f, ActiveWidth), None))),
         };
 
     private static Func<float, float> Sampler(PlottedCurve curve) =>
@@ -384,9 +384,9 @@ public sealed class CurveEditor : ComponentControl<CurveEditorState, CurvePart, 
 
     // --- [PAINT]
     private const float CueDiameter = 8f;
-    private const float HaloDiameter = 24f;
+    private const float HaloDiameter = 12f;
 
-    private static readonly MarkStyle Halo = new MarkStyle.Fill(PaintSlot.ControlText, 0.1f);
+    private static readonly MarkStyle Halo = new MarkStyle.Fill(PaintSlot.Text, 0.1f);
     private static new readonly MarkStyle Focus = new MarkStyle.Stroke(PaintSlot.Highlight, 1f, 1f);
 
     protected override IO<Unit> Draw(PlotCanvas canvas, RectangleF bounds, CurveEditorState state, Seq<PlotMark<CurvePart>> marks, Interaction<CurvePart> interaction) =>

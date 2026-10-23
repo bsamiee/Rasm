@@ -85,13 +85,7 @@ class MeshLights(msgspec.Struct, frozen=True, kw_only=True):
 
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
         """Returns attachment, ownerships, add operator, its Add Light menu entry, and section."""
-        return Ok((
-            MeshLights.attachment,
-            MeshLights.light,
-            MeshLights.material,
-            Append(target=VIEW3D_MT_light_add, rows=(OperatorButton(target=self.add),)),  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
-            *acquired((self.section(),)),
-        ))
+        return Ok((MeshLights.attachment, MeshLights.light, MeshLights.material, Append(target=VIEW3D_MT_light_add, rows=(OperatorButton(target=self.add),)), *acquired((self.section(),))))
 
     def section(self) -> Section:
         """Returns mesh light section of active object."""

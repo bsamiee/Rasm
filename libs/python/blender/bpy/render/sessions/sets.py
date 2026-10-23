@@ -4,6 +4,7 @@ from collections.abc import Callable, Generator, Hashable
 from contextlib import contextmanager, ExitStack
 from functools import partial
 from itertools import chain, starmap
+from pathlib import Path
 from typing import Annotated, ClassVar
 
 import bpy
@@ -14,7 +15,7 @@ import msgspec
 import numpy as np
 import numpy.typing as npt
 
-from blender.bpy.commands.operators import Acquired, answered, Call, Confirm, Done, Empty, Operator, Outcome, Own, Suppressible, tallied, Unchanged
+from blender.bpy.commands.operators import answered, Call, Confirm, Done, Empty, Operator, Outcome, Own, Suppressible, tallied, Unchanged
 from blender.bpy.data.ids.ownership import Mark, Ownership, Saved
 from blender.bpy.data.ids.store import named
 from blender.bpy.data.rna.conditions import Condition, Setting
@@ -22,25 +23,27 @@ from blender.bpy.data.rna.descriptors import Descriptor, Native, rooted, struct_
 from blender.bpy.data.rna.snapshots import Applied, Endpoints, NativeValue, Snapshot
 from blender.bpy.extension.events.handlers import UpdateHandler
 from blender.bpy.extension.identity import Identity, Key, Name
-from blender.bpy.extension.registration import Acquisitions, Registrable
+from blender.bpy.extension.registration import Acquisitions, Band, Registrable
 from blender.bpy.faults import BlenderAbsentFault, BlenderCollisionFault, BlenderEditFault, BlenderFaults, BlenderReadFault, BlenderResult
 from blender.bpy.render.effects.stack import Configured, EffectName, EffectStack, Named, projected, viewed
+from blender.bpy.render.previews.queue import Job, PreviewQueue, Rank
 from blender.bpy.render.previews.scenes import Chain, PreviewEngine
 from blender.bpy.render.previews.tiles import Tiles
 from blender.bpy.render.view_layers import passes
 from blender.bpy.settings.attachments import Attached, Attachment, endpoints, Host, Stored
 from blender.bpy.settings.presets import Preset
+from blender.bpy.settings.properties import Changed, Choices
 from blender.bpy.settings.texts import TextRecord
-from blender.bpy.ui.layout.browser import Browser
 from blender.bpy.ui.layout.lists import ItemList
-from blender.bpy.ui.layout.rows import Matrix, Member, OperatorButton, Property, Pulldown, RowContent, RowDraw
-from blender.bpy.ui.layout.sections import Drawn, hosted, Listing, Single
-from blender.bpy.ui.screens.areas import AreaQuery
+from blender.bpy.ui.layout.rows import Line, Matrix, Member, OperatorButton, Property, Pulldown, realized, RowContent, RowDraw
+from blender.bpy.ui.layout.sections import Drawn, hosted, Listing, Single, Verb
+from blender.bpy.ui.layout.templates import IconView
+from blender.bpy.ui.resources.previews import Drawn as Finished, Previews
 from blender.bpy.ui.surfaces.menus import Captured, Dropdown, Menu, PresetMenu
 from blender.imaging.chain import Effect
 from blender.imaging.color.processors import DisplayView
 from blender.imaging.faults import accumulated, paired
-from blender.imaging.hashing import content_hash
+from blender.imaging.hashing import content_hash, ContentHash
 from blender.imaging.parameters import Case
 from blender.rendering.edits import Reparametrized, transfer, Tree
 
@@ -145,9 +148,10 @@ class SetupLocks(msgspec.Struct, frozen=True, kw_only=True):
         """Returns factory of lock operator and button per entry or parameter path."""
 
         def changed(call: Call[SetupEffectLock]) -> BlenderResult[Done]:
-            path: BlenderResult[tuple[Key | int, ...] | None] = catch(lambda: msgspec.json.decode(call.record.path, type=tuple[str | int, ...] | None), exception=msgspec.DecodeError)().map_error(
-                lambda error: (BlenderReadFault(request=call.record.path, error=error),)
-            )
+            def decoded(text: str) -> BlenderResult[tuple[Key | int, ...]]:
+                return catch(lambda: msgspec.json.decode(text, type=tuple[str | int, ...]), exception=msgspec.DecodeError)().map_error(lambda error: (BlenderReadFault(request=text, error=error),))
+
+            path: BlenderResult[tuple[Key | int, ...] | None] = Ok(None) if (text := call.record.path) is None else decoded(text)
 
             def written(store: Stored[SetupLocks], scene: bpy.types.Scene, path: tuple[Key | int, ...] | None) -> BlenderResult[Done]:
                 return (
@@ -181,7 +185,7 @@ class SetupLocks(msgspec.Struct, frozen=True, kw_only=True):
                             .bind(
                                 lambda locks: (
                                     OperatorButton(
-                                        target=Own(command=command, values=SetupEffectLock(name=holder.name, path=msgspec.json.encode(path.to_optional()).decode())),
+                                        target=Own(command=command, values=SetupEffectLock(name=holder.name, path=path.map(lambda keys: msgspec.json.encode(keys).decode()).to_optional())),
                                         text=Some(""),
                                         icon=Some("LOCKED" if path.map(lambda path: path in locks.fields.get(holder.name, frozenset())).default_value(holder.name in locks.effects) else "UNLOCKED"),
                                         emboss=False,
@@ -205,9 +209,33 @@ class SetupLock(msgspec.Struct, frozen=True, kw_only=True):
 
 
 class SetupEffectLock(Named, frozen=True, kw_only=True):
-    """Entry and JSON parameter path, `null` locking whole entry."""
+    """Entry and JSON parameter path, absent path locking whole entry."""
 
-    path: str
+    path: str | None
+
+
+class SetupPick(msgspec.Struct, frozen=True, kw_only=True):
+    """Setup preset a preview picker applies."""
+
+    setup: Annotated[str, msgspec.Meta(title="Setup", description="Render setup preset to apply to unlocked members")] = ""
+
+
+class RenderSetCommands(msgspec.Struct, frozen=True, kw_only=True):
+    """Render set operators, one sync per category."""
+
+    add: Operator[Empty]
+    adopt: Operator[Empty]
+    restore: Operator[Empty]
+    syncs: tuple[Operator[Empty], ...]
+    unsync: Operator[Empty]
+    convert: Operator[Converting]
+    remove: Operator[Empty]
+    lock: Operator[Empty]
+
+    @property
+    def listed(self) -> tuple[Operator[Empty] | Operator[Converting], ...]:
+        """Commands in menu and section order."""
+        return self.add, self.adopt, self.restore, *self.syncs, self.unsync, self.convert
 
 
 class Members(msgspec.Struct, frozen=True, kw_only=True):
@@ -428,16 +456,6 @@ class SetupScope[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
             case _, Option():
                 return Error((BlenderAbsentFault(owner="render setup preview", key="completed render"),))
 
-    def browser(self, preset: Preset[Setup[E]], tiles: Tiles, main: AreaQuery) -> Browser[Setup[E]]:
-        """Builds setup browser with apply, match, and preview callbacks."""
-        return Browser(
-            listing=Listing(preset=preset, current=self.current, matches=lambda context, recipes: self.observed(context).bind(lambda observed: observed[1](recipes)), applied=self.applied),
-            tiles=tiles,
-            candidate=self.candidate,
-            observed=self.observed,
-            main=main,
-        )
-
     def observed(self, context: bpy.types.Context) -> BlenderResult[tuple[Hashable, Callable[[tuple[Setup[E], ...]], BlenderResult[tuple[bool, ...]]]]]:
         """Returns revision key and recipe matcher from one capture."""
         match context.scene:
@@ -506,17 +524,130 @@ class SetupScope[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
         return name.map(lambda name: (command, partial(action, name)))
 
 
+class SetupGallery[E: Effect](Line, frozen=True, kw_only=True):
+    """Setup presets as preview icons over the completed render, a pick applying one."""
+
+    scope: SetupScope[E]
+    preset: Preset[Setup[E]]
+    tiles: Tiles
+    scale: float
+    seen: ClassVar[set[str]] = set()
+
+    @property
+    def listing(self) -> Listing[Setup[E]]:
+        """Preset actions with matches against the active scene."""
+        return Listing(
+            preset=self.preset, current=self.scope.current, matches=lambda context, recipes: self.scope.observed(context).bind(lambda observed: observed[1](recipes)), applied=self.scope.applied
+        )
+
+    @property
+    def attachment(self) -> Attachment[SetupPick]:
+        """Picked preset holder listing preset previews, each pick applying its preset."""
+        return Attachment(
+            key="render_setup_pick",
+            form=SetupPick,
+            owner=bpy.types.WindowManager,
+            changed=Some(self.picking),
+            bindings=Some({
+                vars(SetupPick)["setup"]: Choices(
+                    lambda identity, _owner, _context: (
+                        (stem, name, tip, Previews(identity=identity).icon_id(f"{self.preset.key}_{stem}").default_value(0), index)
+                        for index, (stem, name, tip) in enumerate(self.preset.entries(identity))
+                    )
+                )
+            }),
+        )
+
+    @contextmanager
+    def picking(self, identity: Identity) -> Generator[Changed]:
+        """Defers one apply per pick, its undo step named by the apply verb."""
+
+        def applied(stem: str) -> BlenderResult[Option[str]]:
+            return (
+                self.preset
+                .found(identity, stem)
+                .bind(self.preset.read)
+                .bind(lambda recipe: self.scope.applied(bpy.context, recipe))
+                .map(lambda outcome: Some(Verb.APPLY.title) if isinstance(outcome, Done) else Nothing)
+            )
+
+        with identity.reports.deferred(applied) as deferred:
+            yield lambda owner, _context, prop: deferred(getattr(owner, prop.identifier))
+
+    def jobs(self, identity: Identity, context: bpy.types.Context) -> BlenderResult[tuple[Job, ...]]:
+        """Returns a tile job per stale preset preview after a picker draw, none before a completed render."""
+        if identity.package not in SetupGallery.seen:
+            return Ok(())
+        SetupGallery.seen.discard(identity.package)
+        previews = Previews(identity=identity)
+
+        def rendered(scene: bpy.types.Scene, stem: str, side: int) -> BlenderResult[Option[Option[npt.NDArray[np.float32]]]]:
+            return (
+                self.preset
+                .found(identity, stem)
+                .bind(self.preset.read)
+                .bind(lambda recipe: self.tiles.rendered(identity, partial(self.scope.candidate, identity, bpy.context, recipe), side, scene=scene))
+                .map(lambda pixels: Some(Some(pixels)))
+            )
+
+        def queued(scene: bpy.types.Scene, revision: Hashable) -> tuple[Job, ...]:
+            def job(stem: str, stored: Setup[E] | Path, proxy: ContentHash) -> tuple[Job, ...]:
+                slot = f"{self.preset.key}_{stem}"
+                stamp = catch(stored.stat, exception=OSError)().to_option().map(lambda status: status.st_mtime_ns) if isinstance(stored, Path) else Nothing
+                key = (stem, stamp, revision, proxy)
+                return (
+                    ()
+                    if previews.current(slot, key, self.scale)
+                    else (
+                        Job(
+                            place=(SetupGallery, slot),
+                            key=Finished.read(key, self.scale),
+                            rank=Rank.SHOWN,
+                            run=lambda: previews.tile(slot, key, partial(rendered, scene, stem), self.scale).map(lambda _: None),
+                        ),
+                    )
+                )
+
+            return tuple(each for proxy in Tiles.held[identity.package].proxy.to_list() for stem, stored in self.preset.listed(identity).items() for each in job(stem, stored, proxy.key))
+
+        return rooted(bpy.types.Scene, context).bind(lambda scene: self.scope.observed(context).map(lambda observation: queued(scene, observation[0])))
+
+    def acquisitions(self, identity: Identity) -> BlenderResult[Acquisitions]:
+        """Acquires tile renderer, pick holder, preset menu, and preview feed."""
+        return Ok((self.tiles, self.attachment, PresetMenu(source=self.listing), (Band.RESOURCES, PreviewQueue.fed(identity, self.jobs))))
+
+    def drawn(self, identity: Identity) -> BlenderResult[RowDraw]:
+        """Draws preset previews, marking the picker shown for the preview feed."""
+        (field,) = msgspec.structs.fields(SetupPick)
+
+        def marked(draw: RowDraw) -> RowDraw:
+            def shown(layout: bpy.types.UILayout, holder: "bpy.types.bpy_struct[object]", context: bpy.types.Context) -> None:
+                SetupGallery.seen.add(identity.package)
+                draw(layout, holder, context)
+
+            return shown
+
+        return (
+            self.attachment
+            .bound(identity)
+            .bind(lambda attached: realized(IconView(choice=Member(root=bpy.types.WindowManager, path=f"{attached.name}.{field.name}"), scale=self.scale, show_labels=True), identity))
+            .map(marked)
+        )
+
+
 class Setups[E: Effect](msgspec.Struct, frozen=True, kw_only=True):
-    """Setup browser of render set header."""
+    """Setup picker of render set section."""
 
     stack: EffectStack[E]
     tiles: Tiles
-    main: AreaQuery
+    scale: float
 
-    def bound(self, members: Members) -> BlenderResult[tuple[Browser[Setup[E]], tuple[Operator[SetupLock], Callable[[Identity, Descriptor], BlenderResult[RowDraw]]]]]:
-        """Builds setup browser and lock actions over members."""
+    def bound(self, members: Members) -> BlenderResult[tuple[SetupGallery[E], tuple[Operator[SetupLock], Callable[[Identity, Descriptor], BlenderResult[RowDraw]]]]]:
+        """Builds setup picker and lock actions over members."""
         return SetupScope.bound(members, self.stack).bind(
-            lambda scope: scope.actions().map(lambda actions: (scope.browser(Preset(key=RenderSet.key, form=Setup[self.stack.form]), self.tiles, self.main), actions))  # type: ignore[name-defined]  # ty: ignore[invalid-type-form]
+            lambda scope: scope.actions().map(
+                lambda actions: (SetupGallery(scope=scope, preset=Preset(key=RenderSet.key, form=Setup[self.stack.form]), tiles=self.tiles, scale=self.scale), actions)  # type: ignore[name-defined]  # ty: ignore[invalid-type-form]
+            )
         )
 
 
@@ -525,6 +656,7 @@ class RenderSet[E: Effect = Effect](msgspec.Struct, frozen=True, kw_only=True):
 
     key: ClassVar[Key] = "render_sets"
     title: ClassVar[str] = "Render Sets"
+    description: ClassVar[str] = ""
     popovers: ClassVar[tuple[Single[Empty], ...]] = ()
     condition: ClassVar[Option[Condition]] = Nothing
     record: ClassVar[TextRecord[Sets]] = TextRecord(key="render_set", form=Sets)
@@ -538,23 +670,9 @@ class RenderSet[E: Effect = Effect](msgspec.Struct, frozen=True, kw_only=True):
     # --- [BINDING]
 
     @property
-    def page_rows(self) -> tuple[Registrable, ...]:
-        """Stores, browser layouts, and lock operator."""
-        return (
-            self.record,
-            self.scenes,
-            self.layers,
-            *self.setup.map(lambda _: (Browser.layouts,)).default_value(()),
-            Operator[Empty](
-                key="render_set_lock",
-                title="Lock Render Set",
-                description="Toggle sync lock of active member",
-                icon=Some("LOCKED"),
-                form=Empty,
-                run=lambda call: self.bound(call.identity).bind(lambda members: toggled(members, call.context)),
-                invoke=Some(Suppressible[Empty](message=lambda _context, _record: "Unlocking never-synced member copies every category from source")),
-            ),
-        )
+    def prerequisites(self) -> tuple[Registrable, ...]:
+        """Set, scene, and layer stores binding reads."""
+        return self.record, self.scenes, self.layers
 
     def bound(self, identity: Identity) -> BlenderResult[Members]:
         """Resolves stores and descriptors."""
@@ -589,7 +707,7 @@ class RenderSet[E: Effect = Effect](msgspec.Struct, frozen=True, kw_only=True):
 
     # --- [COMMANDS]
 
-    def commands(self, members: Members) -> tuple[Operator[Empty] | Operator[Converting], ...]:
+    def commands(self, members: Members) -> RenderSetCommands:
         """Returns render set operators."""
 
         def add(call: Call[Empty]) -> BlenderResult[Done]:
@@ -645,38 +763,6 @@ class RenderSet[E: Effect = Effect](msgspec.Struct, frozen=True, kw_only=True):
         def touched(context: bpy.types.Context, record: Converting) -> BlenderResult[str]:
             return members.members(context).map(lambda owners: f"Convert {', '.join(owner.name for owner in owners)} to {record.form.title}")
 
-        return (
-            Operator[Empty](key="render_set_add", title="Add Render Set", description="Copy source scene as new member", icon=Some("ADD"), form=Empty, run=add),
-            Operator[Empty](key="render_set_adopt", title="Adopt Scenes", description="Add unmarked scenes to source render sets", icon=Some("IMPORT"), form=Empty, run=adopt),
-            Operator[Empty](key="render_set_restore", title="Restore Source", description="Remove copied members and show source scene", icon=Some("SCENE_DATA"), form=Empty, run=restore),
-            *(syncing(members, category) for category in self.categories),
-            Operator[Empty](
-                key="render_set_unsync",
-                title="Unsync Render Sets",
-                description="Restore pre-sync settings of unlocked members",
-                icon=Some("LOOP_BACK"),
-                form=Empty,
-                run=lambda call: unsynced(members, call.context).map(
-                    lambda applied: Done(notes=(("INFO", f"Restored {len(applied)} render set members"),)) if applied else Unchanged(reason="No render set holds synced settings")
-                ),
-            ),
-            Operator[Converting](
-                key="render_set_convert",
-                title="Convert Render Sets",
-                description="Transfer render sets between copied scenes and view layers",
-                icon=Some("ARROW_LEFTRIGHT"),
-                form=Converting,
-                run=lambda call: converted(members, call.record.form, call.context).map(
-                    lambda names: names.map(lambda made: Done(notes=tuple(("INFO", f"Created {name}") for name in made))).default_value(Unchanged(reason=f"Render sets use {call.record.form.title}"))
-                ),
-                invoke=Some(Confirm[Converting](message=Some(touched))),
-            ),
-        )
-
-    @staticmethod
-    def listed(members: Members) -> Operator[Empty]:
-        """Returns operator removing active marked member scene."""
-
         def remove(call: Call[Empty]) -> BlenderResult[Done]:
             def removed(source: bpy.types.Scene) -> BlenderResult[Done]:
                 match call.context.scene:
@@ -695,11 +781,47 @@ class RenderSet[E: Effect = Effect](msgspec.Struct, frozen=True, kw_only=True):
 
             return members.source(call.context).bind(removed)
 
-        return Operator[Empty](key="render_set_remove", title="Remove Render Set", description="Remove active copied member", icon=Some("REMOVE"), form=Empty, run=remove)
+        return RenderSetCommands(
+            add=Operator[Empty](key="render_set_add", title="Add Render Set", description="Copy source scene as new member", icon=Some("ADD"), form=Empty, run=add),
+            adopt=Operator[Empty](key="render_set_adopt", title="Adopt Scenes", description="Add unmarked scenes to source render sets", icon=Some("IMPORT"), form=Empty, run=adopt),
+            restore=Operator[Empty](key="render_set_restore", title="Restore Source", description="Remove copied members and show source scene", icon=Some("SCENE_DATA"), form=Empty, run=restore),
+            syncs=tuple(syncing(members, category) for category in self.categories),
+            unsync=Operator[Empty](
+                key="render_set_unsync",
+                title="Unsync Render Sets",
+                description="Restore pre-sync settings of unlocked members",
+                icon=Some("LOOP_BACK"),
+                form=Empty,
+                run=lambda call: unsynced(members, call.context).map(
+                    lambda applied: Done(notes=(("INFO", f"Restored {len(applied)} render set members"),)) if applied else Unchanged(reason="No render set holds synced settings")
+                ),
+            ),
+            convert=Operator[Converting](
+                key="render_set_convert",
+                title="Convert Render Sets",
+                description="Transfer render sets between copied scenes and view layers",
+                icon=Some("ARROW_LEFTRIGHT"),
+                form=Converting,
+                run=lambda call: converted(members, call.record.form, call.context).map(
+                    lambda names: names.map(lambda made: Done(notes=tuple(("INFO", f"Created {name}") for name in made))).default_value(Unchanged(reason=f"Render sets use {call.record.form.title}"))
+                ),
+                invoke=Some(Confirm[Converting](message=Some(touched))),
+            ),
+            remove=Operator[Empty](key="render_set_remove", title="Remove Render Set", description="Remove active copied member", icon=Some("REMOVE"), form=Empty, run=remove),
+            lock=Operator[Empty](
+                key="render_set_lock",
+                title="Lock Render Set",
+                description="Toggle sync lock of active member",
+                icon=Some("LOCKED"),
+                form=Empty,
+                run=lambda call: toggled(members, call.context),
+                invoke=Some(Suppressible[Empty](message=lambda _context, _record: "Unlocking never-synced member copies every category from source")),
+            ),
+        )
 
     # --- [SECTION]
 
-    def composed(self, members: Members, commands: tuple[Operator[Empty] | Operator[Converting], ...]) -> BlenderResult[Single]:
+    def composed(self, members: Members, commands: RenderSetCommands) -> BlenderResult[Single]:
         """Builds member lists and one settings matrix per category."""
 
         def curves(layout: bpy.types.UILayout, owner: Native, key: str) -> None:
@@ -711,15 +833,15 @@ class RenderSet[E: Effect = Effect](msgspec.Struct, frozen=True, kw_only=True):
                     layout.active = owner.use_motion_blur
                 layout.template_curve_mapping(owner, key)
 
-        remove = OperatorButton(target=Acquired(key="render_set_remove"))
         across = next(field for field in msgspec.structs.fields(Sets) if field.name == "across")
         setup = self.setup.map(lambda setup: setup.bound(members).map(Some)).default_value(Ok(Nothing))
         return setup.map(
             lambda setup: Single(
                 key=self.key,
                 title=self.title,
-                header=tuple(browser for browser, _ in setup.to_list()),
+                header=tuple(Pulldown(menu=gallery.listing.key, text=Some(""), icon=Some("PRESET")) for gallery, _ in setup.to_list()),
                 rows=(
+                    *(gallery for gallery, _ in setup.to_list()),
                     Property(target=Member(root=bpy.types.WindowManager, path=f"{members.sets.name}.{across.name}")),
                     ItemList[SceneMember, bpy.types.Scene](
                         key="render_set_scenes",
@@ -732,7 +854,7 @@ class RenderSet[E: Effect = Effect](msgspec.Struct, frozen=True, kw_only=True):
                                 lambda: members.form(context).bind(lambda form: members.copies(context).map(lambda scenes: item in scenes) if isinstance(form, Copies) else Ok(False))
                             )().default_value(False)
                         ),
-                        side=(remove,),
+                        side=(OperatorButton(target=commands.remove),),
                     ),
                     ItemList[LayerMember, bpy.types.ViewLayer](
                         key="render_set_layers",
@@ -742,12 +864,12 @@ class RenderSet[E: Effect = Effect](msgspec.Struct, frozen=True, kw_only=True):
                         attachment=Some(self.layers),
                         where=Some(lambda context, _item: members.identity.reports.reported(members.form)(context).filter(lambda form: isinstance(form, Layers)).is_some()),
                     ),
-                    *(OperatorButton(target=placed) for placed in commands),
+                    *(OperatorButton(target=placed) for placed in commands.listed),
                     *(
                         Single(
                             key=category.key,
                             title=category.title,
-                            header=(Pulldown(menu=self.captured(members, category).key), OperatorButton(target=Acquired(key=f"render_set_sync_{category.key}"))),
+                            header=(Pulldown(menu=self.captured(members, category).key), OperatorButton(target=sync)),
                             rows=(
                                 Matrix(
                                     scope=MemberScope(members=members, owner_type=category.root, unlocked=False),
@@ -757,7 +879,7 @@ class RenderSet[E: Effect = Effect](msgspec.Struct, frozen=True, kw_only=True):
                                 ),
                             ),
                         )
-                        for category in self.categories
+                        for category, sync in zip(self.categories, commands.syncs)
                     ),
                 ),
             )
@@ -799,14 +921,18 @@ class RenderSet[E: Effect = Effect](msgspec.Struct, frozen=True, kw_only=True):
                 return self.composed(members, commands).map(
                     lambda section: (
                         self.ownership,
-                        self.listed(members),
+                        *commands.listed,
+                        commands.remove,
+                        commands.lock,
                         section,
                         UpdateHandler(handlers=bpy.app.handlers.depsgraph_update_post, ids=(bpy.types.Scene,), body=edited),
                         Menu(
                             key=self.menu,
                             title=self.title,
                             description="Create, sync, restore, and convert render sets",
-                            body=Dropdown(entries=(*(OperatorButton(target=placed) for placed in commands), *(Pulldown(menu=self.captured(members, category).key) for category in self.categories))),
+                            body=Dropdown(
+                                entries=(*(OperatorButton(target=placed) for placed in commands.listed), *(Pulldown(menu=self.captured(members, category).key) for category in self.categories))
+                            ),
                         ),
                         *(PresetMenu(source=self.captured(members, category)) for category in self.categories),
                     )

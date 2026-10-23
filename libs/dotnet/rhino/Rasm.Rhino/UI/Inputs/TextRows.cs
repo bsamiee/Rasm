@@ -215,7 +215,7 @@ public static class TextRows {
         DisposalOps.Acquire(owned =>
         from command in IO.lift(static () => new Eto.Forms.Command())
         from faced in IO.lift(() => command.ToolTip = RowText.Localize("Browse").Local)
-        from picked in ButtonRows.Pick(command, (GlyphRole.Load, IconSlot.PickButton.Master), scope.Sink, owned)
+        from picked in ButtonRows.Pick(command, GlyphRole.Load, scope.Sink, owned)
         from executed in Subscriptions.Attach(h => command.Executed += h, h => command.Executed -= h,
             Callbacks.Handler<EventArgs>(_ =>
                 from current in IO.lift(() => box.Text)

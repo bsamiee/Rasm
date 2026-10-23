@@ -65,12 +65,12 @@ public sealed class FrameLink {
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class ChartRows {
     // --- [SCOPE]
-    public static (ControlRow Row, RowSource<ScopeState> Source) Scope(
-        string caption, string help, IterableNE<ScopeSource> sources, string owner, Func<RowScope, ValueStore<ScopeState>> store, Option<FrameLink> link, RowRules rules,
+    public static (Func<IterableNE<ScopeSource>, ControlRow> Row, RowSource<ScopeState> Source) Scope(
+        string caption, string help, string owner, Func<RowScope, ValueStore<ScopeState>> store, Option<FrameLink> link, RowRules rules,
         Option<ScopeState> factory = default) =>
         IterableNE.create(ScopeParameter.Items[0], ScopeParameter.Items.Skip(1)).Map(static item => new RowField<ScopeState>(item)) switch {
             var fields => RowSource.Fields(owner, [.. ScopeParameter.Items], scope => IO.pure(Seq(store(scope))), factory) switch {
-                var source => (ControlRow.Of(source, fields, caption, help, RowShape.Block, (scope, retain) => Realized(caption, sources, source, fields, link, scope, retain), rules), source),
+                var source => (sources => ControlRow.Of(source, fields, caption, help, RowShape.Block, (scope, retain) => Realized(caption, sources, source, fields, link, scope, retain), rules), source),
             },
         };
 
@@ -91,11 +91,11 @@ public static class ChartRows {
                 value =>
                     from received in view.Receive(value.Map(static state => (ScopeEdit)new ScopeEdit.Chart(state.Options, state.Aspect)))
                     from picked in popup.Show(value.Map(static state => state.Options.Kind))
-                    from inked in IO.lift(() => label.TextColor = new Color(PaintSlot.ControlText.Read(), MarkStyle.Label.Alpha))
+                    from inked in IO.lift(() => label.TextColor = new Color(PaintSlot.Text.Read(), MarkStyle.Label.Alpha))
                     select unit,
                 scope, site, retain)
         from menu in ChoiceRows.Menu([], [], Some(Listing(toSeq(sources), source, bound, view, held, scope)), scope.Sink, retain)
-        from menuButton in ButtonRows.Menu(menu, (GlyphRole.Options, IconSlot.PanelButton.Master), IconSlot.PanelButton, RowText.Localize("Scope Options").Local, scope.Sink, retain)
+        from menuButton in ButtonRows.Menu(menu, GlyphRole.Options, IconSlot.PanelButton, RowText.Localize("Scope Options").Local, scope.Sink, retain)
         from padlock in link.Traverse(_ => Locked(held, scope.Sink, retain)).As()
         let step = Ticked(view, label, padlock.Map(static toggle => toggle.Command), link, held, source, scope)
         let clock = new CallbackSite(scope.Sink, typeof(FrameClocks), nameof(FrameClocks.Sample))
@@ -152,7 +152,7 @@ public static class ChartRows {
                 from ticked in IO.lift(() => command.Checked)
                 from swapped in held.SwapIO(state => state with { Frozen = ticked ? state.Pointed : None })
                 select unit, site), retain)
-        from toggle in ToggleRows.Command(command, (GlyphRole.LockClosed, IconSlot.PanelButton.Master), IconSlot.PanelButton, sink, retain)
+        from toggle in ToggleRows.Command(command, GlyphRole.LockClosed, IconSlot.PanelButton, sink, retain)
         select (toggle, command);
 
     private static IO<Unit> Ticked(

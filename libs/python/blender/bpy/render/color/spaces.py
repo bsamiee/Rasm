@@ -4,7 +4,7 @@ from collections.abc import Callable, Iterable
 import functools
 import math as numeric
 from pathlib import Path
-from typing import Annotated, ClassVar, Self
+from typing import Annotated, Self
 
 import bpy
 from expression import Ok, Option, Some
@@ -69,7 +69,6 @@ class ConfigInstall(msgspec.Struct, frozen=True, kw_only=True):
 
     build: ConfigBuild
     films: tuple[FilmView, ...] = ()
-    key: ClassVar[Key] = "install_config"
 
     @property
     def merged(self) -> BlenderResult[ConfigBuild]:
@@ -97,9 +96,14 @@ class ConfigInstall(msgspec.Struct, frozen=True, kw_only=True):
         """Installs build with a restart note."""
         return self.written().map(lambda path: Done(notes=(("INFO", f"Installed {path}, restart Blender to read it"),)))
 
+    @property
+    def installing(self) -> Operator[Empty]:
+        """Command installing the build."""
+        return Operator(key="install_config", title="Install Color Config", description="Install extension formations read on restart", form=Empty, run=self.installed, undo=False)
+
     def acquisitions(self, _identity: Identity) -> BlenderResult[Acquisitions]:
-        """Returns original operator declaration to register."""
-        return Ok((Operator(key=self.key, title="Install Color Config", description="Installs extension formations read on restart", form=Empty, run=self.installed, undo=False),))
+        """Returns install command."""
+        return Ok((self.installing,))
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -364,11 +368,11 @@ def configured() -> BlenderResult[Setting]:
 change = Operator(
     key="working_space",
     title="Set Working Space",
-    description="Changes scene-linear working space and converts stored colors",
+    description="Change scene-linear working space and convert stored colors",
     form=WorkingSpace,
     run=changed,
     invoke=Some(Properties()),
-    seed=Some(lambda record, _event: msgspec.structs.replace(record, space=bpy.data.colorspace.working_space)),
+    seed=Some(lambda record, _event, _identity: msgspec.structs.replace(record, space=bpy.data.colorspace.working_space)),
 )
 
 # --- [EXPORTS] --------------------------------------------------------------------------

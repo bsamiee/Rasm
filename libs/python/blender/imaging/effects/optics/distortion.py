@@ -85,7 +85,7 @@ class Distortion(Effect, frozen=True, kw_only=True, tag=25):
     pointwise = False
     distortion: Annotated[float, msgspec.Meta(gt=-1.0, le=sys.float_info.max, description="Barrel above 0, pincushion below 0"), Presentation(soft=Some((-0.999, 1.0)))] = 0.05
     fit: Annotated[bool, msgspec.Meta(description="Barrel fit to frame corners")] = False
-    direction: Annotated[Direction, msgspec.Meta(description="Distorts rectilinear or undistorts lens image")] = Direction.DISTORT
+    direction: Annotated[Direction, msgspec.Meta(description="Distort rectilinear or undistort lens image")] = Direction.DISTORT
     extension: Annotated[Extension, msgspec.Meta(description="Source sampling past frame edges")] = Extension.CLIP
 
     def mapping(self, aspect: Positive) -> Callable[[npt.NDArray[np.float64]], npt.NDArray[np.float64]]:

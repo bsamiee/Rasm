@@ -1,5 +1,4 @@
 using System.Collections.Specialized;
-using System.Runtime.CompilerServices;
 using LanguageExt.ClassInstances;
 using Rhino;
 using Rhino.Display;
@@ -33,21 +32,18 @@ public static class UserStrings {
 
     public static IO<Unit> Write(
         HashMap<EqStringOrdinalIgnoreCase, string, string> held, Func<string, string, bool> set, HashMap<EqStringOrdinalIgnoreCase, string, Option<string>> edits) =>
-        IO.lift(() => Callbacks.Each(toSeq<(string Key, Option<string> Value)>(edits),
-            edit => held.Find(edit.Key) == edit.Value.Bind(Conversions.Present) || set(edit.Key, Conversions.Unset(edit.Value)), nameof(GeometryBase.SetUserString)));
+        IO.lift(() => Callbacks.Each(Changed(held, edits), edit => set(edit.Key, Conversions.Unset(edit.Value)), nameof(GeometryBase.SetUserString)));
+
+    private static Seq<(string Key, Option<string> Value)> Changed(
+        HashMap<EqStringOrdinalIgnoreCase, string, string> held, HashMap<EqStringOrdinalIgnoreCase, string, Option<string>> edits) =>
+        toSeq<(string Key, Option<string> Value)>(edits).Filter(edit => held.Find(edit.Key) != edit.Value.Bind(Conversions.Present));
 
     // --- [VIEWPORT]
-    [UnsafeAccessor(UnsafeAccessorKind.Method, Name = "NonConstPointer")]
-    private static extern nint Pointer(RhinoViewport viewport);
-
-    [UnsafeAccessor(UnsafeAccessorKind.StaticMethod, Name = "CRhinoViewport_VP")]
-    private static extern nint Projection([UnsafeAccessorType("UnsafeNativeMethods, RhinoCommon")] object? owner, nint viewport);
-
-    [UnsafeAccessor(UnsafeAccessorKind.StaticMethod, Name = "ON_Object_SetUserString")]
-    private static extern bool Assign([UnsafeAccessorType("UnsafeNativeMethods, RhinoCommon")] object? owner, nint target, string key, string value);
-
     public static IO<Unit> Write(RhinoViewport viewport, HashMap<EqStringOrdinalIgnoreCase, string, Option<string>> edits) =>
-        IO.lift(() => Held(viewport.GetUserStrings())).Bind(held => Write(held, (key, value) => Assign(owner: null, Projection(owner: null, Pointer(viewport)), key, value), edits));
+        IO.lift(() => Changed(Held(viewport.GetUserStrings()), edits) switch {
+            { IsEmpty: true } => unit,
+            var changed => Refused.Unless(viewport.SetUserStrings(changed.Map(static edit => KeyValuePair.Create(edit.Key, Conversions.Unset(edit.Value))), replace: false), nameof(RhinoViewport.SetUserStrings)),
+        });
 
     // --- [DOCUMENT]
     public static IO<Option<string>> Value(RhinoDoc doc, DocumentKey key) =>

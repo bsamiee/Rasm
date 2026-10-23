@@ -57,6 +57,7 @@ Sessions open on:
     - Existing work: use the `watch-apps` skill to open the file in Rhino
 3. `list_slots` adopts the announced listeners, then `get_context` reads the target slot's selection, viewport, document, and canvas state
 
+- Rhino after a plug-in install launches without `--hides`, its first-use window loads plug-ins only once shown
 - One Rhino application holds every open document, and each `spawn_slot` adds a document window to it
 - Documents outside the task close through `close_doc` with `path` set to a named document's file, untitled and scratch documents with none
 - Grasshopper 2 keeps definitions as tabs of one editor: `g2_start`, then `Editor.Instance.Documents.Queue(Document.NewActiveDocument(), null)`

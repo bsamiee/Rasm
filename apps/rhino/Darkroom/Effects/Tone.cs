@@ -15,6 +15,7 @@ public sealed class SceneExposure : StageEffect<SceneExposure, ExposureState, Ex
 public sealed class ImageFormation : StageEffect<ImageFormation, ToneMapping, ToneMappingParameter>, IEffectDefinition<ToneMapping, ToneMappingParameter> {
     public static EffectRow<ToneMapping, ToneMappingParameter> Row { get; } = new() {
         Amount = None,
+        Sections = [ScopesSection.Row, LooksSection.Row],
         Looks = toSeq(ToneMappingParameter.Items).Filter(static item => item.Formations.Equals(Seq(Formation.Film))) switch {
             var keys => toSeq(FilmPreset.Items).Map<(string, EffectLook<ToneMapping, ToneMappingParameter>)>(preset => (
                 preset.Map(@default: "Default", nostalgia: "Nostalgia", silver: "Silver"),

@@ -18,7 +18,7 @@ from blender.bpy.extension.identity import Key
 from blender.bpy.faults import BlenderResult
 from blender.bpy.nodes.coordinates import gridded, PixelGrid
 from blender.bpy.nodes.graphs import compared, End, ended, Fragment, INPUTS, Loaded, masked, math, menu, mixed, nested, node, NodeGroup, Operand, switched, vector
-from blender.bpy.nodes.interface import described, Interface, item_key, MenuItems, Socket
+from blender.bpy.nodes.interface import Interface, item_key, MenuItems, Socket
 from blender.bpy.render.color.spaces import COLOR_INPUT, COLOR_RESULT
 from blender.bpy.render.effects.compositing.masks import luminance
 from blender.bpy.render.effects.stack import CompositorEffect, KeyPath, Shell
@@ -355,11 +355,7 @@ def denoiser(working: NodeGroup) -> BlenderResult[NodeGroup]:
         routes = {
             "Image": mixed("despeckled", "RGBA", 1.0, image, scale, "MULTIPLY").bind(lambda despeckled: switched("fireflies", "RGBA", End(node=INPUTS, socket=fireflies), image, despeckled)),
             "Albedo": menu(
-                "albedo",
-                "RGBA",
-                End(node=INPUTS, socket=guides.name),
-                MenuItems.of(Guides, described(guides.type)),
-                {Guides.ALBEDO.label: End(node=INPUTS, socket="albedo"), joint: End(node=INPUTS, socket="albedo")},
+                "albedo", "RGBA", End(node=INPUTS, socket=guides.name), MenuItems.of(Guides), {Guides.ALBEDO.label: End(node=INPUTS, socket="albedo"), joint: End(node=INPUTS, socket="albedo")}
             ),
             "Normal": switched("normal", "VECTOR", End(node="albedo", socket=joint), (0.0, 0.0, 0.0), End(node=INPUTS, socket="normal")),
         }
